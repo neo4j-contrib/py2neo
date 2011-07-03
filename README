@@ -6,4 +6,6 @@ more documentation to come, still working it out myself :-)
 
 import py2neo
 gdb = py2neo.GraphDatabaseService("http://localhost:7474/db/data/")
+index1 = gdb.get_node_indexes()["index1"]
+index1.search("foo","bar")
 

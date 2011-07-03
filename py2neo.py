@@ -14,10 +14,14 @@ class Resource:
 		"Content-Type": "application/json"
 	}
 
-	def __init__(self, uri):
-		self._http = httplib2.Http()
+	def __init__(self, uri, http=None):
+		if http == None:
+			self._http = httplib2.Http()
+		else:
+			self._http = http
 		self.uri = uri
-		self._index = self._get(self.uri)
+		if "{" not in self.uri:
+			self._index = self._get(self.uri)
 
 	def _get(self, uri, args={}):
 		if args == None:
@@ -186,26 +190,35 @@ class Relationship(Resource):
 		self._delete(self._index["self"])
 
 
-class NodeIndex(Resource):
+class Index(Resource):
 
 	def __init__(self, type, template, provider):
-		self._http = httplib2.Http()
+		Resource.__init__(self, template)
 		self._type = type
-		self.uri = template
 		self._provider = provider
 
-	def search(self, key, value):
+	def _search(self, key, value):
 		return self._get(self.uri, {"key": key, "value": value})
 
-class RelationshipIndex(Resource):
+	def associate(self, item, key, value):
+		self._post(self.uri, item.uri, {"key": key, "value": value})
+
+
+class NodeIndex(Index):
 
 	def __init__(self, type, template, provider):
-		self._http = httplib2.Http()
-		self._type = type
-		self.uri = template
-		self._provider = provider
+		Index.__init__(self, type, template, provider)
 
 	def search(self, key, value):
-		return self._get(self.uri, {"key": key, "value": value})
+		return [Node(item["self"]) for item in self._search(key, value)]
+
+
+class RelationshipIndex(Index):
+
+	def __init__(self, type, template, provider):
+		Index.__init__(self, type, template, provider)
+
+	def search(self, key, value):
+		return [Relationship(item["self"]) for item in self._search(key, value)]
 
 
