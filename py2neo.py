@@ -6,10 +6,10 @@ import json
 
 class Resource:
 
-	_GET_headers = {
+	_read_headers = {
 		"Accept": "application/json"
 	}
-	_POST_headers = {
+	_write_headers = {
 		"Accept": "application/json",
 		"Content-Type": "application/json"
 	}
@@ -20,13 +20,14 @@ class Resource:
 		else:
 			self._http = http
 		self.uri = uri
+		# Grab the resource index if the URI isn't a template
 		if "{" not in self.uri:
 			self._index = self._get(self.uri)
 
 	def _get(self, uri, args={}):
 		if args == None:
 			args = {}
-		response, content = self._http.request(uri.format(**args), "GET", None, self._GET_headers)
+		response, content = self._http.request(uri.format(**args), "GET", None, self._read_headers)
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -40,7 +41,7 @@ class Resource:
 		if args == None:
 			args = {}
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri.format(**args), "POST", data, self._POST_headers)
+		response, content = self._http.request(uri.format(**args), "POST", data, self._write_headers)
 		if response.status == 201:
 			return response["location"]
 		elif response.status == 400:
@@ -52,7 +53,7 @@ class Resource:
 		if args == None:
 			args = {}
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri.format(**args), "PUT", data, self._POST_headers)
+		response, content = self._http.request(uri.format(**args), "PUT", data, self._write_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -65,7 +66,7 @@ class Resource:
 	def _delete(self, uri, args={}):
 		if args == None:
 			args = {}
-		response, content = self._http.request(uri.format(**args), "DELETE", None, self._GET_headers)
+		response, content = self._http.request(uri.format(**args), "DELETE", None, self._read_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 404:
@@ -79,14 +80,14 @@ class Resource:
 
 class GraphDatabaseService(Resource):
 
-	def __init__(self, uri):
-		Resource.__init__(self, uri)
+	def __init__(self, uri, http=None):
+		Resource.__init__(self, uri, http)
 
 	def create_node(self, properties=None):
-		return Node(self._post(self._index["node"], properties))
+		return Node(self._post(self._index["node"], properties), self._http)
 
 	def get_reference_node(self):
-		return Node(self._index["reference_node"])
+		return Node(self._index["reference_node"], self._http)
 
 	def get_relationship_types(self):
 		return self._get(self._index["relationship_types"])
@@ -96,7 +97,7 @@ class GraphDatabaseService(Resource):
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = NodeIndex(index["type"], index["template"], index["provider"])
+			indexes[i] = NodeIndex(index["type"], index["template"], index["provider"], self._http)
 		return indexes
 
 	def get_relationship_indexes(self):
@@ -104,14 +105,14 @@ class GraphDatabaseService(Resource):
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = RelationshipIndex(index["type"], index["template"], index["provider"])
+			indexes[i] = RelationshipIndex(index["type"], index["template"], index["provider"], self._http)
 		return indexes
 
 
 class Node(Resource):
 
-	def __init__(self, uri):
-		Resource.__init__(self, uri)
+	def __init__(self, uri, http=None):
+		Resource.__init__(self, uri, http)
 
 	def set_properties(self, properties):
 		self._put(self._index["properties"], properties)
@@ -139,7 +140,7 @@ class Node(Resource):
 			"to": str(to),
 			"data": data,
 			"type": type
-		}))
+		}), self._http)
 
 	def get_all_relationships(self, *types):
 		if len(types) == 0:
@@ -165,8 +166,8 @@ class Node(Resource):
 
 class Relationship(Resource):
 
-	def __init__(self, uri):
-		Resource.__init__(self, uri)
+	def __init__(self, uri, http=None):
+		Resource.__init__(self, uri, http)
 
 	def set_properties(self, properties):
 		self._put(self._index["properties"], properties)
@@ -192,8 +193,8 @@ class Relationship(Resource):
 
 class Index(Resource):
 
-	def __init__(self, type, template, provider):
-		Resource.__init__(self, template)
+	def __init__(self, type, template, provider, http=None):
+		Resource.__init__(self, template, http)
 		self._type = type
 		self._provider = provider
 
@@ -206,19 +207,19 @@ class Index(Resource):
 
 class NodeIndex(Index):
 
-	def __init__(self, type, template, provider):
-		Index.__init__(self, type, template, provider)
+	def __init__(self, type, template, provider, http=None):
+		Index.__init__(self, type, template, provider, http)
 
 	def search(self, key, value):
-		return [Node(item["self"]) for item in self._search(key, value)]
+		return [Node(item["self"], self._http) for item in self._search(key, value)]
 
 
 class RelationshipIndex(Index):
 
-	def __init__(self, type, template, provider):
-		Index.__init__(self, type, template, provider)
+	def __init__(self, type, template, provider, http=None):
+		Index.__init__(self, type, template, provider, http)
 
 	def search(self, key, value):
-		return [Relationship(item["self"]) for item in self._search(key, value)]
+		return [Relationship(item["self"], self._http) for item in self._search(key, value)]
 
 
