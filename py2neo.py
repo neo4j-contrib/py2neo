@@ -17,7 +17,7 @@ class Resource:
 	def __init__(self, uri):
 		self._http = httplib2.Http()
 		self.uri = uri
-		self.index = self._get(self.uri)
+		self._index = self._get(self.uri)
 
 	def _get(self, uri):
 		response, content = self._http.request(uri, "GET", None, self._GET_headers)
@@ -71,10 +71,19 @@ class GraphDatabaseService(Resource):
 		Resource.__init__(self, uri)
 
 	def create_node(self, properties=None):
-		return Node(self._post(self.index["node"], properties))
+		return Node(self._post(self._index["node"], properties))
+
+	def get_reference_node(self):
+		return Node(self._index["reference_node"])
 
 	def get_relationship_types(self):
-		return self._get(self.index["relationship_types"])
+		return self._get(self._index["relationship_types"])
+
+	def get_node_indexes(self):
+		return self._get(self._index["node_index"])
+
+	def get_relationship_indexes(self):
+		return self._get(self._index["relationship_index"])
 
 
 class Node(Resource):
@@ -83,28 +92,28 @@ class Node(Resource):
 		Resource.__init__(self, uri)
 
 	def set_properties(self, properties):
-		self._put(self.index["properties"], properties)
+		self._put(self._index["properties"], properties)
 
 	def get_properties(self):
-		return self._get(self.index["properties"])
+		return self._get(self._index["properties"])
 
 	def remove_properties(self):
-		self._delete(self.index["properties"])
+		self._delete(self._index["properties"])
 
 	def __setitem__(self, key, value):
-		self._put(self.index["property"].format(key=key), value)
+		self._put(self._index["property"].format(key=key), value)
 
 	def __getitem__(self, key):
-		return self._get(self.index["property"].format(key=key))
+		return self._get(self._index["property"].format(key=key))
 
 	def __delitem__(self, key):
-		self._delete(self.index["property"].format(key=key))
+		self._delete(self._index["property"].format(key=key))
 
 	def delete(self):
-		self._delete(self.index["self"])
+		self._delete(self._index["self"])
 
 	def create_relationship(self, to, data, type):
-		return Relationship(self._post(self.index["create_relationship"], {
+		return Relationship(self._post(self._index["create_relationship"], {
 			"to": str(to),
 			"data": data,
 			"type": type
@@ -112,23 +121,23 @@ class Node(Resource):
 
 	def get_all_relationships(self, *types):
 		if len(types) == 0:
-			uri = self.index["all_relationships"]
+			uri = self._index["all_relationships"]
 		else:
-			uri = self.index["all_typed_relationships"].replace("{-list|&|types}", "&".join(types))
+			uri = self._index["all_typed_relationships"].replace("{-list|&|types}", "&".join(types))
 		return self._get(uri)
 
 	def get_incoming_relationships(self, *types):
 		if len(types) == 0:
-			uri = self.index["incoming_relationships"]
+			uri = self._index["incoming_relationships"]
 		else:
-			uri = self.index["incoming_typed_relationships"].replace("{-list|&|types}", "&".join(types))
+			uri = self._index["incoming_typed_relationships"].replace("{-list|&|types}", "&".join(types))
 		return self._get(uri)
 
 	def get_outgoing_relationships(self, *types):
 		if len(types) == 0:
-			uri = self.index["outgoing_relationships"]
+			uri = self._index["outgoing_relationships"]
 		else:
-			uri = self.index["outgoing_typed_relationships"].replace("{-list|&|types}", "&".join(types))
+			uri = self._index["outgoing_typed_relationships"].replace("{-list|&|types}", "&".join(types))
 		return self._get(uri)
 
 
@@ -138,24 +147,24 @@ class Relationship(Resource):
 		Resource.__init__(self, uri)
 
 	def set_properties(self, properties):
-		self._put(self.index["properties"], properties)
+		self._put(self._index["properties"], properties)
 
 	def get_properties(self):
-		return self._get(self.index["properties"])
+		return self._get(self._index["properties"])
 
 	def remove_properties(self):
-		self._delete(self.index["properties"])
+		self._delete(self._index["properties"])
 
 	def __setitem__(self, key, value):
-		self._put(self.index["property"].format(key=key), value)
+		self._put(self._index["property"].format(key=key), value)
 
 	def __getitem__(self, key):
-		return self._get(self.index["property"].format(key=key))
+		return self._get(self._index["property"].format(key=key))
 
 	def __delitem__(self, key):
-		self._delete(self.index["property"].format(key=key))
+		self._delete(self._index["property"].format(key=key))
 
 	def delete(self):
-		self._delete(self.index["self"])
+		self._delete(self._index["self"])
 
 
