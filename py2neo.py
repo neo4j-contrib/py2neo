@@ -19,8 +19,10 @@ class Resource:
 		self.uri = uri
 		self._index = self._get(self.uri)
 
-	def _get(self, uri):
-		response, content = self._http.request(uri, "GET", None, self._GET_headers)
+	def _get(self, uri, args={}):
+		if args == None:
+			args = {}
+		response, content = self._http.request(uri.format(**args), "GET", None, self._GET_headers)
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -30,9 +32,11 @@ class Resource:
 		else:
 			raise SystemError("%s %s" % (response.status, response.reason))
 
-	def _post(self, uri, data):
+	def _post(self, uri, data, args={}):
+		if args == None:
+			args = {}
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, "POST", data, self._POST_headers)
+		response, content = self._http.request(uri.format(**args), "POST", data, self._POST_headers)
 		if response.status == 201:
 			return response["location"]
 		elif response.status == 400:
@@ -40,9 +44,11 @@ class Resource:
 		else:
 			raise SystemError("%s %s" % (response.status, response.reason))
 
-	def _put(self, uri, data):
+	def _put(self, uri, data, args={}):
+		if args == None:
+			args = {}
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, "PUT", data, self._POST_headers)
+		response, content = self._http.request(uri.format(**args), "PUT", data, self._POST_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -52,8 +58,10 @@ class Resource:
 		else:
 			raise SystemError("%s %s" % (response.status, response.reason))
 
-	def _delete(self, uri):
-		response, content = self._http.request(uri, "DELETE", None, self._GET_headers)
+	def _delete(self, uri, args={}):
+		if args == None:
+			args = {}
+		response, content = self._http.request(uri.format(**args), "DELETE", None, self._GET_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 404:
@@ -80,10 +88,20 @@ class GraphDatabaseService(Resource):
 		return self._get(self._index["relationship_types"])
 
 	def get_node_indexes(self):
-		return self._get(self._index["node_index"])
+		indexes = self._get(self._index["node_index"])
+		# replace with map()
+		for i in indexes:
+			index = indexes[i]
+			indexes[i] = NodeIndex(index["type"], index["template"], index["provider"])
+		return indexes
 
 	def get_relationship_indexes(self):
-		return self._get(self._index["relationship_index"])
+		indexes = self._get(self._index["relationship_index"])
+		# replace with map()
+		for i in indexes:
+			index = indexes[i]
+			indexes[i] = RelationshipIndex(index["type"], index["template"], index["provider"])
+		return indexes
 
 
 class Node(Resource):
@@ -166,5 +184,28 @@ class Relationship(Resource):
 
 	def delete(self):
 		self._delete(self._index["self"])
+
+
+class NodeIndex(Resource):
+
+	def __init__(self, type, template, provider):
+		self._http = httplib2.Http()
+		self._type = type
+		self.uri = template
+		self._provider = provider
+
+	def search(self, key, value):
+		return self._get(self.uri, {"key": key, "value": value})
+
+class RelationshipIndex(Resource):
+
+	def __init__(self, type, template, provider):
+		self._http = httplib2.Http()
+		self._type = type
+		self.uri = template
+		self._provider = provider
+
+	def search(self, key, value):
+		return self._get(self.uri, {"key": key, "value": value})
 
 
