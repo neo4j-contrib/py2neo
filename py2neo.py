@@ -109,7 +109,7 @@ class GraphDatabaseService(Resource):
 		return indexes
 
 
-class Node(Resource):
+class PropertyContainer(Resource):
 
 	def __init__(self, uri, http=None):
 		Resource.__init__(self, uri, http)
@@ -132,14 +132,20 @@ class Node(Resource):
 	def __delitem__(self, key):
 		self._delete(self._index["property"].format(key=key))
 
+
+class Node(PropertyContainer):
+
+	def __init__(self, uri, http=None):
+		PropertyContainer.__init__(self, uri, http)
+
 	def delete(self):
 		self._delete(self._index["self"])
 
-	def create_relationship(self, to, data, type):
+	def create_relationship_to(self, other_node, type, data=None):
 		return Relationship(self._post(self._index["create_relationship"], {
-			"to": str(to),
-			"data": data,
-			"type": type
+			"to": str(other_node),
+			"type": type,
+			"data": data
 		}), self._http)
 
 	def get_all_relationships(self, *types):
@@ -164,31 +170,21 @@ class Node(Resource):
 		return self._get(uri)
 
 
-class Relationship(Resource):
+class Relationship(PropertyContainer):
 
 	def __init__(self, uri, http=None):
-		Resource.__init__(self, uri, http)
-
-	def set_properties(self, properties):
-		self._put(self._index["properties"], properties)
-
-	def get_properties(self):
-		return self._get(self._index["properties"])
-
-	def remove_properties(self):
-		self._delete(self._index["properties"])
-
-	def __setitem__(self, key, value):
-		self._put(self._index["property"].format(key=key), value)
-
-	def __getitem__(self, key):
-		return self._get(self._index["property"].format(key=key))
-
-	def __delitem__(self, key):
-		self._delete(self._index["property"].format(key=key))
+		PropertyContainer.__init__(self, uri, http)
+		self.type = self._index["type"]
+		self.data = self._index["data"]
 
 	def delete(self):
 		self._delete(self._index["self"])
+
+	def get_start_node(self):
+		return Node(self._index["start"], self._http)
+
+	def get_end_node(self):
+		return Node(self._index["end"], self._http)
 
 
 class Index(Resource):
@@ -201,8 +197,8 @@ class Index(Resource):
 	def _search(self, key, value):
 		return self._get(self.uri, {"key": key, "value": value})
 
-	def associate(self, item, key, value):
-		self._post(self.uri, item.uri, {"key": key, "value": value})
+	def add(self, entity, key, value):
+		self._post(self.uri, entity.uri, {"key": key, "value": value})
 
 
 class NodeIndex(Index):
