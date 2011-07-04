@@ -265,7 +265,7 @@ class Node(PropertyContainer):
 			uri = self.lookup(prefix + "_relationships")
 		else:
 			uri = self.lookup(prefix + "_typed_relationships").replace("{-list|&|types}", "&".join(types))
-		return [Relationship(rel["self"]) for rel in self._get(uri)]
+		return [Relationship(rel["self"], self._http) for rel in self._get(uri)]
 
 	def get_related_nodes(self, direction, *types):
 		prefix = Direction.get_label(direction)
@@ -273,7 +273,7 @@ class Node(PropertyContainer):
 			uri = self.lookup(prefix + "_relationships")
 		else:
 			uri = self.lookup(prefix + "_typed_relationships").replace("{-list|&|types}", "&".join(types))
-		return [Node(rel["start"] if rel["end"] == self.uri else rel["end"]) for rel in self._get(uri)]
+		return [Node(rel["start"] if rel["end"] == self.uri else rel["end"], self._http) for rel in self._get(uri)]
 
 
 class Relationship(PropertyContainer):
