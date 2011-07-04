@@ -246,17 +246,19 @@ class Node(PropertyContainer):
 		}), self._http)
 
 	def get_relationships(self, direction, *types):
+		prefix = Direction.get_label(direction)
 		if len(types) == 0:
-			uri = self.lookup("{0}_relationships".format(Direction.get_label(direction)))
+			uri = self.lookup("{0}_relationships".format(prefix))
 		else:
-			uri = self.lookup("{0}_typed_relationships".format(Direction.get_label(direction))).replace("{-list|&|types}", "&".join(types))
+			uri = self.lookup("{0}_typed_relationships".format(prefix)).replace("{-list|&|types}", "&".join(types))
 		return [Relationship(rel["self"]) for rel in self._get(uri)]
 
 	def get_related_nodes(self, direction, *types):
+		prefix = Direction.get_label(direction)
 		if len(types) == 0:
-			uri = self.lookup("{0}_relationships".format(Direction.get_label(direction)))
+			uri = self.lookup("{0}_relationships".format(prefix))
 		else:
-			uri = self.lookup("{0}_typed_relationships".format(Direction.get_label(direction))).replace("{-list|&|types}", "&".join(types))
+			uri = self.lookup("{0}_typed_relationships".format(prefix)).replace("{-list|&|types}", "&".join(types))
 		return [Node(rel["start"] if rel["end"] == self.uri else rel["end"]) for rel in self._get(uri)]
 
 
