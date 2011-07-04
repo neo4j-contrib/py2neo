@@ -40,9 +40,16 @@ class Resource:
 		else:
 			self._http = http
 		self.uri = uri
-		# Grab the resource index if the URI isn't a template
-		if "{" not in self.uri:
+		self._index = None
+
+	def lookup(self, key):
+		"""
+		Looks up a value in the resource index by key; will lazily load
+		resource index if required
+		"""
+		if(self._index == None):
 			self._index = self._get(self.uri)
+		return self._index[key]
 
 	def _get(self, uri, args={}):
 		"""
@@ -152,22 +159,38 @@ class Resource:
 		return str(self.uri)
 
 
+class Direction:
+
+	INCOMING = -1
+	BOTH     =  0
+	OUTGOING =  1
+
+	@staticmethod
+	def get_label(direction):
+		if direction > 0:
+			return "outgoing"
+		elif direction < 0:
+			return "incoming"
+		else:
+			return "all"
+
+
 class GraphDatabaseService(Resource):
 
 	def __init__(self, uri, http=None):
 		Resource.__init__(self, uri, http)
 
 	def create_node(self, properties=None):
-		return Node(self._post(self._index["node"], properties), self._http)
+		return Node(self._post(self.lookup("node"), properties), self._http)
 
 	def get_reference_node(self):
-		return Node(self._index["reference_node"], self._http)
+		return Node(self.lookup("reference_node"), self._http)
 
 	def get_relationship_types(self):
-		return self._get(self._index["relationship_types"])
+		return self._get(self.lookup("relationship_types"))
 
 	def get_node_indexes(self):
-		indexes = self._get(self._index["node_index"])
+		indexes = self._get(self.lookup("node_index"))
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
@@ -175,7 +198,7 @@ class GraphDatabaseService(Resource):
 		return indexes
 
 	def get_relationship_indexes(self):
-		indexes = self._get(self._index["relationship_index"])
+		indexes = self._get(self.lookup("relationship_index"))
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
@@ -189,22 +212,22 @@ class PropertyContainer(Resource):
 		Resource.__init__(self, uri, http)
 
 	def set_properties(self, properties):
-		self._put(self._index["properties"], properties)
+		self._put(self.lookup("properties"), properties)
 
 	def get_properties(self):
-		return self._get(self._index["properties"])
+		return self._get(self.lookup("properties"))
 
 	def remove_properties(self):
-		self._delete(self._index["properties"])
+		self._delete(self.lookup("properties"))
 
 	def __setitem__(self, key, value):
-		self._put(self._index["property"].format(key=key), value)
+		self._put(self.lookup("property").format(key=key), value)
 
 	def __getitem__(self, key):
-		return self._get(self._index["property"].format(key=key))
+		return self._get(self.lookup("property").format(key=key))
 
 	def __delitem__(self, key):
-		self._delete(self._index["property"].format(key=key))
+		self._delete(self.lookup("property").format(key=key))
 
 
 class Node(PropertyContainer):
@@ -216,49 +239,42 @@ class Node(PropertyContainer):
 		self._delete(self._index["self"])
 
 	def create_relationship_to(self, other_node, type, data=None):
-		return Relationship(self._post(self._index["create_relationship"], {
+		return Relationship(self._post(self.lookup("create_relationship"), {
 			"to": str(other_node),
 			"type": type,
 			"data": data
 		}), self._http)
 
-	def get_all_relationships(self, *types):
+	def get_relationships(self, direction, *types):
 		if len(types) == 0:
-			uri = self._index["all_relationships"]
+			uri = self.lookup("{0}_relationships".format(Direction.get_label(direction)))
 		else:
-			uri = self._index["all_typed_relationships"].replace("{-list|&|types}", "&".join(types))
-		return self._get(uri)
+			uri = self.lookup("{0}_typed_relationships".format(Direction.get_label(direction))).replace("{-list|&|types}", "&".join(types))
+		return [Relationship(rel["self"]) for rel in self._get(uri)]
 
-	def get_incoming_relationships(self, *types):
+	def get_related_nodes(self, direction, *types):
 		if len(types) == 0:
-			uri = self._index["incoming_relationships"]
+			uri = self.lookup("{0}_relationships".format(Direction.get_label(direction)))
 		else:
-			uri = self._index["incoming_typed_relationships"].replace("{-list|&|types}", "&".join(types))
-		return self._get(uri)
-
-	def get_outgoing_relationships(self, *types):
-		if len(types) == 0:
-			uri = self._index["outgoing_relationships"]
-		else:
-			uri = self._index["outgoing_typed_relationships"].replace("{-list|&|types}", "&".join(types))
-		return self._get(uri)
+			uri = self.lookup("{0}_typed_relationships".format(Direction.get_label(direction))).replace("{-list|&|types}", "&".join(types))
+		return [Node(rel["start"] if rel["end"] == self.uri else rel["end"]) for rel in self._get(uri)]
 
 
 class Relationship(PropertyContainer):
 
 	def __init__(self, uri, http=None):
 		PropertyContainer.__init__(self, uri, http)
-		self.type = self._index["type"]
-		self.data = self._index["data"]
+		self.type = self.lookup("type")
+		self.data = self.lookup("data")
 
 	def delete(self):
-		self._delete(self._index["self"])
+		self._delete(self.lookup("self"))
 
 	def get_start_node(self):
-		return Node(self._index["start"], self._http)
+		return Node(self.lookup("start"), self._http)
 
 	def get_end_node(self):
-		return Node(self._index["end"], self._http)
+		return Node(self.lookup("end"), self._http)
 
 
 class Index(Resource):
