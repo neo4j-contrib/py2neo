@@ -1,10 +1,22 @@
 #!/usr/bin/env python
+"""
+py2neo
+=======
+
+Python library for accessing neo4j via RESTful web service interface
+
+"""
 
 import httplib2
 import json
 
 
 class Resource:
+	"""
+	Web service resource class, nothing here specific to neo4j but designed to
+	work with a well-behaved hypermedia web service; used here as a base class
+	for objects represented within the neo4j web service
+	"""
 
 	_read_headers = {
 		"Accept": "application/json"
@@ -15,6 +27,14 @@ class Resource:
 	}
 
 	def __init__(self, uri, http=None):
+		"""
+		Creates a new Resource instance
+		
+		Parameters:
+			uri  - the root URI for this resource
+			http - optional httplib2.Http() object to use for requests
+		
+		"""
 		if http == None:
 			self._http = httplib2.Http()
 		else:
@@ -25,8 +45,20 @@ class Resource:
 			self._index = self._get(self.uri)
 
 	def _get(self, uri, args={}):
-		if args == None:
-			args = {}
+		"""
+		Issues an HTTP GET request
+		
+		Parameters:
+			uri  - the URI of the resource to GET
+			args - optional dictionary containing URI template substitution values
+		
+		Result (dependent on HTTP status code):
+			200 - returns value created from returned json content
+			204 - returns None
+			404 - raises a KeyError against the specified URI
+			??? - raises a SystemError with the HTTP response
+		
+		"""
 		response, content = self._http.request(uri.format(**args), "GET", None, self._read_headers)
 		if response.status == 200:
 			return json.loads(content)
@@ -35,23 +67,51 @@ class Resource:
 		elif response.status == 404:
 			raise KeyError(uri)
 		else:
-			raise SystemError("%s %s" % (response.status, response.reason))
+			raise SystemError(response)
 
 	def _post(self, uri, data, args={}):
-		if args == None:
-			args = {}
+		"""
+		Issues an HTTP POST request
+		
+		Parameters:
+			uri  - the URI of the resource to POST to
+			data - a value to be converted to json and passed in request payload
+			args - optional dictionary containing URI template substitution values
+		
+		Result (dependent on HTTP status code):
+			201 - returns value from "Location" header
+			400 - raises a ValueError against the specified data
+			404 - raises a KeyError against the specified URI
+			??? - raises a SystemError with the HTTP response
+		
+		"""
 		data = {} if data == None else json.dumps(data)
 		response, content = self._http.request(uri.format(**args), "POST", data, self._write_headers)
 		if response.status == 201:
 			return response["location"]
 		elif response.status == 400:
 			raise ValueError(data)
+		elif response.status == 404:
+			raise KeyError(uri)
 		else:
-			raise SystemError("%s %s" % (response.status, response.reason))
+			raise SystemError(response)
 
 	def _put(self, uri, data, args={}):
-		if args == None:
-			args = {}
+		"""
+		Issues an HTTP PUT request
+		
+		Parameters:
+			uri  - the URI of the resource to PUT
+			data - a value to be converted to json and passed in request payload
+			args - optional dictionary containing URI template substitution values
+		
+		Result (dependent on HTTP status code):
+			204 - success (no return value)
+			400 - raises a ValueError against the specified data
+			404 - raises a KeyError against the specified URI
+			??? - raises a SystemError with the HTTP response
+		
+		"""
 		data = {} if data == None else json.dumps(data)
 		response, content = self._http.request(uri.format(**args), "PUT", data, self._write_headers)
 		if response.status == 204:
@@ -61,21 +121,35 @@ class Resource:
 		elif response.status == 404:
 			raise KeyError(uri)
 		else:
-			raise SystemError("%s %s" % (response.status, response.reason))
+			raise SystemError(response)
 
 	def _delete(self, uri, args={}):
-		if args == None:
-			args = {}
+		"""
+		Issues an HTTP DELETE request
+		
+		Parameters:
+			uri  - the URI of the resource to DELETE
+			args - optional dictionary containing URI template substitution values
+		
+		Result (dependent on HTTP status code):
+			204 - success (no return value)
+			404 - raises a KeyError against the specified URI
+			??? - raises a SystemError with the HTTP response
+		
+		"""
 		response, content = self._http.request(uri.format(**args), "DELETE", None, self._read_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 404:
 			raise KeyError(uri)
 		else:
-			raise SystemError("%s %s" % (response.status, response.reason))
+			raise SystemError(response)
 
 	def __repr__(self):
-		return self.uri
+		return repr(self.uri)
+
+	def __str__(self):
+		return str(self.uri)
 
 
 class GraphDatabaseService(Resource):
