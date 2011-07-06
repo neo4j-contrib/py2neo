@@ -33,6 +33,12 @@ class Direction:
 	OUTGOING = 'outgoing'
 
 
+class ReturnFilter:
+
+	ALL                = 'all'
+	ALL_BUT_START_NODE = 'all_but_start_node'
+
+
 class Resource:
 	"""
 	Web service resource class, nothing here specific to Neo4j but designed to
@@ -70,7 +76,7 @@ class Resource:
 			self._index = self._get(self.uri)
 		return self._index[key]
 
-	def _get(self, uri, args=None):
+	def _get(self, uri):
 		"""
 		Issues an HTTP GET request
 		
@@ -85,8 +91,7 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		args = args or {}
-		response, content = self._http.request(uri.format(**args), 'GET', None, self._read_headers)
+		response, content = self._http.request(uri, 'GET', None, self._read_headers)
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -96,7 +101,7 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _post(self, uri, data, args=None):
+	def _post(self, uri, data):
 		"""
 		Issues an HTTP POST request
 		
@@ -114,8 +119,8 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		args = args or {}
-		response, content = self._http.request(uri.format(**args), 'POST', data, self._write_headers)
+		print data
+		response, content = self._http.request(uri, 'POST', data, self._write_headers)
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 201:
@@ -127,7 +132,7 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _put(self, uri, data, args=None):
+	def _put(self, uri, data):
 		"""
 		Issues an HTTP PUT request
 		
@@ -144,8 +149,7 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		args = args or {}
-		response, content = self._http.request(uri.format(**args), 'PUT', data, self._write_headers)
+		response, content = self._http.request(uri, 'PUT', data, self._write_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -155,7 +159,7 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _delete(self, uri, args=None):
+	def _delete(self, uri):
 		"""
 		Issues an HTTP DELETE request
 		
@@ -169,8 +173,7 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		args = args or {}
-		response, content = self._http.request(uri.format(**args), 'DELETE', None, self._read_headers)
+		response, content = self._http.request(uri, 'DELETE', None, self._read_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 404:
@@ -283,9 +286,36 @@ class Node(PropertyContainer):
 			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
 		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
 
-	def traverse_nodes(self, order, prune_evaluator, return_filter, *relationships):
+	def traverse_nodes(self, order, stop_filter, return_filter, *relationships):
+		"""
+		Even though it works, not entirely happy with this function yet; in the
+		meantime, here's some sample code (assuming "import py2neo as neo"):
+		
+		import py2neo as neo
+		
+		gdb = neo.GraphDatabaseService("http://localhost:7474/db/data")
+		ref_node = gdb.get_reference_node()
+		for n in ref_node.traverse_nodes(neo.Traverser.Order.DEPTH_FIRST, 3, neo.ReturnFilter.ALL, ("KNOWS", "out"), "LOVES"):
+			print n
+		
+		"""
 		uri = self.lookup('traverse').format(returnType='node')
-		return NodeTraverser(uri, order, 3, prune_evaluator, {"language": "builtin", "name": return_filter}, list(relationships), self._http)
+		rels = []
+		for rel in relationships:
+			is_iterable = hasattr(rel, '__iter__')
+			if is_iterable and len(rel) >= 2:
+				rels.append({'type': rel[0], "direction": rel[1]})
+			elif is_iterable and len(rel) == 1:
+				rels.append({'type': rel[0]})
+			elif not is_iterable:
+				rels.append({'type': rel})
+		return NodeTraverser(uri, order, stop_filter, {"language": "builtin", "name": return_filter}, rels, self._http)
+
+	def traverse_nodes_breadth_first(self, stop_filter, return_filter, *relationships):
+		return self.traverse_nodes(Traverser.Order.BREADTH_FIRST, stop_filter, return_filter, *relationships)
+
+	def traverse_nodes_depth_first(self, stop_filter, return_filter, *relationships):
+		return self.traverse_nodes(Traverser.Order.DEPTH_FIRST, stop_filter, return_filter, *relationships)
 
 
 class Relationship(PropertyContainer):
@@ -344,8 +374,14 @@ class Traverser(Resource):
 		BREADTH_FIRST = 'breadth_first'
 		DEPTH_FIRST   = 'depth_first'
 
-	def __init__(self, uri, order, max_depth, prune_evaluator, return_filter, relationships, http=None):
+	def __init__(self, uri, order, stop_filter, return_filter, relationships, http=None):
 		Resource.__init__(self, uri, http)
+		if type(stop_filter) == type(0):
+			max_depth = stop_filter
+			prune_evaluator = None
+		else:
+			max_depth = 1
+			prune_evaluator = stop_filter
 		self._items = self._post(self.uri, {
 			'order': order,
 			'uniqueness': 'node_path',
