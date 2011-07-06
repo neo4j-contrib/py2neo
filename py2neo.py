@@ -26,19 +26,26 @@ import httplib2
 import json
 
 
+class Direction:
+
+	BOTH     = 'all'
+	INCOMING = 'incoming'
+	OUTGOING = 'outgoing'
+
+
 class Resource:
 	"""
-	Web service resource class, nothing here specific to neo4j but designed to
+	Web service resource class, nothing here specific to Neo4j but designed to
 	work with a well-behaved hypermedia web service; used here as a base class
 	for objects represented within the neo4j web service
 	"""
 
 	_read_headers = {
-		"Accept": "application/json"
+		'Accept': "application/json"
 	}
 	_write_headers = {
-		"Accept": "application/json",
-		"Content-Type": "application/json"
+		'Accept': "application/json",
+		'Content-Type': "application/json"
 	}
 
 	def __init__(self, uri, http=None):
@@ -50,11 +57,8 @@ class Resource:
 			http - optional httplib2.Http() object to use for requests
 		
 		"""
-		if http == None:
-			self._http = httplib2.Http()
-		else:
-			self._http = http
 		self.uri = uri
+		self._http = http or httplib2.Http()
 		self._index = None
 
 	def lookup(self, key):
@@ -66,13 +70,13 @@ class Resource:
 			self._index = self._get(self.uri)
 		return self._index[key]
 
-	def _get(self, uri, args={}):
+	def _get(self, uri, args=None):
 		"""
 		Issues an HTTP GET request
 		
 		Parameters:
 			uri  - the URI of the resource to GET
-			args - optional dictionary containing URI template substitution values
+			args - optional dictionary of URI template substitution values
 		
 		Result (dependent on HTTP status code):
 			200 - returns value created from returned json content
@@ -81,7 +85,8 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri.format(**args), "GET", None, self._read_headers)
+		args = args or {}
+		response, content = self._http.request(uri.format(**args), 'GET', None, self._read_headers)
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -91,16 +96,17 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _post(self, uri, data, args={}):
+	def _post(self, uri, data, args=None):
 		"""
 		Issues an HTTP POST request
 		
 		Parameters:
 			uri  - the URI of the resource to POST to
-			data - a value to be converted to json and passed in request payload
-			args - optional dictionary containing URI template substitution values
+			data - value to be converted to json and passed in request payload
+			args - optional dictionary of URI template substitution values
 		
 		Result (dependent on HTTP status code):
+			200 - returns value created from returned json content
 			201 - returns value from "Location" header
 			400 - raises a ValueError against the specified data
 			404 - raises a KeyError against the specified URI
@@ -108,9 +114,12 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri.format(**args), "POST", data, self._write_headers)
-		if response.status == 201:
-			return response["location"]
+		args = args or {}
+		response, content = self._http.request(uri.format(**args), 'POST', data, self._write_headers)
+		if response.status == 200:
+			return json.loads(content)
+		elif response.status == 201:
+			return response['location']
 		elif response.status == 400:
 			raise ValueError(data)
 		elif response.status == 404:
@@ -118,14 +127,14 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _put(self, uri, data, args={}):
+	def _put(self, uri, data, args=None):
 		"""
 		Issues an HTTP PUT request
 		
 		Parameters:
 			uri  - the URI of the resource to PUT
-			data - a value to be converted to json and passed in request payload
-			args - optional dictionary containing URI template substitution values
+			data - value to be converted to json and passed in request payload
+			args - optional dictionary of URI template substitution values
 		
 		Result (dependent on HTTP status code):
 			204 - success (no return value)
@@ -135,7 +144,8 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri.format(**args), "PUT", data, self._write_headers)
+		args = args or {}
+		response, content = self._http.request(uri.format(**args), 'PUT', data, self._write_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -145,13 +155,13 @@ class Resource:
 		else:
 			raise SystemError(response)
 
-	def _delete(self, uri, args={}):
+	def _delete(self, uri, args=None):
 		"""
 		Issues an HTTP DELETE request
 		
 		Parameters:
 			uri  - the URI of the resource to DELETE
-			args - optional dictionary containing URI template substitution values
+			args - optional dictionary of URI template substitution values
 		
 		Result (dependent on HTTP status code):
 			204 - success (no return value)
@@ -159,7 +169,8 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri.format(**args), "DELETE", None, self._read_headers)
+		args = args or {}
+		response, content = self._http.request(uri.format(**args), 'DELETE', None, self._read_headers)
 		if response.status == 204:
 			pass
 		elif response.status == 404:
@@ -174,32 +185,16 @@ class Resource:
 		return str(self.uri)
 
 
-class Direction:
-
-	INCOMING = -1
-	BOTH     =  0
-	OUTGOING =  1
-
-	@staticmethod
-	def get_label(direction):
-		if direction > 0:
-			return "outgoing"
-		elif direction < 0:
-			return "incoming"
-		else:
-			return "all"
-
-
 class GraphDatabaseService(Resource):
 
 	def __init__(self, uri, http=None):
 		Resource.__init__(self, uri, http)
 
 	def create_node(self, properties=None):
-		return Node(self._post(self.lookup("node"), properties), self._http)
+		return Node(self._post(self.lookup('node'), properties), self._http)
 
 	def get_reference_node(self):
-		return Node(self.lookup("reference_node"), self._http)
+		return Node(self.lookup('reference_node'), self._http)
 
 	def get_subreference_node(self, type):
 		"""
@@ -216,22 +211,22 @@ class GraphDatabaseService(Resource):
 		return subref_node
 
 	def get_relationship_types(self):
-		return self._get(self.lookup("relationship_types"))
+		return self._get(self.lookup('relationship_types'))
 
 	def get_node_indexes(self):
-		indexes = self._get(self.lookup("node_index"))
+		indexes = self._get(self.lookup('node_index'))
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = NodeIndex(index["type"], index["template"], index["provider"], self._http)
+			indexes[i] = NodeIndex(index['type'], index['template'], index['provider'], self._http)
 		return indexes
 
 	def get_relationship_indexes(self):
-		indexes = self._get(self.lookup("relationship_index"))
+		indexes = self._get(self.lookup('relationship_index'))
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = RelationshipIndex(index["type"], index["template"], index["provider"], self._http)
+			indexes[i] = RelationshipIndex(index['type'], index['template'], index['provider'], self._http)
 		return indexes
 
 
@@ -241,22 +236,22 @@ class PropertyContainer(Resource):
 		Resource.__init__(self, uri, http)
 
 	def set_properties(self, properties):
-		self._put(self.lookup("properties"), properties)
+		self._put(self.lookup('properties'), properties)
 
 	def get_properties(self):
-		return self._get(self.lookup("properties"))
+		return self._get(self.lookup('properties'))
 
 	def remove_properties(self):
-		self._delete(self.lookup("properties"))
+		self._delete(self.lookup('properties'))
 
 	def __setitem__(self, key, value):
-		self._put(self.lookup("property").format(key=key), value)
+		self._put(self.lookup('property').format(key=key), value)
 
 	def __getitem__(self, key):
-		return self._get(self.lookup("property").format(key=key))
+		return self._get(self.lookup('property').format(key=key))
 
 	def __delitem__(self, key):
-		self._delete(self.lookup("property").format(key=key))
+		self._delete(self.lookup('property').format(key=key))
 
 
 class Node(PropertyContainer):
@@ -265,47 +260,49 @@ class Node(PropertyContainer):
 		PropertyContainer.__init__(self, uri, http)
 
 	def delete(self):
-		self._delete(self._index["self"])
+		self._delete(self._index['self'])
 
 	def create_relationship_to(self, other_node, type, data=None):
-		return Relationship(self._post(self.lookup("create_relationship"), {
-			"to": str(other_node),
-			"type": type,
-			"data": data
+		return Relationship(self._post(self.lookup('create_relationship'), {
+			'to': str(other_node),
+			'type': type,
+			'data': data
 		}), self._http)
 
 	def get_relationships(self, direction, *types):
-		prefix = Direction.get_label(direction)
 		if len(types) == 0:
-			uri = self.lookup(prefix + "_relationships")
+			uri = self.lookup(direction + '_relationships')
 		else:
-			uri = self.lookup(prefix + "_typed_relationships").replace("{-list|&|types}", "&".join(types))
-		return [Relationship(rel["self"], self._http) for rel in self._get(uri)]
+			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		return [Relationship(rel['self'], self._http) for rel in self._get(uri)]
 
 	def get_related_nodes(self, direction, *types):
-		prefix = Direction.get_label(direction)
 		if len(types) == 0:
-			uri = self.lookup(prefix + "_relationships")
+			uri = self.lookup(direction + '_relationships')
 		else:
-			uri = self.lookup(prefix + "_typed_relationships").replace("{-list|&|types}", "&".join(types))
-		return [Node(rel["start"] if rel["end"] == self.uri else rel["end"], self._http) for rel in self._get(uri)]
+			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
+
+	def traverse_nodes(self, order, prune_evaluator, return_filter, *relationships):
+		uri = self.lookup('traverse').format(returnType='node')
+		return NodeTraverser(uri, order, 3, prune_evaluator, {"language": "builtin", "name": return_filter}, list(relationships), self._http)
 
 
 class Relationship(PropertyContainer):
 
 	def __init__(self, uri, http=None):
 		PropertyContainer.__init__(self, uri, http)
-		self.type = self.lookup("type")
-		self.data = self.lookup("data")
+		self.type = self.lookup('type')
+		self.data = self.lookup('data')
 
 	def delete(self):
-		self._delete(self.lookup("self"))
+		self._delete(self.lookup('self'))
 
 	def get_start_node(self):
-		return Node(self.lookup("start"), self._http)
+		return Node(self.lookup('start'), self._http)
 
 	def get_end_node(self):
-		return Node(self.lookup("end"), self._http)
+		return Node(self.lookup('end'), self._http)
 
 
 class Index(Resource):
@@ -316,10 +313,10 @@ class Index(Resource):
 		self._provider = provider
 
 	def _search(self, key, value):
-		return self._get(self.uri, {"key": key, "value": value})
+		return self._get(self.uri.format(key=key, value=value))
 
 	def add(self, entity, key, value):
-		self._post(self.uri, entity.uri, {"key": key, "value": value})
+		self._post(self.uri.format(key=key, value=value), entity.uri)
 
 
 class NodeIndex(Index):
@@ -328,7 +325,7 @@ class NodeIndex(Index):
 		Index.__init__(self, type, template, provider, http)
 
 	def search(self, key, value):
-		return [Node(item["self"], self._http) for item in self._search(key, value)]
+		return [Node(item['self'], self._http) for item in self._search(key, value)]
 
 
 class RelationshipIndex(Index):
@@ -337,6 +334,32 @@ class RelationshipIndex(Index):
 		Index.__init__(self, type, template, provider, http)
 
 	def search(self, key, value):
-		return [Relationship(item["self"], self._http) for item in self._search(key, value)]
+		return [Relationship(item['self'], self._http) for item in self._search(key, value)]
+
+
+class Traverser(Resource):
+
+	class Order:
+
+		BREADTH_FIRST = 'breadth_first'
+		DEPTH_FIRST   = 'depth_first'
+
+	def __init__(self, uri, order, max_depth, prune_evaluator, return_filter, relationships, http=None):
+		Resource.__init__(self, uri, http)
+		self._items = self._post(self.uri, {
+			'order': order,
+			'uniqueness': 'node_path',
+			'max_depth': max_depth,
+			'prune_evaluator': prune_evaluator,
+			'return_filter': return_filter,
+			'relationships': relationships
+		});
+
+
+class NodeTraverser(Traverser):
+
+	def __iter__(self):
+		for item in self._items:
+			yield Node(item['self'], self._http)
 
 
