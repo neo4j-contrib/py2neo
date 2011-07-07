@@ -74,7 +74,10 @@ class Resource:
 		"""
 		if(self._index == None):
 			self._index = self._get(self.uri)
-		return self._index[key]
+		if key in self._index:
+			return self._index[key]
+		else:
+			return None
 
 	def _get(self, uri):
 		"""
@@ -281,6 +284,24 @@ class Node(PropertyContainer):
 		else:
 			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
 		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
+
+	def to(self, *types):
+		nodes = self.get_related_nodes(Direction.OUTGOING, *types)
+		if len(nodes) == 0:
+			return None
+		elif len(nodes) == 1:
+			return nodes[0]
+		else:
+			return nodes
+
+	def fro(self, *types):
+		nodes = self.get_related_nodes(Direction.INCOMING, *types)
+		if len(nodes) == 0:
+			return None
+		elif len(nodes) == 1:
+			return nodes[0]
+		else:
+			return nodes
 
 	def get_node_traverser(self):
 		return NodeTraverser(self.lookup('traverse').format(returnType='node'), self._http)
