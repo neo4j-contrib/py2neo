@@ -119,7 +119,6 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		print data
 		response, content = self._http.request(uri, 'POST', data, self._write_headers)
 		if response.status == 200:
 			return json.loads(content)
@@ -182,10 +181,7 @@ class Resource:
 			raise SystemError(response)
 
 	def __repr__(self):
-		return repr(self.uri)
-
-	def __str__(self):
-		return str(self.uri)
+		return '%s(%s)' % (self.__class__.__name__, repr(self.uri))
 
 
 class GraphDatabaseService(Resource):
@@ -286,36 +282,8 @@ class Node(PropertyContainer):
 			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
 		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
 
-	def traverse_nodes(self, order, stop_filter, return_filter, *relationships):
-		"""
-		Even though it works, not entirely happy with this function yet; in the
-		meantime, here's some sample code (assuming "import py2neo as neo"):
-		
-		import py2neo as neo
-		
-		gdb = neo.GraphDatabaseService("http://localhost:7474/db/data")
-		ref_node = gdb.get_reference_node()
-		for n in ref_node.traverse_nodes(neo.Traverser.Order.DEPTH_FIRST, 3, neo.ReturnFilter.ALL, ("KNOWS", "out"), "LOVES"):
-			print n
-		
-		"""
-		uri = self.lookup('traverse').format(returnType='node')
-		rels = []
-		for rel in relationships:
-			is_iterable = hasattr(rel, '__iter__')
-			if is_iterable and len(rel) >= 2:
-				rels.append({'type': rel[0], "direction": rel[1]})
-			elif is_iterable and len(rel) == 1:
-				rels.append({'type': rel[0]})
-			elif not is_iterable:
-				rels.append({'type': rel})
-		return NodeTraverser(uri, order, stop_filter, {"language": "builtin", "name": return_filter}, rels, self._http)
-
-	def traverse_nodes_breadth_first(self, stop_filter, return_filter, *relationships):
-		return self.traverse_nodes(Traverser.Order.BREADTH_FIRST, stop_filter, return_filter, *relationships)
-
-	def traverse_nodes_depth_first(self, stop_filter, return_filter, *relationships):
-		return self.traverse_nodes(Traverser.Order.DEPTH_FIRST, stop_filter, return_filter, *relationships)
+	def get_node_traverser(self):
+		return NodeTraverser(self.lookup('traverse').format(returnType='node'), self._http)
 
 
 class Relationship(PropertyContainer):
@@ -374,28 +342,58 @@ class Traverser(Resource):
 		BREADTH_FIRST = 'breadth_first'
 		DEPTH_FIRST   = 'depth_first'
 
-	def __init__(self, uri, order, stop_filter, return_filter, relationships, http=None):
+	def __init__(self, uri, http=None):
 		Resource.__init__(self, uri, http)
-		if type(stop_filter) == type(0):
-			max_depth = stop_filter
-			prune_evaluator = None
+		self._criteria = {
+			'order': Traverser.Order.DEPTH_FIRST,
+			'uniqueness': 'node_path'
+		}
+
+	def set_max_depth(self, max_depth):
+		self._criteria['max_depth'] = max_depth
+		del self._criteria['prune_evaluator']
+
+	def set_prune_evaluator(self, language, body):
+		del self._criteria['max_depth']
+		self._criteria['prune_evaluator'] = {
+			'language': language,
+			'body': body
+		}
+
+	def set_return_filter(self, language, name):
+		self._criteria['return_filter'] = {
+			'language': language,
+			'name': name
+		}
+
+	def add_relationship(self, type, direction=None):
+		if 'relationships' not in self._criteria:
+			self._criteria['relationships'] = []
+		if direction:
+			self._criteria['relationships'].append({
+				'type': type,
+				'direction': direction
+			})
 		else:
-			max_depth = 1
-			prune_evaluator = stop_filter
-		self._items = self._post(self.uri, {
-			'order': order,
-			'uniqueness': 'node_path',
-			'max_depth': max_depth,
-			'prune_evaluator': prune_evaluator,
-			'return_filter': return_filter,
-			'relationships': relationships
-		});
+			self._criteria['relationships'].append({
+				'type': type
+			})
+
+	def remove_relationship(self, type):
+		if 'relationships' in self._criteria:
+			self._criteria['relationships'] = [item for item in self._criteria['relationships'] if item['type'] != type]
+			if self._criteria['relationships'] == []:
+				del self._criteria['relationships']
 
 
 class NodeTraverser(Traverser):
 
-	def __iter__(self):
-		for item in self._items:
-			yield Node(item['self'], self._http)
+	def traverse_depth_first(self):
+		self._criteria['order'] = Traverser.Order.DEPTH_FIRST
+		return [Node(item['self'], self._http) for item in self._post(self.uri, self._criteria)]
+
+	def traverse_breadth_first(self):
+		self._criteria['order'] = Traverser.Order.BREADTH_FIRST
+		return [Node(item['self'], self._http) for item in self._post(self.uri, self._criteria)]
 
 

@@ -5,7 +5,10 @@ more documentation to come, still working it out myself :-)
 ---
 
 import py2neo as neo
-gdb = neo.GraphDatabaseService("http://localhost:7474/db/data/")
-index1 = gdb.get_node_indexes()["index1"]
-index1.search("foo","bar")
+
+gdb = neo.GraphDatabaseService("http://localhost:7474/db/data")
+ref_node = gdb.get_reference_node()
+traverser = ref_node.get_node_traverser()
+for node in traverser.traverse_depth_first():
+	print node
 
