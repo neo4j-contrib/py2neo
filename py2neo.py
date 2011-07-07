@@ -198,20 +198,6 @@ class GraphDatabaseService(Resource):
 	def get_reference_node(self):
 		return Node(self.lookup('reference_node'), self._http)
 
-	def get_subreference_node(self, type):
-		"""
-		Returns subreference node for given relationship type as defined by:
-		http://wiki.neo4j.org/content/Design_Guide#Subreferences
-		"""
-		ref_node = self.get_reference_node()
-		subref_nodes = ref_node.get_related_nodes(Direction.OUTGOING, type)
-		if len(subref_nodes) == 0:
-			subref_node = gdb.create_node()
-			ref_node.create_relationship_to(subref_node, type)
-		else:
-			subref_node = subref_nodes[0]
-		return subref_node
-
 	def get_relationship_types(self):
 		return self._get(self.lookup('relationship_types'))
 
@@ -284,24 +270,6 @@ class Node(PropertyContainer):
 		else:
 			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
 		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
-
-	def to(self, *types):
-		nodes = self.get_related_nodes(Direction.OUTGOING, *types)
-		if len(nodes) == 0:
-			return None
-		elif len(nodes) == 1:
-			return nodes[0]
-		else:
-			return nodes
-
-	def fro(self, *types):
-		nodes = self.get_related_nodes(Direction.INCOMING, *types)
-		if len(nodes) == 0:
-			return None
-		elif len(nodes) == 1:
-			return nodes[0]
-		else:
-			return nodes
 
 	def get_node_traverser(self):
 		return NodeTraverser(self.lookup('traverse').format(returnType='node'), self._http)
