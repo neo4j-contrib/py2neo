@@ -350,11 +350,13 @@ class Traverser(Resource):
 		}
 
 	def set_max_depth(self, max_depth):
+		if 'prune_evaluator' in self._criteria:
+			del self._criteria['prune_evaluator']
 		self._criteria['max_depth'] = max_depth
-		del self._criteria['prune_evaluator']
 
 	def set_prune_evaluator(self, language, body):
-		del self._criteria['max_depth']
+		if 'max_depth' in self._criteria:
+			del self._criteria['max_depth']
 		self._criteria['prune_evaluator'] = {
 			'language': language,
 			'body': body
