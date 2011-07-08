@@ -368,15 +368,17 @@ class Traverser(Resource):
 			if self._criteria['relationships'] == []:
 				del self._criteria['relationships']
 
+	def _traverse(self, order):
+		self._criteria['order'] = order
+		return self._post(self.uri, self._criteria)
+
 
 class NodeTraverser(Traverser):
 
 	def traverse_depth_first(self):
-		self._criteria['order'] = Traverser.Order.DEPTH_FIRST
-		return [Node(item['self'], self._http) for item in self._post(self.uri, self._criteria)]
+		return [Node(item['self'], self._http) for item in self._traverse(Traverser.Order.DEPTH_FIRST)]
 
 	def traverse_breadth_first(self):
-		self._criteria['order'] = Traverser.Order.BREADTH_FIRST
-		return [Node(item['self'], self._http) for item in self._post(self.uri, self._criteria)]
+		return [Node(item['self'], self._http) for item in self._traverse(Traverser.Order.BREADTH_FIRST)]
 
 
