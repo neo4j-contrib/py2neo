@@ -206,7 +206,7 @@ class GraphDatabaseService(Resource):
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = NodeIndex(index['type'], index['template'], index['provider'], self._http)
+			indexes[i] = NodeIndex(index['template'], self._http)
 		return indexes
 
 	def get_relationship_indexes(self):
@@ -214,7 +214,7 @@ class GraphDatabaseService(Resource):
 		# replace with map()
 		for i in indexes:
 			index = indexes[i]
-			indexes[i] = RelationshipIndex(index['type'], index['template'], index['provider'], self._http)
+			indexes[i] = RelationshipIndex(index['template'], self._http)
 		return indexes
 
 
@@ -294,8 +294,8 @@ class Relationship(PropertyContainer):
 
 class Index(Resource):
 
-	def __init__(self, template, http=None):
-		Resource.__init__(self, template, http)
+	def __init__(self, uri, http=None):
+		Resource.__init__(self, uri, http)
 
 	def _search(self, key, value):
 		return self._get(self.uri.format(key=key, value=value))
@@ -306,17 +306,11 @@ class Index(Resource):
 
 class NodeIndex(Index):
 
-	def __init__(self, template, http=None):
-		Index.__init__(self, template, http)
-
 	def search(self, key, value):
 		return [Node(item['self'], self._http) for item in self._search(key, value)]
 
 
 class RelationshipIndex(Index):
-
-	def __init__(self, template, http=None):
-		Index.__init__(self, template, http)
 
 	def search(self, key, value):
 		return [Relationship(item['self'], self._http) for item in self._search(key, value)]
