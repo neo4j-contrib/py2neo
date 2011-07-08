@@ -294,10 +294,8 @@ class Relationship(PropertyContainer):
 
 class Index(Resource):
 
-	def __init__(self, type, template, provider, http=None):
+	def __init__(self, template, http=None):
 		Resource.__init__(self, template, http)
-		self._type = type
-		self._provider = provider
 
 	def _search(self, key, value):
 		return self._get(self.uri.format(key=key, value=value))
@@ -308,8 +306,8 @@ class Index(Resource):
 
 class NodeIndex(Index):
 
-	def __init__(self, type, template, provider, http=None):
-		Index.__init__(self, type, template, provider, http)
+	def __init__(self, template, http=None):
+		Index.__init__(self, template, http)
 
 	def search(self, key, value):
 		return [Node(item['self'], self._http) for item in self._search(key, value)]
@@ -317,8 +315,8 @@ class NodeIndex(Index):
 
 class RelationshipIndex(Index):
 
-	def __init__(self, type, template, provider, http=None):
-		Index.__init__(self, type, template, provider, http)
+	def __init__(self, template, http=None):
+		Index.__init__(self, template, http)
 
 	def search(self, key, value):
 		return [Relationship(item['self'], self._http) for item in self._search(key, value)]
