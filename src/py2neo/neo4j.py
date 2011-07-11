@@ -58,11 +58,17 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_node_indexes(self):
 		indexes = self._get(self._lookup('node_index'))
-		return dict([(index, NodeIndex(indexes[index]['template'], http=self._http)) for index in indexes])
+		return dict([
+			(index, NodeIndex(indexes[index]['template'], http=self._http))
+			for index in indexes
+		])
 
 	def get_relationship_indexes(self):
 		indexes = self._get(self._lookup('relationship_index'))
-		return dict([(index, RelationshipIndex(indexes[index]['template'], http=self._http)) for index in indexes])
+		return dict([
+			(index, RelationshipIndex(indexes[index]['template'], http=self._http))
+			for index in indexes
+		])
 
 
 class PropertyContainer(rest.Resource):
@@ -109,14 +115,20 @@ class Node(PropertyContainer):
 			uri = self._lookup(direction + '_relationships')
 		else:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
-		return [Relationship(rel['self'], http=self._http) for rel in self._get(uri)]
+		return [
+			Relationship(rel['self'], http=self._http)
+			for rel in self._get(uri)
+		]
 
 	def get_related_nodes(self, direction, *types):
 		if len(types) == 0:
 			uri = self._lookup(direction + '_relationships')
 		else:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
-		return [Node(rel['start'] if rel['end'] == self._uri else rel['end'], http=self._http) for rel in self._get(uri)]
+		return [
+			Node(rel['start'] if rel['end'] == self._uri else rel['end'], http=self._http)
+			for rel in self._get(uri)
+		]
 
 	def get_node_traverser(self):
 		return NodeTraverser(self._lookup('traverse').format(returnType='node'), http=self._http)
@@ -154,13 +166,19 @@ class Index(rest.Resource):
 class NodeIndex(Index):
 
 	def search(self, key, value):
-		return [Node(item['self'], http=self._http) for item in self._search(key, value)]
+		return [
+			Node(item['self'], http=self._http)
+			for item in self._search(key, value)
+		]
 
 
 class RelationshipIndex(Index):
 
 	def search(self, key, value):
-		return [Relationship(item['self'], http=self._http) for item in self._search(key, value)]
+		return [
+			Relationship(item['self'], http=self._http)
+			for item in self._search(key, value)
+		]
 
 
 class Traverser(rest.Resource):
@@ -211,7 +229,11 @@ class Traverser(rest.Resource):
 
 	def remove_relationship(self, type):
 		if 'relationships' in self._criteria:
-			self._criteria['relationships'] = [item for item in self._criteria['relationships'] if item['type'] != type]
+			self._criteria['relationships'] = [
+				item
+				for item in self._criteria['relationships']
+				if item['type'] != type
+			]
 			if self._criteria['relationships'] == []:
 				del self._criteria['relationships']
 
@@ -223,9 +245,15 @@ class Traverser(rest.Resource):
 class NodeTraverser(Traverser):
 
 	def traverse_depth_first(self):
-		return [Node(item['self'], http=self._http) for item in self._traverse(Traverser.Order.DEPTH_FIRST)]
+		return [
+			Node(item['self'], http=self._http)
+			for item in self._traverse(Traverser.Order.DEPTH_FIRST)
+		]
 
 	def traverse_breadth_first(self):
-		return [Node(item['self'], http=self._http) for item in self._traverse(Traverser.Order.BREADTH_FIRST)]
+		return [
+			Node(item['self'], http=self._http)
+			for item in self._traverse(Traverser.Order.BREADTH_FIRST)
+		]
 
 

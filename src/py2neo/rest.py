@@ -36,14 +36,7 @@ class Resource:
 	hypermedia web service
 	"""
 
-	_read_headers = {
-		'Accept': "application/json"
-	}
-	_write_headers = {
-		'Accept': "application/json",
-		'Content-Type': "application/json"
-	}
-	_content_types = ['application/json']
+	SUPPORTED_CONTENT_TYPES = ['application/json']
 
 	def __init__(self, uri, content_type='application/json', http=None):
 		"""
@@ -54,15 +47,19 @@ class Resource:
 			http - optional httplib2.Http() object to use for requests
 		
 		"""
-		if content_type not in self._content_types:
+		if content_type not in self.SUPPORTED_CONTENT_TYPES:
 			raise NotImplementedError("Content type %s not supported" % content_type)
 		self._uri = unicode(uri)
 		self._content_type = content_type
 		self._http = http or httplib2.Http()
 		self._index = None
 
-	def _get_request_headers(*keys):
-		pass
+	def _get_request_headers(self, *keys):
+		return dict([
+			(key, self._content_type)
+			for key in keys
+			if key in ['Accept', 'Content-Type']
+		])
 
 	def _get(self, uri):
 		"""
@@ -79,7 +76,7 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri, 'GET', None, self._read_headers)
+		response, content = self._http.request(uri, 'GET', None, self._get_request_headers('Accept'))
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -107,7 +104,7 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'POST', data, self._write_headers)
+		response, content = self._http.request(uri, 'POST', data, self._get_request_headers('Accept', 'Content-Type'))
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 201:
@@ -136,7 +133,7 @@ class Resource:
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'PUT', data, self._write_headers)
+		response, content = self._http.request(uri, 'PUT', data, self._get_request_headers('Accept', 'Content-Type'))
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -160,7 +157,7 @@ class Resource:
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri, 'DELETE', None, self._read_headers)
+		response, content = self._http.request(uri, 'DELETE', None, self._get_request_headers('Accept'))
 		if response.status == 204:
 			pass
 		elif response.status == 404:
