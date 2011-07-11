@@ -26,8 +26,7 @@ neo4j.py
 
 """
 
-import httplib2
-import json
+import rest
 
 
 class Direction:
@@ -43,284 +42,128 @@ class ReturnFilter:
 	ALL_BUT_START_NODE = 'all_but_start_node'
 
 
-class Resource:
-	"""
-	Web service resource class, nothing here specific to Neo4j but designed to
-	work with a well-behaved hypermedia web service; used here as a base class
-	for objects represented within the neo4j web service
-	"""
-
-	_read_headers = {
-		'Accept': "application/json"
-	}
-	_write_headers = {
-		'Accept': "application/json",
-		'Content-Type': "application/json"
-	}
+class GraphDatabaseService(rest.Resource):
 
 	def __init__(self, uri, http=None):
-		"""
-		Creates a new Resource instance
-		
-		Parameters:
-			uri  - the root URI for this resource
-			http - optional httplib2.Http() object to use for requests
-		
-		"""
-		self.uri = uri
-		self._http = http or httplib2.Http()
-		self._index = None
-
-	def lookup(self, key):
-		"""
-		Looks up a value in the resource index by key; will lazily load
-		resource index if required
-		"""
-		if(self._index == None):
-			self._index = self._get(self.uri)
-		if key in self._index:
-			return self._index[key]
-		else:
-			return None
-
-	def _get(self, uri):
-		"""
-		Issues an HTTP GET request
-		
-		Parameters:
-			uri  - the URI of the resource to GET
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			200 - returns value created from returned json content
-			204 - returns None
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
-		
-		"""
-		response, content = self._http.request(uri, 'GET', None, self._read_headers)
-		if response.status == 200:
-			return json.loads(content)
-		elif response.status == 204:
-			return None
-		elif response.status == 404:
-			raise KeyError(uri)
-		else:
-			raise SystemError(response)
-
-	def _post(self, uri, data):
-		"""
-		Issues an HTTP POST request
-		
-		Parameters:
-			uri  - the URI of the resource to POST to
-			data - value to be converted to json and passed in request payload
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			200 - returns value created from returned json content
-			201 - returns value from "Location" header
-			400 - raises a ValueError against the specified data
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
-		
-		"""
-		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'POST', data, self._write_headers)
-		if response.status == 200:
-			return json.loads(content)
-		elif response.status == 201:
-			return response['location']
-		elif response.status == 400:
-			raise ValueError(data)
-		elif response.status == 404:
-			raise KeyError(uri)
-		else:
-			raise SystemError(response)
-
-	def _put(self, uri, data):
-		"""
-		Issues an HTTP PUT request
-		
-		Parameters:
-			uri  - the URI of the resource to PUT
-			data - value to be converted to json and passed in request payload
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			204 - success (no return value)
-			400 - raises a ValueError against the specified data
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
-		
-		"""
-		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'PUT', data, self._write_headers)
-		if response.status == 204:
-			pass
-		elif response.status == 400:
-			raise ValueError(data)
-		elif response.status == 404:
-			raise KeyError(uri)
-		else:
-			raise SystemError(response)
-
-	def _delete(self, uri):
-		"""
-		Issues an HTTP DELETE request
-		
-		Parameters:
-			uri  - the URI of the resource to DELETE
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			204 - success (no return value)
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
-		
-		"""
-		response, content = self._http.request(uri, 'DELETE', None, self._read_headers)
-		if response.status == 204:
-			pass
-		elif response.status == 404:
-			raise KeyError(uri)
-		else:
-			raise SystemError(response)
-
-	def __repr__(self):
-		return '%s(%s)' % (self.__class__.__name__, repr(self.uri))
-
-
-class GraphDatabaseService(Resource):
-
-	def __init__(self, uri, http=None):
-		Resource.__init__(self, uri, http)
+		rest.Resource.__init__(self, uri, http=http)
 
 	def create_node(self, properties=None):
-		return Node(self._post(self.lookup('node'), properties), self._http)
+		return Node(self._post(self._lookup('node'), properties), http=self._http)
 
 	def get_reference_node(self):
-		return Node(self.lookup('reference_node'), self._http)
+		return Node(self._lookup('reference_node'), http=self._http)
 
 	def get_relationship_types(self):
-		return self._get(self.lookup('relationship_types'))
+		return self._get(self._lookup('relationship_types'))
 
 	def get_node_indexes(self):
-		indexes = self._get(self.lookup('node_index'))
-		# replace with map()
-		for i in indexes:
-			index = indexes[i]
-			indexes[i] = NodeIndex(index['template'], self._http)
-		return indexes
+		indexes = self._get(self._lookup('node_index'))
+		return dict([(index, NodeIndex(indexes[index]['template'], http=self._http)) for index in indexes])
 
 	def get_relationship_indexes(self):
-		indexes = self._get(self.lookup('relationship_index'))
-		# replace with map()
-		for i in indexes:
-			index = indexes[i]
-			indexes[i] = RelationshipIndex(index['template'], self._http)
-		return indexes
+		indexes = self._get(self._lookup('relationship_index'))
+		return dict([(index, RelationshipIndex(indexes[index]['template'], http=self._http)) for index in indexes])
 
 
-class PropertyContainer(Resource):
+class PropertyContainer(rest.Resource):
 
 	def __init__(self, uri, http=None):
-		Resource.__init__(self, uri, http)
+		rest.Resource.__init__(self, uri, http=http)
 
 	def set_properties(self, properties):
-		self._put(self.lookup('properties'), properties)
+		self._put(self._lookup('properties'), properties)
 
 	def get_properties(self):
-		return self._get(self.lookup('properties'))
+		return self._get(self._lookup('properties'))
 
 	def remove_properties(self):
-		self._delete(self.lookup('properties'))
+		self._delete(self._lookup('properties'))
 
 	def __setitem__(self, key, value):
-		self._put(self.lookup('property').format(key=key), value)
+		self._put(self._lookup('property').format(key=key), value)
 
 	def __getitem__(self, key):
-		return self._get(self.lookup('property').format(key=key))
+		return self._get(self._lookup('property').format(key=key))
 
 	def __delitem__(self, key):
-		self._delete(self.lookup('property').format(key=key))
+		self._delete(self._lookup('property').format(key=key))
 
 
 class Node(PropertyContainer):
 
 	def __init__(self, uri, http=None):
-		PropertyContainer.__init__(self, uri, http)
+		PropertyContainer.__init__(self, uri, http=http)
 
 	def delete(self):
 		self._delete(self._index['self'])
 
 	def create_relationship_to(self, other_node, type, data=None):
-		return Relationship(self._post(self.lookup('create_relationship'), {
+		return Relationship(self._post(self._lookup('create_relationship'), {
 			'to': str(other_node),
 			'type': type,
 			'data': data
-		}), self._http)
+		}), http=self._http)
 
 	def get_relationships(self, direction, *types):
 		if len(types) == 0:
-			uri = self.lookup(direction + '_relationships')
+			uri = self._lookup(direction + '_relationships')
 		else:
-			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
-		return [Relationship(rel['self'], self._http) for rel in self._get(uri)]
+			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		return [Relationship(rel['self'], http=self._http) for rel in self._get(uri)]
 
 	def get_related_nodes(self, direction, *types):
 		if len(types) == 0:
-			uri = self.lookup(direction + '_relationships')
+			uri = self._lookup(direction + '_relationships')
 		else:
-			uri = self.lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
-		return [Node(rel['start'] if rel['end'] == self.uri else rel['end'], self._http) for rel in self._get(uri)]
+			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		return [Node(rel['start'] if rel['end'] == self._uri else rel['end'], http=self._http) for rel in self._get(uri)]
 
 	def get_node_traverser(self):
-		return NodeTraverser(self.lookup('traverse').format(returnType='node'), self._http)
+		return NodeTraverser(self._lookup('traverse').format(returnType='node'), http=self._http)
 
 
 class Relationship(PropertyContainer):
 
 	def __init__(self, uri, http=None):
-		PropertyContainer.__init__(self, uri, http)
-		self.type = self.lookup('type')
-		self.data = self.lookup('data')
+		PropertyContainer.__init__(self, uri, http=http)
+		self.type = self._lookup('type')
+		self.data = self._lookup('data')
 
 	def delete(self):
-		self._delete(self.lookup('self'))
+		self._delete(self._lookup('self'))
 
 	def get_start_node(self):
-		return Node(self.lookup('start'), self._http)
+		return Node(self._lookup('start'), http=self._http)
 
 	def get_end_node(self):
-		return Node(self.lookup('end'), self._http)
+		return Node(self._lookup('end'), http=self._http)
 
 
-class Index(Resource):
+class Index(rest.Resource):
 
 	def __init__(self, uri, http=None):
-		Resource.__init__(self, uri, http)
+		rest.Resource.__init__(self, uri, http=http)
 
 	def _search(self, key, value):
-		return self._get(self.uri.format(key=key, value=value))
+		return self._get(self._uri.format(key=key, value=value))
 
 	def add(self, entity, key, value):
-		self._post(self.uri.format(key=key, value=value), entity.uri)
+		self._post(self._uri.format(key=key, value=value), entity._uri)
 
 
 class NodeIndex(Index):
 
 	def search(self, key, value):
-		return [Node(item['self'], self._http) for item in self._search(key, value)]
+		return [Node(item['self'], http=self._http) for item in self._search(key, value)]
 
 
 class RelationshipIndex(Index):
 
 	def search(self, key, value):
-		return [Relationship(item['self'], self._http) for item in self._search(key, value)]
+		return [Relationship(item['self'], http=self._http) for item in self._search(key, value)]
 
 
-class Traverser(Resource):
+class Traverser(rest.Resource):
 
 	class Order:
 
@@ -328,7 +171,7 @@ class Traverser(Resource):
 		DEPTH_FIRST   = 'depth_first'
 
 	def __init__(self, uri, http=None):
-		Resource.__init__(self, uri, http)
+		rest.Resource.__init__(self, uri, http=http)
 		self._criteria = {
 			'order': Traverser.Order.DEPTH_FIRST,
 			'uniqueness': 'node_path'
@@ -374,15 +217,15 @@ class Traverser(Resource):
 
 	def _traverse(self, order):
 		self._criteria['order'] = order
-		return self._post(self.uri, self._criteria)
+		return self._post(self._uri, self._criteria)
 
 
 class NodeTraverser(Traverser):
 
 	def traverse_depth_first(self):
-		return [Node(item['self'], self._http) for item in self._traverse(Traverser.Order.DEPTH_FIRST)]
+		return [Node(item['self'], http=self._http) for item in self._traverse(Traverser.Order.DEPTH_FIRST)]
 
 	def traverse_breadth_first(self):
-		return [Node(item['self'], self._http) for item in self._traverse(Traverser.Order.BREADTH_FIRST)]
+		return [Node(item['self'], http=self._http) for item in self._traverse(Traverser.Order.BREADTH_FIRST)]
 
 
