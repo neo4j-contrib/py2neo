@@ -30,7 +30,7 @@ import httplib2
 import json
 
 
-class Resource:
+class Resource(object):
 	"""
 	RESTful web service resource class, designed to work with a well-behaved
 	hypermedia web service

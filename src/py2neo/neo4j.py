@@ -29,14 +29,14 @@ neo4j.py
 import rest
 
 
-class Direction:
+class Direction(object):
 
 	BOTH     = 'all'
 	INCOMING = 'incoming'
 	OUTGOING = 'outgoing'
 
 
-class ReturnFilter:
+class ReturnFilter(object):
 
 	ALL                = 'all'
 	ALL_BUT_START_NODE = 'all_but_start_node'
@@ -159,7 +159,7 @@ class Relationship(PropertyContainer):
 		return Node(self._lookup('end'), http=self._http)
 
 
-class Path:
+class Path(object):
 
 	def __init__(self, nodes, relationships):
 		self._nodes = nodes
