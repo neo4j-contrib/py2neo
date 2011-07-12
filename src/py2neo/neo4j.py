@@ -59,14 +59,14 @@ class GraphDatabaseService(rest.Resource):
 	def get_node_indexes(self):
 		indexes = self._get(self._lookup('node_index'))
 		return dict([
-			(index, NodeIndex(indexes[index]['template'], http=self._http))
+			(index, Index(Node, indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
 
 	def get_relationship_indexes(self):
 		indexes = self._get(self._lookup('relationship_index'))
 		return dict([
-			(index, RelationshipIndex(indexes[index]['template'], http=self._http))
+			(index, Index(Relationship, indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
 
@@ -193,8 +193,16 @@ class Path:
 
 class Index(rest.Resource):
 
-	def __init__(self, uri, http=None):
+	def __init__(self, T, uri, http=None):
 		rest.Resource.__init__(self, uri, http=http)
+		self.__T = T
+
+	def __repr__(self):
+		return '%s<%s>(%s)' % (
+			self.__class__.__name__,
+			str(self.__T).rpartition('.')[-1],
+			repr(self._uri)
+		)
 
 	def _search(self, key, value):
 		return self._get(self._uri.format(key=key, value=value))
@@ -202,21 +210,9 @@ class Index(rest.Resource):
 	def add(self, entity, key, value):
 		self._post(self._uri.format(key=key, value=value), entity._uri)
 
-
-class NodeIndex(Index):
-
 	def search(self, key, value):
 		return [
-			Node(item['self'], http=self._http)
-			for item in self._search(key, value)
-		]
-
-
-class RelationshipIndex(Index):
-
-	def search(self, key, value):
-		return [
-			Relationship(item['self'], http=self._http)
+			self.__T(item['self'], http=self._http)
 			for item in self._search(key, value)
 		]
 

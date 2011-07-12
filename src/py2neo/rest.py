@@ -54,6 +54,9 @@ class Resource:
 		self._http = http or httplib2.Http()
 		self._index = None
 
+	def __repr__(self):
+		return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
+
 	def _get_request_headers(self, *keys):
 		return dict([
 			(key, self._content_type)
@@ -176,8 +179,5 @@ class Resource:
 			return self._index[key]
 		else:
 			return None
-
-	def __repr__(self):
-		return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
 
 
