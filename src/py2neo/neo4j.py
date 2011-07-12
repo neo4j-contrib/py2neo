@@ -99,6 +99,10 @@ class Node(PropertyContainer):
 
 	def __init__(self, uri, http=None):
 		PropertyContainer.__init__(self, uri, http=http)
+		self._id = int('0' + uri.rpartition('/')[-1])
+
+	def __str__(self):
+		return "(%d)" % self._id
 
 	def delete(self):
 		self._delete(self._index['self'])
@@ -130,16 +134,20 @@ class Node(PropertyContainer):
 			for rel in self._get(uri)
 		]
 
-	def get_node_traverser(self):
-		return NodeTraverser(self._lookup('traverse').format(returnType='node'), http=self._http)
+	def get_traverser(self):
+		return Traverser(self._lookup('traverse').format(returnType='path'), http=self._http)
 
 
 class Relationship(PropertyContainer):
 
 	def __init__(self, uri, http=None):
 		PropertyContainer.__init__(self, uri, http=http)
+		self._id = int('0' + uri.rpartition('/')[-1])
 		self.type = self._lookup('type')
 		self.data = self._lookup('data')
+
+	def __str__(self):
+		return "-[:%s]->" % self.type
 
 	def delete(self):
 		self._delete(self._lookup('self'))
@@ -149,6 +157,38 @@ class Relationship(PropertyContainer):
 
 	def get_end_node(self):
 		return Node(self._lookup('end'), http=self._http)
+
+
+class Path:
+
+	def __init__(self, nodes, relationships):
+		self._nodes = nodes
+		self._relationships = relationships
+
+	def __str__(self):
+		s = ""
+		for i in range(len(self._relationships)):
+			s += str(self._nodes[i]) + str(self._relationships[i])
+		s += str(self._nodes[-1])
+		return s
+
+	def __len__(self):
+		return len(self._relationships)
+
+	def get_nodes(self):
+		return self._nodes
+
+	def get_relationships(self):
+		return self._relationships
+
+	def get_start_node(self):
+		return self._nodes[0]
+
+	def get_end_node(self):
+		return self._nodes[-1]
+
+	def get_last_relationship(self):
+		return self._relationships[-1] if len(self._relationships) > 0 else None
 
 
 class Index(rest.Resource):
@@ -237,23 +277,23 @@ class Traverser(rest.Resource):
 			if self._criteria['relationships'] == []:
 				del self._criteria['relationships']
 
-	def _traverse(self, order):
+	def traverse(self, order):
 		self._criteria['order'] = order
-		return self._post(self._uri, self._criteria)
-
-
-class NodeTraverser(Traverser):
+		return [
+			Path([
+				Node(uri)
+				for uri in path['nodes']
+			], [
+				Relationship(uri)
+				for uri in path['relationships']
+			])
+			for path in self._post(self._uri, self._criteria)
+		]
 
 	def traverse_depth_first(self):
-		return [
-			Node(item['self'], http=self._http)
-			for item in self._traverse(Traverser.Order.DEPTH_FIRST)
-		]
+		return self.traverse(Traverser.Order.DEPTH_FIRST)
 
 	def traverse_breadth_first(self):
-		return [
-			Node(item['self'], http=self._http)
-			for item in self._traverse(Traverser.Order.BREADTH_FIRST)
-		]
+		return self.traverse(Traverser.Order.BREADTH_FIRST)
 
 
