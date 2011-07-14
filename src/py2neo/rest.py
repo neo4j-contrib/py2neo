@@ -79,7 +79,10 @@ class Resource(object):
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri, 'GET', None, self._get_request_headers('Accept'))
+		try:
+			(response, content) = self._http.request(uri, 'GET', None, self._get_request_headers('Accept'))
+		except:
+			raise IOError("Cannot GET resource");
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 204:
@@ -107,7 +110,10 @@ class Resource(object):
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'POST', data, self._get_request_headers('Accept', 'Content-Type'))
+		try:
+			(response, content) = self._http.request(uri, 'POST', data, self._get_request_headers('Accept', 'Content-Type'))
+		except:
+			raise IOError("Cannot POST to resource");
 		if response.status == 200:
 			return json.loads(content)
 		elif response.status == 201:
@@ -136,7 +142,10 @@ class Resource(object):
 		
 		"""
 		data = {} if data == None else json.dumps(data)
-		response, content = self._http.request(uri, 'PUT', data, self._get_request_headers('Accept', 'Content-Type'))
+		try:
+			(response, content) = self._http.request(uri, 'PUT', data, self._get_request_headers('Accept', 'Content-Type'))
+		except:
+			raise IOError("Cannot PUT resource");
 		if response.status == 204:
 			pass
 		elif response.status == 400:
@@ -160,7 +169,10 @@ class Resource(object):
 			??? - raises a SystemError with the HTTP response
 		
 		"""
-		response, content = self._http.request(uri, 'DELETE', None, self._get_request_headers('Accept'))
+		try:
+			(response, content) = self._http.request(uri, 'DELETE', None, self._get_request_headers('Accept'))
+		except:
+			raise IOError("Cannot DELETE resource");
 		if response.status == 204:
 			pass
 		elif response.status == 404:
