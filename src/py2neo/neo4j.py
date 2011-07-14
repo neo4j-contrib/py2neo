@@ -97,15 +97,23 @@ class PropertyContainer(rest.Resource):
 
 class Node(PropertyContainer):
 
-	def __init__(self, uri, http=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
 		PropertyContainer.__init__(self, uri, http=http)
+		self._index_entry_uri = index_entry_uri
+		self._index_uri = index_uri
 		self._id = int('0' + uri.rpartition('/')[-1])
 
 	def __str__(self):
 		return "(%d)" % self._id
 
+	def __repr__(self):
+		if self._index_entry_uri is None:
+			return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
+		else:
+			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
+
 	def delete(self):
-		self._delete(self._index['self'])
+		self._delete(self._lookup('self'))
 
 	def create_relationship_to(self, other_node, type, data=None):
 		return Relationship(self._post(self._lookup('create_relationship'), {
@@ -140,14 +148,22 @@ class Node(PropertyContainer):
 
 class Relationship(PropertyContainer):
 
-	def __init__(self, uri, http=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
 		PropertyContainer.__init__(self, uri, http=http)
+		self._index_entry_uri = index_entry_uri
+		self._index_uri = index_uri
 		self._id = int('0' + uri.rpartition('/')[-1])
 		self.type = self._lookup('type')
 		self.data = self._lookup('data')
 
 	def __str__(self):
 		return "-[:%s]->" % self.type
+
+	def __repr__(self):
+		if self._index_entry_uri is None:
+			return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
+		else:
+			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
 
 	def delete(self):
 		self._delete(self._lookup('self'))
@@ -200,7 +216,7 @@ class Index(rest.Resource):
 	def __repr__(self):
 		return '%s<%s>(%s)' % (
 			self.__class__.__name__,
-			str(self.__T).rpartition('.')[-1],
+			self.__T.__name__,
 			repr(self._uri)
 		)
 
@@ -208,11 +224,22 @@ class Index(rest.Resource):
 		return self._get(self._uri.format(key=key, value=value))
 
 	def add(self, entity, key, value):
-		self._post(self._uri.format(key=key, value=value), entity._uri)
+		return Node(self._post(self._uri.format(key=key, value=value), entity._uri))
+
+	def remove(self, entity):
+		if entity._index_uri == self._uri and entity._index_entry_uri is not None:
+			self._delete(entity._index_entry_uri)
+		else:
+			raise LookupError(entity)
 
 	def search(self, key, value):
 		return [
-			self.__T(item['self'], http=self._http)
+			self.__T(
+				item['self'],
+				index_entry_uri=item['indexed'],
+				index_uri=self._uri,
+				http=self._http
+			)
 			for item in self._search(key, value)
 		]
 

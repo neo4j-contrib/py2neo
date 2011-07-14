@@ -88,7 +88,7 @@ class Resource(object):
 		elif response.status == 204:
 			return None
 		elif response.status == 404:
-			raise KeyError(uri)
+			raise LookupError(uri)
 		else:
 			raise SystemError(response)
 
@@ -121,7 +121,7 @@ class Resource(object):
 		elif response.status == 400:
 			raise ValueError(data)
 		elif response.status == 404:
-			raise KeyError(uri)
+			raise LookupError(uri)
 		else:
 			raise SystemError(response)
 
@@ -151,7 +151,7 @@ class Resource(object):
 		elif response.status == 400:
 			raise ValueError(data)
 		elif response.status == 404:
-			raise KeyError(uri)
+			raise LookupError(uri)
 		else:
 			raise SystemError(response)
 
@@ -176,7 +176,9 @@ class Resource(object):
 		if response.status == 204:
 			pass
 		elif response.status == 404:
-			raise KeyError(uri)
+			raise LookupError(uri)
+		elif response.status == 409:
+			raise SystemError(uri)
 		else:
 			raise SystemError(response)
 
@@ -190,6 +192,6 @@ class Resource(object):
 		if key in self._index:
 			return self._index[key]
 		else:
-			return None
+			raise KeyError(key)
 
 
