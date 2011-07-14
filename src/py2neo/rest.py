@@ -26,6 +26,9 @@ rest.py
 
 """
 
+__version__ = '0.9'
+
+
 import httplib2
 import json
 
