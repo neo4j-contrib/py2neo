@@ -46,6 +46,7 @@ class GraphDatabaseService(rest.Resource):
 
 	def __init__(self, uri, http=None):
 		rest.Resource.__init__(self, uri, http=http)
+		self._extensions = self._lookup('extensions')
 
 	def create_node(self, properties=None):
 		return Node(self._post(self._lookup('node'), properties), http=self._http)
@@ -69,6 +70,25 @@ class GraphDatabaseService(rest.Resource):
 			(index, Index(Relationship, indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
+
+	def execute(self, plugin_name, function_name, data):
+		if plugin_name not in self._extensions:
+			raise NotImplementedError(plugin_name)
+		plugin = self._extensions[plugin_name]
+		if function_name not in plugin:
+			raise NotImplementedError(plugin_name + "." + function_name)
+		function_uri = self._extensions[plugin_name][function_name]
+		return self._post(function_uri, data)
+
+	def execute_cypher_query(self, query):
+		return self.execute('CypherPlugin', 'execute_query', {
+			'query': query
+		});
+
+	def execute_gremlin_script(self, script):
+		return self.execute('GremlinPlugin', 'execute_script', {
+			'script': script
+		});
 
 
 class PropertyContainer(rest.Resource):
@@ -138,7 +158,10 @@ class Node(PropertyContainer):
 		else:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
 		return [
-			Node(rel['start'] if rel['end'] == self._uri else rel['end'], http=self._http)
+			Node(
+				rel['start'] if rel['end'] == self._uri else rel['end'],
+				http=self._http
+			)
 			for rel in self._get(uri)
 		]
 
