@@ -26,7 +26,7 @@ rest.py
 
 """
 
-__version__ = '0.9'
+__version__ = '0.8'
 
 
 import httplib2
@@ -121,6 +121,8 @@ class Resource(object):
 			return json.loads(content)
 		elif response.status == 201:
 			return response['location']
+		elif response.status == 204:
+			return None
 		elif response.status == 400:
 			raise ValueError(data)
 		elif response.status == 404:
