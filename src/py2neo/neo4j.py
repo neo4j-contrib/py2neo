@@ -23,7 +23,7 @@ limitations under the License.
 """
 
 __version__   = "0.8"
-__author__    = "Nigel Small <nigel@nigelsmall.name>"
+__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
 __copyright__ = "Copyright 2011 Three Steps Beyond LLP"
 __license__   = "Apache License, Version 2.0"
 
