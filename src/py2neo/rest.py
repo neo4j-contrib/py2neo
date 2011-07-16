@@ -2,7 +2,7 @@
 
 """
 
-py2neo - Python library for accessing Neo4j via REST interface
+Generic REST client
 
 ---
 
@@ -20,17 +20,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
----
-
-rest.py
-
 """
-
-__version__ = '0.8'
 
 
 import httplib2
 import json
+
+
+__version__   = "0.8"
+__author__    = "Nigel Small <nigel@nigelsmall.name>"
+__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
+__license__   = "Apache License, Version 2.0"
 
 
 class Resource(object):
@@ -45,9 +45,8 @@ class Resource(object):
 		"""
 		Creates a new Resource instance
 		
-		Parameters:
-			uri  - the root URI for this resource
-			http - optional httplib2.Http() object to use for requests
+		@param uri:  the root URI for this resource
+		@param http: httplib2.Http() object to use for requests (optional)
 		
 		"""
 		if content_type not in self.SUPPORTED_CONTENT_TYPES:
@@ -58,12 +57,21 @@ class Resource(object):
 		self._index = None
 
 	def __repr__(self):
+		"""
+		Returns a valid Python representation of this object
+		"""
 		return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
 
 	def __eq__(self, other):
+		"""
+		Determines equality of two objects based on URI
+		"""
 		return self._uri == other._uri
 
 	def __ne__(self, other):
+		"""
+		Determines inequality of two objects based on URI
+		"""
 		return self._uri != other._uri
 
 	def __get_request_headers(self, *keys):
@@ -77,15 +85,10 @@ class Resource(object):
 		"""
 		Issues an HTTP GET request
 		
-		Parameters:
-			uri  - the URI of the resource to GET
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			200 - returns value created from returned json content
-			204 - returns None
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
+		@param uri: the URI of the resource to GET
+		@return: object created from returned content (200) or C{None} (204)
+		@raise KeyError: when URI is not found (404)
+		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
 		try:
@@ -105,17 +108,12 @@ class Resource(object):
 		"""
 		Issues an HTTP POST request
 		
-		Parameters:
-			uri  - the URI of the resource to POST to
-			data - value to be converted to json and passed in request payload
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			200 - returns value created from returned json content
-			201 - returns value from "Location" header
-			400 - raises a ValueError against the specified data
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
+		@param uri: the URI of the resource to POST to
+		@param data: unserialised object to be converted to JSON and passed in request payload
+		@return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
+		@raise ValueError: when supplied data is not appropriate (400)
+		@raise KeyError: when URI is not found (404)
+		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
 		data = {} if data == None else json.dumps(data)
@@ -140,16 +138,12 @@ class Resource(object):
 		"""
 		Issues an HTTP PUT request
 		
-		Parameters:
-			uri  - the URI of the resource to PUT
-			data - value to be converted to json and passed in request payload
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			204 - success (no return value)
-			400 - raises a ValueError against the specified data
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
+		@param uri: the URI of the resource to PUT
+		@param data: unserialised object to be converted to JSON and passed in request payload
+		@return: C{None} (204)
+		@raise ValueError: when supplied data is not appropriate (400)
+		@raise KeyError: when URI is not found (404)
+		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
 		data = {} if data == None else json.dumps(data)
@@ -158,7 +152,7 @@ class Resource(object):
 		except:
 			raise IOError("Cannot PUT resource");
 		if response.status == 204:
-			pass
+			return None
 		elif response.status == 400:
 			raise ValueError(data)
 		elif response.status == 404:
@@ -170,14 +164,10 @@ class Resource(object):
 		"""
 		Issues an HTTP DELETE request
 		
-		Parameters:
-			uri  - the URI of the resource to DELETE
-			args - optional dictionary of URI template substitution values
-		
-		Result (dependent on HTTP status code):
-			204 - success (no return value)
-			404 - raises a KeyError against the specified URI
-			??? - raises a SystemError with the HTTP response
+		@param uri: the URI of the resource to PUT
+		@return: C{None} (204)
+		@raise KeyError: when URI is not found (404)
+		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
 		try:
@@ -185,7 +175,7 @@ class Resource(object):
 		except:
 			raise IOError("Cannot DELETE resource");
 		if response.status == 204:
-			pass
+			None
 		elif response.status == 404:
 			raise LookupError(uri)
 		elif response.status == 409:

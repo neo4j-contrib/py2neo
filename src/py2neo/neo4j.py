@@ -2,7 +2,7 @@
 
 """
 
-py2neo - Python library for accessing Neo4j via REST interface
+Neo4j client using REST interface
 
 ---
 
@@ -20,13 +20,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 
----
-
-neo4j.py
-
 """
 
-__version__ = '0.8'
+__version__   = "0.8"
+__author__    = "Nigel Small <nigel@nigelsmall.name>"
+__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
+__license__   = "Apache License, Version 2.0"
 
 
 import rest
