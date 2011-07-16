@@ -60,7 +60,13 @@ class Resource(object):
 	def __repr__(self):
 		return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
 
-	def _get_request_headers(self, *keys):
+	def __eq__(self, other):
+		return self._uri == other._uri
+
+	def __ne__(self, other):
+		return self._uri != other._uri
+
+	def __get_request_headers(self, *keys):
 		return dict([
 			(key, self._content_type)
 			for key in keys
@@ -83,7 +89,7 @@ class Resource(object):
 		
 		"""
 		try:
-			(response, content) = self._http.request(uri, 'GET', None, self._get_request_headers('Accept'))
+			(response, content) = self._http.request(uri, 'GET', None, self.__get_request_headers('Accept'))
 		except:
 			raise IOError("Cannot GET resource");
 		if response.status == 200:
@@ -114,7 +120,7 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			(response, content) = self._http.request(uri, 'POST', data, self._get_request_headers('Accept', 'Content-Type'))
+			(response, content) = self._http.request(uri, 'POST', data, self.__get_request_headers('Accept', 'Content-Type'))
 		except:
 			raise IOError("Cannot POST to resource");
 		if response.status == 200:
@@ -148,7 +154,7 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			(response, content) = self._http.request(uri, 'PUT', data, self._get_request_headers('Accept', 'Content-Type'))
+			(response, content) = self._http.request(uri, 'PUT', data, self.__get_request_headers('Accept', 'Content-Type'))
 		except:
 			raise IOError("Cannot PUT resource");
 		if response.status == 204:
@@ -175,7 +181,7 @@ class Resource(object):
 		
 		"""
 		try:
-			(response, content) = self._http.request(uri, 'DELETE', None, self._get_request_headers('Accept'))
+			(response, content) = self._http.request(uri, 'DELETE', None, self.__get_request_headers('Accept'))
 		except:
 			raise IOError("Cannot DELETE resource");
 		if response.status == 204:

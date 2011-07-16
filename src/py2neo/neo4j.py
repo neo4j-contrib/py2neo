@@ -94,40 +94,13 @@ class GraphDatabaseService(rest.Resource):
 		});
 
 
-class PropertyContainer(rest.Resource):
-
-	def __init__(self, uri, http=None):
-		rest.Resource.__init__(self, uri, http=http)
-
-	def set_properties(self, properties):
-		self._put(self._lookup('properties'), properties)
-
-	def get_properties(self):
-		return self._get(self._lookup('properties'))
-
-	def remove_properties(self):
-		self._delete(self._lookup('properties'))
-
-	def __setitem__(self, key, value):
-		self._put(self._lookup('property').format(key=key), value)
-
-	def __getitem__(self, key):
-		return self._get(self._lookup('property').format(key=key))
-
-	def __delitem__(self, key):
-		self._delete(self._lookup('property').format(key=key))
-
-
-class Node(PropertyContainer):
+class IndexableResource(rest.Resource):
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
-		PropertyContainer.__init__(self, uri, http=http)
+		rest.Resource.__init__(self, uri, http=http)
 		self._index_entry_uri = index_entry_uri
 		self._index_uri = index_uri
 		self._id = int('0' + uri.rpartition('/')[-1])
-
-	def __str__(self):
-		return "(%d)" % self._id
 
 	def __repr__(self):
 		if self._index_entry_uri is None:
@@ -135,8 +108,41 @@ class Node(PropertyContainer):
 		else:
 			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
 
+	def __eq__(self, other):
+		return self._uri == other._uri and self._index_entry_uri == other._index_entry_uri
+
+	def __ne__(self, other):
+		return self._uri != other._uri or self._index_entry_uri != other._index_entry_uri
+
+	def __getitem__(self, key):
+		return self._get(self._lookup('property').format(key=key))
+
+	def __setitem__(self, key, value):
+		self._put(self._lookup('property').format(key=key), value)
+
+	def __delitem__(self, key):
+		self._delete(self._lookup('property').format(key=key))
+
+	def get_properties(self):
+		return self._get(self._lookup('properties'))
+
+	def set_properties(self, properties):
+		self._put(self._lookup('properties'), properties)
+
+	def remove_properties(self):
+		self._delete(self._lookup('properties'))
+
 	def delete(self):
 		self._delete(self._lookup('self'))
+
+
+class Node(IndexableResource):
+
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
+
+	def __str__(self):
+		return "(%d)" % self._id
 
 	def create_relationship_to(self, other_node, type, data=None):
 		return Relationship(self._post(self._lookup('create_relationship'), {
@@ -172,27 +178,15 @@ class Node(PropertyContainer):
 		return Traverser(self._lookup('traverse').format(returnType='path'), http=self._http)
 
 
-class Relationship(PropertyContainer):
+class Relationship(IndexableResource):
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
-		PropertyContainer.__init__(self, uri, http=http)
-		self._index_entry_uri = index_entry_uri
-		self._index_uri = index_uri
-		self._id = int('0' + uri.rpartition('/')[-1])
+		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
 		self.type = self._lookup('type')
 		self.data = self._lookup('data')
 
 	def __str__(self):
 		return "-[:%s]->" % self.type
-
-	def __repr__(self):
-		if self._index_entry_uri is None:
-			return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
-		else:
-			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
-
-	def delete(self):
-		self._delete(self._lookup('self'))
 
 	def get_start_node(self):
 		return Node(self._lookup('start'), http=self._http)
@@ -246,9 +240,6 @@ class Index(rest.Resource):
 			repr(self._uri)
 		)
 
-	def _search(self, key, value):
-		return self._get(self._uri.format(key=key, value=value))
-
 	def add(self, entity, key, value):
 		return Node(self._post(self._uri.format(key=key, value=value), entity._uri))
 
@@ -266,7 +257,7 @@ class Index(rest.Resource):
 				index_uri=self._uri,
 				http=self._http
 			)
-			for item in self._search(key, value)
+			for item in self._get(self._uri.format(key=key, value=value))
 		]
 
 
