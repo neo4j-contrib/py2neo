@@ -1,11 +1,19 @@
 #!/usr/bin/env python
 
 """
-
 Generic REST client
+"""
 
----
 
+import httplib2
+import json
+
+
+__version__   = "0.8"
+__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
+__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
+__license__   = "Apache License, Version 2.0"
+"""
 Copyright 2011 Three Steps Beyond LLP
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,18 +27,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
 """
-
-
-import httplib2
-import json
-
-
-__version__   = "0.8"
-__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
-__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
-__license__   = "Apache License, Version 2.0"
 
 
 class Resource(object):
@@ -43,9 +40,9 @@ class Resource(object):
 
 	def __init__(self, uri, content_type='application/json', http=None):
 		"""
-		Creates a new Resource instance
+		Creates a representation of a web service resource identified by URI.
 		
-		@param uri:  the root URI for this resource
+		@param uri:  the URI identifying this resource
 		@param http: httplib2.Http() object to use for requests (optional)
 		
 		"""
@@ -58,19 +55,19 @@ class Resource(object):
 
 	def __repr__(self):
 		"""
-		Returns a valid Python representation of this object
+		Returns a valid Python representation of this object.
 		"""
 		return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
 
 	def __eq__(self, other):
 		"""
-		Determines equality of two objects based on URI
+		Determines equality of two objects based on URI.
 		"""
 		return self._uri == other._uri
 
 	def __ne__(self, other):
 		"""
-		Determines inequality of two objects based on URI
+		Determines inequality of two objects based on URI.
 		"""
 		return self._uri != other._uri
 
@@ -83,7 +80,7 @@ class Resource(object):
 
 	def _get(self, uri):
 		"""
-		Issues an HTTP GET request
+		Issues an HTTP GET request.
 		
 		@param uri: the URI of the resource to GET
 		@return: object created from returned content (200) or C{None} (204)
@@ -106,7 +103,7 @@ class Resource(object):
 
 	def _post(self, uri, data):
 		"""
-		Issues an HTTP POST request
+		Issues an HTTP POST request.
 		
 		@param uri: the URI of the resource to POST to
 		@param data: unserialised object to be converted to JSON and passed in request payload
@@ -136,7 +133,7 @@ class Resource(object):
 
 	def _put(self, uri, data):
 		"""
-		Issues an HTTP PUT request
+		Issues an HTTP PUT request.
 		
 		@param uri: the URI of the resource to PUT
 		@param data: unserialised object to be converted to JSON and passed in request payload
@@ -162,7 +159,7 @@ class Resource(object):
 
 	def _delete(self, uri):
 		"""
-		Issues an HTTP DELETE request
+		Issues an HTTP DELETE request.
 		
 		@param uri: the URI of the resource to PUT
 		@return: C{None} (204)
@@ -186,7 +183,7 @@ class Resource(object):
 	def _lookup(self, key):
 		"""
 		Looks up a value in the resource index by key; will lazily load
-		resource index if required
+		resource index if required.
 		"""
 		if(self._index == None):
 			self._index = self._get(self._uri)

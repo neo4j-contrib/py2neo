@@ -2,7 +2,9 @@ py2neo	py2neo-module.html
 py2neo.__package__	py2neo-module.html#__package__
 py2neo.neo4j	py2neo.neo4j-module.html
 py2neo.neo4j.__package__	py2neo.neo4j-module.html#__package__
+py2neo.neo4j.__license__	py2neo.neo4j-module.html#__license__
 py2neo.rest	py2neo.rest-module.html
+py2neo.rest.__license__	py2neo.rest-module.html#__license__
 py2neo.rest.__package__	py2neo.rest-module.html#__package__
 py2neo.neo4j.Direction	py2neo.neo4j.Direction-class.html
 py2neo.neo4j.Direction.BOTH	py2neo.neo4j.Direction-class.html#BOTH
@@ -112,9 +114,6 @@ py2neo.rest.Resource._put	py2neo.rest.Resource-class.html#_put
 py2neo.neo4j.IndexableResource.set_properties	py2neo.neo4j.IndexableResource-class.html#set_properties
 py2neo.neo4j.IndexableResource.__repr__	py2neo.neo4j.IndexableResource-class.html#__repr__
 py2neo.neo4j.IndexableResource.delete	py2neo.neo4j.IndexableResource-class.html#delete
-py2neo.neo4j.ReturnFilter	py2neo.neo4j.ReturnFilter-class.html
-py2neo.neo4j.ReturnFilter.ALL	py2neo.neo4j.ReturnFilter-class.html#ALL
-py2neo.neo4j.ReturnFilter.ALL_BUT_START_NODE	py2neo.neo4j.ReturnFilter-class.html#ALL_BUT_START_NODE
 py2neo.neo4j.Traverser	py2neo.neo4j.Traverser-class.html
 py2neo.neo4j.Traverser.traverse	py2neo.neo4j.Traverser-class.html#traverse
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post

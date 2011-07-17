@@ -1,11 +1,18 @@
 #!/usr/bin/env python
 
 """
-
 Neo4j client using REST interface
+"""
 
----
 
+import rest
+
+
+__version__   = "0.8"
+__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
+__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
+__license__   = "Apache License, Version 2.0"
+"""
 Copyright 2011 Three Steps Beyond LLP
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,32 +26,27 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
 """
-
-__version__   = "0.8"
-__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
-__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
-__license__   = "Apache License, Version 2.0"
-
-
-import rest
 
 
 class Direction(object):
+	"""
+	Used to define the direction of a C{Relationship}.
+	"""
 
 	BOTH     = 'all'
 	INCOMING = 'incoming'
 	OUTGOING = 'outgoing'
 
 
-class ReturnFilter(object):
-
-	ALL                = 'all'
-	ALL_BUT_START_NODE = 'all_but_start_node'
-
-
 class GraphDatabaseService(rest.Resource):
+	"""
+	Represents an instance of a U{Neo4j <http://neo4j.org/>} database
+	identified by its base URI. Generally speaking, this is the only URI which
+	a system attaching to this service should need to be aware of; all further
+	entity URIs will be discovered automatically from within response content
+	(see U{Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>}).
+	"""
 
 	def __init__(self, uri, http=None):
 		rest.Resource.__init__(self, uri, http=http)
@@ -94,8 +96,27 @@ class GraphDatabaseService(rest.Resource):
 
 
 class IndexableResource(rest.Resource):
+	"""
+	Base class from which C{Node} and C{Relationship} classes inherit.
+	Extends a C{rest.Resource} by allowing additional URIs to be stored which
+	represent both an C{Index} and the entry within that C{Index} which points
+	to this resource. Additionally, provides property containment
+	functionality.
+	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+		"""
+		Creates a representation of an indexable resource (C{Node} or
+		C{Relationship}) identified by URI; optionally accepts further URIs
+		representing both an C{Index} for this resource type plus the specific
+		entry within that C{Index}.
+		
+		@param uri:  the URI identifying this resource
+		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this resource (optional)
+		@param index_uri:  the URI of the C{Index} containing the above entry (optional)
+		@param http: httplib2.Http() object to use for requests (optional)
+		
+		"""
 		rest.Resource.__init__(self, uri, http=http)
 		self._index_entry_uri = index_entry_uri
 		self._index_uri = index_uri
@@ -136,6 +157,12 @@ class IndexableResource(rest.Resource):
 
 
 class Node(IndexableResource):
+	"""
+	Represents a C{Node} within a U{Neo4j <http://neo4j.org/>} database instance
+	identified by a URI. This class is a subclass of C{IndexableResource} and,
+	as such, may also contain URIs identifying how this C{Node} is represented
+	within an C{Index}.
+	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
@@ -178,6 +205,12 @@ class Node(IndexableResource):
 
 
 class Relationship(IndexableResource):
+	"""
+	Represents a C{Relationship} within a U{Neo4j <http://neo4j.org/>} database
+	instance identified by a URI. This class is a subclass of
+	C{IndexableResource} and, as such, may also contain URIs identifying how
+	this C{Relationship} is represented within an C{Index}.
+	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)

@@ -72,6 +72,12 @@
 </dd></dl>
 
 <hr />
+<p>Base class from which <code>Node</code> and <code>Relationship</code> 
+  classes inherit. Extends a <code>rest.Resource</code> by allowing 
+  additional URIs to be stored which represent both an <code>Index</code> 
+  and the entry within that <code>Index</code> which points to this 
+  resource. Additionally, provides property containment functionality.</p>
+
 <!-- ==================== INSTANCE METHODS ==================== -->
 <a name="section-InstanceMethods"></a>
 <table class="summary" border="1" cellpadding="3"
@@ -100,7 +106,10 @@
         <span class="summary-sig-arg">index_entry_uri</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">index_uri</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>)</span><br />
-      Creates a new Resource instance</td>
+      Creates a representation of an indexable resource (<code>Node</code> 
+      or <code>Relationship</code>) identified by URI; optionally accepts 
+      further URIs representing both an <code>Index</code> for this 
+      resource type plus the specific entry within that <code>Index</code>.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__init__">source&nbsp;code</a></span>
             
@@ -117,7 +126,7 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.IndexableResource-class.html#__repr__" class="summary-sig-name">__repr__</a>(<span class="summary-sig-arg">self</span>)</span><br />
-      Returns a valid Python representation of this object</td>
+      Returns a valid Python representation of this object.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__repr__">source&nbsp;code</a></span>
             
@@ -135,7 +144,7 @@
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.IndexableResource-class.html#__eq__" class="summary-sig-name">__eq__</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines equality of two objects based on URI</td>
+      Determines equality of two objects based on URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__eq__">source&nbsp;code</a></span>
             
@@ -153,7 +162,7 @@
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.IndexableResource-class.html#__ne__" class="summary-sig-name">__ne__</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines inequality of two objects based on URI</td>
+      Determines inequality of two objects based on URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__ne__">source&nbsp;code</a></span>
             
@@ -392,16 +401,22 @@
     </td>
   </tr></table>
   
-  <p>Creates a new Resource instance</p>
+  <p>Creates a representation of an indexable resource (<code>Node</code> 
+  or <code>Relationship</code>) identified by URI; optionally accepts 
+  further URIs representing both an <code>Index</code> for this resource 
+  type plus the specific entry within that <code>Index</code>.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
-        <li><strong class="pname"><code>uri</code></strong> - the root URI for this resource</li>
+        <li><strong class="pname"><code>uri</code></strong> - the URI identifying this resource</li>
+        <li><strong class="pname"><code>index_entry_uri</code></strong> - the URI of the entry in an <code>Index</code> pointing to this 
+          resource (optional)</li>
+        <li><strong class="pname"><code>index_uri</code></strong> - the URI of the <code>Index</code> containing the above entry 
+          (optional)</li>
         <li><strong class="pname"><code>http</code></strong> - httplib2.Http() object to use for requests (optional)</li>
     </ul></dd>
     <dt>Overrides:
         object.__init__
-        <dd><em class="note">(inherited documentation)</em></dd>
     </dt>
   </dl>
 </td></tr></table>
@@ -421,7 +436,7 @@
     </td>
   </tr></table>
   
-  <p>Returns a valid Python representation of this object</p>
+  <p>Returns a valid Python representation of this object.</p>
   <dl class="fields">
     <dt>Overrides:
         object.__repr__
@@ -446,7 +461,7 @@
     </td>
   </tr></table>
   
-  <p>Determines equality of two objects based on URI</p>
+  <p>Determines equality of two objects based on URI.</p>
   <dl class="fields">
     <dt>Overrides:
         <a href="py2neo.rest.Resource-class.html#__eq__">rest.Resource.__eq__</a>
@@ -470,7 +485,7 @@
     </td>
   </tr></table>
   
-  <p>Determines inequality of two objects based on URI</p>
+  <p>Determines inequality of two objects based on URI.</p>
   <dl class="fields">
     <dt>Overrides:
         <a href="py2neo.rest.Resource-class.html#__ne__">rest.Resource.__ne__</a>
@@ -506,7 +521,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Sat Jul 16 18:01:00 2011
+    Generated by Epydoc 3.0.1 on Sun Jul 17 16:41:10 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

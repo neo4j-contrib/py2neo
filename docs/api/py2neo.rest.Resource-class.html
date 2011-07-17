@@ -100,7 +100,7 @@ object --+
         <span class="summary-sig-arg">uri</span>,
         <span class="summary-sig-arg">content_type</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">application/json</code><code class="variable-quote">'</code></span>,
         <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>)</span><br />
-      Creates a new Resource instance</td>
+      Creates a representation of a web service resource identified by URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource.__init__">source&nbsp;code</a></span>
             
@@ -117,7 +117,7 @@ object --+
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a href="py2neo.rest.Resource-class.html#__repr__" class="summary-sig-name">__repr__</a>(<span class="summary-sig-arg">self</span>)</span><br />
-      Returns a valid Python representation of this object</td>
+      Returns a valid Python representation of this object.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource.__repr__">source&nbsp;code</a></span>
             
@@ -135,7 +135,7 @@ object --+
         <tr>
           <td><span class="summary-sig"><a name="__eq__"></a><span class="summary-sig-name">__eq__</span>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines equality of two objects based on URI</td>
+      Determines equality of two objects based on URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource.__eq__">source&nbsp;code</a></span>
             
@@ -153,7 +153,7 @@ object --+
         <tr>
           <td><span class="summary-sig"><a name="__ne__"></a><span class="summary-sig-name">__ne__</span>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines inequality of two objects based on URI</td>
+      Determines inequality of two objects based on URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource.__ne__">source&nbsp;code</a></span>
             
@@ -188,7 +188,7 @@ object --+
         <tr>
           <td><span class="summary-sig"><a href="py2neo.rest.Resource-class.html#_get" class="summary-sig-name" onclick="show_private();">_get</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">uri</span>)</span><br />
-      Issues an HTTP GET request</td>
+      Issues an HTTP GET request.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource._get">source&nbsp;code</a></span>
             
@@ -207,7 +207,7 @@ object --+
           <td><span class="summary-sig"><a href="py2neo.rest.Resource-class.html#_post" class="summary-sig-name" onclick="show_private();">_post</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">uri</span>,
         <span class="summary-sig-arg">data</span>)</span><br />
-      Issues an HTTP POST request</td>
+      Issues an HTTP POST request.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource._post">source&nbsp;code</a></span>
             
@@ -226,7 +226,7 @@ object --+
           <td><span class="summary-sig"><a href="py2neo.rest.Resource-class.html#_put" class="summary-sig-name" onclick="show_private();">_put</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">uri</span>,
         <span class="summary-sig-arg">data</span>)</span><br />
-      Issues an HTTP PUT request</td>
+      Issues an HTTP PUT request.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource._put">source&nbsp;code</a></span>
             
@@ -244,7 +244,7 @@ object --+
         <tr>
           <td><span class="summary-sig"><a href="py2neo.rest.Resource-class.html#_delete" class="summary-sig-name" onclick="show_private();">_delete</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">uri</span>)</span><br />
-      Issues an HTTP DELETE request</td>
+      Issues an HTTP DELETE request.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource._delete">source&nbsp;code</a></span>
             
@@ -263,7 +263,7 @@ object --+
           <td><span class="summary-sig"><a name="_lookup"></a><span class="summary-sig-name">_lookup</span>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">key</span>)</span><br />
       Looks up a value in the resource index by key; will lazily load 
-      resource index if required</td>
+      resource index if required.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.rest-pysrc.html#Resource._lookup">source&nbsp;code</a></span>
             
@@ -377,11 +377,12 @@ object --+
     </td>
   </tr></table>
   
-  <p>Creates a new Resource instance</p>
+  <p>Creates a representation of a web service resource identified by 
+  URI.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
-        <li><strong class="pname"><code>uri</code></strong> - the root URI for this resource</li>
+        <li><strong class="pname"><code>uri</code></strong> - the URI identifying this resource</li>
         <li><strong class="pname"><code>http</code></strong> - httplib2.Http() object to use for requests (optional)</li>
     </ul></dd>
     <dt>Overrides:
@@ -405,7 +406,7 @@ object --+
     </td>
   </tr></table>
   
-  <p>Returns a valid Python representation of this object</p>
+  <p>Returns a valid Python representation of this object.</p>
   <dl class="fields">
     <dt>Overrides:
         object.__repr__
@@ -428,7 +429,7 @@ object --+
     </td>
   </tr></table>
   
-  <p>Issues an HTTP GET request</p>
+  <p>Issues an HTTP GET request.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
@@ -461,7 +462,7 @@ object --+
     </td>
   </tr></table>
   
-  <p>Issues an HTTP POST request</p>
+  <p>Issues an HTTP POST request.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
@@ -497,7 +498,7 @@ object --+
     </td>
   </tr></table>
   
-  <p>Issues an HTTP PUT request</p>
+  <p>Issues an HTTP PUT request.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
@@ -531,7 +532,7 @@ object --+
     </td>
   </tr></table>
   
-  <p>Issues an HTTP DELETE request</p>
+  <p>Issues an HTTP DELETE request.</p>
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
@@ -574,7 +575,7 @@ object --+
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Sat Jul 16 18:01:01 2011
+    Generated by Epydoc 3.0.1 on Sun Jul 17 16:41:10 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"
