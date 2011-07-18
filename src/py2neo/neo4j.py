@@ -46,6 +46,15 @@ class GraphDatabaseService(rest.Resource):
 	a system attaching to this service should need to be aware of; all further
 	entity URIs will be discovered automatically from within response content
 	(see U{Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>}).
+	
+	The following code illustrates how to attach to a database and obtain its
+	reference node:
+	
+		>>> from py2neo import neo4j
+		>>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+		>>> gdb.get_reference_node()
+		Node(u'http://localhost:7474/db/data/node/0')
+	
 	"""
 
 	def __init__(self, uri, http=None):
@@ -228,17 +237,33 @@ class Relationship(IndexableResource):
 
 
 class Path(object):
+	"""
+	A string of C{Node}s connected by C{Relationships}. A list of C{Path}s
+	may be obtained as the result of a traversal:
+	
+		>>> from py2neo import neo4j
+		>>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+		>>> ref_node = gdb.get_reference_node()
+		>>> t = ref_node.get_traverser()
+		>>> t.set_max_depth(3)
+		>>> for path in t.traverse_depth_first():
+		... 	print path
+		(0)-[:CUSTOMERS]->(1)
+		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(42)
+		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(43)
+		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(44)
+	
+	"""
 
 	def __init__(self, nodes, relationships):
 		self._nodes = nodes
 		self._relationships = relationships
 
 	def __str__(self):
-		s = ""
-		for i in range(len(self._relationships)):
-			s += str(self._nodes[i]) + str(self._relationships[i])
-		s += str(self._nodes[-1])
-		return s
+		return "".join([
+			str(self._nodes[i]) + str(self._relationships[i])
+			for i in range(len(self._relationships))
+		]) + str(self._nodes[-1])
 
 	def __len__(self):
 		return len(self._relationships)
@@ -260,6 +285,17 @@ class Path(object):
 
 
 class Index(rest.Resource):
+	"""
+	Represents an C{Index} within a U{Neo4j <http://neo4j.org/>} database
+	instance identified by a template URI. Borrowing generics from Java, an
+	C{Index} instance may hold either C{Node}s or C{Relationship}s by
+	supplying the appropriate class directly to the constructor. For example:
+	
+		>>> from py2neo import neo4j
+		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1/{key}/{value}")
+		Index<Node>(u'http://localhost:7474/db/data/index/node/index1/{key}/{value}')
+	
+	"""
 
 	def __init__(self, T, uri, http=None):
 		rest.Resource.__init__(self, uri, http=http)
@@ -272,14 +308,14 @@ class Index(rest.Resource):
 			repr(self._uri)
 		)
 
-	def add(self, entity, key, value):
-		return Node(self._post(self._uri.format(key=key, value=value), entity._uri))
+	def add(self, indexable_resource, key, value):
+		return Node(self._post(self._uri.format(key=key, value=value), indexable_resource._uri))
 
-	def remove(self, entity):
-		if entity._index_uri == self._uri and entity._index_entry_uri is not None:
-			self._delete(entity._index_entry_uri)
+	def remove(self, indexable_resource):
+		if indexable_resource._index_uri == self._uri and indexable_resource._index_entry_uri is not None:
+			self._delete(indexable_resource._index_entry_uri)
 		else:
-			raise LookupError(entity)
+			raise LookupError(indexable_resource)
 
 	def search(self, key, value):
 		return [
@@ -294,6 +330,11 @@ class Index(rest.Resource):
 
 
 class Traverser(rest.Resource):
+	"""
+	An engine designed to traverse a U{Neo4j <http://neo4j.org/>} database
+	starting at a specific C{Node}. Allows traversal parameters to be set
+	before calling one of the supplied traversal routines.
+	"""
 
 	class Order:
 
