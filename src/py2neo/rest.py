@@ -40,10 +40,10 @@ class Resource(object):
 
 	def __init__(self, uri, content_type='application/json', http=None):
 		"""
-		Creates a representation of a web service resource identified by URI.
+		Creates a representation of a RESTful web service resource identified by URI.
 		
 		@param uri:  the URI identifying this resource
-		@param http: httplib2.Http() object to use for requests (optional)
+		@param http: httplib2.Http object to use for requests (optional)
 		
 		"""
 		if content_type not in self.SUPPORTED_CONTENT_TYPES:

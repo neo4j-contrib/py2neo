@@ -58,19 +58,46 @@ class GraphDatabaseService(rest.Resource):
 	"""
 
 	def __init__(self, uri, http=None):
+		"""
+		Creates a representation of a U{Neo4j <http://neo4j.org/>} database
+		instance identified by URI.
+		
+		@param uri:  the base URI of the database
+		@param http: httplib2.Http object to use for requests (optional)
+		
+		"""
 		rest.Resource.__init__(self, uri, http=http)
 		self._extensions = self._lookup('extensions')
 
 	def create_node(self, properties=None):
+		"""
+		Creates a new C{Node} within the database instance with specific
+		properties, if supplied.
+		
+		@param properties: a dictionary of properties to attach to this C{Node} (optional)
+		
+		"""
 		return Node(self._post(self._lookup('node'), properties), http=self._http)
 
 	def get_reference_node(self):
+		"""
+		Returns a C{Node} object representing the reference node for this
+		database instance.
+		"""
 		return Node(self._lookup('reference_node'), http=self._http)
 
 	def get_relationship_types(self):
+		"""
+		Returns a list of C{Relationship} names currently defined within this
+		database instance.
+		"""
 		return self._get(self._lookup('relationship_types'))
 
 	def get_node_indexes(self):
+		"""
+		Returns a list of all available C{Index} objects used for indexing
+		C{Node}s within this database instance.
+		"""
 		indexes = self._get(self._lookup('node_index'))
 		return dict([
 			(index, Index(Node, indexes[index]['template'], http=self._http))
@@ -78,6 +105,10 @@ class GraphDatabaseService(rest.Resource):
 		])
 
 	def get_relationship_indexes(self):
+		"""
+		Returns a list of all available C{Index} objects used for indexing
+		C{Relationship}s within this database instance.
+		"""
 		indexes = self._get(self._lookup('relationship_index'))
 		return dict([
 			(index, Index(Relationship, indexes[index]['template'], http=self._http))
@@ -123,7 +154,7 @@ class IndexableResource(rest.Resource):
 		@param uri:  the URI identifying this resource
 		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this resource (optional)
 		@param index_uri:  the URI of the C{Index} containing the above entry (optional)
-		@param http: httplib2.Http() object to use for requests (optional)
+		@param http: httplib2.Http object to use for requests (optional)
 		
 		"""
 		rest.Resource.__init__(self, uri, http=http)
@@ -138,9 +169,17 @@ class IndexableResource(rest.Resource):
 			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
 
 	def __eq__(self, other):
+		"""
+		Determines equality of two objects based on both URI and C{Index}
+		entry URI, if available.
+		"""
 		return self._uri == other._uri and self._index_entry_uri == other._index_entry_uri
 
 	def __ne__(self, other):
+		"""
+		Determines inequality of two objects based on both URI and C{Index}
+		entry URI, if available.
+		"""
 		return self._uri != other._uri or self._index_entry_uri != other._index_entry_uri
 
 	def __getitem__(self, key):
@@ -174,9 +213,28 @@ class Node(IndexableResource):
 	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+		"""
+		Creates a representation of a C{Node} identified by URI; optionally
+		accepts further URIs representing both an C{Index} for C{Node}s plus
+		the specific entry within that C{Index}.
+		
+		@param uri:  the URI identifying this C{Node}
+		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this C{Node} (optional)
+		@param index_uri:  the URI of the C{Index} containing the above C{Node} entry (optional)
+		@param http: httplib2.Http object to use for requests (optional)
+		
+		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
 
 	def __str__(self):
+		"""
+		Returns a human-readable string representation of this C{Node}
+		object, e.g.:
+		
+			>>> print str(my_node)
+			'(42)'
+		
+		"""
 		return "(%d)" % self._id
 
 	def create_relationship_to(self, other_node, type, data=None):
@@ -222,17 +280,44 @@ class Relationship(IndexableResource):
 	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+		"""
+		Creates a representation of a C{Relationship} identified by URI;
+		optionally accepts further URIs representing both an C{Index} for
+		C{Relationship}s plus the specific entry within that C{Index}.
+		
+		@param uri:  the URI identifying this C{Relationship}
+		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this C{Relationship} (optional)
+		@param index_uri:  the URI of the C{Index} containing the above C{Relationship} entry (optional)
+		@param http: httplib2.Http object to use for requests (optional)
+		
+		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
 		self.type = self._lookup('type')
 		self.data = self._lookup('data')
 
 	def __str__(self):
+		"""
+		Returns a human-readable string representation of this C{Relationship}
+		object, e.g.:
+		
+			>>> print str(my_rel)
+			'-[:KNOWS]->'
+		
+		"""
 		return "-[:%s]->" % self.type
 
 	def get_start_node(self):
+		"""
+		Returns a C{Node} object representing the start node within this
+		C{Relationship}.
+		"""
 		return Node(self._lookup('start'), http=self._http)
 
 	def get_end_node(self):
+		"""
+		Returns a C{Node} object representing the end node within this
+		C{Relationship}.
+		"""
 		return Node(self._lookup('end'), http=self._http)
 
 
@@ -260,6 +345,14 @@ class Path(object):
 		self._relationships = relationships
 
 	def __str__(self):
+		"""
+		Returns a human-readable string representation of this C{Path}
+		object, e.g.:
+		
+			>>> print str(my_path)
+			'(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(42)'
+		
+		"""
 		return "".join([
 			str(self._nodes[i]) + str(self._relationships[i])
 			for i in range(len(self._relationships))
