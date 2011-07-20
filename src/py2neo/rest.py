@@ -89,17 +89,17 @@ class Resource(object):
 		
 		"""
 		try:
-			(response, content) = self._http.request(uri, 'GET', None, self.__get_request_headers('Accept'))
+			self.__response, content = self._http.request(uri, 'GET', None, self.__get_request_headers('Accept'))
 		except:
 			raise IOError("Cannot GET resource");
-		if response.status == 200:
+		if self.__response.status == 200:
 			return json.loads(content)
-		elif response.status == 204:
+		elif self.__response.status == 204:
 			return None
-		elif response.status == 404:
+		elif self.__response.status == 404:
 			raise LookupError(uri)
 		else:
-			raise SystemError(response)
+			raise SystemError(self.__response)
 
 	def _post(self, uri, data):
 		"""
@@ -115,21 +115,21 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			(response, content) = self._http.request(uri, 'POST', data, self.__get_request_headers('Accept', 'Content-Type'))
+			self.__response, content = self._http.request(uri, 'POST', data, self.__get_request_headers('Accept', 'Content-Type'))
 		except:
 			raise IOError("Cannot POST to resource");
-		if response.status == 200:
+		if self.__response.status == 200:
 			return json.loads(content)
-		elif response.status == 201:
-			return response['location']
-		elif response.status == 204:
+		elif self.__response.status == 201:
+			return self.__response['location']
+		elif self.__response.status == 204:
 			return None
-		elif response.status == 400:
+		elif self.__response.status == 400:
 			raise ValueError(data)
-		elif response.status == 404:
+		elif self.__response.status == 404:
 			raise LookupError(uri)
 		else:
-			raise SystemError(response)
+			raise SystemError(self.__response)
 
 	def _put(self, uri, data):
 		"""
@@ -145,17 +145,17 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			(response, content) = self._http.request(uri, 'PUT', data, self.__get_request_headers('Accept', 'Content-Type'))
+			self.__response, content = self._http.request(uri, 'PUT', data, self.__get_request_headers('Accept', 'Content-Type'))
 		except:
 			raise IOError("Cannot PUT resource");
-		if response.status == 204:
+		if self.__response.status == 204:
 			return None
-		elif response.status == 400:
+		elif self.__response.status == 400:
 			raise ValueError(data)
-		elif response.status == 404:
+		elif self.__response.status == 404:
 			raise LookupError(uri)
 		else:
-			raise SystemError(response)
+			raise SystemError(self.__response)
 
 	def _delete(self, uri):
 		"""
@@ -168,25 +168,31 @@ class Resource(object):
 		
 		"""
 		try:
-			(response, content) = self._http.request(uri, 'DELETE', None, self.__get_request_headers('Accept'))
+			self.__response, content = self._http.request(uri, 'DELETE', None, self.__get_request_headers('Accept'))
 		except:
 			raise IOError("Cannot DELETE resource");
-		if response.status == 204:
+		if self.__response.status == 204:
 			None
-		elif response.status == 404:
+		elif self.__response.status == 404:
 			raise LookupError(uri)
-		elif response.status == 409:
+		elif self.__response.status == 409:
 			raise SystemError(uri)
 		else:
-			raise SystemError(response)
+			raise SystemError(self.__response)
 
 	def _lookup(self, key):
 		"""
 		Looks up a value in the resource index by key; will lazily load
-		resource index if required.
+		resource index if required and auto-correct URI from Content-Location
+		header.
+		
+		@param key: the key of the value to look up in the resource index
+		
 		"""
 		if(self._index == None):
 			self._index = self._get(self._uri)
+			if self.__response and 'content-location' in self.__response:
+				self._uri = self.__response['content-location']
 		if key in self._index:
 			return self._index[key]
 		else:
