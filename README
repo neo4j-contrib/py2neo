@@ -17,13 +17,14 @@ main website (http://py2neo.org/) for API documentation.
 
 ---
 
-import py2neo as neo
+from py2neo import neo4j
 
-gdb = neo.GraphDatabaseService("http://localhost:7474/db/data")
+gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
 ref_node = gdb.get_reference_node()
-traverser = ref_node.get_node_traverser()
-for node in traverser.traverse_depth_first():
-	print node
+t = ref_node.get_traverser()
+t.set_max_depth(3)
+for path in t.traverse_depth_first():
+	print path
 
 ---
 
