@@ -2,9 +2,7 @@ py2neo	py2neo-module.html
 py2neo.__package__	py2neo-module.html#__package__
 py2neo.neo4j	py2neo.neo4j-module.html
 py2neo.neo4j.__package__	py2neo.neo4j-module.html#__package__
-py2neo.neo4j.__license__	py2neo.neo4j-module.html#__license__
 py2neo.rest	py2neo.rest-module.html
-py2neo.rest.__license__	py2neo.rest-module.html#__license__
 py2neo.rest.__package__	py2neo.rest-module.html#__package__
 py2neo.neo4j.Direction	py2neo.neo4j.Direction-class.html
 py2neo.neo4j.Direction.BOTH	py2neo.neo4j.Direction-class.html#BOTH
