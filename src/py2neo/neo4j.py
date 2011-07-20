@@ -92,23 +92,49 @@ class GraphDatabaseService(rest.Resource):
 		"""
 		return self._get(self._lookup('relationship_types'))
 
+	def create_node_index(self, name, config=None):
+		"""
+		Creates a new C{Node} C{Index} with the supplied name and
+		configuration.
+		"""
+		if self._post(self._lookup('node_index'), {
+			'name': name,
+			'config': config or {}
+		}):
+			return Index(Node, self._get_last_content()['template'], self._http)
+		else:
+			return None
+
 	def get_node_indexes(self):
 		"""
-		Returns a list of all available C{Index} objects used for indexing
-		C{Node}s within this database instance.
+		Returns a dictionary of all available C{Node} C{Index}es within this
+		database instance.
 		"""
-		indexes = self._get(self._lookup('node_index'))
+		indexes = self._get(self._lookup('node_index')) or {}
 		return dict([
 			(index, Index(Node, indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
 
+	def create_relationship_index(self, name, config=None):
+		"""
+		Creates a new C{Relationship} C{Index} with the supplied name and
+		configuration.
+		"""
+		if self._post(self._lookup('relationship_index'), {
+			'name': name,
+			'config': config or {}
+		}):
+			return Index(Relationship, self._get_last_content()['template'], self._http)
+		else:
+			return None
+
 	def get_relationship_indexes(self):
 		"""
-		Returns a list of all available C{Index} objects used for indexing
-		C{Relationship}s within this database instance.
+		Returns a dictionary of all available C{Relationship} C{Index}es within
+		this database instance.
 		"""
-		indexes = self._get(self._lookup('relationship_index'))
+		indexes = self._get(self._lookup('relationship_index')) or {}
 		return dict([
 			(index, Index(Relationship, indexes[index]['template'], http=self._http))
 			for index in indexes

@@ -88,11 +88,14 @@ class Resource(object):
 		
 		"""
 		try:
-			self.__response, content = self._http.request(uri, 'GET', None, self.__get_request_headers('Accept'))
+			self.__response, self.__content = self._http.request(
+				uri, 'GET', None,
+				self.__get_request_headers('Accept')
+			)
 		except:
 			raise IOError("Cannot GET resource");
 		if self.__response.status == 200:
-			return json.loads(content)
+			return json.loads(self.__content)
 		elif self.__response.status == 204:
 			return None
 		elif self.__response.status == 404:
@@ -114,11 +117,14 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			self.__response, content = self._http.request(uri, 'POST', data, self.__get_request_headers('Accept', 'Content-Type'))
+			self.__response, self.__content = self._http.request(
+				uri, 'POST', data,
+				self.__get_request_headers('Accept', 'Content-Type')
+			)
 		except:
 			raise IOError("Cannot POST to resource");
 		if self.__response.status == 200:
-			return json.loads(content)
+			return json.loads(self.__content)
 		elif self.__response.status == 201:
 			return self.__response['location']
 		elif self.__response.status == 204:
@@ -144,7 +150,10 @@ class Resource(object):
 		"""
 		data = {} if data == None else json.dumps(data)
 		try:
-			self.__response, content = self._http.request(uri, 'PUT', data, self.__get_request_headers('Accept', 'Content-Type'))
+			self.__response, self.__content = self._http.request(
+				uri, 'PUT', data,
+				self.__get_request_headers('Accept', 'Content-Type')
+			)
 		except:
 			raise IOError("Cannot PUT resource");
 		if self.__response.status == 204:
@@ -167,7 +176,10 @@ class Resource(object):
 		
 		"""
 		try:
-			self.__response, content = self._http.request(uri, 'DELETE', None, self.__get_request_headers('Accept'))
+			self.__response, self.__content = self._http.request(
+				uri, 'DELETE', None,
+				self.__get_request_headers('Accept')
+			)
 		except:
 			raise IOError("Cannot DELETE resource");
 		if self.__response.status == 204:
@@ -197,4 +209,12 @@ class Resource(object):
 		else:
 			raise KeyError(key)
 
+	def _get_last_response(self):
+		return self.__response
+
+	def _get_last_content(self):
+		try:
+			return json.loads(self.__content)
+		except ValueError:
+			return self.__content
 
