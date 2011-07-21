@@ -264,7 +264,7 @@ class Node(IndexableResource):
 
 	def create_relationship_to(self, other_node, type, data=None):
 		return Relationship(self._post(self._lookup('create_relationship'), {
-			'to': str(other_node),
+			'to': other_node._uri,
 			'type': type,
 			'data': data
 		}), http=self._http)
