@@ -416,8 +416,8 @@ class Index(rest.Resource):
 	example:
 	
 		>>> from py2neo import neo4j
-		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1/{key}/{value}")
-		Index<Node>(u'http://localhost:7474/db/data/index/node/index1/{key}/{value}')
+		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1")
+		Index<Node>(u'http://localhost:7474/db/data/index/node/index1')
 	
 	"""
 
