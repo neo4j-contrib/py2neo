@@ -97,13 +97,10 @@ class GraphDatabaseService(rest.Resource):
 		Creates a new C{Node} C{Index} with the supplied name and
 		configuration.
 		"""
-		if self._post(self._lookup('node_index'), {
+		return Index(Node, uri=self._post(self._lookup('node_index'), {
 			'name': name,
 			'config': config or {}
-		}):
-			return Index(Node, self._get_last_content()['template'], self._http)
-		else:
-			return None
+		}), http=self._http)
 
 	def get_node_indexes(self):
 		"""
@@ -112,7 +109,7 @@ class GraphDatabaseService(rest.Resource):
 		"""
 		indexes = self._get(self._lookup('node_index')) or {}
 		return dict([
-			(index, Index(Node, indexes[index]['template'], http=self._http))
+			(index, Index(Node, template_uri=indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
 
@@ -121,13 +118,10 @@ class GraphDatabaseService(rest.Resource):
 		Creates a new C{Relationship} C{Index} with the supplied name and
 		configuration.
 		"""
-		if self._post(self._lookup('relationship_index'), {
+		return Index(Relationship, uri=self._post(self._lookup('relationship_index'), {
 			'name': name,
 			'config': config or {}
-		}):
-			return Index(Relationship, self._get_last_content()['template'], self._http)
-		else:
-			return None
+		}), http=self._http)
 
 	def get_relationship_indexes(self):
 		"""
@@ -136,7 +130,7 @@ class GraphDatabaseService(rest.Resource):
 		"""
 		indexes = self._get(self._lookup('relationship_index')) or {}
 		return dict([
-			(index, Index(Relationship, indexes[index]['template'], http=self._http))
+			(index, Index(Relationship, template_uri=indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
 
@@ -416,9 +410,10 @@ class Path(object):
 class Index(rest.Resource):
 	"""
 	Represents an C{Index} within a U{Neo4j <http://neo4j.org/>} database
-	instance identified by a template URI. Borrowing generics from Java, an
-	C{Index} instance may hold either C{Node}s or C{Relationship}s by
-	supplying the appropriate class directly to the constructor. For example:
+	instance identified by a URI and/or a template URI. With a nod to Java
+	generics, an C{Index} instance may hold either C{Node}s or C{Relationship}s
+	by supplying the appropriate class directly to the constructor. For
+	example:
 	
 		>>> from py2neo import neo4j
 		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1/{key}/{value}")
@@ -426,9 +421,14 @@ class Index(rest.Resource):
 	
 	"""
 
-	def __init__(self, T, uri, http=None):
-		rest.Resource.__init__(self, uri, http=http)
+	def __init__(self, T, uri=None, template_uri=None, http=None):
+		rest.Resource.__init__(
+			self,
+			uri or template_uri.rpartition("/{key}/{value}")[0],
+			http=http
+		)
 		self.__T = T
+		self._template_uri = template_uri or "%s/{key}/{value}" % uri
 
 	def __repr__(self):
 		return '%s<%s>(%s)' % (
@@ -438,7 +438,7 @@ class Index(rest.Resource):
 		)
 
 	def add(self, indexable_resource, key, value):
-		return Node(self._post(self._uri.format(key=key, value=value), indexable_resource._uri))
+		return Node(self._post(self._template_uri.format(key=key, value=value), indexable_resource._uri))
 
 	def remove(self, indexable_resource):
 		if indexable_resource._index_uri == self._uri and indexable_resource._index_entry_uri is not None:
@@ -454,7 +454,7 @@ class Index(rest.Resource):
 				index_uri=self._uri,
 				http=self._http
 			)
-			for item in self._get(self._uri.format(key=key, value=value))
+			for item in self._get(self._template_uri.format(key=key, value=value))
 		]
 
 

@@ -209,12 +209,3 @@ class Resource(object):
 		else:
 			raise KeyError(key)
 
-	def _get_last_response(self):
-		return self.__response
-
-	def _get_last_content(self):
-		try:
-			return json.loads(self.__content)
-		except ValueError:
-			return self.__content
-
