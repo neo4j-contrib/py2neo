@@ -143,7 +143,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="get_reference_node"></a><span class="summary-sig-name">get_reference_node</span>(<span class="summary-sig-arg">self</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_reference_node" class="summary-sig-name">get_reference_node</a>(<span class="summary-sig-arg">self</span>)</span><br />
       Returns a <code>Node</code> object representing the reference node 
       for this database instance.</td>
           <td align="right" valign="top">
@@ -161,7 +161,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="get_relationship_types"></a><span class="summary-sig-name">get_relationship_types</span>(<span class="summary-sig-arg">self</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_types" class="summary-sig-name">get_relationship_types</a>(<span class="summary-sig-arg">self</span>)</span><br />
       Returns a list of <code>Relationship</code> names currently defined 
       within this database instance.</td>
           <td align="right" valign="top">
@@ -179,7 +179,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="create_node_index"></a><span class="summary-sig-name">create_node_index</span>(<span class="summary-sig-arg">self</span>,
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#create_node_index" class="summary-sig-name">create_node_index</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">name</span>,
         <span class="summary-sig-arg">config</span>=<span class="summary-sig-default">None</span>)</span><br />
       Creates a new <code>Node</code> <code>Index</code> with the supplied 
@@ -199,7 +199,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="get_node_indexes"></a><span class="summary-sig-name">get_node_indexes</span>(<span class="summary-sig-arg">self</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_node_indexes" class="summary-sig-name">get_node_indexes</a>(<span class="summary-sig-arg">self</span>)</span><br />
       Returns a dictionary of all available <code>Node</code> 
       <code>Index</code>es within this database instance.</td>
           <td align="right" valign="top">
@@ -217,7 +217,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="create_relationship_index"></a><span class="summary-sig-name">create_relationship_index</span>(<span class="summary-sig-arg">self</span>,
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#create_relationship_index" class="summary-sig-name">create_relationship_index</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">name</span>,
         <span class="summary-sig-arg">config</span>=<span class="summary-sig-default">None</span>)</span><br />
       Creates a new <code>Relationship</code> <code>Index</code> with the 
@@ -237,7 +237,7 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="get_relationship_indexes"></a><span class="summary-sig-name">get_relationship_indexes</span>(<span class="summary-sig-arg">self</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_indexes" class="summary-sig-name">get_relationship_indexes</a>(<span class="summary-sig-arg">self</span>)</span><br />
       Returns a dictionary of all available <code>Relationship</code> 
       <code>Index</code>es within this database instance.</td>
           <td align="right" valign="top">
@@ -255,10 +255,12 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="execute"></a><span class="summary-sig-name">execute</span>(<span class="summary-sig-arg">self</span>,
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#execute" class="summary-sig-name">execute</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">plugin_name</span>,
         <span class="summary-sig-arg">function_name</span>,
-        <span class="summary-sig-arg">data</span>)</span></td>
+        <span class="summary-sig-arg">data</span>)</span><br />
+      Executes a POST request against the specified plugin function using 
+      the supplied data.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute">source&nbsp;code</a></span>
             
@@ -274,8 +276,9 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="execute_cypher_query"></a><span class="summary-sig-name">execute_cypher_query</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">query</span>)</span></td>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#execute_cypher_query" class="summary-sig-name">execute_cypher_query</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">query</span>)</span><br />
+      Executes the supplied query using the CypherPlugin, if available.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute_cypher_query">source&nbsp;code</a></span>
             
@@ -291,8 +294,9 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="execute_gremlin_script"></a><span class="summary-sig-name">execute_gremlin_script</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">script</span>)</span></td>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#execute_gremlin_script" class="summary-sig-name">execute_gremlin_script</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">script</span>)</span><br />
+      Executes the supplied script using the GremlinPlugin, if available.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute_gremlin_script">source&nbsp;code</a></span>
             
@@ -454,6 +458,245 @@
         <li><strong class="pname"><code>properties</code></strong> - a dictionary of properties to attach to this <code>Node</code> 
           (optional)</li>
     </ul></dd>
+    <dt>Returns:</dt>
+        <dd>a <code>Node</code> instance representing the newly created node</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_reference_node"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_reference_node</span>(<span class="sig-arg">self</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_reference_node">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns a <code>Node</code> object representing the reference node for
+  this database instance.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>a <code>Node</code> instance representing the database reference 
+          node</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_relationship_types"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_relationship_types</span>(<span class="sig-arg">self</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_relationship_types">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns a list of <code>Relationship</code> names currently defined 
+  within this database instance.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>a list of <code>Relationship</code> names</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="create_node_index"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">create_node_index</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">name</span>,
+        <span class="sig-arg">config</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.create_node_index">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Creates a new <code>Node</code> <code>Index</code> with the supplied 
+  name and configuration.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>an <code>Index</code> instance representing the newly created 
+          index</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_node_indexes"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_node_indexes</span>(<span class="sig-arg">self</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_node_indexes">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns a dictionary of all available <code>Node</code> 
+  <code>Index</code>es within this database instance.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>a dictionary of Name : <code>Index</code> mappings for all 
+          <code>Node</code> <code>Index</code>es</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="create_relationship_index"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">create_relationship_index</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">name</span>,
+        <span class="sig-arg">config</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.create_relationship_index">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Creates a new <code>Relationship</code> <code>Index</code> with the 
+  supplied name and configuration.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>an <code>Index</code> instance representing the newly created 
+          index</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_relationship_indexes"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_relationship_indexes</span>(<span class="sig-arg">self</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_relationship_indexes">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns a dictionary of all available <code>Relationship</code> 
+  <code>Index</code>es within this database instance.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>a dictionary of Name : <code>Index</code> mappings for all 
+          <code>Relationship</code> <code>Index</code>es</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="execute"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">plugin_name</span>,
+        <span class="sig-arg">function_name</span>,
+        <span class="sig-arg">data</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Executes a POST request against the specified plugin function using 
+  the supplied data.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>plugin_name</code></strong> - the name of the plugin to call</li>
+        <li><strong class="pname"><code>function_name</code></strong> - the name of the function to call within in the specified plugin</li>
+        <li><strong class="pname"><code>data</code></strong> - the data to pass to the function call</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>the data returned from the function call</dd>
+    <dt>Raises:</dt>
+    <dd><ul class="nomargin-top">
+        <li><code><strong class='fraise'>NotImplementedError</strong></code> - when the specfifed plugin or function is not available</li>
+    </ul></dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="execute_cypher_query"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute_cypher_query</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">query</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute_cypher_query">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Executes the supplied query using the CypherPlugin, if available.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>query</code></strong> - a string containing the Cypher query to execute</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>the result of the Cypher query</dd>
+    <dt>Raises:</dt>
+    <dd><ul class="nomargin-top">
+        <li><code><strong class='fraise'>NotImplementedError</strong></code> - if the Cypher plugin is not available</li>
+    </ul></dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="execute_gremlin_script"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute_gremlin_script</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">script</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.execute_gremlin_script">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Executes the supplied script using the GremlinPlugin, if 
+  available.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>script</code></strong> - a string containing the Gremlin script to execute</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>the result of the Gremlin script</dd>
+    <dt>Raises:</dt>
+    <dd><ul class="nomargin-top">
+        <li><code><strong class='fraise'>NotImplementedError</strong></code> - if the Gremlin plugin is not available</li>
+    </ul></dd>
   </dl>
 </td></tr></table>
 </div>
@@ -484,7 +727,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu Jul 21 08:19:39 2011
+    Generated by Epydoc 3.0.1 on Mon Jul 25 08:17:02 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

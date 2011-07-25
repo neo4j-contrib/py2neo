@@ -144,8 +144,8 @@
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.IndexableResource-class.html#__eq__" class="summary-sig-name">__eq__</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines equality of two objects based on both URI and 
-      <code>Index</code> entry URI, if available.</td>
+      Determines equality of two resource representations based on both URI
+      and <code>Index</code> entry URI, if available.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__eq__">source&nbsp;code</a></span>
             
@@ -163,8 +163,8 @@
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.IndexableResource-class.html#__ne__" class="summary-sig-name">__ne__</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">other</span>)</span><br />
-      Determines inequality of two objects based on both URI and 
-      <code>Index</code> entry URI, if available.</td>
+      Determines inequality of two resource representations based on both 
+      URI and <code>Index</code> entry URI, if available.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__ne__">source&nbsp;code</a></span>
             
@@ -181,7 +181,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="__getitem__"></a><span class="summary-sig-name">__getitem__</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">key</span>)</span></td>
+        <span class="summary-sig-arg">key</span>)</span><br />
+      Returns a named property for this resource.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__getitem__">source&nbsp;code</a></span>
             
@@ -199,7 +200,8 @@
         <tr>
           <td><span class="summary-sig"><a name="__setitem__"></a><span class="summary-sig-name">__setitem__</span>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">key</span>,
-        <span class="summary-sig-arg">value</span>)</span></td>
+        <span class="summary-sig-arg">value</span>)</span><br />
+      Sets a named property for this resource to the supplied value.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__setitem__">source&nbsp;code</a></span>
             
@@ -216,7 +218,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="__delitem__"></a><span class="summary-sig-name">__delitem__</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">key</span>)</span></td>
+        <span class="summary-sig-arg">key</span>)</span><br />
+      Deletes a named property for this resource.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.__delitem__">source&nbsp;code</a></span>
             
@@ -232,7 +235,8 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="get_properties"></a><span class="summary-sig-name">get_properties</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td><span class="summary-sig"><a name="get_properties"></a><span class="summary-sig-name">get_properties</span>(<span class="summary-sig-arg">self</span>)</span><br />
+      Returns all properties for this resource.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.get_properties">source&nbsp;code</a></span>
             
@@ -249,7 +253,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="set_properties"></a><span class="summary-sig-name">set_properties</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">properties</span>)</span></td>
+        <span class="summary-sig-arg">properties</span>)</span><br />
+      Sets all properties for this resource to the supplied values.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.set_properties">source&nbsp;code</a></span>
             
@@ -265,7 +270,8 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="remove_properties"></a><span class="summary-sig-name">remove_properties</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td><span class="summary-sig"><a name="remove_properties"></a><span class="summary-sig-name">remove_properties</span>(<span class="summary-sig-arg">self</span>)</span><br />
+      Deletes all properties for this resource.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.remove_properties">source&nbsp;code</a></span>
             
@@ -281,7 +287,8 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="delete"></a><span class="summary-sig-name">delete</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td><span class="summary-sig"><a name="delete"></a><span class="summary-sig-name">delete</span>(<span class="summary-sig-arg">self</span>)</span><br />
+      Deletes this resource from the database instance.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#IndexableResource.delete">source&nbsp;code</a></span>
             
@@ -463,8 +470,8 @@
     </td>
   </tr></table>
   
-  <p>Determines equality of two objects based on both URI and 
-  <code>Index</code> entry URI, if available.</p>
+  <p>Determines equality of two resource representations based on both URI 
+  and <code>Index</code> entry URI, if available.</p>
   <dl class="fields">
     <dt>Overrides:
         <a href="py2neo.rest.Resource-class.html#__eq__">rest.Resource.__eq__</a>
@@ -487,8 +494,8 @@
     </td>
   </tr></table>
   
-  <p>Determines inequality of two objects based on both URI and 
-  <code>Index</code> entry URI, if available.</p>
+  <p>Determines inequality of two resource representations based on both 
+  URI and <code>Index</code> entry URI, if available.</p>
   <dl class="fields">
     <dt>Overrides:
         <a href="py2neo.rest.Resource-class.html#__ne__">rest.Resource.__ne__</a>
@@ -523,7 +530,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu Jul 21 08:19:39 2011
+    Generated by Epydoc 3.0.1 on Mon Jul 25 08:17:02 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"
