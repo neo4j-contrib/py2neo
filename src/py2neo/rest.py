@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2011 Three Steps Beyond LLP
+# Copyright 2011 Nigel Small
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import json
 
 
 __version__   = "0.8"
-__author__    = "Nigel Small <py2neo@3stepsbeyond.co.uk>"
-__copyright__ = "Copyright 2011 Three Steps Beyond LLP"
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
