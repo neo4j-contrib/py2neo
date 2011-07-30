@@ -18,9 +18,16 @@
 GEOFF file handling (see U{http://py2neo.org/geoff/}).
 """
 
+
 import json
 import neo4j
 import re
+
+
+__version__   = "0.8"
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
+__license__   = "Apache License, Version 2.0"
 
 
 DESCRIPTOR_PATTERN = re.compile(r"^(\((\w+)\)(-\[:(\w+)\]->\((\w+)\))?)(\s+(.*))?")
