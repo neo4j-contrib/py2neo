@@ -20,7 +20,6 @@ Neo4j client using REST interface
 
 
 import rest
-import warnings
 
 
 __version__   = "0.9"
