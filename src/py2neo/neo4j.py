@@ -433,6 +433,12 @@ class Node(IndexableResource):
 		"""
 		Returns a C{Traverser} instance for the current C{Node}.
 		
+			>>> t = t1.traverse(order="depth_first",
+			...                 max_depth=2,
+			...                 relationships=[("KNOWS","out"), "LOVES"],
+			...                 prune=("javascript", "position.endNode().getProperty('foo') == 'bar';")
+			... )
+		
 		@return: a C{Traverser} for this C{Node}
 		
 		"""
