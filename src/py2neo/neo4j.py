@@ -443,7 +443,10 @@ class Node(IndexableResource):
 			td = td.uniqueness(uniqueness)
 		if relationships:
 			for relationship in (relationships or []):
-				td = td.relationships(relationship)
+				if isinstance(relationship, (str,unicode)):
+					td = td.relationships(relationship)
+				else:
+					td = td.relationships(*relationship)
 		if prune:
 			td = td.prune(prune[0], prune[1])
 		if filter:
