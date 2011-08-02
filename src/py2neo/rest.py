@@ -23,7 +23,7 @@ import httplib2
 import json
 
 
-__version__   = "0.8"
+__version__   = "0.9"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"

@@ -15,15 +15,46 @@ Getting Started
 Currently, py2neo source code is only available from GitHub. Please see the
 main website (http://py2neo.org/) for API documentation.
 
+
+Version 0.9
+------------
+
+PLEASE NOTE THAT v0.9 IS NOT BACKWARD COMPATIBLE WITH v0.8.
+
+- Changes to method and property signatures to bring into line with Java API
+- Path class renamed and changed to use properties instead of methods
+- Traverser class completely rewritten and new TraversalDescription class
+- Updated README and example1.py with new sample code
+- Added method get_id to IndexableResource
+- Added methods get_type, is_type and get_nodes to Relationship class
+- Added get_single_* methods to Node class
+
+
 ---
+
+#!/usr/bin/env python
+
+"""
+Simple first example showing connection and traversal
+"""
+
+# Allow the import path to access neo4j modules
+import sys
+sys.path.append("../src") 
 
 from py2neo import neo4j
 
+# Attach to the graph db instance
 gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+
+# Obtain a link to the reference node of the db
 ref_node = gdb.get_reference_node()
-t = ref_node.get_traverser()
-t.set_max_depth(3)
-for path in t.traverse_depth_first():
+
+# Obtain a traverser instance relative to reference node
+traverser = ref_node.traverse(order="depth_first", max_depth=2)
+
+# Output all the paths from this traversal
+for path in traverser.paths:
 	print path
 
 ---

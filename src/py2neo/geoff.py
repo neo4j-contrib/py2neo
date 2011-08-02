@@ -24,13 +24,10 @@ import neo4j
 import re
 
 
-__version__   = "0.8"
+__version__   = "0.9"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
-
-
-DESCRIPTOR_PATTERN = re.compile(r"^(\((\w+)\)(-\[:(\w+)\]->\((\w+)\))?)(\s+(.*))?")
 
 
 class Dumper(object):
@@ -45,11 +42,11 @@ class Dumper(object):
 		for path in paths:
 			nodes.update(dict([
 				(node._id, node)
-				for node in path.get_nodes()
+				for node in path.nodes
 			]))
 			rels.update(dict([
 				(rel._id, rel)
-				for rel in path.get_relationships()
+				for rel in path.relationships
 			]))
 		self.write(self.eol.join([
 			"%s\t%s" % (
@@ -72,6 +69,8 @@ class Dumper(object):
 
 class Loader(object):
 
+	DESCRIPTOR_PATTERN = re.compile(r"^(\((\w+)\)(-\[:(\w+)\]->\((\w+)\))?)(\s+(.*))?")
+
 	def __init__(self, file, gdb):
 		self.file = file
 		self.gdb = gdb
@@ -87,7 +86,7 @@ class Loader(object):
 			if line == "" or line.startswith("#"):
 				pass
 			else:
-				m = DESCRIPTOR_PATTERN.match(line)
+				m = self.DESCRIPTOR_PATTERN.match(line)
 				if m and m.group(3):
 					(start_node, type, end_node) = (
 						unicode(m.group(2)),

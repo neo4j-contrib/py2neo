@@ -3,7 +3,7 @@
           "DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
-  <title>py2neo.geoff.Dumper</title>
+  <title>py2neo.neo4j.TraversalDescription</title>
   <link rel="stylesheet" href="epydoc.css" type="text/css" />
   <script type="text/javascript" src="epydoc.js"></script>
 </head>
@@ -38,8 +38,8 @@
     <td width="100%">
       <span class="breadcrumbs">
         <a href="py2neo-module.html">Package&nbsp;py2neo</a> ::
-        <a href="py2neo.geoff-module.html">Module&nbsp;geoff</a> ::
-        Class&nbsp;Dumper
+        <a href="py2neo.neo4j-module.html">Module&nbsp;neo4j</a> ::
+        Class&nbsp;TraversalDescription
       </span>
     </td>
     <td>
@@ -49,18 +49,18 @@
     onclick="toggle_private();">hide&nbsp;private</a>]</span></td></tr>
         <tr><td align="right"><span class="options"
             >[<a href="frames.html" target="_top">frames</a
-            >]&nbsp;|&nbsp;<a href="py2neo.geoff.Dumper-class.html"
+            >]&nbsp;|&nbsp;<a href="py2neo.neo4j.TraversalDescription-class.html"
             target="_top">no&nbsp;frames</a>]</span></td></tr>
       </table>
     </td>
   </tr>
 </table>
 <!-- ==================== CLASS DESCRIPTION ==================== -->
-<h1 class="epydoc">Class Dumper</h1><p class="nomargin-top"><span class="codelink"><a href="py2neo.geoff-pysrc.html#Dumper">source&nbsp;code</a></span></p>
+<h1 class="epydoc">Class TraversalDescription</h1><p class="nomargin-top"><span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription">source&nbsp;code</a></span></p>
 <pre class="base-tree">
 object --+
          |
-        <strong class="uidshort">Dumper</strong>
+        <strong class="uidshort">TraversalDescription</strong>
 </pre>
 
 <hr />
@@ -87,12 +87,10 @@ object --+
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="py2neo.geoff.Dumper-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">file</span>,
-        <span class="summary-sig-arg">eol</span>=<span class="summary-sig-default">None</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.TraversalDescription-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>)</span><br />
       x.__init__(...) initializes x; see x.__class__.__doc__ for signature</td>
           <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.geoff-pysrc.html#Dumper.__init__">source&nbsp;code</a></span>
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.__init__">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -106,10 +104,147 @@ object --+
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="dump"></a><span class="summary-sig-name">dump</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">paths</span>)</span></td>
+          <td><span class="summary-sig"><a name="traverse"></a><span class="summary-sig-name">traverse</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">start_node</span>)</span></td>
           <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.geoff-pysrc.html#Dumper.dump">source&nbsp;code</a></span>
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.traverse">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="order"></a><span class="summary-sig-name">order</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">selector</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.order">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="breadth_first"></a><span class="summary-sig-name">breadth_first</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.breadth_first">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="depth_first"></a><span class="summary-sig-name">depth_first</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.depth_first">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="uniqueness"></a><span class="summary-sig-name">uniqueness</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">uniqueness</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.uniqueness">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="relationships"></a><span class="summary-sig-name">relationships</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">type</span>,
+        <span class="summary-sig-arg">direction</span>=<span class="summary-sig-default">None</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.relationships">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="prune"></a><span class="summary-sig-name">prune</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">language</span>,
+        <span class="summary-sig-arg">body</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.prune">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="filter"></a><span class="summary-sig-name">filter</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">language</span>,
+        <span class="summary-sig-arg">name</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.filter">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="max_depth"></a><span class="summary-sig-name">max_depth</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">depth</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.max_depth">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -186,13 +321,11 @@ object --+
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">file</span>,
-        <span class="sig-arg">eol</span>=<span class="sig-default">None</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>)</span>
     <br /><em class="fname">(Constructor)</em>
   </h3>
   </td><td align="right" valign="top"
-    ><span class="codelink"><a href="py2neo.geoff-pysrc.html#Dumper.__init__">source&nbsp;code</a></span>&nbsp;
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#TraversalDescription.__init__">source&nbsp;code</a></span>&nbsp;
     </td>
   </tr></table>
   

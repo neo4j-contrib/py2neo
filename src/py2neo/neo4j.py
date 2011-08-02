@@ -20,9 +20,10 @@ Neo4j client using REST interface
 
 
 import rest
+import warnings
 
 
-__version__   = "0.8"
+__version__   = "0.9"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -283,6 +284,12 @@ class IndexableResource(rest.Resource):
 		"""
 		self._delete(self._lookup('properties'))
 
+	def get_id(self):
+		"""
+		Returns the unique ID of this resource.
+		"""
+		return self._id
+
 	def delete(self):
 		"""
 		Deletes this resource from the database instance.
@@ -360,6 +367,32 @@ class Node(IndexableResource):
 			for rel in self._get(uri)
 		]
 
+	def get_single_relationship(self, direction, type):
+		"""
+		Returns only one C{Relationship} from the current C{Node} in the given
+		C{direction} of the specified C{type}, if any such relationships exist.
+		
+		@param direction: a string constant from the C{Direction} class
+		@param type: the type of C{Relationship} to return
+		@return: a single C{Relationship} matching the specified criteria or C{None}
+		
+		"""
+		relationships = self.get_relationships(direction, type)
+		return relationships[0] if len(relationships) > 0 else None
+
+	def has_relationship(self, direction, *types):
+		"""
+		Returns C{True} if this C{Node} has any C{Relationship}s with the
+		specified criteria, C{False} otherwise.
+		
+		@param direction: a string constant from the C{Direction} class
+		@param types: the types of C{Relationship}s to include (optional)
+		@return: C{True} if this C{Node} has any matching C{Relationship}s
+		
+		"""
+		relationships = self.get_relationships(direction, *types)
+		return True if len(relationships) > 0 else False
+
 	def get_related_nodes(self, direction, *types):
 		"""
 		Returns all C{Node}s related to the current C{Node} by a
@@ -383,14 +416,42 @@ class Node(IndexableResource):
 			for rel in self._get(uri)
 		]
 
-	def get_traverser(self):
+	def get_single_related_node(self, direction, type):
+		"""
+		Returns only one C{Node} related to the current C{Node} by a
+		C{Relationship} in the given C{direction} of the specified C{type}, if
+		any such relationships exist.
+		
+		@param direction: a string constant from the C{Direction} class
+		@param type: the type of C{Relationship} to include
+		@return: a single C{Node} matching the specified criteria or C{None}
+		
+		"""
+		nodes = self.get_related_nodes(direction, type)
+		return nodes[0] if len(nodes) > 0 else None
+
+	def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
 		"""
 		Returns a C{Traverser} instance for the current C{Node}.
 		
 		@return: a C{Traverser} for this C{Node}
 		
 		"""
-		return Traverser(self._lookup('traverse').format(returnType='path'), http=self._http)
+		td = TraversalDescription()
+		if order:
+			td = td.order(order)
+		if uniqueness:
+			td = td.uniqueness(uniqueness)
+		if relationships:
+			for relationship in (relationships or []):
+				td = td.relationships(relationship)
+		if prune:
+			td = td.prune(prune[0], prune[1])
+		if filter:
+			td = td.filter(filter[0], filter[1])
+		if max_depth:
+			td = td.max_depth(max_depth)
+		return td.traverse(self)
 
 
 class Relationship(IndexableResource):
@@ -414,8 +475,8 @@ class Relationship(IndexableResource):
 		
 		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
-		self.type = self._lookup('type')
-		self.data = self._lookup('data')
+		self._type = self._lookup('type')
+		self._data = self._lookup('data')
 
 	def __str__(self):
 		"""
@@ -426,7 +487,37 @@ class Relationship(IndexableResource):
 			'-[:KNOWS]->'
 		
 		"""
-		return "-[:%s]->" % self.type
+		return "-[:%s]->" % self._type
+
+	def get_type(self):
+		"""
+		Returns the type of this C{Relationship}.
+		
+		@return: the type of this C{Relationship}
+		
+		"""
+		return self._type
+
+	def is_type(self, type):
+		"""
+		Returns C{True} if this C{Relationship} is of the given type.
+		
+		@return: C{True} if this C{Relationship} is of the given type
+		
+		"""
+		return self._type == type
+
+	def get_nodes(self):
+		"""
+		Returns a list of the two C{Node}s attached to this C{Relationship}.
+		
+		@return: list of the two C{Node}s attached to this C{Relationship}
+		
+		"""
+		return [
+			Node(self._lookup('start'), http=self._http),
+			Node(self._lookup('end'), http=self._http)
+		]
 
 	def get_start_node(self):
 		"""
@@ -448,6 +539,20 @@ class Relationship(IndexableResource):
 		"""
 		return Node(self._lookup('end'), http=self._http)
 
+	def get_other_node(self, node):
+		"""
+		Returns a C{Node} object representing the node within this
+		C{Relationship} which is not the one supplied.
+		
+		@param node: the C{Node} not required to be returned
+		@return: the other C{Node} within this C{Relationship}
+		
+		"""
+		return Node(
+			self._lookup('start') if self._lookup('end') == node._uri else self._lookup('end'),
+			http=self._http
+		)
+
 
 class Path(object):
 	"""
@@ -457,9 +562,8 @@ class Path(object):
 		>>> from py2neo import neo4j
 		>>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
 		>>> ref_node = gdb.get_reference_node()
-		>>> t = ref_node.get_traverser()
-		>>> t.set_max_depth(3)
-		>>> for path in t.traverse_depth_first():
+		>>> traverser = ref_node.traverse(order="depth_first", max_depth=2)
+		>>> for path in traverser.paths:
 		... 	print path
 		(0)-[:CUSTOMERS]->(1)
 		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(42)
@@ -504,51 +608,39 @@ class Path(object):
 		"""
 		return len(self._relationships)
 
-	def get_nodes(self):
+	@property
+	def nodes(self):
 		"""
-		Returns a list of all the C{Node}s which make up this C{Path}.
-		
-		@return: a list of C{Node}s for this C{Path}
-		
+		List of all the C{Node}s which make up this C{Path}.
 		"""
 		return self._nodes
 
-	def get_relationships(self):
+	@property
+	def relationships(self):
 		"""
-		Returns a list of all the C{Relationship}s which make up this C{Path}.
-		
-		@return: a list of C{Relationship}s for this C{Path}
-		
+		List of all the C{Relationship}s which make up this C{Path}.
 		"""
-		return self._relationships
+		return self._nodes
 
-	def get_start_node(self):
+	@property
+	def start_node(self):
 		"""
-		Returns a C{Node} object representing the first node within this
-		C{Path}.
-		
-		@return: the first C{Node} in this C{Path}
-		
+		C{Node} object representing the first node within this C{Path}.
 		"""
 		return self._nodes[0]
 
-	def get_end_node(self):
+	@property
+	def end_node(self):
 		"""
-		Returns a C{Node} object representing the last node within this
-		C{Path}.
-		
-		@return: the last C{Node} in this C{Path}
-		
+		C{Node} object representing the last node within this C{Path}.
 		"""
 		return self._nodes[-1]
 
-	def get_last_relationship(self):
+	@property
+	def last_relationship(self):
 		"""
-		Returns a C{Relationship} object representing the last relationship
-		within this C{Path}.
-		
-		@return: the last C{Relationship} in this C{Path} or C{None} if zero length
-		
+		C{Relationship} object representing the last relationship within this
+		C{Path}.
 		"""
 		return self._relationships[-1] if len(self._relationships) > 0 else None
 
@@ -604,11 +696,87 @@ class Index(rest.Resource):
 		]
 
 
+class TraversalDescription(object):
+
+	def __init__(self):
+		self._description = {}
+
+	def traverse(self, start_node):
+		return Traverser(
+			template_uri=start_node._lookup('traverse'),
+			traversal_description=self._description,
+			http=start_node._http
+		)
+
+	def order(self, selector):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['order'] = selector
+		return td
+
+	def breadth_first(self):
+		return self.order('breadth_first')
+
+	def depth_first(self):
+		return self.order('depth_first')
+
+	def uniqueness(self, uniqueness):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['uniqueness'] = uniqueness
+		return td
+
+	def relationships(self, type, direction=None):
+		td = TraversalDescription()
+		td._description = self._description
+		if 'relationships' not in td._description:
+			td._description['relationships'] = []
+		if direction in ['in', 'incoming']:
+			direction = 'in'
+		elif direction in ['out', 'outgoing']:
+			direction = 'out'
+		elif direction:
+			raise ValueError(direction)
+		if direction:
+			td._description['relationships'].append({
+				'type': type,
+				'direction': direction
+			})
+		else:
+			td._description['relationships'].append({
+				'type': type
+			})
+		return td
+
+	def prune(self, language, body):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['prune_evaluator'] = {
+			'language': language,
+			'body': body
+		}
+		return td
+
+	def filter(self, language, name):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['return_filter'] = {
+			'language': language,
+			'name': name
+		}
+		return td
+
+	def max_depth(self, depth):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['max_depth'] = depth
+		return td
+
+
 class Traverser(rest.Resource):
 	"""
 	An engine designed to traverse a U{Neo4j <http://neo4j.org/>} database
-	starting at a specific C{Node}. Allows traversal parameters to be set
-	before calling one of the supplied traversal routines.
+	starting at a specific C{Node}.
 	"""
 
 	class Order:
@@ -616,57 +784,16 @@ class Traverser(rest.Resource):
 		BREADTH_FIRST = 'breadth_first'
 		DEPTH_FIRST   = 'depth_first'
 
-	def __init__(self, uri, http=None):
-		rest.Resource.__init__(self, uri, http=http)
-		self._criteria = {
-			'order': Traverser.Order.DEPTH_FIRST,
-			'uniqueness': 'node_path'
-		}
+	def __init__(self, template_uri=None, traversal_description=None, http=None):
+		rest.Resource.__init__(self, None, http=http)
+		self._template_uri = template_uri
+		self._traversal_description = traversal_description
 
-	def set_max_depth(self, max_depth):
-		if 'prune_evaluator' in self._criteria:
-			del self._criteria['prune_evaluator']
-		self._criteria['max_depth'] = max_depth
-
-	def set_prune_evaluator(self, language, body):
-		if 'max_depth' in self._criteria:
-			del self._criteria['max_depth']
-		self._criteria['prune_evaluator'] = {
-			'language': language,
-			'body': body
-		}
-
-	def set_return_filter(self, language, name):
-		self._criteria['return_filter'] = {
-			'language': language,
-			'name': name
-		}
-
-	def add_relationship(self, type, direction=None):
-		if 'relationships' not in self._criteria:
-			self._criteria['relationships'] = []
-		if direction:
-			self._criteria['relationships'].append({
-				'type': type,
-				'direction': direction
-			})
-		else:
-			self._criteria['relationships'].append({
-				'type': type
-			})
-
-	def remove_relationship(self, type):
-		if 'relationships' in self._criteria:
-			self._criteria['relationships'] = [
-				item
-				for item in self._criteria['relationships']
-				if item['type'] != type
-			]
-			if self._criteria['relationships'] == []:
-				del self._criteria['relationships']
-
-	def traverse(self, order):
-		self._criteria['order'] = order
+	@property
+	def paths(self):
+		"""
+		Returns all C{Path}s from this traversal.
+		"""
 		return [
 			Path([
 				Node(uri)
@@ -675,13 +802,36 @@ class Traverser(rest.Resource):
 				Relationship(uri)
 				for uri in path['relationships']
 			])
-			for path in self._post(self._uri, self._criteria)
+			for path in self._post(
+				self._template_uri.format(returnType='path'),
+				self._traversal_description
+			)
 		]
 
-	def traverse_depth_first(self):
-		return self.traverse(Traverser.Order.DEPTH_FIRST)
+	@property
+	def nodes(self):
+		"""
+		Returns all C{Node}s from this traversal.
+		"""
+		return [
+			Node(node['self'])
+			for node in self._post(
+				self._template_uri.format(returnType='node'),
+				self._traversal_description
+			)
+		]
 
-	def traverse_breadth_first(self):
-		return self.traverse(Traverser.Order.BREADTH_FIRST)
+	@property
+	def relationships(self):
+		"""
+		Returns all C{Relationship}s from this traversal.
+		"""
+		return [
+			Relationship(relationship['self'])
+			for relationship in self._post(
+				self._template_uri.format(returnType='relationship'),
+				self._traversal_description
+			)
+		]
 
 

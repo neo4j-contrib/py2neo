@@ -68,8 +68,7 @@
 <hr />
 <p>An engine designed to traverse a <a href="http://neo4j.org/" 
   target="_top">Neo4j</a> database starting at a specific 
-  <code>Node</code>. Allows traversal parameters to be set before calling 
-  one of the supplied traversal routines.</p>
+  <code>Node</code>.</p>
 
 <!-- ==================== NESTED CLASSES ==================== -->
 <a name="section-NestedClasses"></a>
@@ -120,149 +119,13 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.Traverser-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">uri</span>,
+        <span class="summary-sig-arg">template_uri</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">traversal_description</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>)</span><br />
       Creates a representation of a RESTful web service resource identified
       by URI.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.__init__">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="set_max_depth"></a><span class="summary-sig-name">set_max_depth</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">max_depth</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.set_max_depth">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="set_prune_evaluator"></a><span class="summary-sig-name">set_prune_evaluator</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">language</span>,
-        <span class="summary-sig-arg">body</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.set_prune_evaluator">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="set_return_filter"></a><span class="summary-sig-name">set_return_filter</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">language</span>,
-        <span class="summary-sig-arg">name</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.set_return_filter">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="add_relationship"></a><span class="summary-sig-name">add_relationship</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">type</span>,
-        <span class="summary-sig-arg">direction</span>=<span class="summary-sig-default">None</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.add_relationship">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="remove_relationship"></a><span class="summary-sig-name">remove_relationship</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">type</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.remove_relationship">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="traverse"></a><span class="summary-sig-name">traverse</span>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">order</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.traverse">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="traverse_depth_first"></a><span class="summary-sig-name">traverse_depth_first</span>(<span class="summary-sig-arg">self</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.traverse_depth_first">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="traverse_breadth_first"></a><span class="summary-sig-name">traverse_breadth_first</span>(<span class="summary-sig-arg">self</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Traverser.traverse_breadth_first">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -342,6 +205,30 @@
     </table>
   </td>
 </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="py2neo.neo4j.Traverser-class.html#paths" class="summary-name">paths</a><br />
+      Returns all <code>Path</code>s from this traversal.
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="py2neo.neo4j.Traverser-class.html#nodes" class="summary-name">nodes</a><br />
+      Returns all <code>Node</code>s from this traversal.
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+        <a href="py2neo.neo4j.Traverser-class.html#relationships" class="summary-name">relationships</a><br />
+      Returns all <code>Relationship</code>s from this traversal.
+    </td>
+  </tr>
   <tr>
     <td colspan="2" class="summary">
     <p class="indent-wrapped-lines"><b>Inherited from <code>object</code></b>:
@@ -376,7 +263,8 @@
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
   <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">uri</span>,
+        <span class="sig-arg">template_uri</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">traversal_description</span>=<span class="sig-default">None</span>,
         <span class="sig-arg">http</span>=<span class="sig-default">None</span>)</span>
     <br /><em class="fname">(Constructor)</em>
   </h3>
@@ -397,6 +285,70 @@
         object.__init__
         <dd><em class="note">(inherited documentation)</em></dd>
     </dt>
+  </dl>
+</td></tr></table>
+</div>
+<br />
+<!-- ==================== PROPERTY DETAILS ==================== -->
+<a name="section-PropertyDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Property Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-PropertyDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="paths"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">paths</h3>
+  <p>Returns all <code>Path</code>s from this traversal.</p>
+  <dl class="fields">
+    <dt>Get Method:</dt>
+    <dd class="value"><span class="summary-sig"><i>unreachable</i>.paths(<span class="summary-sig-arg">self</span>)</span>
+        - Returns all <code>Path</code>s from this traversal.
+    </dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="nodes"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">nodes</h3>
+  <p>Returns all <code>Node</code>s from this traversal.</p>
+  <dl class="fields">
+    <dt>Get Method:</dt>
+    <dd class="value"><span class="summary-sig"><i>unreachable</i>.nodes(<span class="summary-sig-arg">self</span>)</span>
+        - Returns all <code>Node</code>s from this traversal.
+    </dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="relationships"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <h3 class="epydoc">relationships</h3>
+  <p>Returns all <code>Relationship</code>s from this traversal.</p>
+  <dl class="fields">
+    <dt>Get Method:</dt>
+    <dd class="value"><span class="summary-sig"><i>unreachable</i>.relationships(<span class="summary-sig-arg">self</span>)</span>
+        - Returns all <code>Relationship</code>s from this traversal.
+    </dd>
   </dl>
 </td></tr></table>
 </div>
@@ -427,7 +379,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu Jul 28 00:13:38 2011
+    Generated by Epydoc 3.0.1 on Tue Aug  2 17:44:22 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

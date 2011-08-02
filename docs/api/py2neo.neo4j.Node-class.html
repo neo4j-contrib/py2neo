@@ -182,6 +182,48 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#get_single_relationship" class="summary-sig-name">get_single_relationship</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">direction</span>,
+        <span class="summary-sig-arg">type</span>)</span><br />
+      Returns only one <code>Relationship</code> from the current 
+      <code>Node</code> in the given <code>direction</code> of the 
+      specified <code>type</code>, if any such relationships exist.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_single_relationship">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#has_relationship" class="summary-sig-name">has_relationship</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">direction</span>,
+        <span class="summary-sig-arg">*types</span>)</span><br />
+      Returns <code>True</code> if this <code>Node</code> has any 
+      <code>Relationship</code>s with the specified criteria, 
+      <code>False</code> otherwise.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.has_relationship">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#get_related_nodes" class="summary-sig-name">get_related_nodes</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">direction</span>,
         <span class="summary-sig-arg">*types</span>)</span><br />
@@ -203,11 +245,39 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#get_traverser" class="summary-sig-name">get_traverser</a>(<span class="summary-sig-arg">self</span>)</span><br />
+          <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#get_single_related_node" class="summary-sig-name">get_single_related_node</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">direction</span>,
+        <span class="summary-sig-arg">type</span>)</span><br />
+      Returns only one <code>Node</code> related to the current 
+      <code>Node</code> by a <code>Relationship</code> in the given 
+      <code>direction</code> of the specified <code>type</code>, if any 
+      such relationships exist.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_single_related_node">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.Node-class.html#traverse" class="summary-sig-name">traverse</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">order</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">uniqueness</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">relationships</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">prune</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">filter</span>=<span class="summary-sig-default">None</span>,
+        <span class="summary-sig-arg">max_depth</span>=<span class="summary-sig-default">None</span>)</span><br />
       Returns a <code>Traverser</code> instance for the current 
       <code>Node</code>.</td>
           <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_traverser">source&nbsp;code</a></span>
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.traverse">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -225,6 +295,7 @@
       <code><a href="py2neo.neo4j.IndexableResource-class.html#__repr__">__repr__</a></code>,
       <code><a href="py2neo.neo4j.IndexableResource-class.html#__setitem__">__setitem__</a></code>,
       <code><a href="py2neo.neo4j.IndexableResource-class.html#delete">delete</a></code>,
+      <code><a href="py2neo.neo4j.IndexableResource-class.html#get_id">get_id</a></code>,
       <code><a href="py2neo.neo4j.IndexableResource-class.html#get_properties">get_properties</a></code>,
       <code><a href="py2neo.neo4j.IndexableResource-class.html#remove_properties">remove_properties</a></code>,
       <code><a href="py2neo.neo4j.IndexableResource-class.html#set_properties">set_properties</a></code>
@@ -449,6 +520,68 @@
   </dl>
 </td></tr></table>
 </div>
+<a name="get_single_relationship"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_single_relationship</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">direction</span>,
+        <span class="sig-arg">type</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_single_relationship">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns only one <code>Relationship</code> from the current 
+  <code>Node</code> in the given <code>direction</code> of the specified 
+  <code>type</code>, if any such relationships exist.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>direction</code></strong> - a string constant from the <code>Direction</code> class</li>
+        <li><strong class="pname"><code>type</code></strong> - the type of <code>Relationship</code> to return</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>a single <code>Relationship</code> matching the specified 
+          criteria or <code>None</code></dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="has_relationship"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">has_relationship</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">direction</span>,
+        <span class="sig-arg">*types</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.has_relationship">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns <code>True</code> if this <code>Node</code> has any 
+  <code>Relationship</code>s with the specified criteria, 
+  <code>False</code> otherwise.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>direction</code></strong> - a string constant from the <code>Direction</code> class</li>
+        <li><strong class="pname"><code>types</code></strong> - the types of <code>Relationship</code>s to include (optional)</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd><code>True</code> if this <code>Node</code> has any matching 
+          <code>Relationship</code>s</dd>
+  </dl>
+</td></tr></table>
+</div>
 <a name="get_related_nodes"></a>
 <div>
 <table class="details" border="1" cellpadding="3"
@@ -479,17 +612,55 @@
   </dl>
 </td></tr></table>
 </div>
-<a name="get_traverser"></a>
+<a name="get_single_related_node"></a>
 <div>
 <table class="details" border="1" cellpadding="3"
        cellspacing="0" width="100%" bgcolor="white">
 <tr><td>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
-  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_traverser</span>(<span class="sig-arg">self</span>)</span>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_single_related_node</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">direction</span>,
+        <span class="sig-arg">type</span>)</span>
   </h3>
   </td><td align="right" valign="top"
-    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_traverser">source&nbsp;code</a></span>&nbsp;
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.get_single_related_node">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns only one <code>Node</code> related to the current 
+  <code>Node</code> by a <code>Relationship</code> in the given 
+  <code>direction</code> of the specified <code>type</code>, if any such 
+  relationships exist.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>direction</code></strong> - a string constant from the <code>Direction</code> class</li>
+        <li><strong class="pname"><code>type</code></strong> - the type of <code>Relationship</code> to include</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>a single <code>Node</code> matching the specified criteria or 
+          <code>None</code></dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="traverse"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">traverse</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">order</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">uniqueness</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">relationships</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">prune</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">filter</span>=<span class="sig-default">None</span>,
+        <span class="sig-arg">max_depth</span>=<span class="sig-default">None</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#Node.traverse">source&nbsp;code</a></span>&nbsp;
     </td>
   </tr></table>
   
@@ -528,7 +699,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu Jul 28 00:13:38 2011
+    Generated by Epydoc 3.0.1 on Tue Aug  2 17:44:22 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"
