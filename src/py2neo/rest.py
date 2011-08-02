@@ -77,6 +77,44 @@ class Resource(object):
 			if key in ['Accept', 'Content-Type']
 		])
 
+	def _request(self, method, uri, data=None):
+		"""
+		Issues an HTTP request.
+		
+		@param method: the HTTP method to use for this call
+		@param uri: the URI of the resource to access
+		@param data: unserialised object to be converted to JSON and passed in request payload (optional)
+		@return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
+		@raise ValueError: when supplied data is not appropriate (400)
+		@raise KeyError: when URI is not found (404)
+		@raise SystemError: when a conflict occurs (409) or when an unexpected HTTP status is received
+		
+		"""
+		if data is not None:
+			headers = self.__get_request_headers('Accept', 'Content-Type')
+		else:
+			headers = self.__get_request_headers('Accept')
+		try:
+			self.__response, self.__content = self._http.request(
+				uri, method, data, headers
+			)
+		except:
+			raise IOError("Cannot send %s request" %s (method));
+		if self.__response.status == 200:
+			return json.loads(self.__content)
+		elif self.__response.status == 201:
+			return self.__response['location']
+		elif self.__response.status == 204:
+			return None
+		elif self.__response.status == 400:
+			raise ValueError(data)
+		elif self.__response.status == 404:
+			raise LookupError(uri)
+		elif self.__response.status == 409:
+			raise SystemError(uri)
+		else:
+			raise SystemError(self.__response)
+
 	def _get(self, uri):
 		"""
 		Issues an HTTP GET request.
@@ -87,21 +125,7 @@ class Resource(object):
 		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
-		try:
-			self.__response, self.__content = self._http.request(
-				uri, 'GET', None,
-				self.__get_request_headers('Accept')
-			)
-		except:
-			raise IOError("Cannot GET resource");
-		if self.__response.status == 200:
-			return json.loads(self.__content)
-		elif self.__response.status == 204:
-			return None
-		elif self.__response.status == 404:
-			raise LookupError(uri)
-		else:
-			raise SystemError(self.__response)
+		return self._request('GET', uri)
 
 	def _post(self, uri, data):
 		"""
@@ -115,26 +139,7 @@ class Resource(object):
 		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
-		data = {} if data == None else json.dumps(data)
-		try:
-			self.__response, self.__content = self._http.request(
-				uri, 'POST', data,
-				self.__get_request_headers('Accept', 'Content-Type')
-			)
-		except:
-			raise IOError("Cannot POST to resource");
-		if self.__response.status == 200:
-			return json.loads(self.__content)
-		elif self.__response.status == 201:
-			return self.__response['location']
-		elif self.__response.status == 204:
-			return None
-		elif self.__response.status == 400:
-			raise ValueError(data)
-		elif self.__response.status == 404:
-			raise LookupError(uri)
-		else:
-			raise SystemError(self.__response)
+		return self._request('POST', uri, json.dumps(data))
 
 	def _put(self, uri, data):
 		"""
@@ -148,22 +153,7 @@ class Resource(object):
 		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
-		data = {} if data == None else json.dumps(data)
-		try:
-			self.__response, self.__content = self._http.request(
-				uri, 'PUT', data,
-				self.__get_request_headers('Accept', 'Content-Type')
-			)
-		except:
-			raise IOError("Cannot PUT resource");
-		if self.__response.status == 204:
-			return None
-		elif self.__response.status == 400:
-			raise ValueError(data)
-		elif self.__response.status == 404:
-			raise LookupError(uri)
-		else:
-			raise SystemError(self.__response)
+		return self._request('PUT', uri, json.dumps(data))
 
 	def _delete(self, uri):
 		"""
@@ -175,21 +165,7 @@ class Resource(object):
 		@raise SystemError: when an unexpected HTTP status is received
 		
 		"""
-		try:
-			self.__response, self.__content = self._http.request(
-				uri, 'DELETE', None,
-				self.__get_request_headers('Accept')
-			)
-		except:
-			raise IOError("Cannot DELETE resource");
-		if self.__response.status == 204:
-			None
-		elif self.__response.status == 404:
-			raise LookupError(uri)
-		elif self.__response.status == 409:
-			raise SystemError(uri)
-		else:
-			raise SystemError(self.__response)
+		return self._request('DELETE', uri)
 
 	def _lookup(self, key):
 		"""
