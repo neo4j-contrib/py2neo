@@ -99,7 +99,7 @@ class Resource(object):
 				uri, method, data, headers
 			)
 		except:
-			raise IOError("Cannot send %s request" %s (method));
+			raise IOError("Cannot send %s request" % (method));
 		if self.__response.status == 200:
 			return json.loads(self.__content)
 		elif self.__response.status == 201:
