@@ -16,6 +16,13 @@ Currently, py2neo source code is only available from GitHub. Please see the
 main website (http://py2neo.org/) for API documentation.
 
 
+Version 0.91
+-------------
+
+- Fixed small bug in Path class
+- Added GraphDatabaseService.create_nodes() method to add a batch of nodes in
+  a single transaction
+
 Version 0.9
 ------------
 
