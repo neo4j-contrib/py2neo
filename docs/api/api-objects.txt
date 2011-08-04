@@ -22,12 +22,14 @@ py2neo.neo4j.Direction.BOTH	py2neo.neo4j.Direction-class.html#BOTH
 py2neo.neo4j.Direction.OUTGOING	py2neo.neo4j.Direction-class.html#OUTGOING
 py2neo.neo4j.Direction.INCOMING	py2neo.neo4j.Direction-class.html#INCOMING
 py2neo.neo4j.GraphDatabaseService	py2neo.neo4j.GraphDatabaseService-class.html
+py2neo.neo4j.GraphDatabaseService.create_nodes	py2neo.neo4j.GraphDatabaseService-class.html#create_nodes
 py2neo.neo4j.GraphDatabaseService.execute_cypher_query	py2neo.neo4j.GraphDatabaseService-class.html#execute_cypher_query
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.GraphDatabaseService.get_node_indexes	py2neo.neo4j.GraphDatabaseService-class.html#get_node_indexes
 py2neo.neo4j.GraphDatabaseService.create_node	py2neo.neo4j.GraphDatabaseService-class.html#create_node
 py2neo.neo4j.GraphDatabaseService.__init__	py2neo.neo4j.GraphDatabaseService-class.html#__init__
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._lookup	py2neo.rest.Resource-class.html#_lookup
 py2neo.neo4j.GraphDatabaseService.get_relationship_indexes	py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_indexes
 py2neo.neo4j.GraphDatabaseService.create_relationship_index	py2neo.neo4j.GraphDatabaseService-class.html#create_relationship_index
@@ -43,6 +45,7 @@ py2neo.neo4j.GraphDatabaseService.get_relationship_types	py2neo.neo4j.GraphDatab
 py2neo.rest.Resource._put	py2neo.rest.Resource-class.html#_put
 py2neo.rest.Resource.__repr__	py2neo.rest.Resource-class.html#__repr__
 py2neo.neo4j.Index	py2neo.neo4j.Index-class.html
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.Index.__init__	py2neo.neo4j.Index-class.html#__init__
@@ -57,6 +60,7 @@ py2neo.rest.Resource._put	py2neo.rest.Resource-class.html#_put
 py2neo.neo4j.Index.remove	py2neo.neo4j.Index-class.html#remove
 py2neo.neo4j.Index.__repr__	py2neo.neo4j.Index-class.html#__repr__
 py2neo.neo4j.IndexableResource	py2neo.neo4j.IndexableResource-class.html
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.IndexableResource.remove_properties	py2neo.neo4j.IndexableResource-class.html#remove_properties
@@ -78,6 +82,7 @@ py2neo.neo4j.IndexableResource.delete	py2neo.neo4j.IndexableResource-class.html#
 py2neo.neo4j.Node	py2neo.neo4j.Node-class.html
 py2neo.neo4j.Node.traverse	py2neo.neo4j.Node-class.html#traverse
 py2neo.neo4j.Node.get_related_nodes	py2neo.neo4j.Node-class.html#get_related_nodes
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.neo4j.Node.__str__	py2neo.neo4j.Node-class.html#__str__
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
@@ -120,6 +125,7 @@ py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.Relationship.get_type	py2neo.neo4j.Relationship-class.html#get_type
 py2neo.neo4j.IndexableResource.remove_properties	py2neo.neo4j.IndexableResource-class.html#remove_properties
 py2neo.neo4j.Relationship.__init__	py2neo.neo4j.Relationship-class.html#__init__
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._lookup	py2neo.rest.Resource-class.html#_lookup
 py2neo.neo4j.IndexableResource.get_properties	py2neo.neo4j.IndexableResource-class.html#get_properties
 py2neo.neo4j.Relationship.get_end_node	py2neo.neo4j.Relationship-class.html#get_end_node
@@ -149,6 +155,7 @@ py2neo.neo4j.TraversalDescription.filter	py2neo.neo4j.TraversalDescription-class
 py2neo.neo4j.TraversalDescription.breadth_first	py2neo.neo4j.TraversalDescription-class.html#breadth_first
 py2neo.neo4j.TraversalDescription.order	py2neo.neo4j.TraversalDescription-class.html#order
 py2neo.neo4j.Traverser	py2neo.neo4j.Traverser-class.html
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.Traverser.__init__	py2neo.neo4j.Traverser-class.html#__init__
@@ -167,6 +174,7 @@ py2neo.neo4j.Traverser.Order	py2neo.neo4j.Traverser.Order-class.html
 py2neo.neo4j.Traverser.Order.BREADTH_FIRST	py2neo.neo4j.Traverser.Order-class.html#BREADTH_FIRST
 py2neo.neo4j.Traverser.Order.DEPTH_FIRST	py2neo.neo4j.Traverser.Order-class.html#DEPTH_FIRST
 py2neo.rest.Resource	py2neo.rest.Resource-class.html
+py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.rest.Resource.__init__	py2neo.rest.Resource-class.html#__init__

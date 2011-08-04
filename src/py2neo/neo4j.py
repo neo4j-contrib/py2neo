@@ -19,6 +19,7 @@ Neo4j client using REST interface
 """
 
 
+import json
 import rest
 
 
@@ -66,6 +67,11 @@ class GraphDatabaseService(rest.Resource):
 		
 		"""
 		rest.Resource.__init__(self, uri, http=http)
+		if self._uri.endswith("/"):
+			self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
+		else:
+			self._base_uri, self._relative_uri = self._uri, "/"
+		self._batch_uri = self._base_uri + "/batch"
 		self._extensions = self._lookup('extensions')
 
 	def create_node(self, properties=None):
@@ -77,7 +83,28 @@ class GraphDatabaseService(rest.Resource):
 		@return: a C{Node} instance representing the newly created node
 		
 		"""
-		return Node(self._post(self._lookup('node'), properties), http=self._http)
+		return Node(
+			self._post(self._lookup('node'), properties),
+			http=self._http
+		)
+
+	def create_nodes(self, *properties):
+		"""
+		Creates new C{Node}s for all supplied properties as part of a single
+		batch.
+		
+		@param properties: a dictionary of properties to attach to a C{Node} (multiple)
+		@return: a list of C{Node} instances representing the newly created nodes
+		
+		"""
+		node_uri = "".join(self._lookup('node').partition("/node")[1:3])
+		return [
+			Node(result['location'], http=self._http)
+			for result in self._post(self._batch_uri, [
+				{"method": "POST", "to": node_uri, "body": properties[i], "id": i}
+				for i in range(len(properties))
+			])
+		]
 
 	def get_reference_node(self):
 		"""
@@ -317,6 +344,8 @@ class Node(IndexableResource):
 		
 		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
+		self._base_uri, u0, u1 = self._uri.partition("/node")
+		self._relative_uri = u0 + u1
 
 	def __str__(self):
 		"""
@@ -483,6 +512,8 @@ class Relationship(IndexableResource):
 		
 		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
+		self._base_uri, u0, u1 = self._uri.partition("/relationship")
+		self._relative_uri = u0 + u1
 		self._type = self._lookup('type')
 		self._data = self._lookup('data')
 
@@ -628,7 +659,7 @@ class Path(object):
 		"""
 		List of all the C{Relationship}s which make up this C{Path}.
 		"""
-		return self._nodes
+		return self._relationships
 
 	@property
 	def start_node(self):
@@ -674,6 +705,8 @@ class Index(rest.Resource):
 			http=http
 		)
 		self.__T = T
+		self._base_uri, u0, u1 = self._uri.partition("/index")
+		self._relative_uri = u0 + u1
 		self._template_uri = template_uri or "%s/{key}/{value}" % uri
 
 	def __repr__(self):

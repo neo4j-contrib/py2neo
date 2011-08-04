@@ -48,6 +48,8 @@ class Resource(object):
 		if content_type not in self.SUPPORTED_CONTENT_TYPES:
 			raise NotImplementedError("Content type %s not supported" % content_type)
 		self._uri = unicode(uri)
+		self._base_uri = None
+		self._relative_uri = None
 		self._content_type = content_type
 		self._http = http or httplib2.Http()
 		self._index = None
