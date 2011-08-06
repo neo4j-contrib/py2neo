@@ -23,7 +23,7 @@ import json
 import rest
 
 
-__version__   = "0.91"
+__version__   = "0.92"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -738,6 +738,9 @@ class Index(rest.Resource):
 
 
 class TraversalDescription(object):
+	"""
+	Describes a graph traversal.
+	"""
 
 	def __init__(self):
 		self._description = {}
@@ -874,5 +877,110 @@ class Traverser(rest.Resource):
 				self._traversal_description
 			)
 		]
+
+
+class PersistentObject(object):
+	"""
+	A base object from which persistent objects may inherit. Unlike some
+	persistence models, object attributes are updated "live" and therefore do
+	not require an explicit I{save} or I{load}. Simple-typed attributes are
+	mapped to C{Node} properties where possible and attributes pointing to
+	other C{PersistentObject} instances are mapped to C{Relationship}s. No
+	direct mapping to C{Relationship} properties exists within this framework.
+	All attributes begining with an underscore character are I{not} mapped to
+	the database and will be stored within the object instance as usual.
+	
+		>>> from py2neo import neo4j
+		>>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+		>>> class Country(neo4j.PersistentObject):
+		... 	def __init__(self, node, name, population):
+		... 		neo4j.PersistentObject.__init__(self, node)
+		... 		self.name = name
+		... 		self.population = population
+		... 		self.currency = None
+		... 		self.continent = None
+		...
+		>>> uk = Country(gdb.create_node(), "United Kingdom", 62698362)
+	
+	"""
+	
+	__node__ = None
+	"""
+	Property holding the database C{Node} to which this instance is attached.
+	"""
+	
+	def __init__(self, node):
+		"""
+		All subclass constructors should call this constructor and pass a valid
+		C{Node} object to which this instance becomes attached.
+		"""
+		self.__node__ = node
+	
+	def __getattr__(self, name):
+		"""
+		Returns either a C{Node} property value with this name, a C{Node}
+		connected by a C{Relationship} of type C{name} or C{None} if neither
+		exist.
+		"""
+		if name.startswith("_"):
+			return object.__getattr__(self, name)
+		try:
+			return self.__node__[name]
+		except LookupError:
+			pass
+		except:
+			raise AttributeError("Cannot access node")
+		try:
+			return self.__node__.get_single_related_node(Direction.OUTGOING, name)
+		except LookupError:
+			pass
+		except:
+			raise AttributeError("Cannot access node")
+		return None
+
+	def __setattr__(self, name, value):
+		"""
+		Creates or updates a C{Node} property with this name or a
+		C{Relationship} of type C{name} if C{value} is another
+		C{PersistentObject} instance.
+		"""
+		if name.startswith("_"):
+			object.__setattr__(self, name, value)
+		elif value is None:
+			self.__delattr__(name)
+		elif isinstance(value, PersistentObject):
+			try:
+				self.__node__.create_relationship_to(value.__node__, name)
+			except:
+				raise AttributeError("Cannot set relationship")
+		else:
+			try:
+				self.__node__[name] = value
+			except ValueError:
+				raise AttributeError("Illegal property value: %s" % (repr(value)))
+			except:
+				raise AttributeError("Cannot set node property")
+
+	def __delattr__(self, name):
+		"""
+		Removes the C{Node} property with this name and any C{Relationship}s of
+		type C{name}. This is also equivalent to setting a C{Node} property
+		to C{None}.
+		"""
+		if name.startswith("_"):
+			object.__delattr__(self, name)
+		else:
+			try:
+				del self.__node__[name]
+			except LookupError:
+				pass
+			except:
+				raise AttributeError("Cannot delete node property")
+			try:
+				rels = self.__node__.get_relationships(Direction.OUTGOING, name)
+				for rel in rels:
+					rel.delete()
+			except:
+				raise AttributeError("Cannot delete relationship")
 
 

@@ -116,6 +116,12 @@ py2neo.neo4j.Path.start_node	py2neo.neo4j.Path-class.html#start_node
 py2neo.neo4j.Path.__init__	py2neo.neo4j.Path-class.html#__init__
 py2neo.neo4j.Path.nodes	py2neo.neo4j.Path-class.html#nodes
 py2neo.neo4j.Path.__len__	py2neo.neo4j.Path-class.html#__len__
+py2neo.neo4j.PersistentObject	py2neo.neo4j.PersistentObject-class.html
+py2neo.neo4j.PersistentObject.__setattr__	py2neo.neo4j.PersistentObject-class.html#__setattr__
+py2neo.neo4j.PersistentObject.__getattr__	py2neo.neo4j.PersistentObject-class.html#__getattr__
+py2neo.neo4j.PersistentObject.__node__	py2neo.neo4j.PersistentObject-class.html#__node__
+py2neo.neo4j.PersistentObject.__delattr__	py2neo.neo4j.PersistentObject-class.html#__delattr__
+py2neo.neo4j.PersistentObject.__init__	py2neo.neo4j.PersistentObject-class.html#__init__
 py2neo.neo4j.Relationship	py2neo.neo4j.Relationship-class.html
 py2neo.neo4j.Relationship.get_other_node	py2neo.neo4j.Relationship-class.html#get_other_node
 py2neo.neo4j.Relationship.get_start_node	py2neo.neo4j.Relationship-class.html#get_start_node
