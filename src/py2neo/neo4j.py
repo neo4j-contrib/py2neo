@@ -19,11 +19,10 @@ Neo4j client using REST interface
 """
 
 
-import json
 import rest
 
 
-__version__   = "0.92"
+__version__   = "0.93"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -115,6 +114,22 @@ class GraphDatabaseService(rest.Resource):
 		
 		"""
 		return Node(self._lookup('reference_node'), http=self._http)
+
+	def get_subreference_node(self, name):
+		"""
+		Returns a C{Node} object representing a named subreference node
+		within this database instance. If such a node does not exist, one is
+		created.
+		
+		@return: a C{Node} instance representing the named subreference node
+		
+		"""
+		ref_node = self.get_reference_node()
+		subref_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
+		if subref_node is None:
+			subref_node = self.create_node()
+			ref_node.create_relationship_to(subref_node, name)
+		return subref_node
 
 	def get_relationship_types(self):
 		"""

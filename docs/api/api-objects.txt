@@ -28,6 +28,7 @@ py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.GraphDatabaseService.get_node_indexes	py2neo.neo4j.GraphDatabaseService-class.html#get_node_indexes
 py2neo.neo4j.GraphDatabaseService.create_node	py2neo.neo4j.GraphDatabaseService-class.html#create_node
+py2neo.neo4j.GraphDatabaseService.get_subreference_node	py2neo.neo4j.GraphDatabaseService-class.html#get_subreference_node
 py2neo.neo4j.GraphDatabaseService.__init__	py2neo.neo4j.GraphDatabaseService-class.html#__init__
 py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request
 py2neo.rest.Resource._lookup	py2neo.rest.Resource-class.html#_lookup
