@@ -20,6 +20,7 @@ Version 0.93
 -------------
 
 - Added GraphDatabaseService.get_subreference_node() method
+- Added index entry support to GEOFF files
 
 Version 0.92
 -------------
