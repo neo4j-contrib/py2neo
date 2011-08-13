@@ -722,7 +722,10 @@ class Index(rest.Resource):
 		self.__T = T
 		self._base_uri, u0, u1 = self._uri.partition("/index")
 		self._relative_uri = u0 + u1
-		self._template_uri = template_uri or "%s/{key}/{value}" % uri
+		self._template_uri = template_uri or "%s%s{key}/{value}" % (
+			uri,
+			"" if uri.endswith("/") else "/"
+		)
 
 	def __repr__(self):
 		return '%s<%s>(%s)' % (
@@ -732,6 +735,14 @@ class Index(rest.Resource):
 		)
 
 	def add(self, indexable_resource, key, value):
+		"""
+		Adds an entry to this C{Index} under the specified C{key} and C{value}.
+		
+		@param indexable_resource: the resource to add to the C{Index}
+		@param key: the key of the key-value pair under which to index this resource
+		@param value: the value of the key-value pair under which to index this resource
+		
+		"""
 		return Node(self._post(self._template_uri.format(key=key, value=value), indexable_resource._uri))
 
 	def remove(self, indexable_resource):

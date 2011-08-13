@@ -16,6 +16,7 @@ py2neo.geoff.Dumper.__init__	py2neo.geoff.Dumper-class.html#__init__
 py2neo.geoff.Loader	py2neo.geoff.Loader-class.html
 py2neo.geoff.Loader.load	py2neo.geoff.Loader-class.html#load
 py2neo.geoff.Loader.DESCRIPTOR_PATTERN	py2neo.geoff.Loader-class.html#DESCRIPTOR_PATTERN
+py2neo.geoff.Loader.INDEX_ENTRY_PATTERN	py2neo.geoff.Loader-class.html#INDEX_ENTRY_PATTERN
 py2neo.geoff.Loader.__init__	py2neo.geoff.Loader-class.html#__init__
 py2neo.neo4j.Direction	py2neo.neo4j.Direction-class.html
 py2neo.neo4j.Direction.BOTH	py2neo.neo4j.Direction-class.html#BOTH

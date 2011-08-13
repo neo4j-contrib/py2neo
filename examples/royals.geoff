@@ -16,4 +16,12 @@
 (Di)-[:MOTHER_OF]->(Harry)
 (Cam)-[:MARRIED]->(Chaz)    {"marriage.place": "Windsor Guildhall", "marriage.date": "2005-04-09"}
 (Kate)-[:MARRIED]->(Wills)  {"marriage.place": "Westminster Abbey", "marriage.date": "2011-04-29"}
+{People}->(Liz)     {"name": "Elizabeth"}
+{People}->(Phil)    {"name": "Philip"}
+{People}->(Chaz)    {"name": "Charles"}
+{People}->(Di)      {"name": "Diana"}
+{People}->(Cam)     {"name": "Camilla"}
+{People}->(Wills)   {"name": "William"}
+{People}->(Harry)   {"name": "Henry"}
+{People}->(Kate)    {"name": "Catherine"}
 

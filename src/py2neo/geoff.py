@@ -70,6 +70,7 @@ class Dumper(object):
 class Loader(object):
 
 	DESCRIPTOR_PATTERN = re.compile(r"^(\((\w+)\)(-\[:(\w+)\]->\((\w+)\))?)(\s+(.*))?")
+	INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
 
 	def __init__(self, file, gdb):
 		self.file = file
@@ -79,6 +80,7 @@ class Loader(object):
 		first_node_id = None
 		nodes = {}
 		rels = {}
+		index_entries = {}
 		line_no = 0
 		for line in self.file:
 			line = line.strip()
@@ -105,7 +107,21 @@ class Loader(object):
 					else:
 						raise ValueError("Duplicate node on line %d: %s" % (line_no, repr(line)))
 				else:
-					raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+					m = self.INDEX_ENTRY_PATTERN.match(line)
+					if m:
+						(index, node) = (
+							unicode(m.group(2)),
+							unicode(m.group(3))
+						)
+						data = json.loads(m.group(5) or 'null')
+						if index not in index_entries:
+							index_entries[index] = {}
+						if node not in index_entries[index]:
+							index_entries[index][node] = {}
+						if data:
+							index_entries[index][node].update(data)
+					else:
+						raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
 		if first_node_id is None:
 			return None
 		else:
@@ -114,6 +130,17 @@ class Loader(object):
 			for key in rels.keys():
 				rel = rels[key]
 				rels[key] = nodes[key[0]].create_relationship_to(nodes[key[2]], key[1], rels[key])
+			if len(index_entries) > 0:
+				indexes = self.gdb.get_node_indexes()
+				for index_key in index_entries.keys():
+					if index_key in indexes:
+						index = indexes[index_key]
+					else:
+						index = self.gdb.create_node_index(index_key)
+					for node_key in index_entries[index_key].keys():
+						node = nodes[node_key]
+						for (key, value) in index_entries[index_key][node_key].items():
+							index.add(node, key, value)
 			return nodes[first_node_id]
 
 
