@@ -22,7 +22,7 @@ Neo4j client using REST interface
 import rest
 
 
-__version__   = "0.93"
+__version__   = "0.94"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -56,16 +56,18 @@ class GraphDatabaseService(rest.Resource):
 	
 	"""
 
-	def __init__(self, uri, http=None):
+	def __init__(self, uri, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a U{Neo4j <http://neo4j.org/>} database
 		instance identified by URI.
 		
-		@param uri:  the base URI of the database
-		@param http: httplib2.Http object to use for requests (optional)
+		@param uri:       the base URI of the database
+		@param http:      httplib2.Http object to use for requests (optional)
+		@param user_name: the user name to use for authentication (optional)
+		@param password:  the password to use for authentication (optional)
 		
 		"""
-		rest.Resource.__init__(self, uri, http=http)
+		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
 			self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
 		else:
@@ -251,20 +253,22 @@ class IndexableResource(rest.Resource):
 	functionality.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of an indexable resource (C{Node} or
 		C{Relationship}) identified by URI; optionally accepts further URIs
 		representing both an C{Index} for this resource type plus the specific
 		entry within that C{Index}.
 		
-		@param uri:  the URI identifying this resource
-		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this resource (optional)
-		@param index_uri:  the URI of the C{Index} containing the above entry (optional)
-		@param http: httplib2.Http object to use for requests (optional)
+		@param uri:             the URI identifying this resource
+		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this resource (optional)
+		@param index_uri:       the URI of the C{Index} containing the above entry (optional)
+		@param http:            httplib2.Http object to use for requests (optional)
+		@param user_name:       the user name to use for authentication (optional)
+		@param password:        the password to use for authentication (optional)
 		
 		"""
-		rest.Resource.__init__(self, uri, http=http)
+		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
 		self._index_entry_uri = index_entry_uri
 		self._index_uri = index_uri
 		self._id = int('0' + uri.rpartition('/')[-1])
@@ -346,19 +350,23 @@ class Node(IndexableResource):
 	within an C{Index}.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a C{Node} identified by URI; optionally
 		accepts further URIs representing both an C{Index} for C{Node}s plus
 		the specific entry within that C{Index}.
 		
-		@param uri:  the URI identifying this C{Node}
-		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this C{Node} (optional)
-		@param index_uri:  the URI of the C{Index} containing the above C{Node} entry (optional)
-		@param http: httplib2.Http object to use for requests (optional)
+		@param uri:             the URI identifying this C{Node}
+		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Node} (optional)
+		@param index_uri:       the URI of the C{Index} containing the above C{Node} entry (optional)
+		@param http:            httplib2.Http object to use for requests (optional)
+		@param user_name:       the user name to use for authentication (optional)
+		@param password:        the password to use for authentication (optional)
 		
 		"""
-		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
+		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
+		                           index_uri=index_uri, http=http,
+		                           user_name=user_name, password=password)
 		self._base_uri, u0, u1 = self._uri.partition("/node")
 		self._relative_uri = u0 + u1
 
@@ -514,19 +522,23 @@ class Relationship(IndexableResource):
 	this C{Relationship} is represented within an C{Index}.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a C{Relationship} identified by URI;
 		optionally accepts further URIs representing both an C{Index} for
 		C{Relationship}s plus the specific entry within that C{Index}.
 		
-		@param uri:  the URI identifying this C{Relationship}
-		@param index_entry_uri:  the URI of the entry in an C{Index} pointing to this C{Relationship} (optional)
-		@param index_uri:  the URI of the C{Index} containing the above C{Relationship} entry (optional)
-		@param http: httplib2.Http object to use for requests (optional)
+		@param uri:             the URI identifying this C{Relationship}
+		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Relationship} (optional)
+		@param index_uri:       the URI of the C{Index} containing the above C{Relationship} entry (optional)
+		@param http:            httplib2.Http object to use for requests (optional)
+		@param user_name:       the user name to use for authentication (optional)
+		@param password:        the password to use for authentication (optional)
 		
 		"""
-		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri, index_uri=index_uri, http=http)
+		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
+		                           index_uri=index_uri, http=http,
+		                           user_name=user_name, password=password)
 		self._base_uri, u0, u1 = self._uri.partition("/relationship")
 		self._relative_uri = u0 + u1
 		self._type = self._lookup('type')
@@ -713,11 +725,13 @@ class Index(rest.Resource):
 	
 	"""
 
-	def __init__(self, T, uri=None, template_uri=None, http=None):
+	def __init__(self, T, uri=None, template_uri=None, http=None, user_name=None, password=None):
 		rest.Resource.__init__(
 			self,
 			uri or template_uri.rpartition("/{key}/{value}")[0],
-			http=http
+			http=http,
+			user_name=user_name,
+			password=password
 		)
 		self.__T = T
 		self._base_uri, u0, u1 = self._uri.partition("/index")
@@ -854,8 +868,8 @@ class Traverser(rest.Resource):
 		BREADTH_FIRST = 'breadth_first'
 		DEPTH_FIRST   = 'depth_first'
 
-	def __init__(self, template_uri=None, traversal_description=None, http=None):
-		rest.Resource.__init__(self, None, http=http)
+	def __init__(self, template_uri=None, traversal_description=None, http=None, user_name=None, password=None):
+		rest.Resource.__init__(self, None, http=http, user_name=user_name, password=password)
 		self._template_uri = template_uri
 		self._traversal_description = traversal_description
 

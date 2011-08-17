@@ -23,7 +23,7 @@ import httplib2
 import json
 
 
-__version__   = "0.93"
+__version__   = "0.94"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -37,12 +37,14 @@ class Resource(object):
 
 	SUPPORTED_CONTENT_TYPES = ['application/json']
 
-	def __init__(self, uri, content_type='application/json', http=None):
+	def __init__(self, uri, content_type='application/json', http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a RESTful web service resource identified by URI.
 		
-		@param uri:  the URI identifying this resource
-		@param http: httplib2.Http object to use for requests (optional)
+		@param uri:       the URI identifying this resource
+		@param http:      httplib2.Http object to use for requests (optional)
+		@param user_name: the user name to use for authentication (optional)
+		@param password:  the password to use for authentication (optional)
 		
 		"""
 		if content_type not in self.SUPPORTED_CONTENT_TYPES:
@@ -52,6 +54,8 @@ class Resource(object):
 		self._relative_uri = None
 		self._content_type = content_type
 		self._http = http or httplib2.Http()
+		if user_name is not None and password is not None:
+			self._http.add_credentials(user_name, password)
 		self._index = None
 
 	def __repr__(self):
