@@ -757,7 +757,7 @@ class Index(rest.Resource):
 		@param value: the value of the key-value pair under which to index this resource
 		
 		"""
-		return Node(self._post(self._template_uri.format(key=key, value=value), indexable_resource._uri))
+		return Node(self._post(self._template_uri.format(key=key, value=value.replace("/", "%2F")), indexable_resource._uri))
 
 	def remove(self, indexable_resource):
 		if indexable_resource._index_uri == self._uri and indexable_resource._index_entry_uri is not None:
@@ -773,7 +773,7 @@ class Index(rest.Resource):
 				index_uri=self._uri,
 				http=self._http
 			)
-			for item in self._get(self._template_uri.format(key=key, value=value))
+			for item in self._get(self._template_uri.format(key=key, value=value.replace("/", "%2F")))
 		]
 
 

@@ -20,6 +20,7 @@ Version 0.94
 -------------
 
 - Added HTTP authentication options (user name & password)
+- Added encoding for indexes to allow slashes in values
 
 Version 0.93
 -------------
