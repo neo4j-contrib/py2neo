@@ -740,6 +740,7 @@ class Index(rest.Resource):
 			uri,
 			"" if uri.endswith("/") else "/"
 		)
+		self._batch_uri = self._base_uri + "/batch"
 
 	def __repr__(self):
 		return '%s<%s>(%s)' % (
