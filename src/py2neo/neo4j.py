@@ -170,6 +170,21 @@ class GraphDatabaseService(rest.Resource):
 			for index in indexes
 		])
 
+	def get_node_index(self, name):
+		"""
+		Returns an C{Index} object representing the C{Node} C{Index} with the
+		specified name within this database instance. If such an C{Index} does
+		not exist, one is created with default configuration.
+		
+		@return: an C{Index} instance
+		
+		"""
+		indexes = self.get_node_indexes()
+		if name in indexes:
+			return indexes[name]
+		else:
+			return gdb.create_node_index(name)
+
 	def create_relationship_index(self, name, config=None):
 		"""
 		Creates a new C{Relationship} C{Index} with the supplied name and
@@ -196,6 +211,21 @@ class GraphDatabaseService(rest.Resource):
 			(index, Index(Relationship, template_uri=indexes[index]['template'], http=self._http))
 			for index in indexes
 		])
+
+	def get_relationship_index(self, name):
+		"""
+		Returns an C{Index} object representing the C{Relationship} C{Index}
+		with the specified name within this database instance. If such an
+		C{Index} does not exist, one is created with default configuration.
+		
+		@return: an C{Index} instance
+		
+		"""
+		indexes = self.get_relationship_indexes()
+		if name in indexes:
+			return indexes[name]
+		else:
+			return gdb.create_relationship_index(name)
 
 	def execute(self, plugin_name, function_name, data):
 		"""
