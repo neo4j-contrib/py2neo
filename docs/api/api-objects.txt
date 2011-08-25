@@ -25,6 +25,7 @@ py2neo.neo4j.Direction.INCOMING	py2neo.neo4j.Direction-class.html#INCOMING
 py2neo.neo4j.GraphDatabaseService	py2neo.neo4j.GraphDatabaseService-class.html
 py2neo.neo4j.GraphDatabaseService.create_nodes	py2neo.neo4j.GraphDatabaseService-class.html#create_nodes
 py2neo.neo4j.GraphDatabaseService.execute_cypher_query	py2neo.neo4j.GraphDatabaseService-class.html#execute_cypher_query
+py2neo.neo4j.GraphDatabaseService.get_relationship_index	py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_index
 py2neo.rest.Resource._post	py2neo.rest.Resource-class.html#_post
 py2neo.rest.Resource._delete	py2neo.rest.Resource-class.html#_delete
 py2neo.neo4j.GraphDatabaseService.get_node_indexes	py2neo.neo4j.GraphDatabaseService-class.html#get_node_indexes
@@ -36,6 +37,7 @@ py2neo.rest.Resource._lookup	py2neo.rest.Resource-class.html#_lookup
 py2neo.neo4j.GraphDatabaseService.get_relationship_indexes	py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_indexes
 py2neo.neo4j.GraphDatabaseService.create_relationship_index	py2neo.neo4j.GraphDatabaseService-class.html#create_relationship_index
 py2neo.rest.Resource.__ne__	py2neo.rest.Resource-class.html#__ne__
+py2neo.neo4j.GraphDatabaseService.get_node_index	py2neo.neo4j.GraphDatabaseService-class.html#get_node_index
 py2neo.rest.Resource.SUPPORTED_CONTENT_TYPES	py2neo.rest.Resource-class.html#SUPPORTED_CONTENT_TYPES
 py2neo.neo4j.GraphDatabaseService.execute_gremlin_script	py2neo.neo4j.GraphDatabaseService-class.html#execute_gremlin_script
 py2neo.neo4j.GraphDatabaseService.get_reference_node	py2neo.neo4j.GraphDatabaseService-class.html#get_reference_node

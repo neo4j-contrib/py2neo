@@ -257,6 +257,26 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_node_index" class="summary-sig-name">get_node_index</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">name</span>)</span><br />
+      Returns an <code>Index</code> object representing the 
+      <code>Node</code> <code>Index</code> with the specified name within 
+      this database instance.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_node_index">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#create_relationship_index" class="summary-sig-name">create_relationship_index</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">name</span>,
         <span class="summary-sig-arg">config</span>=<span class="summary-sig-default">None</span>)</span><br />
@@ -282,6 +302,26 @@
       <code>Index</code>es within this database instance.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_relationship_indexes">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#get_relationship_index" class="summary-sig-name">get_relationship_index</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">name</span>)</span><br />
+      Returns an <code>Index</code> object representing the 
+      <code>Relationship</code> <code>Index</code> with the specified name 
+      within this database instance.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_relationship_index">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -655,6 +695,31 @@
   </dl>
 </td></tr></table>
 </div>
+<a name="get_node_index"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_node_index</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">name</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_node_index">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns an <code>Index</code> object representing the 
+  <code>Node</code> <code>Index</code> with the specified name within this 
+  database instance. If such an <code>Index</code> does not exist, one is 
+  created with default configuration.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>an <code>Index</code> instance</dd>
+  </dl>
+</td></tr></table>
+</div>
 <a name="create_relationship_index"></a>
 <div>
 <table class="details" border="1" cellpadding="3"
@@ -700,6 +765,31 @@
     <dt>Returns:</dt>
         <dd>a dictionary of Name : <code>Index</code> mappings for all 
           <code>Relationship</code> <code>Index</code>es</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="get_relationship_index"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">get_relationship_index</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">name</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.get_relationship_index">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Returns an <code>Index</code> object representing the 
+  <code>Relationship</code> <code>Index</code> with the specified name 
+  within this database instance. If such an <code>Index</code> does not 
+  exist, one is created with default configuration.</p>
+  <dl class="fields">
+    <dt>Returns:</dt>
+        <dd>an <code>Index</code> instance</dd>
   </dl>
 </td></tr></table>
 </div>
@@ -826,7 +916,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Mon Aug 22 07:51:13 2011
+    Generated by Epydoc 3.0.1 on Thu Aug 25 23:53:16 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

@@ -15,12 +15,17 @@ Getting Started
 Currently, py2neo source code is only available from GitHub. Please see the
 main website (http://py2neo.org/) for API documentation.
 
+Version 0.95
+-------------
+
+- New complete application example added: PynIT!
+- Added encoding for indexes to allow slashes in values
+- Added get_xxx_index to allow automatic creation of non-existant indexes
 
 Version 0.94
 -------------
 
 - Added HTTP authentication options (user name & password)
-- Added encoding for indexes to allow slashes in values
 
 Version 0.93
 -------------

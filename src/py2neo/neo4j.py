@@ -22,7 +22,7 @@ Neo4j client using REST interface
 import rest
 
 
-__version__   = "0.94"
+__version__   = "0.95"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
