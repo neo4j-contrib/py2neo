@@ -131,12 +131,8 @@ class Loader(object):
 				rel = rels[key]
 				rels[key] = nodes[key[0]].create_relationship_to(nodes[key[2]], key[1], rels[key])
 			if len(index_entries) > 0:
-				indexes = self.gdb.get_node_indexes()
 				for index_key in index_entries.keys():
-					if index_key in indexes:
-						index = indexes[index_key]
-					else:
-						index = self.gdb.create_node_index(index_key)
+					index = self.gdb.get_node_index(index_key)
 					for node_key in index_entries[index_key].keys():
 						node = nodes[node_key]
 						for (key, value) in index_entries[index_key][node_key].items():

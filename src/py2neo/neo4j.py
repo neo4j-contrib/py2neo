@@ -94,7 +94,7 @@ class GraphDatabaseService(rest.Resource):
 		Creates new C{Node}s for all supplied properties as part of a single
 		batch.
 		
-		@param properties: a dictionary of properties to attach to a C{Node} (multiple)
+		@param properties: dictionaries of properties to attach to new C{Node}s (multiple)
 		@return: a list of C{Node} instances representing the newly created nodes
 		
 		"""
@@ -106,6 +106,18 @@ class GraphDatabaseService(rest.Resource):
 				for i in range(len(properties))
 			])
 		]
+
+	def delete(self, *resources):
+		"""
+		Deletes all supplied resources as part of a single batch.
+		
+		@param resources: C{Node}s and/or C{Relationship}s to delete (multiple)
+		
+		"""
+		self._post(self._batch_uri, [
+			{"method": "DELETE", "to": resources[i]._relative_uri, "id": i}
+			for i in range(len(resources))
+		])
 
 	def get_reference_node(self):
 		"""
