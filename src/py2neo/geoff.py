@@ -77,67 +77,79 @@ class Loader(object):
 		self.gdb = gdb
 
 	def load(self):
+		# Stage 1: parse file and load into memory
 		first_node_id = None
 		nodes = {}
 		rels = {}
 		index_entries = {}
 		line_no = 0
 		for line in self.file:
-			line = line.strip()
-			line_no += 1
+			# increment line no and trim whitespace from current line
+			line_no, line = line_no + 1, line.strip()
+			# skip blank lines and comments
 			if line == "" or line.startswith("#"):
-				pass
-			else:
-				m = self.DESCRIPTOR_PATTERN.match(line)
-				if m and m.group(3):
-					(start_node, type, end_node) = (
-						unicode(m.group(2)),
-						unicode(m.group(4)),
-						unicode(m.group(5))
-					)
-					if start_node in nodes and end_node in nodes:
-						rels[(start_node, type, end_node)] = json.loads(m.group(7) or 'null')
-					else:
-						raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
-				elif m:
-					node_id = unicode(m.group(2))
-					if node_id not in nodes:
-						nodes[node_id] = json.loads(m.group(7) or 'null')
-						first_node_id = first_node_id or node_id
-					else:
-						raise ValueError("Duplicate node on line %d: %s" % (line_no, repr(line)))
-				else:
-					m = self.INDEX_ENTRY_PATTERN.match(line)
-					if m:
-						(index, node) = (
-							unicode(m.group(2)),
-							unicode(m.group(3))
-						)
-						data = json.loads(m.group(5) or 'null')
-						if index not in index_entries:
-							index_entries[index] = {}
-						if node not in index_entries[index]:
-							index_entries[index][node] = {}
-						if data:
-							index_entries[index][node].update(data)
-					else:
-						raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+				continue
+			# try to identify line as node or relationship descriptor
+			m = self.DESCRIPTOR_PATTERN.match(line)
+			# firstly, try as a relationship descriptor
+			if m and m.group(3):
+				(start_node, type, end_node) = (
+					unicode(m.group(2)),
+					unicode(m.group(4)),
+					unicode(m.group(5))
+				)
+				if start_node not in nodes or end_node not in nodes:
+					raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
+				rels[(start_node, type, end_node)] = json.loads(m.group(7) or 'null')
+				continue
+			# secondly, try as a node descriptor
+			if m:
+				node_id = unicode(m.group(2))
+				if node_id in nodes:
+					raise ValueError("Duplicate node on line %d: %s" % (line_no, repr(line)))
+				nodes[node_id] = json.loads(m.group(7) or 'null')
+				first_node_id = first_node_id or node_id
+				continue
+			# neither of those, so try as an index entry descriptor
+			m = self.INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				(index, node) = (
+					unicode(m.group(2)),
+					unicode(m.group(3))
+				)
+				data = json.loads(m.group(5) or 'null')
+				if index not in index_entries:
+					index_entries[index] = {}
+				if node not in index_entries[index]:
+					index_entries[index][node] = {}
+				if data:
+					index_entries[index][node].update(data)
+				continue
+			# no idea then... this line is invalid
+			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+		# Stage 2: write data from memory to graph
 		if first_node_id is None:
 			return None
-		else:
-			for key in nodes.keys():
-				nodes[key] = self.gdb.create_node(nodes[key])
-			for key in rels.keys():
-				rel = rels[key]
-				rels[key] = nodes[key[0]].create_relationship_to(nodes[key[2]], key[1], rels[key])
-			if len(index_entries) > 0:
-				for index_key in index_entries.keys():
-					index = self.gdb.get_node_index(index_key)
-					for node_key in index_entries[index_key].keys():
-						node = nodes[node_key]
-						for (key, value) in index_entries[index_key][node_key].items():
-							index.add(node, key, value)
-			return nodes[first_node_id]
+		# unzip nodes into keys and data
+		z = zip(*nodes.items())
+		# create nodes using batch operation
+		nodes = dict(zip(*[
+			z[0],
+			self.gdb.create_nodes(*z[1])
+		]))
+		# create relationships
+		for key in rels.keys():
+			rel = rels[key]
+			rels[key] = nodes[key[0]].create_relationship_to(nodes[key[2]], key[1], rels[key])
+		# create index entries
+		if len(index_entries) > 0:
+			for index_key in index_entries.keys():
+				index = self.gdb.get_node_index(index_key)
+				for node_key in index_entries[index_key].keys():
+					node = nodes[node_key]
+					for (key, value) in index_entries[index_key][node_key].items():
+						index.add(node, key, value)
+		return nodes[first_node_id]
 
 
 try:

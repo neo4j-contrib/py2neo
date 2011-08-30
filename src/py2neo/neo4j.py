@@ -20,6 +20,7 @@ Neo4j client using REST interface
 
 
 import rest
+from urllib import quote
 
 
 __version__   = "0.95"
@@ -69,10 +70,10 @@ class GraphDatabaseService(rest.Resource):
 		"""
 		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
-			self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
+			base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
 		else:
-			self._base_uri, self._relative_uri = self._uri, "/"
-		self._batch_uri = self._base_uri + "/batch"
+			base_uri, self._relative_uri = self._uri, "/"
+		self._batch_uri = base_uri + "/batch"
 		self._extensions = self._lookup('extensions')
 
 	def create_node(self, properties=None):
@@ -195,7 +196,7 @@ class GraphDatabaseService(rest.Resource):
 		if name in indexes:
 			return indexes[name]
 		else:
-			return gdb.create_node_index(name)
+			return self.create_node_index(name)
 
 	def create_relationship_index(self, name, config=None):
 		"""
@@ -237,7 +238,7 @@ class GraphDatabaseService(rest.Resource):
 		if name in indexes:
 			return indexes[name]
 		else:
-			return gdb.create_relationship_index(name)
+			return self.create_relationship_index(name)
 
 	def execute(self, plugin_name, function_name, data):
 		"""
@@ -312,6 +313,10 @@ class IndexableResource(rest.Resource):
 		"""
 		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
 		self._index_entry_uri = index_entry_uri
+		if self._index_entry_uri is None:
+			self._relative_index_entry_uri = None
+		else:
+			self._relative_index_entry_uri = "".join(self._index_entry_uri.partition("/index")[1:])
 		self._index_uri = index_uri
 		self._id = int('0' + uri.rpartition('/')[-1])
 
@@ -409,8 +414,7 @@ class Node(IndexableResource):
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
 		                           index_uri=index_uri, http=http,
 		                           user_name=user_name, password=password)
-		self._base_uri, u0, u1 = self._uri.partition("/node")
-		self._relative_uri = u0 + u1
+		self._relative_uri = "".join(self._uri.partition("/node")[1:])
 
 	def __str__(self):
 		"""
@@ -581,8 +585,7 @@ class Relationship(IndexableResource):
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
 		                           index_uri=index_uri, http=http,
 		                           user_name=user_name, password=password)
-		self._base_uri, u0, u1 = self._uri.partition("/relationship")
-		self._relative_uri = u0 + u1
+		self._relative_uri = "".join(self._uri.partition("/relationship")[1:])
 		self._type = self._lookup('type')
 		self._data = self._lookup('data')
 
@@ -776,13 +779,15 @@ class Index(rest.Resource):
 			password=password
 		)
 		self.__T = T
-		self._base_uri, u0, u1 = self._uri.partition("/index")
+		base_uri, u0, u1 = self._uri.partition("/index")
 		self._relative_uri = u0 + u1
 		self._template_uri = template_uri or "%s%s{key}/{value}" % (
 			uri,
 			"" if uri.endswith("/") else "/"
 		)
-		self._batch_uri = self._base_uri + "/batch"
+		self._relative_template_uri = "".join(self._template_uri.partition("/index")[1:])
+		self._batch_uri = base_uri + "/batch"
+		self._batch = None
 
 	def __repr__(self):
 		return '%s<%s>(%s)' % (
@@ -791,22 +796,51 @@ class Index(rest.Resource):
 			repr(self._uri)
 		)
 
-	def add(self, indexable_resource, key, value):
+	def start_batch(self):
+		self._batch = []
+
+	def discard_batch(self):
+		self._batch = None
+
+	def submit_batch(self):
+		pass
+
+	def add(self, entity, key, value):
 		"""
 		Adds an entry to this C{Index} under the specified C{key} and C{value}.
 		
-		@param indexable_resource: the resource to add to the C{Index}
+		@param entity: the resource to add to the C{Index}
 		@param key: the key of the key-value pair under which to index this resource
 		@param value: the value of the key-value pair under which to index this resource
 		
 		"""
-		return Node(self._post(self._template_uri.format(key=key, value=value.replace("/", "%2F")), indexable_resource._uri))
-
-	def remove(self, indexable_resource):
-		if indexable_resource._index_uri == self._uri and indexable_resource._index_entry_uri is not None:
-			self._delete(indexable_resource._index_entry_uri)
+		if self._batch is None:
+			self._post(self._template_uri.format(
+				key=key,
+				value=quote(value, "")
+			), entity._uri)
 		else:
-			raise LookupError(indexable_resource)
+			self._batch.append({
+				"method": "POST",
+				"to": self._relative_template_uri.format(
+					key=key,
+					value=quote(value, "")
+				),
+				"body": entity._uri,
+				"id": len(self._batch)
+			})
+
+	def remove(self, entity):
+		if entity._index_uri != self._uri or entity._index_entry_uri is None:
+			raise LookupError(entity)
+		if self._batch is None:
+			self._delete(entity._index_entry_uri)
+		else:
+			self._batch.append({
+				"method": "DELETE",
+				"to": entity._relative_index_entry_uri,
+				"id": len(self._batch)
+			})
 
 	def search(self, key, value):
 		return [
@@ -816,7 +850,10 @@ class Index(rest.Resource):
 				index_uri=self._uri,
 				http=self._http
 			)
-			for item in self._get(self._template_uri.format(key=key, value=value.replace("/", "%2F")))
+			for item in self._get(self._template_uri.format(
+				key=key,
+				value=quote(value, "")
+			))
 		]
 
 
