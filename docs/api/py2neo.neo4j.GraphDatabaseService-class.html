@@ -106,6 +106,7 @@
         <tr>
           <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
         <span class="summary-sig-arg">uri</span>,
+        <span class="summary-sig-arg">index</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">http</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">user_name</span>=<span class="summary-sig-default">None</span>,
         <span class="summary-sig-arg">password</span>=<span class="summary-sig-default">None</span>)</span><br />
@@ -151,6 +152,43 @@
       a single batch.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.create_nodes">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#create_relationships" class="summary-sig-name">create_relationships</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">*descriptors</span>)</span><br />
+      Creates new <code>Relationships</code> based on the supplied 
+      <code>descriptors</code> as part of a single batch.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.create_relationships">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a href="py2neo.neo4j.GraphDatabaseService-class.html#delete" class="summary-sig-name">delete</a>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">*resources</span>)</span><br />
+      Deletes all supplied resources as part of a single batch.</td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.delete">source&nbsp;code</a></span>
             
           </td>
         </tr>
@@ -494,6 +532,7 @@
   <tr valign="top"><td>
   <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
         <span class="sig-arg">uri</span>,
+        <span class="sig-arg">index</span>=<span class="sig-default">None</span>,
         <span class="sig-arg">http</span>=<span class="sig-default">None</span>,
         <span class="sig-arg">user_name</span>=<span class="sig-default">None</span>,
         <span class="sig-arg">password</span>=<span class="sig-default">None</span>)</span>
@@ -510,6 +549,7 @@
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
         <li><strong class="pname"><code>uri</code></strong> - the base URI of the database</li>
+        <li><strong class="pname"><code>index</code></strong> - an index of RESTful URIs (optional)</li>
         <li><strong class="pname"><code>http</code></strong> - httplib2.Http object to use for requests (optional)</li>
         <li><strong class="pname"><code>user_name</code></strong> - the user name to use for authentication (optional)</li>
         <li><strong class="pname"><code>password</code></strong> - the password to use for authentication (optional)</li>
@@ -568,12 +608,81 @@
   <dl class="fields">
     <dt>Parameters:</dt>
     <dd><ul class="nomargin-top">
-        <li><strong class="pname"><code>properties</code></strong> - a dictionary of properties to attach to a <code>Node</code> 
+        <li><strong class="pname"><code>properties</code></strong> - dictionaries of properties to attach to new <code>Node</code>s 
           (multiple)</li>
     </ul></dd>
     <dt>Returns:</dt>
         <dd>a list of <code>Node</code> instances representing the newly 
           created nodes</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="create_relationships"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">create_relationships</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">*descriptors</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.create_relationships">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Creates new <code>Relationships</code> based on the supplied 
+  <code>descriptors</code> as part of a single batch. Each descriptor 
+  should be a dictionary consisting of two <code>Node</code> objects, named
+  <code>start_node</code> and <code>end_node</code>, a <code>type</code> 
+  and optionally <code>data</code> to be attached to the 
+  <code>Relationship</code>, for example:</p>
+<pre class="py-doctest">
+<span class="py-prompt">&gt;&gt;&gt; </span>gdb.create_relationships({
+<span class="py-more">... </span>    <span class="py-string">&quot;start_node&quot;</span>: node1,
+<span class="py-more">... </span>    <span class="py-string">&quot;end_node&quot;</span>: node2,
+<span class="py-more">... </span>    <span class="py-string">&quot;type&quot;</span>: <span class="py-string">&quot;KNOWS&quot;</span>
+<span class="py-more">... </span>}, {
+<span class="py-more">... </span>    <span class="py-string">&quot;start_node&quot;</span>: node2,
+<span class="py-more">... </span>    <span class="py-string">&quot;end_node&quot;</span>: node3,
+<span class="py-more">... </span>    <span class="py-string">&quot;type&quot;</span>: <span class="py-string">&quot;LIKES&quot;</span>,
+<span class="py-more">... </span>    <span class="py-string">&quot;data&quot;</span>: {<span class="py-string">&quot;amount&quot;</span>: <span class="py-string">&quot;lots&quot;</span>}
+<span class="py-more">... </span>})</pre>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>descriptors</code></strong> - dictionaries describing the <code>Relationship</code>s to be 
+          created (multiple)</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>a list of <code>Relationship</code> instances representing the 
+          newly created relationships</dd>
+  </dl>
+</td></tr></table>
+</div>
+<a name="delete"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">delete</span>(<span class="sig-arg">self</span>,
+        <span class="sig-arg">*resources</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.neo4j-pysrc.html#GraphDatabaseService.delete">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Deletes all supplied resources as part of a single batch.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>resources</code></strong> - <code>Node</code>s and/or <code>Relationship</code>s to delete 
+          (multiple)</li>
+    </ul></dd>
   </dl>
 </td></tr></table>
 </div>
@@ -916,7 +1025,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Thu Aug 25 23:54:54 2011
+    Generated by Epydoc 3.0.1 on Tue Aug 30 23:05:44 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

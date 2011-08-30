@@ -20,10 +20,11 @@ Neo4j client using REST interface
 
 
 import rest
+from types import ListType
 from urllib import quote
 
 
-__version__   = "0.95"
+__version__   = "0.96"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -57,18 +58,19 @@ class GraphDatabaseService(rest.Resource):
 	
 	"""
 
-	def __init__(self, uri, http=None, user_name=None, password=None):
+	def __init__(self, uri, index=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a U{Neo4j <http://neo4j.org/>} database
 		instance identified by URI.
 		
 		@param uri:       the base URI of the database
+		@param index:     an index of RESTful URIs (optional)
 		@param http:      httplib2.Http object to use for requests (optional)
 		@param user_name: the user name to use for authentication (optional)
 		@param password:  the password to use for authentication (optional)
 		
 		"""
-		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
+		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
 			base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
 		else:
@@ -99,12 +101,56 @@ class GraphDatabaseService(rest.Resource):
 		@return: a list of C{Node} instances representing the newly created nodes
 		
 		"""
-		node_uri = "".join(self._lookup('node').partition("/node")[1:3])
 		return [
-			Node(result['location'], http=self._http)
+			Node(result['location'], index=result['body'], http=self._http)
 			for result in self._post(self._batch_uri, [
-				{"method": "POST", "to": node_uri, "body": properties[i], "id": i}
+				{
+					'method': 'POST',
+					'to': "".join(self._lookup('node').partition("/node")[1:3]),
+					'body': properties[i],
+					'id': i
+				}
 				for i in range(len(properties))
+			])
+		]
+
+	def create_relationships(self, *descriptors):
+		"""
+		Creates new C{Relationships} based on the supplied C{descriptors} as
+		part of a single batch. Each descriptor should be a dictionary
+		consisting of two C{Node} objects, named C{start_node} and C{end_node},
+		a C{type} and optionally C{data} to be attached to the C{Relationship},
+		for example:
+		
+			>>> gdb.create_relationships({
+			...     "start_node": node1,
+			...     "end_node": node2,
+			...     "type": "KNOWS"
+			... }, {
+			...     "start_node": node2,
+			...     "end_node": node3,
+			...     "type": "LIKES",
+			...     "data": {"amount": "lots"}
+			... })
+		
+		@param descriptors: dictionaries describing the C{Relationship}s to be created (multiple)
+		@return: a list of C{Relationship} instances representing the newly created relationships
+		
+		"""
+		return [
+			Relationship(result['body']['self'], index=result['body'], http=self._http)
+			for result in self._post(self._batch_uri, [
+				{
+					'method': 'POST',
+					'to': descriptors[i]['start_node']._lookup('create_relationship'),
+					'body': {
+						'to': descriptors[i]['end_node']._uri,
+						'type': descriptors[i]['type'],
+						'data': descriptors[i]['data'] if 'data' in descriptors[i] else None
+					},
+					'id': i
+				}
+				for i in range(len(descriptors))
 			])
 		]
 
@@ -116,7 +162,11 @@ class GraphDatabaseService(rest.Resource):
 		
 		"""
 		self._post(self._batch_uri, [
-			{"method": "DELETE", "to": resources[i]._relative_uri, "id": i}
+			{
+				'method': 'DELETE',
+				'to': resources[i]._relative_uri,
+				'id': i
+			}
 			for i in range(len(resources))
 		])
 
@@ -296,7 +346,7 @@ class IndexableResource(rest.Resource):
 	functionality.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of an indexable resource (C{Node} or
 		C{Relationship}) identified by URI; optionally accepts further URIs
@@ -306,12 +356,13 @@ class IndexableResource(rest.Resource):
 		@param uri:             the URI identifying this resource
 		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this resource (optional)
 		@param index_uri:       the URI of the C{Index} containing the above entry (optional)
+		@param index:           an index of RESTful URIs (optional)
 		@param http:            httplib2.Http object to use for requests (optional)
 		@param user_name:       the user name to use for authentication (optional)
 		@param password:        the password to use for authentication (optional)
 		
 		"""
-		rest.Resource.__init__(self, uri, http=http, user_name=user_name, password=password)
+		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
 		self._index_entry_uri = index_entry_uri
 		if self._index_entry_uri is None:
 			self._relative_index_entry_uri = None
@@ -397,7 +448,7 @@ class Node(IndexableResource):
 	within an C{Index}.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a C{Node} identified by URI; optionally
 		accepts further URIs representing both an C{Index} for C{Node}s plus
@@ -406,13 +457,14 @@ class Node(IndexableResource):
 		@param uri:             the URI identifying this C{Node}
 		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Node} (optional)
 		@param index_uri:       the URI of the C{Index} containing the above C{Node} entry (optional)
+		@param index:           an index of RESTful URIs (optional)
 		@param http:            httplib2.Http object to use for requests (optional)
 		@param user_name:       the user name to use for authentication (optional)
 		@param password:        the password to use for authentication (optional)
 		
 		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-		                           index_uri=index_uri, http=http,
+		                           index_uri=index_uri, index=index, http=http,
 		                           user_name=user_name, password=password)
 		self._relative_uri = "".join(self._uri.partition("/node")[1:])
 
@@ -568,7 +620,7 @@ class Relationship(IndexableResource):
 	this C{Relationship} is represented within an C{Index}.
 	"""
 
-	def __init__(self, uri, index_entry_uri=None, index_uri=None, http=None, user_name=None, password=None):
+	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a C{Relationship} identified by URI;
 		optionally accepts further URIs representing both an C{Index} for
@@ -577,13 +629,14 @@ class Relationship(IndexableResource):
 		@param uri:             the URI identifying this C{Relationship}
 		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Relationship} (optional)
 		@param index_uri:       the URI of the C{Index} containing the above C{Relationship} entry (optional)
+		@param index:           an index of RESTful URIs (optional)
 		@param http:            httplib2.Http object to use for requests (optional)
 		@param user_name:       the user name to use for authentication (optional)
 		@param password:        the password to use for authentication (optional)
 		
 		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-		                           index_uri=index_uri, http=http,
+		                           index_uri=index_uri, index=index, http=http,
 		                           user_name=user_name, password=password)
 		self._relative_uri = "".join(self._uri.partition("/relationship")[1:])
 		self._type = self._lookup('type')
@@ -768,12 +821,19 @@ class Index(rest.Resource):
 		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1")
 		Index<Node>(u'http://localhost:7474/db/data/index/node/index1')
 	
+	By default, every C{Index} write operation will execute immediately but
+	these may also be grouped into a batch in order to reduce HTTP calls. To
+	create a batch, simply issue a C{batch_start()} call, followed by the
+	required C{add} and C{remove} calls and finally calling C{batch_submit()}.
+	A batch may be discarded at any time using C{batch_discard()}.
+	
 	"""
 
-	def __init__(self, T, uri=None, template_uri=None, http=None, user_name=None, password=None):
+	def __init__(self, T, uri=None, template_uri=None, index=None, http=None, user_name=None, password=None):
 		rest.Resource.__init__(
 			self,
 			uri or template_uri.rpartition("/{key}/{value}")[0],
+			index=index,
 			http=http,
 			user_name=user_name,
 			password=password
@@ -797,17 +857,29 @@ class Index(rest.Resource):
 		)
 
 	def start_batch(self):
+		"""
+		Starts a new batch of C{Index} write operations.
+		"""
 		self._batch = []
 
 	def discard_batch(self):
+		"""
+		Discards the current new batch of C{Index} write operations.
+		"""
 		self._batch = None
 
 	def submit_batch(self):
-		pass
+		"""
+		Submits the current new batch of C{Index} write operations.
+		"""
+		self._post(self._batch_uri, self._batch)
+		self._batch = None
 
 	def add(self, entity, key, value):
 		"""
 		Adds an entry to this C{Index} under the specified C{key} and C{value}.
+		If a batch has been started, this operation will not be submitted
+		until C{submit_batch()} has been called.
 		
 		@param entity: the resource to add to the C{Index}
 		@param key: the key of the key-value pair under which to index this resource
@@ -831,30 +903,71 @@ class Index(rest.Resource):
 			})
 
 	def remove(self, entity):
+		"""
+		Removes the given entity from this C{Index}. The entity must have been
+		retreived from an C{Index} search and therefore contain an
+		C{_index_entry_uri} property. If a batch has been started, this
+		operation will not be submitted until C{submit_batch()} has been called.
+		
+		@param entity: the resource to remove from the C{Index}
+		
+		"""
 		if entity._index_uri != self._uri or entity._index_entry_uri is None:
 			raise LookupError(entity)
 		if self._batch is None:
 			self._delete(entity._index_entry_uri)
 		else:
 			self._batch.append({
-				"method": "DELETE",
-				"to": entity._relative_index_entry_uri,
-				"id": len(self._batch)
+				'method': 'DELETE',
+				'to': entity._relative_index_entry_uri,
+				'id': len(self._batch)
 			})
 
 	def search(self, key, value):
-		return [
-			self.__T(
-				item['self'],
-				index_entry_uri=item['indexed'],
-				index_uri=self._uri,
-				http=self._http
-			)
-			for item in self._get(self._template_uri.format(
-				key=key,
-				value=quote(value, "")
-			))
-		]
+		"""
+		Searches the current C{Index} for items matching the supplied key/value
+		pair; each pair may return zero or more matching items. The C{value}
+		parameter may also be a C{list} allowing a batch search to be performed
+		matching the specified C{key} with each C{value} in turn. In batch mode
+		a C{list} of C{list}s will be returned, each top-level item
+		corresponding to the C{value} passed into the same position.
+		"""
+		if type(value) == ListType:
+			return [
+				[
+					self.__T(
+						result['self'],
+						index_entry_uri=result['indexed'],
+						index_uri=self._uri,
+						http=self._http
+					)
+					for result in item['body']
+				]
+				for item in self._post(self._batch_uri, [
+					{
+						'method': 'GET',
+						'to': self._relative_template_uri.format(
+							key=key,
+							value=quote(value[i], "")
+						),
+						'id': i
+					}
+					for i in range(len(value))
+				])
+			]
+		else:
+			return [
+				self.__T(
+					item['self'],
+					index_entry_uri=item['indexed'],
+					index_uri=self._uri,
+					http=self._http
+				)
+				for item in self._get(self._template_uri.format(
+					key=key,
+					value=quote(value, "")
+				))
+			]
 
 
 class TraversalDescription(object):
@@ -948,8 +1061,8 @@ class Traverser(rest.Resource):
 		BREADTH_FIRST = 'breadth_first'
 		DEPTH_FIRST   = 'depth_first'
 
-	def __init__(self, template_uri=None, traversal_description=None, http=None, user_name=None, password=None):
-		rest.Resource.__init__(self, None, http=http, user_name=user_name, password=password)
+	def __init__(self, template_uri=None, traversal_description=None, index=None, http=None, user_name=None, password=None):
+		rest.Resource.__init__(self, None, index=index, http=http, user_name=user_name, password=password)
 		self._template_uri = template_uri
 		self._traversal_description = traversal_description
 

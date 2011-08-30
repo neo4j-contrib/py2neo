@@ -24,7 +24,7 @@ import neo4j
 import re
 
 
-__version__   = "0.95"
+__version__   = "0.96"
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -80,7 +80,7 @@ class Loader(object):
 		# Stage 1: parse file and load into memory
 		first_node_id = None
 		nodes = {}
-		rels = {}
+		rels = [] #{}
 		index_entries = {}
 		line_no = 0
 		for line in self.file:
@@ -100,7 +100,13 @@ class Loader(object):
 				)
 				if start_node not in nodes or end_node not in nodes:
 					raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
-				rels[(start_node, type, end_node)] = json.loads(m.group(7) or 'null')
+				rels.append({
+					'start_node': start_node,
+					'end_node': end_node,
+					'type': type,
+					'data': json.loads(m.group(7) or 'null')
+				})
+				#rels[(start_node, type, end_node)] = json.loads(m.group(7) or 'null')
 				continue
 			# secondly, try as a node descriptor
 			if m:
@@ -138,17 +144,25 @@ class Loader(object):
 			self.gdb.create_nodes(*z[1])
 		]))
 		# create relationships
-		for key in rels.keys():
-			rel = rels[key]
-			rels[key] = nodes[key[0]].create_relationship_to(nodes[key[2]], key[1], rels[key])
+		rels = self.gdb.create_relationships(*[
+			{
+				'start_node': nodes[rel['start_node']],
+				'end_node': nodes[rel['end_node']],
+				'type': rel['type'],
+				'data': rel['data']
+			}
+			for rel in rels
+		])
 		# create index entries
 		if len(index_entries) > 0:
 			for index_key in index_entries.keys():
 				index = self.gdb.get_node_index(index_key)
+				index.start_batch()
 				for node_key in index_entries[index_key].keys():
 					node = nodes[node_key]
 					for (key, value) in index_entries[index_key][node_key].items():
 						index.add(node, key, value)
+				index.submit_batch()
 		return nodes[first_node_id]
 
 
