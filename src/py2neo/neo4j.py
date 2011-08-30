@@ -195,7 +195,7 @@ class GraphDatabaseService(rest.Resource):
 		if name in indexes:
 			return indexes[name]
 		else:
-			return gdb.create_node_index(name)
+			return self.create_node_index(name)
 
 	def create_relationship_index(self, name, config=None):
 		"""
@@ -237,7 +237,7 @@ class GraphDatabaseService(rest.Resource):
 		if name in indexes:
 			return indexes[name]
 		else:
-			return gdb.create_relationship_index(name)
+			return self.create_relationship_index(name)
 
 	def execute(self, plugin_name, function_name, data):
 		"""
