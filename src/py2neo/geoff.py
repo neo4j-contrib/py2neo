@@ -80,7 +80,7 @@ class Loader(object):
 		# Stage 1: parse file and load into memory
 		first_node_id = None
 		nodes = {}
-		rels = [] #{}
+		rels = []
 		index_entries = {}
 		line_no = 0
 		for line in self.file:
@@ -106,7 +106,6 @@ class Loader(object):
 					'type': type,
 					'data': json.loads(m.group(7) or 'null')
 				})
-				#rels[(start_node, type, end_node)] = json.loads(m.group(7) or 'null')
 				continue
 			# secondly, try as a node descriptor
 			if m:
