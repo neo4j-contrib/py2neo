@@ -69,8 +69,9 @@ class Dumper(object):
 
 class Loader(object):
 
-	DESCRIPTOR_PATTERN = re.compile(r"^(\((\w+)\)(-\[:(\w+)\]->\((\w+)\))?)(\s+(.*))?")
-	INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
+	DESCRIPTOR_PATTERN               = re.compile(r"^(\((\w+)\)(-\[(\w*):(\w+)\]->\((\w+)\))?)(\s+(.*))?")
+	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
+	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
 
 	def __init__(self, file, gdb):
 		self.file = file
@@ -93,10 +94,11 @@ class Loader(object):
 			m = self.DESCRIPTOR_PATTERN.match(line)
 			# firstly, try as a relationship descriptor
 			if m and m.group(3):
-				(start_node, type, end_node) = (
+				(start_node, name, type, end_node) = (
 					unicode(m.group(2)),
 					unicode(m.group(4)),
-					unicode(m.group(5))
+					unicode(m.group(5)),
+					unicode(m.group(6))
 				)
 				if start_node not in nodes or end_node not in nodes:
 					raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
@@ -104,7 +106,7 @@ class Loader(object):
 					'start_node': start_node,
 					'end_node': end_node,
 					'type': type,
-					'data': json.loads(m.group(7) or 'null')
+					'data': json.loads(m.group(8) or 'null')
 				})
 				continue
 			# secondly, try as a node descriptor
@@ -112,11 +114,11 @@ class Loader(object):
 				node_id = unicode(m.group(2))
 				if node_id in nodes:
 					raise ValueError("Duplicate node on line %d: %s" % (line_no, repr(line)))
-				nodes[node_id] = json.loads(m.group(7) or 'null')
+				nodes[node_id] = json.loads(m.group(8) or 'null')
 				first_node_id = first_node_id or node_id
 				continue
 			# neither of those, so try as an index entry descriptor
-			m = self.INDEX_ENTRY_PATTERN.match(line)
+			m = self.NODE_INDEX_ENTRY_PATTERN.match(line)
 			if m:
 				(index, node) = (
 					unicode(m.group(2)),
