@@ -106,13 +106,13 @@ def index():
 			abort(400)
 	else:
 		# return a list of bookmarks using the index template
-		return render_template_string(INDEX_TEMPLATE, bookmarks=[
-			bm_node.get_properties()
-			for bm_node in bm_subref.get_related_nodes(
+		return render_template_string(
+			INDEX_TEMPLATE,
+			bookmarks=bm_db.get_properties(*bm_subref.get_related_nodes(
 				neo4j.Direction.OUTGOING,
 				"BOOKMARK"
-			)
-		])
+			))
+		)
 
 # Resolve calls to a particular handle
 @app.route("/<handle>")

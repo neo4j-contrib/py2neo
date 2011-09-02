@@ -19,7 +19,7 @@ main website (http://py2neo.org/) for API documentation.
 Version 0.96
 -------------
 
-- More batch operations added
+- More batch operations added (see http://py2neo.org/batch for details)
 - Lots of refactoring
 
 Version 0.95

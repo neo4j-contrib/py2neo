@@ -154,9 +154,28 @@ class GraphDatabaseService(rest.Resource):
 			])
 		]
 
+	def get_properties(self, *resources):
+		"""
+		Retrieves properties for all specified resources as part of a single batch.
+		
+		@param resources: C{Node}s and/or C{Relationship}s to obtain properties for (multiple)
+		
+		"""
+		return [
+			result['body']['data']
+			for result in self._post(self._batch_uri, [
+				{
+					'method': 'GET',
+					'to': resources[i]._relative_uri,
+					'id': i
+				}
+				for i in range(len(resources))
+			])
+		]
+
 	def delete(self, *resources):
 		"""
-		Deletes all supplied resources as part of a single batch.
+		Deletes all specified resources as part of a single batch.
 		
 		@param resources: C{Node}s and/or C{Relationship}s to delete (multiple)
 		
@@ -413,7 +432,13 @@ class IndexableResource(rest.Resource):
 		"""
 		Returns all properties for this resource.
 		"""
-		return self._get(self._lookup('properties'))
+		if self._index is None:
+			# if the index isn't already loaded, just read data from
+			# there so as to save an HTTP call
+			return self._lookup('data')
+		else:
+			# otherwise, grab a fresh copy using the properties resource
+			return self._get(self._lookup('properties'))
 
 	def set_properties(self, properties):
 		"""
