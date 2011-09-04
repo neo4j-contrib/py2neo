@@ -1,0 +1,30 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html lang="en">
+<head>
+	<title>Index of Bookmarks</title>
+	<link rel="stylesheet" type="text/css" href="{{
+		url_for('static', filename='default.css') }}" />
+	<script type="text/javascript" src="{{
+		url_for('static', filename='jquery-1.6.2.min.js') }}"></script>
+	<script type="text/javascript" src="{{
+		url_for('static', filename='default.js') }}"></script>
+</head>
+<body>
+	<h1>Index of Bookmarks</h1>
+	<div>
+		<label for="new_address">Bookmark a new address: </label>
+		<input type="text" id="new_address" value="http://" />
+		<input type="button" value="Add" id="add_bookmark" />
+	</div>
+	<ul id="bookmarks">
+		{% for bookmark in bookmarks %}
+		<li class="bookmark">
+			<span class="handle"><a href="/{{ bookmark.handle }}">{{ bookmark.handle }}</a></span>
+			<span class="address"><a href="{{ bookmark.address }}">{{ bookmark.address }}</a></span>
+			<span class="hits">{{ bookmark.hits }}</div>
+		</li>
+		{% endfor %}
+	</ul>
+</body>
+</html>
+

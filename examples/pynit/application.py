@@ -19,43 +19,28 @@ PynIT!
 =======
 Example application implementing a simple bookmarking/URL-shortening service.
 Each node within the database represents a bookmark, with a short handle (e.g.
-"aB23x") and a web address. Suggest using Poster to add bookmarks.
+"pYn1T") and a web address.
 
 GET http://localhost:5000/
 View a list of all bookmarks in the database
 
-GET http://localhost:5000/<handle>
-Redirect (301) to the address behind the specified handle
-
 POST http://localhost:5000/ {"address":"http://neo4j.org/"}
 Add a new bookmark pointing to the specified address
+
+GET http://localhost:5000/<handle>
+Redirect (301) to the address behind the specified handle
+and increment the hit count for that bookmark
+
+DELETE http://localhost:5000/<handle>
+Delete the bookmark associated with the specified handle
 
 """
 
 import random
 
 from py2neo import neo4j
-from flask import Flask, abort, json, redirect, render_template_string, request
+from flask import *
 app = Flask(__name__)
-
-# Base HTML template for displaying index page
-INDEX_TEMPLATE = """\
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
-<html lang="en">
-<head>
-	<title>Index of Bookmarks</title>
-</head>
-	<body>
-	<h1>Index of Bookmarks</h1>
-	<dl id="bookmarks">
-	{% for bm in bookmarks %}
-		<dt><a href="/{{ bm.handle }}">{{ bm.handle }}</a></dt>
-		<dd><a href="{{ bm.address }}">{{ bm.address }}</a></dd>
-	{% endfor %}
-	</dl>
-	</body>
-</html>
-"""
 
 # List of safe characters to use when building handles
 HANDLE_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -85,13 +70,29 @@ def get_random_handle(size):
 # Handle calls to the index page
 @app.route("/", methods=["GET", "POST"])
 def index():
-	if request.method == "POST":
+	if request.method == "GET":
+		# retrieve all bookmark details from database
+		bm_data = bm_db.get_properties(*bm_subref.get_related_nodes(
+			neo4j.Direction.OUTGOING,
+			"BOOKMARK"
+		))
+		# sort the bookmarks into reverse order by number of hits
+		bm_data.sort(key=lambda bookmark: bookmark["hits"], reverse=True)
+		# return a list of bookmarks using the index template
+		response = make_response(render_template(
+			"index.html",
+			bookmarks=bm_data
+		))
+		response.cache_control.no_cache = True
+		return response
+	elif request.method == "POST":
 		# add a new bookmark
 		if request.json is not None:
 			# use the JSON data passed into the post request
 			data = {
 				"handle": get_random_handle(5),
-				"address": request.json["address"]
+				"address": request.json["address"],
+				"hits": 0
 			}
 			# create a new node for this bookmark in the database
 			node = bm_db.create_node(data)
@@ -105,26 +106,46 @@ def index():
 			# no JSON passed to POST so signal an invalid request
 			abort(400)
 	else:
-		# return a list of bookmarks using the index template
-		return render_template_string(
-			INDEX_TEMPLATE,
-			bookmarks=bm_db.get_properties(*bm_subref.get_related_nodes(
-				neo4j.Direction.OUTGOING,
-				"BOOKMARK"
-			))
-		)
+		raise NotImplementedError
 
 # Resolve calls to a particular handle
-@app.route("/<handle>")
+@app.route("/<handle>", methods=["GET", "DELETE"])
 def resolve(handle):
-	# grab the node behind this handle
-	bm_node = get_bookmark_node(handle)
-	if bm_node is not None:
-		# perform a 301 redirect to the bookmark's web address
-		return redirect(bm_node["address"], code=301)
+	if request.method == "GET":
+		# grab the node behind this handle
+		bm_node = get_bookmark_node(handle)
+		if bm_node is not None:
+			# update hits on node
+			bm_node["hits"] += 1
+			# perform a 302 redirect to the bookmark's web address (not cached)
+			return redirect(bm_node["address"], code=302)
+		else:
+			# handle not found, throw a 404
+			abort(404)
+	elif request.method == "DELETE":
+		# grab the node behind this handle
+		bm_node = get_bookmark_node(handle)
+		if bm_node is not None:
+			# delete relationship from reference node
+			bm_rel = bm_node.get_single_relationship(
+				neo4j.Direction.INCOMING,
+				"BOOKMARK"
+			)
+			if bm_rel is not None:
+				bm_rel.delete()
+			# remove index entry
+			bm_entries = bm_index.search("handle", handle)
+			if bm_entries is not None:
+				for bm_entry in bm_entries:
+					bm_index.remove(bm_entry)
+			# delete node
+			bm_node.delete()
+			return ""
+		else:
+			# handle not found, throw a 404
+			abort(404)
 	else:
-		# handle not found, throw a 404
-		abort(404)
+		raise NotImplementedError
 
 if __name__ == "__main__":
 	app.run()

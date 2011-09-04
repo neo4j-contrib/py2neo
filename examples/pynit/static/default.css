@@ -1,0 +1,128 @@
+html {
+	background-color: #231F20;
+	color: #E2E9FF;
+	font: 16px "Trebuchet MS", sans-serif;
+	text-align: center;
+}
+body {
+	margin: 1em auto;
+}
+img#logo {
+	left: 1.5em;
+	position: absolute;
+	top: 1.5em;
+}
+h1 {
+	margin: 1em 0;
+}
+input {
+	font: 100% "Trebuchet MS", sans-serif;
+}
+input[type=text] {
+	border: .1em solid #FFFFFF;
+	border-radius: .25em;
+	padding: .25em;
+	-moz-border-radius: .25em;
+}
+input[type=text]:focus {
+	border: .1em solid rgba(255, 255, 255, 0.8); 
+	box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+	-moz-box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+	-webkit-box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+}
+input#new_address {
+	width: 400px;
+}
+a {
+	text-decoration: none;
+	color: #E2E9FF;
+}
+a:hover {
+	color: white;
+}
+#bookmarks {
+	margin: 2em;
+	padding: 0;
+	list-style: none;
+}
+.bookmark {
+	background-color: #666666;
+	border: .05em solid transparent; 
+	border-radius: .5em;
+	color: white;
+	display: inline-block;
+	height: 6em;
+	margin: .5em .4em;
+	padding: .5em;
+	position: relative;
+	vertical-align: middle;
+	width: 15em;
+	z-index: 1;
+	-moz-border-radius: .5em;
+}
+.bookmark:hover {
+	border: .05em solid rgba(255, 255, 255, 0.8); 
+	box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+	-moz-box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+	-webkit-box-shadow: 0 0 .5em rgba(255, 255, 255, 1);
+}
+.bookmark .handle {
+	display: block;
+	font-weight: bold;
+	font-size: 200%;
+	line-height: 125%;
+}
+.bookmark .address {
+	display: block;
+	line-height: 150%;
+	overflow: hidden;
+	white-space: nowrap;
+	width: 100%;
+}
+.bookmark .hits {
+	background-color: #000000;
+	border-bottom-left-radius: .5em;
+	border-bottom-right-radius: .5em;
+	bottom: 0;
+	color: white;
+	filter: alpha(opacity=60);
+	font-weight: bold;
+	height: 1.5em;
+	left: 0;
+	line-height: 1.5em;
+	opacity: 0.6;
+	padding: 0 .5em;
+	position: absolute;
+	text-align: left;
+	width: 15em;
+	z-index: 2;
+	-moz-border-radius-bottomleft: .5em;
+	-moz-border-radius-bottomright: .5em;
+}
+.bookmark .action {
+	border-radius: .25em;
+	border-width: 0;
+	cursor: pointer;
+	font-size: 66%;
+	height: 1.5em;
+	line-height: 1.5em;
+	margin: 0;
+	outline: 0;
+	width: 1.5em;
+	z-index: 3;
+	-moz-border-radius: .25em;
+}
+.bookmark .delete.action {
+	background-color: black;
+	bottom: .35em;
+	color: white;
+	filter: alpha(opacity=60);
+	position: absolute;
+	right: .5em;
+	opacity: 0.6;
+}
+.bookmark .delete.action:hover {
+	filter: alpha(opacity=100);
+	opacity: 1.0;
+}
+

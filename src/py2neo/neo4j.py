@@ -414,7 +414,10 @@ class IndexableResource(rest.Resource):
 		"""
 		Returns a named property for this resource.
 		"""
-		return self._get(self._lookup('property').format(key=key))
+		if self._index is None:
+			return self._lookup('data')[key]
+		else:
+			return self._get(self._lookup('property').format(key=key))
 
 	def __setitem__(self, key, value):
 		"""
