@@ -67,85 +67,86 @@ def get_random_handle(size):
 		if get_bookmark_node(handle) is None:
 			return handle
 
-# Handle calls to the index page
-@app.route("/", methods=["GET", "POST"])
-def index():
-	if request.method == "GET":
-		# retrieve all bookmark details from database
-		bm_data = bm_db.get_properties(*bm_subref.get_related_nodes(
-			neo4j.Direction.OUTGOING,
-			"BOOKMARK"
-		))
-		# sort the bookmarks into reverse order by number of hits
-		bm_data.sort(key=lambda bookmark: bookmark["hits"], reverse=True)
-		# return a list of bookmarks using the index template
-		response = make_response(render_template(
-			"index.html",
-			bookmarks=bm_data
-		))
-		response.cache_control.no_cache = True
-		return response
-	elif request.method == "POST":
-		# add a new bookmark
-		if request.json is not None:
-			# use the JSON data passed into the post request
-			data = {
-				"handle": get_random_handle(5),
-				"address": request.json["address"],
-				"hits": 0
-			}
-			# create a new node for this bookmark in the database
-			node = bm_db.create_node(data)
-			# add this node to the index
-			bm_index.add(node, "handle", data["handle"])
-			# create a link from the subreference node to this new node
-			bm_subref.create_relationship_to(node, "BOOKMARK")
-			# finally, return some data containing the bookmark handle
-			return json.dumps(data)
-		else:
-			# no JSON passed to POST so signal an invalid request
-			abort(400)
-	else:
-		raise NotImplementedError
+# View a list of all bookmarks in the database
+@app.route("/", methods=["GET"])
+def get_bookmarks():
+	# retrieve all bookmark details from database
+	bm_data = bm_db.get_properties(*bm_subref.get_related_nodes(
+		neo4j.Direction.OUTGOING,
+		"BOOKMARK"
+	))
+	# sort the bookmarks into reverse order by number of hits
+	bm_data.sort(key=lambda bookmark: bookmark["hits"], reverse=True)
+	# return a list of bookmarks using the index template
+	response = make_response(render_template(
+		"index.html",
+		bookmarks=bm_data
+	))
+	response.cache_control.no_cache = True
+	return response
 
-# Resolve calls to a particular handle
-@app.route("/<handle>", methods=["GET", "DELETE"])
-def resolve(handle):
-	if request.method == "GET":
-		# grab the node behind this handle
-		bm_node = get_bookmark_node(handle)
-		if bm_node is not None:
-			# update hits on node
-			bm_node["hits"] += 1
-			# perform a 302 redirect to the bookmark's web address (not cached)
-			return redirect(bm_node["address"], code=302)
-		else:
-			# handle not found, throw a 404
-			abort(404)
-	elif request.method == "DELETE":
-		# grab the node behind this handle
-		bm_node = get_bookmark_node(handle)
-		if bm_node is not None:
-			# delete relationship from reference node
-			bm_rel = bm_node.get_single_relationship(
-				neo4j.Direction.INCOMING,
-				"BOOKMARK"
-			)
-			if bm_rel is not None:
-				bm_rel.delete()
-			# remove index entry
-			bm_entries = bm_index.search("handle", handle)
-			if bm_entries is not None:
-				for bm_entry in bm_entries:
-					bm_index.remove(bm_entry)
-			# delete node
-			bm_node.delete()
-			return ""
-		else:
-			# handle not found, throw a 404
-			abort(404)
+# Add a new bookmark pointing to the specified address
+@app.route("/", methods=["POST"])
+def create_bookmark():
+	# add a new bookmark
+	if request.json is not None:
+		# use the JSON data passed into the post request
+		data = {
+			"handle": get_random_handle(5),
+			"address": request.json["address"],
+			"hits": 0
+		}
+		# create a new node for this bookmark in the database
+		node = bm_db.create_node(data)
+		# add this node to the index
+		bm_index.add(node, "handle", data["handle"])
+		# create a link from the subreference node to this new node
+		bm_subref.create_relationship_to(node, "BOOKMARK")
+		# finally, return some data containing the bookmark handle
+		return json.dumps(data)
 	else:
-		raise NotImplementedError
+		# no JSON passed to POST so signal an invalid request
+		abort(400)
+
+# Redirect (301) to the address behind the specified handle
+# and increment the hit count for that bookmark
+@app.route("/<handle>", methods=["GET"])
+def get_bookmark(handle):
+	# grab the node behind this handle
+	bm_node = get_bookmark_node(handle)
+	if bm_node is not None:
+		# update hits on node
+		bm_node["hits"] += 1
+		# perform a 302 redirect to the bookmark's web address (not cached)
+		return redirect(bm_node["address"], code=302)
+	else:
+		# handle not found, throw a 404
+		abort(404)
+
+# Delete the bookmark associated with the specified handle
+@app.route("/<handle>", methods=["DELETE"])
+def delete_bookmark(handle):
+	# grab the node behind this handle
+	bm_node = get_bookmark_node(handle)
+	if bm_node is not None:
+		# delete relationship from reference node
+		bm_rel = bm_node.get_single_relationship(
+			neo4j.Direction.INCOMING,
+			"BOOKMARK"
+		)
+		if bm_rel is not None:
+			bm_rel.delete()
+		# remove index entry
+		bm_entries = bm_index.search("handle", handle)
+		if bm_entries is not None:
+			for bm_entry in bm_entries:
+				bm_index.remove(bm_entry)
+		# delete node
+		bm_node.delete()
+		return ""
+	else:
+		# handle not found, throw a 404
+		abort(404)
 
 if __name__ == "__main__":
 	app.run()
