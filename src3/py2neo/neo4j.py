@@ -19,8 +19,8 @@ Neo4j client using REST interface
 """
 
 
-import rest
-from urllib import quote
+from . import rest
+from urllib.parse import quote
 
 
 __version__   = "0.96"
@@ -626,7 +626,7 @@ class Node(IndexableResource):
 			td = td.uniqueness(uniqueness)
 		if relationships:
 			for relationship in (relationships or []):
-				if isinstance(relationship, (str,unicode)):
+				if isinstance(relationship, str):
 					td = td.relationships(relationship)
 				else:
 					td = td.relationships(*relationship)

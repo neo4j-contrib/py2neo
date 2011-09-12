@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+BIN=`dirname $0`
+ROOT=$BIN/..
+SRC=$ROOT/src
+SRC3=$ROOT/src3
+
+mkdir -p $SRC3/py2neo
+cp -f $SRC/py2neo/*.py $SRC3/py2neo/
+for file in `ls $SRC3/py2neo/*.py`
+do
+	2to3 -f all -n -w $file > $file.diff
+done
+
