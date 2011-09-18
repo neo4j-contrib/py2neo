@@ -10,7 +10,7 @@
 (Harry)	{"name": "Henry", "birth.date": "1984-09-15"}
 (Kate)	{"name": "Catherine", "title": "Duchess of Cambridge", "birth.date": "1982-01-09"}
 
-# Next come the realtionships between the people
+# Next come the relationships between the people
 (Liz)-[1947:MARRIED]->(Phil)    {"marriage.place": "Westminster Abbey", "marriage.date": "1947-11-20"}
 (Liz)-[:MOTHER_OF]->(Chaz)
 (Phil)-[:FATHER_OF]->(Chaz)
