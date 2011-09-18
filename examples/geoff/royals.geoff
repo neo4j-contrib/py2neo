@@ -1,4 +1,6 @@
 # This data represents a portion of the British Royal Family
+
+# First, we define the nodes (in this case, people)
 (Liz)	{"name": "Elizabeth", "title": "Queen of the Commonwealth Realms", "birth.date": "1926-04-21"}
 (Phil)	{"name": "Philip", "title": "Duke of Edinburgh", "birth.date": "1921-06-21"}
 (Chaz)	{"name": "Charles", "title": "Prince of Wales", "birth.date": "1948-11-14"}
@@ -7,15 +9,19 @@
 (Wills)	{"name": "William", "title": "Duke of Cambridge", "birth.date": "1982-06-21"}
 (Harry)	{"name": "Henry", "birth.date": "1984-09-15"}
 (Kate)	{"name": "Catherine", "title": "Duchess of Cambridge", "birth.date": "1982-01-09"}
-(Liz)-[:MARRIED]->(Phil)    {"marriage.place": "Westminster Abbey", "marriage.date": "1947-11-20"}
+
+# Next come the realtionships between the people
+(Liz)-[1947:MARRIED]->(Phil)    {"marriage.place": "Westminster Abbey", "marriage.date": "1947-11-20"}
 (Liz)-[:MOTHER_OF]->(Chaz)
 (Phil)-[:FATHER_OF]->(Chaz)
-(Di)-[:MARRIED]->(Chaz)     {"marriage.place": "St Paul's Cathedral", "marriage.date": "1981-07-29", "divorce.date": "1996-08-28"}
+(Di)-[1981:MARRIED]->(Chaz)     {"marriage.place": "St Paul's Cathedral", "marriage.date": "1981-07-29", "divorce.date": "1996-08-28"}
 (Di)-[:MOTHER_OF]->(Wills)
 (Chaz)-[:FATHER_OF]->(Wills)
 (Di)-[:MOTHER_OF]->(Harry)
-(Cam)-[:MARRIED]->(Chaz)    {"marriage.place": "Windsor Guildhall", "marriage.date": "2005-04-09"}
-(Kate)-[:MARRIED]->(Wills)  {"marriage.place": "Westminster Abbey", "marriage.date": "2011-04-29"}
+(Cam)-[2005:MARRIED]->(Chaz)    {"marriage.place": "Windsor Guildhall", "marriage.date": "2005-04-09"}
+(Kate)-[2011:MARRIED]->(Wills)  {"marriage.place": "Westminster Abbey", "marriage.date": "2011-04-29"}
+
+# And finally the index entries for the nodes and relationships
 {People}->(Liz)     {"name": "Elizabeth"}
 {People}->(Phil)    {"name": "Philip"}
 {People}->(Chaz)    {"name": "Charles"}
@@ -24,4 +30,8 @@
 {People}->(Wills)   {"name": "William"}
 {People}->(Harry)   {"name": "Henry"}
 {People}->(Kate)    {"name": "Catherine"}
+{Weddings}->[1947]  {"year": 1947}
+{Weddings}->[1981]  {"year": 1981}
+{Weddings}->[2005]  {"year": 2005}
+{Weddings}->[2011]  {"year": 2011}
 

@@ -81,7 +81,9 @@ class Loader(object):
 		first_node_id = None
 		nodes = {}
 		rels = []
-		index_entries = {}
+		named_rels = {}
+		node_index_entries = {}
+		rel_index_entries = {}
 		line_no = 0
 		for line in self.file:
 			# increment line no and trim whitespace from current line
@@ -101,12 +103,15 @@ class Loader(object):
 				)
 				if start_node not in nodes or end_node not in nodes:
 					raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
-				rels.append({
+				rel = {
 					'start_node': start_node,
 					'end_node': end_node,
 					'type': type,
 					'data': json.loads(m.group(8) or 'null')
-				})
+				}
+				if len(name or "") > 0:
+					named_rels[name] = len(rels)
+				rels.append(rel)
 				continue
 			# secondly, try as a node descriptor
 			if m:
@@ -116,7 +121,7 @@ class Loader(object):
 				nodes[node_id] = json.loads(m.group(8) or 'null')
 				first_node_id = first_node_id or node_id
 				continue
-			# neither of those, so try as an index entry descriptor
+			# neither of those, so try as a node index entry descriptor
 			m = self.NODE_INDEX_ENTRY_PATTERN.match(line)
 			if m:
 				(index, node) = (
@@ -124,12 +129,27 @@ class Loader(object):
 					unicode(m.group(3))
 				)
 				data = json.loads(m.group(5) or 'null')
-				if index not in index_entries:
-					index_entries[index] = {}
-				if node not in index_entries[index]:
-					index_entries[index][node] = {}
+				if index not in node_index_entries:
+					node_index_entries[index] = {}
+				if node not in node_index_entries[index]:
+					node_index_entries[index][node] = {}
 				if data:
-					index_entries[index][node].update(data)
+					node_index_entries[index][node].update(data)
+				continue
+			# or as a relationship index entry descriptor
+			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				(index, rel) = (
+					unicode(m.group(2)),
+					unicode(m.group(3))
+				)
+				data = json.loads(m.group(5) or 'null')
+				if index not in rel_index_entries:
+					rel_index_entries[index] = {}
+				if rel not in rel_index_entries[index]:
+					rel_index_entries[index][rel] = {}
+				if data:
+					rel_index_entries[index][rel].update(data)
 				continue
 			# no idea then... this line is invalid
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
@@ -153,15 +173,25 @@ class Loader(object):
 			}
 			for rel in rels
 		])
-		# create index entries
-		if len(index_entries) > 0:
-			for index_key in index_entries.keys():
+		# create node index entries
+		if len(node_index_entries) > 0:
+			for index_key in node_index_entries.keys():
 				index = self.gdb.get_node_index(index_key)
 				index.start_batch()
-				for node_key in index_entries[index_key].keys():
+				for node_key in node_index_entries[index_key].keys():
 					node = nodes[node_key]
-					for (key, value) in index_entries[index_key][node_key].items():
+					for (key, value) in node_index_entries[index_key][node_key].items():
 						index.add(node, key, value)
+				index.submit_batch()
+		# create relationship index entries
+		if len(rel_index_entries) > 0:
+			for index_key in rel_index_entries.keys():
+				index = self.gdb.get_relationship_index(index_key)
+				index.start_batch()
+				for rel_key in rel_index_entries[index_key].keys():
+					rel = rels[named_rels[rel_key]]
+					for (key, value) in rel_index_entries[index_key][rel_key].items():
+						index.add(rel, key, value)
 				index.submit_batch()
 		return nodes[first_node_id]
 

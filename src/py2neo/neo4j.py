@@ -915,14 +915,14 @@ class Index(rest.Resource):
 		if self._batch is None:
 			self._post(self._template_uri.format(
 				key=key,
-				value=quote(value, "")
+				value=quote(value, "") if isinstance(value, basestring) else value
 			), entity._uri)
 		else:
 			self._batch.append({
 				"method": "POST",
 				"to": self._relative_template_uri.format(
 					key=key,
-					value=quote(value, "")
+					value=quote(value, "") if isinstance(value, basestring) else value
 				),
 				"body": entity._uri,
 				"id": len(self._batch)
@@ -974,7 +974,7 @@ class Index(rest.Resource):
 						'method': 'GET',
 						'to': self._relative_template_uri.format(
 							key=key,
-							value=quote(value[i], "")
+							value=quote(value[i], "") if isinstance(value[i], basestring) else value[i]
 						),
 						'id': i
 					}
@@ -991,7 +991,7 @@ class Index(rest.Resource):
 				)
 				for item in self._get(self._template_uri.format(
 					key=key,
-					value=quote(value, "")
+					value=quote(value, "") if isinstance(value, basestring) else value
 				))
 			]
 

@@ -6,7 +6,7 @@ Simple first example showing connection and traversal
 
 # Allow the import path to access neo4j modules
 import sys
-sys.path.append("../src") 
+sys.path.append("../src")
 
 from py2neo import neo4j
 
