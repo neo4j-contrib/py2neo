@@ -9,6 +9,11 @@ Website:     http://py2neo.org/
 Source code: https://github.com/nigelsmall/py2neo
 
 
+Version 0.97
+-------------
+
+- Updated geoff.py loader to read relationship index entries
+
 Version 0.96
 -------------
 
