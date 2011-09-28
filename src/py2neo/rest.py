@@ -20,7 +20,10 @@ Generic REST client
 
 
 import httplib2
-import json
+try:
+	import json
+except:
+	import simplejson as json
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
