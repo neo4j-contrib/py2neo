@@ -18,8 +18,10 @@
 GEOFF file handling (see U{http://py2neo.org/geoff/}).
 """
 
-
-import json
+try:
+	import json
+except:
+	import simplejson as json
 import neo4j
 import re
 
