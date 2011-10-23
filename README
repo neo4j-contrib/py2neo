@@ -74,10 +74,7 @@ Java API)
 Simple first example showing connection and traversal
 """
 
-# Allow the import path to access neo4j modules
-import sys
-sys.path.append("../src") 
-
+# Import Neo4j modules
 from py2neo import neo4j
 
 # Attach to the graph db instance
