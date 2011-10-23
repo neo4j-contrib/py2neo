@@ -17,6 +17,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
 	def setUp(self):
 		self.gdb = get_gdb()
+		print "Neo4j Version: " + repr(self.gdb.get_neo4j_version())
 
 	def test_get_reference_node(self):
 		ref_node = self.gdb.get_reference_node()

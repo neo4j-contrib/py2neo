@@ -73,8 +73,28 @@ class GraphDatabaseService(rest.Resource):
 			base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
 		else:
 			base_uri, self._relative_uri = self._uri, "/"
-		self._batch_uri = base_uri + "/batch"
 		self._extensions = self._lookup('extensions')
+		if 'neo4j_version' in self._index:
+			# must be version 1.5 or greater
+			self._neo4j_version = self._lookup('neo4j_version')
+			self._batch_uri = self._lookup('batch')
+		else:
+			# assume version 1.4
+			self._neo4j_version = "1.4"
+			self._batch_uri = base_uri + "/batch"
+
+	def get_neo4j_version(self):
+		"""
+		Returns a tuple containing the version details of the current Neo4j
+		server. This is only directly available from v1.5 onwards, therefore
+		may be an assumed value. The first part of the returned tuple should
+		be a float containing the MAJOR.MINOR version and all remaining parts
+		will be returned as strings, e.g. (1.5, u"M02")
+		"""
+		v = self._neo4j_version.split(".")
+		v[0] = float("%s.%s" % (v[0], v[1]))
+		del v[1]
+		return tuple(v)
 
 	def create_node(self, properties=None):
 		"""
