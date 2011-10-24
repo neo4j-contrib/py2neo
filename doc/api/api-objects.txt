@@ -51,7 +51,6 @@ py2neo.neo4j.GraphDatabaseService.get_relationship_types	py2neo.neo4j.GraphDatab
 py2neo.rest.Resource._put	py2neo.rest.Resource-class.html#_put
 py2neo.rest.Resource._get	py2neo.rest.Resource-class.html#_get
 py2neo.rest.Resource.__repr__	py2neo.rest.Resource-class.html#__repr__
-py2neo.neo4j.GraphDatabaseService.get_neo4j_version	py2neo.neo4j.GraphDatabaseService-class.html#get_neo4j_version
 py2neo.neo4j.GraphDatabaseService.delete	py2neo.neo4j.GraphDatabaseService-class.html#delete
 py2neo.neo4j.Index	py2neo.neo4j.Index-class.html
 py2neo.rest.Resource._request	py2neo.rest.Resource-class.html#_request

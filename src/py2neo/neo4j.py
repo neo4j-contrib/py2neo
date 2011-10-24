@@ -82,19 +82,13 @@ class GraphDatabaseService(rest.Resource):
 			# assume version 1.4
 			self._neo4j_version = "1.4"
 			self._batch_uri = base_uri + "/batch"
-
-	def get_neo4j_version(self):
-		"""
-		Returns a tuple containing the version details of the current Neo4j
-		server. This is only directly available from v1.5 onwards, therefore
-		may be an assumed value. The first part of the returned tuple should
-		be a float containing the MAJOR.MINOR version and all remaining parts
-		will be returned as strings, e.g. (1.5, u"M02")
-		"""
-		v = self._neo4j_version.split(".")
-		v[0] = float("%s.%s" % (v[0], v[1]))
-		del v[1]
-		return tuple(v)
+		# since we can't do inline exception handling, define a function
+		def numberise(n):
+			try:
+				return int(n)
+			except ValueError:
+				return n
+		self._neo4j_version = tuple([numberise(v) for v in self._neo4j_version.split(".")])
 
 	def create_node(self, properties=None):
 		"""
@@ -876,6 +870,10 @@ class Index(rest.Resource):
 	"""
 
 	def __init__(self, T, uri=None, template_uri=None, index=None, http=None, user_name=None, password=None):
+		"""
+		Constructs a new C{Index} object for entity type T. Either C{uri} or
+		C{template_uri} may be specified. 
+		"""
 		rest.Resource.__init__(
 			self,
 			uri or template_uri.rpartition("/{key}/{value}")[0],
@@ -885,14 +883,20 @@ class Index(rest.Resource):
 			password=password
 		)
 		self.__T = T
-		base_uri, u0, u1 = self._uri.partition("/index")
+		self._base_uri, u0, u1 = self._uri.partition("/index")
 		self._relative_uri = u0 + u1
+		self._graph_database_service = GraphDatabaseService(
+			self._base_uri,
+			http=http,
+			user_name=user_name,
+			password=password
+		)
 		self._template_uri = template_uri or "%s%s{key}/{value}" % (
 			uri,
 			"" if uri.endswith("/") else "/"
 		)
 		self._relative_template_uri = "".join(self._template_uri.partition("/index")[1:])
-		self._batch_uri = base_uri + "/batch"
+		self._batch_uri = self._base_uri + "/batch"
 		self._batch = None
 
 	def __repr__(self):
@@ -932,21 +936,42 @@ class Index(rest.Resource):
 		@param value: the value of the key-value pair under which to index this resource
 		
 		"""
-		if self._batch is None:
-			self._post(self._template_uri.format(
-				key=key,
-				value=quote(value, "") if isinstance(value, basestring) else value
-			), entity._uri)
+		if self._graph_database_service._neo4j_version >= (1, 5):
+			# new method
+			if self._batch is None:
+				self._post(self._uri, {
+					"uri": entity._uri,
+					"key": key,
+					"value": value
+				})
+			else:
+				self._batch.append({
+					"method": "POST",
+					"to": self._relative_uri,
+					"body": {
+						"uri": entity._uri,
+						"key": key,
+						"value": value
+					},
+					"id": len(self._batch)
+				})
 		else:
-			self._batch.append({
-				"method": "POST",
-				"to": self._relative_template_uri.format(
-					key=key,
+			# legacy method
+			if self._batch is None:
+				self._post(self._template_uri.format(
+					key=quote(key, "") if isinstance(key, basestring) else key,
 					value=quote(value, "") if isinstance(value, basestring) else value
-				),
-				"body": entity._uri,
-				"id": len(self._batch)
-			})
+				), entity._uri)
+			else:
+				self._batch.append({
+					"method": "POST",
+					"to": self._relative_template_uri.format(
+						key=quote(key, "") if isinstance(key, basestring) else key,
+						value=quote(value, "") if isinstance(value, basestring) else value
+					),
+					"body": entity._uri,
+					"id": len(self._batch)
+				})
 
 	def remove(self, entity):
 		"""
@@ -993,7 +1018,7 @@ class Index(rest.Resource):
 					{
 						'method': 'GET',
 						'to': self._relative_template_uri.format(
-							key=key,
+							key=quote(key, "") if isinstance(key, basestring) else key,
 							value=quote(value[i], "") if isinstance(value[i], basestring) else value[i]
 						),
 						'id': i
@@ -1010,7 +1035,7 @@ class Index(rest.Resource):
 					http=self._http
 				)
 				for item in self._get(self._template_uri.format(
-					key=key,
+					key=quote(key, "") if isinstance(key, basestring) else key,
 					value=quote(value, "") if isinstance(value, basestring) else value
 				))
 			]

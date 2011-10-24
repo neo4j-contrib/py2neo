@@ -115,7 +115,7 @@ class Resource(object):
 		elif self.__response.status == 204:
 			return None
 		elif self.__response.status == 400:
-			raise ValueError(data)
+			raise ValueError((uri, data))
 		elif self.__response.status == 404:
 			raise LookupError(uri)
 		elif self.__response.status == 409:

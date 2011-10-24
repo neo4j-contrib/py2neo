@@ -17,7 +17,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
 	def setUp(self):
 		self.gdb = get_gdb()
-		print "Neo4j Version: " + repr(self.gdb.get_neo4j_version())
+		print "Neo4j Version: " + repr(self.gdb._neo4j_version)
 
 	def test_get_reference_node(self):
 		ref_node = self.gdb.get_reference_node()
@@ -73,6 +73,7 @@ class SingleNodeTestCase(unittest.TestCase):
 	def tearDown(self):
 		self.node.delete()
 
+
 class MultipleNodeTestCase(unittest.TestCase):
 
 	flintstones = [
@@ -98,6 +99,44 @@ class MultipleNodeTestCase(unittest.TestCase):
 
 	def tearDown(self):
 		self.gdb.delete(*self.nodes)
+
+
+class IndexTestCase(unittest.TestCase):
+
+	def setUp(self):
+		self.gdb = get_gdb()
+
+	def test_get_node_index(self):
+		index1 = self.gdb.get_node_index("index1")
+		self.assertIsNotNone(index1)
+
+	def test_add_node_to_index(self):
+		index1 = self.gdb.get_node_index("index1")
+		ref_node = self.gdb.get_reference_node()
+		index1.add(ref_node, "foo", "bar")
+		s = index1.search("foo", "bar")
+		print "Found index entries: %s" % (s)
+		self.assertEqual(s[0]._uri, ref_node._uri)
+		index1.remove(s[0])
+
+	def test_add_node_to_index_with_spaces(self):
+		index1 = self.gdb.get_node_index("index1")
+		ref_node = self.gdb.get_reference_node()
+		index1.add(ref_node, "foo bar", "bar foo")
+		s = index1.search("foo bar", "bar foo")
+		print "Found index entries: %s" % (s)
+		self.assertEqual(s[0]._uri, ref_node._uri)
+		index1.remove(s[0])
+
+	def test_add_node_to_index_with_odd_chars(self):
+		index1 = self.gdb.get_node_index("index1")
+		ref_node = self.gdb.get_reference_node()
+		index1.add(ref_node, "@!%#", "!\"£$%^&*()")
+		s = index1.search("@!%#", "!\"£$%^&*()")
+		print "Found index entries: %s" % (s)
+		self.assertEqual(s[0]._uri, ref_node._uri)
+		index1.remove(s[0])
+
 
 if __name__ == '__main__':
 	unittest.main()
