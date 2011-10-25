@@ -4,7 +4,7 @@
 Script to load sample GEOFF file into database
 """
 
-from py2neo import neo4j
+from py2neo import neo4j, geoff
 
 # Attach to the graph db instance
 gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
