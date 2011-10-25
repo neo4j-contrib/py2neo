@@ -85,6 +85,7 @@ class MultipleNodeTestCase(unittest.TestCase):
 
 	def setUp(self):
 		self.gdb = get_gdb()
+		self.ref_node = self.gdb.get_reference_node()
 		self.nodes = self.gdb.create_nodes(*self.flintstones)
 
 	def test_is_created(self):
@@ -96,6 +97,18 @@ class MultipleNodeTestCase(unittest.TestCase):
 			node.get_properties()
 			for node in self.nodes
 		], self.flintstones)
+
+	def test_create_relationships(self):
+		rels = self.gdb.create_relationships(*[
+			{
+				"start_node": self.ref_node,
+				"end_node": node,
+				"type": "FLINTSTONE"
+			}
+			for node in self.nodes
+		])
+		self.gdb.delete(*rels)
+		self.assertEqual(len(self.nodes), len(rels))
 
 	def tearDown(self):
 		self.gdb.delete(*self.nodes)

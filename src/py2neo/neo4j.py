@@ -154,7 +154,7 @@ class GraphDatabaseService(rest.Resource):
 			for result in self._post(self._batch_uri, [
 				{
 					'method': 'POST',
-					'to': descriptors[i]['start_node']._lookup('create_relationship'),
+					'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').partition("/node")[1:3]),
 					'body': {
 						'to': descriptors[i]['end_node']._uri,
 						'type': descriptors[i]['type'],
