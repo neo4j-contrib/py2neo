@@ -18,12 +18,15 @@
 GEOFF file handling (see U{http://py2neo.org/geoff/}).
 """
 
+
+import argparse
 try:
 	import json
 except:
 	import simplejson as json
 import neo4j
 import re
+import sys
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -218,4 +221,22 @@ def loads(str, gdb):
 	file = StringIO(str)
 	return Loader(file, gdb).load()
 
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
+	parser.add_argument("file", help="the GEOFF file to load")
+	parser.add_argument("database", help="the URI of the destination Neo4j Database")
+	args = parser.parse_args()
+	try:
+		source_file = open(args.file, "r")
+	except:
+		sys.stderr.write("Failed to open GEOFF file.\r\n")
+		sys.exit(1)
+	try:
+		dest_graphdb = neo4j.GraphDatabaseService(args.database)
+	except:
+		sys.stderr.write("Failed to open destination database.\r\n")
+		sys.exit(1)
+	print "New graph data available from node %s" % (
+		load(source_file, dest_graphdb)
+	)
 
