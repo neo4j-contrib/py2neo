@@ -92,9 +92,11 @@ def execute_and_output_as_geoff(query, database_uri=None):
 		if isinstance(value, dict):
 			if 'type' in value:
 				# relationship
-				rels["[%d:%s]" % (
+				rels["(%s)-[%d:%s]->(%s)" % (
+					value['start'].rpartition("/")[2],
 					int(value['self'].rpartition("/")[2]),
-					value['type']
+					value['type'],
+					value['end'].rpartition("/")[2]
 				)] = value['data']
 			else:
 				# node
@@ -121,7 +123,7 @@ def execute_and_output_as_geoff(query, database_uri=None):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
-	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of a Neo4j database server")
+	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the source Neo4j database server")
 	parser.add_argument("-g", action="store_true", default=True, help="output nodes and relationships in GEOFF format (default)")
 	parser.add_argument("-d", action="store_true", default=False, help="output all values in delimited format")
 	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")

@@ -223,16 +223,22 @@ def loads(str, gdb):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
-	parser.add_argument("file", help="the GEOFF file to load")
-	parser.add_argument("database", help="the URI of the destination Neo4j Database")
+	parser.add_argument("-u", default=None, help="the URI of the destination Neo4j database server")
+	parser.add_argument("-f", help="the GEOFF file to load")
 	args = parser.parse_args()
 	try:
-		source_file = open(args.file, "r")
+		if args.f:
+			source_file = open(args.f, "r")
+		else:
+			source_file = sys.stdin
 	except:
 		sys.stderr.write("Failed to open GEOFF file.\r\n")
 		sys.exit(1)
 	try:
-		dest_graphdb = neo4j.GraphDatabaseService(args.database)
+		if args.u:
+			dest_graphdb = neo4j.GraphDatabaseService(args.u)
+		else:
+			dest_graphdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 	except:
 		sys.stderr.write("Failed to open destination database.\r\n")
 		sys.exit(1)
