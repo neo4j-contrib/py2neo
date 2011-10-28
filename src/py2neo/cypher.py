@@ -85,14 +85,51 @@ def execute_and_output_as_json(query, database_uri=None):
 		], ", ") + "}")
 	sys.stdout.write("\n]\n")
 
+def execute_and_output_as_geoff(query, database_uri=None):
+	nodes = {}
+	rels = {}
+	def update_descriptors(value, column):
+		if isinstance(value, dict):
+			if 'type' in value:
+				# relationship
+				rels["[%d:%s]" % (
+					int(value['self'].rpartition("/")[2]),
+					value['type']
+				)] = value['data']
+			else:
+				# node
+				nodes["(%d)" % (
+					int(value['self'].rpartition("/")[2])
+				)] = value['data']
+		else:
+			# property - not supported in GEOFF format
+			pass
+	data, columns = execute(query, database_uri)
+	for row in data:
+		for i in range(len(row)):
+			update_descriptors(row[i], columns[i])
+	for key, value in nodes.items():
+		print "%s\t%s" % (
+			key,
+			json.dumps(value)
+		)
+	for key, value in rels.items():
+		print "%s\t%s" % (
+			key,
+			json.dumps(value)
+		)
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of a Neo4j database server")
-	parser.add_argument("-d", action="store_true", default=True, help="output in delimited format (default)")
-	parser.add_argument("-j", action="store_true", default=False, help="output in JSON format")
+	parser.add_argument("-g", action="store_true", default=True, help="output nodes and relationships in GEOFF format (default)")
+	parser.add_argument("-d", action="store_true", default=False, help="output all values in delimited format")
+	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
 	parser.add_argument("query", help="the Cypher query to execute")
 	args = parser.parse_args()
 	if args.j:
 		execute_and_output_as_json(args.query, args.u)
-	else:
+	elif args.d:
 		execute_and_output_as_delimited(args.query, args.u)
+	else:
+		execute_and_output_as_geoff(args.query, args.u)
