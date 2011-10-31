@@ -96,14 +96,14 @@ Similarly, the `geoff` command will allow a GEOFF data to be loaded into a
 database from either a file or stdin:
 
 ```
-usage: geoff [-h] [-u U] [-f F]
+usage: geoff [-h] [-u DATABASE_URI] [-f SOURCE_FILE]
 
 Import graph data from a GEOFF file into a Neo4j database.
 
 optional arguments:
-  -h, --help  show this help message and exit
-  -u U        the URI of the destination Neo4j database server
-  -f F        the GEOFF file to load
+  -h, --help       show this help message and exit
+  -u DATABASE_URI  the URI of the destination Neo4j database server
+  -f SOURCE_FILE   the GEOFF file to load
 ```
 
 These commands may of course be piped together, allowing data to be fed from

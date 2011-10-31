@@ -223,8 +223,8 @@ def loads(str, gdb):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
-	parser.add_argument("-u", default=None, help="the URI of the destination Neo4j database server")
-	parser.add_argument("-f", help="the GEOFF file to load")
+	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the destination Neo4j database server")
+	parser.add_argument("-f", metavar="SOURCE_FILE", help="the GEOFF file to load")
 	args = parser.parse_args()
 	try:
 		if args.f:
