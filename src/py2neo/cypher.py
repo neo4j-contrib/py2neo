@@ -45,9 +45,11 @@ def output(value):
 	if isinstance(value, dict):
 		if 'type' in value:
 			# relationship
-			return "\"[%d:%s]\"" % (
+			return "\"(%s)-[%d:%s]->(%s)\"" % (
+				value['start'].rpartition("/")[2],
 				int(value['self'].rpartition("/")[2]),
-				value['type']
+				value['type'],
+				value['end'].rpartition("/")[2]
 			)
 		else:
 			# node
@@ -124,14 +126,14 @@ def execute_and_output_as_geoff(query, database_uri=None):
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the source Neo4j database server")
-	parser.add_argument("-g", action="store_true", default=True, help="output nodes and relationships in GEOFF format (default)")
-	parser.add_argument("-d", action="store_true", default=False, help="output all values in delimited format")
+	parser.add_argument("-d", action="store_true", default=True, help="output all values in delimited format (default)")
 	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
+	parser.add_argument("-g", action="store_true", default=False, help="output nodes and relationships in GEOFF format")
 	parser.add_argument("query", help="the Cypher query to execute")
 	args = parser.parse_args()
-	if args.j:
-		execute_and_output_as_json(args.query, args.u)
-	elif args.d:
-		execute_and_output_as_delimited(args.query, args.u)
-	else:
+	if args.g:
 		execute_and_output_as_geoff(args.query, args.u)
+	elif args.j:
+		execute_and_output_as_json(args.query, args.u)
+	else:
+		execute_and_output_as_delimited(args.query, args.u)
