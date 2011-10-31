@@ -15,7 +15,7 @@ cypher.py -u <db-uri> <query>
 geoff.py -u <db-uri> [<file>]
 
 Silly example of data pipeline outputting from database and inputting back into same database
-./cypher.py "START n=node(23) match (n)-[r]-(x)--(y) return n, x.name, n, r, x, x.name, x.\`birth.date\`, y, y.name, r.\`marriage.date\`?" | ./geoff.py
+./cypher.py -g "START n=node(23) match (n)-[r]-(x)--(y) return n, x.name, n, r, x, x.name, x.\`birth.date\`, y, y.name, r.\`marriage.date\`?" | ./geoff.py
 
 
 Version 0.97
