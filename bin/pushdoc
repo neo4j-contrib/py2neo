@@ -5,5 +5,5 @@ ROOT=$BIN/..
 DOC=$ROOT/doc
 SRC=$ROOT/src
 
-epydoc --css=default -o $DOC/api $SRC/py2neo
+scp -r $DOC/api/* nigel@py2neo.org:/home/nigel/www/py2neo/docs/api/
 

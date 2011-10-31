@@ -1,5 +1,12 @@
 py2neo	py2neo-module.html
 py2neo.__package__	py2neo-module.html#__package__
+py2neo.cypher	py2neo.cypher-module.html
+py2neo.cypher.execute_and_output_as_delimited	py2neo.cypher-module.html#execute_and_output_as_delimited
+py2neo.cypher.execute_and_output_as_geoff	py2neo.cypher-module.html#execute_and_output_as_geoff
+py2neo.cypher.execute	py2neo.cypher-module.html#execute
+py2neo.cypher.__package__	py2neo.cypher-module.html#__package__
+py2neo.cypher.output	py2neo.cypher-module.html#output
+py2neo.cypher.execute_and_output_as_json	py2neo.cypher-module.html#execute_and_output_as_json
 py2neo.geoff	py2neo.geoff-module.html
 py2neo.geoff.load	py2neo.geoff-module.html#load
 py2neo.geoff.dump	py2neo.geoff-module.html#dump
