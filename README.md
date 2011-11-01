@@ -9,10 +9,21 @@ In addition, the project provides support for the Graph Export Object File
 Format (GEOFF) as well as a couple of command line tools for extra sugar.
 
 
-Website:  http://py2neo.org/
-PyPI:     http://pypi.python.org/pypi/py2neo
-GitHub:   https://github.com/nigelsmall/py2neo
-Email:    Nigel Small <py2neo@nigelsmall.org>
+* Website:  http://py2neo.org/
+* PyPI:     http://pypi.python.org/pypi/py2neo
+* GitHub:   https://github.com/nigelsmall/py2neo
+* Email:    Nigel Small <py2neo@nigelsmall.org>
+
+
+Requirements
+------------
+
+Py2neo has been built against the following software:
+
+* Neo4j 1.4, 1.5
+* Python 2.7
+
+Other versions may work but are not guaranteed.
 
 
 Installation
@@ -20,10 +31,10 @@ Installation
 
 The easiest way to install py2neo is from the Python Package Index (PyPI). This
 generally requires superuser privileges, so on Debian or Ubuntu, simply execute
-the following:
+the following (the -Z option ensures the package is unzipped):
 
 ```
-$ sudo easy_install py2neo
+$ sudo easy_install -Z py2neo
 ```
 
 If you wish to make use of the command line tools, you may prefer to create
@@ -71,7 +82,7 @@ Command Line Usage
 ------------------
 
 If symbolic links have been added, as detailed above, the `cypher` and `geoff`
-commands will be available from direct usage from a terminal or within a shell
+commands will be available for direct usage from a terminal or within a shell
 script. The `cypher` command allows Cypher queries to be executed against a
 local or remote database, via its RESTful web interface, with the results
 displayed on stdout:
