@@ -121,7 +121,10 @@ class Resource(object):
 		elif self.__response.status == 409:
 			raise SystemError(uri)
 		else:
-			raise SystemError(self.__response)
+			raise SystemError({
+				"response": self.__response,
+				"content":  json.loads(self.__content)
+			})
 
 	def _get(self, uri):
 		"""

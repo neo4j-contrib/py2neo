@@ -45,7 +45,7 @@ def output(value):
 	if isinstance(value, dict):
 		if 'type' in value:
 			# relationship
-			return "\"(%s)-[%d:%s]->(%s)\"" % (
+			out = "\"(%s)-[%d:%s]->(%s)\"" % (
 				value['start'].rpartition("/")[2],
 				int(value['self'].rpartition("/")[2]),
 				value['type'],
@@ -53,12 +53,33 @@ def output(value):
 			)
 		else:
 			# node
-			return "\"(%d)\"" % (
+			out = "\"(%d)\"" % (
 				int(value['self'].rpartition("/")[2])
 			)
 	else:
 		# property
-		return json.dumps(value)
+		out = json.dumps(value)
+	return out
+
+def output_text(value):
+	if isinstance(value, dict):
+		if 'type' in value:
+			# relationship
+			out = "(%s)-[%d:%s]->(%s)" % (
+				value['start'].rpartition("/")[2],
+				int(value['self'].rpartition("/")[2]),
+				value['type'],
+				value['end'].rpartition("/")[2]
+			)
+		else:
+			# node
+			out = "(%d)" % (
+				int(value['self'].rpartition("/")[2])
+			)
+	else:
+		# property
+		out = str(value)
+	return out
 
 def execute_and_output_as_delimited(query, database_uri=None, field_delimiter="\t"):
 	data, columns = execute(query, database_uri)
@@ -123,17 +144,57 @@ def execute_and_output_as_geoff(query, database_uri=None):
 			json.dumps(value)
 		)
 
+def execute_and_output_as_text(query, database_uri=None, field_delimiter="\t"):
+	data, columns = execute(query, database_uri)
+	column_widths = [len(column) for column in columns]
+	for row in data:
+		column_widths = [
+			max(column_widths[i], None if row[i] is None else len(output_text(row[i])))
+			for i in range(len(row))
+		]
+	print "+-" + string.join([
+		"".ljust(column_widths[i], "-")
+		for i in range(len(columns))
+	], "---") + "-+"
+	print "| " + string.join([
+		columns[i].ljust(column_widths[i])
+		for i in range(len(columns))
+	], " | ") + " |"
+	print "+-" + string.join([
+		"".ljust(column_widths[i], "-")
+		for i in range(len(columns))
+	], "---") + "-+"
+	for row in data:
+		print "| " + string.join([
+			output_text(row[i]).ljust(column_widths[i])
+			for i in range(len(row))
+		], " | ") + " |"
+	print "+-" + string.join([
+		"".ljust(column_widths[i], "-")
+		for i in range(len(columns))
+	], "---") + "-+"
+
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the source Neo4j database server")
 	parser.add_argument("-d", action="store_true", default=True, help="output all values in delimited format (default)")
 	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
 	parser.add_argument("-g", action="store_true", default=False, help="output nodes and relationships in GEOFF format")
+	parser.add_argument("-t", action="store_true", default=False, help="output all results in a plain text table")
 	parser.add_argument("query", help="the Cypher query to execute")
 	args = parser.parse_args()
-	if args.g:
-		execute_and_output_as_geoff(args.query, args.u)
-	elif args.j:
-		execute_and_output_as_json(args.query, args.u)
-	else:
-		execute_and_output_as_delimited(args.query, args.u)
+	try:
+		if args.g:
+			execute_and_output_as_geoff(args.query, args.u)
+		elif args.j:
+			execute_and_output_as_json(args.query, args.u)
+		elif args.t:
+			execute_and_output_as_text(args.query, args.u)
+		else:
+			execute_and_output_as_delimited(args.query, args.u)
+	except SystemError as err:
+		content = err.args[0]['content']
+		sys.stderr.write("%s\n" % (content['exception']))
+		stacktrace = content['stacktrace']
+		for frame in stacktrace:
+			sys.stderr.write("\tat %s\n" % (frame))
