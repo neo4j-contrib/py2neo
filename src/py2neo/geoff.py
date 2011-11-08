@@ -28,6 +28,8 @@ import neo4j
 import re
 import sys
 
+from urllib import quote
+
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
@@ -97,14 +99,22 @@ class Batch(object):
 		if node_name not in self._named_nodes:
 			raise ValueError("Unknown node name \"%s\"" % (node_name))
 		job_id = len(self._batch)
-		# v1.5-only method used below... need 1.4 support?
-		self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
-			index_name,
-			self._named_nodes[node_name],
-			json.dumps(key, separators=(',',':')),
-			json.dumps(value, separators=(',',':')),
-			job_id
-		))
+		if self._graphdb._neo4j_version >= (1, 5):
+			self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+				index_name,
+				self._named_nodes[node_name],
+				json.dumps(key, separators=(',',':')),
+				json.dumps(value, separators=(',',':')),
+				job_id
+			))
+		else:
+			self._batch.append('{"method":"POST","to":"/index/node/%s/%s/%s","body":"{%d}","id":%d}' % (
+				index_name,
+				quote(key, "") if isinstance(key, basestring) else key,
+				quote(value, "") if isinstance(value, basestring) else value,
+				self._named_nodes[node_name],
+				job_id
+			))
 
 	def create_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
 		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
@@ -128,14 +138,22 @@ class Batch(object):
 		if relationship_name not in self._named_relationships:
 			raise ValueError("Unknown relationship name \"%s\"" % (relationship_name))
 		job_id = len(self._batch)
-		# v1.5-only method used below... need 1.4 support?
-		self._batch.append('{"method":"POST","to":"/index/relationship/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
-			index_name,
-			self._named_relationships[relationship_name],
-			json.dumps(key, separators=(',',':')),
-			json.dumps(value, separators=(',',':')),
-			job_id
-		))
+		if self._graphdb._neo4j_version >= (1, 5):
+			self._batch.append('{"method":"POST","to":"/index/relationship/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+				index_name,
+				self._named_relationships[relationship_name],
+				json.dumps(key, separators=(',',':')),
+				json.dumps(value, separators=(',',':')),
+				job_id
+			))
+		else:
+			self._batch.append('{"method":"POST","to":"/index/relationship/%s/%s/%s","body":"{%d}","id":%d}' % (
+				index_name,
+				quote(key, "") if isinstance(key, basestring) else key,
+				quote(value, "") if isinstance(value, basestring) else value,
+				self._named_relationships[relationship_name],
+				job_id
+			))
 
 	def submit(self):
 		return self._graphdb._request(
