@@ -91,7 +91,7 @@ class Resource(object):
 		
 		@param method: the HTTP method to use for this call
 		@param uri: the URI of the resource to access
-		@param data: unserialised object to be converted to JSON and passed in request payload (optional)
+		@param data: raw data to be passed in request payload (optional)
 		@return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
 		@raise ValueError: when supplied data is not appropriate (400)
 		@raise KeyError: when URI is not found (404)
@@ -107,7 +107,7 @@ class Resource(object):
 				uri, method, data, headers
 			)
 		except:
-			raise IOError("Cannot send %s request" % (method));
+			raise IOError("Cannot send %s request" % (method))
 		if self.__response.status == 200:
 			return json.loads(self.__content)
 		elif self.__response.status == 201:
@@ -123,7 +123,7 @@ class Resource(object):
 		else:
 			raise SystemError({
 				"response": self.__response,
-				"content":  json.loads(self.__content)
+				"content":  self.__content
 			})
 
 	def _get(self, uri):
