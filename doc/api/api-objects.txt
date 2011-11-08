@@ -19,6 +19,13 @@ py2neo.neo4j	py2neo.neo4j-module.html
 py2neo.neo4j.__package__	py2neo.neo4j-module.html#__package__
 py2neo.rest	py2neo.rest-module.html
 py2neo.rest.__package__	py2neo.rest-module.html#__package__
+py2neo.geoff.Batch	py2neo.geoff.Batch-class.html
+py2neo.geoff.Batch.create_relationship	py2neo.geoff.Batch-class.html#create_relationship
+py2neo.geoff.Batch.add_relationship_index_entry	py2neo.geoff.Batch-class.html#add_relationship_index_entry
+py2neo.geoff.Batch.submit	py2neo.geoff.Batch-class.html#submit
+py2neo.geoff.Batch.create_node	py2neo.geoff.Batch-class.html#create_node
+py2neo.geoff.Batch.add_node_index_entry	py2neo.geoff.Batch-class.html#add_node_index_entry
+py2neo.geoff.Batch.__init__	py2neo.geoff.Batch-class.html#__init__
 py2neo.geoff.Dumper	py2neo.geoff.Dumper-class.html
 py2neo.geoff.Dumper.dump	py2neo.geoff.Dumper-class.html#dump
 py2neo.geoff.Dumper.__init__	py2neo.geoff.Dumper-class.html#__init__
