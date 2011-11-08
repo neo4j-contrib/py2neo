@@ -71,6 +71,81 @@ class Dumper(object):
 		]))
 
 
+class Batch(object):
+
+	def __init__(self, graphdb):
+		self._graphdb = graphdb
+		self._named_nodes = {}
+		self._named_relationships = {}
+		self._batch = []
+		self.first_node_id = None
+
+	def create_node(self, node_name, data):
+		if node_name in self._named_nodes:
+			raise ValueError("Duplicate node name \"%s\"" % (node_name))
+		job_id = len(self._batch)
+		self._batch.append('{"method":"POST","to":"/node","body":%s,"id":%d}' % (
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+		if node_name is not None and len(node_name) > 0:
+			self._named_nodes[node_name] = job_id
+		if self.first_node_id is None:
+			self.first_node_id = job_id
+
+	def add_node_index_entry(self, index_name, node_name, key, value):
+		if node_name not in self._named_nodes:
+			raise ValueError("Unknown node name \"%s\"" % (node_name))
+		job_id = len(self._batch)
+		# v1.5-only method used below... need 1.4 support?
+		self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+			index_name,
+			self._named_nodes[node_name],
+			json.dumps(key, separators=(',',':')),
+			json.dumps(value, separators=(',',':')),
+			job_id
+		))
+
+	def create_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
+		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
+			raise ValueError("Duplicate relationship name \"%s\"" % (rel_name))
+		if start_node_name not in self._named_nodes:
+			raise ValueError("Unknown start node name \"%s\"" % (start_node_name))
+		if end_node_name not in self._named_nodes:
+			raise ValueError("Unknown end node name \"%s\"" % (end_node_name))
+		job_id = len(self._batch)
+		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
+			self._named_nodes[start_node_name],
+			rel_type,
+			self._named_nodes[end_node_name],
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+		if rel_name is not None and len(rel_name) > 0:
+			self._named_relationships[rel_name] = job_id
+
+	def add_relationship_index_entry(self, index_name, relationship_name, key, value):
+		if relationship_name not in self._named_relationships:
+			raise ValueError("Unknown relationship name \"%s\"" % (relationship_name))
+		job_id = len(self._batch)
+		# v1.5-only method used below... need 1.4 support?
+		self._batch.append('{"method":"POST","to":"/index/relationship/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+			index_name,
+			self._named_relationships[relationship_name],
+			json.dumps(key, separators=(',',':')),
+			json.dumps(value, separators=(',',':')),
+			job_id
+		))
+
+	def submit(self):
+		return self._graphdb._request(
+			'POST',
+			self._graphdb._batch_uri,
+			"[" + ",".join(self._batch) + "]"
+		)
+		self._batch = []
+
+
 class Loader(object):
 
 	DESCRIPTOR_PATTERN               = re.compile(r"^(\((\w+)\)(-\[(\w*):(\w+)\]->\((\w+)\))?)(\s+(.*))?")
@@ -82,13 +157,7 @@ class Loader(object):
 		self.gdb = gdb
 
 	def load(self):
-		# Stage 1: parse file and load into memory
-		first_node_id = None
-		nodes = {}
-		rels = []
-		named_rels = {}
-		node_index_entries = {}
-		rel_index_entries = {}
+		batch = Batch(self.gdb)
 		line_no = 0
 		for line in self.file:
 			# increment line no and trim whitespace from current line
@@ -100,105 +169,49 @@ class Loader(object):
 			m = self.DESCRIPTOR_PATTERN.match(line)
 			# firstly, try as a relationship descriptor
 			if m and m.group(3):
-				(start_node, name, type, end_node) = (
+				batch.create_relationship(
 					unicode(m.group(2)),
 					unicode(m.group(4)),
 					unicode(m.group(5)),
-					unicode(m.group(6))
+					unicode(m.group(6)),
+					json.loads(m.group(8) or 'null')
 				)
-				if start_node not in nodes or end_node not in nodes:
-					raise ValueError("Invalid node reference on line %d: %s" % (line_no, repr(m.group(1))))
-				rel = {
-					'start_node': start_node,
-					'end_node': end_node,
-					'type': type,
-					'data': json.loads(m.group(8) or 'null')
-				}
-				if len(name or "") > 0:
-					named_rels[name] = len(rels)
-				rels.append(rel)
 				continue
 			# secondly, try as a node descriptor
 			if m:
-				node_id = unicode(m.group(2))
-				if node_id in nodes:
-					raise ValueError("Duplicate node on line %d: %s" % (line_no, repr(line)))
-				nodes[node_id] = json.loads(m.group(8) or 'null')
-				first_node_id = first_node_id or node_id
+				batch.create_node(
+					unicode(m.group(2)),
+					json.loads(m.group(8) or 'null')
+				)
 				continue
 			# neither of those, so try as a node index entry descriptor
 			m = self.NODE_INDEX_ENTRY_PATTERN.match(line)
 			if m:
-				(index, node) = (
-					unicode(m.group(2)),
-					unicode(m.group(3))
-				)
-				data = json.loads(m.group(5) or 'null')
-				if index not in node_index_entries:
-					node_index_entries[index] = {}
-				if node not in node_index_entries[index]:
-					node_index_entries[index][node] = {}
-				if data:
-					node_index_entries[index][node].update(data)
+				if m.group(5):
+					(index_name, node_name) = (
+						unicode(m.group(2)),
+						unicode(m.group(3))
+					)
+					data = json.loads(m.group(5))
+					for key, value in data.items():
+						batch.add_node_index_entry(index_name, node_name, key, value)
 				continue
 			# or as a relationship index entry descriptor
 			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
 			if m:
-				(index, rel) = (
-					unicode(m.group(2)),
-					unicode(m.group(3))
-				)
-				data = json.loads(m.group(5) or 'null')
-				if index not in rel_index_entries:
-					rel_index_entries[index] = {}
-				if rel not in rel_index_entries[index]:
-					rel_index_entries[index][rel] = {}
-				if data:
-					rel_index_entries[index][rel].update(data)
+				if m.group(5):
+					(index_name, relationship_name) = (
+						unicode(m.group(2)),
+						unicode(m.group(3))
+					)
+					data = json.loads(m.group(5))
+					for key, value in data.items():
+						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
 				continue
 			# no idea then... this line is invalid
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
-		# Stage 2: write data from memory to graph
-		if first_node_id is None:
-			return None
-		# unzip nodes into keys and data
-		z = zip(*nodes.items())
-		# create nodes using batch operation
-		nodes = dict(zip(*[
-			z[0],
-			self.gdb.create_nodes(*z[1])
-		]))
-		# create relationships
-		rels = self.gdb.create_relationships(*[
-			{
-				'start_node': nodes[rel['start_node']],
-				'end_node': nodes[rel['end_node']],
-				'type': rel['type'],
-				'data': rel['data']
-			}
-			for rel in rels
-		])
-		# create node index entries
-		if len(node_index_entries) > 0:
-			for index_key in node_index_entries.keys():
-				index = self.gdb.get_node_index(index_key)
-				index.start_batch()
-				for node_key in node_index_entries[index_key].keys():
-					node = nodes[node_key]
-					for (key, value) in node_index_entries[index_key][node_key].items():
-						index.add(node, key, value)
-				index.submit_batch()
-		# create relationship index entries
-		if len(rel_index_entries) > 0:
-			for index_key in rel_index_entries.keys():
-				index = self.gdb.get_relationship_index(index_key)
-				index.start_batch()
-				for rel_key in rel_index_entries[index_key].keys():
-					rel = rels[named_rels[rel_key]]
-					for (key, value) in rel_index_entries[index_key][rel_key].items():
-						index.add(rel, key, value)
-				index.submit_batch()
-		return nodes[first_node_id]
+		results = batch.submit()
+		return neo4j.Node(results[batch.first_node_id]['location'])
 
 
 try:
@@ -245,4 +258,3 @@ if __name__ == "__main__":
 	print "New graph data available from node %s" % (
 		load(source_file, dest_graphdb)
 	)
-
