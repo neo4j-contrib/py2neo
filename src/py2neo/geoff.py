@@ -173,12 +173,12 @@ class Loader(object):
 	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
 	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
 
-	def __init__(self, file, gdb):
+	def __init__(self, file, graphdb):
 		self.file = file
-		self.gdb = gdb
+		self.graphdb = graphdb
 
-	def load(self):
-		batch = Batch(self.gdb)
+	def load(self, **params):
+		batch = Batch(self.graphdb)
 		line_no = 0
 		for line in self.file:
 			# increment line no and trim whitespace from current line
@@ -283,17 +283,18 @@ def dumps(paths):
 	Dumper(file).dump(paths)
 	return file.getvalue()
 
-def load(file, gdb):
-	return Loader(file, gdb).load()
+def load(file, graphdb, **params):
+	return Loader(file, graphdb).load(**params)
 
-def loads(str, gdb):
+def loads(str, graphdb, **params):
 	file = StringIO(str)
-	return Loader(file, gdb).load()
+	return Loader(file, graphdb).load(**params)
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the destination Neo4j database server")
 	parser.add_argument("-f", metavar="SOURCE_FILE", help="the GEOFF file to load")
+	parser.add_argument("entity", nargs="*", help="a node or relationship referencable within the GEOFF file")
 	args = parser.parse_args()
 	try:
 		if args.f:
@@ -312,5 +313,9 @@ if __name__ == "__main__":
 		sys.stderr.write("Failed to open destination database.\r\n")
 		sys.exit(1)
 	print "New graph data available from node %s" % (
-		load(source_file, dest_graphdb)
+		load(source_file, dest_graphdb, **dict([
+			(str(i), args.entity[i])
+			for i in range(len(args.entity))
+		]))
 	)
+
