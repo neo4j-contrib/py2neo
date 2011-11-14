@@ -22,16 +22,16 @@
 (Kate)-[2011:MARRIED]->(Wills)  {"marriage.place": "Westminster Abbey", "marriage.date": "2011-04-29"}
 
 # And finally the index entries for the nodes and relationships
-{People}->(Liz)     {"name": "Elizabeth"}
-{People}->(Phil)    {"name": "Philip"}
-{People}->(Chaz)    {"name": "Charles"}
-{People}->(Di)      {"name": "Diana"}
-{People}->(Cam)     {"name": "Camilla"}
-{People}->(Wills)   {"name": "William"}
-{People}->(Harry)   {"name": "Henry"}
-{People}->(Kate)    {"name": "Catherine"}
-{Weddings}->[1947]  {"year": 1947}
-{Weddings}->[1981]  {"year": 1981}
-{Weddings}->[2005]  {"year": 2005}
-{Weddings}->[2011]  {"year": 2011}
+|People|->(Liz)     {"name": "Elizabeth"}
+|People|->(Phil)    {"name": "Philip"}
+|People|->(Chaz)    {"name": "Charles"}
+|People|->(Di)      {"name": "Diana"}
+|People|->(Cam)     {"name": "Camilla"}
+|People|->(Wills)   {"name": "William"}
+|People|->(Harry)   {"name": "Henry"}
+|People|->(Kate)    {"name": "Catherine"}
+|Weddings|->[1947]  {"year": 1947}
+|Weddings|->[1981]  {"year": 1981}
+|Weddings|->[2005]  {"year": 2005}
+|Weddings|->[2011]  {"year": 2011}
 

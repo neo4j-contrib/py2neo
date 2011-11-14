@@ -27,6 +27,7 @@ except:
 import neo4j
 import re
 import sys
+import warnings
 
 from urllib import quote
 
@@ -167,8 +168,10 @@ class Batch(object):
 class Loader(object):
 
 	DESCRIPTOR_PATTERN               = re.compile(r"^(\((\w+)\)(-\[(\w*):(\w+)\]->\((\w+)\))?)(\s+(.*))?")
-	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
-	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
+	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\|(\w+)\|->\((\w+)\))(\s+(.*))?")
+	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\|(\w+)\|->\[(\w+)\])(\s+(.*))?")
+	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
+	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
 
 	def __init__(self, file, gdb):
 		self.file = file
@@ -226,6 +229,41 @@ class Loader(object):
 					for key, value in data.items():
 						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
 				continue
+			""" --- START OF DEPRECATED SYNTAXES --- """
+			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
+			# try as a node index entry descriptor
+			m = self.OLD_NODE_INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				if m.group(5):
+					(index_name, node_name) = (
+						unicode(m.group(2)),
+						unicode(m.group(3))
+					)
+					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+						index_name,
+						index_name
+					), DeprecationWarning)
+					data = json.loads(m.group(5))
+					for key, value in data.items():
+						batch.add_node_index_entry(index_name, node_name, key, value)
+				continue
+			# or as a relationship index entry descriptor
+			m = self.OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				if m.group(5):
+					(index_name, relationship_name) = (
+						unicode(m.group(2)),
+						unicode(m.group(3))
+					)
+					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+						index_name,
+						index_name
+					), DeprecationWarning)
+					data = json.loads(m.group(5))
+					for key, value in data.items():
+						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
+				continue
+			""" --- END OF DEPRECATED SYNTAXES --- """
 			# no idea then... this line is invalid
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
 		results = batch.submit()
