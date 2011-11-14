@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from py2neo import neo4j
+import sys
 import unittest
 
 gdb_uri = "http://localhost:7474/db/data/"
