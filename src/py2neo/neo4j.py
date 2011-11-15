@@ -1105,12 +1105,12 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def filter(self, language, name):
+	def filter(self, language, body):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['return_filter'] = {
 			'language': language,
-			'name': name
+			'body': body
 		}
 		return td
 
