@@ -1105,13 +1105,21 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def filter(self, language, body):
+	def filter(self, language, name=None, body=None):
 		td = TraversalDescription()
 		td._description = self._description
-		td._description['return_filter'] = {
-			'language': language,
-			'body': body
-		}
+		if name is not None:
+			td._description['return_filter'] = {
+				'language': language,
+				'name': name
+			}
+		elif body is not None:
+			td._description['return_filter'] = {
+				'language': language,
+				'body': body
+			}
+		else:
+			raise ValueError("Filters must have either a name or a body")
 		return td
 
 	def max_depth(self, depth):
