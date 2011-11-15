@@ -1096,6 +1096,15 @@ class TraversalDescription(object):
 			})
 		return td
 
+	def builtin_prune(self, name):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['prune_evaluator'] = {
+			'language': 'builtin',
+			'name': name
+		}
+		return td
+
 	def prune(self, language, body):
 		td = TraversalDescription()
 		td._description = self._description
@@ -1105,21 +1114,22 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def filter(self, language, name=None, body=None):
+	def builtin_filter(self, name):
 		td = TraversalDescription()
 		td._description = self._description
-		if name is not None:
-			td._description['return_filter'] = {
-				'language': language,
-				'name': name
-			}
-		elif body is not None:
-			td._description['return_filter'] = {
-				'language': language,
-				'body': body
-			}
-		else:
-			raise ValueError("Filters must have either a name or a body")
+		td._description['return_filter'] = {
+			'language': 'builtin',
+			'name': name
+		}
+		return td
+
+	def filter(self, language, body):
+		td = TraversalDescription()
+		td._description = self._description
+		td._description['return_filter'] = {
+			'language': language,
+			'body': body
+		}
 		return td
 
 	def max_depth(self, depth):
