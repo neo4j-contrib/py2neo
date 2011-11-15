@@ -518,7 +518,21 @@ class Node(IndexableResource):
 		
 		"""
 		return "(%d)" % self._id
-
+	
+	def __getattr__(self, name):
+		"""
+		Returns a function wrapper that allows to create a new C{Relationship}
+		with much more concise syntax:
+		
+			>>> r = charles.child_of(elizabeth, date_of_birth='14-11-1948')
+			>>> print r
+			-[:child_of]->
+			
+		"""
+		def wrap(node, **kwargs):
+			return self.create_relationship_to(node, name, kwargs)
+		return wrap
+		
 	def create_relationship_to(self, other_node, type, data=None):
 		"""
 		Creates a new C{Relationship} of type C{type} from the C{Node}
