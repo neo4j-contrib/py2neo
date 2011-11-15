@@ -1096,7 +1096,7 @@ class TraversalDescription(object):
 			})
 		return td
 
-	def builtin_prune(self, name):
+	def builtin_prune_evaluator(self, name):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['prune_evaluator'] = {
@@ -1105,7 +1105,7 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def prune(self, language, body):
+	def prune_evaluator(self, language, body):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['prune_evaluator'] = {
@@ -1114,7 +1114,7 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def builtin_filter(self, name):
+	def builtin_return_filter(self, name):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['return_filter'] = {
@@ -1123,7 +1123,7 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def filter(self, language, body):
+	def return_filter(self, language, body):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['return_filter'] = {
