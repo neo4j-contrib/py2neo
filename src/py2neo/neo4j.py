@@ -70,9 +70,9 @@ class GraphDatabaseService(rest.Resource):
 		"""
 		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
-			base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
+			self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
 		else:
-			base_uri, self._relative_uri = self._uri, "/"
+			self._base_uri, self._relative_uri = self._uri, "/"
 		self._extensions = self._lookup('extensions')
 		if 'neo4j_version' in self._index:
 			# must be version 1.5 or greater
@@ -81,7 +81,7 @@ class GraphDatabaseService(rest.Resource):
 		else:
 			# assume version 1.4
 			self._neo4j_version = "1.4"
-			self._batch_uri = base_uri + "/batch"
+			self._batch_uri = self._base_uri + "/batch"
 		# since we can't do inline exception handling, define a function
 		def numberise(n):
 			try:
@@ -1105,12 +1105,12 @@ class TraversalDescription(object):
 		}
 		return td
 
-	def filter(self, language, name):
+	def filter(self, language, body):
 		td = TraversalDescription()
 		td._description = self._description
 		td._description['return_filter'] = {
 			'language': language,
-			'name': name
+			'body': body
 		}
 		return td
 
