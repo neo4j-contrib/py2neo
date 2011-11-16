@@ -65,16 +65,18 @@ def output_text(value):
 	if isinstance(value, dict):
 		if 'type' in value:
 			# relationship
-			out = "(%s)-[%d:%s]->(%s)" % (
+			out = "(%s)-[%d:%s]->(%s) %s" % (
 				value['start'].rpartition("/")[2],
 				int(value['self'].rpartition("/")[2]),
 				value['type'],
-				value['end'].rpartition("/")[2]
+				value['end'].rpartition("/")[2],
+				json.dumps(value['data'], separators=(',',':'))
 			)
 		else:
 			# node
-			out = "(%d)" % (
-				int(value['self'].rpartition("/")[2])
+			out = "(%d) %s" % (
+				int(value['self'].rpartition("/")[2]),
+				json.dumps(value['data'], separators=(',',':'))
 			)
 	else:
 		# property
@@ -194,7 +196,11 @@ if __name__ == "__main__":
 			execute_and_output_as_delimited(args.query, args.u)
 	except SystemError as err:
 		content = err.args[0]['content']
-		sys.stderr.write("%s\n" % (content['exception']))
-		stacktrace = content['stacktrace']
-		for frame in stacktrace:
-			sys.stderr.write("\tat %s\n" % (frame))
+		if 'exception' in content and 'stacktrace' in content:
+			sys.stderr.write("%s\n" % (content['exception']))
+			stacktrace = content['stacktrace']
+			for frame in stacktrace:
+				sys.stderr.write("\tat %s\n" % (frame))
+		else:
+			sys.stderr.write("%s\n" % (content))
+
