@@ -76,12 +76,23 @@ class Dumper(object):
 
 class Batch(object):
 
-	def __init__(self, graphdb):
+	def __init__(self, graphdb, **hooks):
 		self._graphdb = graphdb
+		self._hooks = hooks
 		self._named_nodes = {}
 		self._named_relationships = {}
 		self._batch = []
 		self.first_node_id = None
+
+	def update_hook_properties(self, hook_name, data):
+		if hook_name not in self._hooks:
+			raise ValueError("Unknown hook \"%s\"" % (hook_name))
+		job_id = len(self._batch)
+		self._batch.append('{"method":"PUT","to":"%s/properties","body":%s,"id":%d}' % (
+			self._hooks[hook_name]._relative_uri,
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
 
 	def create_node(self, node_name, data):
 		if node_name in self._named_nodes:
@@ -170,6 +181,7 @@ class Loader(object):
 	DESCRIPTOR_PATTERN               = re.compile(r"^(\((\w+)\)(-\[(\w*):(\w+)\]->\((\w+)\))?)(\s+(.*))?")
 	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\|(\w+)\|->\((\w+)\))(\s+(.*))?")
 	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\|(\w+)\|->\[(\w+)\])(\s+(.*))?")
+	HOOK_DESCRIPTOR_PATTERN          = re.compile(r"^(\{(\w+)\})(\s+(.*))?")
 	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
 	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
 
@@ -179,7 +191,7 @@ class Loader(object):
 		self.hooks = hooks
 
 	def load(self):
-		batch = Batch(self.graphdb)
+		batch = Batch(self.graphdb, **self.hooks)
 		line_no = 0
 		for line in self.file:
 			# increment line no and trim whitespace from current line
@@ -229,6 +241,14 @@ class Loader(object):
 					data = json.loads(m.group(5))
 					for key, value in data.items():
 						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
+				continue
+			# try as a hook descriptor
+			m = self.HOOK_DESCRIPTOR_PATTERN.match(line)
+			if m:
+				batch.update_hook_properties(
+					unicode(m.group(2)),
+					json.loads(m.group(4) or 'null')
+				)
 				continue
 			""" --- START OF DEPRECATED SYNTAXES --- """
 			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
