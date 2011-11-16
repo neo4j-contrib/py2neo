@@ -1110,41 +1110,29 @@ class TraversalDescription(object):
 			})
 		return td
 
-	def builtin_prune_evaluator(self, name):
+	def add_evaluator(self, type, **kwargs):
 		td = TraversalDescription()
 		td._description = self._description
-		td._description['prune_evaluator'] = {
-			'language': 'builtin',
-			'name': name
-		}
+		if kwargs.has_key('name'):
+			td._description[type] = {
+				'language': 'builtin',
+				'name': kwargs['name']
+			}
+		elif kwargs.has_key('body'):
+			td._description[type] = {
+				'language': kwargs.get('language','javascript'),
+				'body': kwargs['body']
+			}
+		else:
+			assert False, 'Please specify a name of a built-in evaluator or a body for a custom one.'
+		
 		return td
+			
+	def filter(self, **kwargs):
+		return self.add_evaluator('return_filter', **kwargs)
 
-	def prune_evaluator(self, language, body):
-		td = TraversalDescription()
-		td._description = self._description
-		td._description['prune_evaluator'] = {
-			'language': language,
-			'body': body
-		}
-		return td
-
-	def builtin_return_filter(self, name):
-		td = TraversalDescription()
-		td._description = self._description
-		td._description['return_filter'] = {
-			'language': 'builtin',
-			'name': name
-		}
-		return td
-
-	def return_filter(self, language, body):
-		td = TraversalDescription()
-		td._description = self._description
-		td._description['return_filter'] = {
-			'language': language,
-			'body': body
-		}
-		return td
+	def prune(self, **kwargs):
+		return self.add_evaluator('prune_evaluator', **kwargs)
 
 	def max_depth(self, depth):
 		td = TraversalDescription()
