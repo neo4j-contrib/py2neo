@@ -173,11 +173,12 @@ class Loader(object):
 	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
 	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
 
-	def __init__(self, file, graphdb):
+	def __init__(self, file, graphdb, **hooks):
 		self.file = file
 		self.graphdb = graphdb
+		self.hooks = hooks
 
-	def load(self, **params):
+	def load(self):
 		batch = Batch(self.graphdb)
 		line_no = 0
 		for line in self.file:
@@ -283,18 +284,18 @@ def dumps(paths):
 	Dumper(file).dump(paths)
 	return file.getvalue()
 
-def load(file, graphdb, **params):
-	return Loader(file, graphdb).load(**params)
+def load(file, graphdb, **hooks):
+	return Loader(file, graphdb, **hooks).load()
 
-def loads(str, graphdb, **params):
+def loads(str, graphdb, **hooks):
 	file = StringIO(str)
-	return Loader(file, graphdb).load(**params)
+	return Loader(file, graphdb, **hooks).load()
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the destination Neo4j database server")
 	parser.add_argument("-f", metavar="SOURCE_FILE", help="the GEOFF file to load")
-	parser.add_argument("entity", nargs="*", help="a relative URI of a node or relationship")
+	parser.add_argument("uri", nargs="*", help="a relative URI of a node or relationship")
 	args = parser.parse_args()
 	try:
 		if args.f:
@@ -312,19 +313,19 @@ if __name__ == "__main__":
 	except:
 		sys.stderr.write("Failed to open destination database.\r\n")
 		sys.exit(1)
-	params = []
-	for uri in args.entity:
+	hooks = []
+	for uri in args.uri:
 		if uri.startswith("/node/"):
-			params.append(neo4j.Node(dest_graphdb._base_uri + uri))
+			hooks.append(neo4j.Node(dest_graphdb._base_uri + uri))
 		elif uri.startswith("/relationship/"):
-			params.append(neo4j.Relationship(dest_graphdb._base_uri + uri))
+			hooks.append(neo4j.Relationship(dest_graphdb._base_uri + uri))
 		else:
 			sys.stderr.write("Bad relative entity URI: %s\r\n" % (uri))
 			sys.exit(1)
 	print "New graph data available from node %s" % (
 		load(source_file, dest_graphdb, **dict([
-			(str(i), params[i])
-			for i in range(len(params))
+			(str(i), hooks[i])
+			for i in range(len(hooks))
 		]))
 	)
 
