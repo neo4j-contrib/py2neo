@@ -84,16 +84,6 @@ class Batch(object):
 		self._batch = []
 		self.first_node_id = None
 
-	def update_hook_properties(self, hook_name, data):
-		if hook_name not in self._hooks:
-			raise ValueError("Unknown hook \"%s\"" % (hook_name))
-		job_id = len(self._batch)
-		self._batch.append('{"method":"PUT","to":"%s/properties","body":%s,"id":%d}' % (
-			self._hooks[hook_name]._relative_uri,
-			json.dumps(data, separators=(',',':')),
-			job_id
-		))
-
 	def create_node(self, node_name, data):
 		if node_name in self._named_nodes:
 			raise ValueError("Duplicate node name \"%s\"" % (node_name))
@@ -125,6 +115,46 @@ class Batch(object):
 				quote(key, "") if isinstance(key, basestring) else key,
 				quote(value, "") if isinstance(value, basestring) else value,
 				self._named_nodes[node_name],
+				job_id
+			))
+
+	def update_hook_properties(self, hook_name, data):
+		if hook_name not in self._hooks:
+			raise ValueError("Unknown hook \"%s\"" % (hook_name))
+		job_id = len(self._batch)
+		self._batch.append('{"method":"PUT","to":"%s/properties","body":%s,"id":%d}' % (
+			self._hooks[hook_name]._relative_uri,
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+
+	def add_hook_index_entry(self, index_name, hook_name, key, value):
+		if hook_name not in self._hooks:
+			raise ValueError("Unknown hook name \"%s\"" % (hook_name))
+		hook = self._hooks[hook_name]
+		if isinstance(hook, neo4j.Node):
+			index_type = "node"
+		elif isinstance(hook, neo4j.Relationship):
+			index_type = "relationship"
+		else:
+			raise ValueError("Cannot index a hook of type %s" % type(hook))
+		job_id = len(self._batch)
+		if self._graphdb._neo4j_version >= (1, 5):
+			self._batch.append('{"method":"POST","to":"/index/%s/%s","body":{"uri":%s,"key":%s,"value":%s},"id":%d}' % (
+				index_type,
+				index_name,
+				json.dumps(hook._relative_uri, separators=(',',':')),
+				json.dumps(key, separators=(',',':')),
+				json.dumps(value, separators=(',',':')),
+				job_id
+			))
+		else:
+			self._batch.append('{"method":"POST","to":"/index/%s/%s/%s/%s","body":%s,"id":%d}' % (
+				index_type,
+				index_name,
+				quote(key, "") if isinstance(key, basestring) else key,
+				quote(value, "") if isinstance(value, basestring) else value,
+				json.dumps(hook._relative_uri, separators=(',',':')),
 				job_id
 			))
 
@@ -178,12 +208,15 @@ class Batch(object):
 
 class Loader(object):
 
-	DESCRIPTOR_PATTERN               = re.compile(r"^(\((\w+)\)(-\[(\w*):(\w+)\]->\((\w+)\))?)(\s+(.*))?")
-	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\|(\w+)\|->\((\w+)\))(\s+(.*))?")
-	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\|(\w+)\|->\[(\w+)\])(\s+(.*))?")
-	HOOK_DESCRIPTOR_PATTERN          = re.compile(r"^(\{(\w+)\})(\s+(.*))?")
-	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?")
-	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?")
+	NODE_DESCRIPTOR_PATTERN          = re.compile(r"^\((\w+)\)(\s+(.*))?$")
+	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^\|(\w+)\|->\((\w+)\)(\s+(.*))?$")
+	HOOK_DESCRIPTOR_PATTERN          = re.compile(r"^\{(\w+)\}(\s+(.*))?$")
+	HOOK_INDEX_ENTRY_PATTERN         = re.compile(r"^\|(\w+)\|->\{(\w+)\}(\s+(.*))?$")
+	RELATIONSHIP_DESCRIPTOR_PATTERN  = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)(\s+(.*))?$")
+	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^\|(\w+)\|->\[(\w+)\](\s+(.*))?$")
+
+	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?$")
+	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?$")
 
 	def __init__(self, file, graphdb, **hooks):
 		self.file = file
@@ -199,60 +232,72 @@ class Loader(object):
 			# skip blank lines and comments
 			if line == "" or line.startswith("#"):
 				continue
-			# try to identify line as node or relationship descriptor
-			m = self.DESCRIPTOR_PATTERN.match(line)
-			# firstly, try as a relationship descriptor
-			if m and m.group(3):
-				batch.create_relationship(
-					unicode(m.group(2)),
-					unicode(m.group(4)),
-					unicode(m.group(5)),
-					unicode(m.group(6)),
-					json.loads(m.group(8) or 'null')
-				)
-				continue
-			# secondly, try as a node descriptor
+			# try as a node descriptor
+			m = self.NODE_DESCRIPTOR_PATTERN.match(line)
 			if m:
 				batch.create_node(
-					unicode(m.group(2)),
-					json.loads(m.group(8) or 'null')
+					unicode(m.group(1)),
+					json.loads(m.group(3) or 'null')
 				)
 				continue
-			# neither of those, so try as a node index entry descriptor
+			# try as a node index entry
 			m = self.NODE_INDEX_ENTRY_PATTERN.match(line)
 			if m:
-				if m.group(5):
+				if m.group(4):
 					(index_name, node_name) = (
-						unicode(m.group(2)),
-						unicode(m.group(3))
+						unicode(m.group(1)),
+						unicode(m.group(2))
 					)
-					data = json.loads(m.group(5))
+					data = json.loads(m.group(4))
 					for key, value in data.items():
 						batch.add_node_index_entry(index_name, node_name, key, value)
-				continue
-			# or as a relationship index entry descriptor
-			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(5):
-					(index_name, relationship_name) = (
-						unicode(m.group(2)),
-						unicode(m.group(3))
-					)
-					data = json.loads(m.group(5))
-					for key, value in data.items():
-						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
 				continue
 			# try as a hook descriptor
 			m = self.HOOK_DESCRIPTOR_PATTERN.match(line)
 			if m:
 				batch.update_hook_properties(
-					unicode(m.group(2)),
-					json.loads(m.group(4) or 'null')
+					unicode(m.group(1)),
+					json.loads(m.group(3) or 'null')
 				)
+				continue
+			# try as a hook index entry
+			m = self.HOOK_INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				if m.group(4):
+					(index_name, hook_name) = (
+						unicode(m.group(1)),
+						unicode(m.group(2))
+					)
+					data = json.loads(m.group(4))
+					for key, value in data.items():
+						batch.add_hook_index_entry(index_name, hook_name, key, value)
+				continue
+			# try as a relationship descriptor
+			m = self.RELATIONSHIP_DESCRIPTOR_PATTERN.match(line)
+			if m:
+				batch.create_relationship(
+					unicode(m.group(1)),
+					unicode(m.group(2)),
+					unicode(m.group(3)),
+					unicode(m.group(4)),
+					json.loads(m.group(6) or 'null')
+				)
+				continue
+			# try as a relationship index entry
+			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
+			if m:
+				if m.group(4):
+					(index_name, relationship_name) = (
+						unicode(m.group(1)),
+						unicode(m.group(2))
+					)
+					data = json.loads(m.group(4))
+					for key, value in data.items():
+						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
 				continue
 			""" --- START OF DEPRECATED SYNTAXES --- """
 			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
-			# try as a node index entry descriptor
+			# deprecated node index entry
 			m = self.OLD_NODE_INDEX_ENTRY_PATTERN.match(line)
 			if m:
 				if m.group(5):
@@ -268,7 +313,7 @@ class Loader(object):
 					for key, value in data.items():
 						batch.add_node_index_entry(index_name, node_name, key, value)
 				continue
-			# or as a relationship index entry descriptor
+			# deprecated relationship index entry
 			m = self.OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
 			if m:
 				if m.group(5):

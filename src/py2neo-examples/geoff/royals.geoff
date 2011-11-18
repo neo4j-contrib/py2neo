@@ -35,6 +35,8 @@
 |Weddings|->[2005]  {"year": 2005}
 |Weddings|->[2011]  {"year": 2011}
 
-# Link to this graph
-{0}     {"foo": "bar"}
+# Temporary hook tests
+{0}          {"foo": "bar"}
+|test|->{0}  {"foo": "bar"}
+
 
