@@ -158,7 +158,7 @@ class Batch(object):
 				job_id
 			))
 
-	def create_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
+	def create_node_to_node_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
 		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
 			raise ValueError("Duplicate relationship name \"%s\"" % (rel_name))
 		if start_node_name not in self._named_nodes:
@@ -208,15 +208,18 @@ class Batch(object):
 
 class Loader(object):
 
-	NODE_DESCRIPTOR_PATTERN          = re.compile(r"^\((\w+)\)(\s+(.*))?$")
-	NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^\|(\w+)\|->\((\w+)\)(\s+(.*))?$")
-	HOOK_DESCRIPTOR_PATTERN          = re.compile(r"^\{(\w+)\}(\s+(.*))?$")
-	HOOK_INDEX_ENTRY_PATTERN         = re.compile(r"^\|(\w+)\|->\{(\w+)\}(\s+(.*))?$")
-	RELATIONSHIP_DESCRIPTOR_PATTERN  = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)(\s+(.*))?$")
-	RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^\|(\w+)\|->\[(\w+)\](\s+(.*))?$")
+	NODE_DESCRIPTOR_PATTERN                      = re.compile(r"^\((\w+)\)$")
+	NODE_INDEX_ENTRY_PATTERN                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
+	HOOK_DESCRIPTOR_PATTERN                      = re.compile(r"^\{(\w+)\}$")
+	HOOK_INDEX_ENTRY_PATTERN                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
+	NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
+	HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\((\w+)\)$")
+	NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\{(\w+)\}$")
+	HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\{(\w+)\}$")
+	RELATIONSHIP_INDEX_ENTRY_PATTERN             = re.compile(r"^\|(\w+)\|->\[(\w+)\]$")
 
-	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))(\s+(.*))?$")
-	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])(\s+(.*))?$")
+	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))$")
+	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])$")
 
 	def __init__(self, file, graphdb, **hooks):
 		self.file = file
@@ -224,6 +227,83 @@ class Loader(object):
 		self.hooks = hooks
 
 	def load(self):
+
+		def add(descriptor, data=None):
+			# try as a node descriptor
+			m = self.NODE_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.create_node(unicode(m.group(1)), data)
+				return
+			# try as a node index entry
+			m = self.NODE_INDEX_ENTRY_PATTERN.match(descriptor)
+			if m:
+				if data:
+					index_name, node_name = unicode(m.group(1)), unicode(m.group(2))
+					for key, value in data.items():
+						batch.add_node_index_entry(index_name, node_name, key, value)
+				return
+			# try as a hook descriptor
+			m = self.HOOK_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.update_hook_properties(unicode(m.group(1)), data)
+				return
+			# try as a hook index entry
+			m = self.HOOK_INDEX_ENTRY_PATTERN.match(descriptor)
+			if m:
+				if data:
+					index_name, hook_name = unicode(m.group(1)), unicode(m.group(2))
+					for key, value in data.items():
+						batch.add_hook_index_entry(index_name, hook_name, key, value)
+				return
+			# try as a relationship descriptor
+			m = self.NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.create_node_to_node_relationship(
+					unicode(m.group(1)),
+					unicode(m.group(2)),
+					unicode(m.group(3)),
+					unicode(m.group(4)),
+					data
+				)
+				return
+			# try as a relationship index entry
+			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(descriptor)
+			if m:
+				if data:
+					index_name, relationship_name = unicode(m.group(1)), unicode(m.group(2))
+					for key, value in data.items():
+						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
+				return
+			""" --- START OF DEPRECATED SYNTAXES --- """
+			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
+			# deprecated node index entry
+			m = self.OLD_NODE_INDEX_ENTRY_PATTERN.match(descriptor)
+			if m:
+				if data:
+					index_name, node_name = unicode(m.group(2)), unicode(m.group(3))
+					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+						index_name,
+						index_name
+					), DeprecationWarning)
+					for key, value in data.items():
+						batch.add_node_index_entry(index_name, node_name, key, value)
+				return
+			# deprecated relationship index entry
+			m = self.OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN.match(descriptor)
+			if m:
+				if data:
+					index_name, relationship_name = unicode(m.group(2)), unicode(m.group(3))
+					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+						index_name,
+						index_name
+					), DeprecationWarning)
+					for key, value in data.items():
+						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
+				return
+			""" --- END OF DEPRECATED SYNTAXES --- """
+			# no idea then... this line is invalid
+			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+
 		batch = Batch(self.graphdb, **self.hooks)
 		line_no = 0
 		for line in self.file:
@@ -232,106 +312,12 @@ class Loader(object):
 			# skip blank lines and comments
 			if line == "" or line.startswith("#"):
 				continue
-			# try as a node descriptor
-			m = self.NODE_DESCRIPTOR_PATTERN.match(line)
-			if m:
-				batch.create_node(
-					unicode(m.group(1)),
-					json.loads(m.group(3) or 'null')
-				)
-				continue
-			# try as a node index entry
-			m = self.NODE_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(4):
-					(index_name, node_name) = (
-						unicode(m.group(1)),
-						unicode(m.group(2))
-					)
-					data = json.loads(m.group(4))
-					for key, value in data.items():
-						batch.add_node_index_entry(index_name, node_name, key, value)
-				continue
-			# try as a hook descriptor
-			m = self.HOOK_DESCRIPTOR_PATTERN.match(line)
-			if m:
-				batch.update_hook_properties(
-					unicode(m.group(1)),
-					json.loads(m.group(3) or 'null')
-				)
-				continue
-			# try as a hook index entry
-			m = self.HOOK_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(4):
-					(index_name, hook_name) = (
-						unicode(m.group(1)),
-						unicode(m.group(2))
-					)
-					data = json.loads(m.group(4))
-					for key, value in data.items():
-						batch.add_hook_index_entry(index_name, hook_name, key, value)
-				continue
-			# try as a relationship descriptor
-			m = self.RELATIONSHIP_DESCRIPTOR_PATTERN.match(line)
-			if m:
-				batch.create_relationship(
-					unicode(m.group(1)),
-					unicode(m.group(2)),
-					unicode(m.group(3)),
-					unicode(m.group(4)),
-					json.loads(m.group(6) or 'null')
-				)
-				continue
-			# try as a relationship index entry
-			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(4):
-					(index_name, relationship_name) = (
-						unicode(m.group(1)),
-						unicode(m.group(2))
-					)
-					data = json.loads(m.group(4))
-					for key, value in data.items():
-						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
-				continue
-			""" --- START OF DEPRECATED SYNTAXES --- """
-			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
-			# deprecated node index entry
-			m = self.OLD_NODE_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(5):
-					(index_name, node_name) = (
-						unicode(m.group(2)),
-						unicode(m.group(3))
-					)
-					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-						index_name,
-						index_name
-					), DeprecationWarning)
-					data = json.loads(m.group(5))
-					for key, value in data.items():
-						batch.add_node_index_entry(index_name, node_name, key, value)
-				continue
-			# deprecated relationship index entry
-			m = self.OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN.match(line)
-			if m:
-				if m.group(5):
-					(index_name, relationship_name) = (
-						unicode(m.group(2)),
-						unicode(m.group(3))
-					)
-					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-						index_name,
-						index_name
-					), DeprecationWarning)
-					data = json.loads(m.group(5))
-					for key, value in data.items():
-						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
-				continue
-			""" --- END OF DEPRECATED SYNTAXES --- """
-			# no idea then... this line is invalid
-			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+			# TODO: match composite descriptors
+			bits = line.split(None, 1)
+			if len(bits) == 1:
+				add(bits[0])
+			else:
+				add(bits[0], json.loads(bits[1]))
 		results = batch.submit()
 		return neo4j.Node(results[batch.first_node_id]['location'])
 
