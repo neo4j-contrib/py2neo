@@ -84,9 +84,32 @@ class Batch(object):
 		self._batch = []
 		self.first_node_id = None
 
-	def create_node(self, node_name, data):
+	def _assert_node_name_does_not_exist(self, node_name):
 		if node_name in self._named_nodes:
 			raise ValueError("Duplicate node name \"%s\"" % (node_name))
+
+	def _assert_node_name_exists(self, node_name):
+		if node_name not in self._named_nodes:
+			raise ValueError("Unknown node name \"%s\"" % (node_name))
+
+	def _assert_hook_name_exists(self, hook_name):
+		if hook_name not in self._hooks:
+			raise ValueError("Unknown hook name \"%s\"" % (hook_name))
+
+	def _assert_rel_name_does_not_exist(self, rel_name):
+		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
+			raise ValueError("Duplicate relationship name \"%s\"" % (rel_name))
+
+	def _assert_hook_is_a_node(self, hook_name):
+		if not isinstance(self._hooks[hook_name], neo4j.Node):
+			raise ValueError("Hook \"%s\" is not a node" % (hook_name))
+
+	def _assert_rel_name_exists(self, rel_name):
+		if rel_name not in self._named_relationships:
+			raise ValueError("Unknown relationship name \"%s\"" % (rel_name))
+
+	def create_node(self, node_name, data):
+		self._assert_node_name_does_not_exist(node_name)
 		job_id = len(self._batch)
 		self._batch.append('{"method":"POST","to":"/node","body":%s,"id":%d}' % (
 			json.dumps(data, separators=(',',':')),
@@ -98,8 +121,7 @@ class Batch(object):
 			self.first_node_id = job_id
 
 	def add_node_index_entry(self, index_name, node_name, key, value):
-		if node_name not in self._named_nodes:
-			raise ValueError("Unknown node name \"%s\"" % (node_name))
+		self._assert_node_name_exists(node_name)
 		job_id = len(self._batch)
 		if self._graphdb._neo4j_version >= (1, 5):
 			self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
@@ -119,18 +141,16 @@ class Batch(object):
 			))
 
 	def update_hook_properties(self, hook_name, data):
-		if hook_name not in self._hooks:
-			raise ValueError("Unknown hook \"%s\"" % (hook_name))
+		self._assert_hook_name_exists(hook_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"PUT","to":"%s/properties","body":%s,"id":%d}' % (
-			self._hooks[hook_name]._relative_uri,
+		self._batch.append('{"method":"PUT","to":%s,"body":%s,"id":%d}' % (
+			json.dumps(self._hooks[hook_name]._relative_uri + "/properties", separators=(',',':')),
 			json.dumps(data, separators=(',',':')),
 			job_id
 		))
 
 	def add_hook_index_entry(self, index_name, hook_name, key, value):
-		if hook_name not in self._hooks:
-			raise ValueError("Unknown hook name \"%s\"" % (hook_name))
+		self._assert_hook_name_exists(hook_name)
 		hook = self._hooks[hook_name]
 		if isinstance(hook, neo4j.Node):
 			index_type = "node"
@@ -159,12 +179,9 @@ class Batch(object):
 			))
 
 	def create_node_to_node_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
-		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
-			raise ValueError("Duplicate relationship name \"%s\"" % (rel_name))
-		if start_node_name not in self._named_nodes:
-			raise ValueError("Unknown start node name \"%s\"" % (start_node_name))
-		if end_node_name not in self._named_nodes:
-			raise ValueError("Unknown end node name \"%s\"" % (end_node_name))
+		self._assert_rel_name_does_not_exist(rel_name)
+		self._assert_node_name_exists(start_node_name)
+		self._assert_node_name_exists(end_node_name)
 		job_id = len(self._batch)
 		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
 			self._named_nodes[start_node_name],
@@ -176,9 +193,57 @@ class Batch(object):
 		if rel_name is not None and len(rel_name) > 0:
 			self._named_relationships[rel_name] = job_id
 
+	def create_hook_to_node_relationship(self, start_hook_name, rel_name, rel_type, end_node_name, data):
+		self._assert_rel_name_does_not_exist(rel_name)
+		self._assert_hook_name_exists(start_hook_name)
+		self._assert_hook_is_a_node(start_hook_name)
+		self._assert_node_name_exists(end_node_name)
+		job_id = len(self._batch)
+		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
+			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
+			rel_type,
+			self._named_nodes[end_node_name],
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+		if rel_name is not None and len(rel_name) > 0:
+			self._named_relationships[rel_name] = job_id
+
+	def create_node_to_hook_relationship(self, start_node_name, rel_name, rel_type, end_hook_name, data):
+		self._assert_rel_name_does_not_exist(rel_name)
+		self._assert_node_name_exists(start_node_name)
+		self._assert_hook_name_exists(end_hook_name)
+		self._assert_hook_is_a_node(end_hook_name)
+		job_id = len(self._batch)
+		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
+			self._named_nodes[start_node_name],
+			rel_type,
+			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+		if rel_name is not None and len(rel_name) > 0:
+			self._named_relationships[rel_name] = job_id
+
+	def create_hook_to_hook_relationship(self, start_hook_name, rel_name, rel_type, end_hook_name, data):
+		self._assert_rel_name_does_not_exist(rel_name)
+		self._assert_hook_name_exists(start_hook_name)
+		self._assert_hook_is_a_node(start_hook_name)
+		self._assert_hook_name_exists(end_hook_name)
+		self._assert_hook_is_a_node(end_hook_name)
+		job_id = len(self._batch)
+		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
+			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
+			rel_type,
+			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+		if rel_name is not None and len(rel_name) > 0:
+			self._named_relationships[rel_name] = job_id
+
 	def add_relationship_index_entry(self, index_name, relationship_name, key, value):
-		if relationship_name not in self._named_relationships:
-			raise ValueError("Unknown relationship name \"%s\"" % (relationship_name))
+		self._assert_rel_name_exists(relationship_name)
 		job_id = len(self._batch)
 		if self._graphdb._neo4j_version >= (1, 5):
 			self._batch.append('{"method":"POST","to":"/index/relationship/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
@@ -255,10 +320,43 @@ class Loader(object):
 					for key, value in data.items():
 						batch.add_hook_index_entry(index_name, hook_name, key, value)
 				return
-			# try as a relationship descriptor
+			# try as a node-to-node relationship descriptor
 			m = self.NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
 			if m:
 				batch.create_node_to_node_relationship(
+					unicode(m.group(1)),
+					unicode(m.group(2)),
+					unicode(m.group(3)),
+					unicode(m.group(4)),
+					data
+				)
+				return
+			# try as a hook-to-node relationship descriptor
+			m = self.HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.create_hook_to_node_relationship(
+					unicode(m.group(1)),
+					unicode(m.group(2)),
+					unicode(m.group(3)),
+					unicode(m.group(4)),
+					data
+				)
+				return
+			# try as a node-to-hook relationship descriptor
+			m = self.NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.create_node_to_hook_relationship(
+					unicode(m.group(1)),
+					unicode(m.group(2)),
+					unicode(m.group(3)),
+					unicode(m.group(4)),
+					data
+				)
+				return
+			# try as a hook-to-hook relationship descriptor
+			m = self.HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			if m:
+				batch.create_hook_to_hook_relationship(
 					unicode(m.group(1)),
 					unicode(m.group(2)),
 					unicode(m.group(3)),

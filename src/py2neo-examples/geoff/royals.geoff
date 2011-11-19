@@ -38,5 +38,6 @@
 # Temporary hook tests
 {0}          {"foo": "bar"}
 |test|->{0}  {"foo": "bar"}
-
+{0}-[:FAMILIES]->(Liz)
+{0}-[:TEST]->{1}
 
