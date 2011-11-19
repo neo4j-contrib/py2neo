@@ -37,6 +37,20 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
+NODE_DESCRIPTOR                      = re.compile(r"^\((\w+)\)$")
+NODE_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
+HOOK_DESCRIPTOR                      = re.compile(r"^\{(\w+)\}$")
+HOOK_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
+NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
+HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\((\w+)\)$")
+NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\{(\w+)\}$")
+HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\{(\w+)\}$")
+RELATIONSHIP_INDEX_ENTRY             = re.compile(r"^\|(\w+)\|->\[(\w+)\]$")
+
+OLD_NODE_INDEX_ENTRY         = re.compile(r"^(\{(\w+)\}->\((\w+)\))$")
+OLD_RELATIONSHIP_INDEX_ENTRY = re.compile(r"^(\{(\w+)\}->\[(\w+)\])$")
+
+
 class Dumper(object):
 
 	def __init__(self, file, eol=None):
@@ -273,19 +287,6 @@ class Batch(object):
 
 class Loader(object):
 
-	NODE_DESCRIPTOR_PATTERN                      = re.compile(r"^\((\w+)\)$")
-	NODE_INDEX_ENTRY_PATTERN                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
-	HOOK_DESCRIPTOR_PATTERN                      = re.compile(r"^\{(\w+)\}$")
-	HOOK_INDEX_ENTRY_PATTERN                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
-	NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
-	HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\((\w+)\)$")
-	NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\{(\w+)\}$")
-	HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\{(\w+)\}$")
-	RELATIONSHIP_INDEX_ENTRY_PATTERN             = re.compile(r"^\|(\w+)\|->\[(\w+)\]$")
-
-	OLD_NODE_INDEX_ENTRY_PATTERN         = re.compile(r"^(\{(\w+)\}->\((\w+)\))$")
-	OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN = re.compile(r"^(\{(\w+)\}->\[(\w+)\])$")
-
 	def __init__(self, file, graphdb, **hooks):
 		self.file = file
 		self.graphdb = graphdb
@@ -293,114 +294,199 @@ class Loader(object):
 
 	def load(self):
 
-		def add(descriptor, data=None):
+		def parse(descriptor, data=None):
 			# try as a node descriptor
-			m = self.NODE_DESCRIPTOR_PATTERN.match(descriptor)
+			m = NODE_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.create_node(unicode(m.group(1)), data)
-				return
+				return (
+					NODE_DESCRIPTOR,
+					{
+						"node_name": unicode(m.group(1))
+					},
+					data
+				)
 			# try as a node index entry
-			m = self.NODE_INDEX_ENTRY_PATTERN.match(descriptor)
+			m = NODE_INDEX_ENTRY.match(descriptor)
 			if m:
-				if data:
-					index_name, node_name = unicode(m.group(1)), unicode(m.group(2))
-					for key, value in data.items():
-						batch.add_node_index_entry(index_name, node_name, key, value)
-				return
+				return (
+					NODE_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(1)),
+						"node_name": unicode(m.group(2))
+					},
+					data
+				)
 			# try as a hook descriptor
-			m = self.HOOK_DESCRIPTOR_PATTERN.match(descriptor)
+			m = HOOK_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.update_hook_properties(unicode(m.group(1)), data)
-				return
+				return (
+					HOOK_DESCRIPTOR,
+					{
+						"hook_name": unicode(m.group(1))
+					},
+					data
+				)
 			# try as a hook index entry
-			m = self.HOOK_INDEX_ENTRY_PATTERN.match(descriptor)
+			m = HOOK_INDEX_ENTRY.match(descriptor)
 			if m:
-				if data:
-					index_name, hook_name = unicode(m.group(1)), unicode(m.group(2))
-					for key, value in data.items():
-						batch.add_hook_index_entry(index_name, hook_name, key, value)
-				return
+				return (
+					HOOK_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(1)),
+						"hook_name": unicode(m.group(2))
+					},
+					data
+				)
 			# try as a node-to-node relationship descriptor
-			m = self.NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			m = NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.create_node_to_node_relationship(
-					unicode(m.group(1)),
-					unicode(m.group(2)),
-					unicode(m.group(3)),
-					unicode(m.group(4)),
+				return (
+					NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR,
+					{
+						"start_node_name": unicode(m.group(1)),
+						"rel_name": unicode(m.group(2)),
+						"rel_type": unicode(m.group(3)),
+						"end_node_name": unicode(m.group(4))
+					},
 					data
 				)
-				return
 			# try as a hook-to-node relationship descriptor
-			m = self.HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			m = HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.create_hook_to_node_relationship(
-					unicode(m.group(1)),
-					unicode(m.group(2)),
-					unicode(m.group(3)),
-					unicode(m.group(4)),
+				return (
+					HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR,
+					{
+						"start_hook_name": unicode(m.group(1)),
+						"rel_name": unicode(m.group(2)),
+						"rel_type": unicode(m.group(3)),
+						"end_node_name": unicode(m.group(4))
+					},
 					data
 				)
-				return
 			# try as a node-to-hook relationship descriptor
-			m = self.NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			m = NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.create_node_to_hook_relationship(
-					unicode(m.group(1)),
-					unicode(m.group(2)),
-					unicode(m.group(3)),
-					unicode(m.group(4)),
+				return (
+					NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR,
+					{
+						"start_node_name": unicode(m.group(1)),
+						"rel_name": unicode(m.group(2)),
+						"rel_type": unicode(m.group(3)),
+						"end_hook_name": unicode(m.group(4))
+					},
 					data
 				)
-				return
 			# try as a hook-to-hook relationship descriptor
-			m = self.HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+			m = HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
-				batch.create_hook_to_hook_relationship(
-					unicode(m.group(1)),
-					unicode(m.group(2)),
-					unicode(m.group(3)),
-					unicode(m.group(4)),
+				return (
+					HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR,
+					{
+						"start_hook_name": unicode(m.group(1)),
+						"rel_name": unicode(m.group(2)),
+						"rel_type": unicode(m.group(3)),
+						"end_hook_name": unicode(m.group(4))
+					},
 					data
 				)
-				return
 			# try as a relationship index entry
-			m = self.RELATIONSHIP_INDEX_ENTRY_PATTERN.match(descriptor)
+			m = RELATIONSHIP_INDEX_ENTRY.match(descriptor)
 			if m:
-				if data:
-					index_name, relationship_name = unicode(m.group(1)), unicode(m.group(2))
-					for key, value in data.items():
-						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
-				return
+				return (
+					RELATIONSHIP_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(1)),
+						"rel_name": unicode(m.group(2))
+					},
+					data
+				)
 			""" --- START OF DEPRECATED SYNTAXES --- """
 			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
 			# deprecated node index entry
-			m = self.OLD_NODE_INDEX_ENTRY_PATTERN.match(descriptor)
+			m = OLD_NODE_INDEX_ENTRY.match(descriptor)
 			if m:
-				if data:
-					index_name, node_name = unicode(m.group(2)), unicode(m.group(3))
-					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-						index_name,
-						index_name
-					), DeprecationWarning)
-					for key, value in data.items():
-						batch.add_node_index_entry(index_name, node_name, key, value)
-				return
+				index_name = unicode(m.group(2))
+				warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+					index_name,
+					index_name
+				), DeprecationWarning)
+				return (
+					NODE_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(2)),
+						"node_name": unicode(m.group(3))
+					},
+					data
+				)
 			# deprecated relationship index entry
-			m = self.OLD_RELATIONSHIP_INDEX_ENTRY_PATTERN.match(descriptor)
+			m = OLD_RELATIONSHIP_INDEX_ENTRY.match(descriptor)
 			if m:
-				if data:
-					index_name, relationship_name = unicode(m.group(2)), unicode(m.group(3))
-					warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-						index_name,
-						index_name
-					), DeprecationWarning)
-					for key, value in data.items():
-						batch.add_relationship_index_entry(index_name, relationship_name, key, value)
-				return
+				index_name = unicode(m.group(2))
+				warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
+					index_name,
+					index_name
+				), DeprecationWarning)
+				return (
+					RELATIONSHIP_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(2)),
+						"rel_name": unicode(m.group(3))
+					},
+					data
+				)
 			""" --- END OF DEPRECATED SYNTAXES --- """
 			# no idea then... this line is invalid
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+
+		def add(descriptor, params, data):
+			if descriptor is NODE_DESCRIPTOR:
+				batch.create_node(params['node_name'], data)
+			elif descriptor is NODE_INDEX_ENTRY:
+				if data:
+					for key, value in data.items():
+						batch.add_node_index_entry(params['index_name'], params['node_name'], key, value)
+			elif descriptor is HOOK_DESCRIPTOR:
+				batch.update_hook_properties(params['hook_name'], data)
+			elif descriptor is HOOK_INDEX_ENTRY:
+				if data:
+					for key, value in data.items():
+						batch.add_hook_index_entry(params['index_name'], params['hook_name'], key, value)
+			elif descriptor is NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR:
+				batch.create_node_to_node_relationship(
+					params['start_node_name'],
+					params['rel_name'],
+					params['rel_type'],
+					params['end_node_name'],
+					data
+				)
+			elif descriptor is HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR:
+				batch.create_hook_to_node_relationship(
+					params['start_hook_name'],
+					params['rel_name'],
+					params['rel_type'],
+					params['end_node_name'],
+					data
+				)
+			elif descriptor is NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR:
+				batch.create_node_to_hook_relationship(
+					params['start_node_name'],
+					params['rel_name'],
+					params['rel_type'],
+					params['end_hook_name'],
+					data
+				)
+			elif descriptor is HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR:
+				batch.create_hook_to_hook_relationship(
+					params['start_hook_name'],
+					params['rel_name'],
+					params['rel_type'],
+					params['end_hook_name'],
+					data
+				)
+			elif descriptor is RELATIONSHIP_INDEX_ENTRY:
+				if data:
+					for key, value in data.items():
+						batch.add_relationship_index_entry(params['index_name'], params['rel_name'], key, value)
 
 		batch = Batch(self.graphdb, **self.hooks)
 		line_no = 0
@@ -413,9 +499,12 @@ class Loader(object):
 			# TODO: match composite descriptors
 			bits = line.split(None, 1)
 			if len(bits) == 1:
-				add(bits[0])
+				descriptor, params, data = parse(bits[0])
+				#add(bits[0])
 			else:
-				add(bits[0], json.loads(bits[1]))
+				descriptor, params, data = parse(bits[0], json.loads(bits[1]))
+				#add(bits[0], json.loads(bits[1]))
+			add(descriptor, params, data)
 		results = batch.submit()
 		return neo4j.Node(results[batch.first_node_id]['location'])
 
