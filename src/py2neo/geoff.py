@@ -37,15 +37,16 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-NODE_DESCRIPTOR                      = re.compile(r"^\((\w+)\)$")
-NODE_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
 HOOK_DESCRIPTOR                      = re.compile(r"^\{(\w+)\}$")
-HOOK_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
-NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
+NODE_DESCRIPTOR                      = re.compile(r"^\((\w+)\)$")
+HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\{(\w+)\}$")
 HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\((\w+)\)$")
 NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\{(\w+)\}$")
-HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\{(\w+)\}$")
+NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
+HOOK_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
+NODE_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
 RELATIONSHIP_INDEX_ENTRY             = re.compile(r"^\|(\w+)\|->\[(\w+)\]$")
+COMPOSITE_DESCRIPTOR                 = re.compile(r"^\{\s*\".+\"\s*:.*\}")
 
 OLD_NODE_INDEX_ENTRY         = re.compile(r"^(\{(\w+)\}->\((\w+)\))$")
 OLD_RELATIONSHIP_INDEX_ENTRY = re.compile(r"^(\{(\w+)\}->\[(\w+)\])$")
@@ -122,6 +123,15 @@ class Batch(object):
 		if rel_name not in self._named_relationships:
 			raise ValueError("Unknown relationship name \"%s\"" % (rel_name))
 
+	def update_hook_properties(self, hook_name, data):
+		self._assert_hook_name_exists(hook_name)
+		job_id = len(self._batch)
+		self._batch.append('{"method":"PUT","to":%s,"body":%s,"id":%d}' % (
+			json.dumps(self._hooks[hook_name]._relative_uri + "/properties", separators=(',',':')),
+			json.dumps(data, separators=(',',':')),
+			job_id
+		))
+
 	def create_node(self, node_name, data):
 		self._assert_node_name_does_not_exist(node_name)
 		job_id = len(self._batch)
@@ -134,73 +144,17 @@ class Batch(object):
 		if self.first_node_id is None:
 			self.first_node_id = job_id
 
-	def add_node_index_entry(self, index_name, node_name, key, value):
-		self._assert_node_name_exists(node_name)
-		job_id = len(self._batch)
-		if self._graphdb._neo4j_version >= (1, 5):
-			self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
-				index_name,
-				self._named_nodes[node_name],
-				json.dumps(key, separators=(',',':')),
-				json.dumps(value, separators=(',',':')),
-				job_id
-			))
-		else:
-			self._batch.append('{"method":"POST","to":"/index/node/%s/%s/%s","body":"{%d}","id":%d}' % (
-				index_name,
-				quote(key, "") if isinstance(key, basestring) else key,
-				quote(value, "") if isinstance(value, basestring) else value,
-				self._named_nodes[node_name],
-				job_id
-			))
-
-	def update_hook_properties(self, hook_name, data):
-		self._assert_hook_name_exists(hook_name)
-		job_id = len(self._batch)
-		self._batch.append('{"method":"PUT","to":%s,"body":%s,"id":%d}' % (
-			json.dumps(self._hooks[hook_name]._relative_uri + "/properties", separators=(',',':')),
-			json.dumps(data, separators=(',',':')),
-			job_id
-		))
-
-	def add_hook_index_entry(self, index_name, hook_name, key, value):
-		self._assert_hook_name_exists(hook_name)
-		hook = self._hooks[hook_name]
-		if isinstance(hook, neo4j.Node):
-			index_type = "node"
-		elif isinstance(hook, neo4j.Relationship):
-			index_type = "relationship"
-		else:
-			raise ValueError("Cannot index a hook of type %s" % type(hook))
-		job_id = len(self._batch)
-		if self._graphdb._neo4j_version >= (1, 5):
-			self._batch.append('{"method":"POST","to":"/index/%s/%s","body":{"uri":%s,"key":%s,"value":%s},"id":%d}' % (
-				index_type,
-				index_name,
-				json.dumps(hook._relative_uri, separators=(',',':')),
-				json.dumps(key, separators=(',',':')),
-				json.dumps(value, separators=(',',':')),
-				job_id
-			))
-		else:
-			self._batch.append('{"method":"POST","to":"/index/%s/%s/%s/%s","body":%s,"id":%d}' % (
-				index_type,
-				index_name,
-				quote(key, "") if isinstance(key, basestring) else key,
-				quote(value, "") if isinstance(value, basestring) else value,
-				json.dumps(hook._relative_uri, separators=(',',':')),
-				job_id
-			))
-
-	def create_node_to_node_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
+	def create_hook_to_hook_relationship(self, start_hook_name, rel_name, rel_type, end_hook_name, data):
 		self._assert_rel_name_does_not_exist(rel_name)
-		self._assert_node_name_exists(start_node_name)
-		self._assert_node_name_exists(end_node_name)
+		self._assert_hook_name_exists(start_hook_name)
+		self._assert_hook_is_a_node(start_hook_name)
+		self._assert_hook_name_exists(end_hook_name)
+		self._assert_hook_is_a_node(end_hook_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
-			self._named_nodes[start_node_name],
+		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
+			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
 			rel_type,
-			self._named_nodes[end_node_name],
+			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
 			json.dumps(data, separators=(',',':')),
 			job_id
 		))
@@ -239,22 +193,69 @@ class Batch(object):
 		if rel_name is not None and len(rel_name) > 0:
 			self._named_relationships[rel_name] = job_id
 
-	def create_hook_to_hook_relationship(self, start_hook_name, rel_name, rel_type, end_hook_name, data):
+	def create_node_to_node_relationship(self, start_node_name, rel_name, rel_type, end_node_name, data):
 		self._assert_rel_name_does_not_exist(rel_name)
-		self._assert_hook_name_exists(start_hook_name)
-		self._assert_hook_is_a_node(start_hook_name)
-		self._assert_hook_name_exists(end_hook_name)
-		self._assert_hook_is_a_node(end_hook_name)
+		self._assert_node_name_exists(start_node_name)
+		self._assert_node_name_exists(end_node_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
-			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
+		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
+			self._named_nodes[start_node_name],
 			rel_type,
-			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
+			self._named_nodes[end_node_name],
 			json.dumps(data, separators=(',',':')),
 			job_id
 		))
 		if rel_name is not None and len(rel_name) > 0:
 			self._named_relationships[rel_name] = job_id
+
+	def add_hook_index_entry(self, index_name, hook_name, key, value):
+		self._assert_hook_name_exists(hook_name)
+		hook = self._hooks[hook_name]
+		if isinstance(hook, neo4j.Node):
+			index_type = "node"
+		elif isinstance(hook, neo4j.Relationship):
+			index_type = "relationship"
+		else:
+			raise ValueError("Cannot index a hook of type %s" % type(hook))
+		job_id = len(self._batch)
+		if self._graphdb._neo4j_version >= (1, 5):
+			self._batch.append('{"method":"POST","to":"/index/%s/%s","body":{"uri":%s,"key":%s,"value":%s},"id":%d}' % (
+				index_type,
+				index_name,
+				json.dumps(hook._relative_uri, separators=(',',':')),
+				json.dumps(key, separators=(',',':')),
+				json.dumps(value, separators=(',',':')),
+				job_id
+			))
+		else:
+			self._batch.append('{"method":"POST","to":"/index/%s/%s/%s/%s","body":%s,"id":%d}' % (
+				index_type,
+				index_name,
+				quote(key, "") if isinstance(key, basestring) else key,
+				quote(value, "") if isinstance(value, basestring) else value,
+				json.dumps(hook._relative_uri, separators=(',',':')),
+				job_id
+			))
+
+	def add_node_index_entry(self, index_name, node_name, key, value):
+		self._assert_node_name_exists(node_name)
+		job_id = len(self._batch)
+		if self._graphdb._neo4j_version >= (1, 5):
+			self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+				index_name,
+				self._named_nodes[node_name],
+				json.dumps(key, separators=(',',':')),
+				json.dumps(value, separators=(',',':')),
+				job_id
+			))
+		else:
+			self._batch.append('{"method":"POST","to":"/index/node/%s/%s/%s","body":"{%d}","id":%d}' % (
+				index_name,
+				quote(key, "") if isinstance(key, basestring) else key,
+				quote(value, "") if isinstance(value, basestring) else value,
+				self._named_nodes[node_name],
+				job_id
+			))
 
 	def add_relationship_index_entry(self, index_name, relationship_name, key, value):
 		self._assert_rel_name_exists(relationship_name)
@@ -295,27 +296,6 @@ class Loader(object):
 	def load(self):
 
 		def parse(descriptor, data=None):
-			# try as a node descriptor
-			m = NODE_DESCRIPTOR.match(descriptor)
-			if m:
-				return (
-					NODE_DESCRIPTOR,
-					{
-						"node_name": unicode(m.group(1))
-					},
-					data
-				)
-			# try as a node index entry
-			m = NODE_INDEX_ENTRY.match(descriptor)
-			if m:
-				return (
-					NODE_INDEX_ENTRY,
-					{
-						"index_name": unicode(m.group(1)),
-						"node_name": unicode(m.group(2))
-					},
-					data
-				)
 			# try as a hook descriptor
 			m = HOOK_DESCRIPTOR.match(descriptor)
 			if m:
@@ -326,27 +306,26 @@ class Loader(object):
 					},
 					data
 				)
-			# try as a hook index entry
-			m = HOOK_INDEX_ENTRY.match(descriptor)
+			# try as a node descriptor
+			m = NODE_DESCRIPTOR.match(descriptor)
 			if m:
 				return (
-					HOOK_INDEX_ENTRY,
+					NODE_DESCRIPTOR,
 					{
-						"index_name": unicode(m.group(1)),
-						"hook_name": unicode(m.group(2))
+						"node_name": unicode(m.group(1))
 					},
 					data
 				)
-			# try as a node-to-node relationship descriptor
-			m = NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR.match(descriptor)
+			# try as a hook-to-hook relationship descriptor
+			m = HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
 				return (
-					NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR,
+					HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR,
 					{
-						"start_node_name": unicode(m.group(1)),
+						"start_hook_name": unicode(m.group(1)),
 						"rel_name": unicode(m.group(2)),
 						"rel_type": unicode(m.group(3)),
-						"end_node_name": unicode(m.group(4))
+						"end_hook_name": unicode(m.group(4))
 					},
 					data
 				)
@@ -376,16 +355,38 @@ class Loader(object):
 					},
 					data
 				)
-			# try as a hook-to-hook relationship descriptor
-			m = HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR.match(descriptor)
+			# try as a node-to-node relationship descriptor
+			m = NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR.match(descriptor)
 			if m:
 				return (
-					HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR,
+					NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR,
 					{
-						"start_hook_name": unicode(m.group(1)),
+						"start_node_name": unicode(m.group(1)),
 						"rel_name": unicode(m.group(2)),
 						"rel_type": unicode(m.group(3)),
-						"end_hook_name": unicode(m.group(4))
+						"end_node_name": unicode(m.group(4))
+					},
+					data
+				)
+			# try as a hook index entry
+			m = HOOK_INDEX_ENTRY.match(descriptor)
+			if m:
+				return (
+					HOOK_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(1)),
+						"hook_name": unicode(m.group(2))
+					},
+					data
+				)
+			# try as a node index entry
+			m = NODE_INDEX_ENTRY.match(descriptor)
+			if m:
+				return (
+					NODE_INDEX_ENTRY,
+					{
+						"index_name": unicode(m.group(1)),
+						"node_name": unicode(m.group(2))
 					},
 					data
 				)
@@ -439,24 +440,17 @@ class Loader(object):
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
 
 		def add(descriptor, params, data):
-			if descriptor is NODE_DESCRIPTOR:
-				batch.create_node(params['node_name'], data)
-			elif descriptor is NODE_INDEX_ENTRY:
-				if data:
-					for key, value in data.items():
-						batch.add_node_index_entry(params['index_name'], params['node_name'], key, value)
-			elif descriptor is HOOK_DESCRIPTOR:
+			print descriptor, params, data
+			if descriptor is HOOK_DESCRIPTOR:
 				batch.update_hook_properties(params['hook_name'], data)
-			elif descriptor is HOOK_INDEX_ENTRY:
-				if data:
-					for key, value in data.items():
-						batch.add_hook_index_entry(params['index_name'], params['hook_name'], key, value)
-			elif descriptor is NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR:
-				batch.create_node_to_node_relationship(
-					params['start_node_name'],
+			elif descriptor is NODE_DESCRIPTOR:
+				batch.create_node(params['node_name'], data)
+			elif descriptor is HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR:
+				batch.create_hook_to_hook_relationship(
+					params['start_hook_name'],
 					params['rel_name'],
 					params['rel_type'],
-					params['end_node_name'],
+					params['end_hook_name'],
 					data
 				)
 			elif descriptor is HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR:
@@ -475,14 +469,22 @@ class Loader(object):
 					params['end_hook_name'],
 					data
 				)
-			elif descriptor is HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR:
-				batch.create_hook_to_hook_relationship(
-					params['start_hook_name'],
+			elif descriptor is NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR:
+				batch.create_node_to_node_relationship(
+					params['start_node_name'],
 					params['rel_name'],
 					params['rel_type'],
-					params['end_hook_name'],
+					params['end_node_name'],
 					data
 				)
+			elif descriptor is HOOK_INDEX_ENTRY:
+				if data:
+					for key, value in data.items():
+						batch.add_hook_index_entry(params['index_name'], params['hook_name'], key, value)
+			elif descriptor is NODE_INDEX_ENTRY:
+				if data:
+					for key, value in data.items():
+						batch.add_node_index_entry(params['index_name'], params['node_name'], key, value)
 			elif descriptor is RELATIONSHIP_INDEX_ENTRY:
 				if data:
 					for key, value in data.items():
@@ -496,15 +498,36 @@ class Loader(object):
 			# skip blank lines and comments
 			if line == "" or line.startswith("#"):
 				continue
-			# TODO: match composite descriptors
-			bits = line.split(None, 1)
-			if len(bits) == 1:
-				descriptor, params, data = parse(bits[0])
-				#add(bits[0])
+			# match composite descriptors
+			m = COMPOSITE_DESCRIPTOR.match(line)
+			if m:
+				composite = json.loads(line)
+				descriptors = [[], [], []]
+				for key, value in composite.items():
+					descriptor, params, data = parse(key, value)
+					descriptors[{
+						HOOK_DESCRIPTOR: 0,
+						NODE_DESCRIPTOR: 0,
+						HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR: 1,
+						HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR: 1,
+						NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR: 1,
+						NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR: 1,
+						HOOK_INDEX_ENTRY: 2,
+						NODE_INDEX_ENTRY: 2,
+						RELATIONSHIP_INDEX_ENTRY: 2
+					}[descriptor]].append((descriptor, params, data))
+				for i in range(3):
+					for d in descriptors[i]:
+						add(*d)
 			else:
-				descriptor, params, data = parse(bits[0], json.loads(bits[1]))
-				#add(bits[0], json.loads(bits[1]))
-			add(descriptor, params, data)
+				bits = line.split(None, 1)
+				if len(bits) == 1:
+					descriptor, params, data = parse(bits[0])
+					#add(bits[0])
+				else:
+					descriptor, params, data = parse(bits[0], json.loads(bits[1]))
+					#add(bits[0], json.loads(bits[1]))
+				add(descriptor, params, data)
 		results = batch.submit()
 		return neo4j.Node(results[batch.first_node_id]['location'])
 

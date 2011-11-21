@@ -1,0 +1,21 @@
+# Node Hook Example
+# =================
+#
+# Uses two node hooks - {0} and {1} - to create the following graph:
+#
+#    {0}-[:EAST]->(foo)
+#     ^             |
+#     |             |
+# [:NORTH]       [:SOUTH]
+#     |             |
+#     |             v
+#    {1}<-[:WEST]-(bar)
+#
+
+(foo) {"position": "north-east"}
+(bar) {"position": "south-east"}
+{0}   {"position": "south-west"}
+{1}   {"position": "north-west"}
+
+{"(foo)-[:SOUTH]->(bar)": null, "(bar)-[:WEST]->{1}": null, "{1}-[:NORTH]->{0}": null, "{0}-[:EAST]->(foo)": null}
+

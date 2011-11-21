@@ -35,9 +35,6 @@
 |Weddings|->[2005]  {"year": 2005}
 |Weddings|->[2011]  {"year": 2011}
 
-# Temporary hook tests
-{0}          {"foo": "bar"}
-|test|->{0}  {"foo": "bar"}
-{0}-[:FAMILIES]->(Liz)
-{0}-[:TEST]->{1}
+# Hook into the supplied node
+{0}-[:FAMILY]->(Liz)
 
