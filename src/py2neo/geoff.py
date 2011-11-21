@@ -440,7 +440,6 @@ class Loader(object):
 			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
 
 		def add(descriptor, params, data):
-			print descriptor, params, data
 			if descriptor is HOOK_DESCRIPTOR:
 				batch.update_hook_properties(params['hook_name'], data)
 			elif descriptor is NODE_DESCRIPTOR:
