@@ -552,40 +552,56 @@ def loads(str, graphdb, **hooks):
 	return Loader(file, graphdb, **hooks).load()
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="Import graph data from a GEOFF file into a Neo4j database.")
+	parser = argparse.ArgumentParser(description="""\
+Import graph data from a GEOFF file into a Neo4j database. A source file may be
+specified with the -f option and a destination database with the -u option. The
+remainder of the arguments will be passed as hooks into the load routine. Each
+hook may be a node of relationship and can optionally be named. Unnamed hooks
+will be automatically named by their relative zero-based position. For example,
+"foo=/node/123" designates the node with ID 123, named as "foo", whereas
+"/relationship/456" designates the relationship with ID 456 and will be named
+"0" if it is in the first position, "1" for the second, and so on.
+EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
+""")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the destination Neo4j database server")
 	parser.add_argument("-f", metavar="SOURCE_FILE", help="the GEOFF file to load")
-	parser.add_argument("uri", nargs="*", help="a relative URI of a node or relationship")
+	parser.add_argument("uri", metavar="name=uri", nargs="*", help="named relative entity URI (e.g. foo=/node/123)")
 	args = parser.parse_args()
+	# Attempt to open source file
 	try:
 		if args.f:
 			source_file = open(args.f, "r")
 		else:
 			source_file = sys.stdin
 	except:
-		sys.stderr.write("Failed to open GEOFF file.\r\n")
+		print >> sys.stderr, "Failed to open GEOFF file"
 		sys.exit(1)
+	# Attempt to open destination database
 	try:
 		if args.u:
 			dest_graphdb = neo4j.GraphDatabaseService(args.u)
 		else:
 			dest_graphdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 	except:
-		sys.stderr.write("Failed to open destination database.\r\n")
+		print >> sys.stderr, "Failed to open destination database"
 		sys.exit(1)
-	hooks = []
-	for uri in args.uri:
-		if uri.startswith("/node/"):
-			hooks.append(neo4j.Node(dest_graphdb._base_uri + uri))
-		elif uri.startswith("/relationship/"):
-			hooks.append(neo4j.Relationship(dest_graphdb._base_uri + uri))
+	# Parse load parameters
+	hooks = {}
+	for i in range(len(args.uri)):
+		key, eq, value = args.uri[i].rpartition("=")
+		key = key or str(i)
+		if value.startswith("/node/"):
+			hooks[key] = neo4j.Node(dest_graphdb._base_uri + value)
+		elif value.startswith("/relationship/"):
+			hooks[key] = neo4j.Relationship(dest_graphdb._base_uri + value)
 		else:
-			sys.stderr.write("Bad relative entity URI: %s\r\n" % (uri))
+			print >> sys.stderr, "Bad relative entity URI: %s" % (value)
 			sys.exit(1)
-	print "New graph data available from node %s" % (
-		load(source_file, dest_graphdb, **dict([
-			(str(i), hooks[i])
-			for i in range(len(hooks))
-		]))
-	)
-
+	# Perform the load
+	try:
+		print "New graph data available from node %s" % (
+			load(source_file, dest_graphdb, **hooks)
+		)
+	except Exception as e:
+		print >> sys.stderr, str(e)
+		sys.exit(1)
