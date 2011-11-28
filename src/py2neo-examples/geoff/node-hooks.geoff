@@ -17,8 +17,8 @@
 
 (foo) {"position": "north-east"}
 (bar) {"position": "south-east"}
-{one} {"position": "south-west"}
-{two} {"position": "north-west"}
+{one} {"position": "north-west"}
+{two} {"position": "south-west"}
 
 {"(foo)-[:SOUTH]->(bar)": null, "(bar)-[:WEST]->{two}": null, "{two}-[:NORTH]->{one}": null, "{one}-[:EAST]->(foo)": null}
 
