@@ -26,13 +26,15 @@ __license__   = "Apache License, Version 2.0"
 
 def execute(script, graph_db):
 	"""
-	 Executes the supplied script using the GremlinPlugin, if available.
+	Executes the supplied script using the Gremlin plugin, if available.
 
-	 @param script: a string containing the Gremlin script to execute
-	 @raise NotImplementedError: if the Gremlin plugin is not available
-	 @return: the result of the Gremlin script
+	@param script: a string containing the Gremlin script to execute
+	@raise NotImplementedError: if the Gremlin plugin is not available
+	@return: the result of the Gremlin script
 
-	 """
-	return graph_db._execute('GremlinPlugin', 'execute_script', {
-		'script': script
-	})
+	"""
+	if graph_db._gremlin_uri is None:
+		raise NotImplementedError("Gremlin functionality not available")
+	else:
+		response = graph_db._post(graph_db._gremlin_uri, {'script': script})
+		return response

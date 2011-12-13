@@ -82,6 +82,17 @@ class GraphDatabaseService(rest.Resource):
 			# assume version 1.4
 			self._neo4j_version = "1.4"
 			self._batch_uri = self._base_uri + "/batch"
+		if 'cypher' in self._index:
+			self._cypher_uri = self._lookup('cypher')
+		else:
+			try:
+				self._cypher_uri = self._extension_uri('CypherPlugin', 'execute_query')
+			except NotImplementedError:
+				self._cypher_uri = None
+		try:
+			self._gremlin_uri = self._extension_uri('GremlinPlugin', 'execute_script')
+		except NotImplementedError:
+			self._gremlin_uri = None
 		# since we can't do inline exception handling, define a function
 		def numberise(n):
 			try:
@@ -321,24 +332,35 @@ class GraphDatabaseService(rest.Resource):
 		else:
 			return self.create_relationship_index(name)
 
-	def _execute(self, plugin_name, function_name, data):
+	def _extension_uri(self, plugin_name, function_name):
 		"""
-		Executes a POST request against the specified plugin function using the
-		supplied data.
-		
-		@param plugin_name: the name of the plugin to call
-		@param function_name: the name of the function to call within in the specified plugin
-		@param data: the data to pass to the function call
+		Obtains a URI from an extension
+
+		@param plugin_name: the name of the plugin
+		@param function_name: the name of the function within the specified plugin
 		@raise NotImplementedError: when the specified plugin or function is not available
 		@return: the data returned from the function call
-		
 		"""
 		if plugin_name not in self._extensions:
 			raise NotImplementedError(plugin_name)
 		plugin = self._extensions[plugin_name]
 		if function_name not in plugin:
 			raise NotImplementedError(plugin_name + "." + function_name)
-		function_uri = self._extensions[plugin_name][function_name]
+		return self._extensions[plugin_name][function_name]
+
+	def _execute(self, plugin_name, function_name, data):
+		"""
+		Executes a POST request against the specified plugin function using the
+		supplied data.
+		
+		@param plugin_name: the name of the plugin to call
+		@param function_name: the name of the function to call within the specified plugin
+		@param data: the data to pass to the function call
+		@raise NotImplementedError: when the specified plugin or function is not available
+		@return: the data returned from the function call
+		
+		"""
+		function_uri = self._extension_uri(plugin_name, function_name)
 		return self._post(function_uri, data)
 
 

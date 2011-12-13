@@ -63,17 +63,18 @@ def _stringify(value, quoted=False, with_properties=False):
 
 def execute(query, graph_db):
 	"""
-	 Executes the supplied query using the CypherPlugin, if available.
+	 Executes the supplied query using the Cypher plugin or built-in.
 
 	 @param query: a string containing the Cypher query to execute
 	 @raise NotImplementedError: if the Cypher plugin is not available
 	 @return: the result of the Cypher query
 
 	"""
-	response = graph_db._execute('CypherPlugin', 'execute_query', {
-		'query': query
-	})
-	return response['data'], response['columns']
+	if graph_db._cypher_uri is None:
+		raise NotImplementedError("Cypher functionality not available")
+	else:
+		response = graph_db._post(graph_db._cypher_uri, {'query': query})
+		return response['data'], response['columns']
 
 def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=sys.stdout):
 	data, columns = execute(query, graph_db)
