@@ -50,8 +50,8 @@ class Resource(object):
 		
 		"""
 		if content_type not in self.SUPPORTED_CONTENT_TYPES:
-			raise NotImplementedError("Content type %s not supported" % content_type)
-		self._uri = unicode(uri)
+			raise NotImplementedError("Content type {0} not supported".format(content_type))
+		self._uri = uri
 		self._base_uri = None
 		self._relative_uri = None
 		self._content_type = content_type
@@ -107,7 +107,7 @@ class Resource(object):
 				uri, method, data, headers
 			)
 		except:
-			raise IOError("Cannot send %s request" % (method))
+			raise IOError("Cannot send {0} request".format(method))
 		if self.__response.status == 200:
 			return json.loads(self.__content)
 		elif self.__response.status == 201:

@@ -5,5 +5,6 @@ setup.py
 src/py2neo/__init__.py
 src/py2neo/cypher.py
 src/py2neo/geoff.py
+src/py2neo/gremlin.py
 src/py2neo/neo4j.py
 src/py2neo/rest.py

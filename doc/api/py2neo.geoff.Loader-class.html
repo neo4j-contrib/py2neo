@@ -88,8 +88,7 @@ object --+
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a href="py2neo.geoff.Loader-class.html#__init__" class="summary-sig-name">__init__</a>(<span class="summary-sig-arg">self</span>,
-        <span class="summary-sig-arg">file</span>,
-        <span class="summary-sig-arg">gdb</span>)</span><br />
+        <span class="summary-sig-arg">graph_db</span>)</span><br />
       x.__init__(...) initializes x; see help(type(x)) for signature</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.geoff-pysrc.html#Loader.__init__">source&nbsp;code</a></span>
@@ -106,7 +105,27 @@ object --+
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="load"></a><span class="summary-sig-name">load</span>(<span class="summary-sig-arg">self</span>)</span></td>
+          <td><span class="summary-sig"><a name="compile"></a><span class="summary-sig-name">compile</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">file</span>,
+        <span class="summary-sig-arg">**hooks</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.geoff-pysrc.html#Loader.compile">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
+<tr>
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="load"></a><span class="summary-sig-name">load</span>(<span class="summary-sig-arg">self</span>,
+        <span class="summary-sig-arg">file</span>,
+        <span class="summary-sig-arg">**hooks</span>)</span></td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.geoff-pysrc.html#Loader.load">source&nbsp;code</a></span>
             
@@ -132,45 +151,6 @@ object --+
       <code>__str__</code>,
       <code>__subclasshook__</code>
       </p>
-    </td>
-  </tr>
-</table>
-<!-- ==================== CLASS VARIABLES ==================== -->
-<a name="section-ClassVariables"></a>
-<table class="summary" border="1" cellpadding="3"
-       cellspacing="0" width="100%" bgcolor="white">
-<tr bgcolor="#70b0f0" class="table-header">
-  <td colspan="2" class="table-header">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-      <tr valign="top">
-        <td align="left"><span class="table-header">Class Variables</span></td>
-        <td align="right" valign="top"
-         ><span class="options">[<a href="#section-ClassVariables"
-         class="privatelink" onclick="toggle_private();"
-         >hide private</a>]</span></td>
-      </tr>
-    </table>
-  </td>
-</tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-        <a href="py2neo.geoff.Loader-class.html#DESCRIPTOR_PATTERN" class="summary-name">DESCRIPTOR_PATTERN</a> = <code title="re.compile(r'^(\((\w+)\)(-\[(\w*):(\w+)\]-&gt;\((\w+)\))?)(\s+(.*))?')">re.compile(r'^<code class="re-group">(</code>\(<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\)<code class="re-group">(</code>-\[<code class="re-group">(</code>\w<code class="re-op">*</code><code class="re-group">)</code>:<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\]<code class="variable-ellipsis">...</code></code>
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-        <a href="py2neo.geoff.Loader-class.html#NODE_INDEX_ENTRY_PATTERN" class="summary-name">NODE_INDEX_ENTRY_PATTERN</a> = <code title="re.compile(r'^(\{(\w+)\}-&gt;\((\w+)\))(\s+(.*))?')">re.compile(r'^<code class="re-group">(</code>\{<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\}-&gt;\(<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\)<code class="variable-ellipsis">...</code></code>
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-        <a href="py2neo.geoff.Loader-class.html#RELATIONSHIP_INDEX_ENTRY_PATTERN" class="summary-name">RELATIONSHIP_INDEX_ENTRY_PATTERN</a> = <code title="re.compile(r'^(\{(\w+)\}-&gt;\[(\w+)\])(\s+(.*))?')">re.compile(r'^<code class="re-group">(</code>\{<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\}-&gt;\<code class="variable-ellipsis">...</code></code>
     </td>
   </tr>
 </table>
@@ -225,8 +205,7 @@ object --+
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
   <tr valign="top"><td>
   <h3 class="epydoc"><span class="sig"><span class="sig-name">__init__</span>(<span class="sig-arg">self</span>,
-        <span class="sig-arg">file</span>,
-        <span class="sig-arg">gdb</span>)</span>
+        <span class="sig-arg">graph_db</span>)</span>
     <br /><em class="fname">(Constructor)</em>
   </h3>
   </td><td align="right" valign="top"
@@ -240,79 +219,6 @@ object --+
         object.__init__
         <dd><em class="note">(inherited documentation)</em></dd>
     </dt>
-  </dl>
-</td></tr></table>
-</div>
-<br />
-<!-- ==================== CLASS VARIABLE DETAILS ==================== -->
-<a name="section-ClassVariableDetails"></a>
-<table class="details" border="1" cellpadding="3"
-       cellspacing="0" width="100%" bgcolor="white">
-<tr bgcolor="#70b0f0" class="table-header">
-  <td colspan="2" class="table-header">
-    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-      <tr valign="top">
-        <td align="left"><span class="table-header">Class Variable Details</span></td>
-        <td align="right" valign="top"
-         ><span class="options">[<a href="#section-ClassVariableDetails"
-         class="privatelink" onclick="toggle_private();"
-         >hide private</a>]</span></td>
-      </tr>
-    </table>
-  </td>
-</tr>
-</table>
-<a name="DESCRIPTOR_PATTERN"></a>
-<div>
-<table class="details" border="1" cellpadding="3"
-       cellspacing="0" width="100%" bgcolor="white">
-<tr><td>
-  <h3 class="epydoc">DESCRIPTOR_PATTERN</h3>
-  
-  <dl class="fields">
-  </dl>
-  <dl class="fields">
-    <dt>Value:</dt>
-      <dd><table><tr><td><pre class="variable">
-re.compile(r'^<code class="re-group">(</code>\(<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\)<code class="re-group">(</code>-\[<code class="re-group">(</code>\w<code class="re-op">*</code><code class="re-group">)</code>:<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\]-&gt;\(<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\)<code class="re-group">)</code><code class="re-op">?</code><code class="re-group">)</code><code class="re-group">(</code>\s<code class="re-op">+</code><code class="re-group">(</code>.<code class="re-op">*</code><code class="re-group">)</code><code class="re-group">)</code><code class="re-op">?</code>')
-</pre></td></tr></table>
-</dd>
-  </dl>
-</td></tr></table>
-</div>
-<a name="NODE_INDEX_ENTRY_PATTERN"></a>
-<div>
-<table class="details" border="1" cellpadding="3"
-       cellspacing="0" width="100%" bgcolor="white">
-<tr><td>
-  <h3 class="epydoc">NODE_INDEX_ENTRY_PATTERN</h3>
-  
-  <dl class="fields">
-  </dl>
-  <dl class="fields">
-    <dt>Value:</dt>
-      <dd><table><tr><td><pre class="variable">
-re.compile(r'^<code class="re-group">(</code>\{<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\}-&gt;\(<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\)<code class="re-group">)</code><code class="re-group">(</code>\s<code class="re-op">+</code><code class="re-group">(</code>.<code class="re-op">*</code><code class="re-group">)</code><code class="re-group">)</code><code class="re-op">?</code>')
-</pre></td></tr></table>
-</dd>
-  </dl>
-</td></tr></table>
-</div>
-<a name="RELATIONSHIP_INDEX_ENTRY_PATTERN"></a>
-<div>
-<table class="details" border="1" cellpadding="3"
-       cellspacing="0" width="100%" bgcolor="white">
-<tr><td>
-  <h3 class="epydoc">RELATIONSHIP_INDEX_ENTRY_PATTERN</h3>
-  
-  <dl class="fields">
-  </dl>
-  <dl class="fields">
-    <dt>Value:</dt>
-      <dd><table><tr><td><pre class="variable">
-re.compile(r'^<code class="re-group">(</code>\{<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\}-&gt;\[<code class="re-group">(</code>\w<code class="re-op">+</code><code class="re-group">)</code>\]<code class="re-group">)</code><code class="re-group">(</code>\s<code class="re-op">+</code><code class="re-group">(</code>.<code class="re-op">*</code><code class="re-group">)</code><code class="re-group">)</code><code class="re-op">?</code>')
-</pre></td></tr></table>
-</dd>
   </dl>
 </td></tr></table>
 </div>
@@ -343,7 +249,7 @@ re.compile(r'^<code class="re-group">(</code>\{<code class="re-group">(</code>\w
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Tue Nov  8 07:57:04 2011
+    Generated by Epydoc 3.0.1 on Tue Dec 13 00:36:17 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

@@ -34,18 +34,11 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-def execute(query, database_uri=None):
-	database_uri = database_uri or "http://localhost:7474/db/data/"
-	graphdb = neo4j.GraphDatabaseService(database_uri)
-	response = graphdb.execute_cypher_query(query)
-	data, columns = response['data'], response['columns']
-	return data, columns
-
-def output(value):
+def _stringify(value, quoted=False, with_properties=False):
 	if isinstance(value, dict):
 		if 'type' in value:
 			# relationship
-			out = "\"(%s)-[%d:%s]->(%s)\"" % (
+			out = "({0})-[{1}:{2}]->({3})".format(
 				value['start'].rpartition("/")[2],
 				int(value['self'].rpartition("/")[2]),
 				value['type'],
@@ -53,71 +46,72 @@ def output(value):
 			)
 		else:
 			# node
-			out = "\"(%d)\"" % (
+			out = "({0})".format(
 				int(value['self'].rpartition("/")[2])
 			)
+		if quoted:
+			out = '"' + out + '"'
+		if with_properties:
+			out += " " + json.dumps(value['data'], separators=(',',':'))
 	else:
 		# property
-		out = json.dumps(value)
-	return out
-
-def output_text(value):
-	if isinstance(value, dict):
-		if 'type' in value:
-			# relationship
-			out = "(%s)-[%d:%s]->(%s) %s" % (
-				value['start'].rpartition("/")[2],
-				int(value['self'].rpartition("/")[2]),
-				value['type'],
-				value['end'].rpartition("/")[2],
-				json.dumps(value['data'], separators=(',',':'))
-			)
+		if quoted:
+			out = json.dumps(value)
 		else:
-			# node
-			out = "(%d) %s" % (
-				int(value['self'].rpartition("/")[2]),
-				json.dumps(value['data'], separators=(',',':'))
-			)
-	else:
-		# property
-		out = str(value)
+			out = str(value)
 	return out
 
-def execute_and_output_as_delimited(query, database_uri=None, field_delimiter="\t"):
-	data, columns = execute(query, database_uri)
-	print string.join([
+def execute(query, graph_db):
+	"""
+	 Executes the supplied query using the CypherPlugin, if available.
+
+	 @param query: a string containing the Cypher query to execute
+	 @raise NotImplementedError: if the Cypher plugin is not available
+	 @return: the result of the Cypher query
+
+	"""
+	response = graph_db._execute('CypherPlugin', 'execute_query', {
+		'query': query
+	})
+	return response['data'], response['columns']
+
+def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=sys.stdout):
+	data, columns = execute(query, graph_db)
+	out.write(string.join([
 		json.dumps(column)
 		for column in columns
-	], field_delimiter)
+	], field_delimiter))
+	out.write("\n")
 	for row in data:
-		print string.join([
-			output(value)
+		out.write(string.join([
+			_stringify(value, quoted=True)
 			for value in row
-		], field_delimiter)
+		], field_delimiter))
+		out.write("\n")
 
-def execute_and_output_as_json(query, database_uri=None):
-	data, columns = execute(query, database_uri)
+def execute_and_output_as_json(query, graph_db, out=sys.stdout):
+	data, columns = execute(query, graph_db)
 	columns = [json.dumps(column) for column in columns]
 	row_count = 0
-	sys.stdout.write("[\n")
+	out.write("[\n")
 	for row in data:
 		row_count += 1
 		if row_count > 1:
-			sys.stdout.write(",\n")
-		sys.stdout.write("\t{" + string.join([
-			columns[i] + ": " + output(row[i])
+			out.write(",\n")
+		out.write("\t{" + string.join([
+			columns[i] + ": " + _stringify(row[i], quoted=True)
 			for i in range(len(row))
 		], ", ") + "}")
-	sys.stdout.write("\n]\n")
+	out.write("\n]\n")
 
-def execute_and_output_as_geoff(query, database_uri=None):
+def execute_and_output_as_geoff(query, graph_db, out=sys.stdout):
 	nodes = {}
-	rels = {}
-	def update_descriptors(value, column):
+	relationships = {}
+	def update_descriptors(value):
 		if isinstance(value, dict):
 			if 'type' in value:
 				# relationship
-				rels["(%s)-[%d:%s]->(%s)" % (
+				relationships["({0})-[{1}:{2}]->({3})".format(
 					value['start'].rpartition("/")[2],
 					int(value['self'].rpartition("/")[2]),
 					value['type'],
@@ -125,82 +119,83 @@ def execute_and_output_as_geoff(query, database_uri=None):
 				)] = value['data']
 			else:
 				# node
-				nodes["(%d)" % (
+				nodes["({0})".format(
 					int(value['self'].rpartition("/")[2])
 				)] = value['data']
 		else:
-			# property - not supported in GEOFF format
+			# property - not supported in GEOFF format, so ignore
 			pass
-	data, columns = execute(query, database_uri)
+	data, columns = execute(query, graph_db)
 	for row in data:
 		for i in range(len(row)):
-			update_descriptors(row[i], columns[i])
+			update_descriptors(row[i])
 	for key, value in nodes.items():
-		print "%s\t%s" % (
+		out.write("{0}\t{1}\n".format(
 			key,
 			json.dumps(value)
-		)
-	for key, value in rels.items():
-		print "%s\t%s" % (
+		))
+	for key, value in relationships.items():
+		out.write("{0}\t{1}\n".format(
 			key,
 			json.dumps(value)
-		)
+		))
 
-def execute_and_output_as_text(query, database_uri=None, field_delimiter="\t"):
-	data, columns = execute(query, database_uri)
+def execute_and_output_as_text(query, graph_db, out=sys.stdout):
+	data, columns = execute(query, graph_db)
 	column_widths = [len(column) for column in columns]
 	for row in data:
 		column_widths = [
-			max(column_widths[i], None if row[i] is None else len(output_text(row[i])))
+			max(column_widths[i], None if row[i] is None else len(_stringify(row[i], with_properties=True)))
 			for i in range(len(row))
 		]
-	print "+-" + string.join([
+	out.write("+-" + string.join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+"
-	print "| " + string.join([
+	], "---") + "-+\n")
+	out.write("| " + string.join([
 		columns[i].ljust(column_widths[i])
 		for i in range(len(columns))
-	], " | ") + " |"
-	print "+-" + string.join([
+	], " | ") + " |\n")
+	out.write("+-" + string.join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+"
+	], "---") + "-+\n")
 	for row in data:
-		print "| " + string.join([
-			output_text(row[i]).ljust(column_widths[i])
+		out.write("| " + string.join([
+			_stringify(row[i], with_properties=True).ljust(column_widths[i])
 			for i in range(len(row))
-		], " | ") + " |"
-	print "+-" + string.join([
+		], " | ") + " |\n")
+	out.write("+-" + string.join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+"
+	], "---") + "-+\n")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
 	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the source Neo4j database server")
-	parser.add_argument("-d", action="store_true", default=True, help="output all values in delimited format (default)")
-	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
+	parser.add_argument("-d", action="store_true", default=False, help="output all values in delimited format")
 	parser.add_argument("-g", action="store_true", default=False, help="output nodes and relationships in GEOFF format")
-	parser.add_argument("-t", action="store_true", default=False, help="output all results in a plain text table")
+	parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
+	parser.add_argument("-t", action="store_true", default=True, help="output all results in a plain text table (default)")
 	parser.add_argument("query", help="the Cypher query to execute")
 	args = parser.parse_args()
 	try:
+		graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
 		if args.g:
-			execute_and_output_as_geoff(args.query, args.u)
+			execute_and_output_as_geoff(args.query, graph_db)
 		elif args.j:
-			execute_and_output_as_json(args.query, args.u)
+			execute_and_output_as_json(args.query, graph_db)
 		elif args.t:
-			execute_and_output_as_text(args.query, args.u)
+			execute_and_output_as_text(args.query, graph_db)
 		else:
-			execute_and_output_as_delimited(args.query, args.u)
+			execute_and_output_as_delimited(args.query, graph_db)
 	except SystemError as err:
 		content = err.args[0]['content']
 		if 'exception' in content and 'stacktrace' in content:
-			sys.stderr.write("%s\n" % (content['exception']))
+			sys.stderr.write("{0}\n".format(content['exception']))
 			stacktrace = content['stacktrace']
 			for frame in stacktrace:
-				sys.stderr.write("\tat %s\n" % (frame))
+				sys.stderr.write("\tat {0}\n".format(frame))
 		else:
-			sys.stderr.write("%s\n" % (content))
+			sys.stderr.write("{0}\n".format(content))
 

@@ -85,14 +85,33 @@
     </table>
   </td>
 </tr>
+<tr class="private">
+    <td width="15%" align="right" valign="top" class="summary">
+      <span class="summary-type">&nbsp;</span>
+    </td><td class="summary">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td><span class="summary-sig"><a name="_stringify"></a><span class="summary-sig-name">_stringify</span>(<span class="summary-sig-arg">value</span>,
+        <span class="summary-sig-arg">quoted</span>=<span class="summary-sig-default">False</span>,
+        <span class="summary-sig-arg">with_properties</span>=<span class="summary-sig-default">False</span>)</span></td>
+          <td align="right" valign="top">
+            <span class="codelink"><a href="py2neo.cypher-pysrc.html#_stringify">source&nbsp;code</a></span>
+            
+          </td>
+        </tr>
+      </table>
+      
+    </td>
+  </tr>
 <tr>
     <td width="15%" align="right" valign="top" class="summary">
       <span class="summary-type">&nbsp;</span>
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="execute"></a><span class="summary-sig-name">execute</span>(<span class="summary-sig-arg">query</span>,
-        <span class="summary-sig-arg">database_uri</span>=<span class="summary-sig-default">None</span>)</span></td>
+          <td><span class="summary-sig"><a href="py2neo.cypher-module.html#execute" class="summary-sig-name">execute</a>(<span class="summary-sig-arg">query</span>,
+        <span class="summary-sig-arg">graph_db</span>)</span><br />
+      Executes the supplied query using the CypherPlugin, if available.</td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.cypher-pysrc.html#execute">source&nbsp;code</a></span>
             
@@ -108,41 +127,10 @@
     </td><td class="summary">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td><span class="summary-sig"><a name="output"></a><span class="summary-sig-name">output</span>(<span class="summary-sig-arg">value</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.cypher-pysrc.html#output">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td><span class="summary-sig"><a name="output_text"></a><span class="summary-sig-name">output_text</span>(<span class="summary-sig-arg">value</span>)</span></td>
-          <td align="right" valign="top">
-            <span class="codelink"><a href="py2neo.cypher-pysrc.html#output_text">source&nbsp;code</a></span>
-            
-          </td>
-        </tr>
-      </table>
-      
-    </td>
-  </tr>
-<tr>
-    <td width="15%" align="right" valign="top" class="summary">
-      <span class="summary-type">&nbsp;</span>
-    </td><td class="summary">
-      <table width="100%" cellpadding="0" cellspacing="0" border="0">
-        <tr>
           <td><span class="summary-sig"><a name="execute_and_output_as_delimited"></a><span class="summary-sig-name">execute_and_output_as_delimited</span>(<span class="summary-sig-arg">query</span>,
-        <span class="summary-sig-arg">database_uri</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">field_delimiter</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">\t</code><code class="variable-quote">'</code></span>)</span></td>
+        <span class="summary-sig-arg">graph_db</span>,
+        <span class="summary-sig-arg">field_delimiter</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">\t</code><code class="variable-quote">'</code></span>,
+        <span class="summary-sig-arg">out</span>=<span class="summary-sig-default">sys.stdout</span>)</span></td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.cypher-pysrc.html#execute_and_output_as_delimited">source&nbsp;code</a></span>
             
@@ -159,7 +147,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="execute_and_output_as_json"></a><span class="summary-sig-name">execute_and_output_as_json</span>(<span class="summary-sig-arg">query</span>,
-        <span class="summary-sig-arg">database_uri</span>=<span class="summary-sig-default">None</span>)</span></td>
+        <span class="summary-sig-arg">graph_db</span>,
+        <span class="summary-sig-arg">out</span>=<span class="summary-sig-default">sys.stdout</span>)</span></td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.cypher-pysrc.html#execute_and_output_as_json">source&nbsp;code</a></span>
             
@@ -176,7 +165,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="execute_and_output_as_geoff"></a><span class="summary-sig-name">execute_and_output_as_geoff</span>(<span class="summary-sig-arg">query</span>,
-        <span class="summary-sig-arg">database_uri</span>=<span class="summary-sig-default">None</span>)</span></td>
+        <span class="summary-sig-arg">graph_db</span>,
+        <span class="summary-sig-arg">out</span>=<span class="summary-sig-default">sys.stdout</span>)</span></td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.cypher-pysrc.html#execute_and_output_as_geoff">source&nbsp;code</a></span>
             
@@ -193,8 +183,8 @@
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td><span class="summary-sig"><a name="execute_and_output_as_text"></a><span class="summary-sig-name">execute_and_output_as_text</span>(<span class="summary-sig-arg">query</span>,
-        <span class="summary-sig-arg">database_uri</span>=<span class="summary-sig-default">None</span>,
-        <span class="summary-sig-arg">field_delimiter</span>=<span class="summary-sig-default"><code class="variable-quote">'</code><code class="variable-string">\t</code><code class="variable-quote">'</code></span>)</span></td>
+        <span class="summary-sig-arg">graph_db</span>,
+        <span class="summary-sig-arg">out</span>=<span class="summary-sig-default">sys.stdout</span>)</span></td>
           <td align="right" valign="top">
             <span class="codelink"><a href="py2neo.cypher-pysrc.html#execute_and_output_as_text">source&nbsp;code</a></span>
             
@@ -230,6 +220,55 @@
     </td>
   </tr>
 </table>
+<!-- ==================== FUNCTION DETAILS ==================== -->
+<a name="section-FunctionDetails"></a>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="table-header">
+  <td colspan="2" class="table-header">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%">
+      <tr valign="top">
+        <td align="left"><span class="table-header">Function Details</span></td>
+        <td align="right" valign="top"
+         ><span class="options">[<a href="#section-FunctionDetails"
+         class="privatelink" onclick="toggle_private();"
+         >hide private</a>]</span></td>
+      </tr>
+    </table>
+  </td>
+</tr>
+</table>
+<a name="execute"></a>
+<div>
+<table class="details" border="1" cellpadding="3"
+       cellspacing="0" width="100%" bgcolor="white">
+<tr><td>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr valign="top"><td>
+  <h3 class="epydoc"><span class="sig"><span class="sig-name">execute</span>(<span class="sig-arg">query</span>,
+        <span class="sig-arg">graph_db</span>)</span>
+  </h3>
+  </td><td align="right" valign="top"
+    ><span class="codelink"><a href="py2neo.cypher-pysrc.html#execute">source&nbsp;code</a></span>&nbsp;
+    </td>
+  </tr></table>
+  
+  <p>Executes the supplied query using the CypherPlugin, if available.</p>
+  <dl class="fields">
+    <dt>Parameters:</dt>
+    <dd><ul class="nomargin-top">
+        <li><strong class="pname"><code>query</code></strong> - a string containing the Cypher query to execute</li>
+    </ul></dd>
+    <dt>Returns:</dt>
+        <dd>the result of the Cypher query</dd>
+    <dt>Raises:</dt>
+    <dd><ul class="nomargin-top">
+        <li><code><strong class='fraise'>NotImplementedError</strong></code> - if the Cypher plugin is not available</li>
+    </ul></dd>
+  </dl>
+</td></tr></table>
+</div>
+<br />
 <!-- ==================== NAVIGATION BAR ==================== -->
 <table class="navbar" border="0" width="100%" cellpadding="0"
        bgcolor="#a0c0ff" cellspacing="0">
@@ -256,7 +295,7 @@
 <table border="0" cellpadding="0" cellspacing="0" width="100%%">
   <tr>
     <td align="left" class="footer">
-    Generated by Epydoc 3.0.1 on Tue Nov  8 07:57:04 2011
+    Generated by Epydoc 3.0.1 on Tue Dec 13 00:36:17 2011
     </td>
     <td align="right" class="footer">
       <a target="mainFrame" href="http://epydoc.sourceforge.net"

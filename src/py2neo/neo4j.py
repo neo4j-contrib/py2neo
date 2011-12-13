@@ -321,7 +321,7 @@ class GraphDatabaseService(rest.Resource):
 		else:
 			return self.create_relationship_index(name)
 
-	def execute(self, plugin_name, function_name, data):
+	def _execute(self, plugin_name, function_name, data):
 		"""
 		Executes a POST request against the specified plugin function using the
 		supplied data.
@@ -329,7 +329,7 @@ class GraphDatabaseService(rest.Resource):
 		@param plugin_name: the name of the plugin to call
 		@param function_name: the name of the function to call within in the specified plugin
 		@param data: the data to pass to the function call
-		@raise NotImplementedError: when the specfifed plugin or function is not available
+		@raise NotImplementedError: when the specified plugin or function is not available
 		@return: the data returned from the function call
 		
 		"""
@@ -340,32 +340,6 @@ class GraphDatabaseService(rest.Resource):
 			raise NotImplementedError(plugin_name + "." + function_name)
 		function_uri = self._extensions[plugin_name][function_name]
 		return self._post(function_uri, data)
-
-	def execute_cypher_query(self, query):
-		"""
-		Executes the supplied query using the CypherPlugin, if available.
-		
-		@param query: a string containing the Cypher query to execute
-		@raise NotImplementedError: if the Cypher plugin is not available
-		@return: the result of the Cypher query
-		
-		"""
-		return self.execute('CypherPlugin', 'execute_query', {
-			'query': query
-		});
-
-	def execute_gremlin_script(self, script):
-		"""
-		Executes the supplied script using the GremlinPlugin, if available.
-		
-		@param script: a string containing the Gremlin script to execute
-		@raise NotImplementedError: if the Gremlin plugin is not available
-		@return: the result of the Gremlin script
-		
-		"""
-		return self.execute('GremlinPlugin', 'execute_script', {
-			'script': script
-		});
 
 
 class IndexableResource(rest.Resource):
@@ -403,10 +377,10 @@ class IndexableResource(rest.Resource):
 		self._id = int('0' + uri.rpartition('/')[-1])
 
 	def __repr__(self):
-		if self._index_entry_uri is None:
-			return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
-		else:
-			return '%s(%s)' % (self.__class__.__name__, repr(self._index_entry_uri))
+		return '{0}({1})'.format(
+			self.__class__.__name__,
+			repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
+		)
 
 	def __eq__(self, other):
 		"""
@@ -517,7 +491,7 @@ class Node(IndexableResource):
 			'(42)'
 		
 		"""
-		return "(%d)" % self._id
+		return "({0})".format(self._id)
 
 	def create_relationship_to(self, other_node, type, data=None):
 		"""
@@ -691,7 +665,7 @@ class Relationship(IndexableResource):
 			'-[:KNOWS]->'
 		
 		"""
-		return "-[:%s]->" % self._type
+		return "-[:{0}]->".format(self._type)
 
 	def get_type(self):
 		"""
@@ -891,7 +865,7 @@ class Index(rest.Resource):
 			user_name=user_name,
 			password=password
 		)
-		self._template_uri = template_uri or "%s%s{key}/{value}" % (
+		self._template_uri = template_uri or "{0}{1}{{key}}/{{value}}".format(
 			uri,
 			"" if uri.endswith("/") else "/"
 		)
@@ -900,7 +874,7 @@ class Index(rest.Resource):
 		self._batch = None
 
 	def __repr__(self):
-		return '%s<%s>(%s)' % (
+		return '{0}<{1}>({2})'.format(
 			self.__class__.__name__,
 			self.__T.__name__,
 			repr(self._uri)
@@ -976,7 +950,7 @@ class Index(rest.Resource):
 	def remove(self, entity):
 		"""
 		Removes the given entity from this C{Index}. The entity must have been
-		retreived from an C{Index} search and therefore contain an
+		retrieved from an C{Index} search and therefore contain an
 		C{_index_entry_uri} property. If a batch has been started, this
 		operation will not be submitted until C{submit_batch()} has been called.
 		
@@ -1279,7 +1253,7 @@ class PersistentObject(object):
 			try:
 				self.__node__[name] = value
 			except ValueError:
-				raise AttributeError("Illegal property value: %s" % (repr(value)))
+				raise AttributeError("Illegal property value: {0}".format(repr(value)))
 			except:
 				raise AttributeError("Cannot set node property")
 

@@ -27,7 +27,6 @@ except:
 import neo4j
 import re
 import sys
-import warnings
 
 from urllib import quote
 
@@ -43,9 +42,9 @@ HOOK_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->
 HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\{(\w+)\}-\[(\w*):(\w+)\]->\((\w+)\)$")
 NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\{(\w+)\}$")
 NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR = re.compile(r"^\((\w+)\)-\[(\w*):(\w+)\]->\((\w+)\)$")
-HOOK_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\{(\w+)\}$")
-NODE_INDEX_ENTRY                     = re.compile(r"^\|(\w+)\|->\((\w+)\)$")
-RELATIONSHIP_INDEX_ENTRY             = re.compile(r"^\|(\w+)\|->\[(\w+)\]$")
+HOOK_INDEX_INCLUSION                 = re.compile(r"^\{(\w+)\}<=\|(\w+)\|$")
+NODE_INDEX_INCLUSION                 = re.compile(r"^\((\w+)\)<=\|(\w+)\|$")
+RELATIONSHIP_INDEX_INCLUSION         = re.compile(r"^\[(\w+)\]<=\|(\w+)\|$")
 COMPOSITE_DESCRIPTOR                 = re.compile(r"^\{\s*\".+\"\s*:.*\}")
 
 OLD_NODE_INDEX_ENTRY         = re.compile(r"^(\{(\w+)\}->\((\w+)\))$")
@@ -60,18 +59,18 @@ class Dumper(object):
 
 	def dump(self, paths):
 		nodes = {}
-		rels = {}
+		relationships = {}
 		for path in paths:
 			nodes.update(dict([
 				(node._id, node)
 				for node in path.nodes
 			]))
-			rels.update(dict([
+			relationships.update(dict([
 				(rel._id, rel)
 				for rel in path.relationships
 			]))
 		self.write(self.eol.join([
-			"%s\t%s" % (
+			"{0}\t{1}".format(
 				unicode(node),
 				json.dumps(node.get_properties(), separators=(',',':'))
 			)
@@ -79,54 +78,57 @@ class Dumper(object):
 		]))
 		self.write(self.eol)
 		self.write(self.eol.join([
-			"%s%s%s\t%s" % (
+			"{0}{1}{2}\t{3}".format(
 				unicode(rel.get_start_node()),
 				unicode(rel),
 				unicode(rel.get_end_node()),
 				json.dumps(rel.get_properties(), separators=(',',':'))
 			)
-			for rel in rels.values()
+			for rel in relationships.values()
 		]))
 
 
 class Batch(object):
 
-	def __init__(self, graphdb, **hooks):
-		self._graphdb = graphdb
+	def __init__(self, graph_db, **hooks):
+		self._graph_db = graph_db
 		self._hooks = hooks
 		self._named_nodes = {}
 		self._named_relationships = {}
 		self._batch = []
 		self.first_node_id = None
 
+	def __repr__(self):
+		return "[" + ",".join(self._batch) + "]"
+
 	def _assert_node_name_does_not_exist(self, node_name):
 		if node_name in self._named_nodes:
-			raise ValueError("Duplicate node name \"%s\"" % (node_name))
+			raise ValueError("Duplicate node name \"{0}\"".format(node_name))
 
 	def _assert_node_name_exists(self, node_name):
 		if node_name not in self._named_nodes:
-			raise ValueError("Unknown node name \"%s\"" % (node_name))
+			raise ValueError("Unknown node name \"{0}\"".format(node_name))
 
 	def _assert_hook_name_exists(self, hook_name):
 		if hook_name not in self._hooks:
-			raise ValueError("Unknown hook name \"%s\"" % (hook_name))
+			raise ValueError("Unknown hook name \"{0}\"".format(hook_name))
 
 	def _assert_rel_name_does_not_exist(self, rel_name):
 		if rel_name is not None and len(rel_name) > 0 and rel_name in self._named_nodes:
-			raise ValueError("Duplicate relationship name \"%s\"" % (rel_name))
+			raise ValueError("Duplicate relationship name \"{0}\"".format(rel_name))
 
 	def _assert_hook_is_a_node(self, hook_name):
 		if not isinstance(self._hooks[hook_name], neo4j.Node):
-			raise ValueError("Hook \"%s\" is not a node" % (hook_name))
+			raise ValueError("Hook \"{0}\" is not a node".format(hook_name))
 
 	def _assert_rel_name_exists(self, rel_name):
 		if rel_name not in self._named_relationships:
-			raise ValueError("Unknown relationship name \"%s\"" % (rel_name))
+			raise ValueError("Unknown relationship name \"{0}\"".format(rel_name))
 
 	def update_hook_properties(self, hook_name, data):
 		self._assert_hook_name_exists(hook_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"PUT","to":%s,"body":%s,"id":%d}' % (
+		self._batch.append('{{"method":"PUT","to":{0},"body":{1},"id":{2}}}'.format(
 			json.dumps(self._hooks[hook_name]._relative_uri + "/properties", separators=(',',':')),
 			json.dumps(data, separators=(',',':')),
 			job_id
@@ -135,7 +137,7 @@ class Batch(object):
 	def create_node(self, node_name, data):
 		self._assert_node_name_does_not_exist(node_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":"/node","body":%s,"id":%d}' % (
+		self._batch.append('{{"method":"POST","to":"/node","body":{0},"id":{1}}}'.format(
 			json.dumps(data, separators=(',',':')),
 			job_id
 		))
@@ -151,7 +153,7 @@ class Batch(object):
 		self._assert_hook_name_exists(end_hook_name)
 		self._assert_hook_is_a_node(end_hook_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
+		self._batch.append('{{"method":"POST","to":{0},"body":{{"type":"{1}","to":{2},"data":{3}}},"id":{4}}}'.format(
 			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
 			rel_type,
 			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
@@ -167,7 +169,7 @@ class Batch(object):
 		self._assert_hook_is_a_node(start_hook_name)
 		self._assert_node_name_exists(end_node_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":%s,"body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
+		self._batch.append('{{"method":"POST","to":{0},"body":{{"type":"{1}","to":"{{{2}}}","data":{3}}},"id":{4}}}'.format(
 			json.dumps(self._hooks[start_hook_name]._relative_uri + "/relationships", separators=(',',':')),
 			rel_type,
 			self._named_nodes[end_node_name],
@@ -183,7 +185,7 @@ class Batch(object):
 		self._assert_hook_name_exists(end_hook_name)
 		self._assert_hook_is_a_node(end_hook_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":%s,"data":%s},"id":%d}' % (
+		self._batch.append('{{"method":"POST","to":"{{{0}}}/relationships","body":{{"type":"{1}","to":{2},"data":{3}}},"id":{4}}}'.format(
 			self._named_nodes[start_node_name],
 			rel_type,
 			json.dumps(self._hooks[end_hook_name]._relative_uri, separators=(',',':')),
@@ -198,7 +200,7 @@ class Batch(object):
 		self._assert_node_name_exists(start_node_name)
 		self._assert_node_name_exists(end_node_name)
 		job_id = len(self._batch)
-		self._batch.append('{"method":"POST","to":"{%d}/relationships","body":{"type":"%s","to":"{%d}","data":%s},"id":%d}' % (
+		self._batch.append('{{"method":"POST","to":"{{{0}}}/relationships","body":{{"type":"{1}","to":"{{{2}}}","data":{3}}},"id":{4}}}'.format(
 			self._named_nodes[start_node_name],
 			rel_type,
 			self._named_nodes[end_node_name],
@@ -208,7 +210,7 @@ class Batch(object):
 		if rel_name is not None and len(rel_name) > 0:
 			self._named_relationships[rel_name] = job_id
 
-	def add_hook_index_entry(self, index_name, hook_name, key, value):
+	def include_hook_in_index(self, hook_name, index_name, key, value):
 		self._assert_hook_name_exists(hook_name)
 		hook = self._hooks[hook_name]
 		if isinstance(hook, neo4j.Node):
@@ -216,10 +218,10 @@ class Batch(object):
 		elif isinstance(hook, neo4j.Relationship):
 			index_type = "relationship"
 		else:
-			raise ValueError("Cannot index a hook of type %s" % type(hook))
+			raise ValueError("Cannot index a hook of type {0}".format(type(hook)))
 		job_id = len(self._batch)
-		if self._graphdb._neo4j_version >= (1, 5):
-			self._batch.append('{"method":"POST","to":"/index/%s/%s","body":{"uri":%s,"key":%s,"value":%s},"id":%d}' % (
+		if self._graph_db._neo4j_version >= (1, 5):
+			self._batch.append('{{"method":"POST","to":"/index/{0}/{1}","body":{{"uri":{2},"key":{3},"value":{4}}},"id":{5}}}'.format(
 				index_type,
 				index_name,
 				json.dumps(hook._relative_uri, separators=(',',':')),
@@ -228,7 +230,7 @@ class Batch(object):
 				job_id
 			))
 		else:
-			self._batch.append('{"method":"POST","to":"/index/%s/%s/%s/%s","body":%s,"id":%d}' % (
+			self._batch.append('{{"method":"POST","to":"/index/{0}/{1}/{2}/{3}","body":{4},"id":{5}}}'.format(
 				index_type,
 				index_name,
 				quote(key, "") if isinstance(key, basestring) else key,
@@ -237,11 +239,11 @@ class Batch(object):
 				job_id
 			))
 
-	def add_node_index_entry(self, index_name, node_name, key, value):
+	def include_node_in_index(self, node_name, index_name, key, value):
 		self._assert_node_name_exists(node_name)
 		job_id = len(self._batch)
-		if self._graphdb._neo4j_version >= (1, 5):
-			self._batch.append('{"method":"POST","to":"/index/node/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+		if self._graph_db._neo4j_version >= (1, 5):
+			self._batch.append('{{"method":"POST","to":"/index/node/{0}","body":{{"uri":"{{{1}}}","key":{2},"value":{3}}},"id":{4}}}'.format(
 				index_name,
 				self._named_nodes[node_name],
 				json.dumps(key, separators=(',',':')),
@@ -249,7 +251,7 @@ class Batch(object):
 				job_id
 			))
 		else:
-			self._batch.append('{"method":"POST","to":"/index/node/%s/%s/%s","body":"{%d}","id":%d}' % (
+			self._batch.append('{{"method":"POST","to":"/index/node/{0}/{1}/{2}","body":"{{{3}}}","id":{4}}}'.format(
 				index_name,
 				quote(key, "") if isinstance(key, basestring) else key,
 				quote(value, "") if isinstance(value, basestring) else value,
@@ -257,11 +259,11 @@ class Batch(object):
 				job_id
 			))
 
-	def add_relationship_index_entry(self, index_name, relationship_name, key, value):
+	def include_relationship_in_index(self, relationship_name, index_name, key, value):
 		self._assert_rel_name_exists(relationship_name)
 		job_id = len(self._batch)
-		if self._graphdb._neo4j_version >= (1, 5):
-			self._batch.append('{"method":"POST","to":"/index/relationship/%s","body":{"uri":"{%d}","key":%s,"value":%s},"id":%d}' % (
+		if self._graph_db._neo4j_version >= (1, 5):
+			self._batch.append('{{"method":"POST","to":"/index/relationship/{0}","body":{{"uri":"{{{1}}}","key":{2},"value":{3}}},"id":{4}}}'.format(
 				index_name,
 				self._named_relationships[relationship_name],
 				json.dumps(key, separators=(',',':')),
@@ -269,7 +271,7 @@ class Batch(object):
 				job_id
 			))
 		else:
-			self._batch.append('{"method":"POST","to":"/index/relationship/%s/%s/%s","body":"{%d}","id":%d}' % (
+			self._batch.append('{{"method":"POST","to":"/index/relationship/{0}/{1}/{2}","body":"{{{3}}}","id":{4}}}'.format(
 				index_name,
 				quote(key, "") if isinstance(key, basestring) else key,
 				quote(value, "") if isinstance(value, basestring) else value,
@@ -278,22 +280,21 @@ class Batch(object):
 			))
 
 	def submit(self):
-		return self._graphdb._request(
+		result = self._graph_db._request(
 			'POST',
-			self._graphdb._batch_uri,
-			"[" + ",".join(self._batch) + "]"
+			self._graph_db._batch_uri,
+			repr(self)
 		)
 		self._batch = []
+		return result
 
 
 class Loader(object):
 
-	def __init__(self, file, graphdb, **hooks):
-		self.file = file
-		self.graphdb = graphdb
-		self.hooks = hooks
+	def __init__(self, graph_db):
+		self.graph_db = graph_db
 
-	def load(self):
+	def compile(self, file, **hooks):
 
 		def parse(descriptor, data=None):
 			# try as a hook descriptor
@@ -369,75 +370,40 @@ class Loader(object):
 					data
 				)
 			# try as a hook index entry
-			m = HOOK_INDEX_ENTRY.match(descriptor)
+			m = HOOK_INDEX_INCLUSION.match(descriptor)
 			if m:
 				return (
-					HOOK_INDEX_ENTRY,
+					HOOK_INDEX_INCLUSION,
 					{
-						"index_name": unicode(m.group(1)),
-						"hook_name": unicode(m.group(2))
+						"hook_name": unicode(m.group(1)),
+						"index_name": unicode(m.group(2))
 					},
 					data
 				)
 			# try as a node index entry
-			m = NODE_INDEX_ENTRY.match(descriptor)
+			m = NODE_INDEX_INCLUSION.match(descriptor)
 			if m:
 				return (
-					NODE_INDEX_ENTRY,
+					NODE_INDEX_INCLUSION,
 					{
-						"index_name": unicode(m.group(1)),
-						"node_name": unicode(m.group(2))
+						"node_name": unicode(m.group(1)),
+						"index_name": unicode(m.group(2))
 					},
 					data
 				)
 			# try as a relationship index entry
-			m = RELATIONSHIP_INDEX_ENTRY.match(descriptor)
+			m = RELATIONSHIP_INDEX_INCLUSION.match(descriptor)
 			if m:
 				return (
-					RELATIONSHIP_INDEX_ENTRY,
+					RELATIONSHIP_INDEX_INCLUSION,
 					{
-						"index_name": unicode(m.group(1)),
-						"rel_name": unicode(m.group(2))
+						"rel_name": unicode(m.group(1)),
+						"index_name": unicode(m.group(2))
 					},
 					data
 				)
-			""" --- START OF DEPRECATED SYNTAXES --- """
-			""" --- REMOVE PRIOR TO V1.0 RELEASE --- """
-			# deprecated node index entry
-			m = OLD_NODE_INDEX_ENTRY.match(descriptor)
-			if m:
-				index_name = unicode(m.group(2))
-				warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-					index_name,
-					index_name
-				), DeprecationWarning)
-				return (
-					NODE_INDEX_ENTRY,
-					{
-						"index_name": unicode(m.group(2)),
-						"node_name": unicode(m.group(3))
-					},
-					data
-				)
-			# deprecated relationship index entry
-			m = OLD_RELATIONSHIP_INDEX_ENTRY.match(descriptor)
-			if m:
-				index_name = unicode(m.group(2))
-				warnings.warn("The index entry syntax {%s} is deprecated - please use |%s| instead" % (
-					index_name,
-					index_name
-				), DeprecationWarning)
-				return (
-					RELATIONSHIP_INDEX_ENTRY,
-					{
-						"index_name": unicode(m.group(2)),
-						"rel_name": unicode(m.group(3))
-					},
-					data
-				)
-			""" --- END OF DEPRECATED SYNTAXES --- """
 			# no idea then... this line is invalid
-			raise ValueError("Cannot parse line %d: %s" % (line_no, repr(line)))
+			raise ValueError("Cannot parse line {0}: {1}".format(line_no, repr(line)))
 
 		def add(descriptor, params, data):
 			if descriptor is HOOK_DESCRIPTOR:
@@ -476,22 +442,22 @@ class Loader(object):
 					params['end_node_name'],
 					data
 				)
-			elif descriptor is HOOK_INDEX_ENTRY:
+			elif descriptor is HOOK_INDEX_INCLUSION:
 				if data:
 					for key, value in data.items():
-						batch.add_hook_index_entry(params['index_name'], params['hook_name'], key, value)
-			elif descriptor is NODE_INDEX_ENTRY:
+						batch.include_hook_in_index(params['hook_name'], params['index_name'], key, value)
+			elif descriptor is NODE_INDEX_INCLUSION:
 				if data:
 					for key, value in data.items():
-						batch.add_node_index_entry(params['index_name'], params['node_name'], key, value)
-			elif descriptor is RELATIONSHIP_INDEX_ENTRY:
+						batch.include_node_in_index(params['node_name'], params['index_name'], key, value)
+			elif descriptor is RELATIONSHIP_INDEX_INCLUSION:
 				if data:
 					for key, value in data.items():
-						batch.add_relationship_index_entry(params['index_name'], params['rel_name'], key, value)
+						batch.include_relationship_in_index(params['rel_name'], params['index_name'], key, value)
 
-		batch = Batch(self.graphdb, **self.hooks)
+		batch = Batch(self.graph_db, **hooks)
 		line_no = 0
-		for line in self.file:
+		for line in file:
 			# increment line no and trim whitespace from current line
 			line_no, line = line_no + 1, line.strip()
 			# skip blank lines and comments
@@ -511,9 +477,9 @@ class Loader(object):
 						HOOK_TO_NODE_RELATIONSHIP_DESCRIPTOR: 1,
 						NODE_TO_HOOK_RELATIONSHIP_DESCRIPTOR: 1,
 						NODE_TO_NODE_RELATIONSHIP_DESCRIPTOR: 1,
-						HOOK_INDEX_ENTRY: 2,
-						NODE_INDEX_ENTRY: 2,
-						RELATIONSHIP_INDEX_ENTRY: 2
+						HOOK_INDEX_INCLUSION: 2,
+						NODE_INDEX_INCLUSION: 2,
+						RELATIONSHIP_INDEX_INCLUSION: 2
 					}[descriptor]].append((descriptor, params, data))
 				for i in range(3):
 					for d in descriptors[i]:
@@ -527,9 +493,12 @@ class Loader(object):
 					descriptor, params, data = parse(bits[0], json.loads(bits[1]))
 					#add(bits[0], json.loads(bits[1]))
 				add(descriptor, params, data)
+		return batch
+
+	def load(self, file, **hooks):
+		batch = self.compile(file, **hooks)
 		results = batch.submit()
 		return neo4j.Node(results[batch.first_node_id]['location'])
-
 
 try:
 	from cStringIO import StringIO
@@ -544,12 +513,13 @@ def dumps(paths):
 	Dumper(file).dump(paths)
 	return file.getvalue()
 
-def load(file, graphdb, **hooks):
-	return Loader(file, graphdb, **hooks).load()
+def load(file, graph_db, **hooks):
+	return Loader(graph_db).load(file, **hooks)
 
-def loads(str, graphdb, **hooks):
+def loads(str, graph_db, **hooks):
 	file = StringIO(str)
-	return Loader(file, graphdb, **hooks).load()
+	return Loader(graph_db).load(file, **hooks)
+
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="""\
@@ -578,10 +548,7 @@ EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
 		sys.exit(1)
 	# Attempt to open destination database
 	try:
-		if args.u:
-			dest_graphdb = neo4j.GraphDatabaseService(args.u)
-		else:
-			dest_graphdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+		graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
 	except:
 		print >> sys.stderr, "Failed to open destination database"
 		sys.exit(1)
@@ -591,16 +558,16 @@ EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
 		key, eq, value = args.uri[i].rpartition("=")
 		key = key or str(i)
 		if value.startswith("/node/"):
-			hooks[key] = neo4j.Node(dest_graphdb._base_uri + value)
+			hooks[key] = neo4j.Node(graph_db._base_uri + value)
 		elif value.startswith("/relationship/"):
-			hooks[key] = neo4j.Relationship(dest_graphdb._base_uri + value)
+			hooks[key] = neo4j.Relationship(graph_db._base_uri + value)
 		else:
-			print >> sys.stderr, "Bad relative entity URI: %s" % (value)
+			print >> sys.stderr, "Bad relative entity URI: {0}".format(value)
 			sys.exit(1)
 	# Perform the load
 	try:
-		print "New graph data available from node %s" % (
-			load(source_file, dest_graphdb, **hooks)
+		print "New graph data available from node {0}".format(
+			load(source_file, graph_db, **hooks)
 		)
 	except Exception as e:
 		print >> sys.stderr, str(e)

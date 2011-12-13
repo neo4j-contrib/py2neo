@@ -43,8 +43,8 @@ symbolic links to your system path. To achieve this, execute the following
 for your system and versions):
 
 ```
-$ sudo ln -s /usr/local/lib/python2.7/dist-packages/py2neo-0.98-py2.7.egg/py2neo/cypher.py /usr/bin/cypher
-$ sudo ln -s /usr/local/lib/python2.7/dist-packages/py2neo-0.98-py2.7.egg/py2neo/geoff.py /usr/bin/geoff
+$ sudo ln -s /usr/local/lib/python2.7/dist-packages/py2neo-0.99-py2.7.egg/py2neo/cypher.py /usr/bin/cypher
+$ sudo ln -s /usr/local/lib/python2.7/dist-packages/py2neo-0.99-py2.7.egg/py2neo/geoff.py /usr/bin/geoff
 ```
 
 
@@ -88,7 +88,7 @@ local or remote database, via its RESTful web interface, with the results
 displayed on stdout:
 
 ```
-usage: cypher [-h] [-u DATABASE_URI] [-d] [-j] [-g] query
+usage: cypher [-h] [-u DATABASE_URI] [-d] [-g] [-j] [-t] query
 
 Execute Cypher queries against a Neo4j database server and output the results.
 
@@ -98,9 +98,10 @@ positional arguments:
 optional arguments:
   -h, --help       show this help message and exit
   -u DATABASE_URI  the URI of the source Neo4j database server
-  -d               output all values in delimited format (default)
-  -j               output all values as a single JSON array
+  -d               output all values in delimited format
   -g               output nodes and relationships in GEOFF format
+  -j               output all values as a single JSON array
+  -t               output all results in a plain text table (default)
 ```
 
 Similarly, the `geoff` command will allow a GEOFF data to be loaded into a
@@ -108,8 +109,20 @@ database from either a file or stdin:
 
 ```
 usage: geoff [-h] [-u DATABASE_URI] [-f SOURCE_FILE]
+             [name=uri [name=uri ...]]
 
-Import graph data from a GEOFF file into a Neo4j database.
+Import graph data from a GEOFF file into a Neo4j database. A source file may
+be specified with the -f option and a destination database with the -u option.
+The remainder of the arguments will be passed as hooks into the load routine.
+Each hook may be a node of relationship and can optionally be named. Unnamed
+hooks will be automatically named by their relative zero-based position. For
+example, "foo=/node/123" designates the node with ID 123, named as "foo",
+whereas "/relationship/456" designates the relationship with ID 456 and will
+be named "0" if it is in the first position, "1" for the second, and so on.
+EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
+
+positional arguments:
+  name=uri         named relative entity URI (e.g. foo=/node/123)
 
 optional arguments:
   -h, --help       show this help message and exit

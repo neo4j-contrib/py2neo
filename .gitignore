@@ -4,3 +4,11 @@ dist
 .project
 .pydevproject
 .settings
+.idea
+bin/fsnotifier*
+bin/idea.properties
+bin/inspect*.sh
+bin/libjpagent*.so
+bin/log.xml
+bin/PyCharm.*
+bin/pycharm.*

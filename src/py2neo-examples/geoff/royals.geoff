@@ -22,18 +22,18 @@
 (Kate)-[2011:MARRIED]->(Wills)  {"marriage.place": "Westminster Abbey", "marriage.date": "2011-04-29"}
 
 # And finally the index entries for the nodes and relationships
-|People|->(Liz)     {"name": "Elizabeth"}
-|People|->(Phil)    {"name": "Philip"}
-|People|->(Chaz)    {"name": "Charles"}
-|People|->(Di)      {"name": "Diana"}
-|People|->(Cam)     {"name": "Camilla"}
-|People|->(Wills)   {"name": "William"}
-|People|->(Harry)   {"name": "Henry"}
-|People|->(Kate)    {"name": "Catherine"}
-|Weddings|->[1947]  {"year": 1947}
-|Weddings|->[1981]  {"year": 1981}
-|Weddings|->[2005]  {"year": 2005}
-|Weddings|->[2011]  {"year": 2011}
+(Liz)<=|People|     {"name": "Elizabeth"}
+(Phil)<=|People|    {"name": "Philip"}
+(Chaz)<=|People|    {"name": "Charles"}
+(Di)<=|People|      {"name": "Diana"}
+(Cam)<=|People|     {"name": "Camilla"}
+(Wills)<=|People|   {"name": "William"}
+(Harry)<=|People|   {"name": "Henry"}
+(Kate)<=|People|    {"name": "Catherine"}
+[1947]<=|Weddings|  {"year": 1947}
+[1981]<=|Weddings|  {"year": 1981}
+[2005]<=|Weddings|  {"year": 2005}
+[2011]<=|Weddings|  {"year": 2011}
 
 # Hook into the supplied node
 {0}-[:FAMILY]->(Liz)
