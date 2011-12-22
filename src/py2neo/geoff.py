@@ -28,7 +28,7 @@ try:
 	import json
 except ImportError:
 	import simplejson as json
-import neo4j
+from . import neo4j
 import re
 import sys
 
@@ -542,14 +542,14 @@ EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
 			source_file = open(args.f, "r")
 		else:
 			source_file = sys.stdin
-	except:
-		print >> sys.stderr, "Failed to open GEOFF file"
+	except Exception:
+		sys.stderr.write("Failed to open GEOFF file\n")
 		sys.exit(1)
 	# Attempt to open destination database
 	try:
 		graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
-	except:
-		print >> sys.stderr, "Failed to open destination database"
+	except Exception:
+		sys.stderr.write("Failed to open destination database\n")
 		sys.exit(1)
 	# Parse load parameters
 	hooks = {}
@@ -561,13 +561,13 @@ EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
 		elif value.startswith("/relationship/"):
 			hooks[key] = neo4j.Relationship(graph_db._base_uri + value)
 		else:
-			print >> sys.stderr, "Bad relative entity URI: {0}".format(value)
+			sys.stderr.write("Bad relative entity URI: {0}\n".format(value))
 			sys.exit(1)
 	# Perform the load
 	try:
-		print "New graph data available from node {0}".format(
+		print("New graph data available from node {0}".format(
 			load(source_file, graph_db, **hooks)
-		)
+		))
 	except Exception as e:
-		print >> sys.stderr, str(e)
+		sys.stderr.write(str(e) + "\n")
 		sys.exit(1)

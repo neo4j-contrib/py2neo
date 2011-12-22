@@ -23,7 +23,7 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-import rest
+from . import rest
 from urllib import quote
 
 

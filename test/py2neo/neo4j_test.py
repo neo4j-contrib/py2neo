@@ -15,14 +15,14 @@ def get_gdb():
 	try:
 		return neo4j.GraphDatabaseService(gdb_uri)
 	except IOError:
-		sys.exit("Unable to attach to GraphDatabaseService at %s" % (gdb_uri))
+		sys.exit("Unable to attach to GraphDatabaseService at {0}".format(gdb_uri))
 
 
 class GraphDatabaseServiceTest(unittest.TestCase):
 
 	def setUp(self):
 		self.gdb = get_gdb()
-		print "Neo4j Version: " + repr(self.gdb._neo4j_version)
+		print("Neo4j Version: {0}".format(repr(self.gdb._neo4j_version)))
 
 	def test_get_reference_node(self):
 		ref_node = self.gdb.get_reference_node()
@@ -133,7 +133,7 @@ class IndexTestCase(unittest.TestCase):
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "foo", "bar")
 		s = index1.search("foo", "bar")
-		print "Found index entries: %s" % (s)
+		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
 
@@ -142,7 +142,7 @@ class IndexTestCase(unittest.TestCase):
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "foo bar", "bar foo")
 		s = index1.search("foo bar", "bar foo")
-		print "Found index entries: %s" % (s)
+		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
 
@@ -151,7 +151,7 @@ class IndexTestCase(unittest.TestCase):
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "@!%#", "!\"£$%^&*()")
 		s = index1.search("@!%#", "!\"£$%^&*()")
-		print "Found index entries: %s" % (s)
+		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
 

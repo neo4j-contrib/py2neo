@@ -28,7 +28,7 @@ try:
 	import json
 except ImportError:
 	import simplejson as json
-import neo4j
+from . import neo4j
 import string
 import sys
 
