@@ -18,14 +18,13 @@
 Neo4j client using REST interface
 """
 
-
-import rest
-from urllib import quote
-
-
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
+
+
+import rest
+from urllib import quote
 
 
 class Direction(object):
@@ -56,7 +55,7 @@ class GraphDatabaseService(rest.Resource):
 	
 	"""
 
-	def __init__(self, uri, index=None, http=None, user_name=None, password=None):
+	def __init__(self, uri=None, index=None, http=None, user_name=None, password=None):
 		"""
 		Creates a representation of a U{Neo4j <http://neo4j.org/>} database
 		instance identified by URI.
@@ -68,6 +67,7 @@ class GraphDatabaseService(rest.Resource):
 		@param password:  the password to use for authentication (optional)
 		
 		"""
+		uri = uri or "http://localhost:7474/db/data/"
 		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
 			self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
@@ -533,7 +533,7 @@ class Node(IndexableResource):
 			'data': data
 		}), http=self._http)
 
-	def get_relationships(self, direction, *types):
+	def get_relationships(self, direction=Direction.BOTH, *types):
 		"""
 		Returns all C{Relationship}s from the current C{Node} in a given
 		C{direction} of a specific C{type} (if supplied).
@@ -543,10 +543,10 @@ class Node(IndexableResource):
 		@return: a list of C{Relationship}s matching the specified criteria
 		
 		"""
-		if len(types) == 0:
-			uri = self._lookup(direction + '_relationships')
-		else:
+		if types:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		else:
+			uri = self._lookup(direction + '_relationships')
 		return [
 			Relationship(rel['self'], http=self._http)
 			for rel in self._get(uri)
@@ -589,10 +589,10 @@ class Node(IndexableResource):
 		@return: a list of C{Node}s matching the specified criteria
 		
 		"""
-		if len(types) == 0:
-			uri = self._lookup(direction + '_relationships')
-		else:
+		if types:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+		else:
+			uri = self._lookup(direction + '_relationships')
 		return [
 			Node(
 				rel['start'] if rel['end'] == self._uri else rel['end'],
@@ -1205,7 +1205,7 @@ class PersistentObject(object):
 	mapped to C{Node} properties where possible and attributes pointing to
 	other C{PersistentObject} instances are mapped to C{Relationship}s. No
 	direct mapping to C{Relationship} properties exists within this framework.
-	All attributes begining with an underscore character are I{not} mapped to
+	All attributes beginning with an underscore character are I{not} mapped to
 	the database and will be stored within the object instance as usual.
 	
 		>>> from py2neo import neo4j
@@ -1221,12 +1221,12 @@ class PersistentObject(object):
 		>>> uk = Country(gdb.create_node(), "United Kingdom", 62698362)
 	
 	"""
-	
+
 	__node__ = None
 	"""
 	Property holding the database C{Node} to which this instance is attached.
 	"""
-	
+
 	def __init__(self, node):
 		"""
 		All subclass constructors should call this constructor and pass a valid
@@ -1300,5 +1300,3 @@ class PersistentObject(object):
 					rel.delete()
 			except:
 				raise AttributeError("Cannot delete relationship")
-
-

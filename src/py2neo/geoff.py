@@ -18,22 +18,21 @@
 GEOFF file handling (see U{http://py2neo.org/geoff/}).
 """
 
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
+__license__   = "Apache License, Version 2.0"
+
 
 import argparse
 try:
 	import json
-except:
+except ImportError:
 	import simplejson as json
 import neo4j
 import re
 import sys
 
 from urllib import quote
-
-
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011 Nigel Small"
-__license__   = "Apache License, Version 2.0"
 
 
 HOOK_DESCRIPTOR                      = re.compile(r"^\{(\w+)\}$")

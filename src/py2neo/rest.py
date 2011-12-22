@@ -18,17 +18,16 @@
 Generic REST client
 """
 
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
+__license__   = "Apache License, Version 2.0"
+
 
 import httplib2
 try:
 	import json
-except:
+except ImportError:
 	import simplejson as json
-
-
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011 Nigel Small"
-__license__   = "Apache License, Version 2.0"
 
 
 class Resource(object):

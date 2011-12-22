@@ -18,6 +18,10 @@
 Cypher utility module
 """
 
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
+__license__   = "Apache License, Version 2.0"
+
 
 import argparse
 try:
@@ -27,11 +31,6 @@ except ImportError:
 import neo4j
 import string
 import sys
-
-
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011 Nigel Small"
-__license__   = "Apache License, Version 2.0"
 
 
 def _stringify(value, quoted=False, with_properties=False):
