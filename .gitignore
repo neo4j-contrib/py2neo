@@ -8,7 +8,7 @@ dist
 bin/fsnotifier*
 bin/idea.properties
 bin/inspect*.sh
-bin/libjpagent*.so
+bin/libyjpagent*.so
 bin/log.xml
-bin/PyCharm.*
-bin/pycharm.*
+bin/PyCharm*
+bin/pycharm*
