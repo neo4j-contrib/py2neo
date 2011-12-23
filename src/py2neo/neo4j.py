@@ -684,10 +684,10 @@ class Relationship(IndexableResource):
 		object, e.g.:
 		
 			>>> print str(my_rel)
-			'-[:KNOWS]->'
+			'-[23:KNOWS]->'
 		
 		"""
-		return "-[:{0}]->".format(self._type)
+		return "-[{0}:{1}]->".format(self._id, self._type)
 
 	def get_type(self):
 		"""
@@ -709,15 +709,15 @@ class Relationship(IndexableResource):
 
 	def get_nodes(self):
 		"""
-		Returns a list of the two C{Node}s attached to this C{Relationship}.
+		Returns a tuple of the two C{Node}s attached to this C{Relationship}.
 		
-		@return: list of the two C{Node}s attached to this C{Relationship}
+		@return: tuple of the two C{Node}s attached to this C{Relationship}
 		
 		"""
-		return [
+		return (
 			Node(self._lookup('start'), http=self._http),
 			Node(self._lookup('end'), http=self._http)
-		]
+		)
 
 	def get_start_node(self):
 		"""

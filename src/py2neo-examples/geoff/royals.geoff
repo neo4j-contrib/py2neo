@@ -35,6 +35,3 @@
 [2005]<=|Weddings|  {"year": 2005}
 [2011]<=|Weddings|  {"year": 2011}
 
-# Hook into the supplied node
-{0}-[:FAMILY]->(Liz)
-
