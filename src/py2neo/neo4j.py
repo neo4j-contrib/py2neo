@@ -423,7 +423,7 @@ class IndexableResource(rest.Resource):
 		Returns a named property for this resource.
 		"""
 		if self._index is None:
-			return self._lookup('data')[key]
+			return self._lookup('data')[key] if key in self._lookup('data') else None
 		else:
 			return self._get(self._lookup('property').format(key=key))
 
