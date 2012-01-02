@@ -28,7 +28,10 @@ try:
 	import json
 except ImportError:
 	import simplejson as json
-from . import neo4j
+try:
+	from . import neo4j
+except ValueError:
+	import neo4j
 import string
 import sys
 

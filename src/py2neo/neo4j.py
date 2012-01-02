@@ -23,7 +23,10 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-from . import rest
+try:
+	from . import rest
+except ValueError:
+	import rest
 from urllib import quote
 
 
@@ -89,6 +92,10 @@ class GraphDatabaseService(rest.Resource):
 				self._cypher_uri = self._extension_uri('CypherPlugin', 'execute_query')
 			except NotImplementedError:
 				self._cypher_uri = None
+		try:
+			self._geoff_uri = self._extension_uri('GeoffPlugin', 'load_from_string')
+		except NotImplementedError:
+			self._geoff_uri = None
 		try:
 			self._gremlin_uri = self._extension_uri('GremlinPlugin', 'execute_script')
 		except NotImplementedError:

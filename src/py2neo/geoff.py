@@ -28,7 +28,10 @@ try:
 	import json
 except ImportError:
 	import simplejson as json
-from . import neo4j
+try:
+	from . import neo4j
+except ValueError:
+	import neo4j
 import re
 import sys
 
@@ -494,10 +497,17 @@ class Loader(object):
 				add(descriptor, params, data)
 		return batch
 
-	def load(self, file, **hooks):
-		batch = self.compile(file, **hooks)
-		results = batch.submit()
-		return neo4j.Node(results[batch.first_node_id]['location'])
+	def load(self, file, **params):
+		if self.graph_db._geoff_uri is None:
+			batch = self.compile(file, **params)
+			results = batch.submit()
+			return neo4j.Node(results[batch.first_node_id]['location'])
+		else:
+			response = graph_db._post(
+				graph_db._geoff_uri,
+				{'rules': file.read(), 'params': dict(params)}
+			)
+			return response['params']
 
 try:
 	from cStringIO import StringIO
@@ -512,12 +522,12 @@ def dumps(paths):
 	Dumper(file).dump(paths)
 	return file.getvalue()
 
-def load(file, graph_db, **hooks):
-	return Loader(graph_db).load(file, **hooks)
+def load(file, graph_db, **params):
+	return Loader(graph_db).load(file, **params)
 
-def loads(str, graph_db, **hooks):
+def loads(str, graph_db, **params):
 	file = StringIO(str)
-	return Loader(graph_db).load(file, **hooks)
+	return Loader(graph_db).load(file, **params)
 
 
 if __name__ == "__main__":
@@ -552,22 +562,31 @@ EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
 		sys.stderr.write("Failed to open destination database\n")
 		sys.exit(1)
 	# Parse load parameters
-	hooks = {}
+	params = {}
 	for i in range(len(args.uri)):
 		key, eq, value = args.uri[i].rpartition("=")
 		key = key or str(i)
-		if value.startswith("/node/"):
-			hooks[key] = neo4j.Node(graph_db._base_uri + value)
-		elif value.startswith("/relationship/"):
-			hooks[key] = neo4j.Relationship(graph_db._base_uri + value)
+		if graph_db._geoff_uri is None:
+			if value.startswith("/node/"):
+				params[key] = neo4j.Node(graph_db._base_uri + value)
+			elif value.startswith("/relationship/"):
+				params[key] = neo4j.Relationship(graph_db._base_uri + value)
+			else:
+				sys.stderr.write("Bad relative entity URI: {0}\n".format(value))
+				sys.exit(1)
 		else:
-			sys.stderr.write("Bad relative entity URI: {0}\n".format(value))
-			sys.exit(1)
+			params[key] = value
 	# Perform the load
 	try:
-		print("New graph data available from node {0}".format(
-			load(source_file, graph_db, **hooks)
-		))
+		if graph_db._geoff_uri is None:
+			print("New graph data available from node {0}".format(
+				load(source_file, graph_db, **params)
+			))
+		else:
+			params = load(source_file, graph_db, **params)
+			column_width_1 = max([len(key) for key in params.keys()]) + 1
+			for key, value in load(source_file, graph_db, **params).items():
+				print(key.ljust(column_width_1) + value)
 	except Exception as e:
 		sys.stderr.write(str(e) + "\n")
 		sys.exit(1)
