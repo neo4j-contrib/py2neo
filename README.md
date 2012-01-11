@@ -6,7 +6,9 @@ web service interface. It attempts to be both Pythonic and consistent with the
 core Neo4j API.
 
 In addition, the project provides support for the Graph Export Object File
-Format (GEOFF) as well as a couple of command line tools for extra sugar.
+Format (Geoff) as well as a couple of command line tools for extra sugar. For
+further information on Geoff, visit
+[http://py2neo.org/geoff](http://py2neo.org/geoff).
 
 
 * Website:  http://py2neo.org/
@@ -142,5 +144,5 @@ Note that if no database URI is specified, a default of
 
 ---
 
-Copyright 2011 Nigel Small
+Copyright 2011-2012 Nigel Small
 
