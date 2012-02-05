@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-
-BIN=`dirname $0`
-ROOT=$BIN/..
-DOC=$ROOT/doc
-SRC=$ROOT/src
-
-epydoc --css=default -o $DOC/api $SRC/py2neo
-

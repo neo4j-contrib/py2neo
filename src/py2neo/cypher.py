@@ -65,12 +65,8 @@ def _stringify(value, quoted=False, with_properties=False):
 
 def execute(query, graph_db):
 	"""
-	 Executes the supplied query using the Cypher plugin or built-in.
-
-	 @param query: a string containing the Cypher query to execute
-	 @raise NotImplementedError: if the Cypher plugin is not available
-	 @return: the result of the Cypher query
-
+	Execute a Cypher query against a database and return a tuple of data
+	and columns.
 	"""
 	if graph_db._cypher_uri is None:
 		raise NotImplementedError("Cypher functionality not available")
@@ -78,7 +74,8 @@ def execute(query, graph_db):
 		response = graph_db._post(graph_db._cypher_uri, {'query': query})
 		return response['data'], response['columns']
 
-def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=sys.stdout):
+def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):
+	out = out or sys.stdout
 	data, columns = execute(query, graph_db)
 	out.write(string.join([
 		json.dumps(column)
@@ -92,7 +89,8 @@ def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=s
 		], field_delimiter))
 		out.write("\n")
 
-def execute_and_output_as_json(query, graph_db, out=sys.stdout):
+def execute_and_output_as_json(query, graph_db, out=None):
+	out = out or sys.stdout
 	data, columns = execute(query, graph_db)
 	columns = [json.dumps(column) for column in columns]
 	row_count = 0
@@ -107,7 +105,8 @@ def execute_and_output_as_json(query, graph_db, out=sys.stdout):
 		], ", ") + "}")
 	out.write("\n]\n")
 
-def execute_and_output_as_geoff(query, graph_db, out=sys.stdout):
+def execute_and_output_as_geoff(query, graph_db, out=None):
+	out = out or sys.stdout
 	nodes = {}
 	relationships = {}
 	def update_descriptors(value):
@@ -143,7 +142,8 @@ def execute_and_output_as_geoff(query, graph_db, out=sys.stdout):
 			json.dumps(value)
 		))
 
-def execute_and_output_as_text(query, graph_db, out=sys.stdout):
+def execute_and_output_as_text(query, graph_db, out=None):
+	out = out or sys.stdout
 	data, columns = execute(query, graph_db)
 	column_widths = [len(column) for column in columns]
 	for row in data:

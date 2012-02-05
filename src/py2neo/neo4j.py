@@ -15,7 +15,8 @@
 # limitations under the License.
 
 """
-Neo4j client using REST interface
+The neo4j module provides the main Neo4j client functionality within py2neo.
+This module will be the starting point for most people.
 """
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -32,7 +33,7 @@ from urllib import quote
 
 class Direction(object):
 	"""
-	Used to define the direction of a C{Relationship}.
+	Used to define the direction of a relationship.
 	"""
 
 	BOTH     = 'all'
@@ -42,15 +43,21 @@ class Direction(object):
 
 class GraphDatabaseService(rest.Resource):
 	"""
-	Represents an instance of a U{Neo4j <http://neo4j.org/>} database
+	Represents an instance of a `Neo4j <http://neo4j.org/>`_ database
 	identified by its base URI. Generally speaking, this is the only URI which
 	a system attaching to this service should need to be aware of; all further
 	entity URIs will be discovered automatically from within response content
-	(see U{Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>}).
-	
+	(see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_).
+
+	:param uri:       the base URI of the database (defaults to <http://localhost:7474/db/data/>)
+	:param index:     an index of RESTful URIs
+	:param http:      httplib2.Http object to use for requests
+	:param user_name: the user name to use for authentication
+	:param password:  the password to use for authentication
+
 	The following code illustrates how to attach to a database and obtain its
 	reference node:
-	
+
 		>>> from py2neo import neo4j
 		>>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
 		>>> gdb.get_reference_node()
@@ -59,17 +66,6 @@ class GraphDatabaseService(rest.Resource):
 	"""
 
 	def __init__(self, uri=None, index=None, http=None, user_name=None, password=None):
-		"""
-		Creates a representation of a U{Neo4j <http://neo4j.org/>} database
-		instance identified by URI.
-		
-		@param uri:       the base URI of the database
-		@param index:     an index of RESTful URIs (optional)
-		@param http:      httplib2.Http object to use for requests (optional)
-		@param user_name: the user name to use for authentication (optional)
-		@param password:  the password to use for authentication (optional)
-		
-		"""
 		uri = uri or "http://localhost:7474/db/data/"
 		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
 		if self._uri.endswith("/"):
@@ -110,12 +106,7 @@ class GraphDatabaseService(rest.Resource):
 
 	def create_node(self, properties=None):
 		"""
-		Creates a new C{Node} within the database instance with specific
-		properties, if supplied.
-		
-		@param properties: a dictionary of properties to attach to this C{Node} (optional)
-		@return: a C{Node} instance representing the newly created node
-		
+		Create a new node, optionally with properties.
 		"""
 		return Node(
 			self._post(self._lookup('node'), properties),
@@ -124,12 +115,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def create_nodes(self, *properties):
 		"""
-		Creates new C{Node}s for all supplied properties as part of a single
+		Create a number of new nodes for all supplied properties as part of a single
 		batch.
-		
-		@param properties: dictionaries of properties to attach to new C{Node}s (multiple)
-		@return: a list of C{Node} instances representing the newly created nodes
-		
 		"""
 		return [
 			Node(result['location'], index=result['body'], http=self._http)
@@ -146,10 +133,10 @@ class GraphDatabaseService(rest.Resource):
 
 	def create_relationships(self, *descriptors):
 		"""
-		Creates new C{Relationships} based on the supplied C{descriptors} as
+		Create new relationships based on the supplied descriptors as
 		part of a single batch. Each descriptor should be a dictionary
-		consisting of two C{Node} objects, named C{start_node} and C{end_node},
-		a C{type} and optionally C{data} to be attached to the C{Relationship},
+		consisting of two nodes, named ``start_node`` and ``end_node``,
+		a ``type`` and optionally ``data`` to be attached to the relationship,
 		for example:
 		
 			>>> gdb.create_relationships({
@@ -162,10 +149,6 @@ class GraphDatabaseService(rest.Resource):
 			...     "type": "LIKES",
 			...     "data": {"amount": "lots"}
 			... })
-		
-		@param descriptors: dictionaries describing the C{Relationship}s to be created (multiple)
-		@return: a list of C{Relationship} instances representing the newly created relationships
-		
 		"""
 		return [
 			Relationship(result['body']['self'], index=result['body'], http=self._http)
@@ -184,59 +167,46 @@ class GraphDatabaseService(rest.Resource):
 			])
 		]
 
-	def get_properties(self, *resources):
+	def get_properties(self, *entities):
 		"""
-		Retrieves properties for all specified resources as part of a single batch.
-		
-		@param resources: C{Node}s and/or C{Relationship}s to obtain properties for (multiple)
-		
+		Retrieve properties for multiple nodes and/or relationships as part
+		of a single batch.
 		"""
 		return [
 			result['body']['data']
 			for result in self._post(self._batch_uri, [
 				{
 					'method': 'GET',
-					'to': resources[i]._relative_uri,
+					'to': entities[i]._relative_uri,
 					'id': i
 				}
-				for i in range(len(resources))
+				for i in range(len(entities))
 			])
 		]
 
-	def delete(self, *resources):
+	def delete(self, *entities):
 		"""
-		Deletes all specified resources as part of a single batch.
-		
-		@param resources: C{Node}s and/or C{Relationship}s to delete (multiple)
-		
+		Delete multiple nodes and/or relationships as part of a single batch.
 		"""
 		self._post(self._batch_uri, [
 			{
 				'method': 'DELETE',
-				'to': resources[i]._relative_uri,
+				'to': entities[i]._relative_uri,
 				'id': i
 			}
-			for i in range(len(resources))
+			for i in range(len(entities))
 		])
 
 	def get_reference_node(self):
 		"""
-		Returns a C{Node} object representing the reference node for this
-		database instance.
-		
-		@return: a C{Node} instance representing the database reference node
-		
+		Get the reference node for the current graph.
 		"""
 		return Node(self._lookup('reference_node'), http=self._http)
 
 	def get_subreference_node(self, name):
 		"""
-		Returns a C{Node} object representing a named subreference node
-		within this database instance. If such a node does not exist, one is
-		created.
-		
-		@return: a C{Node} instance representing the named subreference node
-		
+		Get a named subreference node from the current graph. If
+		such a node does not exist, one is created.
 		"""
 		ref_node = self.get_reference_node()
 		subref_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
@@ -247,21 +217,14 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_relationship_types(self):
 		"""
-		Returns a list of C{Relationship} names currently defined within this
+		Get a list of relationship type names currently defined within this
 		database instance.
-		
-		@return: a list of C{Relationship} names
-		
 		"""
 		return self._get(self._lookup('relationship_types'))
 
 	def create_node_index(self, name, config=None):
 		"""
-		Creates a new C{Node} C{Index} with the supplied name and
-		configuration.
-		
-		@return: an C{Index} instance representing the newly created index
-		
+		Create a new node index with the supplied name and configuration.
 		"""
 		return Index(Node, uri=self._post(self._lookup('node_index'), {
 			'name': name,
@@ -270,11 +233,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_node_indexes(self):
 		"""
-		Returns a dictionary of all available C{Node} C{Index}es within this
+		Retrieve a dictionary of all available node indexes within this
 		database instance.
-		
-		@return: a dictionary of Name : C{Index} mappings for all C{Node} C{Index}es
-		
 		"""
 		indexes = self._get(self._lookup('node_index')) or {}
 		return dict([
@@ -284,12 +244,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_node_index(self, name):
 		"""
-		Returns an C{Index} object representing the C{Node} C{Index} with the
-		specified name within this database instance. If such an C{Index} does
-		not exist, one is created with default configuration.
-		
-		@return: an C{Index} instance
-		
+		Get a specifically named node index from the current graph. If
+		such an index does not exist, one is created with default configuration.
 		"""
 		indexes = self.get_node_indexes()
 		if name in indexes:
@@ -299,11 +255,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def create_relationship_index(self, name, config=None):
 		"""
-		Creates a new C{Relationship} C{Index} with the supplied name and
+		Create a new relationship index with the supplied name and
 		configuration.
-		
-		@return: an C{Index} instance representing the newly created index
-		
 		"""
 		return Index(Relationship, uri=self._post(self._lookup('relationship_index'), {
 			'name': name,
@@ -312,11 +265,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_relationship_indexes(self):
 		"""
-		Returns a dictionary of all available C{Relationship} C{Index}es within
+		Retrieve a dictionary of all available relationship indexes within
 		this database instance.
-		
-		@return: a dictionary of Name : C{Index} mappings for all C{Relationship} C{Index}es
-		
 		"""
 		indexes = self._get(self._lookup('relationship_index')) or {}
 		return dict([
@@ -326,12 +276,8 @@ class GraphDatabaseService(rest.Resource):
 
 	def get_relationship_index(self, name):
 		"""
-		Returns an C{Index} object representing the C{Relationship} C{Index}
-		with the specified name within this database instance. If such an
-		C{Index} does not exist, one is created with default configuration.
-		
-		@return: an C{Index} instance
-		
+		Get a specifically named relationship index from the current graph. If
+		such an index does not exist, one is created with default configuration.
 		"""
 		indexes = self.get_relationship_indexes()
 		if name in indexes:
@@ -341,12 +287,12 @@ class GraphDatabaseService(rest.Resource):
 
 	def _extension_uri(self, plugin_name, function_name):
 		"""
-		Obtains a URI from an extension
+		Obtain a URI from an extension
 
-		@param plugin_name: the name of the plugin
-		@param function_name: the name of the function within the specified plugin
-		@raise NotImplementedError: when the specified plugin or function is not available
-		@return: the data returned from the function call
+		:param plugin_name: the name of the plugin
+		:param function_name: the name of the function within the specified plugin
+		:raise NotImplementedError: when the specified plugin or function is not available
+		:return: the data returned from the function call
 		"""
 		if plugin_name not in self._extensions:
 			raise NotImplementedError(plugin_name)
@@ -357,14 +303,14 @@ class GraphDatabaseService(rest.Resource):
 
 	def _execute(self, plugin_name, function_name, data):
 		"""
-		Executes a POST request against the specified plugin function using the
+		Execute a POST request against the specified plugin function using the
 		supplied data.
 		
-		@param plugin_name: the name of the plugin to call
-		@param function_name: the name of the function to call within the specified plugin
-		@param data: the data to pass to the function call
-		@raise NotImplementedError: when the specified plugin or function is not available
-		@return: the data returned from the function call
+		:param plugin_name: the name of the plugin to call
+		:param function_name: the name of the function to call within the specified plugin
+		:param data: the data to pass to the function call
+		:raise NotImplementedError: when the specified plugin or function is not available
+		:return: the data returned from the function call
 		
 		"""
 		function_uri = self._extension_uri(plugin_name, function_name)
@@ -373,27 +319,27 @@ class GraphDatabaseService(rest.Resource):
 
 class IndexableResource(rest.Resource):
 	"""
-	Base class from which C{Node} and C{Relationship} classes inherit.
-	Extends a C{rest.Resource} by allowing additional URIs to be stored which
-	represent both an C{Index} and the entry within that C{Index} which points
+	Base class from which node and relationship classes inherit.
+	Extends a :py:class:`py2neo.rest.Resource` by allowing additional URIs to be stored which
+	represent both an index and the entry within that index which points
 	to this resource. Additionally, provides property containment
 	functionality.
 	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
 		"""
-		Creates a representation of an indexable resource (C{Node} or
-		C{Relationship}) identified by URI; optionally accepts further URIs
-		representing both an C{Index} for this resource type plus the specific
-		entry within that C{Index}.
+		Creates a representation of an indexable resource (node or
+		relationship) identified by URI; optionally accepts further URIs
+		representing both an index for this resource type plus the specific
+		entry within that index.
 		
-		@param uri:             the URI identifying this resource
-		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this resource (optional)
-		@param index_uri:       the URI of the C{Index} containing the above entry (optional)
-		@param index:           an index of RESTful URIs (optional)
-		@param http:            httplib2.Http object to use for requests (optional)
-		@param user_name:       the user name to use for authentication (optional)
-		@param password:        the password to use for authentication (optional)
+		:param uri:             the URI identifying this resource
+		:param index_entry_uri: the URI of the entry in an index pointing to this resource
+		:param index_uri:       the URI of the index containing the above entry
+		:param index:           an index of RESTful URIs
+		:param http:            httplib2.Http object to use for requests
+		:param user_name:       the user name to use for authentication
+		:param password:        the password to use for authentication
 		
 		"""
 		rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
@@ -413,21 +359,21 @@ class IndexableResource(rest.Resource):
 
 	def __eq__(self, other):
 		"""
-		Determines equality of two resource representations based on both URI
-		and C{Index} entry URI, if available.
+		Determine equality of two resource representations based on both URI
+		and index entry URI, if available.
 		"""
 		return self._uri == other._uri and self._index_entry_uri == other._index_entry_uri
 
 	def __ne__(self, other):
 		"""
-		Determines inequality of two resource representations based on both URI
-		and C{Index} entry URI, if available.
+		Determine inequality of two resource representations based on both URI
+		and index entry URI, if available.
 		"""
 		return self._uri != other._uri or self._index_entry_uri != other._index_entry_uri
 
 	def __getitem__(self, key):
 		"""
-		Returns a named property for this resource.
+		Return a named property for this resource.
 		"""
 		if self._index is None:
 			return self._lookup('data')[key] if key in self._lookup('data') else None
@@ -436,19 +382,19 @@ class IndexableResource(rest.Resource):
 
 	def __setitem__(self, key, value):
 		"""
-		Sets a named property for this resource to the supplied value.
+		Set a named property for this resource to the supplied value.
 		"""
 		self._put(self._lookup('property').format(key=key), value)
 
 	def __delitem__(self, key):
 		"""
-		Deletes a named property for this resource.
+		Delete a named property for this resource.
 		"""
 		self._delete(self._lookup('property').format(key=key))
 
 	def get_properties(self):
 		"""
-		Returns all properties for this resource.
+		Return all properties for this resource.
 		"""
 		if self._index is None:
 			# if the index isn't already loaded, just read data from
@@ -485,27 +431,20 @@ class IndexableResource(rest.Resource):
 
 class Node(IndexableResource):
 	"""
-	Represents a C{Node} within a U{Neo4j <http://neo4j.org/>} database instance
-	identified by a URI. This class is a subclass of C{IndexableResource} and,
-	as such, may also contain URIs identifying how this C{Node} is represented
-	within an C{Index}.
+	Represents a node within a graph, identified by a URI. This class is a
+	subclass of :py:class:`IndexableResource` and, as such, may also contain
+	URIs identifying how this node is represented within an index.
+	
+	:param uri:             the URI identifying this node
+	:param index_entry_uri: the URI of the entry in an index pointing to this node
+	:param index_uri:       the URI of the index containing the above node entry
+	:param index:           an index of RESTful URIs
+	:param http:            httplib2.Http object to use for requests
+	:param user_name:       the user name to use for authentication
+	:param password:        the password to use for authentication
 	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
-		"""
-		Creates a representation of a C{Node} identified by URI; optionally
-		accepts further URIs representing both an C{Index} for C{Node}s plus
-		the specific entry within that C{Index}.
-		
-		@param uri:             the URI identifying this C{Node}
-		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Node} (optional)
-		@param index_uri:       the URI of the C{Index} containing the above C{Node} entry (optional)
-		@param index:           an index of RESTful URIs (optional)
-		@param http:            httplib2.Http object to use for requests (optional)
-		@param user_name:       the user name to use for authentication (optional)
-		@param password:        the password to use for authentication (optional)
-		
-		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
 		                           index_uri=index_uri, index=index, http=http,
 		                           user_name=user_name, password=password)
@@ -513,26 +452,19 @@ class Node(IndexableResource):
 
 	def __str__(self):
 		"""
-		Returns a human-readable string representation of this C{Node}
+		Return a human-readable string representation of this node
 		object, e.g.:
 		
 			>>> print str(my_node)
 			'(42)'
-		
 		"""
 		return "({0})".format(self._id)
 
 	def create_relationship_to(self, other_node, type, data=None):
 		"""
-		Creates a new C{Relationship} of type C{type} from the C{Node}
-		represented by the current instance to the C{Node} represented by
-		C{other_node}.
-		
-		@param other_node: an end C{Node} for the new C{Relationship}
-		@param type: the type of the new C{Relationship}
-		@param data: the data to attach to the new C{Relationship} (optional)
-		@return: the newly created C{Relationship}
-		
+		Create a new relationship of type `type` from the node
+		represented by the current instance to the node represented by
+		`other_node`.
 		"""
 		return Relationship(self._post(self._lookup('create_relationship'), {
 			'to': other_node._uri,
@@ -542,13 +474,8 @@ class Node(IndexableResource):
 
 	def get_relationships(self, direction=Direction.BOTH, *types):
 		"""
-		Returns all C{Relationship}s from the current C{Node} in a given
-		C{direction} of a specific C{type} (if supplied).
-		
-		@param direction: a string constant from the C{Direction} class
-		@param types: the types of C{Relationship}s to include (optional)
-		@return: a list of C{Relationship}s matching the specified criteria
-		
+		Return all relationships from the current node in a given
+		`direction` of a specific `type` (if supplied).
 		"""
 		if types:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
@@ -561,40 +488,25 @@ class Node(IndexableResource):
 
 	def get_single_relationship(self, direction, type):
 		"""
-		Returns only one C{Relationship} from the current C{Node} in the given
-		C{direction} of the specified C{type}, if any such relationships exist.
-		
-		@param direction: a string constant from the C{Direction} class
-		@param type: the type of C{Relationship} to return
-		@return: a single C{Relationship} matching the specified criteria or C{None}
-		
+		Return only one relationship from the current node in the given
+		`direction` of the specified `type`, if any such relationships exist.
 		"""
 		relationships = self.get_relationships(direction, type)
 		return relationships[0] if len(relationships) > 0 else None
 
 	def has_relationship(self, direction, *types):
 		"""
-		Returns C{True} if this C{Node} has any C{Relationship}s with the
-		specified criteria, C{False} otherwise.
-		
-		@param direction: a string constant from the C{Direction} class
-		@param types: the types of C{Relationship}s to include (optional)
-		@return: C{True} if this C{Node} has any matching C{Relationship}s
-		
+		Return :py:const:`True` if this node has any relationships with the
+		specified criteria, :py:const:`False` otherwise.
 		"""
 		relationships = self.get_relationships(direction, *types)
 		return True if len(relationships) > 0 else False
 
 	def get_related_nodes(self, direction, *types):
 		"""
-		Returns all C{Node}s related to the current C{Node} by a
-		C{Relationship} in a given C{direction} of a specific C{type}
+		Return all nodes related to the current node by a
+		relationship in a given `direction` of a specific `type`
 		(if supplied).
-		
-		@param direction: a string constant from the C{Direction} class
-		@param types: the types of C{Relationship}s to include (optional)
-		@return: a list of C{Node}s matching the specified criteria
-		
 		"""
 		if types:
 			uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
@@ -610,30 +522,22 @@ class Node(IndexableResource):
 
 	def get_single_related_node(self, direction, type):
 		"""
-		Returns only one C{Node} related to the current C{Node} by a
-		C{Relationship} in the given C{direction} of the specified C{type}, if
+		Return only one node related to the current node by a
+		relationship in the given `direction` of the specified `type`, if
 		any such relationships exist.
-		
-		@param direction: a string constant from the C{Direction} class
-		@param type: the type of C{Relationship} to include
-		@return: a single C{Node} matching the specified criteria or C{None}
-		
 		"""
 		nodes = self.get_related_nodes(direction, type)
 		return nodes[0] if len(nodes) > 0 else None
 
 	def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
 		"""
-		Returns a C{Traverser} instance for the current C{Node}.
+		Return a :py:class:`Traverser` instance for the current node.
 		
 			>>> t = t1.traverse(order="depth_first",
 			...                 max_depth=2,
 			...                 relationships=[("KNOWS","out"), "LOVES"],
 			...                 prune=("javascript", "position.endNode().getProperty('foo') == 'bar';")
 			... )
-		
-		@return: a C{Traverser} for this C{Node}
-		
 		"""
 		td = TraversalDescription()
 		if order:
@@ -657,27 +561,20 @@ class Node(IndexableResource):
 
 class Relationship(IndexableResource):
 	"""
-	Represents a C{Relationship} within a U{Neo4j <http://neo4j.org/>} database
-	instance identified by a URI. This class is a subclass of
-	C{IndexableResource} and, as such, may also contain URIs identifying how
-	this C{Relationship} is represented within an C{Index}.
+	Represents a relationship within a graph, identified by a URI. This class
+	is a subclass of :py:class:`IndexableResource` and, as such, may also
+	contain URIs identifying how this relationship is represented within an index.
+	
+	:param uri:             the URI identifying this relationship
+	:param index_entry_uri: the URI of the entry in an index pointing to this relationship
+	:param index_uri:       the URI of the index containing the above relationship entry
+	:param index:           an index of RESTful URIs
+	:param http:            httplib2.Http object to use for requests
+	:param user_name:       the user name to use for authentication
+	:param password:        the password to use for authentication
 	"""
 
 	def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
-		"""
-		Creates a representation of a C{Relationship} identified by URI;
-		optionally accepts further URIs representing both an C{Index} for
-		C{Relationship}s plus the specific entry within that C{Index}.
-		
-		@param uri:             the URI identifying this C{Relationship}
-		@param index_entry_uri: the URI of the entry in an C{Index} pointing to this C{Relationship} (optional)
-		@param index_uri:       the URI of the C{Index} containing the above C{Relationship} entry (optional)
-		@param index:           an index of RESTful URIs (optional)
-		@param http:            httplib2.Http object to use for requests (optional)
-		@param user_name:       the user name to use for authentication (optional)
-		@param password:        the password to use for authentication (optional)
-		
-		"""
 		IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
 		                           index_uri=index_uri, index=index, http=http,
 		                           user_name=user_name, password=password)
@@ -687,7 +584,7 @@ class Relationship(IndexableResource):
 
 	def __str__(self):
 		"""
-		Returns a human-readable string representation of this C{Relationship}
+		Return a human-readable string representation of this relationship
 		object, e.g.:
 		
 			>>> print str(my_rel)
@@ -698,28 +595,19 @@ class Relationship(IndexableResource):
 
 	def get_type(self):
 		"""
-		Returns the type of this C{Relationship}.
-		
-		@return: the type of this C{Relationship}
-		
+		Return the type name of this relationship.
 		"""
 		return self._type
 
 	def is_type(self, type):
 		"""
-		Returns C{True} if this C{Relationship} is of the given type.
-		
-		@return: C{True} if this C{Relationship} is of the given type
-		
+		Return :py:const:`True` if this relationship is of the given type.
 		"""
 		return self._type == type
 
 	def get_nodes(self):
 		"""
-		Returns a tuple of the two C{Node}s attached to this C{Relationship}.
-		
-		@return: tuple of the two C{Node}s attached to this C{Relationship}
-		
+		Return a tuple of the two nodes attached to this relationship.
 		"""
 		return (
 			Node(self._lookup('start'), http=self._http),
@@ -728,32 +616,22 @@ class Relationship(IndexableResource):
 
 	def get_start_node(self):
 		"""
-		Returns a C{Node} object representing the start node within this
-		C{Relationship}.
-		
-		@return: the start C{Node} of this C{Relationship}
-		
+		Return a node object representing the start node within this
+		relationship.
 		"""
 		return Node(self._lookup('start'), http=self._http)
 
 	def get_end_node(self):
 		"""
-		Returns a C{Node} object representing the end node within this
-		C{Relationship}.
-		
-		@return: the end C{Node} of this C{Relationship}
-		
+		Return a node object representing the end node within this
+		relationship.
 		"""
 		return Node(self._lookup('end'), http=self._http)
 
 	def get_other_node(self, node):
 		"""
-		Returns a C{Node} object representing the node within this
-		C{Relationship} which is not the one supplied.
-		
-		@param node: the C{Node} not required to be returned
-		@return: the other C{Node} within this C{Relationship}
-		
+		Return a node object representing the node within this
+		relationship which is not the one supplied.
 		"""
 		return Node(
 			self._lookup('start') if self._lookup('end') == node._uri else self._lookup('end'),
@@ -763,7 +641,7 @@ class Relationship(IndexableResource):
 
 class Path(object):
 	"""
-	A string of C{Node}s connected by C{Relationships}. A list of C{Path}s
+	A string of nodes connected by relationships. A list of paths
 	may be obtained as the result of a traversal:
 	
 		>>> from py2neo import neo4j
@@ -777,17 +655,13 @@ class Path(object):
 		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(43)
 		(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(44)
 	
+	Note that there should always be exactly one more node supplied to
+	the constructor than there are relationships.
+	
+	:raise ValueError: when number of nodes is not exactly one more than number of relationships
 	"""
 
 	def __init__(self, nodes, relationships):
-		"""
-		Constructs a new C{Path} object from a list of C{Node}s and a list of
-		C{Relationship}s. There should always be exactly one more C{Node} than
-		there are C{Relationship}s.
-		
-		@raise KeyError: when number of C{Node}s is not exactly one more than number of C{Relationship}s
-		
-		"""
 		if len(nodes) - len(relationships) == 1:
 			self._nodes = nodes
 			self._relationships = relationships
@@ -796,7 +670,7 @@ class Path(object):
 
 	def __str__(self):
 		"""
-		Returns a human-readable string representation of this C{Path}
+		Return a human-readable string representation of this path
 		object, e.g.:
 		
 			>>> print str(my_path)
@@ -810,53 +684,53 @@ class Path(object):
 
 	def __len__(self):
 		"""
-		Returns the length of this C{Path} (equivalent to the number of
-		C{Relationship}s).
+		Return the length of this path (equivalent to the number of
+		relationships).
 		"""
 		return len(self._relationships)
 
 	@property
 	def nodes(self):
 		"""
-		List of all the C{Node}s which make up this C{Path}.
+		Get a list of all the nodes which make up this path.
 		"""
 		return self._nodes
 
 	@property
 	def relationships(self):
 		"""
-		List of all the C{Relationship}s which make up this C{Path}.
+		Get a list of all the relationships which make up this path.
 		"""
 		return self._relationships
 
 	@property
 	def start_node(self):
 		"""
-		C{Node} object representing the first node within this C{Path}.
+		Get the start node from this path.
 		"""
 		return self._nodes[0]
 
 	@property
 	def end_node(self):
 		"""
-		C{Node} object representing the last node within this C{Path}.
+		Get the final node from this path.
 		"""
 		return self._nodes[-1]
 
 	@property
 	def last_relationship(self):
 		"""
-		C{Relationship} object representing the last relationship within this
-		C{Path}.
+		Get the final relationship from this path, or :py:const:`None` if
+		path length is zero.
 		"""
 		return self._relationships[-1] if len(self._relationships) > 0 else None
 
 
 class Index(rest.Resource):
 	"""
-	Represents an C{Index} within a U{Neo4j <http://neo4j.org/>} database
+	Represents an index within a `Neo4j <http://neo4j.org/>`_ database
 	instance identified by a URI and/or a template URI. With a nod to Java
-	generics, an C{Index} instance may hold either C{Node}s or C{Relationship}s
+	generics, an index instance may hold either nodes or relationships
 	by supplying the appropriate class directly to the constructor. For
 	example:
 	
@@ -864,19 +738,23 @@ class Index(rest.Resource):
 		>>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1")
 		Index<Node>(u'http://localhost:7474/db/data/index/node/index1')
 	
-	By default, every C{Index} write operation will execute immediately but
+	By default, every index write operation will execute immediately but
 	these may also be grouped into a batch in order to reduce HTTP calls. To
-	create a batch, simply issue a C{batch_start()} call, followed by the
-	required C{add} and C{remove} calls and finally calling C{batch_submit()}.
-	A batch may be discarded at any time using C{batch_discard()}.
-	
+	create a batch, simply issue a :py:func:`start_batch` call, followed by the
+	required :py:func:`add` and :py:func:`remove` calls and finally
+	:py:func:`submit_batch`. A batch may be discarded at any time using
+	:py:func:`discard_batch`.
+
+	:param T:            a class object representing the type of entity contained within the index
+	:param uri:          the URI of the index
+	:param template_uri: a template URI for key and value substitution
+	:param index:        an index of RESTful URIs
+	:param http:         httplib2.Http object to use for requests
+	:param user_name:    the user name to use for authentication
+	:param password:     the password to use for authentication
 	"""
 
 	def __init__(self, T, uri=None, template_uri=None, index=None, http=None, user_name=None, password=None):
-		"""
-		Constructs a new C{Index} object for entity type T. Either C{uri} or
-		C{template_uri} may be specified. 
-		"""
 		rest.Resource.__init__(
 			self,
 			uri or template_uri.rpartition("/{key}/{value}")[0],
@@ -911,33 +789,28 @@ class Index(rest.Resource):
 
 	def start_batch(self):
 		"""
-		Starts a new batch of C{Index} write operations.
+		Start a new batch of index write operations.
 		"""
 		self._batch = []
 
 	def discard_batch(self):
 		"""
-		Discards the current new batch of C{Index} write operations.
+		Discard the current batch of index write operations.
 		"""
 		self._batch = None
 
 	def submit_batch(self):
 		"""
-		Submits the current new batch of C{Index} write operations.
+		Submit the current batch of index write operations.
 		"""
 		self._post(self._batch_uri, self._batch)
 		self._batch = None
 
 	def add(self, entity, key, value):
 		"""
-		Adds an entry to this C{Index} under the specified C{key} and C{value}.
+		Add an entry to this index under the specified `key` and `value`.
 		If a batch has been started, this operation will not be submitted
-		until C{submit_batch()} has been called.
-		
-		@param entity: the resource to add to the C{Index}
-		@param key: the key of the key-value pair under which to index this resource
-		@param value: the value of the key-value pair under which to index this resource
-		
+		until :py:func:`submit_batch` has been called.
 		"""
 		if self._graph_database_service._neo4j_version >= (1, 5):
 			# new method
@@ -978,13 +851,10 @@ class Index(rest.Resource):
 
 	def remove(self, entity):
 		"""
-		Removes the given entity from this C{Index}. The entity must have been
-		retrieved from an C{Index} search and therefore contain an
-		C{_index_entry_uri} property. If a batch has been started, this
-		operation will not be submitted until C{submit_batch()} has been called.
-		
-		@param entity: the resource to remove from the C{Index}
-		
+		Remove the given entity from this index. The entity must have been
+		retrieved from an index search and therefore contain an
+		`_index_entry_uri` property. If a batch has been started, this
+		operation will not be submitted until :py:func:`submit_batch` has been called.
 		"""
 		if entity._index_uri != self._uri or entity._index_entry_uri is None:
 			raise LookupError(entity)
@@ -997,14 +867,14 @@ class Index(rest.Resource):
 				'id': len(self._batch)
 			})
 
-	def search(self, key, value):
+	def get(self, key, value):
 		"""
-		Searches the current C{Index} for items matching the supplied key/value
-		pair; each pair may return zero or more matching items. The C{value}
-		parameter may also be a C{list} allowing a batch search to be performed
-		matching the specified C{key} with each C{value} in turn. In batch mode
-		a C{list} of C{list}s will be returned, each top-level item
-		corresponding to the C{value} passed into the same position.
+		Search the current index for items matching the supplied key/value
+		pair; each pair may return zero or more matching items. The `value`
+		parameter may also be a list allowing a batch search to be performed
+		matching the specified `key` with each `value` in turn. In batch mode
+		a list of lists will be returned, each top-level item
+		corresponding to the `value` passed into the same position.
 		"""
 		if isinstance(value, list):
 			return [
@@ -1042,6 +912,16 @@ class Index(rest.Resource):
 					value=quote(value, "") if isinstance(value, basestring) else value
 				))
 			]
+
+	def query(self, query):
+		"""
+		Query the current index for items using Lucene (or other) query
+		syntax as available within the underlying implementation.
+		"""
+		return [
+			self.__T(item['self'], http=self._http)
+			for item in self._get("{0}?query={1}".format(self._uri, quote(query, "")))
+		]
 
 
 class TraversalDescription(object):
@@ -1144,8 +1024,8 @@ class TraversalDescription(object):
 
 class Traverser(rest.Resource):
 	"""
-	An engine designed to traverse a U{Neo4j <http://neo4j.org/>} database
-	starting at a specific C{Node}.
+	An engine designed to traverse a `Neo4j <http://neo4j.org/>`_ database
+	starting at a specific node.
 	"""
 
 	class Order:
@@ -1161,7 +1041,7 @@ class Traverser(rest.Resource):
 	@property
 	def paths(self):
 		"""
-		Returns all C{Path}s from this traversal.
+		Return all paths from this traversal.
 		"""
 		return [
 			Path([
@@ -1180,7 +1060,7 @@ class Traverser(rest.Resource):
 	@property
 	def nodes(self):
 		"""
-		Returns all C{Node}s from this traversal.
+		Return all nodes from this traversal.
 		"""
 		return [
 			Node(node['self'])
@@ -1193,7 +1073,7 @@ class Traverser(rest.Resource):
 	@property
 	def relationships(self):
 		"""
-		Returns all C{Relationship}s from this traversal.
+		Return all relationships from this traversal.
 		"""
 		return [
 			Relationship(relationship['self'])
@@ -1208,11 +1088,11 @@ class PersistentObject(object):
 	"""
 	A base object from which persistent objects may inherit. Unlike some
 	persistence models, object attributes are updated "live" and therefore do
-	not require an explicit I{save} or I{load}. Simple-typed attributes are
-	mapped to C{Node} properties where possible and attributes pointing to
-	other C{PersistentObject} instances are mapped to C{Relationship}s. No
-	direct mapping to C{Relationship} properties exists within this framework.
-	All attributes beginning with an underscore character are I{not} mapped to
+	not require an explicit *save* or *load*. Simple-typed attributes are
+	mapped to node properties where possible and attributes pointing to
+	other :py:class:`PersistentObject` instances are mapped to relationships. No
+	direct mapping to relationship properties exists within this framework.
+	All attributes beginning with an underscore character are *not* mapped to
 	the database and will be stored within the object instance as usual.
 	
 		>>> from py2neo import neo4j
@@ -1231,20 +1111,16 @@ class PersistentObject(object):
 
 	__node__ = None
 	"""
-	Property holding the database C{Node} to which this instance is attached.
+	Property holding the database node to which this instance is attached.
 	"""
 
 	def __init__(self, node):
-		"""
-		All subclass constructors should call this constructor and pass a valid
-		C{Node} object to which this instance becomes attached.
-		"""
 		self.__node__ = node
 	
 	def __getattr__(self, name):
 		"""
-		Returns either a C{Node} property value with this name, a C{Node}
-		connected by a C{Relationship} of type C{name} or C{None} if neither
+		Return either a node property value with this name, a node
+		connected by a relationship of type `name` or :py:const:`None` if neither
 		exist.
 		"""
 		if name.startswith("_"):
@@ -1265,9 +1141,9 @@ class PersistentObject(object):
 
 	def __setattr__(self, name, value):
 		"""
-		Creates or updates a C{Node} property with this name or a
-		C{Relationship} of type C{name} if C{value} is another
-		C{PersistentObject} instance.
+		Create or update a node property with this name or a
+		relationship of type `name` if `value` is another
+		:py:class:`PersistentObject` instance.
 		"""
 		if name.startswith("_"):
 			object.__setattr__(self, name, value)
@@ -1288,9 +1164,9 @@ class PersistentObject(object):
 
 	def __delattr__(self, name):
 		"""
-		Removes the C{Node} property with this name and any C{Relationship}s of
-		type C{name}. This is also equivalent to setting a C{Node} property
-		to C{None}.
+		Removes the node property with this name and any relationships of
+		type `name`. This is also equivalent to setting a node property
+		to :py:const:`None`.
 		"""
 		if name.startswith("_"):
 			object.__delattr__(self, name)

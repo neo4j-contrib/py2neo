@@ -132,7 +132,7 @@ class IndexTestCase(unittest.TestCase):
 		index1 = self.gdb.get_node_index("index1")
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "foo", "bar")
-		s = index1.search("foo", "bar")
+		s = index1.get("foo", "bar")
 		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
@@ -141,7 +141,7 @@ class IndexTestCase(unittest.TestCase):
 		index1 = self.gdb.get_node_index("index1")
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "foo bar", "bar foo")
-		s = index1.search("foo bar", "bar foo")
+		s = index1.get("foo bar", "bar foo")
 		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
@@ -150,10 +150,24 @@ class IndexTestCase(unittest.TestCase):
 		index1 = self.gdb.get_node_index("index1")
 		ref_node = self.gdb.get_reference_node()
 		index1.add(ref_node, "@!%#", "!\"£$%^&*()")
-		s = index1.search("@!%#", "!\"£$%^&*()")
+		s = index1.get("@!%#", "!\"£$%^&*()")
 		print("Found index entries: {0}".format(s))
 		self.assertEqual(s[0]._uri, ref_node._uri)
 		index1.remove(s[0])
+
+	def test_node_index_query(self):
+		index1 = self.gdb.get_node_index("index1")
+		node1 = self.gdb.create_node()
+		node2 = self.gdb.create_node()
+		node3 = self.gdb.create_node()
+		index1.add(node1, "colour", "red")
+		index1.add(node2, "colour", "green")
+		index1.add(node3, "colour", "blue")
+		s = index1.query("colour:*r*")
+		print("Found index entries: {0}".format(s))
+		self.assertTrue(node1 in s)
+		self.assertTrue(node2 in s)
+		self.assertFalse(node3 in s)
 
 
 if __name__ == '__main__':

@@ -6,10 +6,5 @@ dist
 .pydevproject
 .settings
 .idea
-bin/fsnotifier*
-bin/idea.properties
-bin/inspect*.sh
-bin/libyjpagent*.so
-bin/log.xml
-bin/PyCharm*
-bin/pycharm*
+bin
+doc/_build
