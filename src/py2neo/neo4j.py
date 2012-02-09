@@ -553,7 +553,7 @@ class Node(IndexableResource):
 		if prune:
 			td = td.prune_evaluator(prune[0], prune[1])
 		if filter:
-			td = td.filter(filter[0], filter[1])
+			td = td.return_filter(filter[0], filter[1])
 		if max_depth:
 			td = td.max_depth(max_depth)
 		return td.traverse(self)
