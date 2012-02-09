@@ -551,7 +551,7 @@ class Node(IndexableResource):
 				else:
 					td = td.relationships(*relationship)
 		if prune:
-			td = td.prune(prune[0], prune[1])
+			td = td.prune_evaluator(prune[0], prune[1])
 		if filter:
 			td = td.filter(filter[0], filter[1])
 		if max_depth:
