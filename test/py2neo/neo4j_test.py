@@ -149,8 +149,12 @@ class IndexTestCase(unittest.TestCase):
 		index1.add(ref_node, "foo", "bar")
 		s = index1.get("foo", "bar")
 		print("Found index entries: {0}".format(s))
-		self.assertEqual(s[0]._uri, ref_node._uri)
-		index1.remove(s[0])
+		found = -1
+		for i in range(len(s)):
+			if s[i]._uri == ref_node._uri:
+				found = i
+		self.assertTrue(found >= 0)
+		index1.remove(s[found])
 
 	def test_add_node_to_index_with_spaces(self):
 		index1 = self.gdb.get_node_index("index1")

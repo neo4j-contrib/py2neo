@@ -28,7 +28,17 @@ try:
 	from . import rest
 except ValueError:
 	import rest
-from urllib import quote
+try:
+	from urllib.parse import quote
+except:
+	from urllib import quote
+
+
+def _quote(string, safe='/'):
+	try:
+		return quote(string, safe)
+	except:
+		return string
 
 
 class Direction(object):
@@ -835,15 +845,15 @@ class Index(rest.Resource):
 			# legacy method
 			if self._batch is None:
 				self._post(self._template_uri.format(
-					key=quote(key, "") if isinstance(key, basestring) else key,
-					value=quote(value, "") if isinstance(value, basestring) else value
+					key=_quote(key, ""),
+					value=_quote(value, "")
 				), entity._uri)
 			else:
 				self._batch.append({
 					"method": "POST",
 					"to": self._relative_template_uri.format(
-						key=quote(key, "") if isinstance(key, basestring) else key,
-						value=quote(value, "") if isinstance(value, basestring) else value
+						key=_quote(key, ""),
+						value=_quote(value, "")
 					),
 					"body": entity._uri,
 					"id": len(self._batch)
@@ -891,8 +901,8 @@ class Index(rest.Resource):
 					{
 						'method': 'GET',
 						'to': self._relative_template_uri.format(
-							key=quote(key, "") if isinstance(key, basestring) else key,
-							value=quote(value[i], "") if isinstance(value[i], basestring) else value[i]
+							key=_quote(key, ""),
+							value=_quote(value[i], "")
 						),
 						'id': i
 					}
@@ -908,8 +918,8 @@ class Index(rest.Resource):
 					http=self._http
 				)
 				for item in self._get(self._template_uri.format(
-					key=quote(key, "") if isinstance(key, basestring) else key,
-					value=quote(value, "") if isinstance(value, basestring) else value
+					key=_quote(key, ""),
+					value=_quote(value, "")
 				))
 			]
 
@@ -920,7 +930,7 @@ class Index(rest.Resource):
 		"""
 		return [
 			self.__T(item['self'], http=self._http)
-			for item in self._get("{0}?query={1}".format(self._uri, quote(query, "")))
+			for item in self._get("{0}?query={1}".format(self._uri, _quote(query, "")))
 		]
 
 
