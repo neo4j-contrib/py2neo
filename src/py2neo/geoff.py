@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Geoff file handling (see `<http://py2neo.org/geoff/>`_).
+Geoff file handling (see `<http://geoff.nigelsmall.net/>`_).
 """
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -33,6 +33,79 @@ try:
 except ValueError:
 	import neo4j
 import sys
+import string
+
+
+class Subgraph(object):
+
+	class Rule(object):
+
+		def __init__(self, rule, *args, **kwargs):
+			if hasattr(rule, "descriptor") and hasattr(rule, "data"):
+				self.descriptor = rule.descriptor
+				self.data = rule.data
+			else:
+				self.descriptor, sp, data = rule.partition(" ")
+				self.data = {}
+				try:
+					for key, value in json.loads(data).items():
+						self.data[key] = value
+				except ValueError:
+					pass
+			try:
+				for data in args:
+					for key, value in data.items():
+						self.data[key] = value
+			except ValueError:
+				pass
+			try:
+				for key, value in kwargs.items():
+					self.data[key] = value
+			except ValueError:
+				pass
+
+		def __repr__(self):
+			if self.data:
+				return "Subgraph.Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
+			else:
+				return "Subgraph.Rule({0})".format(repr(self.descriptor))
+
+		def __str__(self):
+			if self.data:
+				return "{0} {1}".format(self.descriptor, json.dumps(self.data))
+			else:
+				return self.descriptor
+
+		def __json__(self):
+			return json.dumps(str(self))
+
+	def __init__(self, *rules):
+		self.rules = []
+		self.add(*rules)
+
+	def __str__(self):
+		return "\n".join([str(rule) for rule in self.rules])
+
+	def __json__(self):
+		return json.dumps([str(rule) for rule in self.rules])
+
+	def add(self, *rules):
+		for rule in rules:
+			if rule and not rule.startswith("#"):
+				self.rules.append(Subgraph.Rule(rule))
+
+	def load(self, file):
+		f = file.read()
+		try:
+			f = json.loads(f)
+		except ValueError:
+			f = f.splitlines()
+		for rule in f:
+			self.add(rule)
+
+	def loads(self, str):
+		file = StringIO(str)
+		self.load(file)
 
 
 class Dumper(object):
@@ -76,16 +149,44 @@ class Loader(object):
 
 	def __init__(self, graph_db):
 		self.graph_db = graph_db
+		try:
+			self._insert_uri = self.graph_db._extension_uri('GeoffPlugin', 'insert')
+			self._delete_uri = self.graph_db._extension_uri('GeoffPlugin', 'delete')
+			self._merge_uri  = self.graph_db._extension_uri('GeoffPlugin', 'merge')
+		except NotImplementedError:
+			self._insert_uri = None
+			self._delete_uri = None
+			self._merge_uri = None
 
-	def load(self, file, **params):
-		if self.graph_db._geoff_uri is None:
-			raise NotImplementedError
-		else:
-			response = graph_db._post(
-				graph_db._geoff_uri,
-				{'rules': file.read(), 'params': dict(params)}
+	def insert(self, subgraph, **params):
+		if self._insert_uri:
+			response = self.graph_db._post(
+				self._insert_uri,
+				{'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
 			)
 			return response['params']
+		else:
+			raise NotImplementedError
+
+	def merge(self, subgraph, **params):
+		if self._merge_uri:
+			response = self.graph_db._post(
+				self._merge_uri,
+				{'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
+			)
+			return response['params']
+		else:
+			raise NotImplementedError
+
+	def delete(self, subgraph, **params):
+		if self._delete_uri:
+			response = self.graph_db._post(
+				self._delete_uri,
+				{'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
+			)
+			return response['params']
+		else:
+			raise NotImplementedError
 
 try:
 	from cStringIO import StringIO
@@ -100,69 +201,85 @@ def dumps(paths):
 	Dumper(file).dump(paths)
 	return file.getvalue()
 
-def load(file, graph_db, **params):
-	return Loader(graph_db).load(file, **params)
+def insert(file, graph_db, **params):
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).insert(subgraph, **params)
 
-def loads(str, graph_db, **params):
+def inserts(str, graph_db, **params):
 	file = StringIO(str)
-	return Loader(graph_db).load(file, **params)
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).insert(subgraph, **params)
+
+def merge(file, graph_db, **params):
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).merge(subgraph, **params)
+
+def merges(str, graph_db, **params):
+	file = StringIO(str)
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).merge(subgraph, **params)
+
+def delete(file, graph_db, **params):
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).delete(subgraph, **params)
+
+def deletes(str, graph_db, **params):
+	file = StringIO(str)
+	subgraph = Subgraph()
+	subgraph.load(file)
+	return Loader(graph_db).delete(subgraph, **params)
 
 
 if __name__ == "__main__":
-	parser = argparse.ArgumentParser(description="""\
-Import graph data from a GEOFF file into a Neo4j database. A source file may be
-specified with the -f option and a destination database with the -u option. The
-remainder of the arguments will be passed as hooks into the load routine. Each
-hook may be a node of relationship and can optionally be named. Unnamed hooks
-will be automatically named by their relative zero-based position. For example,
-"foo=/node/123" designates the node with ID 123, named as "foo", whereas
-"/relationship/456" designates the relationship with ID 456 and will be named
-"0" if it is in the first position, "1" for the second, and so on.
-EXAMPLE: geoff.py -f foo.geoff bar=/node/123 baz=/relationship/456
-""")
-	parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the destination Neo4j database server")
-	parser.add_argument("-f", metavar="SOURCE_FILE", help="the GEOFF file to load")
-	parser.add_argument("uri", metavar="name=uri", nargs="*", help="named relative entity URI (e.g. foo=/node/123)")
-	args = parser.parse_args()
-	# Attempt to open source file
-	try:
-		if args.f:
-			source_file = open(args.f, "r")
-		else:
-			source_file = sys.stdin
-	except Exception:
-		sys.stderr.write("Failed to open GEOFF file\n")
-		sys.exit(1)
-	# Attempt to open destination database
-	try:
-		graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
-	except Exception:
-		sys.stderr.write("Failed to open destination database\n")
-		sys.exit(1)
-	# Parse load parameters
+
+	def print_usage(cmd):
+		sys.stdout.write("""\
+Usage: {0} insert|merge|delete DATABASE [SUBGRAPH] [PARAM]...
+
+{0} is a command line tool for loading subgraphs into a Neo4j graph database
+using either insert, merge or delete methods.
+
+DATABASE - Neo4j graph database URI (e.g. http://localhost:7474/db/data/)
+SUBGRAPH - File containing subgraph data (delimited text or JSON)
+PARAM    - Input parameter such as A=/node/123 or AB=/relationship/45
+""".format(cmd))
+		sys.exit()
+
+	cmd = None
+	method = None
+	database = None
+	subgraph = None
 	params = {}
-	for i in range(len(args.uri)):
-		key, eq, value = args.uri[i].rpartition("=")
-		key = key or str(i)
-		if graph_db._geoff_uri is None:
-			if value.startswith("/node/"):
-				params[key] = neo4j.Node(graph_db._base_uri + value)
-			elif value.startswith("/relationship/"):
-				params[key] = neo4j.Relationship(graph_db._base_uri + value)
-			else:
-				sys.stderr.write("Bad relative entity URI: {0}\n".format(value))
-				sys.exit(1)
-		else:
+	for arg in sys.argv:
+		if "=" in arg:
+			key, eq, value = arg.partition("=")
 			params[key] = value
-	# Perform the load
-	try:
-		if graph_db._geoff_uri is None:
-			load(source_file, graph_db, **params)
+		elif cmd is None:
+			cmd = arg.rpartition("/")[2]
+		elif method is None:
+			method = arg
+		elif database is None:
+			database = neo4j.GraphDatabaseService(arg)
+		elif subgraph is None:
+			subgraph = open(arg, "r")
 		else:
-			params = load(source_file, graph_db, **params)
-			column_width_1 = max([len(key) for key in params.keys()]) + 1
-			for key, value in load(source_file, graph_db, **params).items():
-				print(key.ljust(column_width_1) + value)
-	except Exception as e:
-		sys.stderr.write(str(e) + "\n")
-		sys.exit(1)
+			print_usage(cmd)
+	database = database or neo4j.GraphDatabaseService()
+	subgraph = subgraph or sys.stdin
+	if method == "insert":
+		params =insert(subgraph, database, **params)
+	elif method == "merge":
+		params = merge(subgraph, database, **params)
+	elif method == "delete":
+		params = delete(subgraph, database, **params)
+	else:
+		print_usage(cmd)
+	names = sorted(params.keys())
+	width = max([len(name) for name in names]) + 1
+	for name in names:
+		print(string.ljust(name, width) + params[name])
