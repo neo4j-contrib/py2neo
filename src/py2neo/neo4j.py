@@ -34,6 +34,19 @@ except:
 	from urllib import quote
 
 
+def _flatten(*args, **kwargs):
+	data = {}
+	for arg in args:
+		try:
+			data.update({
+			(arg.__class__.__name__ + "." + key, value)
+			for key, value in arg.__dict__.items()
+			})
+		except AttributeError:
+			data.update(arg)
+	data.update(kwargs)
+	return data
+
 def _quote(string, safe='/'):
 	try:
 		return quote(string, safe)
@@ -114,16 +127,16 @@ class GraphDatabaseService(rest.Resource):
 				return n
 		self._neo4j_version = tuple([numberise(v) for v in self._neo4j_version.split(".")])
 
-	def create_node(self, properties=None):
+	def create_node(self, *args, **kwargs):
 		"""
 		Create a new node, optionally with properties.
 		"""
 		return Node(
-			self._post(self._lookup('node'), properties),
+			self._post(self._lookup('node'), _flatten(*args, **kwargs)),
 			http=self._http
 		)
 
-	def create_nodes(self, *properties):
+	def create_nodes(self, *args):
 		"""
 		Create a number of new nodes for all supplied properties as part of a single
 		batch.
@@ -134,10 +147,10 @@ class GraphDatabaseService(rest.Resource):
 				{
 					'method': 'POST',
 					'to': "".join(self._lookup('node').partition("/node")[1:3]),
-					'body': properties[i],
+					'body': _flatten(args[i]),
 					'id': i
 				}
-				for i in range(len(properties))
+				for i in range(len(args))
 			])
 		]
 
@@ -169,7 +182,7 @@ class GraphDatabaseService(rest.Resource):
 					'body': {
 						'to': descriptors[i]['end_node']._uri,
 						'type': descriptors[i]['type'],
-						'data': descriptors[i]['data'] if 'data' in descriptors[i] else None
+						'data': _flatten(descriptors[i]['data']) if 'data' in descriptors[i] else None
 					},
 					'id': i
 				}
@@ -414,11 +427,11 @@ class IndexableResource(rest.Resource):
 			# otherwise, grab a fresh copy using the properties resource
 			return self._get(self._lookup('properties'))
 
-	def set_properties(self, properties):
+	def set_properties(self, *args, **kwargs):
 		"""
 		Sets all properties for this resource to the supplied values.
 		"""
-		self._put(self._lookup('properties'), properties)
+		self._put(self._lookup('properties'), _flatten(*args, **kwargs))
 
 	def remove_properties(self):
 		"""
@@ -470,7 +483,7 @@ class Node(IndexableResource):
 		"""
 		return "({0})".format(self._id)
 
-	def create_relationship_to(self, other_node, type, data=None):
+	def create_relationship_to(self, other_node, type, *args, **kwargs):
 		"""
 		Create a new relationship of type `type` from the node
 		represented by the current instance to the node represented by
@@ -479,7 +492,7 @@ class Node(IndexableResource):
 		return Relationship(self._post(self._lookup('create_relationship'), {
 			'to': other_node._uri,
 			'type': type,
-			'data': data
+			'data': _flatten(*args, **kwargs)
 		}), http=self._http)
 
 	def get_relationships(self, direction=Direction.BOTH, *types):

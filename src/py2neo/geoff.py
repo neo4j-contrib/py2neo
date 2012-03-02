@@ -52,17 +52,15 @@ class Subgraph(object):
 						self.data[key] = value
 				except ValueError:
 					pass
-			try:
-				for data in args:
-					for key, value in data.items():
-						self.data[key] = value
-			except ValueError:
-				pass
-			try:
-				for key, value in kwargs.items():
-					self.data[key] = value
-			except ValueError:
-				pass
+			for arg in args:
+				try:
+					self.data.update({
+					(arg.__class__.__name__ + "." + key, value)
+					for key, value in arg.__dict__.items()
+					})
+				except AttributeError:
+					self.data.update(arg)
+			self.data.update(kwargs)
 
 		def __repr__(self):
 			if self.data:
