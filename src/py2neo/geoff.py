@@ -34,56 +34,56 @@ except ValueError:
 	import neo4j
 import sys
 import string
-import uuid
-
-
-class Rule(object):
-
-	def __init__(self, rule, *args, **kwargs):
-		if hasattr(rule, "descriptor") and hasattr(rule, "data"):
-			self.descriptor = rule.descriptor
-			self.data = rule.data
-		else:
-			self.descriptor, sp, data = rule.partition(" ")
-			self.data = {}
-			try:
-				for key, value in json.loads(data).items():
-					self.data[key] = value
-			except ValueError:
-				pass
-		for arg in args:
-			try:
-				self.data.update({
-				(arg.__class__.__name__ + "." + key, value)
-				for key, value in arg.__dict__.items()
-				})
-			except AttributeError:
-				self.data.update(arg)
-		self.data.update(kwargs)
-
-	def __repr__(self):
-		if self.data:
-			return "Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
-		else:
-			return "Rule({0})".format(repr(self.descriptor))
-
-	def __str__(self):
-		if self.data:
-			return "{0} {1}".format(self.descriptor, json.dumps(self.data))
-		else:
-			return self.descriptor
-
-	def __json__(self):
-		return json.dumps(str(self))
 
 
 class Subgraph(object):
 
-	def __init__(self, file=None, *rules):
+	class Rule(object):
+
+		def __init__(self, rule, *args, **kwargs):
+			if hasattr(rule, "descriptor") and hasattr(rule, "data"):
+				self.descriptor = rule.descriptor
+				self.data = rule.data
+			else:
+				self.descriptor, sp, data = rule.partition(" ")
+				self.data = {}
+				try:
+					for key, value in json.loads(data).items():
+						self.data[key] = value
+				except ValueError:
+					pass
+			for arg in args:
+				try:
+					self.data.update({
+					(arg.__class__.__name__ + "." + key, value)
+					for key, value in arg.__dict__.items()
+					})
+				except AttributeError:
+					self.data.update(arg)
+			self.data.update(kwargs)
+
+		def __repr__(self):
+			if self.data:
+				return "Subgraph.Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
+			else:
+				return "Subgraph.Rule({0})".format(repr(self.descriptor))
+
+		def __str__(self):
+			if self.data:
+				return "{0} {1}".format(self.descriptor, json.dumps(self.data))
+			else:
+				return self.descriptor
+
+		def __json__(self):
+			return json.dumps(str(self))
+
+	def __init__(self, *rules):
 		self.rules = []
-		self.add(*rules)
-		if file:
-			self.load(file)
+		for rule in rules:
+			try:
+				self.load(rule)
+			except AttributeError:
+				self.add(rule)
 
 	def __repr__(self):
 		return "Subgraph(" + ", ".join(["'" + str(rule) + "'" for rule in self.rules]) + ")"
@@ -100,16 +100,17 @@ class Subgraph(object):
 				if hasattr(rule, "startswith") and rule.startswith("#"):
 					pass
 				else:
-					self.rules.append(Rule(rule))
+					self.rules.append(Subgraph.Rule(rule))
 
-	def load(self, file):
-		f = file.read()
-		try:
-			f = json.loads(f)
-		except ValueError:
-			f = f.splitlines()
-		for rule in f:
-			self.add(rule)
+	def load(self, *files):
+		for file in files:
+			f = file.read()
+			try:
+				f = json.loads(f)
+			except ValueError:
+				f = f.splitlines()
+			for rule in f:
+				self.add(rule)
 
 	def loads(self, str):
 		file = StringIO(str)
@@ -210,37 +211,25 @@ def dumps(paths):
 	return file.getvalue()
 
 def insert(file, graph_db, **params):
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).insert(subgraph, **params)
+	return Loader(graph_db).insert(Subgraph(file), **params)
 
 def inserts(str, graph_db, **params):
 	file = StringIO(str)
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).insert(subgraph, **params)
+	return Loader(graph_db).insert(Subgraph(file), **params)
 
 def merge(file, graph_db, **params):
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).merge(subgraph, **params)
+	return Loader(graph_db).merge(Subgraph(file), **params)
 
 def merges(str, graph_db, **params):
 	file = StringIO(str)
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).merge(subgraph, **params)
+	return Loader(graph_db).merge(Subgraph(file), **params)
 
 def delete(file, graph_db, **params):
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).delete(subgraph, **params)
+	return Loader(graph_db).delete(Subgraph(file), **params)
 
 def deletes(str, graph_db, **params):
 	file = StringIO(str)
-	subgraph = Subgraph()
-	subgraph.load(file)
-	return Loader(graph_db).delete(subgraph, **params)
+	return Loader(graph_db).delete(Subgraph(file), **params)
 
 
 if __name__ == "__main__":
