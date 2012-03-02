@@ -34,52 +34,59 @@ except ValueError:
 	import neo4j
 import sys
 import string
+import uuid
+
+
+class Rule(object):
+
+	def __init__(self, rule, *args, **kwargs):
+		if hasattr(rule, "descriptor") and hasattr(rule, "data"):
+			self.descriptor = rule.descriptor
+			self.data = rule.data
+		else:
+			self.descriptor, sp, data = rule.partition(" ")
+			self.data = {}
+			try:
+				for key, value in json.loads(data).items():
+					self.data[key] = value
+			except ValueError:
+				pass
+		for arg in args:
+			try:
+				self.data.update({
+				(arg.__class__.__name__ + "." + key, value)
+				for key, value in arg.__dict__.items()
+				})
+			except AttributeError:
+				self.data.update(arg)
+		self.data.update(kwargs)
+
+	def __repr__(self):
+		if self.data:
+			return "Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
+		else:
+			return "Rule({0})".format(repr(self.descriptor))
+
+	def __str__(self):
+		if self.data:
+			return "{0} {1}".format(self.descriptor, json.dumps(self.data))
+		else:
+			return self.descriptor
+
+	def __json__(self):
+		return json.dumps(str(self))
 
 
 class Subgraph(object):
 
-	class Rule(object):
-
-		def __init__(self, rule, *args, **kwargs):
-			if hasattr(rule, "descriptor") and hasattr(rule, "data"):
-				self.descriptor = rule.descriptor
-				self.data = rule.data
-			else:
-				self.descriptor, sp, data = rule.partition(" ")
-				self.data = {}
-				try:
-					for key, value in json.loads(data).items():
-						self.data[key] = value
-				except ValueError:
-					pass
-			for arg in args:
-				try:
-					self.data.update({
-					(arg.__class__.__name__ + "." + key, value)
-					for key, value in arg.__dict__.items()
-					})
-				except AttributeError:
-					self.data.update(arg)
-			self.data.update(kwargs)
-
-		def __repr__(self):
-			if self.data:
-				return "Subgraph.Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
-			else:
-				return "Subgraph.Rule({0})".format(repr(self.descriptor))
-
-		def __str__(self):
-			if self.data:
-				return "{0} {1}".format(self.descriptor, json.dumps(self.data))
-			else:
-				return self.descriptor
-
-		def __json__(self):
-			return json.dumps(str(self))
-
-	def __init__(self, *rules):
+	def __init__(self, file=None, *rules):
 		self.rules = []
 		self.add(*rules)
+		if file:
+			self.load(file)
+
+	def __repr__(self):
+		return "Subgraph(" + ", ".join(["'" + str(rule) + "'" for rule in self.rules]) + ")"
 
 	def __str__(self):
 		return "\n".join([str(rule) for rule in self.rules])
@@ -89,8 +96,11 @@ class Subgraph(object):
 
 	def add(self, *rules):
 		for rule in rules:
-			if rule and not rule.startswith("#"):
-				self.rules.append(Subgraph.Rule(rule))
+			if rule:
+				if hasattr(rule, "startswith") and rule.startswith("#"):
+					pass
+				else:
+					self.rules.append(Rule(rule))
 
 	def load(self, file):
 		f = file.read()
