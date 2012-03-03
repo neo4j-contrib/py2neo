@@ -23,7 +23,6 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-import argparse
 try:
 	import json
 except ImportError:
@@ -32,6 +31,7 @@ try:
 	from . import neo4j
 except ValueError:
 	import neo4j
+import re
 import sys
 import string
 
@@ -45,7 +45,9 @@ class Subgraph(object):
 				self.descriptor = rule.descriptor
 				self.data = rule.data
 			else:
-				self.descriptor, sp, data = rule.partition(" ")
+				bits = re.split("\s+", rule, 1)
+				self.descriptor = bits[0]
+				data = bits[1] if len(bits) > 1 else ""
 				self.data = {}
 				try:
 					for key, value in json.loads(data).items():
