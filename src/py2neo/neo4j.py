@@ -38,10 +38,11 @@ def _flatten(*args, **kwargs):
 	data = {}
 	for arg in args:
 		try:
-			data.update({
-			(arg.__class__.__name__ + "." + key, value)
-			for key, value in arg.__dict__.items()
-			})
+			for key,value in arg.__dict__.items():
+				key = '%s.%s' % (arg.__class__.__name__, key)
+				data.update({
+					key: value
+				})
 		except AttributeError:
 			data.update(arg)
 	data.update(kwargs)
