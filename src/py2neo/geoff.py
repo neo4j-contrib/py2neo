@@ -36,9 +36,9 @@ import sys
 import string
 
 try:
-	from cStringIO import StringIO
+	from io import StringIO
 except ImportError:
-	from StringIO import StringIO
+	from cStringIO import StringIO
 
 
 class Subgraph(object):
@@ -204,10 +204,6 @@ class Loader(object):
 		else:
 			raise NotImplementedError
 
-try:
-	from cStringIO import StringIO
-except ImportError:
-	from StringIO import StringIO
 
 def dump(paths, file):
 	Dumper(file).dump(paths)
