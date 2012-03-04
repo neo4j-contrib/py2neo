@@ -102,6 +102,9 @@ class Resource(object):
 			self.__response, self.__content = self._http.request(
 				uri, method, data, headers
 			)
+			# for py3k compatibility...
+			if not isinstance(self.__content, str):
+				self.__content = self.__content.decode()
 		except:
 			raise IOError("Cannot send {0} request".format(method))
 		if self.__response.status == 200:

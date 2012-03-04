@@ -35,6 +35,11 @@ import re
 import sys
 import string
 
+try:
+	from cStringIO import StringIO
+except ImportError:
+	from StringIO import StringIO
+
 
 class Subgraph(object):
 
