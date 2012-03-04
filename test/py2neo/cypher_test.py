@@ -10,9 +10,9 @@ import unittest
 from py2neo import cypher, neo4j
 
 try:
-	from cStringIO import StringIO
+	from io import StringIO
 except ImportError:
-	from StringIO import StringIO
+	from cStringIO import StringIO
 
 
 class CypherTestCase(unittest.TestCase):
