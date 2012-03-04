@@ -125,18 +125,21 @@ class GraphDatabaseService(rest.Resource):
 				return int(n)
 			except ValueError:
 				return n
-		self._neo4j_version = tuple([numberise(v) for v in self._neo4j_version.split(".")])
+		self._neo4j_version = tuple([
+			numberise(v)
+			for v in self._neo4j_version.replace("-", ".").split(".")
+		])
 
-	def create_node(self, *args, **kwargs):
+	def create_node(self, *properties, **kwproperties):
 		"""
 		Create a new node, optionally with properties.
 		"""
 		return Node(
-			self._post(self._lookup('node'), _flatten(*args, **kwargs)),
+			self._post(self._lookup('node'), _flatten(*properties, **kwproperties)),
 			http=self._http
 		)
 
-	def create_nodes(self, *args):
+	def create_nodes(self, *properties):
 		"""
 		Create a number of new nodes for all supplied properties as part of a single
 		batch.
@@ -147,10 +150,10 @@ class GraphDatabaseService(rest.Resource):
 				{
 					'method': 'POST',
 					'to': "".join(self._lookup('node').partition("/node")[1:3]),
-					'body': _flatten(args[i]),
+					'body': _flatten(properties[i]),
 					'id': i
 				}
-				for i in range(len(args))
+				for i in range(len(properties))
 			])
 		]
 
@@ -422,10 +425,10 @@ class IndexableResource(rest.Resource):
 		if self._index is None:
 			# if the index isn't already loaded, just read data from
 			# there so as to save an HTTP call
-			return self._lookup('data')
+			return self._lookup('data') or {}
 		else:
 			# otherwise, grab a fresh copy using the properties resource
-			return self._get(self._lookup('properties'))
+			return self._get(self._lookup('properties')) or {}
 
 	def set_properties(self, *args, **kwargs):
 		"""
@@ -569,10 +572,16 @@ class Node(IndexableResource):
 			td = td.uniqueness(uniqueness)
 		if relationships:
 			for relationship in (relationships or []):
-				if isinstance(relationship, (str,unicode)):
+				if isinstance(relationship, str):
 					td = td.relationships(relationship)
 				else:
-					td = td.relationships(*relationship)
+					try:
+						if isinstance(relationship, unicode):
+							td = td.relationships(relationship)
+						else:
+							td = td.relationships(*relationship)
+					except NameError:
+						td = td.relationships(*relationship)
 		if prune:
 			td = td.prune_evaluator(prune[0], prune[1])
 		if filter:

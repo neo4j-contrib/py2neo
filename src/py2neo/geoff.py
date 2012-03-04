@@ -18,6 +18,9 @@
 Geoff file handling (see `<http://geoff.nigelsmall.net/>`_).
 """
 
+import sys
+PY3K = sys.version_info[0] >= 3
+
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -32,7 +35,6 @@ try:
 except ValueError:
 	import neo4j
 import re
-import sys
 import string
 
 try:
@@ -59,15 +61,7 @@ class Subgraph(object):
 						self.data[key] = value
 				except ValueError:
 					pass
-			for arg in args:
-				try:
-					self.data.update({
-					(arg.__class__.__name__ + "." + key, value)
-					for key, value in arg.__dict__.items()
-					})
-				except AttributeError:
-					self.data.update(arg)
-			self.data.update(kwargs)
+			self.data.update(neo4j._flatten(*args, **kwargs))
 
 		def __repr__(self):
 			if self.data:
@@ -120,7 +114,10 @@ class Subgraph(object):
 				self.add(rule)
 
 	def loads(self, str):
-		file = StringIO(str)
+		try:
+			file = StringIO(str)
+		except TypeError:
+			file = StringIO(unicode(str))
 		self.load(file)
 
 
@@ -272,7 +269,7 @@ PARAM    - Input parameter such as A=/node/123 or AB=/relationship/45
 	database = database or neo4j.GraphDatabaseService()
 	subgraph = subgraph or sys.stdin
 	if method == "insert":
-		params =insert(subgraph, database, **params)
+		params = insert(subgraph, database, **params)
 	elif method == "merge":
 		params = merge(subgraph, database, **params)
 	elif method == "delete":

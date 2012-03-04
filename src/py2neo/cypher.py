@@ -32,7 +32,6 @@ try:
 	from . import neo4j
 except ValueError:
 	import neo4j
-import string
 import sys
 
 
@@ -77,16 +76,16 @@ def execute(query, graph_db):
 def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):
 	out = out or sys.stdout
 	data, columns = execute(query, graph_db)
-	out.write(string.join([
+	out.write(field_delimiter.join([
 		json.dumps(column)
 		for column in columns
-	], field_delimiter))
+	]))
 	out.write("\n")
 	for row in data:
-		out.write(string.join([
+		out.write(field_delimiter.join([
 			_stringify(value, quoted=True)
 			for value in row
-		], field_delimiter))
+		]))
 		out.write("\n")
 
 def execute_and_output_as_json(query, graph_db, out=None):
@@ -99,10 +98,10 @@ def execute_and_output_as_json(query, graph_db, out=None):
 		row_count += 1
 		if row_count > 1:
 			out.write(",\n")
-		out.write("\t{" + string.join([
+		out.write("\t{" + ", ".join([
 			columns[i] + ": " + _stringify(row[i], quoted=True)
 			for i in range(len(row))
-		], ", ") + "}")
+		]) + "}")
 	out.write("\n]\n")
 
 def execute_and_output_as_geoff(query, graph_db, out=None):
@@ -151,27 +150,27 @@ def execute_and_output_as_text(query, graph_db, out=None):
 			max(column_widths[i], None if row[i] is None else len(_stringify(row[i], with_properties=True)))
 			for i in range(len(row))
 		]
-	out.write("+-" + string.join([
+	out.write("+-" + "---".join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+\n")
-	out.write("| " + string.join([
+	]) + "-+\n")
+	out.write("| " + " | ".join([
 		columns[i].ljust(column_widths[i])
 		for i in range(len(columns))
-	], " | ") + " |\n")
-	out.write("+-" + string.join([
+	]) + " |\n")
+	out.write("+-" + "---".join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+\n")
+	]) + "-+\n")
 	for row in data:
-		out.write("| " + string.join([
+		out.write("| " + " | ".join([
 			_stringify(row[i], with_properties=True).ljust(column_widths[i])
 			for i in range(len(row))
-		], " | ") + " |\n")
-	out.write("+-" + string.join([
+		]) + " |\n")
+	out.write("+-" + "---".join([
 		"".ljust(column_widths[i], "-")
 		for i in range(len(columns))
-	], "---") + "-+\n")
+	]) + "-+\n")
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")

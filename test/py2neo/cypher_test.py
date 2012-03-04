@@ -1,6 +1,9 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+PY3K = sys.version_info[0] >= 3
+
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -9,9 +12,9 @@ import unittest
 
 from py2neo import cypher, neo4j
 
-try:
+if PY3K:
 	from io import StringIO
-except ImportError:
+else:
 	from cStringIO import StringIO
 
 
