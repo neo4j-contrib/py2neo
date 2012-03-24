@@ -45,39 +45,6 @@ except ImportError:
 
 class Subgraph(object):
 
-	class Rule(object):
-
-		def __init__(self, rule, *args, **kwargs):
-			if hasattr(rule, "descriptor") and hasattr(rule, "data"):
-				self.descriptor = rule.descriptor
-				self.data = rule.data
-			else:
-				bits = re.split("\s+", rule, 1)
-				self.descriptor = bits[0]
-				data = bits[1] if len(bits) > 1 else ""
-				self.data = {}
-				try:
-					for key, value in json.loads(data).items():
-						self.data[key] = value
-				except ValueError:
-					pass
-			self.data.update(neo4j._flatten(*args, **kwargs))
-
-		def __repr__(self):
-			if self.data:
-				return "Subgraph.Rule({0}, {1})".format(repr(self.descriptor), repr(self.data))
-			else:
-				return "Subgraph.Rule({0})".format(repr(self.descriptor))
-
-		def __str__(self):
-			if self.data:
-				return "{0} {1}".format(self.descriptor, json.dumps(self.data))
-			else:
-				return self.descriptor
-
-		def __json__(self):
-			return json.dumps(str(self))
-
 	def __init__(self, *rules):
 		self.rules = []
 		for rule in rules:
@@ -90,18 +57,30 @@ class Subgraph(object):
 		return "Subgraph(" + ", ".join(["'" + str(rule) + "'" for rule in self.rules]) + ")"
 
 	def __str__(self):
-		return "\n".join([str(rule) for rule in self.rules])
+		return "\n".join([
+			"{0} {1}".format(rule[0], json.dumps(rule[1]))
+			for rule in self.rules
+		])
 
 	def __json__(self):
-		return json.dumps([str(rule) for rule in self.rules])
+		return json.dumps([
+			"{0} {1}".format(rule[0], json.dumps(rule[1]))
+			for rule in self.rules
+		])
 
 	def add(self, *rules):
 		for rule in rules:
-			if rule:
-				if hasattr(rule, "startswith") and rule.startswith("#"):
+			if rule and not rule.startswith("#"):
+				try:
+					rule = re.split("\s+", rule, 1)
+					if len(rule) > 1:
+						rule[1] = json.loads(rule[1])
+				except TypeError:
 					pass
-				else:
-					self.rules.append(Subgraph.Rule(rule))
+				self.rules.append((
+					str(rule[0]),
+					dict(rule[1]) if len(rule) > 1 else {}
+				))
 
 	def load(self, *files):
 		for file in files:

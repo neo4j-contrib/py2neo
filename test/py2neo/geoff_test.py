@@ -25,15 +25,6 @@ class SubgraphTest(unittest.TestCase):
 		self.gdb = get_gdb()
 		print("Neo4j Version: {0}".format(repr(self.gdb._neo4j_version)))
 
-	def test_rule_creation(self):
-		rule = Subgraph.Rule("(A)", {"name": "Alice"})
-		self.assertEqual("(A) {\"name\": \"Alice\"}", str(rule))
-		self.assertEqual("Subgraph.Rule('(A)', {'name': 'Alice'})", repr(rule))
-		self.assertEqual("(A)", rule.descriptor)
-		self.assertEqual(1, len(rule.data))
-		self.assertTrue("name" in rule.data)
-		self.assertEqual("Alice", rule.data["name"])
-
 	def test_subgraph_creation(self):
 		subgraph = Subgraph(
 			'(A) {"name": "Alice"}',
@@ -41,7 +32,7 @@ class SubgraphTest(unittest.TestCase):
 			'(A)-[:KNOWS]->(B)'
 		)
 		self.assertEqual(
-			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B)"]',
+			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B) {}"]',
 			subgraph.__json__()
 		)
 
@@ -53,7 +44,7 @@ class SubgraphTest(unittest.TestCase):
 (A)-[:KNOWS]->(B)
 """)
 		self.assertEqual(
-			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B)"]',
+			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B) {}"]',
 			subgraph.__json__()
 		)
 
@@ -61,7 +52,7 @@ class SubgraphTest(unittest.TestCase):
 		subgraph = Subgraph()
 		subgraph.loads('["(A) {\\\"name\\\": \\\"Alice\\\"}","(B) {\\\"name\\\": \\\"Bob\\\"}","(A)-[:KNOWS]->(B)"]')
 		self.assertEqual(
-			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B)"]',
+			'["(A) {\\\"name\\\": \\\"Alice\\\"}", "(B) {\\\"name\\\": \\\"Bob\\\"}", "(A)-[:KNOWS]->(B) {}"]',
 			subgraph.__json__()
 		)
 
