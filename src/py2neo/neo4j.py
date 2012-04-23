@@ -30,8 +30,12 @@ except ValueError:
     import rest
 try:
     from urllib.parse import quote
-except:
+except ImportError:
     from urllib import quote
+try:
+    from . import cypher
+except ValueError:
+    import cypher
 
 
 def _flatten(*args, **kwargs):
@@ -520,7 +524,7 @@ class Node(IndexableResource):
         relationships = self.get_relationships(direction, type)
         return relationships[0] if len(relationships) > 0 else None
 
-    def has_relationship(self, direction, *types):
+    def has_relationship(self, direction=Direction.BOTH, *types):
         """
         Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
@@ -528,7 +532,7 @@ class Node(IndexableResource):
         relationships = self.get_relationships(direction, *types)
         return True if len(relationships) > 0 else False
 
-    def get_related_nodes(self, direction, *types):
+    def get_related_nodes(self, direction=Direction.BOTH, *types):
         """
         Return all nodes related to the current node by a
         relationship in a given `direction` of a specific `type`
@@ -554,6 +558,32 @@ class Node(IndexableResource):
         """
         nodes = self.get_related_nodes(direction, type)
         return nodes[0] if len(nodes) > 0 else None
+
+    def is_related_to(self, other, direction=Direction.BOTH, type=None):
+        """
+        Return :py:const:`True` if the current node is related to the other
+        node using the relationship criteria supplied, :py:const:`False`
+        otherwise.
+        """
+        if not isinstance(other, Node):
+            raise ValueError
+        if direction == Direction.BOTH:
+            query = "start a=node({}),b=node({}) where a-{}-b return count(*)"
+        elif direction == Direction.OUTGOING:
+            query = "start a=node({}),b=node({}) where a-{}->b return count(*)"
+        elif direction == Direction.INCOMING:
+            query = "start a=node({}),b=node({}) where a<-{}-b return count(*)"
+        else:
+            raise ValueError
+        if type:
+            type = "[:" + type + "]"
+        else:
+            type = ""
+        type = type or ""
+        query = query.format(self.get_id(), other.get_id(), type)
+        graphdb = GraphDatabaseService(self._uri.partition("/node/")[0] + "/")
+        rows, columns = cypher.execute(query, graphdb)
+        return bool(rows)
 
     def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
         """

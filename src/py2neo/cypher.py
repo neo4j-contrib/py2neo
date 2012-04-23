@@ -30,7 +30,7 @@ except ImportError:
     import simplejson as json
 try:
     from . import neo4j
-except ValueError:
+except ImportError:
     import neo4j
 import sys
 
@@ -81,7 +81,7 @@ def execute(query, graph_db):
         raise NotImplementedError("Cypher functionality not available")
     response = graph_db._post(graph_db._cypher_uri, {'query': query})
     data, columns = response['data'], response['columns']
-    rows = [[_resolve(value) for value in row] for row in data]
+    rows = [map(_resolve, row) for row in data]
     return rows, columns
 
 def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):

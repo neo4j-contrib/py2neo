@@ -151,6 +151,82 @@ class SingleNodeTestCase(unittest.TestCase):
         self.node.delete()
 
 
+class NodeTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.gdb = get_gdb()
+        self.fred, self.wilma = self.gdb.create_nodes({"name": "Fred"}, {"name": "Wilma"})
+        self.fred_and_wilma = self.fred.create_relationship_to(self.wilma, "LOVES")
+
+    def test_get_all_relationships(self):
+        rels = self.fred.get_relationships()
+        self.assertEqual(1, len(rels))
+        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
+        self.assertEqual("LOVES", rels[0].get_type())
+        self.assertEqual(self.fred, rels[0].get_start_node())
+        self.assertEqual(self.wilma, rels[0].get_end_node())
+
+    def test_get_all_outgoing_relationships(self):
+        rels = self.fred.get_relationships(neo4j.Direction.OUTGOING)
+        self.assertEqual(1, len(rels))
+        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
+        self.assertEqual("LOVES", rels[0].get_type())
+        self.assertEqual(self.fred, rels[0].get_start_node())
+        self.assertEqual(self.wilma, rels[0].get_end_node())
+
+    def test_get_all_incoming_relationships(self):
+        rels = self.wilma.get_relationships(neo4j.Direction.INCOMING)
+        self.assertEqual(1, len(rels))
+        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
+        self.assertEqual("LOVES", rels[0].get_type())
+        self.assertEqual(self.fred, rels[0].get_start_node())
+        self.assertEqual(self.wilma, rels[0].get_end_node())
+
+    def test_get_all_relationships_of_type(self):
+        rels = self.fred.get_relationships(neo4j.Direction.BOTH, "LOVES")
+        self.assertEqual(1, len(rels))
+        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
+        self.assertEqual("LOVES", rels[0].get_type())
+        self.assertEqual(self.fred, rels[0].get_start_node())
+        self.assertEqual(self.wilma, rels[0].get_end_node())
+
+    def test_get_single_relationship(self):
+        rel = self.fred.get_single_relationship(neo4j.Direction.BOTH, "LOVES")
+        self.assertTrue(isinstance(rel, neo4j.Relationship))
+        self.assertEqual("LOVES", rel.get_type())
+        self.assertEqual(self.fred, rel.get_start_node())
+        self.assertEqual(self.wilma, rel.get_end_node())
+
+    def test_get_single_outgoing_relationship(self):
+        rel = self.fred.get_single_relationship(neo4j.Direction.OUTGOING, "LOVES")
+        self.assertTrue(isinstance(rel, neo4j.Relationship))
+        self.assertEqual("LOVES", rel.get_type())
+        self.assertEqual(self.fred, rel.get_start_node())
+        self.assertEqual(self.wilma, rel.get_end_node())
+
+    def test_get_single_incoming_relationship(self):
+        rel = self.wilma.get_single_relationship(neo4j.Direction.INCOMING, "LOVES")
+        self.assertTrue(isinstance(rel, neo4j.Relationship))
+        self.assertEqual("LOVES", rel.get_type())
+        self.assertEqual(self.fred, rel.get_start_node())
+        self.assertEqual(self.wilma, rel.get_end_node())
+
+    def test_explicit_is_related_to(self):
+        self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.BOTH, "LOVES"))
+
+    def test_explicit_is_related_to_outgoing(self):
+        self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.OUTGOING, "LOVES"))
+
+    def test_explicit_is_related_to_incoming(self):
+        self.assertFalse(self.fred.is_related_to(self.wilma, neo4j.Direction.INCOMING, "LOVES"))
+
+    def test_implicit_is_related_to(self):
+        self.assertTrue(self.fred.is_related_to(self.wilma))
+
+    def tearDown(self):
+        self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
+
+
 class MultipleNodeTestCase(unittest.TestCase):
 
     flintstones = [
