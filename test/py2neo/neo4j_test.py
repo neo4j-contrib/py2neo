@@ -184,11 +184,6 @@ class MultipleNodeTestCase(unittest.TestCase):
             }
             for node in self.nodes
         ])
-        self.assertTrue(self.ref_node.is_related_to(
-            self.nodes[0],
-            neo4j.Direction.OUTGOING,
-            "FLINTSTONE"
-        ))
         self.gdb.delete(*rels)
         self.assertEqual(len(self.nodes), len(rels))
         
