@@ -79,6 +79,10 @@ class CypherTestCase(unittest.TestCase):
 +--------+
 """, file.getvalue())
 
+    def test_query_builder(self):
+        q = cypher.Query().start(a="node(0)").return_("a")
+        print cypher.execute(q, self.graph_db)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -35,6 +35,30 @@ except ImportError:
 import sys
 
 
+class Query(object):
+
+    def __init__(self, version=None):
+        self.version = version
+        self._start = {}
+        self._return = []
+
+    def __str__(self):
+        q = []
+        clause = "START " + ",".join([key + "=" + value for key, value in self._start.items()])
+        q.append(clause)
+        clause = "RETURN " + ",".join([value for value in self._return])
+        q.append(clause)
+        return "\n".join(q)
+
+    def start(self, **kwargs):
+        self._start.update(kwargs)
+        return self
+
+    def return_(self, *args):
+        self._return.extend(args)
+        return self
+
+
 def _stringify(value, quoted=False, with_properties=False):
     if isinstance(value, neo4j.Node):
         out = str(value)
@@ -49,7 +73,6 @@ def _stringify(value, quoted=False, with_properties=False):
         if with_properties:
             out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
     else:
-        # property
         if quoted:
             out = json.dumps(value)
         else:
@@ -79,7 +102,7 @@ def execute(query, graph_db):
     """
     if graph_db._cypher_uri is None:
         raise NotImplementedError("Cypher functionality not available")
-    response = graph_db._post(graph_db._cypher_uri, {'query': query})
+    response = graph_db._post(graph_db._cypher_uri, {'query': str(query)})
     data, columns = response['data'], response['columns']
     rows = [map(_resolve, row) for row in data]
     return rows, columns

@@ -34,6 +34,8 @@ except ImportError:
     from urllib import quote
 try:
     from . import cypher
+except ImportError:
+    import cypher
 except ValueError:
     import cypher
 
@@ -92,9 +94,9 @@ class GraphDatabaseService(rest.Resource):
     
     """
 
-    def __init__(self, uri=None, index=None, http=None, user_name=None, password=None):
+    def __init__(self, uri=None, index=None, **kwargs):
         uri = uri or "http://localhost:7474/db/data/"
-        rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
+        rest.Resource.__init__(self, uri, index=index, **kwargs)
         if self._uri.endswith("/"):
             self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
         else:
@@ -129,35 +131,29 @@ class GraphDatabaseService(rest.Resource):
                 return int(n)
             except ValueError:
                 return n
-        self._neo4j_version = tuple([
-            numberise(v)
-            for v in self._neo4j_version.replace("-", ".").split(".")
-        ])
+        self._neo4j_version = tuple(map(numberise, self._neo4j_version.replace("-", ".").split(".")))
 
-    def create_node(self, *properties, **kwproperties):
+    def create_node(self, *props, **kwprops):
         """
         Create a new node, optionally with properties.
         """
-        return Node(
-            self._post(self._lookup('node'), _flatten(*properties, **kwproperties)),
-            http=self._http
-        )
+        return self._spawn(Node, self._post(self._lookup('node'), _flatten(*props, **kwprops)))
 
-    def create_nodes(self, *properties):
+    def create_nodes(self, *props):
         """
         Create a number of new nodes for all supplied properties as part of a single
         batch.
         """
         return [
-            Node(result['location'], index=result['body'], http=self._http)
+            self._spawn(Node, result['location'], index=result['body'])
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'POST',
-                    'to': "".join(self._lookup('node').partition("/node")[1:3]),
-                    'body': _flatten(properties[i]),
+                    'to': "".join(self._lookup('node').rpartition("/node")[1:3]),
+                    'body': _flatten(props[i]),
                     'id': i
                 }
-                for i in range(len(properties))
+                for i in range(len(props))
             ])
         ]
 
@@ -181,11 +177,11 @@ class GraphDatabaseService(rest.Resource):
             ... })
         """
         return [
-            Relationship(result['body']['self'], index=result['body'], http=self._http)
+            self._spawn(Relationship, result['body']['self'], index=result['body'])
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'POST',
-                    'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').partition("/node")[1:3]),
+                    'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').rpartition("/node")[1:3]),
                     'body': {
                         'to': descriptors[i]['end_node']._uri,
                         'type': descriptors[i]['type'],
@@ -231,7 +227,7 @@ class GraphDatabaseService(rest.Resource):
         """
         Get the reference node for the current graph.
         """
-        return Node(self._lookup('reference_node'), http=self._http)
+        return self._spawn(Node, self._lookup('reference_node'))
 
     def get_subreference_node(self, name):
         """
@@ -239,11 +235,11 @@ class GraphDatabaseService(rest.Resource):
         such a node does not exist, one is created.
         """
         ref_node = self.get_reference_node()
-        subref_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
-        if subref_node is None:
-            subref_node = self.create_node()
-            ref_node.create_relationship_to(subref_node, name)
-        return subref_node
+        subreference_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
+        if subreference_node is None:
+            subreference_node = self.create_node()
+            ref_node.create_relationship_to(subreference_node, name)
+        return subreference_node
 
     def get_relationship_types(self):
         """
@@ -256,10 +252,10 @@ class GraphDatabaseService(rest.Resource):
         """
         Create a new node index with the supplied name and configuration.
         """
-        return Index(Node, uri=self._post(self._lookup('node_index'), {
+        return self._spawn(Index, Node, uri=self._post(self._lookup('node_index'), {
             'name': name,
             'config': config or {}
-        }), http=self._http)
+        }))
 
     def get_node_indexes(self):
         """
@@ -268,7 +264,7 @@ class GraphDatabaseService(rest.Resource):
         """
         indexes = self._get(self._lookup('node_index')) or {}
         return dict([
-            (index, Index(Node, template_uri=indexes[index]['template'], http=self._http))
+            (index, self._spawn(Index, Node, template_uri=indexes[index]['template']))
             for index in indexes
         ])
 
@@ -288,10 +284,10 @@ class GraphDatabaseService(rest.Resource):
         Create a new relationship index with the supplied name and
         configuration.
         """
-        return Index(Relationship, uri=self._post(self._lookup('relationship_index'), {
+        return self._spawn(Index, Relationship, uri=self._post(self._lookup('relationship_index'), {
             'name': name,
             'config': config or {}
-        }), http=self._http)
+        }))
 
     def get_relationship_indexes(self):
         """
@@ -300,7 +296,7 @@ class GraphDatabaseService(rest.Resource):
         """
         indexes = self._get(self._lookup('relationship_index')) or {}
         return dict([
-            (index, Index(Relationship, template_uri=indexes[index]['template'], http=self._http))
+            (index, self._spawn(Index, Relationship, template_uri=indexes[index]['template']))
             for index in indexes
         ])
 
@@ -356,7 +352,7 @@ class IndexableResource(rest.Resource):
     functionality.
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
         """
         Creates a representation of an indexable resource (node or
         relationship) identified by URI; optionally accepts further URIs
@@ -367,12 +363,9 @@ class IndexableResource(rest.Resource):
         :param index_entry_uri: the URI of the entry in an index pointing to this resource
         :param index_uri:       the URI of the index containing the above entry
         :param index:           an index of RESTful URIs
-        :param http:            httplib2.Http object to use for requests
-        :param user_name:       the user name to use for authentication
-        :param password:        the password to use for authentication
         
         """
-        rest.Resource.__init__(self, uri, index=index, http=http, user_name=user_name, password=password)
+        rest.Resource.__init__(self, uri, index=index, **kwargs)
         self._index_entry_uri = index_entry_uri
         if self._index_entry_uri is None:
             self._relative_index_entry_uri = None
@@ -392,14 +385,14 @@ class IndexableResource(rest.Resource):
         Determine equality of two resource representations based on both URI
         and index entry URI, if available.
         """
-        return self._uri == other._uri and self._index_entry_uri == other._index_entry_uri
+        return (self._uri, self._index_entry_uri) == (other._uri, other._index_entry_uri)
 
     def __ne__(self, other):
         """
         Determine inequality of two resource representations based on both URI
         and index entry URI, if available.
         """
-        return self._uri != other._uri or self._index_entry_uri != other._index_entry_uri
+        return (self._uri, self._index_entry_uri) != (other._uri, other._index_entry_uri)
 
     def __getitem__(self, key):
         """
@@ -446,11 +439,15 @@ class IndexableResource(rest.Resource):
         """
         self._delete(self._lookup('properties'))
 
-    def get_id(self):
+    @property
+    def id(self):
         """
-        Returns the unique ID of this resource.
+        The unique id for this resource
         """
         return self._id
+
+    def get_id(self):
+        return self.id
 
     def delete(self):
         """
@@ -469,16 +466,12 @@ class Node(IndexableResource):
     :param index_entry_uri: the URI of the entry in an index pointing to this node
     :param index_uri:       the URI of the index containing the above node entry
     :param index:           an index of RESTful URIs
-    :param http:            httplib2.Http object to use for requests
-    :param user_name:       the user name to use for authentication
-    :param password:        the password to use for authentication
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
         IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-                                   index_uri=index_uri, index=index, http=http,
-                                   user_name=user_name, password=password)
-        self._relative_uri = "".join(self._uri.partition("/node")[1:])
+                                   index_uri=index_uri, index=index, **kwargs)
+        self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
 
     def __str__(self):
         """
@@ -496,11 +489,11 @@ class Node(IndexableResource):
         represented by the current instance to the node represented by
         `other_node`.
         """
-        return Relationship(self._post(self._lookup('create_relationship'), {
+        return self._spawn(Relationship, self._post(self._lookup('create_relationship'), {
             'to': other_node._uri,
             'type': type,
             'data': _flatten(*args, **kwargs)
-        }), http=self._http)
+        }))
 
     def get_relationships(self, direction=Direction.BOTH, *types):
         """
@@ -512,7 +505,7 @@ class Node(IndexableResource):
         else:
             uri = self._lookup(direction + '_relationships')
         return [
-            Relationship(rel['self'], http=self._http)
+            self._spawn(Relationship, rel['self'])
             for rel in self._get(uri)
         ]
 
@@ -530,7 +523,7 @@ class Node(IndexableResource):
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships(direction, *types)
-        return True if len(relationships) > 0 else False
+        return len(relationships) > 0
 
     def get_related_nodes(self, direction=Direction.BOTH, *types):
         """
@@ -543,10 +536,7 @@ class Node(IndexableResource):
         else:
             uri = self._lookup(direction + '_relationships')
         return [
-            Node(
-                rel['start'] if rel['end'] == self._uri else rel['end'],
-                http=self._http
-            )
+            self._spawn(Node, rel['start'] if rel['end'] == self._uri else rel['end'])
             for rel in self._get(uri)
         ]
 
@@ -581,7 +571,7 @@ class Node(IndexableResource):
             type = ""
         type = type or ""
         query = query.format(self.get_id(), other.get_id(), type)
-        graphdb = GraphDatabaseService(self._uri.partition("/node/")[0] + "/")
+        graphdb = self._spawn(GraphDatabaseService, self._uri.rpartition("/node")[0] + "/")
         rows, columns = cypher.execute(query, graphdb)
         return bool(rows)
 
@@ -631,18 +621,16 @@ class Relationship(IndexableResource):
     :param index_entry_uri: the URI of the entry in an index pointing to this relationship
     :param index_uri:       the URI of the index containing the above relationship entry
     :param index:           an index of RESTful URIs
-    :param http:            httplib2.Http object to use for requests
-    :param user_name:       the user name to use for authentication
-    :param password:        the password to use for authentication
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, http=None, user_name=None, password=None):
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
         IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-                                   index_uri=index_uri, index=index, http=http,
-                                   user_name=user_name, password=password)
-        self._relative_uri = "".join(self._uri.partition("/relationship")[1:])
+                                   index_uri=index_uri, index=index, **kwargs)
+        self._relative_uri = "".join(self._uri.rpartition("/relationship")[1:])
         self._type = self._lookup('type')
         self._data = self._lookup('data')
+        self._start_node = None
+        self._end_node = None
 
     def __str__(self):
         """
@@ -655,11 +643,15 @@ class Relationship(IndexableResource):
         """
         return "-[{0}:{1}]->".format(self._id, self._type)
 
-    def get_type(self):
+    @property
+    def type(self):
         """
-        Return the type name of this relationship.
+        The type of this relationship
         """
         return self._type
+
+    def get_type(self):
+        return self.type
 
     def is_type(self, type):
         """
@@ -667,38 +659,49 @@ class Relationship(IndexableResource):
         """
         return self._type == type
 
-    def get_nodes(self):
+    @property
+    def nodes(self):
         """
         Return a tuple of the two nodes attached to this relationship.
         """
-        return (
-            Node(self._lookup('start'), http=self._http),
-            Node(self._lookup('end'), http=self._http)
-        )
+        return self.start_node, self.end_node
+
+    def get_nodes(self):
+        return self.nodes
+
+    @property
+    def start_node(self):
+        """
+        The start node of this relationship.
+        """
+        if not self._start_node:
+            self._start_node = self._spawn(Node, self._lookup('start'))
+        return self._start_node
 
     def get_start_node(self):
+        return self.start_node
+
+    @property
+    def end_node(self):
         """
-        Return a node object representing the start node within this
-        relationship.
+        The end node of this relationship.
         """
-        return Node(self._lookup('start'), http=self._http)
+        if not self._end_node:
+            self._end_node = self._spawn(Node, self._lookup('end'))
+        return self._end_node
 
     def get_end_node(self):
-        """
-        Return a node object representing the end node within this
-        relationship.
-        """
-        return Node(self._lookup('end'), http=self._http)
+        return self.end_node
 
     def get_other_node(self, node):
         """
         Return a node object representing the node within this
         relationship which is not the one supplied.
         """
-        return Node(
-            self._lookup('start') if self._lookup('end') == node._uri else self._lookup('end'),
-            http=self._http
-        )
+        if self._lookup('end') == node._uri:
+            return self.get_start_node()
+        else:
+            return self.get_end_node()
 
 
 class Path(object):
