@@ -80,9 +80,6 @@ class GraphDatabaseService(rest.Resource):
 
     :param uri:       the base URI of the database (defaults to <http://localhost:7474/db/data/>)
     :param index:     an index of RESTful URIs
-    :param http:      httplib2.Http object to use for requests
-    :param user_name: the user name to use for authentication
-    :param password:  the password to use for authentication
 
     The following code illustrates how to attach to a database and obtain its
     reference node:

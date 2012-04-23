@@ -22,10 +22,10 @@ Requirements
 
 Py2neo has been built against the following software:
 
-* Neo4j 1.4, 1.5
+* Neo4j 1.4+
 * Python 2.7
 
-Other versions may work but are not guaranteed.
+Other versions may work but are not guaranteed to do so.
 
 
 Installation
@@ -76,7 +76,7 @@ traverser = ref_node.traverse(order="depth_first", max_depth=2)
 
 # Output all the paths from this traversal
 for path in traverser.paths:
-	print path
+    print path
 ```
 
 
