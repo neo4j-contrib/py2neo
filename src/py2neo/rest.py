@@ -23,7 +23,7 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-import httplib2
+from tornado import httpclient
 try:
     import json
 except ImportError:
@@ -38,7 +38,7 @@ class Resource(object):
     :param uri:          the URI identifying this resource
     :param content_type: the content type required for data exchange
     :param index:        a previously obtained resource index for endpoint discovery
-    :param http:         httplib2.Http object to use for requests
+    :param http:         HTTP object to use for requests
     :param user_name:    the user name to use for authentication
     :param password:     the password to use for authentication
     """
@@ -52,7 +52,7 @@ class Resource(object):
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http or httplib2.Http()
+        self._http = http or httpclient.HTTPClient()
         if user_name is not None and password is not None:
             self._http.add_credentials(user_name, password)
         self._index = index
@@ -100,43 +100,39 @@ class Resource(object):
         :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
         :raise ValueError: when supplied data is not appropriate (400)
         :raise KeyError: when URI is not found (404)
-        :raise SystemError: when a conflict occurs (409) or when an unexpected HTTP status is received
+        :raise SystemError: when a conflict occurs (409) or when an unexpected HTTP status code is received
         """
         if data is not None:
             headers = self.__get_request_headers('Accept', 'Content-Type')
         else:
             headers = self.__get_request_headers('Accept')
         try:
-            self.__response, self.__content = self._http.request(
-                uri, method, data, headers
+            self.__response = self._http.fetch(
+                uri, method=method, headers=headers, body=data
             )
             # for py3k compatibility...
-            if not isinstance(self.__content, str):
-                self.__content = self.__content.decode()
+#            if not isinstance(self.__content, str):
+#                self.__content = self.__content.decode()
         except:
             raise IOError("Cannot send {0} request".format(method))
-        if self.__response.status == 200:
-            return json.loads(self.__content)
-        elif self.__response.status == 201:
-            return self.__response['location']
-        elif self.__response.status == 204:
+        if self.__response.code == 200:
+            return json.loads(self.__response.body)
+        elif self.__response.code == 201:
+            return self.__response.headers['location']
+        elif self.__response.code == 204:
             return None
-        elif self.__response.status == 400:
+        elif self.__response.code == 400:
             raise ValueError({
                 "response": self.__response,
-                "content":  self.__content,
                 "uri": uri,
                 "data": data
             })
-        elif self.__response.status == 404:
+        elif self.__response.code == 404:
             raise LookupError(uri)
-        elif self.__response.status == 409:
+        elif self.__response.code == 409:
             raise SystemError(uri)
         else:
-            raise SystemError({
-                "response": self.__response,
-                "content":  self.__content
-            })
+            raise SystemError(self.__response)
 
     def _get(self, uri):
         """
@@ -145,7 +141,7 @@ class Resource(object):
         :param uri: the URI of the resource to GET
         :return: object created from returned content (200) or C{None} (204)
         :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status is received
+        :raise SystemError: when an unexpected HTTP status code is received
         """
         return self._request('GET', uri)
 
@@ -158,7 +154,7 @@ class Resource(object):
         :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
         :raise ValueError: when supplied data is not appropriate (400)
         :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status is received
+        :raise SystemError: when an unexpected HTTP status code is received
         """
         return self._request('POST', uri, json.dumps(data))
 
@@ -171,7 +167,7 @@ class Resource(object):
         :return: C{None} (204)
         :raise ValueError: when supplied data is not appropriate (400)
         :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status is received
+        :raise SystemError: when an unexpected HTTP status code is received
         """
         return self._request('PUT', uri, json.dumps(data))
 
@@ -182,7 +178,7 @@ class Resource(object):
         :param uri: the URI of the resource to PUT
         :return: C{None} (204)
         :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status is received
+        :raise SystemError: when an unexpected HTTP status code is received
         """
         return self._request('DELETE', uri)
 
@@ -196,8 +192,8 @@ class Resource(object):
         """
         if self._index is None:
             self._index = self._get(self._uri)
-            if self.__response and 'content-location' in self.__response:
-                self._uri = self.__response['content-location']
+            if self.__response and 'content-location' in self.__response.headers:
+                self._uri = self.__response.headers['content-location']
         if key in self._index:
             return self._index[key]
         else:
