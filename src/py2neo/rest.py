@@ -23,7 +23,8 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-from tornado import httpclient
+from tornado import httpclient, curl_httpclient
+
 try:
     import json
 except ImportError:
@@ -35,26 +36,24 @@ class Resource(object):
     RESTful web service resource class, designed to work with a well-behaved
     hypermedia web service.
 
-    :param uri:          the URI identifying this resource
-    :param content_type: the content type required for data exchange
-    :param index:        a previously obtained resource index for endpoint discovery
-    :param http:         HTTP object to use for requests
-    :param user_name:    the user name to use for authentication
-    :param password:     the password to use for authentication
+    :param uri:           the URI identifying this resource
+    :param content_type:  the content type required for data exchange
+    :param index:         a previously obtained resource index for endpoint discovery
+    :param http:          HTTP object to use for requests
     """
 
     SUPPORTED_CONTENT_TYPES = ['application/json']
 
-    def __init__(self, uri, content_type='application/json', index=None, http=None, user_name=None, password=None):
+    def __init__(self, uri, content_type='application/json', index=None, http=None, **request_params):
         if content_type not in self.SUPPORTED_CONTENT_TYPES:
             raise NotImplementedError("Content type {0} not supported".format(content_type))
         self._uri = uri
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http or httpclient.HTTPClient()
-        if user_name is not None and password is not None:
-            self._http.add_credentials(user_name, password)
+        self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
+        self._request_params = {"user_agent": "py2neo"}
+        self._request_params.update(request_params)
         self._index = index
 
     def __repr__(self):
@@ -80,6 +79,7 @@ class Resource(object):
         Spawn a new resource, reusing HTTP connection.
         """
         k = {"http": self._http}
+        k.update(self._request_params)
         k.update(kwargs)
         return class_(*args, **k)
     
@@ -90,7 +90,7 @@ class Resource(object):
             if key in ['Accept', 'Content-Type']
         ])
 
-    def _request(self, method, uri, data=None):
+    def _request(self, method, uri, data=None, **request_params):
         """
         Issue an HTTP request.
         
@@ -107,9 +107,14 @@ class Resource(object):
         else:
             headers = self.__get_request_headers('Accept')
         try:
-            self.__response = self._http.fetch(
-                uri, method=method, headers=headers, body=data
-            )
+            params = self._request_params.copy()
+            params.update(request_params)
+            params.update({
+                "method": method,
+                "headers": headers,
+                "body": data
+            })
+            self.__response = self._http.fetch(uri, **params)
             # for py3k compatibility...
 #            if not isinstance(self.__content, str):
 #                self.__content = self.__content.decode()
@@ -134,7 +139,7 @@ class Resource(object):
         else:
             raise SystemError(self.__response)
 
-    def _get(self, uri):
+    def _get(self, uri, streaming_callback=None):
         """
         Issue an HTTP GET request.
         
@@ -143,9 +148,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('GET', uri)
+        return self._request('GET', uri, streaming_callback=streaming_callback)
 
-    def _post(self, uri, data):
+    def _post(self, uri, data, streaming_callback=None):
         """
         Issue an HTTP POST request.
         
@@ -156,9 +161,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('POST', uri, json.dumps(data))
+        return self._request('POST', uri, json.dumps(data), streaming_callback=streaming_callback)
 
-    def _put(self, uri, data):
+    def _put(self, uri, data, streaming_callback=None):
         """
         Issue an HTTP PUT request.
         
@@ -169,9 +174,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('PUT', uri, json.dumps(data))
+        return self._request('PUT', uri, json.dumps(data), streaming_callback=streaming_callback)
 
-    def _delete(self, uri):
+    def _delete(self, uri, streaming_callback=None):
         """
         Issue an HTTP DELETE request.
         
@@ -180,7 +185,7 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('DELETE', uri)
+        return self._request('DELETE', uri, streaming_callback=streaming_callback)
 
     def _lookup(self, key):
         """

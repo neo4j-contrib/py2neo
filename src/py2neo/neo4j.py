@@ -811,29 +811,19 @@ class Index(rest.Resource):
     :param uri:          the URI of the index
     :param template_uri: a template URI for key and value substitution
     :param index:        an index of RESTful URIs
-    :param http:         httplib2.Http object to use for requests
-    :param user_name:    the user name to use for authentication
-    :param password:     the password to use for authentication
     """
 
-    def __init__(self, T, uri=None, template_uri=None, index=None, http=None, user_name=None, password=None):
+    def __init__(self, T, uri=None, template_uri=None, index=None, **kwargs):
         rest.Resource.__init__(
             self,
             uri or template_uri.rpartition("/{key}/{value}")[0],
             index=index,
-            http=http,
-            user_name=user_name,
-            password=password
+            **kwargs
         )
         self.__T = T
         self._base_uri, u0, u1 = self._uri.partition("/index")
         self._relative_uri = u0 + u1
-        self._graph_database_service = GraphDatabaseService(
-            self._base_uri,
-            http=http,
-            user_name=user_name,
-            password=password
-        )
+        self._graph_database_service = self._spawn(GraphDatabaseService, self._base_uri)
         self._template_uri = template_uri or "{0}{1}{{key}}/{{value}}".format(
             uri,
             "" if uri.endswith("/") else "/"
@@ -1095,8 +1085,8 @@ class Traverser(rest.Resource):
         BREADTH_FIRST = 'breadth_first'
         DEPTH_FIRST   = 'depth_first'
 
-    def __init__(self, template_uri=None, traversal_description=None, index=None, http=None, user_name=None, password=None):
-        rest.Resource.__init__(self, None, index=index, http=http, user_name=user_name, password=password)
+    def __init__(self, template_uri=None, traversal_description=None, index=None, **kwargs):
+        rest.Resource.__init__(self, None, index=index, **kwargs)
         self._template_uri = template_uri
         self._traversal_description = traversal_description
 
@@ -1107,10 +1097,10 @@ class Traverser(rest.Resource):
         """
         return [
             Path([
-                Node(uri)
+                self._spawn(Node, uri)
                 for uri in path['nodes']
             ], [
-                Relationship(uri)
+                self._spawn(Relationship, uri)
                 for uri in path['relationships']
             ])
             for path in self._post(
@@ -1125,7 +1115,7 @@ class Traverser(rest.Resource):
         Return all nodes from this traversal.
         """
         return [
-            Node(node['self'])
+            self._spawn(Node, node['self'])
             for node in self._post(
                 self._template_uri.format(returnType='node'),
                 self._traversal_description
@@ -1138,7 +1128,7 @@ class Traverser(rest.Resource):
         Return all relationships from this traversal.
         """
         return [
-            Relationship(relationship['self'])
+            self._spawn(Relationship, relationship['self'])
             for relationship in self._post(
                 self._template_uri.format(returnType='relationship'),
                 self._traversal_description
