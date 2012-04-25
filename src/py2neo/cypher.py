@@ -35,6 +35,9 @@ except ImportError:
 import sys
 
 class Query(object):
+    """
+    Represents a Cypher query which can be executed multiple times.
+    """
 
     def __init__(self, query, graph_db):
         if not graph_db._cypher_uri:
@@ -52,6 +55,12 @@ class Query(object):
             return [map(_resolve, row) for row in rows], Query.Metadata(columns)
 
     class Metadata(object):
+        """
+        Metadata for query results.
+        """
+
+        #: List of column names
+        columns = []
 
         def __init__(self, columns=None):
             self.columns = columns or []
@@ -180,10 +189,10 @@ def _resolve(value):
 def execute(query, graph_db, row_handler=None, metadata_handler=None):
     """
     Execute a Cypher query against a database and return a tuple of rows and
-    metadata. If handlers are supplied, an empty list of rows are returned,
-    each row instead being passed to the row_handler as it becomes available.
-    Each row is returned as a list of values, each value may be either a Node,
-    a Relationship or a property.
+    metadata. If handlers are supplied, an empty list of rows is returned
+    instead, with each row being passed to the row_handler as it becomes
+    available. Each row is passed as a list of values which may be either Nodes,
+    Relationships or properties.
     """
     return Query(query, graph_db).execute(
         row_handler=row_handler, metadata_handler=metadata_handler

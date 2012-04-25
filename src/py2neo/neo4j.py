@@ -426,29 +426,32 @@ class IndexableResource(rest.Resource):
 
     def set_properties(self, *args, **kwargs):
         """
-        Sets all properties for this resource to the supplied values.
+        Set all properties for this resource to the supplied values.
         """
         self._put(self._lookup('properties'), _flatten(*args, **kwargs))
 
     def remove_properties(self):
         """
-        Deletes all properties for this resource.
+        Delete all properties for this resource.
         """
         self._delete(self._lookup('properties'))
 
     @property
     def id(self):
         """
-        The unique id for this resource
+        The unique id for this resource.
         """
         return self._id
 
     def get_id(self):
+        """
+        Return the unique id for this resource.
+        """
         return self.id
 
     def delete(self):
         """
-        Deletes this resource from the database instance.
+        Delete this resource from the database.
         """
         self._delete(self._lookup('self'))
 
@@ -643,11 +646,14 @@ class Relationship(IndexableResource):
     @property
     def type(self):
         """
-        The type of this relationship
+        The type of this relationship.
         """
         return self._type
 
     def get_type(self):
+        """
+        Return the type of this relationship.
+        """
         return self.type
 
     def is_type(self, type):
@@ -659,11 +665,14 @@ class Relationship(IndexableResource):
     @property
     def nodes(self):
         """
-        Return a tuple of the two nodes attached to this relationship.
+        Tuple of the two nodes attached to this relationship.
         """
         return self.start_node, self.end_node
 
     def get_nodes(self):
+        """
+        Return a tuple of the two nodes attached to this relationship.
+        """
         return self.nodes
 
     @property
@@ -676,6 +685,9 @@ class Relationship(IndexableResource):
         return self._start_node
 
     def get_start_node(self):
+        """
+        Return the start node of this relationship.
+        """
         return self.start_node
 
     @property
@@ -688,6 +700,9 @@ class Relationship(IndexableResource):
         return self._end_node
 
     def get_end_node(self):
+        """
+        Return the end node of this relationship.
+        """
         return self.end_node
 
     def get_other_node(self, node):
