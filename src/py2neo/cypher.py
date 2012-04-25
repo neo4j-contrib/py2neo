@@ -45,7 +45,7 @@ class Query(object):
     def execute(self, row_handler=None, metadata_handler=None):
         if row_handler or metadata_handler:
             e = Query._Execution(self.query, self.graph_db, row_handler, metadata_handler)
-            return None, e.metadata
+            return [], e.metadata
         else:
             response = self.graph_db._post(self.graph_db._cypher_uri, {'query': self.query})
             rows, columns = response['data'], response['columns']
@@ -180,9 +180,10 @@ def _resolve(value):
 def execute(query, graph_db, row_handler=None, metadata_handler=None):
     """
     Execute a Cypher query against a database and return a tuple of rows and
-    column names. The rows are returned as a list, each item being an inner
-    list of values. Depending of the query being executed, each value may
-    be either a Node, a Relationship or a property.
+    metadata. If handlers are supplied, an empty list of rows are returned,
+    each row instead being passed to the row_handler as it becomes available.
+    Each row is returned as a list of values, each value may be either a Node,
+    a Relationship or a property.
     """
     return Query(query, graph_db).execute(
         row_handler=row_handler, metadata_handler=metadata_handler
