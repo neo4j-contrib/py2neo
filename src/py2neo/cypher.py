@@ -34,6 +34,114 @@ except ImportError:
     import neo4j
 import sys
 
+class Query(object):
+
+    def __init__(self, query, graph_db):
+        if not graph_db._cypher_uri:
+            raise NotImplementedError("Cypher functionality not available")
+        self.query = str(query)
+        self.graph_db = graph_db
+
+    def execute(self, row_handler=None, metadata_handler=None):
+        if row_handler or metadata_handler:
+            e = Query._Execution(self.query, self.graph_db, row_handler, metadata_handler)
+            return None, e.metadata
+        else:
+            response = self.graph_db._post(self.graph_db._cypher_uri, {'query': self.query})
+            rows, columns = response['data'], response['columns']
+            return [map(_resolve, row) for row in rows], Query.Metadata(columns)
+
+    class Metadata(object):
+
+        def __init__(self, columns=None):
+            self.columns = columns or []
+
+    class _Execution(object):
+
+        def __init__(self, query, graph_db, row_handler=None, metadata_handler=None):
+
+            self._body = []
+            self._decoder = json.JSONDecoder()
+
+            self._section = None
+            self._depth = 0
+            self._last_value = None
+            self._metadata = Query.Metadata()
+            self._row = None
+
+            self.metadata_handler = metadata_handler
+            self.row_handler = row_handler
+            graph_db._post(
+                graph_db._cypher_uri,
+                {'query': str(query)},
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
+                streaming_callback=self.handle_chunk
+            )
+            self.handle_chunk(None, True)
+
+        @property
+        def metadata(self):
+            return self._metadata
+
+        def handle_chunk(self, data, finish=False):
+            if data:
+                self._body.extend(data.splitlines(True))
+            while self._body:
+                line = self._body.pop(0)
+                if line.endswith("\n"):
+                    self.handle_line(line)
+                elif self._body:
+                    self._body[0] = line + self._body[0]
+                elif finish:
+                    self.handle_line(line)
+                else:
+                    self._body.insert(0, line)
+                    return
+
+        def handle_line(self, line):
+            while len(line) > 0:
+                line = line.strip()
+                if line:
+                    if line[0] in ",:[]{}":
+                        self.handle_token(line[0], None)
+                        line = line[1:]
+                    else:
+                        value, pos = self._decoder.raw_decode(line)
+                        self.handle_token(line[:pos], value)
+                        line = line[pos:]
+
+        def handle_token(self, src, value):
+            if src in "]}":
+                self._depth -= 1
+            token = (self._depth, src)
+            if token == (1, ":"):
+                self._section = self._last_value
+            elif token == (1, ","):
+                self._section = None
+            elif token == (0, "}"):
+                self._section = None
+            if self._section == "columns":
+                if token == (1, "]"):
+                    if self.metadata_handler:
+                        self.metadata_handler(self.metadata)
+                if self._depth == 2 and value is not None:
+                    self._metadata.columns.append(value)
+            if self._section == "data":
+                if token == (2, "["):
+                    self._row = ""
+                if token == (1, "]") or token == (2, ","):
+                    if self.row_handler:
+                        self.row_handler(map(_resolve, json.loads(self._row)))
+                    self._row = ""
+                elif self._depth >= 2:
+                    self._row += src
+            if src in "[{":
+                self._depth += 1
+            self._last_value = value
+
 
 def _stringify(value, quoted=False, with_properties=False):
     if isinstance(value, neo4j.Node):
@@ -69,26 +177,23 @@ def _resolve(value):
     else:
         return value
 
-def execute(query, graph_db):
+def execute(query, graph_db, row_handler=None, metadata_handler=None):
     """
     Execute a Cypher query against a database and return a tuple of rows and
     column names. The rows are returned as a list, each item being an inner
     list of values. Depending of the query being executed, each value may
     be either a Node, a Relationship or a property.
     """
-    if graph_db._cypher_uri is None:
-        raise NotImplementedError("Cypher functionality not available")
-    response = graph_db._post(graph_db._cypher_uri, {'query': str(query)})
-    data, columns = response['data'], response['columns']
-    rows = [map(_resolve, row) for row in data]
-    return rows, columns
+    return Query(query, graph_db).execute(
+        row_handler=row_handler, metadata_handler=metadata_handler
+    )
 
 def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):
     out = out or sys.stdout
-    data, columns = execute(query, graph_db)
+    data, metadata = execute(query, graph_db)
     out.write(field_delimiter.join([
         json.dumps(column)
-        for column in columns
+        for column in metadata.columns
     ]))
     out.write("\n")
     for row in data:
@@ -100,8 +205,8 @@ def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=N
 
 def execute_and_output_as_json(query, graph_db, out=None):
     out = out or sys.stdout
-    data, columns = execute(query, graph_db)
-    columns = [json.dumps(column) for column in columns]
+    data, metadata = execute(query, graph_db)
+    columns = [json.dumps(column) for column in metadata.columns]
     row_count = 0
     out.write("[\n")
     for row in data:
@@ -143,7 +248,8 @@ def execute_and_output_as_geoff(query, graph_db, out=None):
 
 def execute_and_output_as_text(query, graph_db, out=None):
     out = out or sys.stdout
-    data, columns = execute(query, graph_db)
+    data, metadata = execute(query, graph_db)
+    columns = metadata.columns
     column_widths = [len(column) for column in columns]
     for row in data:
         column_widths = [

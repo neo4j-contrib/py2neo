@@ -121,7 +121,10 @@ class Resource(object):
         except:
             raise IOError("Cannot send {0} request".format(method))
         if self.__response.code == 200:
-            return json.loads(self.__response.body)
+            if self.__response.body:
+                return json.loads(self.__response.body)
+            else:
+                return None
         elif self.__response.code == 201:
             return self.__response.headers['location']
         elif self.__response.code == 204:
@@ -139,7 +142,7 @@ class Resource(object):
         else:
             raise SystemError(self.__response)
 
-    def _get(self, uri, streaming_callback=None):
+    def _get(self, uri, **kwargs):
         """
         Issue an HTTP GET request.
         
@@ -148,9 +151,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('GET', uri, streaming_callback=streaming_callback)
+        return self._request('GET', uri, **kwargs)
 
-    def _post(self, uri, data, streaming_callback=None):
+    def _post(self, uri, data, **kwargs):
         """
         Issue an HTTP POST request.
         
@@ -161,9 +164,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('POST', uri, json.dumps(data), streaming_callback=streaming_callback)
+        return self._request('POST', uri, json.dumps(data), **kwargs)
 
-    def _put(self, uri, data, streaming_callback=None):
+    def _put(self, uri, data, **kwargs):
         """
         Issue an HTTP PUT request.
         
@@ -174,9 +177,9 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('PUT', uri, json.dumps(data), streaming_callback=streaming_callback)
+        return self._request('PUT', uri, json.dumps(data), **kwargs)
 
-    def _delete(self, uri, streaming_callback=None):
+    def _delete(self, uri, **kwargs):
         """
         Issue an HTTP DELETE request.
         
@@ -185,7 +188,7 @@ class Resource(object):
         :raise KeyError: when URI is not found (404)
         :raise SystemError: when an unexpected HTTP status code is received
         """
-        return self._request('DELETE', uri, streaming_callback=streaming_callback)
+        return self._request('DELETE', uri, **kwargs)
 
     def _lookup(self, key):
         """
