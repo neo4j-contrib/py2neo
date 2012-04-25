@@ -6,7 +6,7 @@ core Neo4j API.
 
 In addition, the project provides support for the Graph Export Object File
 Format (Geoff). For further information on Geoff, visit
-[http://geoff.nigelsmall.net/](http://geoff.nigelsmall.net/).
+http://geoff.nigelsmall.net/.
 
 
 * Website:  http://py2neo.org/
