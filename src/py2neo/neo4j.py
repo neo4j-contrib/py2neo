@@ -129,6 +129,8 @@ class GraphDatabaseService(rest.Resource):
             except ValueError:
                 return n
         self._neo4j_version = tuple(map(numberise, self._neo4j_version.replace("-", ".").split(".")))
+        self._node_indexes = {}
+        self._relationship_indexes = {}
 
     def create_node(self, *props, **kwprops):
         """
@@ -249,10 +251,12 @@ class GraphDatabaseService(rest.Resource):
         """
         Create a new node index with the supplied name and configuration.
         """
-        return self._spawn(Index, Node, uri=self._post(self._lookup('node_index'), {
+        index = self._spawn(Index, Node, uri=self._post(self._lookup('node_index'), {
             'name': name,
             'config': config or {}
         }))
+        self._node_indexes.update({name: index})
+        return index
 
     def get_node_indexes(self):
         """
@@ -260,19 +264,21 @@ class GraphDatabaseService(rest.Resource):
         database instance.
         """
         indexes = self._get(self._lookup('node_index')) or {}
-        return dict([
+        self._node_indexes = dict([
             (index, self._spawn(Index, Node, template_uri=indexes[index]['template']))
             for index in indexes
         ])
+        return self._node_indexes
 
     def get_node_index(self, name):
         """
         Get a specifically named node index from the current graph. If
         such an index does not exist, one is created with default configuration.
         """
-        indexes = self.get_node_indexes()
-        if name in indexes:
-            return indexes[name]
+        if name not in self._node_indexes:
+            self.get_node_indexes()
+        if name in self._node_indexes:
+            return self._node_indexes[name]
         else:
             return self.create_node_index(name)
 
@@ -281,10 +287,12 @@ class GraphDatabaseService(rest.Resource):
         Create a new relationship index with the supplied name and
         configuration.
         """
-        return self._spawn(Index, Relationship, uri=self._post(self._lookup('relationship_index'), {
+        index = self._spawn(Index, Relationship, uri=self._post(self._lookup('relationship_index'), {
             'name': name,
             'config': config or {}
         }))
+        self._relationship_indexes.update({name: index})
+        return index
 
     def get_relationship_indexes(self):
         """
@@ -292,19 +300,21 @@ class GraphDatabaseService(rest.Resource):
         this database instance.
         """
         indexes = self._get(self._lookup('relationship_index')) or {}
-        return dict([
+        self._relationship_indexes = dict([
             (index, self._spawn(Index, Relationship, template_uri=indexes[index]['template']))
             for index in indexes
         ])
+        return self._relationship_indexes
 
     def get_relationship_index(self, name):
         """
         Get a specifically named relationship index from the current graph. If
         such an index does not exist, one is created with default configuration.
         """
-        indexes = self.get_relationship_indexes()
-        if name in indexes:
-            return indexes[name]
+        if name not in self._relationship_indexes:
+            self.get_relationship_indexes()
+        if name in self._relationship_indexes:
+            return self._relationship_indexes[name]
         else:
             return self.create_relationship_index(name)
 
@@ -1176,10 +1186,8 @@ class PersistentObject(object):
     
     """
 
+    #: Property holding the database node to which this instance is attached.
     __node__ = None
-    """
-    Property holding the database node to which this instance is attached.
-    """
 
     def __init__(self, node):
         self.__node__ = node
