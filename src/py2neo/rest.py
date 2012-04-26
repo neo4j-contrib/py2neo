@@ -55,6 +55,7 @@ class Resource(object):
         self._request_params = {"user_agent": "py2neo"}
         self._request_params.update(request_params)
         self._index = index
+        self.__request_count = 0
 
     def __repr__(self):
         """
@@ -115,6 +116,7 @@ class Resource(object):
                 "body": data
             })
             self.__response = self._http.fetch(uri, **params)
+            self.__request_count += 1
             # for py3k compatibility...
 #            if not isinstance(self.__content, str):
 #                self.__content = self.__content.decode()
