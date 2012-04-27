@@ -173,7 +173,8 @@ def _stringify(value, quoted=False, with_properties=False):
     return out
 
 def _resolve(value):
-    if isinstance(value, dict):
+    if isinstance(value, dict) and "self" in value:
+        # is a neo4j resolvable entity
         uri = value["self"]
         if "type" in value:
             rel = neo4j.Relationship(uri)
@@ -184,6 +185,7 @@ def _resolve(value):
             node._index = value
             return node
     else:
+        # is a plain value
         return value
 
 def execute(query, graph_db, row_handler=None, metadata_handler=None):
