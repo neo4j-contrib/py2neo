@@ -45,12 +45,12 @@ class Query(object):
         self.query = str(query)
         self.graph_db = graph_db
 
-    def execute(self, row_handler=None, metadata_handler=None):
+    def execute(self, row_handler=None, metadata_handler=None, **kwargs):
         if row_handler or metadata_handler:
             e = Query._Execution(self.query, self.graph_db, row_handler, metadata_handler)
             return [], e.metadata
         else:
-            response = self.graph_db._post(self.graph_db._cypher_uri, {'query': self.query})
+            response = self.graph_db._post(self.graph_db._cypher_uri, {'query': self.query}, **kwargs)
             rows, columns = response['data'], response['columns']
             return [map(_resolve, row) for row in rows], Query.Metadata(columns)
 
@@ -188,7 +188,7 @@ def _resolve(value):
         # is a plain value
         return value
 
-def execute(query, graph_db, row_handler=None, metadata_handler=None):
+def execute(query, graph_db, row_handler=None, metadata_handler=None, **kwargs):
     """
     Execute a Cypher query against a database and return a tuple of rows and
     metadata. If handlers are supplied, an empty list of rows is returned
@@ -197,7 +197,7 @@ def execute(query, graph_db, row_handler=None, metadata_handler=None):
     Relationships or properties.
     """
     return Query(query, graph_db).execute(
-        row_handler=row_handler, metadata_handler=metadata_handler
+        row_handler=row_handler, metadata_handler=metadata_handler, **kwargs
     )
 
 def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):
