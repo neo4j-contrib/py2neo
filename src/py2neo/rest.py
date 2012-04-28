@@ -107,21 +107,18 @@ class Resource(object):
             headers = self.__get_request_headers('Accept', 'Content-Type')
         else:
             headers = self.__get_request_headers('Accept')
-        try:
-            params = self._request_params.copy()
-            params.update(request_params)
-            params.update({
-                "method": method,
-                "headers": headers,
-                "body": data
-            })
-            self.__response = self._http.fetch(uri, **params)
-            self.__request_count += 1
-            # for py3k compatibility...
+        params = self._request_params.copy()
+        params.update(request_params)
+        params.update({
+            "method": method,
+            "headers": headers,
+            "body": data
+        })
+        self.__response = self._http.fetch(uri, **params)
+        self.__request_count += 1
+        # for py3k compatibility...
 #            if not isinstance(self.__content, str):
 #                self.__content = self.__content.decode()
-        except:
-            raise IOError("Cannot send {0} request".format(method))
         if self.__response.code == 200:
             if self.__response.body:
                 return json.loads(self.__response.body)
