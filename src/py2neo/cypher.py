@@ -195,6 +195,11 @@ def execute(query, graph_db, row_handler=None, metadata_handler=None, **kwargs):
     instead, with each row being passed to the row_handler as it becomes
     available. Each row is passed as a list of values which may be either Nodes,
     Relationships or properties.
+
+    Extra parameters may be supplied which are forwarded to the underlying
+    HTTP request. Long-running queries may benefit from the request_timeout
+    parameter to prevent timeout errors.
+
     """
     return Query(query, graph_db).execute(
         row_handler=row_handler, metadata_handler=metadata_handler, **kwargs
