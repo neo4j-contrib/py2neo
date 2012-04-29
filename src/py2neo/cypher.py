@@ -39,18 +39,22 @@ class Query(object):
     Represents a Cypher query which can be executed multiple times.
     """
 
-    def __init__(self, query, graph_db):
+    def __init__(self, graph_db, query):
         if not graph_db._cypher_uri:
             raise NotImplementedError("Cypher functionality not available")
-        self.query = str(query)
         self.graph_db = graph_db
+        self.query = query
 
-    def execute(self, row_handler=None, metadata_handler=None, **kwargs):
+    def execute(self, params=None, row_handler=None, metadata_handler=None, **kwargs):
         if row_handler or metadata_handler:
-            e = Query._Execution(self.query, self.graph_db, row_handler, metadata_handler)
+            e = Query._Execution(self.graph_db, self.query, params, row_handler, metadata_handler)
             return [], e.metadata
         else:
-            response = self.graph_db._post(self.graph_db._cypher_uri, {'query': self.query}, **kwargs)
+            if params:
+                payload = {"query": str(self.query), "params": dict(params)}
+            else:
+                payload = {"query": str(self.query)}
+            response = self.graph_db._post(self.graph_db._cypher_uri, payload, **kwargs)
             rows, columns = response['data'], response['columns']
             return [map(_resolve, row) for row in rows], Query.Metadata(columns)
 
@@ -67,7 +71,7 @@ class Query(object):
 
     class _Execution(object):
 
-        def __init__(self, query, graph_db, row_handler=None, metadata_handler=None):
+        def __init__(self, graph_db, query, params=None, row_handler=None, metadata_handler=None):
 
             self._body = []
             self._decoder = json.JSONDecoder()
@@ -77,19 +81,30 @@ class Query(object):
             self._last_value = None
             self._metadata = Query.Metadata()
             self._row = None
+            self._error = None
 
-            self.metadata_handler = metadata_handler
-            self.row_handler = row_handler
-            graph_db._post(
-                graph_db._cypher_uri,
-                {'query': str(query)},
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                },
-                streaming_callback=self.handle_chunk
-            )
-            self.handle_chunk(None, True)
+            try:
+                if params:
+                    payload = {"query": str(query), "params": dict(params)}
+                else:
+                    payload = {"query": str(query)}
+                self.metadata_handler = metadata_handler
+                self.row_handler = row_handler
+                graph_db._post(
+                    graph_db._cypher_uri,
+                    payload,
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    },
+                    streaming_callback=self.handle_chunk
+                )
+                self.handle_chunk(None, True)
+            except Exception as ex:
+                if self._error:
+                    raise self._error
+                else:
+                    raise ex
 
         @property
         def metadata(self):
@@ -135,7 +150,11 @@ class Query(object):
             if self._section == "columns":
                 if token == (1, "]"):
                     if self.metadata_handler:
-                        self.metadata_handler(self.metadata)
+                        try:
+                            self.metadata_handler(self.metadata)
+                        except Exception as ex:
+                            self._error = ex
+                            raise ex
                 if self._depth == 2 and value is not None:
                     self._metadata.columns.append(value)
             if self._section == "data":
@@ -143,7 +162,11 @@ class Query(object):
                     self._row = ""
                 if token == (1, "]") or token == (2, ","):
                     if self.row_handler:
-                        self.row_handler(map(_resolve, json.loads(self._row)))
+                        try:
+                            self.row_handler(map(_resolve, json.loads(self._row)))
+                        except Exception as ex:
+                            self._error = ex
+                            raise ex
                     self._row = ""
                 elif self._depth >= 2:
                     self._row += src
@@ -188,7 +211,7 @@ def _resolve(value):
         # is a plain value
         return value
 
-def execute(query, graph_db, row_handler=None, metadata_handler=None, **kwargs):
+def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, **kwargs):
     """
     Execute a Cypher query against a database and return a tuple of rows and
     metadata. If handlers are supplied, an empty list of rows is returned
@@ -196,18 +219,28 @@ def execute(query, graph_db, row_handler=None, metadata_handler=None, **kwargs):
     available. Each row is passed as a list of values which may be either Nodes,
     Relationships or properties.
 
-    Extra parameters may be supplied which are forwarded to the underlying
-    HTTP request. Long-running queries may benefit from the request_timeout
-    parameter to prevent timeout errors.
+    :param graph_db: the graph database against which to execute this query
+    :param query: the Cypher query to execute
+    :param params: parameters to apply to the query provided
+    :param row_handler: a handler function for each row returned
+    :param metadata_handler: a handler function for returned metadata
+    :param kwargs: extra parameters to forward to the underlying HTTP request;
+        long-running queries may benefit from the request_timeout parameter in
+        order to avoid timeout errors
 
     """
-    return Query(query, graph_db).execute(
-        row_handler=row_handler, metadata_handler=metadata_handler, **kwargs
+    #: allow first two arguments to be in either order, for backward
+    #: compatibility
+    if isinstance(query, neo4j.GraphDatabaseService):
+        query, graph_db = graph_db, query
+    return Query(graph_db, query).execute(
+        params, row_handler=row_handler,
+        metadata_handler=metadata_handler, **kwargs
     )
 
-def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=None):
+def execute_and_output_as_delimited(graph_db, query, field_delimiter="\t", out=None):
     out = out or sys.stdout
-    data, metadata = execute(query, graph_db)
+    data, metadata = execute(graph_db, query)
     out.write(field_delimiter.join([
         json.dumps(column)
         for column in metadata.columns
@@ -220,9 +253,9 @@ def execute_and_output_as_delimited(query, graph_db, field_delimiter="\t", out=N
         ]))
         out.write("\n")
 
-def execute_and_output_as_json(query, graph_db, out=None):
+def execute_and_output_as_json(graph_db, query, out=None):
     out = out or sys.stdout
-    data, metadata = execute(query, graph_db)
+    data, metadata = execute(graph_db, query)
     columns = [json.dumps(column) for column in metadata.columns]
     row_count = 0
     out.write("[\n")
@@ -236,7 +269,7 @@ def execute_and_output_as_json(query, graph_db, out=None):
         ]) + "}")
     out.write("\n]\n")
 
-def execute_and_output_as_geoff(query, graph_db, out=None):
+def execute_and_output_as_geoff(graph_db, query, out=None):
     out = out or sys.stdout
     nodes = {}
     relationships = {}
@@ -248,7 +281,7 @@ def execute_and_output_as_geoff(query, graph_db, out=None):
         else:
             # property - not supported in GEOFF format, so ignore
             pass
-    data, columns = execute(query, graph_db)
+    data, columns = execute(graph_db, query)
     for row in data:
         for i in range(len(row)):
             update_descriptors(row[i])
@@ -263,9 +296,9 @@ def execute_and_output_as_geoff(query, graph_db, out=None):
             json.dumps(value)
         ))
 
-def execute_and_output_as_text(query, graph_db, out=None):
+def execute_and_output_as_text(graph_db, query, out=None):
     out = out or sys.stdout
-    data, metadata = execute(query, graph_db)
+    data, metadata = execute(graph_db, query)
     columns = metadata.columns
     column_widths = [len(column) for column in columns]
     for row in data:
@@ -307,13 +340,13 @@ if __name__ == "__main__":
     try:
         graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
         if args.g:
-            execute_and_output_as_geoff(args.query, graph_db)
+            execute_and_output_as_geoff(graph_db, args.query)
         elif args.j:
-            execute_and_output_as_json(args.query, graph_db)
+            execute_and_output_as_json(graph_db, args.query)
         elif args.t:
-            execute_and_output_as_text(args.query, graph_db)
+            execute_and_output_as_text(graph_db, args.query)
         else:
-            execute_and_output_as_delimited(args.query, graph_db)
+            execute_and_output_as_delimited(graph_db, args.query)
     except SystemError as err:
         content = err.args[0]['content']
         if 'exception' in content and 'stacktrace' in content:

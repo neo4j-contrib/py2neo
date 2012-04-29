@@ -76,7 +76,7 @@ def print_row(row):
     print(a["name"] + " knows " + b["name"])
 
 # ...and execute the query
-cypher.execute(query, graph_db, row_handler=print_row)
+cypher.execute(graph_db, query, row_handler=print_row)
 }}}
 
 
