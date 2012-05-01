@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Cypher utility module
+Cypher Query Language
 """
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -23,7 +23,6 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-import argparse
 try:
     import json
 except ImportError:
@@ -32,7 +31,6 @@ try:
     from . import neo4j
 except ImportError:
     import neo4j
-import sys
 
 class Query(object):
     """
@@ -45,18 +43,27 @@ class Query(object):
         self.graph_db = graph_db
         self.query = query
 
-    def execute(self, params=None, row_handler=None, metadata_handler=None, **kwargs):
+    def execute(self, params=None, row_handler=None, metadata_handler=None, error_handler=None, **kwargs):
         if row_handler or metadata_handler:
-            e = Query._Execution(self.graph_db, self.query, params, row_handler, metadata_handler)
+            e = Query._Execution(self.graph_db, self.query, params, row_handler, metadata_handler, error_handler)
             return [], e.metadata
         else:
             if params:
                 payload = {"query": str(self.query), "params": dict(params)}
             else:
                 payload = {"query": str(self.query)}
-            response = self.graph_db._post(self.graph_db._cypher_uri, payload, **kwargs)
-            rows, columns = response['data'], response['columns']
-            return [map(_resolve, row) for row in rows], Query.Metadata(columns)
+            try:
+                response = self.graph_db._post(self.graph_db._cypher_uri, payload, **kwargs)
+                rows, columns = response['data'], response['columns']
+                return [map(_resolve, row) for row in rows], Query.Metadata(columns)
+            except ValueError as err:
+                if error_handler:
+                    try:
+                        error_handler(json.loads(err.args[0].body)["message"])
+                        return [], None
+                    except Exception as ex:
+                        raise ex
+
 
     class Metadata(object):
         """
@@ -71,7 +78,7 @@ class Query(object):
 
     class _Execution(object):
 
-        def __init__(self, graph_db, query, params=None, row_handler=None, metadata_handler=None):
+        def __init__(self, graph_db, query, params=None, row_handler=None, metadata_handler=None, error_handler=None):
 
             self._body = []
             self._decoder = json.JSONDecoder()
@@ -81,15 +88,17 @@ class Query(object):
             self._last_value = None
             self._metadata = Query.Metadata()
             self._row = None
-            self._error = None
+            self._handler_error = None
+            self._cypher_error = {}
 
             try:
                 if params:
                     payload = {"query": str(query), "params": dict(params)}
                 else:
                     payload = {"query": str(query)}
-                self.metadata_handler = metadata_handler
                 self.row_handler = row_handler
+                self.metadata_handler = metadata_handler
+                self.error_handler = error_handler
                 graph_db._post(
                     graph_db._cypher_uri,
                     payload,
@@ -101,9 +110,9 @@ class Query(object):
                 )
                 self.handle_chunk(None, True)
             except Exception as ex:
-                if self._error:
-                    raise self._error
-                else:
+                if self._handler_error:
+                    raise self._handler_error
+                elif not self.error_handler:
                     raise ex
 
         @property
@@ -153,7 +162,7 @@ class Query(object):
                         try:
                             self.metadata_handler(self.metadata)
                         except Exception as ex:
-                            self._error = ex
+                            self._handler_error = ex
                             raise ex
                 if self._depth == 2 and value is not None:
                     self._metadata.columns.append(value)
@@ -165,35 +174,24 @@ class Query(object):
                         try:
                             self.row_handler(map(_resolve, json.loads(self._row)))
                         except Exception as ex:
-                            self._error = ex
+                            self._handler_error = ex
                             raise ex
                     self._row = ""
                 elif self._depth >= 2:
                     self._row += src
+            if self._section == "message":
+                if self._depth == 1 and value:
+                    self._cypher_error["message"] = value
+                    if self.error_handler:
+                        try:
+                            self.error_handler(self._cypher_error["message"])
+                        except Exception as ex:
+                            self._handler_error = ex
+                            raise ex
             if src in "[{":
                 self._depth += 1
             self._last_value = value
 
-
-def _stringify(value, quoted=False, with_properties=False):
-    if isinstance(value, neo4j.Node):
-        out = str(value)
-        if quoted:
-            out = '"' + out + '"'
-        if with_properties:
-            out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
-    elif isinstance(value, neo4j.Relationship):
-        out = str(value.get_start_node()) + str(value) + str(value.get_end_node())
-        if quoted:
-            out = '"' + out + '"'
-        if with_properties:
-            out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
-    else:
-        if quoted:
-            out = json.dumps(value)
-        else:
-            out = str(value)
-    return out
 
 def _resolve(value):
     if isinstance(value, dict) and "self" in value:
@@ -237,123 +235,3 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
         params, row_handler=row_handler,
         metadata_handler=metadata_handler, **kwargs
     )
-
-def execute_and_output_as_delimited(graph_db, query, field_delimiter="\t", out=None):
-    out = out or sys.stdout
-    data, metadata = execute(graph_db, query)
-    out.write(field_delimiter.join([
-        json.dumps(column)
-        for column in metadata.columns
-    ]))
-    out.write("\n")
-    for row in data:
-        out.write(field_delimiter.join([
-            _stringify(value, quoted=True)
-            for value in row
-        ]))
-        out.write("\n")
-
-def execute_and_output_as_json(graph_db, query, out=None):
-    out = out or sys.stdout
-    data, metadata = execute(graph_db, query)
-    columns = [json.dumps(column) for column in metadata.columns]
-    row_count = 0
-    out.write("[\n")
-    for row in data:
-        row_count += 1
-        if row_count > 1:
-            out.write(",\n")
-        out.write("\t{" + ", ".join([
-            columns[i] + ": " + _stringify(row[i], quoted=True)
-            for i in range(len(row))
-        ]) + "}")
-    out.write("\n]\n")
-
-def execute_and_output_as_geoff(graph_db, query, out=None):
-    out = out or sys.stdout
-    nodes = {}
-    relationships = {}
-    def update_descriptors(value):
-        if isinstance(value, neo4j.Node):
-            nodes[str(value)] = value._lookup('data')
-        elif isinstance(value, neo4j.Relationship):
-            relationships[str(value.get_start_node()) + str(value) + str(value.get_end_node())] = value._lookup('data')
-        else:
-            # property - not supported in GEOFF format, so ignore
-            pass
-    data, columns = execute(graph_db, query)
-    for row in data:
-        for i in range(len(row)):
-            update_descriptors(row[i])
-    for key, value in nodes.items():
-        out.write("{0}\t{1}\n".format(
-            key,
-            json.dumps(value)
-        ))
-    for key, value in relationships.items():
-        out.write("{0}\t{1}\n".format(
-            key,
-            json.dumps(value)
-        ))
-
-def execute_and_output_as_text(graph_db, query, out=None):
-    out = out or sys.stdout
-    data, metadata = execute(graph_db, query)
-    columns = metadata.columns
-    column_widths = [len(column) for column in columns]
-    for row in data:
-        column_widths = [
-            max(column_widths[i], None if row[i] is None else len(_stringify(row[i], with_properties=True)))
-            for i in range(len(row))
-        ]
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
-    out.write("| " + " | ".join([
-        columns[i].ljust(column_widths[i])
-        for i in range(len(columns))
-    ]) + " |\n")
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
-    for row in data:
-        out.write("| " + " | ".join([
-            _stringify(row[i], with_properties=True).ljust(column_widths[i])
-            for i in range(len(row))
-        ]) + " |\n")
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
-    parser.add_argument("-u", metavar="DATABASE_URI", default=None, help="the URI of the source Neo4j database server")
-    parser.add_argument("-d", action="store_true", default=False, help="output all values in delimited format")
-    parser.add_argument("-g", action="store_true", default=False, help="output nodes and relationships in GEOFF format")
-    parser.add_argument("-j", action="store_true", default=False, help="output all values as a single JSON array")
-    parser.add_argument("-t", action="store_true", default=True, help="output all results in a plain text table (default)")
-    parser.add_argument("query", help="the Cypher query to execute")
-    args = parser.parse_args()
-    try:
-        graph_db = neo4j.GraphDatabaseService(args.u or "http://localhost:7474/db/data/")
-        if args.g:
-            execute_and_output_as_geoff(graph_db, args.query)
-        elif args.j:
-            execute_and_output_as_json(graph_db, args.query)
-        elif args.t:
-            execute_and_output_as_text(graph_db, args.query)
-        else:
-            execute_and_output_as_delimited(graph_db, args.query)
-    except SystemError as err:
-        content = err.args[0]['content']
-        if 'exception' in content and 'stacktrace' in content:
-            sys.stderr.write("{0}\n".format(content['exception']))
-            stacktrace = content['stacktrace']
-            for frame in stacktrace:
-                sys.stderr.write("\tat {0}\n".format(frame))
-        else:
-            sys.stderr.write("{0}\n".format(content))
-

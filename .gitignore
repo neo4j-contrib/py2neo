@@ -6,6 +6,5 @@ dist
 .pydevproject
 .settings
 .idea
-bin
 build
 doc/_build

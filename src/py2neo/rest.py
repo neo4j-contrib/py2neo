@@ -17,6 +17,7 @@
 """
 Generic REST client
 """
+from tornado.httpclient import HTTPError
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
@@ -51,14 +52,13 @@ class Resource(object):
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
+        self._http = http or httpclient.HTTPClient()
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
             "user_agent": "py2neo"
         }
         self._request_params.update(request_params)
         self._index = index
-        self.__request_count = 0
 
     def __repr__(self):
         """
@@ -117,32 +117,27 @@ class Resource(object):
             "headers": headers,
             "body": data
         })
-        self.__response = self._http.fetch(uri, **params)
-        self.__request_count += 1
-        # for py3k compatibility...
-#            if not isinstance(self.__content, str):
-#                self.__content = self.__content.decode()
-        if self.__response.code == 200:
-            if self.__response.body:
-                return json.loads(self.__response.body)
-            else:
+        try:
+            self.__response = self._http.fetch(uri, **params)
+            if self.__response.code == 200:
+                if self.__response.body:
+                    return json.loads(self.__response.body)
+                else:
+                    return None
+            elif self.__response.code == 201:
+                return self.__response.headers['location']
+            elif self.__response.code == 204:
                 return None
-        elif self.__response.code == 201:
-            return self.__response.headers['location']
-        elif self.__response.code == 204:
-            return None
-        elif self.__response.code == 400:
-            raise ValueError({
-                "response": self.__response,
-                "uri": uri,
-                "data": data
-            })
-        elif self.__response.code == 404:
-            raise LookupError(uri)
-        elif self.__response.code == 409:
-            raise SystemError(uri)
-        else:
-            raise SystemError(self.__response)
+        except HTTPError as err:
+            self.__response = err.response
+            if err.code == 400:
+                raise ValueError(err.response)
+            elif err.code == 404:
+                raise LookupError(uri)
+            elif err.code == 409:
+                raise SystemError(uri)
+            else:
+                raise SystemError(self.__response)
 
     def _get(self, uri, **kwargs):
         """
