@@ -44,41 +44,6 @@ class CypherTestCase(unittest.TestCase):
         self.assertEqual("a.name", metadata.columns[3])
         self.assertEqual("b.name", metadata.columns[4])
 
-    def test_output_query_as_delimited(self):
-        file = StringIO()
-        cypher.execute_and_output_as_delimited(self.graph_db, "start n=node(0) return n", out=file)
-        self.assertEqual("""\
-"n"
-"(0)"
-""", file.getvalue())
-
-    def test_output_query_as_geoff(self):
-        file = StringIO()
-        cypher.execute_and_output_as_geoff(self.graph_db, "start n=node(0) return n", out=file)
-        self.assertEqual("""\
-(0)\t{}
-""", file.getvalue())
-
-    def test_output_query_as_json(self):
-        file = StringIO()
-        cypher.execute_and_output_as_json(self.graph_db, "start n=node(0) return n", out=file)
-        self.assertEqual("""\
-[
-\t{"n": "(0)"}
-]
-""", file.getvalue())
-
-    def test_output_query_as_text(self):
-        file = StringIO()
-        cypher.execute_and_output_as_text(self.graph_db, "start n=node(0) return n", out=file)
-        self.assertEqual("""\
-+--------+
-| n      |
-+--------+
-| (0) {} |
-+--------+
-""", file.getvalue())
-
     def test_query_with_handlers(self):
         a, b = self.graph_db.create_nodes(
             {"name": "Alice"},
