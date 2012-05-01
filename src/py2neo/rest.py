@@ -52,7 +52,7 @@ class Resource(object):
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http or httpclient.HTTPClient()
+        self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
             "user_agent": "py2neo"
