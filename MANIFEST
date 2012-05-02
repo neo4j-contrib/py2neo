@@ -2,6 +2,7 @@
 LICENSE
 NOTICE
 setup.py
+bin/cypher
 src/py2neo/__init__.py
 src/py2neo/cypher.py
 src/py2neo/geoff.py
