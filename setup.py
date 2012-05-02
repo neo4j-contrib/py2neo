@@ -3,7 +3,6 @@
 from distutils.core import setup
 from pkg_resources import require
 
-require("tornado")
 setup(
 	name="py2neo",
 	version=file("VERSION").read(),
