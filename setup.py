@@ -10,9 +10,10 @@ setup(
 	author="Nigel Small",
 	author_email="py2neo@nigelsmall.net",
 	url="http://py2neo.org/",
-	scripts=["bin/cypher"],
+	scripts=["scripts/cypher"],
 	package_dir={"": "src"},
 	packages=["py2neo"],
 	license="Apache License, Version 2.0",
-	classifiers=[]
+	classifiers=[],
+	requires=["tornado"]
 )
