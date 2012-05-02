@@ -9,17 +9,9 @@ PY2NEO=`dirname $0`/..
 cd $PY2NEO
 git pull
 
-# check version numbers
-REPO_VERSION=`cat version | awk '{print $1}'`
-SETUP_VERSION=`grep version setup.py | awk -F\" '{print $2}'`
-
-if [ "$REPO_VERSION" == "$SETUP_VERSION" ]
-then
-    echo "*** Building version $REPO_VERSION ***"
-else
-    echo "*** Version mismatch $REPO_VERSION != $SETUP_VERSION ***"
-    exit 1
-fi
+# check version number
+REPO_VERSION=`cat VERSION | awk '{print $1}'`
+echo "*** Building version $REPO_VERSION ***"
 
 # make sure the latest version is installed and get its version
 # (must be a way to do this without having to install)
