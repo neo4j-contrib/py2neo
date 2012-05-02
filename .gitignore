@@ -6,6 +6,6 @@ dist
 .pydevproject
 .settings
 .idea
-build
+build/
 doc/_build
 MANIFEST

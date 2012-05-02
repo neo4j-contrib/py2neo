@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+PY2NEO=~/git/py2neo
+
+# update git repo
+cd $PY2NEO
+git pull
+
+# check version numbers
+REPO_VERSION=`cat version | awk '{print $1}'`
+SETUP_VERSION=`grep version setup.py | awk -F\" '{print $2}'`
+
+if [ "$REPO_VERSION" == "$SETUP_VERSION" ]
+then
+    echo "*** Building version $REPO_VERSION ***"
+else
+    echo "*** Version mismatch $REPO_VERSION != $SETUP_VERSION ***"
+    exit 1
+fi
+
+# make sure the latest version is installed and get its version
+sudo pip install --upgrade py2neo
+LATEST_VERSION=`pip search py2neo | grep "(latest)" | awk '{print $2}'`
+
+if [ "$REPO_VERSION" == "$LATEST_VERSION" ]
+then
+    echo "*** No new version to deploy ***"
+    exit 0
+else
+    echo "*** Deploying version $REPO_VERSION ***"
+fi
+
+#python $PY2NEO/setup.py sdist upload
+sudo pip install --upgrade py2neo
+
+cd $PY2NEO/doc
+make html
+
