@@ -2,7 +2,8 @@
 
 # Build script for py2neo
 
-PY2NEO=~/git/py2neo
+# ascertain project directory
+PY2NEO=`dirname $0`/..
 
 # update git repo
 cd $PY2NEO
