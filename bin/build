@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Build script for py2neo
+
 PY2NEO=~/git/py2neo
 
 # update git repo
