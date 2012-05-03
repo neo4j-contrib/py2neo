@@ -154,7 +154,7 @@ class GraphDatabaseService(rest.Resource):
         """
         Retrieve number of nodes in this graph
         """
-        data, metadata = cypher.execute(self, "start z=node(*) return count(*)")
+        data, metadata = cypher.execute(self, "start z=node(*) return count(z)")
         if data and data[0]:
             return data[0][0]
         else:
