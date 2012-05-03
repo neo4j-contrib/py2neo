@@ -51,12 +51,18 @@ def _flatten(*args, **kwargs):
         except AttributeError:
             data.update(arg)
     data.update(kwargs)
+    # remove any properties beginning with an underscore
+    data = dict([
+        (key, value)
+        for key, value in data.items()
+        if not key.startswith("_")
+    ])
     return data
 
 def _quote(string, safe='/'):
     try:
         return quote(string, safe)
-    except:
+    except Exception:
         return string
 
 
@@ -139,6 +145,12 @@ class GraphDatabaseService(rest.Resource):
         return self.get_node(item)
 
     def __len__(self):
+        """
+        Retrieve number of nodes in this graph
+        """
+        return self.get_node_count()
+
+    def get_node_count(self):
         """
         Retrieve number of nodes in this graph
         """
