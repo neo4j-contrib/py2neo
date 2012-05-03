@@ -3,35 +3,24 @@
 # Build script for py2neo
 
 # ascertain project directory
-PY2NEO=`dirname $0`/..
-
-# update git repo
-cd $PY2NEO
-git pull
+PY2NEO=`pwd`/`dirname $0`/..
 
 # check version number
-REPO_VERSION=`cat VERSION | awk '{print $1}'`
-echo "*** Building version $REPO_VERSION ***"
+VERSION=`cat VERSION | awk '{print $1}'`
+echo "*** Building version $VERSION ***"
 
-# make sure the latest version is installed and get its version
-# (must be a way to do this without having to install)
-yes | sudo pip uninstall py2neo
-sudo pip install py2neo
-LATEST_VERSION=`pip search py2neo | grep "(latest)" | awk '{print $2}'`
+# clear any existing builds
+rm -rf $PY2NEO/dist
 
-if [ "$REPO_VERSION" == "$LATEST_VERSION" ]
-then
-    echo "*** No new version to deploy ***"
-    exit 0
-else
-    echo "*** Deploying version $REPO_VERSION ***"
-fi
-yes | sudo pip uninstall py2neo
+# set python path
+export PYTHONPATH=$PY2NEO/src
 
-python $PY2NEO/setup.py sdist upload
-sudo pip install py2neo
+# package software
+python $PY2NEO/setup.py sdist
 
+# package documentation
 cd $PY2NEO/doc
 make clean
 make html
-
+cd $PY2NEO/doc/_build/html
+zip -r $PY2NEO/dist/py2neo-doc-$VERSION.zip *
