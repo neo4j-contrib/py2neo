@@ -172,6 +172,7 @@ if __name__ == "__main__":
     parser.add_argument("-P", "--port", metavar="port", default=7474, help="Neo4j server port")
     parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (e.g. /db/data/)")
     parser.add_argument("-f", "--format", metavar="format", default='text', help="output file format")
+    #parser.add_argument("-n", "--no-header", metavar="no_header", default=False, help="header suppression flag")
     parser.add_argument("query", help="the Cypher query to execute")
     args = parser.parse_args()
     graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))

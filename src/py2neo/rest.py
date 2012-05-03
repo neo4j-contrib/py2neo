@@ -133,11 +133,13 @@ class Resource(object):
             if err.code == 400:
                 raise ValueError(err.response)
             elif err.code == 404:
-                raise LookupError(uri)
+                raise LookupError("Resource <{}> not found".format(uri))
             elif err.code == 409:
-                raise SystemError(uri)
+                raise SystemError("Resource conflict for <{}>".format(uri))
+            elif err.code == 599:
+                raise SystemError("No response received from resource <{}>".format(uri))
             else:
-                raise SystemError(self.__response)
+                raise err
 
     def _get(self, uri, **kwargs):
         """

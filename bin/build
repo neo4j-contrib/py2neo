@@ -5,12 +5,12 @@
 # ascertain project directory
 PY2NEO=`pwd`/`dirname $0`/..
 
+# clear any existing builds
+rm -rf $PY2NEO/dist
+
 # check version number
 VERSION=`cat VERSION | awk '{print $1}'`
 echo "*** Building version $VERSION ***"
-
-# clear any existing builds
-rm -rf $PY2NEO/dist
 
 # set python path
 export PYTHONPATH=$PY2NEO/src

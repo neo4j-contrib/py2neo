@@ -132,6 +132,22 @@ class GraphDatabaseService(rest.Resource):
         self._node_indexes = {}
         self._relationship_indexes = {}
 
+    def __getitem__(self, item):
+        """
+        Retrieve node by ID
+        """
+        return self.get_node(item)
+
+    def __len__(self):
+        """
+        Retrieve number of nodes in this graph
+        """
+        data, metadata = cypher.execute(self, "start z=node(*) return count(*)")
+        if data and data[0]:
+            return data[0][0]
+        else:
+            return 0
+
     def create_node(self, *props, **kwprops):
         """
         Create a new node, optionally with properties.
@@ -140,8 +156,8 @@ class GraphDatabaseService(rest.Resource):
 
     def create_nodes(self, *props):
         """
-        Create a number of new nodes for all supplied properties as part of a single
-        batch.
+        Create a number of new nodes for all supplied properties as part of a
+        single batch.
         """
         return [
             self._spawn(Node, result['location'], index=result['body'])
@@ -239,6 +255,18 @@ class GraphDatabaseService(rest.Resource):
             subreference_node = self.create_node()
             ref_node.create_relationship_to(subreference_node, name)
         return subreference_node
+
+    def get_node(self, id):
+        """
+        Retrieve a node by its ID.
+        """
+        return self._spawn(Node, self._lookup('node') + "/" + str(id))
+
+    def get_relationship(self, id):
+        """
+        Retrieve a relationship by its ID.
+        """
+        return self._spawn(Relationship, self._lookup('relationship') + "/" + str(id))
 
     def get_relationship_types(self):
         """
