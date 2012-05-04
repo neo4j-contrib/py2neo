@@ -133,11 +133,11 @@ class Resource(object):
             if err.code == 400:
                 raise ValueError(err.response)
             elif err.code == 404:
-                raise LookupError("Resource <{}> not found".format(uri))
+                raise LookupError("Resource <{0}> not found".format(uri))
             elif err.code == 409:
-                raise SystemError("Resource conflict for <{}>".format(uri))
+                raise SystemError("Resource conflict for <{0}>".format(uri))
             elif err.code == 599:
-                raise SystemError("No response received from resource <{}>".format(uri))
+                raise SystemError("No response received from resource <{0}>".format(uri))
             else:
                 raise err
 

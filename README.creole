@@ -20,8 +20,8 @@ Other versions may work but are not guaranteed to do so.
 
 == Installation
 
-The easiest way to install py2neo is from the Python Package Index (PyPI) using
-either pip or easy_install:
+The easiest way to install py2neo is from the Python Package Index (PyPI)
+using either pip or easy_install:
 
 {{{
 $ sudo pip install py2neo
@@ -29,6 +29,12 @@ $ sudo pip install py2neo
 or
 {{{
 $ sudo easy_install py2neo
+}}}
+
+If you have an earlier version of tornado installed, you can upgrade using:
+
+{{{
+$ sudo pip install --upgrade tornado
 }}}
 
 == Getting Started

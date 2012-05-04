@@ -70,7 +70,7 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual(row[3], "Alice")
             self.assertEqual(row[4], "Bob")
         query = """\
-        start a=node({}),b=node({})\
+        start a=node({0}),b=node({1})\
         match a-[ab]-b\
         return a,b,ab,a.name,b.name""".format(a.id, b.id)
         cypher.execute(self.graph_db, query,

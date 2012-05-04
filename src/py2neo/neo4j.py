@@ -608,11 +608,11 @@ class Node(IndexableResource):
         if not isinstance(other, Node):
             raise ValueError
         if direction == Direction.BOTH:
-            query = "start a=node({}),b=node({}) where a-{}-b return count(*)"
+            query = "start a=node({0}),b=node({1}) where a-{2}-b return count(*)"
         elif direction == Direction.OUTGOING:
-            query = "start a=node({}),b=node({}) where a-{}->b return count(*)"
+            query = "start a=node({0}),b=node({1}) where a-{2}->b return count(*)"
         elif direction == Direction.INCOMING:
-            query = "start a=node({}),b=node({}) where a<-{}-b return count(*)"
+            query = "start a=node({0}),b=node({1}) where a<-{2}-b return count(*)"
         else:
             raise ValueError
         if type:
