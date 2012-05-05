@@ -9,8 +9,6 @@ import tornado.web
 
 from creole import creole2html
 
-from grizzled.os import daemonize
-
 WWW  = os.path.dirname(__file__)
 ROOT = os.path.join(WWW, "..")
 
@@ -72,7 +70,6 @@ if __name__ == "__main__":
         port = 8080
     else:
         port = int(sys.argv[1])
-    daemonize()
     application.listen(port)
     tornado.ioloop.IOLoop.instance().start()
 
