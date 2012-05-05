@@ -1,4 +1,4 @@
-= py2neo
+= Py2neo
 
 The py2neo project provides bindings between Python and Neo4j via its RESTful web service interface. It attempts to be both //Pythonic// and consistent with the core Neo4j API.
 
@@ -23,7 +23,7 @@ sudo pip install py2neo
 }}}
 or
 
-You will also need to install or upgrade tornado. This can be achieved with:
+You will also need to ensure that tornado is installed and up to date. This can be achieved with:
 
 {{{
 sudo pip install --upgrade tornado
@@ -76,5 +76,5 @@ def print_row(row):
 cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
 }}}
 
-For full details of the functionality available, check out the [[http://py2neo.org/doc|API Docs]].
+For full details of the functionality available, check out the [[http://packages.python.org/py2neo/|API documentation]].
 

@@ -3,22 +3,26 @@
 
   <head>
     <title>{{ title }}</title>
-    <link rel="stylesheet" href="styles/vanilla.css" type="text/css" />
+    <link rel="stylesheet" href="/style/vanilla.css" type="text/css" />
   </head>
 
   <body>
 
     <header>
       <div class="logo">
-        <img width="128" height="128" src="art/py2neo.128x128.png" />
+        <a href="/">
+          <img width="128" height="128" src="/art/py2neo.128x128.png" />
+        </a>
       </div>
       <hgroup>
-        <h1>py2neo</h1>
+        <a href="/">
+          <h1>py2neo</h1>
+        </a>
         <h2>(Python)-[:REST]->(Neo4j)</h2>
       </hgroup>
     </header>
 
-    <article title="{{ title }}">
+    <article>
       {% raw content %}
     </article>
 

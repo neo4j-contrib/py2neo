@@ -1,0 +1,11 @@
+= Getting Started with Py2neo
+
+Py2neo communicates with a Neo4j database via its RESTful HTTP interface. A {{{GraphDatabaseService}}} is exposed via the Neo4j server facility under a specific URI which, as described in the offical Neo4j documentation, is [[http://localhost:7474/db/data/]] within a default installation.
+
+A {{{GraphDatabaseService}}} can be accessed in py2neo simply by creating an instance of the class with the same name. This class exists within the {{{py2neo.neo4j}}} module and requires the URI under which the service is exposed as an argument. The code below shows how to create such a connection:
+
+{{{
+from py2neo import neo4j
+graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+}}}
+

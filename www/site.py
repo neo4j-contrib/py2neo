@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 
 import tornado.escape
 import tornado.ioloop
@@ -30,16 +31,36 @@ class ArtHandler(tornado.web.RequestHandler):
 class StyleHandler(tornado.web.RequestHandler):
     def get(self, name):
         self.set_header("Content-Type", "text/css")
-        self.write(file(os.path.join("styles", name)).read())
+        self.write(file(os.path.join("style", name)).read())
+
+class TutorialHandler(tornado.web.RequestHandler):
+    def get(self, name):
+        title = " ".join([
+            word[0].upper() + word[1:]
+            for word in name.split("-")
+        ])
+        filename = "_".join([
+            word.lower()
+            for word in name.split("-")
+        ]) + ".creole"
+        self.render("base.html",
+            title=title,
+            content=get_content(os.path.join("..", "tutorials", filename))
+        )
 
 application = tornado.web.Application([
     (r"/", MainHandler),
     (r"/favicon.ico", FaviconHandler),
     (r"/art/(.*)", ArtHandler),
-    (r"/styles/(.*)", StyleHandler),
+    (r"/style/(.*)", StyleHandler),
+    (r"/tutorials/(.*)", TutorialHandler),
 ], template_path="tmpl")
 
 if __name__ == "__main__":
-    application.listen(8080)
+    if len(sys.argv) == 0:
+        port = 8080
+    else:
+        port = int(sys.argv[1])
+    application.listen(port)
     tornado.ioloop.IOLoop.instance().start()
 
