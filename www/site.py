@@ -9,29 +9,38 @@ import tornado.web
 
 from creole import creole2html
 
+WWW  = os.path.dirname(__file__)
+ROOT = os.path.join(WWW, "..")
+
+def read_file(filename):
+    try:
+        return file(filename).read()
+    except IOError:
+        raise tornado.web.HTTPError(404)
+
 def get_content(filename):
-    content = file(filename).read()
+    content = read_file(filename)
     return creole2html(unicode(content))
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("base.html",
             title="Welcome",
-            content=get_content(os.path.join("..", "README.creole"))
+            content=get_content(os.path.join(ROOT, "README.creole"))
         )
 
 class FaviconHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write(file(os.path.join("..", "art", "py2neo.ico")).read())
+        self.write(read_file(os.path.join(ROOT, "art", "py2neo.ico")))
 
 class ArtHandler(tornado.web.RequestHandler):
     def get(self, name):
-        self.write(file(os.path.join("..", "art", name)).read())
+        self.write(read_file(os.path.join(ROOT, "art", name)))
 
 class StyleHandler(tornado.web.RequestHandler):
     def get(self, name):
         self.set_header("Content-Type", "text/css")
-        self.write(file(os.path.join("style", name)).read())
+        self.write(read_file(os.path.join(WWW, "style", name)))
 
 class TutorialHandler(tornado.web.RequestHandler):
     def get(self, name):
@@ -45,7 +54,7 @@ class TutorialHandler(tornado.web.RequestHandler):
         ]) + ".creole"
         self.render("base.html",
             title=title,
-            content=get_content(os.path.join("..", "tutorials", filename))
+            content=get_content(os.path.join(ROOT, "tutorials", filename))
         )
 
 application = tornado.web.Application([
@@ -54,7 +63,7 @@ application = tornado.web.Application([
     (r"/art/(.*)", ArtHandler),
     (r"/style/(.*)", StyleHandler),
     (r"/tutorials/(.*)", TutorialHandler),
-], template_path="tmpl")
+], template_path=os.path.join(WWW, "tmpl"))
 
 if __name__ == "__main__":
     if len(sys.argv) == 0:
