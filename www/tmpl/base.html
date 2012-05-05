@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+
+  <head>
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="styles/vanilla.css" type="text/css" />
+  </head>
+
+  <body>
+
+    <header>
+      <div class="logo">
+        <img width="128" height="128" src="art/py2neo.128x128.png" />
+      </div>
+      <hgroup>
+        <h1>py2neo</h1>
+        <h2>(Python)-[:REST]->(Neo4j)</h2>
+      </hgroup>
+    </header>
+
+    <article title="{{ title }}">
+      {% raw content %}
+    </article>
+
+    <footer>
+      <div class="gutter">
+        <div>Site best viewed using any browser except Internet Explorer</div>
+        <div class="copyright">Copyright 2011-2012 Nigel Small</div>
+      </div>
+      <div class="links">
+          <nav>
+            <h2>Py2neo on...</h2>
+            <ul>
+              <li><a href="http://pypi.python.org/pypi/py2neo">PyPI</a></li>
+              <li><a href="https://github.com/nigelsmall/py2neo">GitHub</a></li>
+              <li><a href="http://twitter.com/#!/@py2neo">Twitter</a></li>
+              <li><a href="mailto:py2neo@nigelsmall.net">Email</a></li>
+            </ul>
+          </nav>
+          <nav>
+            <h2>Software</h2>
+            <ul>
+              <li><a href="http://python.org/">Python</a></li>
+              <li><a href="http://www.tornadoweb.org/">Tornado</a></li>
+              <li><a href="http://neo4j.org/">Neo4j</a></li>
+            </ul>
+          </nav>
+          <nav>
+            <h2>Related Projects</h2>
+            <ul>
+              <li><a href="http://geoff.nigelsmall.net/">Geoff</a></li>
+              <li><a href="https://github.com/jadell/Neo4jPHP">Neo4jPHP</a></li>
+            </ul>
+          </nav>
+          <nav>
+            <h2>Blogs</h2>
+            <ul>
+              <li><a href="http://nigelsmall.name/">Nigel Small</a></li>
+              <li><a href="http://blog.neo4j.org/">Neo4j</a></li>
+            </ul>
+          </nav>
+        </div>
+    </footer>
+
+    <script type="text/javascript">
+      SyntaxHighlighter.all()
+    </script>
+
+  </body>
+
+</html>
