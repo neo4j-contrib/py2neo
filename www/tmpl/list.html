@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+  <ul>
+  {% for item in content %}
+    <li><a href="{{ escape(item[0]) }}">{{ escape(item[1]) }}</a></li>
+  {% end %}
+  </ul>
+{% end %}

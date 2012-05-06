@@ -7,6 +7,23 @@ body {
     width: 960px;
     max-width: 960px;
 }
+nav.mainmenu {
+    display: table;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+nav.mainmenu>ul {
+    width: auto;
+    display: block;
+    margin: 0;
+    padding: 0;
+}
+nav.mainmenu>ul>li {
+    display: table-cell;
+    text-align: center;
+    padding: 8px 15px;
+}
 article {
     display: block;
     width: auto;
@@ -120,6 +137,10 @@ body {
     -webkit-box-shadow: 0 0 15px #1C1613;
     -moz-box-shadow: 0 0 15px #1C1613;
     box-shadow: 0 0 15px #1C1613;
+}
+nav.mainmenu {
+    background-color: #FCF9D4;
+    border-bottom: 5px solid #1C1613;
 }
 article {
     background-color: #FCFCFC;

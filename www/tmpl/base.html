@@ -22,8 +22,19 @@
       </hgroup>
     </header>
 
+    <nav class="mainmenu">
+      <ul>
+        <li><a href="http://pypi.python.org/pypi/py2neo">Download</a></li>
+        <li><a href="https://github.com/nigelsmall/py2neo">Source</a></li>
+        <li><a href="http://packages.python.org/py2neo/">Documentation</a></li>
+        <li><a href="/tutorials/">Tutorials</a></li>
+      </ul>
+    </nav>
+
     <article>
-      {% raw content %}
+      {% block content %}
+        {% raw content %}
+      {% end %}
     </article>
 
     <footer>
