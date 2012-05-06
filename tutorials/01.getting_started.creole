@@ -11,6 +11,8 @@ graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 }}}
 <</code>>
 
+== Nodes
+
 Once a connection has been established, nodes can be added to the graph using one of several methods. To create a single node, the {{{create_node}}} method can be used. If more than one node needs to be added, it is more efficient to use the batch creation method {{{create_nodes}}}. Finally, a Cypher {{{CREATE}}} statement can also be used. The code below illustrates these three node creation methods:
 
 <<code lang="python">>
@@ -32,7 +34,7 @@ d = data[0][0]
 }}}
 <</code>>
 
-Nodes within a graph can be accessed directly using either their ID or their URI. To retrieve a node by ID, simply use the {{{get_node}}} method of the associated graph or the shorter indexed form. For URI access, use the {{{Node}}} constructor instead:
+Nodes within a graph can be accessed directly using either their ID or their URI. To retrieve a node by ID, simply use the {{{get_node}}} method of the associated graph or the shorter indexed form; for URI access, use the {{{Node}}} constructor instead:
 
 <<code lang="python">>
 {{{
@@ -46,3 +48,60 @@ my_node = graph_db[123]
 my_node = neo4j.Node("http://localhost:7474/db/data/node/123")
 }}}
 <</code>>
+
+In addition, the total number of nodes in a graph can be established simply by checking the length of the graph. Don't forget that this includes the reference node.
+
+<<code lang="python">>
+{{{
+node_count = len(graph_db)
+}}}
+<</code>>
+
+== Relationships
+
+Creating relationships is just as simple as creating nodes. The following code shows how to construct two nodes and a relationship between them using the {{{create_relationship_to}}} method of a {{{Node}}} object:
+
+<<code lang="python">>
+{{{
+# attach to the graph
+from py2neo import neo4j
+graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+
+# create a pair of nodes
+node_a, node_b = graph_db.create_nodes(
+    {"name": "Alice"},
+    {"name": "Bob"}
+)
+
+# join the nodes with a relationship
+rel_ab = node_a.create_relationship_to(node_b, "KNOWS")
+}}}
+<</code>>
+
+There are a number of ways to interrogate the relationship status of a node:
+
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.get_related_nodes|get_related_nodes]] - find nodes related to this node
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.get_relationships|get_relationships]] - find all relationships connected to this node
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.get_single_related_node|get_single_related_node]] - retrieve a single related node
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.get_single_relationship|get_single_relationship]] - retrieve a single relationship for this node
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.has_relationship|has_relationship]] - establish the presence of a particular relationship
+* [[http://packages.python.org/py2neo/py2neo.html#py2neo.neo4j.Node.is_related_to|is_related_to]] - establish whether or not two nodes are related
+
+The following code illustrates how to test if the two nodes from the previous example are related:
+
+<<code lang="python">>
+{{{
+# test if node_a and node_b are related in any way
+if node_a.is_related_to(node_b):
+    print "Yes!"
+
+# test if node_a and node_b are related in a particular direction
+if node_a.is_related_to(node_b, neo4j.Direction.OUTGOING):
+    print "Yes!"
+
+# test if node_a and node_b are related by a specific relationship
+if node_a.is_related_to(node_b, neo4j.Direction.OUTGOING, "KNOWS"):
+    print "Yes!"
+}}}
+<</code>>
+

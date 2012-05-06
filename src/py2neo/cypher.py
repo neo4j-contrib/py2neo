@@ -103,7 +103,7 @@ class Query(object):
                     graph_db._cypher_uri,
                     payload,
                     headers={
-                        "Accept": "application/json",
+                        "Accept": "application/json;stream=true",
                         "Content-Type": "application/json"
                     },
                     streaming_callback=self.handle_chunk
