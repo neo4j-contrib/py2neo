@@ -14,6 +14,11 @@ WWW       = os.path.dirname(__file__)
 ROOT      = os.path.join(WWW, "..")
 TUTORIALS = os.path.join(ROOT, "tutorials")
 
+def code(lang, text):
+    return creole2html(text).replace(
+        u'<pre>', u'<pre class="brush:' + lang + '">'
+    )
+
 def read_file(filename):
     try:
         return file(filename).read()
@@ -22,7 +27,7 @@ def read_file(filename):
 
 def get_content(filename):
     content = read_file(filename)
-    return creole2html(unicode(content))
+    return creole2html(unicode(content), macros={"code": code})
 
 def words(name):
     return re.split("[\W_]+", name)

@@ -4,10 +4,12 @@ Py2neo communicates with a Neo4j database via its RESTful HTTP interface. A {{{G
 
 A {{{GraphDatabaseService}}} can be accessed in py2neo simply by creating an instance of the class with the same name. This class exists within the {{{py2neo.neo4j}}} module and requires the URI under which the service is exposed as an argument. The code below shows how to create such a connection:
 
+<<code lang="python">>
 {{{
 from py2neo import neo4j
 graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 }}}
+<</code>>
 
 Once a connection has been established, nodes can be added to the graph using one of several methods. To create a single node, the {{{create_node}}} method can be used. If more than one node needs to be added, it is more efficient to use the batch creation method {{{create_nodes}}}. Finally, a Cypher {{{CREATE}}} statement can also be used. The code below illustrates these three node creation methods:
 
@@ -30,3 +32,17 @@ d = data[0][0]
 }}}
 <</code>>
 
+Nodes within a graph can be accessed directly using either their ID or their URI. To retrieve a node by ID, simply use the {{{get_node}}} method of the associated graph or the shorter indexed form. For URI access, use the {{{Node}}} constructor instead:
+
+<<code lang="python">>
+{{{
+# access node by ID (long form)
+my_node = graph_db.get_node(123)
+
+# access node by ID (short form)
+my_node = graph_db[123]
+
+# access node by URI
+my_node = neo4j.Node("http://localhost:7474/db/data/node/123")
+}}}
+<</code>>

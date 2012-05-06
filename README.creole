@@ -39,6 +39,7 @@ git clone git@github.com:nigelsmall/py2neo.git
 
 The following short programme illustrates a simple usage of the py2neo library:
 
+<<code lang="python">>
 {{{
 #!/usr/bin/env python
 
@@ -75,6 +76,7 @@ def print_row(row):
 # ...and execute the query
 cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
 }}}
+<</code>>
 
 For full details of the functionality available, check out the [[http://packages.python.org/py2neo/|API documentation]].
 
