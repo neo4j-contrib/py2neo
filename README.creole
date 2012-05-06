@@ -78,5 +78,5 @@ cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
 }}}
 <</code>>
 
-For full details of the functionality available, check out the [[http://packages.python.org/py2neo/|API documentation]].
+For more examples, browse the [[http://py2neo.org/tutorials/|tutorials]] or for full details of the functionality available, check out the [[http://packages.python.org/py2neo/|API documentation]].
 
