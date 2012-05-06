@@ -70,6 +70,6 @@ if __name__ == "__main__":
         port = 8080
     else:
         port = int(sys.argv[1])
-    application.listen(port)
+    application.listen(port, address="127.0.0.1")
     tornado.ioloop.IOLoop.instance().start()
 
