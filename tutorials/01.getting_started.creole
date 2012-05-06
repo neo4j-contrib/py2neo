@@ -11,7 +11,7 @@ graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 
 Once a connection has been established, nodes can be added to the graph using one of several methods. To create a single node, the {{{create_node}}} method can be used. If more than one node needs to be added, it is more efficient to use the batch creation method {{{create_nodes}}}. Finally, a Cypher {{{CREATE}}} statement can also be used. The code below illustrates these three node creation methods:
 
-<<code lang="python">>{{{
+{{{<<code lang="python">>
 # create one node
 a = graph_db.create_node({"name": "Alice"})
 
@@ -26,5 +26,6 @@ from py2neo import cypher
 query = "create d = {name: 'Dave'} return d"
 data, metadata = cypher.execute(graph_db, query)
 d = data[0][0]
-}}}<</code>>
+<</code>>
+}}}
 
