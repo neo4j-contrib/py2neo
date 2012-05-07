@@ -170,7 +170,7 @@ class Query(object):
                 if token == (2, "["):
                     self._row = ""
                 if token == (1, "]") or token == (2, ","):
-                    if self.row_handler:
+                    if self._row and self.row_handler:
                         try:
                             self.row_handler(map(_resolve, json.loads(self._row)))
                         except Exception as ex:
@@ -205,6 +205,14 @@ def _resolve(value):
             node = neo4j.Node(uri)
             node._index = value
             return node
+    elif isinstance(value, dict) and "length" in value and \
+         "nodes" in value and "relationships" in value and \
+         "start" in value and "end" in value:
+        # is a path
+        return neo4j.Path(
+            map(neo4j.Node, value["nodes"]),
+            map(neo4j.Relationship, value["relationships"])
+        )
     else:
         # is a plain value
         return value
