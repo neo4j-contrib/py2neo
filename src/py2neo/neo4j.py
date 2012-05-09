@@ -39,6 +39,9 @@ except ImportError:
 except ValueError:
     import cypher
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def _flatten(*args, **kwargs):
     data = {}
@@ -97,15 +100,15 @@ class GraphDatabaseService(rest.Resource):
     
     """
 
-    def __init__(self, uri=None, index=None, **kwargs):
+    def __init__(self, uri=None, metadata=None, **kwargs):
         uri = uri or "http://localhost:7474/db/data/"
-        rest.Resource.__init__(self, uri, index=index, **kwargs)
+        rest.Resource.__init__(self, uri, metadata=metadata, **kwargs)
         if self._uri.endswith("/"):
             self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
         else:
             self._base_uri, self._relative_uri = self._uri, "/"
         self._extensions = self._lookup('extensions')
-        if 'neo4j_version' in self._index:
+        if 'neo4j_version' in self._metadata:
             # must be version 1.5 or greater
             self._neo4j_version = self._lookup('neo4j_version')
             self._batch_uri = self._lookup('batch')
@@ -113,7 +116,7 @@ class GraphDatabaseService(rest.Resource):
             # assume version 1.4
             self._neo4j_version = "1.4"
             self._batch_uri = self._base_uri + "/batch"
-        if 'cypher' in self._index:
+        if 'cypher' in self._metadata:
             self._cypher_uri = self._lookup('cypher')
         else:
             try:
@@ -172,7 +175,7 @@ class GraphDatabaseService(rest.Resource):
         single batch.
         """
         return [
-            self._spawn(Node, result['location'], index=result['body'])
+            self._spawn(Node, result['location'], metadata=result['body'])
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'POST',
@@ -204,7 +207,7 @@ class GraphDatabaseService(rest.Resource):
             ... })
         """
         return [
-            self._spawn(Relationship, result['body']['self'], index=result['body'])
+            self._spawn(Relationship, result['body']['self'], metadata=result['body'])
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'POST',
@@ -390,7 +393,18 @@ class GraphDatabaseService(rest.Resource):
         return self._post(function_uri, data)
 
 
-class IndexableResource(rest.Resource):
+class _Indexable(object):
+
+    def __init__(self, index_entry_uri=None, index_uri=None):
+        self._index_entry_uri = index_entry_uri
+        if self._index_entry_uri is None:
+            self._relative_index_entry_uri = None
+        else:
+            self._relative_index_entry_uri = "".join(self._index_entry_uri.partition("/index")[1:])
+        self._index_uri = index_uri
+
+
+class _PropertyContainer(rest.Resource):
     """
     Base class from which node and relationship classes inherit.
     Extends a :py:class:`py2neo.rest.Resource` by allowing additional URIs to be stored which
@@ -399,56 +413,33 @@ class IndexableResource(rest.Resource):
     functionality.
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
+    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
         """
         Creates a representation of an indexable resource (node or
         relationship) identified by URI; optionally accepts further URIs
         representing both an index for this resource type plus the specific
         entry within that index.
-        
+
         :param uri:             the URI identifying this resource
-        :param index_entry_uri: the URI of the entry in an index pointing to this resource
-        :param index_uri:       the URI of the index containing the above entry
-        :param index:           an index of RESTful URIs
-        
+        :param metadata:           an index of RESTful URIs
+
         """
-        rest.Resource.__init__(self, uri, index=index, **kwargs)
-        self._index_entry_uri = index_entry_uri
-        if self._index_entry_uri is None:
-            self._relative_index_entry_uri = None
+        rest.Resource.__init__(self, uri, metadata=metadata, **kwargs)
+        if metadata and "data" in metadata:
+            self._properties = rest.PropertyCache(metadata["data"], max_age=max_age)
         else:
-            self._relative_index_entry_uri = "".join(self._index_entry_uri.partition("/index")[1:])
-        self._index_uri = index_uri
-        self._id = int('0' + uri.rpartition('/')[-1])
+            self._properties = rest.PropertyCache(max_age=max_age)
 
-    def __repr__(self):
-        return '{0}({1})'.format(
-            self.__class__.__name__,
-            repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
-        )
-
-    def __eq__(self, other):
-        """
-        Determine equality of two resource representations based on both URI
-        and index entry URI, if available.
-        """
-        return (self._uri, self._index_entry_uri) == (other._uri, other._index_entry_uri)
-
-    def __ne__(self, other):
-        """
-        Determine inequality of two resource representations based on both URI
-        and index entry URI, if available.
-        """
-        return (self._uri, self._index_entry_uri) != (other._uri, other._index_entry_uri)
+    def __pull(self):
+        self._properties.update(self._get(self._lookup('properties')))
 
     def __getitem__(self, key):
         """
         Return a named property for this resource.
         """
-        if self._index is None:
-            return self._lookup('data')[key] if key in self._lookup('data') else None
-        else:
-            return self._get(self._lookup('property').format(key=key))
+        if self._properties.needs_update:
+            self.__pull()
+        return self._properties[key]
 
     def __setitem__(self, key, value):
         """
@@ -466,25 +457,72 @@ class IndexableResource(rest.Resource):
         """
         Return all properties for this resource.
         """
-        if self._index is None:
-            # if the index isn't already loaded, just read data from
-            # there so as to save an HTTP call
-            return self._lookup('data') or {}
-        else:
-            # otherwise, grab a fresh copy using the properties resource
-            return self._get(self._lookup('properties')) or {}
+        if self._properties.needs_update:
+            self.__pull()
+        return self._properties.get_all()
 
     def set_properties(self, *args, **kwargs):
         """
         Set all properties for this resource to the supplied values.
         """
-        self._put(self._lookup('properties'), _flatten(*args, **kwargs))
+        p = _flatten(*args, **kwargs)
+        self._put(self._lookup('properties'), p)
+        self._properties.update(p)
 
     def remove_properties(self):
         """
         Delete all properties for this resource.
         """
         self._delete(self._lookup('properties'))
+
+
+class Node(_Indexable, _PropertyContainer):
+    """
+    Represents a node within a graph, identified by a URI. This class is a
+    subclass of :py:class:`_PropertyContainer` and, as such, may also contain
+    URIs identifying how this node is represented within an index.
+    
+    :param uri:             the URI identifying this node
+    :param index_entry_uri: the URI of the entry in an index pointing to this node
+    :param index_uri:       the URI of the index containing the above node entry
+    :param metadata:        an index of RESTful URIs
+    """
+
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, metadata=None, **kwargs):
+        _Indexable.__init__(self, index_entry_uri=index_entry_uri, index_uri=index_uri)
+        _PropertyContainer.__init__(self, uri, metadata=metadata, **kwargs)
+        self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
+        self._id = int('0' + uri.rpartition('/')[-1])
+
+    def __repr__(self):
+        return '{0}({1})'.format(
+            self.__class__.__name__,
+            repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
+        )
+
+    def __str__(self):
+        """
+        Return a human-readable string representation of this node
+        object, e.g.:
+        
+            >>> print str(my_node)
+            '(42)'
+        """
+        return "({0})".format(self._id)
+
+    def __eq__(self, other):
+        """
+        Determine equality of two resource representations based on both URI
+        and index entry URI, if available.
+        """
+        return (self._uri, self._index_entry_uri) == (other._uri, other._index_entry_uri)
+
+    def __ne__(self, other):
+        """
+        Determine inequality of two resource representations based on both URI
+        and index entry URI, if available.
+        """
+        return (self._uri, self._index_entry_uri) != (other._uri, other._index_entry_uri)
 
     @property
     def id(self):
@@ -498,40 +536,6 @@ class IndexableResource(rest.Resource):
         Return the unique id for this resource.
         """
         return self.id
-
-    def delete(self):
-        """
-        Delete this resource from the database.
-        """
-        self._delete(self._lookup('self'))
-
-
-class Node(IndexableResource):
-    """
-    Represents a node within a graph, identified by a URI. This class is a
-    subclass of :py:class:`IndexableResource` and, as such, may also contain
-    URIs identifying how this node is represented within an index.
-    
-    :param uri:             the URI identifying this node
-    :param index_entry_uri: the URI of the entry in an index pointing to this node
-    :param index_uri:       the URI of the index containing the above node entry
-    :param index:           an index of RESTful URIs
-    """
-
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
-        IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-                                   index_uri=index_uri, index=index, **kwargs)
-        self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
-
-    def __str__(self):
-        """
-        Return a human-readable string representation of this node
-        object, e.g.:
-        
-            >>> print str(my_node)
-            '(42)'
-        """
-        return "({0})".format(self._id)
 
     def create_relationship_to(self, other_node, type, *args, **kwargs):
         """
@@ -660,8 +664,14 @@ class Node(IndexableResource):
             td = td.max_depth(max_depth)
         return td.traverse(self)
 
+    def delete(self):
+        """
+        Delete this node from the database.
+        """
+        self._delete(self._lookup('self'))
 
-class Relationship(IndexableResource):
+
+class Relationship(_Indexable, _PropertyContainer):
     """
     Represents a relationship within a graph, identified by a URI. This class
     is a subclass of :py:class:`IndexableResource` and, as such, may also
@@ -670,17 +680,24 @@ class Relationship(IndexableResource):
     :param uri:             the URI identifying this relationship
     :param index_entry_uri: the URI of the entry in an index pointing to this relationship
     :param index_uri:       the URI of the index containing the above relationship entry
-    :param index:           an index of RESTful URIs
+    :param metadata:        an index of RESTful URIs
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, index=None, **kwargs):
-        IndexableResource.__init__(self, uri, index_entry_uri=index_entry_uri,
-                                   index_uri=index_uri, index=index, **kwargs)
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, metadata=None, **kwargs):
+        _Indexable.__init__(self, index_entry_uri=index_entry_uri, index_uri=index_uri)
+        _PropertyContainer.__init__(self, uri, metadata=metadata, **kwargs)
         self._relative_uri = "".join(self._uri.rpartition("/relationship")[1:])
         self._type = self._lookup('type')
         self._data = self._lookup('data')
         self._start_node = None
         self._end_node = None
+        self._id = int('0' + uri.rpartition('/')[-1])
+
+    def __repr__(self):
+        return '{0}({1})'.format(
+            self.__class__.__name__,
+            repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
+        )
 
     def __str__(self):
         """
@@ -692,6 +709,33 @@ class Relationship(IndexableResource):
         
         """
         return "-[{0}:{1}]->".format(self._id, self._type)
+
+    def __eq__(self, other):
+        """
+        Determine equality of two resource representations based on both URI
+        and index entry URI, if available.
+        """
+        return (self._uri, self._index_entry_uri) == (other._uri, other._index_entry_uri)
+
+    def __ne__(self, other):
+        """
+        Determine inequality of two resource representations based on both URI
+        and index entry URI, if available.
+        """
+        return (self._uri, self._index_entry_uri) != (other._uri, other._index_entry_uri)
+
+    @property
+    def id(self):
+        """
+        The unique id for this resource.
+        """
+        return self._id
+
+    def get_id(self):
+        """
+        Return the unique id for this resource.
+        """
+        return self.id
 
     @property
     def type(self):
@@ -764,6 +808,12 @@ class Relationship(IndexableResource):
             return self.get_start_node()
         else:
             return self.get_end_node()
+
+    def delete(self):
+        """
+        Delete this relationship from the database.
+        """
+        self._delete(self._lookup('self'))
 
 
 class Path(object):
@@ -878,11 +928,11 @@ class Index(rest.Resource):
     :param index:        an index of RESTful URIs
     """
 
-    def __init__(self, T, uri=None, template_uri=None, index=None, **kwargs):
+    def __init__(self, T, uri=None, template_uri=None, metadata=None, **kwargs):
         rest.Resource.__init__(
             self,
             uri or template_uri.rpartition("/{key}/{value}")[0],
-            index=index,
+            metadata=metadata,
             **kwargs
         )
         self.__T = T
@@ -1150,8 +1200,8 @@ class Traverser(rest.Resource):
         BREADTH_FIRST = 'breadth_first'
         DEPTH_FIRST   = 'depth_first'
 
-    def __init__(self, template_uri=None, traversal_description=None, index=None, **kwargs):
-        rest.Resource.__init__(self, None, index=index, **kwargs)
+    def __init__(self, template_uri=None, traversal_description=None, metadata=None, **kwargs):
+        rest.Resource.__init__(self, None, metadata=metadata, **kwargs)
         self._template_uri = template_uri
         self._traversal_description = traversal_description
 

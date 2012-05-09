@@ -42,6 +42,9 @@ try:
 except ImportError:
 	from cStringIO import StringIO
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Subgraph(object):
 

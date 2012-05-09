@@ -32,6 +32,10 @@ try:
 except ImportError:
     import neo4j
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class Query(object):
     """
     Represents a Cypher query which can be executed multiple times.
@@ -199,11 +203,11 @@ def _resolve(value):
         uri = value["self"]
         if "type" in value:
             rel = neo4j.Relationship(uri)
-            rel._index = value
+            rel._metadata = value
             return rel
         else:
             node = neo4j.Node(uri)
-            node._index = value
+            node._metadata = value
             return node
     elif isinstance(value, dict) and "length" in value and \
          "nodes" in value and "relationships" in value and \

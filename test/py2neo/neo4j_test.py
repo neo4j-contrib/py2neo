@@ -9,6 +9,7 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 from py2neo import neo4j
+
 import unittest
 
 gdb_uri = "http://localhost:7474/db/data/"

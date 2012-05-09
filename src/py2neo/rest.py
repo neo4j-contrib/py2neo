@@ -31,6 +31,59 @@ try:
 except ImportError:
     import simplejson as json
 
+import logging
+logger = logging.getLogger(__name__)
+
+import time
+
+
+class PropertyCache(object):
+
+    def __init__(self, props=None, max_age=None):
+        self._props = {}
+        self.max_age = max_age
+        self._last_updated_time = None
+        if props:
+            self.update(props)
+
+    def __nonzero__(self):
+        return bool(self._props)
+
+    def __len__(self):
+        return len(self._props)
+
+    def __getitem__(self, item):
+        return self._props[item]
+
+    def __iter__(self):
+        return self._props.__iter__()
+
+    def __contains__(self, item):
+        return item in self._props
+
+    @property
+    def expired(self):
+        if self._last_updated_time and self.max_age:
+            return time.time() - self._last_updated_time > self.max_age
+        else:
+            return None
+
+    @property
+    def needs_update(self):
+        return not self._props or self.expired
+
+    def update(self, metadata):
+        self._props.clear()
+        if metadata:
+            self._props.update(metadata)
+        self._last_updated_time = time.time()
+
+    def get(self, key, default=None):
+        return self._props.get(key, default)
+
+    def get_all(self):
+        return self._props
+
 
 class Resource(object):
     """
@@ -39,26 +92,29 @@ class Resource(object):
 
     :param uri:           the URI identifying this resource
     :param content_type:  the content type required for data exchange
-    :param index:         a previously obtained resource index for endpoint discovery
+    :param metadata:      previously obtained resource metadata
     :param http:          HTTP object to use for requests
     """
 
     SUPPORTED_CONTENT_TYPES = ['application/json']
 
-    def __init__(self, uri, content_type='application/json', index=None, http=None, **request_params):
+    def __init__(self, uri, content_type='application/json', metadata=None, http=None, prefer_curl=False, **request_params):
         if content_type not in self.SUPPORTED_CONTENT_TYPES:
             raise NotImplementedError("Content type {0} not supported".format(content_type))
         self._uri = uri
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
+        if prefer_curl:
+            self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
+        else:
+            self._http = http or httpclient.HTTPClient()
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
             "user_agent": "py2neo"
         }
         self._request_params.update(request_params)
-        self._index = index
+        self._metadata = PropertyCache(metadata)
 
     def __repr__(self):
         """
@@ -118,6 +174,7 @@ class Resource(object):
             "body": data
         })
         try:
+            logger.info("{0} {1}".format(method, uri))
             self.__response = self._http.fetch(uri, **params)
             if self.__response.code == 200:
                 if self.__response.body:
@@ -191,18 +248,16 @@ class Resource(object):
 
     def _lookup(self, key):
         """
-        Look up a value in the resource index by key; will lazily load
-        resource index if required and auto-correct URI from Content-Location
+        Look up a value in the resource metadata by key; will lazily load
+        metadata if required and auto-correct URI from Content-Location
         header.
         
-        :param key: the key of the value to look up in the resource index
+        :param key: the key of the value to look up in the resource metadata
         """
-        if self._index is None:
-            self._index = self._get(self._uri)
-            if self.__response and 'content-location' in self.__response.headers:
-                self._uri = self.__response.headers['content-location']
-        if key in self._index:
-            return self._index[key]
+        if self._metadata.needs_update:
+            self._metadata.update(self._get(self._uri))
+        if key in self._metadata:
+            return self._metadata[key]
         else:
             raise KeyError(key)
 
