@@ -18,6 +18,7 @@
 Cypher Query Language
 """
 
+
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -28,9 +29,9 @@ try:
 except ImportError:
     import simplejson as json
 try:
-    from . import neo4j
+    from . import neo4j, rest
 except ImportError:
-    import neo4j
+    import neo4j, rest
 
 import logging
 logger = logging.getLogger(__name__)
@@ -203,11 +204,11 @@ def _resolve(value):
         uri = value["self"]
         if "type" in value:
             rel = neo4j.Relationship(uri)
-            rel._metadata = value
+            rel._metadata = rest.PropertyCache(value)
             return rel
         else:
             node = neo4j.Node(uri)
-            node._metadata = value
+            node._metadata = rest.PropertyCache(value)
             return node
     elif isinstance(value, dict) and "length" in value and \
          "nodes" in value and "relationships" in value and \
