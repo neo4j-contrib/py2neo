@@ -37,29 +37,59 @@ logger = logging.getLogger(__name__)
 import time
 
 
+class ResourceNotFound(LookupError):
+
+    def __init__(self, uri):
+        LookupError.__init__(self)
+        self.uri = uri
+
+    def __str__(self):
+        return repr(self.uri)
+
+
+class ResourceConflict(EnvironmentError):
+
+    def __init__(self, uri):
+        EnvironmentError.__init__(self)
+        self.uri = uri
+
+    def __str__(self):
+        return repr(self.uri)
+
+
+class NoResponse(IOError):
+
+    def __init__(self, uri):
+        IOError.__init__(self)
+        self.uri = uri
+
+    def __str__(self):
+        return repr(self.uri)
+
+
 class PropertyCache(object):
 
-    def __init__(self, props=None, max_age=None):
-        self._props = {}
+    def __init__(self, properties=None, max_age=None):
+        self._properties = {}
         self.max_age = max_age
         self._last_updated_time = None
-        if props:
-            self.update(props)
+        if properties:
+            self.update(properties)
 
     def __nonzero__(self):
-        return bool(self._props)
+        return bool(self._properties)
 
     def __len__(self):
-        return len(self._props)
+        return len(self._properties)
 
     def __getitem__(self, item):
-        return self._props[item]
+        return self._properties[item]
 
     def __iter__(self):
-        return self._props.__iter__()
+        return self._properties.__iter__()
 
     def __contains__(self, item):
-        return item in self._props
+        return item in self._properties
 
     @property
     def expired(self):
@@ -70,19 +100,19 @@ class PropertyCache(object):
 
     @property
     def needs_update(self):
-        return not self._props or self.expired
+        return not self._properties or self.expired
 
-    def update(self, metadata):
-        self._props.clear()
-        if metadata:
-            self._props.update(metadata)
+    def update(self, properties):
+        self._properties.clear()
+        if properties:
+            self._properties.update(properties)
         self._last_updated_time = time.time()
 
     def get(self, key, default=None):
-        return self._props.get(key, default)
+        return self._properties.get(key, default)
 
     def get_all(self):
-        return self._props
+        return self._properties
 
 
 class Resource(object):
@@ -101,7 +131,7 @@ class Resource(object):
     def __init__(self, uri, content_type='application/json', metadata=None, http=None, prefer_curl=False, **request_params):
         if content_type not in self.SUPPORTED_CONTENT_TYPES:
             raise NotImplementedError("Content type {0} not supported".format(content_type))
-        self._uri = uri
+        self._uri = str(uri)
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
@@ -188,13 +218,17 @@ class Resource(object):
         except HTTPError as err:
             self.__response = err.response
             if err.code == 400:
-                raise ValueError(err.response)
+                try:
+                    args = json.loads(err.response.body)
+                except ValueError:
+                    args = err.response.body
+                raise ValueError(args)
             elif err.code == 404:
-                raise LookupError("Resource <{0}> not found".format(uri))
+                raise ResourceNotFound(uri)
             elif err.code == 409:
-                raise SystemError("Resource conflict for <{0}>".format(uri))
+                raise ResourceConflict(uri)
             elif err.code == 599:
-                raise SystemError("No response received from resource <{0}>".format(uri))
+                raise NoResponse(uri)
             else:
                 raise err
 

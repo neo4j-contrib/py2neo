@@ -62,6 +62,12 @@ def _flatten(*args, **kwargs):
     ])
     return data
 
+def _numberise(n):
+    try:
+        return int(n)
+    except ValueError:
+        return n
+
 def _quote(string, safe='/'):
     try:
         return quote(string, safe)
@@ -94,7 +100,7 @@ class GraphDatabaseService(rest.Resource):
     reference node:
 
         >>> from py2neo import neo4j
-        >>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+        >>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
         >>> gdb.get_reference_node()
         Node(u'http://localhost:7474/db/data/node/0')
     
@@ -131,13 +137,7 @@ class GraphDatabaseService(rest.Resource):
             self._gremlin_uri = self._extension_uri('GremlinPlugin', 'execute_script')
         except NotImplementedError:
             self._gremlin_uri = None
-        # since we can't do inline exception handling, define a function
-        def numberise(n):
-            try:
-                return int(n)
-            except ValueError:
-                return n
-        self._neo4j_version = tuple(map(numberise, self._neo4j_version.replace("-", ".").split(".")))
+        self._neo4j_version = tuple(map(_numberise, self._neo4j_version.replace("-", ".").split(".")))
         self._node_indexes = {}
         self._relationship_indexes = {}
 

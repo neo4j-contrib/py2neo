@@ -12,11 +12,6 @@ import unittest
 
 from py2neo import cypher, neo4j
 
-if PY3K:
-    from io import StringIO
-else:
-    from cStringIO import StringIO
-
 
 class CypherTestCase(unittest.TestCase):
 
@@ -27,8 +22,27 @@ class CypherTestCase(unittest.TestCase):
         self.node_b = self.graph_db.create_node(name="Bob")
         self.rel_ab = self.node_a.create_relationship_to(self.node_b, "KNOWS")
 
+    def test_nonsense_query(self):
+        self.assertRaises(cypher.CypherError, cypher.execute,
+            self.graph_db, "select z=nude(0) returns x"
+        )
+
+    def test_nonsense_query_with_error_handler(self):
+        def print_error(message, exception, stacktrace):
+            print message
+            self.assertTrue(len(message) > 0)
+        cypher.execute(
+            self.graph_db, "select z=nude(0) returns x",
+            error_handler=print_error
+        )
+        self.assertTrue(True)
+
     def test_query(self):
-        rows, metadata = cypher.execute(self.graph_db, "start a=node({}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(self.node_a.get_id(), self.node_b.get_id()))
+        rows, metadata = cypher.execute(self.graph_db,
+            "start a=node({}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(
+                self.node_a.get_id(), self.node_b.get_id()
+            )
+        )
         self.assertEqual(1, len(rows))
         for row in rows:
             self.assertEqual(5, len(row))

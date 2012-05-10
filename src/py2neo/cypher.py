@@ -37,6 +37,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class CypherError(ValueError):
+
+    def __init__(self, message, exception, stacktrace):
+        ValueError.__init__(self, message, exception, stacktrace)
+        self.exception = exception
+        self.stacktrace = stacktrace
+
+
 class Query(object):
     """
     Represents a Cypher query which can be executed multiple times.
@@ -50,7 +58,9 @@ class Query(object):
 
     def execute(self, params=None, row_handler=None, metadata_handler=None, error_handler=None, **kwargs):
         if row_handler or metadata_handler:
-            e = Query._Execution(self.graph_db, self.query, params, row_handler, metadata_handler, error_handler)
+            e = Query._Execution(self.graph_db, self.query, params,
+                row_handler, metadata_handler, error_handler
+            )
             return [], e.metadata
         else:
             if params:
@@ -58,16 +68,29 @@ class Query(object):
             else:
                 payload = {"query": str(self.query)}
             try:
-                response = self.graph_db._post(self.graph_db._cypher_uri, payload, **kwargs)
-                rows, columns = response['data'], response['columns']
-                return [map(_resolve, row) for row in rows], Query.Metadata(columns)
+                response = self.graph_db._post(
+                    self.graph_db._cypher_uri, payload, **kwargs
+                )
             except ValueError as err:
+                detail = err.args[0]
                 if error_handler:
                     try:
-                        error_handler(json.loads(err.args[0].body)["message"])
+                        error_handler(
+                            message=detail["message"],
+                            exception=detail["exception"],
+                            stacktrace=detail["stacktrace"]
+                        )
                         return [], None
                     except Exception as ex:
                         raise ex
+                else:
+                    raise CypherError(
+                        detail["message"],
+                        exception=detail["exception"],
+                        stacktrace=detail["stacktrace"]
+                    )
+            rows, columns = response['data'], response['columns']
+            return [map(_resolve, row) for row in rows], Query.Metadata(columns)
 
 
     class Metadata(object):
@@ -186,13 +209,15 @@ class Query(object):
                     self._row += src
             if self._section == "message":
                 if self._depth == 1 and value:
-                    self._cypher_error["message"] = value
                     if self.error_handler:
+                        self._cypher_error["message"] = value
                         try:
                             self.error_handler(self._cypher_error["message"])
                         except Exception as ex:
                             self._handler_error = ex
                             raise ex
+                    else:
+                        raise CypherError(value)
             if src in "[{":
                 self._depth += 1
             self._last_value = value

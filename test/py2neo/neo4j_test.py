@@ -8,28 +8,32 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
-from py2neo import neo4j
+from py2neo import neo4j, rest
 
 import unittest
-
-gdb_uri = "http://localhost:7474/db/data/"
 
 UNICODE_TEST_STR = ""
 for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
     UNICODE_TEST_STR += chr(ch) if PY3K else unichr(ch)
 
 
-def get_gdb():
-    try:
-        return neo4j.GraphDatabaseService(gdb_uri)
-    except IOError:
-        sys.exit("Unable to attach to GraphDatabaseService at {0}".format(gdb_uri))
+def default_graph_db():
+    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+
+
+class FailureTest(unittest.TestCase):
+
+    def test_no_response(self):
+        self.assertRaises(rest.NoResponse,
+            neo4j.GraphDatabaseService,
+            "http://localhsot:4747/data/db"
+        )
 
 
 class GraphDatabaseServiceTest(unittest.TestCase):
 
     def setUp(self):
-        self.gdb = get_gdb()
+        self.gdb = default_graph_db()
         print("Neo4j Version: {0}".format(repr(self.gdb._neo4j_version)))
 
     def test_get_reference_node(self):
@@ -118,7 +122,7 @@ class SingleNodeTestCase(unittest.TestCase):
     }
 
     def setUp(self):
-        self.gdb = get_gdb()
+        self.gdb = default_graph_db()
         self.node = self.gdb.create_node(self.data)
 
     def test_is_created(self):
@@ -155,7 +159,7 @@ class SingleNodeTestCase(unittest.TestCase):
 class NodeTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.gdb = get_gdb()
+        self.gdb = default_graph_db()
         self.fred, self.wilma = self.gdb.create_nodes({"name": "Fred"}, {"name": "Wilma"})
         self.fred_and_wilma = self.fred.create_relationship_to(self.wilma, "LOVES")
 
@@ -238,7 +242,7 @@ class MultipleNodeTestCase(unittest.TestCase):
     ]
 
     def setUp(self):
-        self.gdb = get_gdb()
+        self.gdb = default_graph_db()
         self.ref_node = self.gdb.get_reference_node()
         self.nodes = self.gdb.create_nodes(*self.flintstones)
 
@@ -286,7 +290,7 @@ class MultipleNodeTestCase(unittest.TestCase):
 class IndexTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.gdb = get_gdb()
+        self.gdb = default_graph_db()
 
     def test_get_node_index(self):
         index1 = self.gdb.get_node_index("index1")
