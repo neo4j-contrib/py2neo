@@ -8,19 +8,28 @@ PY2NEO=`pwd`/`dirname $0`/..
 # clear any existing builds
 rm -rf $PY2NEO/dist
 
-# check version number
-VERSION=`cat VERSION | awk '{print $1}'`
-echo "*** Building version $VERSION ***"
+# check version number for this code
+THIS_VERSION=`cat VERSION | awk '{print $1}'`
+
+# check last release version number
+LAST_VERSION=`curl http://pypi.python.org/pypi/py2neo/json 2> /dev/null | grep '"version"' | awk -F\" '{print $4}'`
 
 # set python path
 export PYTHONPATH=$PY2NEO/src
 
 # package software
-python $PY2NEO/setup.py sdist
+if [ "$THIS_VERSION" == "$LAST_VERSION" ]
+then
+    echo "*** Building version $THIS_VERSION ***"
+    python $PY2NEO/setup.py sdist
+else
+    echo "*** Building and releasing version $THIS_VERSION ***"
+    python $PY2NEO/setup.py sdist upload
+fi
 
 # package documentation
 cd $PY2NEO/doc
 make clean
 make html
 cd $PY2NEO/doc/_build/html
-zip -r $PY2NEO/dist/py2neo-doc-$VERSION.zip *
+zip -r $PY2NEO/dist/py2neo-doc-$THIS_VERSION.zip *

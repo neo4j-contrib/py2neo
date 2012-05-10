@@ -55,53 +55,49 @@ def _stringify(value, quoted=False, with_properties=False):
 def execute_and_output_as_delimited(graph_db, query, field_delimiter="\t", out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
-    def on_error(message):
-        err.write(message)
-        if not message.endswith("\n"):
-            err.write("\n")
+    def on_error(message, exception, stacktrace):
+        err.write("{0}\n".format(message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
-    out.write(field_delimiter.join([
-    json.dumps(column)
-    for column in metadata.columns
-    ]))
-    out.write("\n")
-    for row in data:
+    if data or metadata:
         out.write(field_delimiter.join([
-        _stringify(value, quoted=True)
-        for value in row
+        json.dumps(column)
+        for column in metadata.columns
         ]))
         out.write("\n")
+        for row in data:
+            out.write(field_delimiter.join([
+            _stringify(value, quoted=True)
+            for value in row
+            ]))
+            out.write("\n")
 
 def execute_and_output_as_json(graph_db, query, out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
-    def on_error(message):
-        err.write(message)
-        if not message.endswith("\n"):
-            err.write("\n")
+    def on_error(message, exception, stacktrace):
+        err.write("{0}\n".format(message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
-    columns = [json.dumps(column) for column in metadata.columns]
-    row_count = 0
-    out.write("[\n")
-    for row in data:
-        row_count += 1
-        if row_count > 1:
-            out.write(",\n")
-        out.write("\t{" + ", ".join([
-        columns[i] + ": " + _stringify(row[i], quoted=True)
-        for i in range(len(row))
-        ]) + "}")
-    out.write("\n]\n")
+    if data or metadata:
+        columns = [json.dumps(column) for column in metadata.columns]
+        row_count = 0
+        out.write("[\n")
+        for row in data:
+            row_count += 1
+            if row_count > 1:
+                out.write(",\n")
+            out.write("\t{" + ", ".join([
+            columns[i] + ": " + _stringify(row[i], quoted=True)
+            for i in range(len(row))
+            ]) + "}")
+        out.write("\n]\n")
 
 def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
     nodes = {}
     relationships = {}
-    def on_error(message):
-        err.write(message)
-        if not message.endswith("\n"):
-            err.write("\n")
+    def on_error(message, exception, stacktrace):
+        err.write("{0}\n".format(message))
     def update_descriptors(value):
         if isinstance(value, neo4j.Node):
             nodes[str(value)] = value._lookup('data')
@@ -110,57 +106,57 @@ def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
         else:
             # property - not supported in GEOFF format, so ignore
             pass
-    data, columns = cypher.execute(graph_db, query, error_handler=on_error)
-    for row in data:
-        for i in range(len(row)):
-            update_descriptors(row[i])
-    for key, value in nodes.items():
-        out.write("{0} {1}\n".format(
-            key,
-            json.dumps(value)
-        ))
-    for key, value in relationships.items():
-        out.write("{0} {1}\n".format(
-            key,
-            json.dumps(value)
-        ))
+    data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
+    if data or metadata:
+        for row in data:
+            for i in range(len(row)):
+                update_descriptors(row[i])
+        for key, value in nodes.items():
+            out.write("{0} {1}\n".format(
+                key,
+                json.dumps(value)
+            ))
+        for key, value in relationships.items():
+            out.write("{0} {1}\n".format(
+                key,
+                json.dumps(value)
+            ))
 
 def execute_and_output_as_text(graph_db, query, out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
-    def on_error(message):
-        err.write(message)
-        if not message.endswith("\n"):
-            err.write("\n")
+    def on_error(message, exception, stacktrace):
+        err.write("{0}\n".format(message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
-    columns = metadata.columns
-    column_widths = [len(column) for column in columns]
-    for row in data:
-        column_widths = [
-            max(column_widths[i], None if row[i] is None else len(_stringify(row[i], with_properties=True)))
-            for i in range(len(row))
-        ]
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
-    out.write("| " + " | ".join([
-        columns[i].ljust(column_widths[i])
-        for i in range(len(columns))
-    ]) + " |\n")
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
-    for row in data:
+    if data or metadata:
+        columns = metadata.columns
+        column_widths = [len(column) for column in columns]
+        for row in data:
+            column_widths = [
+                max(column_widths[i], None if row[i] is None else len(_stringify(row[i], with_properties=True)))
+                for i in range(len(row))
+            ]
+        out.write("+-" + "---".join([
+            "".ljust(column_widths[i], "-")
+            for i in range(len(columns))
+        ]) + "-+\n")
         out.write("| " + " | ".join([
-            _stringify(row[i], with_properties=True).ljust(column_widths[i])
-            for i in range(len(row))
+            columns[i].ljust(column_widths[i])
+            for i in range(len(columns))
         ]) + " |\n")
-    out.write("+-" + "---".join([
-        "".ljust(column_widths[i], "-")
-        for i in range(len(columns))
-    ]) + "-+\n")
+        out.write("+-" + "---".join([
+            "".ljust(column_widths[i], "-")
+            for i in range(len(columns))
+        ]) + "-+\n")
+        for row in data:
+            out.write("| " + " | ".join([
+                _stringify(row[i], with_properties=True).ljust(column_widths[i])
+                for i in range(len(row))
+            ]) + " |\n")
+        out.write("+-" + "---".join([
+            "".ljust(column_widths[i], "-")
+            for i in range(len(columns))
+        ]) + "-+\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
