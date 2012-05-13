@@ -8,7 +8,7 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
-from py2neo import neo4j, rest
+from py2neo import neo4j, rest, batch
 
 import unittest
 
@@ -64,7 +64,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(True, node["true"])
 
     def test_create_multiple_nodes(self):
-        nodes = self.gdb.create_nodes(
+        nodes = self.gdb.create(
                 {},
                 {"foo": "bar"},
                 {"number": 42, "foo": "baz", "true": True},
@@ -85,7 +85,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(109, nodes[3]["number"])
 
     def test_batch_get_properties(self):
-        nodes = self.gdb.create_nodes(
+        nodes = self.gdb.create(
                 {},
                 {"foo": "bar"},
                 {"number": 42, "foo": "baz", "true": True},
@@ -160,8 +160,9 @@ class NodeTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gdb = default_graph_db()
-        self.fred, self.wilma = self.gdb.create_nodes({"name": "Fred"}, {"name": "Wilma"})
-        self.fred_and_wilma = self.fred.create_relationship_to(self.wilma, "LOVES")
+        self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
+            {"name": "Fred"}, {"name": "Wilma"}, (0, "LOVES", 1)
+        )
 
     def test_get_all_relationships(self):
         rels = self.fred.get_relationships()
@@ -232,6 +233,100 @@ class NodeTestCase(unittest.TestCase):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
 
 
+class NewCreateTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+
+    def test_can_create_single_node(self):
+        results = self.graph_db.create(
+            {"name": "Alice"}
+        )
+        self.assertIsNotNone(results)
+        self.assertIsInstance(results, list)
+        self.assertEqual(1, len(results))
+        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue("name" in results[0])
+        self.assertEqual("Alice", results[0]["name"])
+
+    def test_can_create_simple_graph(self):
+        results = self.graph_db.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            (0, "KNOWS", 1)
+        )
+        self.assertIsNotNone(results)
+        self.assertIsInstance(results, list)
+        self.assertEqual(3, len(results))
+        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue("name" in results[0])
+        self.assertEqual("Alice", results[0]["name"])
+        self.assertIsInstance(results[1], neo4j.Node)
+        self.assertTrue("name" in results[1])
+        self.assertEqual("Bob", results[1]["name"])
+        self.assertIsInstance(results[2], neo4j.Relationship)
+        self.assertEqual("KNOWS", results[2].type)
+        self.assertEqual(results[0], results[2].start_node)
+        self.assertEqual(results[1], results[2].end_node)
+
+    def test_can_create_simple_graph_with_rel_data(self):
+        results = self.graph_db.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            (0, "KNOWS", 1, {"since": 1996})
+        )
+        self.assertIsNotNone(results)
+        self.assertIsInstance(results, list)
+        self.assertEqual(3, len(results))
+        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue("name" in results[0])
+        self.assertEqual("Alice", results[0]["name"])
+        self.assertIsInstance(results[1], neo4j.Node)
+        self.assertTrue("name" in results[1])
+        self.assertEqual("Bob", results[1]["name"])
+        self.assertIsInstance(results[2], neo4j.Relationship)
+        self.assertEqual("KNOWS", results[2].type)
+        self.assertEqual(results[0], results[2].start_node)
+        self.assertEqual(results[1], results[2].end_node)
+        self.assertTrue("since" in results[2])
+        self.assertEqual(1996, results[2]["since"])
+
+    def test_can_create_graph_against_existing_node(self):
+        ref_node = self.graph_db.get_reference_node()
+        results = self.graph_db.create(
+            {"name": "Alice"},
+            (ref_node, "PERSON", 0)
+        )
+        self.assertIsNotNone(results)
+        self.assertIsInstance(results, list)
+        self.assertEqual(2, len(results))
+        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue("name" in results[0])
+        self.assertEqual("Alice", results[0]["name"])
+        self.assertIsInstance(results[1], neo4j.Relationship)
+        self.assertEqual("PERSON", results[1].type)
+        self.assertEqual(ref_node, results[1].start_node)
+        self.assertEqual(results[0], results[1].end_node)
+
+    def test_fails_on_bad_reference(self):
+        self.assertRaises(batch.BatchError, self.graph_db.create,
+            {"name": "Alice"},
+            (0, "KNOWS", 1)
+        )
+
+    def test_can_create_big_graph(self):
+        size = 2000
+        nodes = [
+            {"number": i}
+            for i in range(size)
+        ]
+        results = self.graph_db.create(*nodes)
+        self.assertIsNotNone(results)
+        self.assertIsInstance(results, list)
+        self.assertEqual(size, len(results))
+        for i in range(size):
+            self.assertIsInstance(results[i], neo4j.Node)
+
 class MultipleNodeTestCase(unittest.TestCase):
 
     flintstones = [
@@ -244,7 +339,7 @@ class MultipleNodeTestCase(unittest.TestCase):
     def setUp(self):
         self.gdb = default_graph_db()
         self.ref_node = self.gdb.get_reference_node()
-        self.nodes = self.gdb.create_nodes(*self.flintstones)
+        self.nodes = self.gdb.create(*self.flintstones)
 
     def test_is_created(self):
         self.assertIsNotNone(self.nodes)
@@ -257,34 +352,29 @@ class MultipleNodeTestCase(unittest.TestCase):
         ], self.flintstones)
 
     def test_create_relationships(self):
-        rels = self.gdb.create_relationships(*[
-            {
-                "start_node": self.ref_node,
-                "end_node": node,
-                "type": "FLINTSTONE"
-            }
+        rels = self.gdb.create(*[
+            (self.ref_node, "FLINTSTONE", node)
             for node in self.nodes
         ])
         self.gdb.delete(*rels)
         self.assertEqual(len(self.nodes), len(rels))
         
-    def test_simple_traverse(self):
-        td = None
-        rel0 = self.nodes[0].create_relationship_to(self.nodes[1], "FLINTSTONE", {})
-        rel1 = self.nodes[1].create_relationship_to(self.nodes[2], "FLINTSTONE", {})
-        #Created Relationship Fred -> Wilma -> Barney
-        td = self.nodes[0].traverse(order = "depth_first",
-                            relationships = ("FLINTSTONE",),
-                            prune = ("javascript", "position.endNode().getProperty('name') == 'Barney';"),
-                            max_depth=2)
-        
-        self.assertEqual(2, len(td.nodes))
-        self.gdb.delete(rel0)
-        self.gdb.delete(rel1)
+#    def test_simple_traverse(self):
+#        td = None
+#        rel0 = self.nodes[0].create_relationship_to(self.nodes[1], "FLINTSTONE", {})
+#        rel1 = self.nodes[1].create_relationship_to(self.nodes[2], "FLINTSTONE", {})
+#        #Created Relationship Fred -> Wilma -> Barney
+#        td = self.nodes[0].traverse(order = "depth_first",
+#                            relationships = ("FLINTSTONE",),
+#                            prune = ("javascript", "position.endNode().getProperty('name') == 'Barney';"),
+#                            max_depth=2)
+#
+#        self.assertEqual(2, len(td.nodes))
+#        self.gdb.delete(rel0)
+#        self.gdb.delete(rel1)
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
-
 
 
 class IndexTestCase(unittest.TestCase):

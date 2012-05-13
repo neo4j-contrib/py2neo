@@ -106,7 +106,7 @@ Taking it a step further, this pattern can also allow nodes to be simultaneously
 #    |
 #    `--[:PERSON]->(Bob)
 #
-people, mothers = graph_db.create_nodes({}, {})
+people, mothers = graph_db.create({}, {})
 people.create_relationship_to(alice, "PERSON")
 people.create_relationship_to(bob, "PERSON")
 mothers.create_relationship_to(alice, "MOTHER")
@@ -141,7 +141,7 @@ The code below shows another example of such a relationship:
 #                          v
 # (Alice)<-[:EMPLOYS]-(Megacorp)-[:EMPLOYS]->(Bob)
 #
-companies, megacorp = graph_db.create_nodes({}, {"name": "Megacorp"})
+companies, megacorp = graph_db.create({}, {"name": "Megacorp"})
 companies.create_relationship_to(megacorp, "COMPANY")
 megacorp.create_relationship_to(alice, "EMPLOYS")
 megacorp.create_relationship_to(bob, "EMPLOYS")

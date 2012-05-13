@@ -29,7 +29,7 @@ gdb.delete(*nodes)
 
 # Create the nodes
 count = int(sys.argv[1])
-nodes = gdb.create_nodes(*[
+nodes = gdb.create(*[
     {
         "number": i,
         "name": eng.number_to_words(i)

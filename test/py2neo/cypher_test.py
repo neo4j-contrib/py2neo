@@ -40,7 +40,7 @@ class CypherTestCase(unittest.TestCase):
     def test_query(self):
         rows, metadata = cypher.execute(self.graph_db,
             "start a=node({}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(
-                self.node_a.get_id(), self.node_b.get_id()
+                self.node_a.id, self.node_b.id
             )
         )
         self.assertEqual(1, len(rows))
@@ -59,7 +59,7 @@ class CypherTestCase(unittest.TestCase):
         self.assertEqual("b.name", metadata.columns[4])
 
     def test_query_with_handlers(self):
-        a, b = self.graph_db.create_nodes(
+        a, b = self.graph_db.create(
             {"name": "Alice"},
             {"name": "Bob"}
         )
@@ -92,7 +92,7 @@ class CypherTestCase(unittest.TestCase):
         )
 
     def test_query_with_params(self):
-        a, b = self.graph_db.create_nodes(
+        a, b = self.graph_db.create(
                 {"name": "Alice"},
                 {"name": "Bob"}
         )

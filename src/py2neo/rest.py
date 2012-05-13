@@ -128,17 +128,14 @@ class Resource(object):
 
     SUPPORTED_CONTENT_TYPES = ['application/json']
 
-    def __init__(self, uri, content_type='application/json', metadata=None, http=None, prefer_curl=False, **request_params):
+    def __init__(self, uri, content_type='application/json', metadata=None, http=None, **request_params):
         if content_type not in self.SUPPORTED_CONTENT_TYPES:
             raise NotImplementedError("Content type {0} not supported".format(content_type))
         self._uri = str(uri)
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        if prefer_curl:
-            self._http = http or httpclient.HTTPClient(curl_httpclient.CurlAsyncHTTPClient)
-        else:
-            self._http = http or httpclient.HTTPClient()
+        self._http = http
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
             "user_agent": "py2neo"
@@ -205,6 +202,9 @@ class Resource(object):
         })
         try:
             logger.info("{0} {1}".format(method, uri))
+            # lazily create HTTP client when required
+            if not self._http:
+                self._http = httpclient.HTTPClient()
             self.__response = self._http.fetch(uri, **params)
             if self.__response.code == 200:
                 if self.__response.body:
@@ -227,6 +227,12 @@ class Resource(object):
                 raise ResourceNotFound(uri)
             elif err.code == 409:
                 raise ResourceConflict(uri)
+            elif err.code == 500:
+                try:
+                    args = json.loads(err.response.body)
+                except ValueError:
+                    args = err.response.body
+                raise SystemError(args)
             elif err.code == 599:
                 raise NoResponse(uri)
             else:
