@@ -169,53 +169,53 @@ class NodeTestCase(unittest.TestCase):
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].get_start_node())
-        self.assertEqual(self.wilma, rels[0].get_end_node())
+        self.assertEqual(self.fred, rels[0].start_node)
+        self.assertEqual(self.wilma, rels[0].end_node)
 
     def test_get_all_outgoing_relationships(self):
         rels = self.fred.get_relationships(neo4j.Direction.OUTGOING)
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].get_start_node())
-        self.assertEqual(self.wilma, rels[0].get_end_node())
+        self.assertEqual(self.fred, rels[0].start_node)
+        self.assertEqual(self.wilma, rels[0].end_node)
 
     def test_get_all_incoming_relationships(self):
         rels = self.wilma.get_relationships(neo4j.Direction.INCOMING)
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].get_start_node())
-        self.assertEqual(self.wilma, rels[0].get_end_node())
+        self.assertEqual(self.fred, rels[0].start_node)
+        self.assertEqual(self.wilma, rels[0].end_node)
 
     def test_get_all_relationships_of_type(self):
         rels = self.fred.get_relationships(neo4j.Direction.BOTH, "LOVES")
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].get_start_node())
-        self.assertEqual(self.wilma, rels[0].get_end_node())
+        self.assertEqual(self.fred, rels[0].start_node)
+        self.assertEqual(self.wilma, rels[0].end_node)
 
     def test_get_single_relationship(self):
         rel = self.fred.get_single_relationship(neo4j.Direction.BOTH, "LOVES")
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual("LOVES", rel.type)
-        self.assertEqual(self.fred, rel.get_start_node())
-        self.assertEqual(self.wilma, rel.get_end_node())
+        self.assertEqual(self.fred, rel.start_node)
+        self.assertEqual(self.wilma, rel.end_node)
 
     def test_get_single_outgoing_relationship(self):
         rel = self.fred.get_single_relationship(neo4j.Direction.OUTGOING, "LOVES")
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual("LOVES", rel.type)
-        self.assertEqual(self.fred, rel.get_start_node())
-        self.assertEqual(self.wilma, rel.get_end_node())
+        self.assertEqual(self.fred, rel.start_node)
+        self.assertEqual(self.wilma, rel.end_node)
 
     def test_get_single_incoming_relationship(self):
         rel = self.wilma.get_single_relationship(neo4j.Direction.INCOMING, "LOVES")
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual("LOVES", rel.type)
-        self.assertEqual(self.fred, rel.get_start_node())
-        self.assertEqual(self.wilma, rel.get_end_node())
+        self.assertEqual(self.fred, rel.start_node)
+        self.assertEqual(self.wilma, rel.end_node)
 
     def test_explicit_is_related_to(self):
         self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.BOTH, "LOVES"))
@@ -431,6 +431,17 @@ class IndexTestCase(unittest.TestCase):
         self.assertTrue(node2 in s)
         self.assertFalse(node3 in s)
 
+
+#class IteratorTestCase(unittest.TestCase):
+#
+#    def setUp(self):
+#        self.graph_db = default_graph_db()
+#
+#    def test_rel_iterator(self):
+#        ref_node = self.graph_db.get_reference_node()
+#        for rel in self.graph_db.relationships(start_node=ref_node,
+#            type=None):
+#            print rel
 
 if __name__ == '__main__':
     unittest.main()

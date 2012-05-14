@@ -38,6 +38,8 @@ except ValueError:
 import logging
 logger = logging.getLogger(__name__)
 
+import warnings
+
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
 
@@ -152,18 +154,6 @@ class GraphDatabaseService(rest.Resource):
         self._node_indexes = {}
         self._relationship_indexes = {}
 
-    def __getitem__(self, item):
-        """
-        Retrieve node by ID
-        """
-        return self.get_node(item)
-
-    def __len__(self):
-        """
-        Retrieve number of nodes in this graph
-        """
-        return self.get_node_count()
-
     @property
     def neo4j_version(self):
         return self._neo4j_version
@@ -178,65 +168,83 @@ class GraphDatabaseService(rest.Resource):
         else:
             return 0
 
+#    # TODO
+#    def nodes(self, <match criteria>): ...
+#    def relationships(self, start_node=None, type=None, end_node=None):
+#        type = type or ""
+#        if type:
+#            type = ":" + type
+#        data, metadata = cypher.execute(self,
+#            "start a=node({A}) match a-[r" + type + "]->b return r",
+#            {"A": start_node.id}
+#        )
+#        return [row[0] for row in data]
+
     def create_node(self, *props, **kwprops):
         """
         Create a new node, optionally with properties.
         """
         return self._spawn(Node, self._post(self._lookup('node'), _flatten(*props, **kwprops)))
 
-#    def create_nodes(self, *props):
-#        """
-#        Create a number of new nodes for all supplied properties as part of a
-#        single batch.
-#        """
-#        return [
-#            self._spawn(Node, result['location'], metadata=result['body'])
-#            for result in self._post(self._batch_uri, [
-#                {
-#                    'method': 'POST',
-#                    'to': "".join(self._lookup('node').rpartition("/node")[1:3]),
-#                    'body': _flatten(props[i]),
-#                    'id': i
-#                }
-#                for i in range(len(props))
-#            ])
-#        ]
-#
-#    def create_relationships(self, *descriptors):
-#        """
-#        Create new relationships based on the supplied descriptors as
-#        part of a single batch. Each descriptor should be a dictionary
-#        consisting of two nodes, named ``start_node`` and ``end_node``,
-#        a ``type`` and optionally ``data`` to be attached to the relationship,
-#        for example:
-#
-#            >>> gdb.create_relationships({
-#            ...     "start_node": node1,
-#            ...     "end_node": node2,
-#            ...     "type": "KNOWS"
-#            ... }, {
-#            ...     "start_node": node2,
-#            ...     "end_node": node3,
-#            ...     "type": "LIKES",
-#            ...     "data": {"amount": "lots"}
-#            ... })
-#        """
-#        return [
-#            self._spawn(Relationship, result['body']['self'], metadata=result['body'])
-#            for result in self._post(self._batch_uri, [
-#                {
-#                    'method': 'POST',
-#                    'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').rpartition("/node")[1:3]),
-#                    'body': {
-#                        'to': descriptors[i]['end_node']._uri,
-#                        'type': descriptors[i]['type'],
-#                        'data': _flatten(descriptors[i]['data']) if 'data' in descriptors[i] else None
-#                    },
-#                    'id': i
-#                }
-#                for i in range(len(descriptors))
-#            ])
-#        ]
+    def create_nodes(self, *props):
+        """
+        Create a number of new nodes for all supplied properties as part of a
+        single batch.
+        """
+        warnings.warn("GraphDatabaseService.create_nodes will no longer be "
+                      "supported in py2neo 1.3; please use 'create' method "
+                      "instead")
+        return [
+            self._spawn(Node, result['location'], metadata=result['body'])
+            for result in self._post(self._batch_uri, [
+                {
+                    'method': 'POST',
+                    'to': "".join(self._lookup('node').rpartition("/node")[1:3]),
+                    'body': _flatten(props[i]),
+                    'id': i
+                }
+                for i in range(len(props))
+            ])
+        ]
+
+    def create_relationships(self, *descriptors):
+        """
+        Create new relationships based on the supplied descriptors as
+        part of a single batch. Each descriptor should be a dictionary
+        consisting of two nodes, named ``start_node`` and ``end_node``,
+        a ``type`` and optionally ``data`` to be attached to the relationship,
+        for example:
+
+            >>> gdb.create_relationships({
+            ...     "start_node": node1,
+            ...     "end_node": node2,
+            ...     "type": "KNOWS"
+            ... }, {
+            ...     "start_node": node2,
+            ...     "end_node": node3,
+            ...     "type": "LIKES",
+            ...     "data": {"amount": "lots"}
+            ... })
+        """
+        warnings.warn("GraphDatabaseService.create_relationships will no "
+                      "longer be supported in py2neo 1.3; please use 'create' "
+                      "method instead")
+        return [
+            self._spawn(Relationship, result['body']['self'], metadata=result['body'])
+            for result in self._post(self._batch_uri, [
+                {
+                    'method': 'POST',
+                    'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').rpartition("/node")[1:3]),
+                    'body': {
+                        'to': descriptors[i]['end_node']._uri,
+                        'type': descriptors[i]['type'],
+                        'data': _flatten(descriptors[i]['data']) if 'data' in descriptors[i] else None
+                    },
+                    'id': i
+                }
+                for i in range(len(descriptors))
+            ])
+        ]
 
     def get_properties(self, *entities):
         """
@@ -290,25 +298,27 @@ class GraphDatabaseService(rest.Resource):
         """
         return self._spawn(Node, self._lookup('reference_node'))
 
-#    def get_subreference_node(self, name):
-#        """
-#        Get a named subreference node from the current graph. If
-#        such a node does not exist, one is created.
-#        """
-#        ref_node = self.get_reference_node()
-#        subreference_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
-#        if subreference_node is None:
-#            subreference_node = self.create_node()
-#            ref_node.create_relationship_to(subreference_node, name)
-#        return subreference_node
+    def get_subreference_node(self, name):
+        """
+        Get a named subreference node from the current graph. If
+        such a node does not exist, one is created.
+        """
+        warnings.warn("GraphDatabaseService.get_subreference_node will no "
+                      "longer be supported in py2neo 1.3")
+        ref_node = self.get_reference_node()
+        subreference_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
+        if subreference_node is None:
+            subreference_node = self.create_node()
+            ref_node.create_relationship_to(subreference_node, name)
+        return subreference_node
 
-    def get_node(self, id):
+    def node(self, id):
         """
         Retrieve a node by its ID.
         """
         return self._spawn(Node, self._lookup('node') + "/" + str(id))
 
-    def get_relationship(self, id):
+    def relationship(self, id):
         """
         Retrieve a relationship by its ID.
         """
@@ -567,11 +577,12 @@ class Node(_Indexable, _PropertyContainer):
         """
         return self._id
 
-#    def get_id(self):
-#        """
-#        Return the unique id for this resource.
-#        """
-#        return self.id
+    def get_id(self):
+        """
+        Return the unique id for this resource.
+        """
+        warnings.warn("Please use 'id' property instead of 'get_id' method")
+        return self.id
 
     def create_relationship_to(self, other_node, type, *args, **kwargs):
         """
@@ -665,40 +676,42 @@ class Node(_Indexable, _PropertyContainer):
         rows, columns = cypher.execute(query, graphdb)
         return bool(rows)
 
-#    def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
-#        """
-#        Return a :py:class:`Traverser` instance for the current node.
-#
-#            >>> t = t1.traverse(order="depth_first",
-#            ...                 max_depth=2,
-#            ...                 relationships=[("KNOWS","out"), "LOVES"],
-#            ...                 prune=("javascript", "position.endNode().getProperty('foo') == 'bar';")
-#            ... )
-#        """
-#        td = TraversalDescription()
-#        if order:
-#            td = td.order(order)
-#        if uniqueness:
-#            td = td.uniqueness(uniqueness)
-#        if relationships:
-#            for relationship in (relationships or []):
-#                if isinstance(relationship, str):
-#                    td = td.relationships(relationship)
-#                else:
-#                    try:
-#                        if isinstance(relationship, unicode):
-#                            td = td.relationships(relationship)
-#                        else:
-#                            td = td.relationships(*relationship)
-#                    except NameError:
-#                        td = td.relationships(*relationship)
-#        if prune:
-#            td = td.prune_evaluator(prune[0], prune[1])
-#        if filter:
-#            td = td.return_filter(filter[0], filter[1])
-#        if max_depth:
-#            td = td.max_depth(max_depth)
-#        return td.traverse(self)
+    def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
+        """
+        Return a :py:class:`Traverser` instance for the current node.
+
+            >>> t = t1.traverse(order="depth_first",
+            ...                 max_depth=2,
+            ...                 relationships=[("KNOWS","out"), "LOVES"],
+            ...                 prune=("javascript", "position.endNode().getProperty('foo') == 'bar';")
+            ... )
+        """
+        warnings.warn("Node.traverse will no longer be supported in py2neo "
+                      "1.3; please use Cypher queries instead")
+        td = TraversalDescription()
+        if order:
+            td = td.order(order)
+        if uniqueness:
+            td = td.uniqueness(uniqueness)
+        if relationships:
+            for relationship in (relationships or []):
+                if isinstance(relationship, str):
+                    td = td.relationships(relationship)
+                else:
+                    try:
+                        if isinstance(relationship, unicode):
+                            td = td.relationships(relationship)
+                        else:
+                            td = td.relationships(*relationship)
+                    except NameError:
+                        td = td.relationships(*relationship)
+        if prune:
+            td = td.prune_evaluator(prune[0], prune[1])
+        if filter:
+            td = td.return_filter(filter[0], filter[1])
+        if max_depth:
+            td = td.max_depth(max_depth)
+        return td.traverse(self)
 
     def delete(self):
         """
@@ -771,6 +784,7 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         Return the unique id for this resource.
         """
+        warnings.warn("Please use 'id' property instead of 'get_id' method")
         return self.id
 
     @property
@@ -784,6 +798,8 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         Return the type of this relationship.
         """
+        warnings.warn("Please use 'type' property instead of 'get_type' "
+                      "method")
         return self.type
 
     def is_type(self, type):
@@ -803,6 +819,8 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         Return a tuple of the two nodes attached to this relationship.
         """
+        warnings.warn("Please use 'nodes' property instead of 'get_nodes' "
+                      "method")
         return self.nodes
 
     @property
@@ -818,6 +836,8 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         Return the start node of this relationship.
         """
+        warnings.warn("Please use 'start_node' property instead of"
+                      "'get_start_node' method")
         return self.start_node
 
     @property
@@ -833,6 +853,8 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         Return the end node of this relationship.
         """
+        warnings.warn("Please use 'end_node' property instead of"
+                      "'get_end_node' method")
         return self.end_node
 
     def get_other_node(self, node):
@@ -1127,260 +1149,266 @@ class Index(rest.Resource):
         ]
 
 
-#class TraversalDescription(object):
-#    """
-#    Describes a graph traversal.
-#    """
-#
-#    def __init__(self):
-#        self._description = {}
-#
-#    def traverse(self, start_node):
-#        return Traverser(
-#            template_uri=start_node._lookup('traverse'),
-#            traversal_description=self._description,
-#            http=start_node._http
-#        )
-#
-#    def order(self, selector):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['order'] = selector
-#        return td
-#
-#    def breadth_first(self):
-#        return self.order('breadth_first')
-#
-#    def depth_first(self):
-#        return self.order('depth_first')
-#
-#    def uniqueness(self, uniqueness):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['uniqueness'] = uniqueness
-#        return td
-#
-#    def relationships(self, type, direction=None):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        if 'relationships' not in td._description:
-#            td._description['relationships'] = []
-#        if direction in ['in', 'incoming']:
-#            direction = 'in'
-#        elif direction in ['out', 'outgoing']:
-#            direction = 'out'
-#        elif direction:
-#            raise ValueError(direction)
-#        if direction:
-#            td._description['relationships'].append({
-#                'type': type,
-#                'direction': direction
-#            })
-#        else:
-#            td._description['relationships'].append({
-#                'type': type
-#            })
-#        return td
-#
-#    def builtin_prune_evaluator(self, name):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['prune_evaluator'] = {
-#            'language': 'builtin',
-#            'name': name
-#        }
-#        return td
-#
-#    def prune_evaluator(self, language, body):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['prune_evaluator'] = {
-#            'language': language,
-#            'body': body
-#        }
-#        return td
-#
-#    def builtin_return_filter(self, name):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['return_filter'] = {
-#            'language': 'builtin',
-#            'name': name
-#        }
-#        return td
-#
-#    def return_filter(self, language, body):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['return_filter'] = {
-#            'language': language,
-#            'body': body
-#        }
-#        return td
-#
-#    def max_depth(self, depth):
-#        td = TraversalDescription()
-#        td._description = self._description
-#        td._description['max_depth'] = depth
-#        return td
+class TraversalDescription(object):
+    """
+    Describes a graph traversal.
+    """
+
+    def __init__(self):
+        warnings.warn("TraversalDescription will no longer be supported in"
+                      "py2neo 1.3; please use Cypher queries instead")
+        self._description = {}
+
+    def traverse(self, start_node):
+        return Traverser(
+            template_uri=start_node._lookup('traverse'),
+            traversal_description=self._description,
+            http=start_node._http
+        )
+
+    def order(self, selector):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['order'] = selector
+        return td
+
+    def breadth_first(self):
+        return self.order('breadth_first')
+
+    def depth_first(self):
+        return self.order('depth_first')
+
+    def uniqueness(self, uniqueness):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['uniqueness'] = uniqueness
+        return td
+
+    def relationships(self, type, direction=None):
+        td = TraversalDescription()
+        td._description = self._description
+        if 'relationships' not in td._description:
+            td._description['relationships'] = []
+        if direction in ['in', 'incoming']:
+            direction = 'in'
+        elif direction in ['out', 'outgoing']:
+            direction = 'out'
+        elif direction:
+            raise ValueError(direction)
+        if direction:
+            td._description['relationships'].append({
+                'type': type,
+                'direction': direction
+            })
+        else:
+            td._description['relationships'].append({
+                'type': type
+            })
+        return td
+
+    def builtin_prune_evaluator(self, name):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['prune_evaluator'] = {
+            'language': 'builtin',
+            'name': name
+        }
+        return td
+
+    def prune_evaluator(self, language, body):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['prune_evaluator'] = {
+            'language': language,
+            'body': body
+        }
+        return td
+
+    def builtin_return_filter(self, name):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['return_filter'] = {
+            'language': 'builtin',
+            'name': name
+        }
+        return td
+
+    def return_filter(self, language, body):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['return_filter'] = {
+            'language': language,
+            'body': body
+        }
+        return td
+
+    def max_depth(self, depth):
+        td = TraversalDescription()
+        td._description = self._description
+        td._description['max_depth'] = depth
+        return td
 
 
-#class Traverser(rest.Resource):
-#    """
-#    An engine designed to traverse a `Neo4j <http://neo4j.org/>`_ database
-#    starting at a specific node.
-#    """
-#
-#    class Order:
-#
-#        BREADTH_FIRST = 'breadth_first'
-#        DEPTH_FIRST   = 'depth_first'
-#
-#    def __init__(self, template_uri=None, traversal_description=None, metadata=None, **kwargs):
-#        rest.Resource.__init__(self, None, metadata=metadata, **kwargs)
-#        self._template_uri = template_uri
-#        self._traversal_description = traversal_description
-#
-#    @property
-#    def paths(self):
-#        """
-#        Return all paths from this traversal.
-#        """
-#        return [
-#            Path([
-#                self._spawn(Node, uri)
-#                for uri in path['nodes']
-#            ], [
-#                self._spawn(Relationship, uri)
-#                for uri in path['relationships']
-#            ])
-#            for path in self._post(
-#                self._template_uri.format(returnType='path'),
-#                self._traversal_description
-#            )
-#        ]
-#
-#    @property
-#    def nodes(self):
-#        """
-#        Return all nodes from this traversal.
-#        """
-#        return [
-#            self._spawn(Node, node['self'])
-#            for node in self._post(
-#                self._template_uri.format(returnType='node'),
-#                self._traversal_description
-#            )
-#        ]
-#
-#    @property
-#    def relationships(self):
-#        """
-#        Return all relationships from this traversal.
-#        """
-#        return [
-#            self._spawn(Relationship, relationship['self'])
-#            for relationship in self._post(
-#                self._template_uri.format(returnType='relationship'),
-#                self._traversal_description
-#            )
-#        ]
+class Traverser(rest.Resource):
+    """
+    An engine designed to traverse a `Neo4j <http://neo4j.org/>`_ database
+    starting at a specific node.
+    """
+
+    class Order:
+
+        BREADTH_FIRST = 'breadth_first'
+        DEPTH_FIRST   = 'depth_first'
+
+    def __init__(self, template_uri=None, traversal_description=None, metadata=None, **kwargs):
+        warnings.warn("Traverser will no longer be supported in py2neo 1.3;"
+                      "please use Cypher queries instead")
+        rest.Resource.__init__(self, None, metadata=metadata, **kwargs)
+        self._template_uri = template_uri
+        self._traversal_description = traversal_description
+
+    @property
+    def paths(self):
+        """
+        Return all paths from this traversal.
+        """
+        return [
+            Path([
+                self._spawn(Node, uri)
+                for uri in path['nodes']
+            ], [
+                self._spawn(Relationship, uri)
+                for uri in path['relationships']
+            ])
+            for path in self._post(
+                self._template_uri.format(returnType='path'),
+                self._traversal_description
+            )
+        ]
+
+    @property
+    def nodes(self):
+        """
+        Return all nodes from this traversal.
+        """
+        return [
+            self._spawn(Node, node['self'])
+            for node in self._post(
+                self._template_uri.format(returnType='node'),
+                self._traversal_description
+            )
+        ]
+
+    @property
+    def relationships(self):
+        """
+        Return all relationships from this traversal.
+        """
+        return [
+            self._spawn(Relationship, relationship['self'])
+            for relationship in self._post(
+                self._template_uri.format(returnType='relationship'),
+                self._traversal_description
+            )
+        ]
 
 
-#class PersistentObject(object):
-#    """
-#    A base object from which persistent objects may inherit. Unlike some
-#    persistence models, object attributes are updated "live" and therefore do
-#    not require an explicit *save* or *load*. Simple-typed attributes are
-#    mapped to node properties where possible and attributes pointing to
-#    other :py:class:`PersistentObject` instances are mapped to relationships. No
-#    direct mapping to relationship properties exists within this framework.
-#    All attributes beginning with an underscore character are *not* mapped to
-#    the database and will be stored within the object instance as usual.
-#
-#        >>> from py2neo import neo4j
-#        >>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
-#        >>> class Country(neo4j.PersistentObject):
-#        ...     def __init__(self, node, name, population):
-#        ...         neo4j.PersistentObject.__init__(self, node)
-#        ...         self.name = name
-#        ...         self.population = population
-#        ...         self.currency = None
-#        ...         self.continent = None
-#        ...
-#        >>> uk = Country(gdb.create_node(), "United Kingdom", 62698362)
-#
-#    """
-#
-#    #: Property holding the database node to which this instance is attached.
-#    __node__ = None
-#
-#    def __init__(self, node):
-#        self.__node__ = node
-#
-#    def __getattr__(self, name):
-#        """
-#        Return either a node property value with this name, a node
-#        connected by a relationship of type `name` or :py:const:`None` if neither
-#        exist.
-#        """
-#        if name.startswith("_"):
-#            return object.__getattr__(self, name)
-#        try:
-#            return self.__node__[name]
-#        except LookupError:
-#            pass
-#        except:
-#            raise AttributeError("Cannot access node")
-#        try:
-#            return self.__node__.get_single_related_node(Direction.OUTGOING, name)
-#        except LookupError:
-#            pass
-#        except:
-#            raise AttributeError("Cannot access node")
-#        return None
-#
-#    def __setattr__(self, name, value):
-#        """
-#        Create or update a node property with this name or a
-#        relationship of type `name` if `value` is another
-#        :py:class:`PersistentObject` instance.
-#        """
-#        if name.startswith("_"):
-#            object.__setattr__(self, name, value)
-#        elif value is None:
-#            self.__delattr__(name)
-#        elif isinstance(value, PersistentObject):
-#            try:
-#                self.__node__.create_relationship_to(value.__node__, name)
-#            except:
-#                raise AttributeError("Cannot set relationship")
-#        else:
-#            try:
-#                self.__node__[name] = value
-#            except ValueError:
-#                raise AttributeError("Illegal property value: {0}".format(repr(value)))
-#            except:
-#                raise AttributeError("Cannot set node property")
-#
-#    def __delattr__(self, name):
-#        """
-#        Removes the node property with this name and any relationships of
-#        type `name`. This is also equivalent to setting a node property
-#        to :py:const:`None`.
-#        """
-#        if name.startswith("_"):
-#            object.__delattr__(self, name)
-#        else:
-#            try:
-#                del self.__node__[name]
-#            except LookupError:
-#                pass
-#            except:
-#                raise AttributeError("Cannot delete node property")
-#            try:
-#                rels = self.__node__.get_relationships(Direction.OUTGOING, name)
-#                for rel in rels:
-#                    rel.delete()
-#            except:
-#                raise AttributeError("Cannot delete relationship")
+class PersistentObject(object):
+    """
+    A base object from which persistent objects may inherit. Unlike some
+    persistence models, object attributes are updated "live" and therefore do
+    not require an explicit *save* or *load*. Simple-typed attributes are
+    mapped to node properties where possible and attributes pointing to
+    other :py:class:`PersistentObject` instances are mapped to relationships. No
+    direct mapping to relationship properties exists within this framework.
+    All attributes beginning with an underscore character are *not* mapped to
+    the database and will be stored within the object instance as usual.
+
+        >>> from py2neo import neo4j
+        >>> gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+        >>> class Country(neo4j.PersistentObject):
+        ...     def __init__(self, node, name, population):
+        ...         neo4j.PersistentObject.__init__(self, node)
+        ...         self.name = name
+        ...         self.population = population
+        ...         self.currency = None
+        ...         self.continent = None
+        ...
+        >>> uk = Country(gdb.create_node(), "United Kingdom", 62698362)
+
+    """
+
+    #: Property holding the database node to which this instance is attached.
+    __node__ = None
+
+    def __init__(self, node):
+        warnings.warn("PersistentObject will no longer be supported in py2neo"
+                      "1.3")
+        self.__node__ = node
+
+    def __getattr__(self, name):
+        """
+        Return either a node property value with this name, a node
+        connected by a relationship of type `name` or :py:const:`None` if neither
+        exist.
+        """
+        if name.startswith("_"):
+            return object.__getattr__(self, name)
+        try:
+            return self.__node__[name]
+        except LookupError:
+            pass
+        except:
+            raise AttributeError("Cannot access node")
+        try:
+            return self.__node__.get_single_related_node(Direction.OUTGOING, name)
+        except LookupError:
+            pass
+        except:
+            raise AttributeError("Cannot access node")
+        return None
+
+    def __setattr__(self, name, value):
+        """
+        Create or update a node property with this name or a
+        relationship of type `name` if `value` is another
+        :py:class:`PersistentObject` instance.
+        """
+        if name.startswith("_"):
+            object.__setattr__(self, name, value)
+        elif value is None:
+            self.__delattr__(name)
+        elif isinstance(value, PersistentObject):
+            try:
+                self.__node__.create_relationship_to(value.__node__, name)
+            except:
+                raise AttributeError("Cannot set relationship")
+        else:
+            try:
+                self.__node__[name] = value
+            except ValueError:
+                raise AttributeError("Illegal property value: {0}".format(repr(value)))
+            except:
+                raise AttributeError("Cannot set node property")
+
+    def __delattr__(self, name):
+        """
+        Removes the node property with this name and any relationships of
+        type `name`. This is also equivalent to setting a node property
+        to :py:const:`None`.
+        """
+        if name.startswith("_"):
+            object.__delattr__(self, name)
+        else:
+            try:
+                del self.__node__[name]
+            except LookupError:
+                pass
+            except:
+                raise AttributeError("Cannot delete node property")
+            try:
+                rels = self.__node__.get_relationships(Direction.OUTGOING, name)
+                for rel in rels:
+                    rel.delete()
+            except:
+                raise AttributeError("Cannot delete relationship")
