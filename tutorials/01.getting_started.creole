@@ -34,26 +34,23 @@ d = data[0][0]
 }}}
 <</code>>
 
-Nodes within a graph can be accessed directly using either their ID or their URI. To retrieve a node by ID, simply use the {{{get_node}}} method of the associated graph or the shorter indexed form; for URI access, use the {{{Node}}} constructor instead:
+Nodes within a graph can be accessed directly using either their ID or their URI. To retrieve a node by ID, simply use the {{{node}}} method of the associated graph or for URI access, use the {{{Node}}} constructor instead:
 
 <<code lang="python">>
 {{{
-# access node by ID (long form)
-my_node = graph_db.get_node(123)
-
-# access node by ID (short form)
-my_node = graph_db[123]
+# access node by ID
+my_node = graph_db.node(123)
 
 # access node by URI
 my_node = neo4j.Node("http://localhost:7474/db/data/node/123")
 }}}
 <</code>>
 
-In addition, the total number of nodes in a graph can be established simply by checking the length of the graph. Don't forget that this includes the reference node.
+In addition, the total number of nodes in a graph can be established by a simple call to the {{{get_node_count}}} method. Don't forget that this includes the reference node.
 
 <<code lang="python">>
 {{{
-node_count = len(graph_db)
+node_count = graph_db.get_node_count()
 }}}
 <</code>>
 
