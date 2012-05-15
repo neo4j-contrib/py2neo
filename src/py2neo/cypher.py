@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Cypher Query Language
+"""Cypher Query Language
 """
 
 
@@ -36,6 +35,8 @@ except ImportError:
 import logging
 logger = logging.getLogger(__name__)
 
+import warnings
+
 
 class CypherError(ValueError):
 
@@ -46,8 +47,7 @@ class CypherError(ValueError):
 
 
 class Query(object):
-    """
-    Represents a Cypher query which can be executed multiple times.
+    """A Cypher query which can be executed multiple times.
     """
 
     def __init__(self, graph_db, query):
@@ -94,8 +94,7 @@ class Query(object):
 
 
     class Metadata(object):
-        """
-        Metadata for query results.
+        """Metadata for query results.
         """
 
         #: List of column names
@@ -248,8 +247,7 @@ def _resolve(value):
         return value
 
 def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, **kwargs):
-    """
-    Execute a Cypher query against a database and return a tuple of rows and
+    """Execute a Cypher query against a database and return a tuple of rows and
     metadata. If handlers are supplied, an empty list of rows is returned
     instead, with each row being passed to the row_handler as it becomes
     available. Each row is passed as a list of values which may be either Nodes,
@@ -263,11 +261,12 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     :param kwargs: extra parameters to forward to the underlying HTTP request;
         long-running queries may benefit from the request_timeout parameter in
         order to avoid timeout errors
-
     """
     #: allow first two arguments to be in either order, for backward
     #: compatibility
     if isinstance(query, neo4j.GraphDatabaseService):
+        warnings.warn("cypher.execute(query, graph_db) is deprecated; please "
+                      "use cypher.execute(graph_db, query) instead")
         query, graph_db = graph_db, query
     return Query(graph_db, query).execute(
         params, row_handler=row_handler,

@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Generic REST client
+"""Tornado-based REST client for use with Neo4j REST interface.
 """
 from tornado.httpclient import HTTPError
 
@@ -24,7 +23,7 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-from tornado import httpclient, curl_httpclient
+from tornado import httpclient
 
 try:
     import json
@@ -116,8 +115,7 @@ class PropertyCache(object):
 
 
 class Resource(object):
-    """
-    RESTful web service resource class, designed to work with a well-behaved
+    """RESTful web service resource class, designed to work with a well-behaved
     hypermedia web service.
 
     :param uri:           the URI identifying this resource
@@ -128,14 +126,14 @@ class Resource(object):
 
     SUPPORTED_CONTENT_TYPES = ['application/json']
 
-    def __init__(self, uri, content_type='application/json', metadata=None, http=None, **request_params):
+    def __init__(self, uri, content_type='application/json', metadata=None, **request_params):
         if content_type not in self.SUPPORTED_CONTENT_TYPES:
             raise NotImplementedError("Content type {0} not supported".format(content_type))
         self._uri = str(uri)
         self._base_uri = None
         self._relative_uri = None
         self._content_type = content_type
-        self._http = http
+        self._http = None
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
             "user_agent": "py2neo"
@@ -143,33 +141,25 @@ class Resource(object):
         self._request_params.update(request_params)
         self._metadata = PropertyCache(metadata)
 
+    def __del__(self):
+        if self._http:
+            self._http.close()
+
     def __repr__(self):
-        """
-        Return a valid Python representation of this object.
+        """Return a valid Python representation of this object.
         """
         return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
 
     def __eq__(self, other):
-        """
-        Determine equality of two objects based on URI.
+        """Determine equality of two objects based on URI.
         """
         return self._uri == other._uri
 
     def __ne__(self, other):
-        """
-        Determine inequality of two objects based on URI.
+        """Determine inequality of two objects based on URI.
         """
         return self._uri != other._uri
 
-    def _spawn(self, class_, *args, **kwargs):
-        """
-        Spawn a new resource, reusing HTTP connection.
-        """
-        k = {"http": self._http}
-        k.update(self._request_params)
-        k.update(kwargs)
-        return class_(*args, **k)
-    
     def __get_request_headers(self, *keys):
         return dict([
             (key, self._content_type)
@@ -178,8 +168,7 @@ class Resource(object):
         ])
 
     def _request(self, method, uri, data=None, **request_params):
-        """
-        Issue an HTTP request.
+        """Issue an HTTP request.
         
         :param method: the HTTP method to use for this call
         :param uri: the URI of the resource to access

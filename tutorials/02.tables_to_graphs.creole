@@ -8,7 +8,7 @@ Tables are the cornerstone of relational databases, dictating a formal structure
 
 Having a much looser approach to structure, Neo4j provides an environment in which a data model can not only evolve but can vary internally as required. The values used to represent a person, for example, can be as many or as few as necessary for each person represented. On top of this, the data types used may vary - there are no constraints of consistency.
 
-Of course, this is not to suggest that a complete lack of internal consistency would make a good design. Instead, structural rules and constraints required by the data can either be deferred to the application layer or kept within the data layer as required. The major gain being flexibility of design.
+However, this is not to suggest that a complete lack of internal consistency would make a good design. Instead, structural rules and constraints required by the data can either be deferred to the application layer or kept within the data layer as required. The major gain being flexibility of design.
 
 == Records to Nodes
 
@@ -70,11 +70,11 @@ bob_alice = bob.create_relationship_to(alice, "KNOWS")
 }}}
 <</code>>
 
-Although nodes do not have a specific type attached to them, relationships can be used to achieve a kind of typing. To achieve this, a separate node (which I will refer to in this article as a //Z-node//) is used as a common base point from which relationships extend to all its member nodes. To show that Alice and Bob are both people, we can link them both to a third node using relationships of type "PERSON". The code below illustrates this:
+Although nodes do not have a specific type attached to them, relationships can be used to achieve a kind of typing. To achieve this, a separate node (sometimes called a //category node//) is used as a common base point from which relationships extend to all its member nodes. To show that Alice and Bob are both people, we can link them both to a third node using relationships of type "PERSON". The code below illustrates this:
 
 <<code lang="python">>
 {{{
-# create a Z-node for "People" and
+# create a category node for "People" and
 # PERSON relationships to Alice and Bob
 #
 #    ,--[:PERSON]->(Alice)
@@ -89,15 +89,15 @@ people.create_relationship_to(bob, "PERSON")
 }}}
 <</code>>
 
-The number of relationships attached to Z-nodes such as this can clearly grow very large but Neo4j can happily cope and this is indeed a commonly used pattern.
+The number of relationships attached to category nodes such as this can clearly grow very large but Neo4j can happily cope and this is indeed a commonly used pattern.
 
-Using SQL, we could select all //people// with a statement like "{{{SELECT * FROM people}}}". The equivalent, using Neo4j's query language [[http://docs.neo4j.org/chunked/milestone/cypher-query-lang.html|Cypher]] (and assuming the "People" Z-node has an ID of 100), would be "{{{START z=node(100) MATCH (z)-[:PERSON]->(p) RETURN p}}}". This starts the query at the Z-node and locates all nodes connected by an outgoing "PERSON" relationship, returning them as query results.
+Using SQL, we could select all //people// with a statement like "{{{SELECT * FROM people}}}". The equivalent, using Neo4j's query language [[http://docs.neo4j.org/chunked/milestone/cypher-query-lang.html|Cypher]] (and assuming the "People" category node has an ID of 100), would be "{{{START z=node(100) MATCH (z)-[:PERSON]->(p) RETURN p}}}". This starts the query at the category node and locates all nodes connected by an outgoing "PERSON" relationship, returning them as query results.
 
-Taking it a step further, this pattern can also allow nodes to be simultaneously assigned multiple "types". This is to some extent akin to how an object within an object oriented environment may implement multiple interfaces and can be easily achieved by linking from a second Z-node such as in the code below:
+Taking it a step further, this pattern can also allow nodes to be simultaneously assigned multiple "types". This is to some extent akin to how an object within an object oriented environment may implement multiple interfaces and can be easily achieved by linking from a second category node such as in the code below:
 
 <<code lang="python">>
 {{{
-# create Z-nodes for "People" and "Mothers" and
+# create category nodes for "People" and "Mothers" and
 # PERSON and MOTHER relationships to Alice and Bob
 #
 #    ,--[:PERSON]->(Alice)<-[:MOTHER]--,
@@ -113,7 +113,7 @@ mothers.create_relationship_to(alice, "MOTHER")
 }}}
 <</code>>
 
-Alice is now described as both a PERSON and a MOTHER whereas Bob is only a PERSON. Cypher allows us to select all nodes which are members of both sets as follows (once again assuming nodes 100 and 101 are the Z-nodes in question):
+Alice is now described as both a PERSON and a MOTHER whereas Bob is only a PERSON. Cypher allows us to select all nodes which are members of both sets as follows (once again assuming nodes 100 and 101 are the category nodes in question):
 
 {{{
 START z1=node(100), z2=node(101)
@@ -121,7 +121,7 @@ MATCH (z1)-[:PERSON]->(p)<-[:FEMALE]-(z2)
 RETURN p
 }}}
 
-Here, Cypher's MATCH clause is used to identify all nodes which have incoming relationships from the "People" and "Mothers" Z-nodes. The Cypher language is incredibly powerful and allows much more complex queries to be built up to work with more intricate graphs.
+Here, Cypher's MATCH clause is used to identify all nodes which have incoming relationships from the "People" and "Mothers" category nodes. The Cypher language is incredibly powerful and allows much more complex queries to be built up to work with more intricate graphs.
 
 == Foreign Keys to More Relationships
 
@@ -131,7 +131,7 @@ The code below shows another example of such a relationship:
 
 <<code lang="python">>
 {{{
-# create Z-node for "Companies" and Megacorp
+# create category node for "Companies" and Megacorp
 # attach Alice and Bob to their employer
 #
 #                     (Companies)

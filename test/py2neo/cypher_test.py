@@ -124,5 +124,11 @@ class CypherTestCase(unittest.TestCase):
             row_handler=check_row, metadata_handler=check_metadata
         )
 
+    def test_many_queries(self):
+        query = "start z=node(0) return z"
+        for i in range(10000):
+            data, metadata = cypher.execute(self.graph_db, query)
+            self.assertEqual(1, len(data))
+
 if __name__ == '__main__':
     unittest.main()

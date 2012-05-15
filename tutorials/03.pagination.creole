@@ -17,19 +17,19 @@ if len(sys.argv) < 2:
     sys.exit("Usage: {0} <number_of_records>".format(sys.argv[0]))
 
 # Hook into the database and create the inflection engine
-gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-root = gdb.get_subreference_node("NUMBERS")
+graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+root = graph_db.get_subreference_node("NUMBERS")
 eng = inflect.engine()
 
 # In case we've run this before, purge any existing number records
 nodes = root.get_related_nodes(neo4j.Direction.OUTGOING, "NUMBER")
 rels = root.get_relationships(neo4j.Direction.OUTGOING, "NUMBER")
-gdb.delete(*rels)
-gdb.delete(*nodes)
+graph_db.delete(*rels)
+graph_db.delete(*nodes)
 
 # Create the nodes
 count = int(sys.argv[1])
-nodes = gdb.create(*[
+nodes = graph_db.create(*[
     {
         "number": i,
         "name": eng.number_to_words(i)
@@ -38,12 +38,8 @@ nodes = gdb.create(*[
 ])
 
 # Connect the nodes to the subreference node
-gdb.create_relationships(*[
-    {
-        "start_node": root,
-        "end_node": node,
-        "type": "NUMBER"
-    }
+graph_db.create(*[
+    (root, "NUMBER", node)
     for node in nodes
 ])
 }}}
@@ -65,8 +61,8 @@ if len(sys.argv) < 2:
     sys.exit("Usage: %s <page_number>" % (sys.argv[0]))
 
 # Hook into the database
-gdb = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-root = gdb.get_subreference_node("NUMBERS")
+graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+root = graph_db.get_subreference_node("NUMBERS")
 
 # Set up pagination variables
 page_number = int(sys.argv[1])
@@ -87,7 +83,7 @@ limit %d
 )
 
 # Grab the results, iterate and print
-results = gdb.execute_cypher_query(query)
+results = graph_db.execute_cypher_query(query)
 for result in results["data"]:
     print result[0]["data"]["name"]
 }}}
