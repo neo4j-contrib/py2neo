@@ -519,6 +519,7 @@ class Node(_Indexable, _PropertyContainer):
         _PropertyContainer.__init__(self, uri, metadata=metadata, **kwargs)
         self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
         self._id = int('0' + uri.rpartition('/')[-1])
+        self._graph_db = GraphDatabaseService(self._uri.rpartition("/node")[0] + "/")
 
     def __repr__(self):
         return '{0}({1})'.format(
@@ -639,8 +640,7 @@ class Node(_Indexable, _PropertyContainer):
             type = ""
         type = type or ""
         query = query.format(self.id, other.id, type)
-        graphdb = GraphDatabaseService(self._uri.rpartition("/node")[0] + "/")
-        rows, columns = cypher.execute(query, graphdb)
+        rows, columns = cypher.execute(self._graph_db, query)
         return bool(rows)
 
     def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
