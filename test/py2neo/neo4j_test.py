@@ -229,6 +229,12 @@ class NodeTestCase(unittest.TestCase):
     def test_implicit_is_related_to(self):
         self.assertTrue(self.fred.is_related_to(self.wilma))
 
+    def test_get_relationships_with(self):
+        rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.BOTH, "LOVES")
+        self.assertEqual(1, len(rels))
+        self.assertEqual(self.fred, rels[0].start_node)
+        self.assertEqual(self.wilma, rels[0].end_node)
+
     def tearDown(self):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
 

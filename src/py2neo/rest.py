@@ -115,24 +115,20 @@ class PropertyCache(object):
 
 
 class Resource(object):
-    """RESTful web service resource class, designed to work with a well-behaved
-    hypermedia web service.
+    """Web service resource class, designed to work with a well-behaved REST
+    web service.
 
     :param uri:           the URI identifying this resource
-    :param content_type:  the content type required for data exchange
     :param metadata:      previously obtained resource metadata
-    :param http:          HTTP object to use for requests
     """
 
     SUPPORTED_CONTENT_TYPES = ['application/json']
 
-    def __init__(self, uri, content_type='application/json', metadata=None, **request_params):
-        if content_type not in self.SUPPORTED_CONTENT_TYPES:
-            raise NotImplementedError("Content type {0} not supported".format(content_type))
+    def __init__(self, uri, metadata=None, **request_params):
         self._uri = str(uri)
         self._base_uri = None
         self._relative_uri = None
-        self._content_type = content_type
+        self._content_type = 'application/json'
         self._http = None
         self._request_params = {
             "request_timeout": 300,    #: default 5 minutes timeout
@@ -191,21 +187,18 @@ class Resource(object):
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            # lazily create HTTP client when required
-            if not self._http:
-                self._http = httpclient.HTTPClient()
-            self.__response = self._http.fetch(uri, **params)
-            if self.__response.code == 200:
-                if self.__response.body:
-                    return json.loads(self.__response.body)
+            http = httpclient.HTTPClient()
+            response = http.fetch(uri, **params)
+            if response.code == 200:
+                if response.body:
+                    return json.loads(response.body)
                 else:
                     return None
-            elif self.__response.code == 201:
-                return self.__response.headers['location']
-            elif self.__response.code == 204:
+            elif response.code == 201:
+                return response.headers['location']
+            elif response.code == 204:
                 return None
         except HTTPError as err:
-            self.__response = err.response
             if err.code == 400:
                 try:
                     args = json.loads(err.response.body)

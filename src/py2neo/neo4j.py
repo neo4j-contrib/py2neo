@@ -437,9 +437,7 @@ class _Indexable(object):
 
 class _PropertyContainer(rest.Resource):
     """Base class from which node and relationship classes inherit. Extends a
-    :py:class:`py2neo.rest.Resource` by allowing additional URIs to be stored
-    which represent both an index and the entry within that index which points
-    to this resource. Additionally, provides property containment
+    :py:class:`py2neo.rest.Resource` by providing property management
     functionality.
     """
 
@@ -627,21 +625,42 @@ class Node(_Indexable, _PropertyContainer):
         if not isinstance(other, Node):
             raise ValueError
         if direction == Direction.BOTH:
-            query = "start a=node({0}),b=node({1}) where a-{2}-b return count(*)"
+            query = "start a=node({0}),b=node({1}) match a-{2}-b return count(*)"
         elif direction == Direction.OUTGOING:
-            query = "start a=node({0}),b=node({1}) where a-{2}->b return count(*)"
+            query = "start a=node({0}),b=node({1}) match a-{2}->b return count(*)"
         elif direction == Direction.INCOMING:
-            query = "start a=node({0}),b=node({1}) where a<-{2}-b return count(*)"
+            query = "start a=node({0}),b=node({1}) match a<-{2}-b return count(*)"
         else:
             raise ValueError
         if type:
             type = "[:" + type + "]"
         else:
             type = ""
-        type = type or ""
         query = query.format(self.id, other.id, type)
         rows, columns = cypher.execute(self._graph_db, query)
         return bool(rows)
+
+    def get_relationships_with(self, other, direction=Direction.BOTH, type=None):
+        """Return all relationships between this node and another node using
+        the relationship criteria supplied.
+        """
+        if not isinstance(other, Node):
+            raise ValueError
+        if direction == Direction.BOTH:
+            query = "start a=node({0}),b=node({1}) match a-{2}-b return r"
+        elif direction == Direction.OUTGOING:
+            query = "start a=node({0}),b=node({1}) match a-{2}->b return r"
+        elif direction == Direction.INCOMING:
+            query = "start a=node({0}),b=node({1}) match a<-{2}-b return r"
+        else:
+            raise ValueError
+        if type:
+            type = "[r:" + type + "]"
+        else:
+            type = "[r]"
+        query = query.format(self.id, other.id, type)
+        rows, columns = cypher.execute(self._graph_db, query)
+        return [row[0] for row in rows]
 
     def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
         """Return a :py:class:`Traverser` instance for the current node.
