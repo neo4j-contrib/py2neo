@@ -16,7 +16,7 @@
 
 """Tornado-based REST client for use with Neo4j REST interface.
 """
-from tornado.httpclient import HTTPError
+
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
@@ -34,6 +34,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 import time
+
+
+HTTP = httpclient.HTTPClient()
+REQUEST_PARAMS = {
+    "request_timeout": 300,    #: default 5 minutes timeout
+    "user_agent": "py2neo"
+}
+REQUEST_HEADERS = {
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+}
 
 
 class ResourceNotFound(LookupError):
@@ -122,24 +133,13 @@ class Resource(object):
     :param metadata:      previously obtained resource metadata
     """
 
-    SUPPORTED_CONTENT_TYPES = ['application/json']
-
     def __init__(self, uri, metadata=None, **request_params):
         self._uri = str(uri)
         self._base_uri = None
         self._relative_uri = None
-        self._content_type = 'application/json'
-        self._http = None
-        self._request_params = {
-            "request_timeout": 300,    #: default 5 minutes timeout
-            "user_agent": "py2neo"
-        }
+        self._request_params = REQUEST_PARAMS.copy()
         self._request_params.update(request_params)
         self._metadata = PropertyCache(metadata)
-
-    def __del__(self):
-        if self._http:
-            self._http.close()
 
     def __repr__(self):
         """Return a valid Python representation of this object.
@@ -156,39 +156,30 @@ class Resource(object):
         """
         return self._uri != other._uri
 
-    def __get_request_headers(self, *keys):
-        return dict([
-            (key, self._content_type)
-            for key in keys
-            if key in ['Accept', 'Content-Type']
-        ])
-
     def _request(self, method, uri, data=None, **request_params):
         """Issue an HTTP request.
         
         :param method: the HTTP method to use for this call
         :param uri: the URI of the resource to access
-        :param data: raw data to be passed in request payload (optional)
+        :param data: optional data to be passed as request payload
+        :param request_params: extra parameters to be passed to HTTP engine
         :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
         :raise ValueError: when supplied data is not appropriate (400)
-        :raise KeyError: when URI is not found (404)
-        :raise SystemError: when a conflict occurs (409) or when an unexpected HTTP status code is received
+        :raise ResourceNotFound: when URI is not found (404)
+        :raise ResourceConflict: when a conflict occurs (409)
+        :raise SystemError: when a server error occurs (500)
+        :raise NoResponse: when a connection fails or cannot be established
         """
-        if data is not None:
-            headers = self.__get_request_headers('Accept', 'Content-Type')
-        else:
-            headers = self.__get_request_headers('Accept')
         params = self._request_params.copy()
         params.update(request_params)
         params.update({
             "method": method,
-            "headers": headers,
+            "headers": REQUEST_HEADERS,
             "body": data
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            http = httpclient.HTTPClient()
-            response = http.fetch(uri, **params)
+            response = HTTP.fetch(uri, **params)
             if response.code == 200:
                 if response.body:
                     return json.loads(response.body)
@@ -198,7 +189,7 @@ class Resource(object):
                 return response.headers['location']
             elif response.code == 204:
                 return None
-        except HTTPError as err:
+        except httpclient.HTTPError as err:
             if err.code == 400:
                 try:
                     args = json.loads(err.response.body)
@@ -221,60 +212,30 @@ class Resource(object):
                 raise err
 
     def _get(self, uri, **kwargs):
-        """
-        Issue an HTTP GET request.
-        
-        :param uri: the URI of the resource to GET
-        :return: object created from returned content (200) or C{None} (204)
-        :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status code is received
+        """Issue HTTP GET request.
         """
         return self._request('GET', uri, **kwargs)
 
     def _post(self, uri, data, **kwargs):
-        """
-        Issue an HTTP POST request.
-        
-        :param uri: the URI of the resource to POST to
-        :param data: unserialised object to be converted to JSON and passed in request payload
-        :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
-        :raise ValueError: when supplied data is not appropriate (400)
-        :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status code is received
+        """Issue HTTP POST request.
         """
         return self._request('POST', uri, json.dumps(data), **kwargs)
 
     def _put(self, uri, data, **kwargs):
-        """
-        Issue an HTTP PUT request.
-        
-        :param uri: the URI of the resource to PUT
-        :param data: unserialised object to be converted to JSON and passed in request payload
-        :return: C{None} (204)
-        :raise ValueError: when supplied data is not appropriate (400)
-        :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status code is received
+        """Issue HTTP PUT request.
         """
         return self._request('PUT', uri, json.dumps(data), **kwargs)
 
     def _delete(self, uri, **kwargs):
-        """
-        Issue an HTTP DELETE request.
-        
-        :param uri: the URI of the resource to PUT
-        :return: C{None} (204)
-        :raise KeyError: when URI is not found (404)
-        :raise SystemError: when an unexpected HTTP status code is received
+        """Issue HTTP DELETE request.
         """
         return self._request('DELETE', uri, **kwargs)
 
     def _lookup(self, key):
-        """
-        Look up a value in the resource metadata by key; will lazily load
-        metadata if required and auto-correct URI from Content-Location
-        header.
+        """Look up a value in the resource metadata by key; will lazily load
+        metadata if required and auto-correct URI from Content-Location header.
         
-        :param key: the key of the value to look up in the resource metadata
+        :param key: the key to look up
         """
         if self._metadata.needs_update:
             self._metadata.update(self._get(self._uri))

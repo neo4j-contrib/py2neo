@@ -184,6 +184,22 @@ class GraphDatabaseService(rest.Resource):
         relationship, pass a tuple of (start, type, end) or (start, type, end,
         data) where start and end may be Node instances or zero-based integral
         references to other node entities within this batch.
+
+            >>> # create two nodes
+            >>> a, b = graph_db.create({"name": "Alice"}, {"name": "Bob"})
+
+            >>> # create two nodes with a connecting relationship
+            >>> a, b, ab = graph_db.create(
+            ...     {"name": "Alice"}, {"name": "Bob"},
+            ...     (0, "KNOWS", 1, {"since": 2006})
+            ... )
+
+            >>> # create a node and a relationship to pre-existing node
+            >>> ref_node = graph_db.get_reference_node()
+            >>> a, rel = graph_db.create(
+            ...     {"name": "Alice"}, (ref_node, "PERSON", 0)
+            ... )
+
         """
         try:
             return map(batch.result, self._post(self._batch_uri, [
@@ -199,8 +215,7 @@ class GraphDatabaseService(rest.Resource):
         return Node(self._post(self._lookup('node'), _flatten(*props, **kwprops)))
 
     def create_nodes(self, *props):
-        """Create a number of new nodes for all supplied properties as part of
-        a single batch; returns a list of all new nodes.
+        """DEPRECATED -- please use 'create' method instead.
         """
         warnings.warn("GraphDatabaseService.create_nodes is deprecated; "
                       "please use 'create' method instead")
@@ -229,22 +244,7 @@ class GraphDatabaseService(rest.Resource):
         return index
 
     def create_relationships(self, *descriptors):
-        """Create new relationships based on the supplied descriptors as
-        part of a single batch. Each descriptor should be a dictionary
-        consisting of two nodes, named ``start_node`` and ``end_node``,
-        a ``type`` and optionally ``data`` to be attached to the relationship,
-        for example:
-
-            >>> gdb.create_relationships({
-            ...     "start_node": node1,
-            ...     "end_node": node2,
-            ...     "type": "KNOWS"
-            ... }, {
-            ...     "start_node": node2,
-            ...     "end_node": node3,
-            ...     "type": "LIKES",
-            ...     "data": {"amount": "lots"}
-            ... })
+        """DEPRECATED -- please use 'create' method instead.
         """
         warnings.warn("GraphDatabaseService.create_relationships is "
                       "deprecated; please use 'create' method instead")
@@ -442,13 +442,11 @@ class _PropertyContainer(rest.Resource):
     """
 
     def __init__(self, uri, metadata=None, max_age=0, **kwargs):
-        """Create a representation of an indexable resource (node or
-        relationship) identified by URI; optionally accepts further URIs
-        representing both an index for this resource type plus the specific
-        entry within that index.
+        """Create container for properties with caching capabilities.
 
-        :param uri:             the URI identifying this resource
-        :param metadata:        an index of RESTful URIs
+        :param uri:       URI identifying this resource
+        :param metadata:  index of resource metadata
+        :param max_age:   maximum allowed age (in seconds) of cached properties
         """
         rest.Resource.__init__(self, uri, metadata=metadata, **kwargs)
         if metadata and "data" in metadata:
@@ -456,14 +454,14 @@ class _PropertyContainer(rest.Resource):
         else:
             self._properties = rest.PropertyCache(max_age=max_age)
 
-    def __pull(self):
+    def refresh(self):
         self._properties.update(self._get(self._lookup('properties')))
 
     def __getitem__(self, key):
         """Return a named property for this resource.
         """
         if self._properties.needs_update:
-            self.__pull()
+            self.refresh()
         return self._properties[key]
 
     def __setitem__(self, key, value):
@@ -478,14 +476,14 @@ class _PropertyContainer(rest.Resource):
 
     def __contains__(self, key):
         if self._properties.needs_update:
-            self.__pull()
+            self.refresh()
         return key in self._properties
 
     def get_properties(self):
         """Return all properties for this resource.
         """
         if self._properties.needs_update:
-            self.__pull()
+            self.refresh()
         return self._properties.get_all()
 
     def set_properties(self, *args, **kwargs):
@@ -506,15 +504,20 @@ class Node(_Indexable, _PropertyContainer):
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
     
-    :param uri:             the URI identifying this node
-    :param index_entry_uri: the URI of the entry in an index pointing to this node
-    :param index_uri:       the URI of the index containing the above node entry
-    :param metadata:        an index of RESTful URIs
+    :param uri:             URI identifying this node
+    :param index_entry_uri: URI of the entry in an index pointing to this node
+    :param index_uri:       URI of the index containing the node index entry
+    :param metadata:        index of resource metadata
+    :param max_age:         maximum allowed age (in seconds) of cached
+                            properties
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, metadata=None, **kwargs):
-        _Indexable.__init__(self, index_entry_uri=index_entry_uri, index_uri=index_uri)
-        _PropertyContainer.__init__(self, uri, metadata=metadata, **kwargs)
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, \
+                 metadata=None, max_age=0, **kwargs):
+        _Indexable.__init__(self, index_entry_uri=index_entry_uri, \
+            index_uri=index_uri)
+        _PropertyContainer.__init__(self, uri, metadata=metadata, \
+            max_age=max_age, **kwargs)
         self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
         self._id = int('0' + uri.rpartition('/')[-1])
         self._graph_db = GraphDatabaseService(self._uri.rpartition("/node")[0] + "/")
@@ -551,7 +554,7 @@ class Node(_Indexable, _PropertyContainer):
         return self._id
 
     def get_id(self):
-        """Return the unique id for this node.
+        """DEPRECATED -- please use 'id' property instead.
         """
         warnings.warn("Node.get_id is deprecated; please use 'id' property "
                       "instead")
@@ -562,11 +565,22 @@ class Node(_Indexable, _PropertyContainer):
         represented by the current instance to the node represented by
         `other_node`.
         """
+        if not isinstance(other_node, Node):
+            return TypeError("End node is not a neo4j.Node instance")
         return Relationship(self._post(self._lookup('create_relationship'), {
             'to': other_node._uri,
             'type': type,
             'data': _flatten(*args, **kwargs)
         }))
+
+    def create_relationship_from(self, other_node, type, *args, **kwargs):
+        """Create and return a new relationship of type `type` from the node
+        represented by `other_node` to the node represented by the current
+        instance.
+        """
+        if not isinstance(other_node, Node):
+            return TypeError("Start node is not a neo4j.Node instance")
+        return other_node.create_relationship_to(self, type, *args, **kwargs)
 
     def get_relationships(self, direction=Direction.BOTH, *types):
         """Fetch all relationships from the current node in a given
@@ -581,19 +595,22 @@ class Node(_Indexable, _PropertyContainer):
             for rel in self._get(uri)
         ]
 
-    def get_single_relationship(self, direction, type):
+    def get_single_relationship(self, direction=Direction.BOTH, *types):
         """Fetch only one relationship from the current node in the given
         `direction` of the specified `type`, if any such relationships exist.
         """
-        relationships = self.get_relationships(direction, type)
-        return relationships[0] if len(relationships) > 0 else None
+        relationships = self.get_relationships(direction, *types)
+        if relationships:
+            return relationships[0]
+        else:
+            return None
 
     def has_relationship(self, direction=Direction.BOTH, *types):
         """Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships(direction, *types)
-        return len(relationships) > 0
+        return bool(relationships)
 
     def get_related_nodes(self, direction=Direction.BOTH, *types):
         """
@@ -609,38 +626,25 @@ class Node(_Indexable, _PropertyContainer):
             for rel in self._get(uri)
         ]
 
-    def get_single_related_node(self, direction, type):
+    def get_single_related_node(self, direction=Direction.BOTH, *types):
         """Return only one node related to the current node by a relationship
         in the given `direction` of the specified `type`, if any such
         relationships exist.
         """
-        nodes = self.get_related_nodes(direction, type)
-        return nodes[0] if len(nodes) > 0 else None
+        nodes = self.get_related_nodes(direction, *types)
+        if nodes:
+            return nodes[0]
+        else:
+            return None
 
-    def is_related_to(self, other, direction=Direction.BOTH, type=None):
+    def is_related_to(self, other, direction=Direction.BOTH, *types):
         """Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`
         otherwise.
         """
-        if not isinstance(other, Node):
-            raise ValueError
-        if direction == Direction.BOTH:
-            query = "start a=node({0}),b=node({1}) match a-{2}-b return count(*)"
-        elif direction == Direction.OUTGOING:
-            query = "start a=node({0}),b=node({1}) match a-{2}->b return count(*)"
-        elif direction == Direction.INCOMING:
-            query = "start a=node({0}),b=node({1}) match a<-{2}-b return count(*)"
-        else:
-            raise ValueError
-        if type:
-            type = "[:" + type + "]"
-        else:
-            type = ""
-        query = query.format(self.id, other.id, type)
-        rows, columns = cypher.execute(self._graph_db, query)
-        return bool(rows)
+        return bool(self.get_relationships_with(other, direction, *types))
 
-    def get_relationships_with(self, other, direction=Direction.BOTH, type=None):
+    def get_relationships_with(self, other, direction=Direction.BOTH, *types):
         """Return all relationships between this node and another node using
         the relationship criteria supplied.
         """
@@ -654,8 +658,8 @@ class Node(_Indexable, _PropertyContainer):
             query = "start a=node({0}),b=node({1}) match a<-{2}-b return r"
         else:
             raise ValueError
-        if type:
-            type = "[r:" + type + "]"
+        if types:
+            type = "[r:" + "|".join(types) + "]"
         else:
             type = "[r]"
         query = query.format(self.id, other.id, type)
@@ -663,13 +667,7 @@ class Node(_Indexable, _PropertyContainer):
         return [row[0] for row in rows]
 
     def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
-        """Return a :py:class:`Traverser` instance for the current node.
-
-            >>> t = t1.traverse(order="depth_first",
-            ...                 max_depth=2,
-            ...                 relationships=[("KNOWS","out"), "LOVES"],
-            ...                 prune=("javascript", "position.endNode().getProperty('foo') == 'bar';")
-            ... )
+        """DEPRECATED -- please use Cypher queries instead.
         """
         warnings.warn("Node.traverse is deprecated; please use Cypher queries "
                       "instead")
@@ -709,15 +707,22 @@ class Relationship(_Indexable, _PropertyContainer):
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
     
-    :param uri:             the URI identifying this relationship
-    :param index_entry_uri: the URI of the entry in an index pointing to this relationship
-    :param index_uri:       the URI of the index containing the above relationship entry
-    :param metadata:        an index of RESTful URIs
+    :param uri:             URI identifying this relationship
+    :param index_entry_uri: URI of the entry in an index pointing to this
+                            relationship
+    :param index_uri:       URI of the index containing the relationship
+                            index entry
+    :param metadata:        index of resource metadata
+    :param max_age:         maximum allowed age (in seconds) of cached
+                            properties
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, metadata=None, **kwargs):
-        _Indexable.__init__(self, index_entry_uri=index_entry_uri, index_uri=index_uri)
-        _PropertyContainer.__init__(self, uri, metadata=metadata, **kwargs)
+    def __init__(self, uri, index_entry_uri=None, index_uri=None, \
+                 metadata=None, max_age=0, **kwargs):
+        _Indexable.__init__(self, index_entry_uri=index_entry_uri, \
+            index_uri=index_uri)
+        _PropertyContainer.__init__(self, uri, metadata=metadata, \
+            max_age=max_age, **kwargs)
         self._relative_uri = "".join(self._uri.rpartition("/relationship")[1:])
         self._type = self._lookup('type')
         self._data = self._lookup('data')
@@ -758,7 +763,7 @@ class Relationship(_Indexable, _PropertyContainer):
         return self._id
 
     def get_id(self):
-        """Return the unique id for this relationship.
+        """DEPRECATED -- please use 'id' property instead.
         """
         warnings.warn("Relationship.get_id is deprecated; please use 'id'"
                       "property instead")
@@ -771,7 +776,7 @@ class Relationship(_Indexable, _PropertyContainer):
         return self._type
 
     def get_type(self):
-        """Return the type of this relationship.
+        """DEPRECATED -- please use 'type' property instead.
         """
         warnings.warn("Relationship.get_type is deprecated; please use 'type' "
                       "property instead")
@@ -789,7 +794,7 @@ class Relationship(_Indexable, _PropertyContainer):
         return self.start_node, self.end_node
 
     def get_nodes(self):
-        """Return a tuple of the two nodes attached to this relationship.
+        """DEPRECATED -- please use 'nodes' property instead.
         """
         warnings.warn("Relationship.get_nodes is deprecated; please use "
                       "'nodes' property instead")
@@ -804,7 +809,7 @@ class Relationship(_Indexable, _PropertyContainer):
         return self._start_node
 
     def get_start_node(self):
-        """Return the start node of this relationship.
+        """DEPRECATED -- please use 'start_node' property instead.
         """
         warnings.warn("Relationship.get_start_node is deprecated; please use "
                       "'start_node' property instead")
@@ -819,7 +824,7 @@ class Relationship(_Indexable, _PropertyContainer):
         return self._end_node
 
     def get_end_node(self):
-        """Return the end node of this relationship.
+        """DEPRECATED -- please use 'end_node' property instead.
         """
         warnings.warn("Relationship.get_end_node is deprecated; please use "
                       "'end_node' property instead")
@@ -1087,7 +1092,7 @@ class Index(rest.Resource):
 
 
 class TraversalDescription(object):
-    """Describes a graph traversal.
+    """DEPRECATED -- please use Cypher queries instead.
     """
 
     def __init__(self):
@@ -1185,8 +1190,7 @@ class TraversalDescription(object):
 
 
 class Traverser(rest.Resource):
-    """An engine designed to traverse a `Neo4j <http://neo4j.org/>`_ database
-    starting at a specific node.
+    """DEPRECATED -- please use Cypher queries instead.
     """
 
     class Order:
@@ -1203,8 +1207,6 @@ class Traverser(rest.Resource):
 
     @property
     def paths(self):
-        """Return all paths from this traversal.
-        """
         return [
             Path([
                 Node(uri)
@@ -1221,8 +1223,6 @@ class Traverser(rest.Resource):
 
     @property
     def nodes(self):
-        """Return all nodes from this traversal.
-        """
         return [
             Node(node['self'])
             for node in self._post(
@@ -1233,8 +1233,6 @@ class Traverser(rest.Resource):
 
     @property
     def relationships(self):
-        """Return all relationships from this traversal.
-        """
         return [
             Relationship(relationship['self'])
             for relationship in self._post(
