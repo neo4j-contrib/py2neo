@@ -125,6 +125,23 @@ class PropertyCache(object):
         return self._properties
 
 
+class URI(object):
+
+    def __init__(self, uri, marker):
+        bits = str(uri).rpartition(marker)
+        self.base = bits[0]
+        self.reference = "".join(bits[1:])
+
+    def __repr__(self):
+        return self.base + self.reference
+
+    def __eq__(self, other):
+        return str(self) == str(other)
+
+    def __ne__(self, other):
+        return str(self) != str(other)
+
+
 class Resource(object):
     """Web service resource class, designed to work with a well-behaved REST
     web service.
@@ -133,10 +150,10 @@ class Resource(object):
     :param metadata:      previously obtained resource metadata
     """
 
-    def __init__(self, uri, metadata=None, **request_params):
-        self._uri = str(uri)
-        self._base_uri = None
-        self._relative_uri = None
+    def __init__(self, uri, reference_marker, metadata=None, **request_params):
+        self._uri = URI(uri, reference_marker)
+        #self._base_uri = self._uri.base
+        #self._relative_uri = self._uri.reference
         self._request_params = REQUEST_PARAMS.copy()
         self._request_params.update(request_params)
         self._metadata = PropertyCache(metadata)
@@ -179,7 +196,7 @@ class Resource(object):
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            response = HTTP.fetch(uri, **params)
+            response = HTTP.fetch(str(uri), **params)
             if response.code == 200:
                 if response.body:
                     return json.loads(response.body)

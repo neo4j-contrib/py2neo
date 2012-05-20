@@ -262,12 +262,6 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
         long-running queries may benefit from the request_timeout parameter in
         order to avoid timeout errors
     """
-    #: allow first two arguments to be in either order, for backward
-    #: compatibility
-    if isinstance(query, neo4j.GraphDatabaseService):
-        warnings.warn("cypher.execute(query, graph_db) is deprecated; please "
-                      "use cypher.execute(graph_db, query) instead")
-        query, graph_db = graph_db, query
     return Query(graph_db, query).execute(
         params, row_handler=row_handler,
         metadata_handler=metadata_handler, **kwargs

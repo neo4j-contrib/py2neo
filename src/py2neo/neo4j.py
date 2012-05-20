@@ -37,32 +37,8 @@ except ValueError:
 import logging
 logger = logging.getLogger(__name__)
 
-import warnings
-
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
-
-def _flatten(*args, **kwargs):
-    """Flatten all supplied positional and keyword arguments into a single
-    dictionary, dropping all keys with a leading underscore.
-    """
-    data = {}
-    for arg in args:
-        try:
-            data.update(dict([
-                (arg.__class__.__name__ + "." + key, value)
-                for key, value in arg.__dict__.items()
-            ]))
-        except AttributeError:
-            data.update(arg)
-    data.update(kwargs)
-    # remove any properties beginning with an underscore
-    data = dict([
-        (key, value)
-        for key, value in data.items()
-        if not key.startswith("_")
-    ])
-    return data
 
 def _numberise(n):
     """Convert a value to an integer if possible, simply returning the input
@@ -116,11 +92,7 @@ class GraphDatabaseService(rest.Resource):
 
     def __init__(self, uri=None, metadata=None, **kwargs):
         uri = uri or DEFAULT_URI
-        rest.Resource.__init__(self, uri, metadata=metadata, **kwargs)
-        if self._uri.endswith("/"):
-            self._base_uri, self._relative_uri = self._uri.rpartition("/")[0:2]
-        else:
-            self._base_uri, self._relative_uri = self._uri, "/"
+        rest.Resource.__init__(self, uri, "/", metadata=metadata, **kwargs)
         self._extensions = self._lookup('extensions')
         if 'neo4j_version' in self._metadata:
             # must be version 1.5 or greater
@@ -129,7 +101,7 @@ class GraphDatabaseService(rest.Resource):
         else:
             # assume version 1.4
             self._neo4j_version = "1.4"
-            self._batch_uri = self._base_uri + "/batch"
+            self._batch_uri = self._uri.base + "/batch"
         if 'cypher' in self._metadata:
             self._cypher_uri = self._lookup('cypher')
         else:
@@ -209,28 +181,11 @@ class GraphDatabaseService(rest.Resource):
         except SystemError as err:
             raise batch.BatchError(*err.args)
 
-    def create_node(self, *props, **kwprops):
-        """Create and return a new node, optionally with properties.
+    def create_node(self, properties=None):
+        """Create and return a new node, optionally with properties supplied as
+        a dictionary.
         """
-        return Node(self._post(self._lookup('node'), _flatten(*props, **kwprops)))
-
-    def create_nodes(self, *props):
-        """DEPRECATED -- please use 'create' method instead.
-        """
-        warnings.warn("GraphDatabaseService.create_nodes is deprecated; "
-                      "please use 'create' method instead")
-        return [
-            Node(result['location'], metadata=result['body'])
-            for result in self._post(self._batch_uri, [
-                {
-                    'method': 'POST',
-                    'to': "".join(self._lookup('node').rpartition("/node")[1:3]),
-                    'body': _flatten(props[i]),
-                    'id': i
-                }
-                for i in range(len(props))
-            ])
-        ]
+        return Node(self._post(self._lookup('node'), properties))
 
     def create_node_index(self, name, config=None):
         """Create and return a new node index with the supplied name and
@@ -242,28 +197,6 @@ class GraphDatabaseService(rest.Resource):
         }))
         self._node_indexes.update({name: index})
         return index
-
-    def create_relationships(self, *descriptors):
-        """DEPRECATED -- please use 'create' method instead.
-        """
-        warnings.warn("GraphDatabaseService.create_relationships is "
-                      "deprecated; please use 'create' method instead")
-        return [
-            Relationship(result['body']['self'], metadata=result['body'])
-            for result in self._post(self._batch_uri, [
-                {
-                    'method': 'POST',
-                    'to': "".join(descriptors[i]['start_node']._lookup('create_relationship').rpartition("/node")[1:3]),
-                    'body': {
-                        'to': descriptors[i]['end_node']._uri,
-                        'type': descriptors[i]['type'],
-                        'data': _flatten(descriptors[i]['data']) if 'data' in descriptors[i] else None
-                    },
-                    'id': i
-                }
-                for i in range(len(descriptors))
-            ])
-        ]
 
     def create_relationship_index(self, name, config=None):
         """Create and return a new relationship index with the supplied name
@@ -283,7 +216,7 @@ class GraphDatabaseService(rest.Resource):
         self._post(self._batch_uri, [
             {
                 'method': 'DELETE',
-                'to': entities[i]._relative_uri,
+                'to': entities[i]._uri.reference,
                 'id': i
             }
             for i in range(len(entities))
@@ -307,9 +240,8 @@ class GraphDatabaseService(rest.Resource):
             return 0
 
     def get_node_index(self, name):
-        """Fetch a specifically named node index from the current graph. If
-        such an index does not exist, one is created with default
-        configuration.
+        """Fetch a specific node index from the current database. If such an
+        index does not exist, one is created with default configuration.
         """
         if name not in self._node_indexes:
             self.get_node_indexes()
@@ -324,7 +256,7 @@ class GraphDatabaseService(rest.Resource):
         """
         indexes = self._get(self._lookup('node_index')) or {}
         self._node_indexes = dict([
-            (index, Index(Node, template_uri=indexes[index]['template']))
+            (index, Index(Node, indexes[index]['template']))
             for index in indexes
         ])
         return self._node_indexes
@@ -339,7 +271,7 @@ class GraphDatabaseService(rest.Resource):
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'GET',
-                    'to': entities[i]._relative_uri,
+                    'to': entities[i]._uri.reference,
                     'id': i
                 }
                 for i in range(len(entities))
@@ -363,8 +295,8 @@ class GraphDatabaseService(rest.Resource):
 #        return [row[0] for row in data]
 
     def get_relationship_index(self, name):
-        """Fetch a specifically named relationship index from the current
-        graph. If such an index does not exist, one is created with default
+        """Fetch a specific relationship index from the current database. If
+        such an index does not exist, one is created with default
         configuration.
         """
         if name not in self._relationship_indexes:
@@ -380,9 +312,7 @@ class GraphDatabaseService(rest.Resource):
         """
         indexes = self._get(self._lookup('relationship_index')) or {}
         self._relationship_indexes = dict([
-            (index, Index(Relationship,
-                template_uri=indexes[index]['template']
-            ))
+            (index, Index(Relationship, indexes[index]['template']))
             for index in indexes
         ])
         return self._relationship_indexes
@@ -416,39 +346,20 @@ class GraphDatabaseService(rest.Resource):
         return self._neo4j_version
 
 
-class _Indexable(object):
-    """Mixin class used by indexable entities.
-    """
-
-    def __init__(self, index_entry_uri=None, index_uri=None):
-        self._index_entry_uri = index_entry_uri
-        if self._index_entry_uri is None:
-            self._relative_index_entry_uri = None
-        else:
-            self._relative_index_entry_uri = "".join(self._index_entry_uri.partition("/index")[1:])
-        self._index_uri = index_uri
-
-    def __eq__(self, other):
-        return self._index_entry_uri == other._index_entry_uri
-
-    def __ne__(self, other):
-        return self._index_entry_uri != other._index_entry_uri
-
-
 class _PropertyContainer(rest.Resource):
     """Base class from which node and relationship classes inherit. Extends a
     :py:class:`py2neo.rest.Resource` by providing property management
     functionality.
     """
 
-    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
+    def __init__(self, uri, reference_marker, metadata=None, max_age=0, **kwargs):
         """Create container for properties with caching capabilities.
 
         :param uri:       URI identifying this resource
         :param metadata:  index of resource metadata
         :param max_age:   maximum allowed age (in seconds) of cached properties
         """
-        rest.Resource.__init__(self, uri, metadata=metadata, **kwargs)
+        rest.Resource.__init__(self, uri, reference_marker, metadata=metadata, **kwargs)
         if metadata and "data" in metadata:
             self._properties = rest.PropertyCache(metadata["data"], max_age=max_age)
         else:
@@ -486,12 +397,12 @@ class _PropertyContainer(rest.Resource):
             self.refresh()
         return self._properties.get_all()
 
-    def set_properties(self, *args, **kwargs):
-        """Set all properties for this resource to the supplied values.
+    def set_properties(self, properties=None):
+        """Set all properties for this resource to the supplied dictionary of
+        values.
         """
-        p = _flatten(*args, **kwargs)
-        self._put(self._lookup('properties'), p)
-        self._properties.update(p)
+        self._put(self._lookup('properties'), properties)
+        self._properties.update(properties)
 
     def remove_properties(self):
         """Delete all properties for this resource.
@@ -499,33 +410,27 @@ class _PropertyContainer(rest.Resource):
         self._delete(self._lookup('properties'))
 
 
-class Node(_Indexable, _PropertyContainer):
+class Node(_PropertyContainer):
     """A node within a graph, identified by a URI. This class is
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
     
     :param uri:             URI identifying this node
-    :param index_entry_uri: URI of the entry in an index pointing to this node
-    :param index_uri:       URI of the index containing the node index entry
     :param metadata:        index of resource metadata
     :param max_age:         maximum allowed age (in seconds) of cached
                             properties
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, \
-                 metadata=None, max_age=0, **kwargs):
-        _Indexable.__init__(self, index_entry_uri=index_entry_uri, \
-            index_uri=index_uri)
-        _PropertyContainer.__init__(self, uri, metadata=metadata, \
+    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
+        _PropertyContainer.__init__(self, uri, "/node", metadata=metadata, \
             max_age=max_age, **kwargs)
-        self._relative_uri = "".join(self._uri.rpartition("/node")[1:])
         self._id = int('0' + uri.rpartition('/')[-1])
-        self._graph_db = GraphDatabaseService(self._uri.rpartition("/node")[0] + "/")
+        self._graph_db = GraphDatabaseService(self._uri.base + "/")
 
     def __repr__(self):
         return '{0}({1})'.format(
             self.__class__.__name__,
-            repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
+            repr(self._uri)
         )
 
     def __str__(self):
@@ -537,30 +442,13 @@ class Node(_Indexable, _PropertyContainer):
         """
         return "({0})".format(self._id)
 
-    def __eq__(self, other):
-        """Determine equality of this node with another node.
-        """
-        return rest.Resource.__eq__(self, other) and _Indexable.__eq__(self, other)
-
-    def __ne__(self, other):
-        """Determine inequality of this node with another node.
-        """
-        return rest.Resource.__ne__(self, other) or _Indexable.__ne__(self, other)
-
     @property
     def id(self):
         """Return the unique id for this node.
         """
         return self._id
 
-    def get_id(self):
-        """DEPRECATED -- please use 'id' property instead.
-        """
-        warnings.warn("Node.get_id is deprecated; please use 'id' property "
-                      "instead")
-        return self.id
-
-    def create_relationship_to(self, other_node, type, *args, **kwargs):
+    def create_relationship_to(self, other_node, type, properties=None):
         """Create and return a new relationship of type `type` from the node
         represented by the current instance to the node represented by
         `other_node`.
@@ -570,7 +458,7 @@ class Node(_Indexable, _PropertyContainer):
         return Relationship(self._post(self._lookup('create_relationship'), {
             'to': other_node._uri,
             'type': type,
-            'data': _flatten(*args, **kwargs)
+            'data': properties
         }))
 
     def create_relationship_from(self, other_node, type, *args, **kwargs):
@@ -610,6 +498,13 @@ class Node(_Indexable, _PropertyContainer):
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships(direction, *types)
+        return bool(relationships)
+
+    def has_relationship_with(self, other, direction=Direction.BOTH, *types):
+        """Return :py:const:`True` if this node has any relationships with the
+        specified criteria, :py:const:`False` otherwise.
+        """
+        relationships = self.get_relationships_with(other, direction, *types)
         return bool(relationships)
 
     def get_related_nodes(self, direction=Direction.BOTH, *types):
@@ -666,64 +561,26 @@ class Node(_Indexable, _PropertyContainer):
         rows, columns = cypher.execute(self._graph_db, query)
         return [row[0] for row in rows]
 
-    def traverse(self, order=None, uniqueness=None, relationships=None, prune=None, filter=None, max_depth=None):
-        """DEPRECATED -- please use Cypher queries instead.
-        """
-        warnings.warn("Node.traverse is deprecated; please use Cypher queries "
-                      "instead")
-        td = TraversalDescription()
-        if order:
-            td = td.order(order)
-        if uniqueness:
-            td = td.uniqueness(uniqueness)
-        if relationships:
-            for relationship in (relationships or []):
-                if isinstance(relationship, str):
-                    td = td.relationships(relationship)
-                else:
-                    try:
-                        if isinstance(relationship, unicode):
-                            td = td.relationships(relationship)
-                        else:
-                            td = td.relationships(*relationship)
-                    except NameError:
-                        td = td.relationships(*relationship)
-        if prune:
-            td = td.prune_evaluator(prune[0], prune[1])
-        if filter:
-            td = td.return_filter(filter[0], filter[1])
-        if max_depth:
-            td = td.max_depth(max_depth)
-        return td.traverse(self)
-
     def delete(self):
         """Delete this node from the database.
         """
         self._delete(self._lookup('self'))
 
 
-class Relationship(_Indexable, _PropertyContainer):
+class Relationship(_PropertyContainer):
     """A relationship within a graph, identified by a URI. This class is
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
     
     :param uri:             URI identifying this relationship
-    :param index_entry_uri: URI of the entry in an index pointing to this
-                            relationship
-    :param index_uri:       URI of the index containing the relationship
-                            index entry
     :param metadata:        index of resource metadata
     :param max_age:         maximum allowed age (in seconds) of cached
                             properties
     """
 
-    def __init__(self, uri, index_entry_uri=None, index_uri=None, \
-                 metadata=None, max_age=0, **kwargs):
-        _Indexable.__init__(self, index_entry_uri=index_entry_uri, \
-            index_uri=index_uri)
-        _PropertyContainer.__init__(self, uri, metadata=metadata, \
-            max_age=max_age, **kwargs)
-        self._relative_uri = "".join(self._uri.rpartition("/relationship")[1:])
+    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
+        _PropertyContainer.__init__(self, uri, "/relationship", \
+            metadata=metadata, max_age=max_age, **kwargs)
         self._type = self._lookup('type')
         self._data = self._lookup('data')
         self._start_node = None
@@ -733,7 +590,7 @@ class Relationship(_Indexable, _PropertyContainer):
     def __repr__(self):
         return '{0}({1})'.format(
             self.__class__.__name__,
-            repr(self._uri if self._index_entry_uri is None else self._index_entry_uri)
+            repr(self._uri)
         )
 
     def __str__(self):
@@ -746,41 +603,33 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         return "-[{0}:{1}]->".format(self._id, self._type)
 
-    def __eq__(self, other):
-        """Determine equality of this relationship with another relationship.
+    def delete(self):
+        """Delete this relationship from the database.
         """
-        return rest.Resource.__eq__(self, other) and _Indexable.__eq__(self, other)
+        self._delete(self._lookup('self'))
 
-    def __ne__(self, other):
-        """Determine inequality of this relationship with another relationship.
+    @property
+    def end_node(self):
+        """Return the end node of this relationship.
         """
-        return rest.Resource.__ne__(self, other) or _Indexable.__ne__(self, other)
+        if not self._end_node:
+            self._end_node = Node(self._lookup('end'))
+        return self._end_node
+
+    def get_other_node(self, node):
+        """Return a node object representing the node within this
+        relationship which is not the one supplied.
+        """
+        if self._lookup('end') == node._uri:
+            return self.start_node
+        else:
+            return self.end_node
 
     @property
     def id(self):
         """Return the unique id for this relationship.
         """
         return self._id
-
-    def get_id(self):
-        """DEPRECATED -- please use 'id' property instead.
-        """
-        warnings.warn("Relationship.get_id is deprecated; please use 'id'"
-                      "property instead")
-        return self.id
-
-    @property
-    def type(self):
-        """Return the type of this relationship.
-        """
-        return self._type
-
-    def get_type(self):
-        """DEPRECATED -- please use 'type' property instead.
-        """
-        warnings.warn("Relationship.get_type is deprecated; please use 'type' "
-                      "property instead")
-        return self.type
 
     def is_type(self, type):
         """Return :py:const:`True` if this relationship is of the given type.
@@ -793,13 +642,6 @@ class Relationship(_Indexable, _PropertyContainer):
         """
         return self.start_node, self.end_node
 
-    def get_nodes(self):
-        """DEPRECATED -- please use 'nodes' property instead.
-        """
-        warnings.warn("Relationship.get_nodes is deprecated; please use "
-                      "'nodes' property instead")
-        return self.nodes
-
     @property
     def start_node(self):
         """Return the start node of this relationship.
@@ -808,41 +650,11 @@ class Relationship(_Indexable, _PropertyContainer):
             self._start_node = Node(self._lookup('start'))
         return self._start_node
 
-    def get_start_node(self):
-        """DEPRECATED -- please use 'start_node' property instead.
-        """
-        warnings.warn("Relationship.get_start_node is deprecated; please use "
-                      "'start_node' property instead")
-        return self.start_node
-
     @property
-    def end_node(self):
-        """Return the end node of this relationship.
+    def type(self):
+        """Return the type of this relationship.
         """
-        if not self._end_node:
-            self._end_node = Node(self._lookup('end'))
-        return self._end_node
-
-    def get_end_node(self):
-        """DEPRECATED -- please use 'end_node' property instead.
-        """
-        warnings.warn("Relationship.get_end_node is deprecated; please use "
-                      "'end_node' property instead")
-        return self.end_node
-
-    def get_other_node(self, node):
-        """Return a node object representing the node within this
-        relationship which is not the one supplied.
-        """
-        if self._lookup('end') == node._uri:
-            return self.get_start_node()
-        else:
-            return self.get_end_node()
-
-    def delete(self):
-        """Delete this relationship from the database.
-        """
-        self._delete(self._lookup('self'))
+        return self._type
 
 
 class Path(object):
@@ -915,328 +727,111 @@ class Path(object):
 
 
 class Index(rest.Resource):
-    """An index within a `Neo4j <http://neo4j.org/>`_ database instance
-    identified by a URI and/or a template URI. With a nod to Java generics,
-    an index instance may hold either nodes or relationships by supplying the
-    appropriate class directly to the constructor. For example:
-    
-        >>> from py2neo import neo4j
-        >>> Index(neo4j.Node, "http://localhost:7474/db/data/index/node/index1")
-        Index<Node>(u'http://localhost:7474/db/data/index/node/index1')
-    
-    By default, every index write operation will execute immediately but
-    these may also be grouped into a batch in order to reduce HTTP calls. To
-    create a batch, simply issue a :py:func:`start_batch` call, followed by the
-    required :py:func:`add` and :py:func:`remove` calls and finally
-    :py:func:`submit_batch`. A batch may be discarded at any time using
-    :py:func:`discard_batch`.
 
-    :param T:            a class object representing the type of entity contained within the index
-    :param uri:          the URI of the index
-    :param template_uri: a template URI for key and value substitution
-    :param metadata:        an index of RESTful URIs
-    """
-
-    def __init__(self, T, uri=None, template_uri=None, metadata=None, **kwargs):
+    def __init__(self, entity_type, template_uri, metadata=None, **kwargs):
         rest.Resource.__init__(
-            self,
-            uri or template_uri.rpartition("/{key}/{value}")[0],
-            metadata=metadata,
-            **kwargs
+            self, template_uri.rpartition("/{key}/{value}")[0],
+            "/index/", metadata=metadata, **kwargs
         )
-        self.__T = T
-        self._base_uri, u0, u1 = self._uri.partition("/index")
-        self._relative_uri = u0 + u1
-        self._graph_database_service = GraphDatabaseService(self._base_uri)
-        self._template_uri = template_uri or "{0}{1}{{key}}/{{value}}".format(
-            uri,
-            "" if uri.endswith("/") else "/"
-        )
-        self._relative_template_uri = "".join(self._template_uri.partition("/index")[1:])
-        self._batch_uri = self._base_uri + "/batch"
-        self._batch = None
+        self._entity_type = entity_type
+        self._template_uri = template_uri
+        self._graph_database_service = GraphDatabaseService(self._uri.base + "/")
 
     def __repr__(self):
-        return '{0}<{1}>({2})'.format(
+        return '{0}({1}, {2})'.format(
             self.__class__.__name__,
-            self.__T.__name__,
+            repr(self._entity_type.__name__),
             repr(self._uri)
         )
 
-    def start_batch(self):
-        """Start a new batch of index write operations.
-        """
-        self._batch = []
+    @property
+    def entity_type(self):
+        return self._entity_type
 
-    def discard_batch(self):
-        """Discard the current batch of index write operations.
-        """
-        self._batch = None
-
-    def submit_batch(self):
-        """Submit the current batch of index write operations.
-        """
-        self._post(self._batch_uri, self._batch)
-        self._batch = None
-
-    def add(self, entity, key, value):
-        """Add an entry to this index under the specified `key` and `value`.
-        If a batch has been started, this operation will not be submitted
-        until :py:func:`submit_batch` has been called.
-        """
-        if self._graph_database_service._neo4j_version >= (1, 5):
-            # new method
-            if self._batch is None:
-                self._post(self._uri, {
-                    "uri": entity._uri,
+    def add(self, key, value, *entities):
+        self._post(self._graph_database_service._batch_uri, [
+            {
+                'method': 'POST',
+                'to': self._uri.reference,
+                'body': {
                     "key": key,
-                    "value": value
-                })
-            else:
-                self._batch.append({
-                    "method": "POST",
-                    "to": self._relative_uri,
-                    "body": {
-                        "uri": entity._uri,
-                        "key": key,
-                        "value": value
-                    },
-                    "id": len(self._batch)
-                })
-        else:
-            # legacy method
-            if self._batch is None:
-                self._post(self._template_uri.format(
-                    key=_quote(key, ""),
-                    value=_quote(value, "")
-                ), entity._uri)
-            else:
-                self._batch.append({
-                    "method": "POST",
-                    "to": self._relative_template_uri.format(
-                        key=_quote(key, ""),
-                        value=_quote(value, "")
-                    ),
-                    "body": entity._uri,
-                    "id": len(self._batch)
-                })
+                    "value": value,
+                    "uri": str(entities[i]._uri)
+                },
+                'id': i
+            }
+            for i in range(len(entities))
+        ])
 
-    def remove(self, entity):
-        """Remove the given entity from this index. The entity must have been
-        retrieved from an index search and therefore contain an
-        `_index_entry_uri` property. If a batch has been started, this
-        operation will not be submitted until :py:func:`submit_batch` has been called.
-        """
-        if entity._index_uri != self._uri or entity._index_entry_uri is None:
-            raise LookupError(entity)
-        if self._batch is None:
-            self._delete(entity._index_entry_uri)
-        else:
-            self._batch.append({
+    def remove(self, key, value):
+        entities = [
+            item['indexed']
+            for item in self._get(self._template_uri.format(
+                key=_quote(key, ""),
+                value=_quote(value, "")
+            ))
+        ]
+        self._post(self._graph_database_service._batch_uri, [
+            {
                 'method': 'DELETE',
-                'to': entity._relative_index_entry_uri,
-                'id': len(self._batch)
-            })
+                'to': rest.URI(entities[i], "/index/").reference,
+                'id': i
+            }
+            for i in range(len(entities))
+        ])
 
     def get(self, key, value):
-        """Search the current index for items matching the supplied key/value
-        pair; each pair may return zero or more matching items. The `value`
-        parameter may also be a list allowing a batch search to be performed
-        matching the specified `key` with each `value` in turn. In batch mode
-        a list of lists will be returned, each top-level item
-        corresponding to the `value` passed into the same position.
-        """
-        if isinstance(value, list):
-            return [
-                [
-                    self.__T(
-                        result['self'],
-                        index_entry_uri=result['indexed'],
-                        index_uri=self._uri
-                    )
-                    for result in item['body']
-                ]
-                for item in self._post(self._batch_uri, [
-                    {
-                        'method': 'GET',
-                        'to': self._relative_template_uri.format(
-                            key=_quote(key, ""),
-                            value=_quote(value[i], "")
-                        ),
-                        'id': i
-                    }
-                    for i in range(len(value))
-                ])
+        results = self._get(self._template_uri.format(
+            key=_quote(key, ""),
+            value=_quote(value, "")
+        ))
+        return [
+            self._entity_type(result['self'])
+            for result in results
+        ]
+
+    def get_or_create(self, key, value, *entities):
+        if self._entity_type == Node:
+            entities = [
+                {
+                    "key": _quote(key, ""),
+                    "value": _quote(value, ""),
+                    "properties": entity
+                }
+                for entity in entities
+            ]
+        elif self._entity_type == Relationship:
+            entities = [
+                {
+                    "key": _quote(key, ""),
+                    "value": _quote(value, ""),
+                    "start": str(entity[0]._uri),
+                    "type": entity[1],
+                    "end": str(entity[2]._uri),
+                    "properties": entity[3] if len(entity) > 3 else None
+                }
+                for entity in entities
             ]
         else:
-            return [
-                self.__T(
-                    item['self'],
-                    index_entry_uri=item['indexed'],
-                    index_uri=self._uri
-                )
-                for item in self._get(self._template_uri.format(
-                    key=_quote(key, ""),
-                    value=_quote(value, "")
-                ))
-            ]
+            TypeError(self._entity_type + " indexes do not support get_or_create")
+        results = self._post(self._graph_database_service._batch_uri, [
+            {
+                'method': 'POST',
+                'to': self._uri.reference + "?unique",
+                'body': entities[i],
+                'id': i
+            }
+            for i in range(len(entities))
+        ])
+        return [
+            self._entity_type(result['body']['self'])
+            for result in results
+        ]
 
     def query(self, query):
-        """Query the current index for items using Lucene (or other) query
-        syntax as available within the underlying implementation.
-        """
         return [
-            self.__T(item['self'])
-            for item in self._get("{0}?query={1}".format(self._uri, _quote(query, "")))
-        ]
-
-
-class TraversalDescription(object):
-    """DEPRECATED -- please use Cypher queries instead.
-    """
-
-    def __init__(self):
-        warnings.warn("TraversalDescription is deprecated; please use Cypher "
-                      "queries instead")
-        self._description = {}
-
-    def traverse(self, start_node):
-        return Traverser(
-            template_uri=start_node._lookup('traverse'),
-            traversal_description=self._description
-        )
-
-    def order(self, selector):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['order'] = selector
-        return td
-
-    def breadth_first(self):
-        return self.order('breadth_first')
-
-    def depth_first(self):
-        return self.order('depth_first')
-
-    def uniqueness(self, uniqueness):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['uniqueness'] = uniqueness
-        return td
-
-    def relationships(self, type, direction=None):
-        td = TraversalDescription()
-        td._description = self._description
-        if 'relationships' not in td._description:
-            td._description['relationships'] = []
-        if direction in ['in', 'incoming']:
-            direction = 'in'
-        elif direction in ['out', 'outgoing']:
-            direction = 'out'
-        elif direction:
-            raise ValueError(direction)
-        if direction:
-            td._description['relationships'].append({
-                'type': type,
-                'direction': direction
-            })
-        else:
-            td._description['relationships'].append({
-                'type': type
-            })
-        return td
-
-    def builtin_prune_evaluator(self, name):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['prune_evaluator'] = {
-            'language': 'builtin',
-            'name': name
-        }
-        return td
-
-    def prune_evaluator(self, language, body):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['prune_evaluator'] = {
-            'language': language,
-            'body': body
-        }
-        return td
-
-    def builtin_return_filter(self, name):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['return_filter'] = {
-            'language': 'builtin',
-            'name': name
-        }
-        return td
-
-    def return_filter(self, language, body):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['return_filter'] = {
-            'language': language,
-            'body': body
-        }
-        return td
-
-    def max_depth(self, depth):
-        td = TraversalDescription()
-        td._description = self._description
-        td._description['max_depth'] = depth
-        return td
-
-
-class Traverser(rest.Resource):
-    """DEPRECATED -- please use Cypher queries instead.
-    """
-
-    class Order:
-
-        BREADTH_FIRST = 'breadth_first'
-        DEPTH_FIRST   = 'depth_first'
-
-    def __init__(self, template_uri=None, traversal_description=None, metadata=None, **kwargs):
-        warnings.warn("Traverser is deprecated; please use Cypher queries "
-                      "instead")
-        rest.Resource.__init__(self, None, metadata=metadata, **kwargs)
-        self._template_uri = template_uri
-        self._traversal_description = traversal_description
-
-    @property
-    def paths(self):
-        return [
-            Path([
-                Node(uri)
-                for uri in path['nodes']
-            ], [
-                Relationship(uri)
-                for uri in path['relationships']
-            ])
-            for path in self._post(
-                self._template_uri.format(returnType='path'),
-                self._traversal_description
-            )
-        ]
-
-    @property
-    def nodes(self):
-        return [
-            Node(node['self'])
-            for node in self._post(
-                self._template_uri.format(returnType='node'),
-                self._traversal_description
-            )
-        ]
-
-    @property
-    def relationships(self):
-        return [
-            Relationship(relationship['self'])
-            for relationship in self._post(
-                self._template_uri.format(returnType='relationship'),
-                self._traversal_description
-            )
+            self._entity_type(item['self'])
+            for item in self._get("{0}?query={1}".format(
+                self._uri, _quote(query, "")
+            ))
         ]

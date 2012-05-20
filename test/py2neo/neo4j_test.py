@@ -43,25 +43,24 @@ class GraphDatabaseServiceTest(unittest.TestCase):
     def test_create_node(self):
         self.gdb.create_node()
 
+    def test_get_node_by_id(self):
+        a1 = self.gdb.create_node({"foo": "bar"})
+        a2 = self.gdb.get_node(a1.id)
+        self.assertEqual(a1, a2)
+
     def test_create_node_with_property_dict(self):
         node = self.gdb.create_node({"foo": "bar"})
         self.assertEqual("bar", node["foo"])
 
-    def test_create_node_with_property_args(self):
-        node = self.gdb.create_node(foo="bar")
-        self.assertEqual("bar", node["foo"])
-
     def test_create_node_with_mixed_property_types(self):
         node = self.gdb.create_node(
-            {"true": False},
-            {"number": 13, "foo": "bar", "true": True},
-            fish="chips", number=109
+            {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
         self.assertEqual(4, len(node.get_properties()))
         self.assertEqual("chips", node["fish"])
         self.assertEqual("bar", node["foo"])
-        self.assertEqual(109, node["number"])
-        self.assertEqual(True, node["true"])
+        self.assertEqual(13, node["number"])
+        self.assertEqual(False, node["true"])
 
     def test_create_multiple_nodes(self):
         nodes = self.gdb.create(
@@ -381,61 +380,6 @@ class MultipleNodeTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
-
-
-class IndexTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.gdb = default_graph_db()
-
-    def test_get_node_index(self):
-        index1 = self.gdb.get_node_index("index1")
-        self.assertIsNotNone(index1)
-
-    def test_add_node_to_index(self):
-        index1 = self.gdb.get_node_index("index1")
-        ref_node = self.gdb.get_reference_node()
-        index1.add(ref_node, "foo", "bar")
-        s = index1.get("foo", "bar")
-        print("Found index entries: {0}".format(s))
-        found = -1
-        for i in range(len(s)):
-            if s[i]._uri == ref_node._uri:
-                found = i
-        self.assertTrue(found >= 0)
-        index1.remove(s[found])
-
-    def test_add_node_to_index_with_spaces(self):
-        index1 = self.gdb.get_node_index("index1")
-        ref_node = self.gdb.get_reference_node()
-        index1.add(ref_node, "foo bar", "bar foo")
-        s = index1.get("foo bar", "bar foo")
-        print("Found index entries: {0}".format(s))
-        self.assertEqual(s[0]._uri, ref_node._uri)
-        index1.remove(s[0])
-
-    def test_add_node_to_index_with_odd_chars(self):
-        index1 = self.gdb.get_node_index("index1")
-        ref_node = self.gdb.get_reference_node()
-        index1.add(ref_node, "@!%#", "!\"£$%^&*()")
-        s = index1.get("@!%#", "!\"£$%^&*()")
-        print("Found index entries: {0}".format(s))
-        self.assertEqual(s[0]._uri, ref_node._uri)
-        index1.remove(s[0])
-
-    def test_node_index_query(self):
-        index1 = self.gdb.get_node_index("index1")
-        node1 = self.gdb.create_node()
-        node2 = self.gdb.create_node()
-        node3 = self.gdb.create_node()
-        index1.add(node1, "colour", "red")
-        index1.add(node2, "colour", "green")
-        index1.add(node3, "colour", "blue")
-        s = index1.query("colour:*r*")
-        print("Found index entries: {0}".format(s))
-        self.assertTrue(node1 in s)
-        self.assertTrue(node2 in s)
-        self.assertFalse(node3 in s)
 
 
 #class IteratorTestCase(unittest.TestCase):

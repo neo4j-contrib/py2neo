@@ -21,7 +21,6 @@ The easiest way to install py2neo is from the Python Package Index (PyPI), using
 {{{
 sudo pip install py2neo
 }}}
-or
 
 You will also need to ensure that tornado is installed and up to date. This can be achieved with:
 
