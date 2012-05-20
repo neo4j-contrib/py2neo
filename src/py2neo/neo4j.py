@@ -185,7 +185,8 @@ class GraphDatabaseService(rest.Resource):
         """Create and return a new node, optionally with properties supplied as
         a dictionary.
         """
-        return Node(self._post(self._lookup('node'), properties))
+        result = self._post(self._lookup('node'), properties)
+        return Node(result["self"])
 
     def create_node_index(self, name, config=None):
         """Create and return a new node index with the supplied name and
@@ -455,11 +456,12 @@ class Node(_PropertyContainer):
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
-        return Relationship(self._post(self._lookup('create_relationship'), {
-            'to': other_node._uri,
+        result = self._post(self._lookup('create_relationship'), {
+            'to': str(other_node._uri),
             'type': type,
             'data': properties
-        }))
+        })
+        return Relationship(result["self"])
 
     def create_relationship_from(self, other_node, type, *args, **kwargs):
         """Create and return a new relationship of type `type` from the node
@@ -727,28 +729,43 @@ class Path(object):
 
 
 class Index(rest.Resource):
+    """Searchable database index which can contain either nodes or
+    relationships.
+    """
 
     def __init__(self, entity_type, template_uri, metadata=None, **kwargs):
         rest.Resource.__init__(
             self, template_uri.rpartition("/{key}/{value}")[0],
             "/index/", metadata=metadata, **kwargs
         )
-        self._entity_type = entity_type
+        self._name = str(self._uri).rpartition("/")[2]
+        self._content_type = entity_type
         self._template_uri = template_uri
         self._graph_database_service = GraphDatabaseService(self._uri.base + "/")
 
     def __repr__(self):
-        return '{0}({1}, {2})'.format(
+        return '{0}({1},{2})'.format(
             self.__class__.__name__,
-            repr(self._entity_type.__name__),
+            repr(self._content_type.__name__),
             repr(self._uri)
         )
 
     @property
-    def entity_type(self):
-        return self._entity_type
+    def name(self):
+        """Return the name of this index.
+        """
+        return self._name
+
+    @property
+    def content_type(self):
+        """Return the type of entities contained within this index.
+        """
+        return self._content_type
 
     def add(self, key, value, *entities):
+        """Add one or more entities to the index under the key:value pair
+        supplied.
+        """
         self._post(self._graph_database_service._batch_uri, [
             {
                 'method': 'POST',
@@ -763,7 +780,20 @@ class Index(rest.Resource):
             for i in range(len(entities))
         ])
 
+    def add_if_none(self, key, value, entity):
+        """Add an entity to the index under the key:value pair supplied if
+        and only if no entry already exists at that point.
+        """
+        self._post(str(self._uri) + "?unique", {
+            "key": key,
+            "value": value,
+            "uri": str(entity._uri)
+        })
+
     def remove(self, key, value):
+        """Remove any entries from the index which are associated with the
+        key:value pair supplied.
+        """
         entities = [
             item['indexed']
             for item in self._get(self._template_uri.format(
@@ -781,56 +811,58 @@ class Index(rest.Resource):
         ])
 
     def get(self, key, value):
+        """Fetch all entities from the index which are associated with the
+        key:value pair supplied.
+        """
         results = self._get(self._template_uri.format(
             key=_quote(key, ""),
             value=_quote(value, "")
         ))
         return [
-            self._entity_type(result['self'])
+            self._content_type(result['self'])
             for result in results
         ]
 
-    def get_or_create(self, key, value, *entities):
-        if self._entity_type == Node:
-            entities = [
-                {
-                    "key": _quote(key, ""),
-                    "value": _quote(value, ""),
-                    "properties": entity
-                }
-                for entity in entities
-            ]
-        elif self._entity_type == Relationship:
-            entities = [
-                {
-                    "key": _quote(key, ""),
-                    "value": _quote(value, ""),
-                    "start": str(entity[0]._uri),
-                    "type": entity[1],
-                    "end": str(entity[2]._uri),
-                    "properties": entity[3] if len(entity) > 3 else None
-                }
-                for entity in entities
-            ]
-        else:
-            TypeError(self._entity_type + " indexes do not support get_or_create")
-        results = self._post(self._graph_database_service._batch_uri, [
-            {
-                'method': 'POST',
-                'to': self._uri.reference + "?unique",
-                'body': entities[i],
-                'id': i
+    def get_or_create(self, key, value, entity):
+        """Fetch single entity from the index which is associated with the
+        key:value pair supplied, creating a new entity with the supplied
+        details if none exists.
+
+            >>> people = self.graph_db.get_node_index("People")
+            >>> alice = people.get_or_create("surname", "Smith",
+            ...     {"name": "Alice Smith"})
+
+        """
+        if self._content_type == Node:
+            body = {
+                "key": key,
+                "value": value,
+                "properties": entity
             }
-            for i in range(len(entities))
-        ])
-        return [
-            self._entity_type(result['body']['self'])
-            for result in results
-        ]
+        elif self._content_type == Relationship:
+            body = {
+                "key": key,
+                "value": value,
+                "start": str(entity[0]._uri),
+                "type": entity[1],
+                "end": str(entity[2]._uri),
+                "properties": entity[3] if len(entity) > 3 else None
+            }
+        else:
+            raise TypeError(self._content_type +
+                            " indexes do not support get_or_create")
+        result = self._post(str(self._uri) + "?unique", body)
+        if result:
+            return self._content_type(result["self"])
+        else:
+            return None
 
     def query(self, query):
+        """Query the index according to the supplied query criteria, returning
+        a list of matched entities.
+        """
         return [
-            self._entity_type(item['self'])
+            self._content_type(item['self'])
             for item in self._get("{0}?query={1}".format(
                 self._uri, _quote(query, "")
             ))

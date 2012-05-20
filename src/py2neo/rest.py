@@ -203,7 +203,11 @@ class Resource(object):
                 else:
                     return None
             elif response.code == 201:
-                return response.headers['location']
+                #return response.headers['location']
+                if response.body:
+                    return json.loads(response.body)
+                else:
+                    return None
             elif response.code == 204:
                 return None
         except httpclient.HTTPError as err:

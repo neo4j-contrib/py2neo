@@ -18,8 +18,8 @@ class CypherTestCase(unittest.TestCase):
     def setUp(self):
         super(CypherTestCase, self).setUp()
         self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.node_a = self.graph_db.create_node(name="Alice")
-        self.node_b = self.graph_db.create_node(name="Bob")
+        self.node_a = self.graph_db.create_node({"name": "Alice"})
+        self.node_b = self.graph_db.create_node({"name": "Bob"})
         self.rel_ab = self.node_a.create_relationship_to(self.node_b, "KNOWS")
 
     def test_nonsense_query(self):
@@ -126,7 +126,7 @@ class CypherTestCase(unittest.TestCase):
 
     def test_many_queries(self):
         query = "start z=node(0) return z"
-        for i in range(10000):
+        for i in range(2000):
             data, metadata = cypher.execute(self.graph_db, query)
             self.assertEqual(1, len(data))
 

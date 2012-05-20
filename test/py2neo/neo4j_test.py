@@ -363,20 +363,6 @@ class MultipleNodeTestCase(unittest.TestCase):
         ])
         self.gdb.delete(*rels)
         self.assertEqual(len(self.nodes), len(rels))
-        
-#    def test_simple_traverse(self):
-#        td = None
-#        rel0 = self.nodes[0].create_relationship_to(self.nodes[1], "FLINTSTONE", {})
-#        rel1 = self.nodes[1].create_relationship_to(self.nodes[2], "FLINTSTONE", {})
-#        #Created Relationship Fred -> Wilma -> Barney
-#        td = self.nodes[0].traverse(order = "depth_first",
-#                            relationships = ("FLINTSTONE",),
-#                            prune = ("javascript", "position.endNode().getProperty('name') == 'Barney';"),
-#                            max_depth=2)
-#
-#        self.assertEqual(2, len(td.nodes))
-#        self.gdb.delete(rel0)
-#        self.gdb.delete(rel1)
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
