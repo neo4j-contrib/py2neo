@@ -55,10 +55,10 @@ Our second script returns the contents of a page by building a Cypher query with
 
 import sys
 
-from py2neo import neo4j
+from py2neo import neo4j, cypher
 
 if len(sys.argv) < 2:
-    sys.exit("Usage: %s <page_number>" % (sys.argv[0]))
+    sys.exit("Usage: {0} <page_number>".format(sys.argv[0]))
 
 # Hook into the database
 graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
@@ -70,22 +70,22 @@ page_size = 10
 
 # Build the cypher query
 query = """\
-start x=%s
+start x={0}
 match (x)-[:NUMBER]->(n)
 return n
 order by n.name
-skip %d
-limit %d
-""" % (
+skip {1}
+limit {2}
+""".format(
     str(root),
     page_size * (page_number - 1),
     page_size
 )
 
 # Grab the results, iterate and print
-results = graph_db.execute_cypher_query(query)
-for result in results["data"]:
-    print result[0]["data"]["name"]
+data, metadata = cypher.execute(graph_db, query)
+for row in data:
+    print row[0]["name"]
 }}}
 <</code>>
 
