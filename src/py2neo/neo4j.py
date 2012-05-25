@@ -449,6 +449,15 @@ class Node(_PropertyContainer):
         """
         return self._id
 
+    def create_relationship_from(self, other_node, type, *args, **kwargs):
+        """Create and return a new relationship of type `type` from the node
+        represented by `other_node` to the node represented by the current
+        instance.
+        """
+        if not isinstance(other_node, Node):
+            return TypeError("Start node is not a neo4j.Node instance")
+        return other_node.create_relationship_to(self, type, *args, **kwargs)
+
     def create_relationship_to(self, other_node, type, properties=None):
         """Create and return a new relationship of type `type` from the node
         represented by the current instance to the node represented by
@@ -463,14 +472,24 @@ class Node(_PropertyContainer):
         })
         return Relationship(result["self"])
 
-    def create_relationship_from(self, other_node, type, *args, **kwargs):
-        """Create and return a new relationship of type `type` from the node
-        represented by `other_node` to the node represented by the current
-        instance.
+    def delete(self):
+        """Delete this node from the database.
         """
-        if not isinstance(other_node, Node):
-            return TypeError("Start node is not a neo4j.Node instance")
-        return other_node.create_relationship_to(self, type, *args, **kwargs)
+        self._delete(self._lookup('self'))
+
+    def get_related_nodes(self, direction=Direction.BOTH, *types):
+        """
+        Fetch all nodes related to the current node by a relationship in a
+        given `direction` of a specific `type` (if supplied).
+        """
+        if types:
+            uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+        else:
+            uri = self._lookup(direction + '_relationships')
+        return [
+            Node(rel['start'] if rel['end'] == self._uri else rel['end'])
+            for rel in self._get(uri)
+        ]
 
     def get_relationships(self, direction=Direction.BOTH, *types):
         """Fetch all relationships from the current node in a given
@@ -484,6 +503,39 @@ class Node(_PropertyContainer):
             Relationship(rel['self'])
             for rel in self._get(uri)
         ]
+
+    def get_relationships_with(self, other, direction=Direction.BOTH, *types):
+        """Return all relationships between this node and another node using
+        the relationship criteria supplied.
+        """
+        if not isinstance(other, Node):
+            raise ValueError
+        if direction == Direction.BOTH:
+            query = "start a=node({0}),b=node({1}) match a-{2}-b return r"
+        elif direction == Direction.OUTGOING:
+            query = "start a=node({0}),b=node({1}) match a-{2}->b return r"
+        elif direction == Direction.INCOMING:
+            query = "start a=node({0}),b=node({1}) match a<-{2}-b return r"
+        else:
+            raise ValueError
+        if types:
+            type = "[r:" + "|".join(types) + "]"
+        else:
+            type = "[r]"
+        query = query.format(self.id, other.id, type)
+        rows, columns = cypher.execute(self._graph_db, query)
+        return [row[0] for row in rows]
+
+    def get_single_related_node(self, direction=Direction.BOTH, *types):
+        """Return only one node related to the current node by a relationship
+        in the given `direction` of the specified `type`, if any such
+        relationships exist.
+        """
+        nodes = self.get_related_nodes(direction, *types)
+        if nodes:
+            return nodes[0]
+        else:
+            return None
 
     def get_single_relationship(self, direction=Direction.BOTH, *types):
         """Fetch only one relationship from the current node in the given
@@ -509,64 +561,12 @@ class Node(_PropertyContainer):
         relationships = self.get_relationships_with(other, direction, *types)
         return bool(relationships)
 
-    def get_related_nodes(self, direction=Direction.BOTH, *types):
-        """
-        Fetch all nodes related to the current node by a relationship in a
-        given `direction` of a specific `type` (if supplied).
-        """
-        if types:
-            uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
-        else:
-            uri = self._lookup(direction + '_relationships')
-        return [
-            Node(rel['start'] if rel['end'] == self._uri else rel['end'])
-            for rel in self._get(uri)
-        ]
-
-    def get_single_related_node(self, direction=Direction.BOTH, *types):
-        """Return only one node related to the current node by a relationship
-        in the given `direction` of the specified `type`, if any such
-        relationships exist.
-        """
-        nodes = self.get_related_nodes(direction, *types)
-        if nodes:
-            return nodes[0]
-        else:
-            return None
-
     def is_related_to(self, other, direction=Direction.BOTH, *types):
         """Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`
         otherwise.
         """
         return bool(self.get_relationships_with(other, direction, *types))
-
-    def get_relationships_with(self, other, direction=Direction.BOTH, *types):
-        """Return all relationships between this node and another node using
-        the relationship criteria supplied.
-        """
-        if not isinstance(other, Node):
-            raise ValueError
-        if direction == Direction.BOTH:
-            query = "start a=node({0}),b=node({1}) match a-{2}-b return r"
-        elif direction == Direction.OUTGOING:
-            query = "start a=node({0}),b=node({1}) match a-{2}->b return r"
-        elif direction == Direction.INCOMING:
-            query = "start a=node({0}),b=node({1}) match a<-{2}-b return r"
-        else:
-            raise ValueError
-        if types:
-            type = "[r:" + "|".join(types) + "]"
-        else:
-            type = "[r]"
-        query = query.format(self.id, other.id, type)
-        rows, columns = cypher.execute(self._graph_db, query)
-        return [row[0] for row in rows]
-
-    def delete(self):
-        """Delete this node from the database.
-        """
-        self._delete(self._lookup('self'))
 
 
 class Relationship(_PropertyContainer):
