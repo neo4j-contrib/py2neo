@@ -24,6 +24,10 @@ __license__   = "Apache License, Version 2.0"
 
 
 try:
+    import json
+except ImportError:
+    import simplejson as json
+try:
     from urllib.parse import quote
 except ImportError:
     from urllib import quote
@@ -352,18 +356,26 @@ class GraphDatabaseService(rest.Resource):
         raising NotImplementedError if server support not available.
         """
         start, relate, return_, params = [], [], [], {}
-        for i, relationship in enumerate(relationships):
+        for i, rel in enumerate(relationships):
             try:
-                start_node, type, end_node = relationship[0:3]
-                if len(relationship) > 3:
-                    data = relationship[3]
-                else:
-                    data = {}
+                start_node, type, end_node = rel[0:3]
             except IndexError:
-                raise ValueError(relationship)
-            start.append("a{0}=node({1})".format(i, start_node.id))
-            start.append("b{0}=node({1})".format(i, end_node.id))
-            relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
+                raise ValueError(rel)
+            if len(rel) > 3:
+                type += " " + json.dumps(rel[3])
+            if start_node:
+                start.append("a{0}=node({1})".format(i, start_node.id))
+            if end_node:
+                start.append("b{0}=node({1})".format(i, end_node.id))
+            if start_node and end_node:
+                relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
+            elif start_node:
+                relate.append("a{0}-[r{0}:{1}]->()".format(i, type))
+            elif end_node:
+                relate.append("()-[r{0}:{1}]->b{0}".format(i, type))
+            else:
+                raise ValueError("Neither start node nor end node specified " \
+                                 "in relationship {0}: {1} ".format(i, rel))
             return_.append("r{0}".format(i))
         query = "START {0} RELATE {1} RETURN {2}".format(
             ",".join(start), ",".join(relate), ",".join(return_)
@@ -372,7 +384,8 @@ class GraphDatabaseService(rest.Resource):
         try:
             data, metadata = cypher.execute(self, query)
             return data[0]
-        except cypher.CypherError:
+        except cypher.CypherError as err:
+            print err
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not " \
                 "support Cypher RELATE clauses".format(self._uri)

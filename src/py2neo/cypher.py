@@ -35,8 +35,6 @@ except ImportError:
 import logging
 logger = logging.getLogger(__name__)
 
-import warnings
-
 
 class CypherError(ValueError):
 
