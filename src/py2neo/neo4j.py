@@ -346,6 +346,38 @@ class GraphDatabaseService(rest.Resource):
         """
         return self._neo4j_version
 
+    def relate(self, *relationships):
+        """Fetch or create relationships with the specified criteria, depending
+        or whether or not such relationships exist. Uses Cypher RELATE clause,
+        raising NotImplementedError if server support not available.
+        """
+        start, relate, return_, params = [], [], [], {}
+        for i, relationship in enumerate(relationships):
+            try:
+                start_node, type, end_node = relationship[0:3]
+                if len(relationship) > 3:
+                    data = relationship[3]
+                else:
+                    data = {}
+            except IndexError:
+                raise ValueError(relationship)
+            start.append("a{0}=node({1})".format(i, start_node.id))
+            start.append("b{0}=node({1})".format(i, end_node.id))
+            relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
+            return_.append("r{0}".format(i))
+        query = "START {0} RELATE {1} RETURN {2}".format(
+            ",".join(start), ",".join(relate), ",".join(return_)
+        )
+        print query
+        try:
+            data, metadata = cypher.execute(self, query)
+            return data[0]
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not " \
+                "support Cypher RELATE clauses".format(self._uri)
+            )
+
 
 class _PropertyContainer(rest.Resource):
     """Base class from which node and relationship classes inherit. Extends a

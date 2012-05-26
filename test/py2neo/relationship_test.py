@@ -45,6 +45,22 @@ class RelationshipTestCase(unittest.TestCase):
         self.assertEqual(alice, ba.end_node)
 
 
+class RelateTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+
+    def test_relate(self):
+        alice, bob, carol, dave = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"},
+            {"name": "Carol"}, {"name": "Dave"}
+        )
+        r = self.graph_db.relate((alice, "KNOWS", bob), (carol, "KNOWS", dave))
+        print r[0], r[1]
+        r = self.graph_db.relate((alice, "KNOWS", bob), (carol, "KNOWS", dave))
+        print r[0], r[1]
+
+
 if __name__ == '__main__':
     unittest.main()
 
