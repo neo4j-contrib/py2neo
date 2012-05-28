@@ -35,6 +35,8 @@ class GraphDatabaseServiceTest(unittest.TestCase):
     def setUp(self):
         self.gdb = default_graph_db()
         print("Neo4j Version: {0}".format(repr(self.gdb._neo4j_version)))
+        print("Node count: {0}".format(self.gdb.get_node_count()))
+        print("Relationship count: {0}".format(self.gdb.get_relationship_count()))
 
     def test_get_reference_node(self):
         ref_node = self.gdb.get_reference_node()

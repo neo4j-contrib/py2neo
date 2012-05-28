@@ -179,8 +179,8 @@ class GraphDatabaseService(rest.Resource):
         """
         try:
             return map(batch.result, self._post(self._batch_uri, [
-                batch.creator(i, entities[i])
-                for i in range(len(entities))
+                batch.creator(i, entity)
+                for i, entity in enumerate(entities)
             ]))
         except SystemError as err:
             raise batch.BatchError(*err.args)
@@ -288,6 +288,15 @@ class GraphDatabaseService(rest.Resource):
         """
         return Relationship(self._lookup('relationship') + "/" + str(id))
 
+    def get_relationship_count(self):
+        """Fetch the number of relationships in this graph as an integer.
+        """
+        data, metadata = cypher.execute(self, "start z=rel(*) return count(z)")
+        if data and data[0]:
+            return data[0][0]
+        else:
+            return 0
+
 #    # TODO
 #    def get_relationships(self, start_node=None, type=None, end_node=None):
 #        type = type or ""
@@ -362,7 +371,9 @@ class GraphDatabaseService(rest.Resource):
             except IndexError:
                 raise ValueError(rel)
             if len(rel) > 3:
-                type += " " + json.dumps(rel[3])
+                param = "D" + str(i)
+                type += " {" + param + "}"
+                params[param] = rel[3]
             if start_node:
                 start.append("a{0}=node({1})".format(i, start_node.id))
             if end_node:
@@ -380,12 +391,10 @@ class GraphDatabaseService(rest.Resource):
         query = "START {0} RELATE {1} RETURN {2}".format(
             ",".join(start), ",".join(relate), ",".join(return_)
         )
-        print query
         try:
-            data, metadata = cypher.execute(self, query)
+            data, metadata = cypher.execute(self, query, params)
             return data[0]
-        except cypher.CypherError as err:
-            print err
+        except cypher.CypherError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not " \
                 "support Cypher RELATE clauses".format(self._uri)

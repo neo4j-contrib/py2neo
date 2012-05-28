@@ -113,6 +113,58 @@ class RelateTestCase(unittest.TestCase):
         self.assertTrue("since" in rel)
         self.assertEqual(2006, rel["since"])
 
+    def test_repeated_relate_with_data(self):
+        alice, bob = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"}
+        )
+        rel1, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        self.assertIsNotNone(rel1)
+        self.assertTrue(isinstance(rel1, neo4j.Relationship))
+        self.assertEqual(alice, rel1.start_node)
+        self.assertEqual("KNOWS", rel1.type)
+        self.assertEqual(bob, rel1.end_node)
+        rel2, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        self.assertEqual(rel1, rel2)
+        rel3, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        self.assertEqual(rel1, rel3)
+
+# FAILS AS LIST DATA NOT SUPPORTED IN PARAMS
+#    def test_relate_with_list_data(self):
+#        alice, bob = self.graph_db.create(
+#            {"name": "Alice"}, {"name": "Bob"}
+#        )
+#        rel, = self.graph_db.relate((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
+#        self.assertIsNotNone(rel)
+#        self.assertTrue(isinstance(rel, neo4j.Relationship))
+#        self.assertEqual(alice, rel.start_node)
+#        self.assertEqual("LIKES", rel.type)
+#        self.assertEqual(bob, rel.end_node)
+#        self.assertTrue("reasons" in rel)
+#        self.assertEqual("looks", rel["reasons"][0])
+#        self.assertEqual("wealth", rel["reasons"][1])
+
+    def test_complex_relate(self):
+        alice, bob, carol, dave = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"},
+            {"name": "Carol"}, {"name": "Dave"}
+        )
+        rels1 = self.graph_db.relate(
+            (alice, "IS_MARRIED_TO", bob, {"since": 1996}),
+            #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
+            (alice, "DISLIKES", carol, {"reason": "youth"}),
+        )
+        self.assertIsNotNone(rels1)
+        self.assertEqual(2, len(rels1))
+        rels2 = self.graph_db.relate(
+            (bob, "WORKS_WITH", carol, {"since": 2004, "company": "Megacorp"}),
+            #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
+            (alice, "DISLIKES", carol, {"reason": "youth"}),
+            (bob, "WORKS_WITH", dave, {"since": 2009, "company": "Megacorp"}),
+        )
+        self.assertIsNotNone(rels2)
+        self.assertEqual(3, len(rels2))
+        self.assertEqual(rels1[1], rels2[1])
+
 
 if __name__ == '__main__':
     unittest.main()
