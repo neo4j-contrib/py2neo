@@ -23,13 +23,13 @@ class NodeIndexTestCase(unittest.TestCase):
         self.graph_db = default_graph_db()
 
     def test_get_node_index(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         self.assertIsNotNone(index1)
         self.assertEqual("index1", index1.name)
         self.assertEqual(neo4j.Node, index1.content_type)
 
     def test_add_node_to_index(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("surname", "Smith")
         alice, = self.graph_db.create({"name": "Alice Smith"})
         index1.add("surname", "Smith", alice)
@@ -40,7 +40,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_node_to_index_with_spaces(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("family name", "von Schmidt")
         alice, = self.graph_db.create({"name": "Alice von Schmidt"})
         index1.add("family name", "von Schmidt", alice)
@@ -51,7 +51,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_node_to_index_with_odd_chars(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("@!%#", "!\"£$%^&*()")
         alice = self.graph_db.create_node({"name": "Alice Smith"})
         index1.add("@!%#", "!\"£$%^&*()", alice)
@@ -62,7 +62,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_multiple_nodes_to_index(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("surname", "Smith")
         alice, bob, carol = self.graph_db.create(
             {"name": "Alice Smith"},
@@ -78,7 +78,7 @@ class NodeIndexTestCase(unittest.TestCase):
             self.assertTrue(entity in (alice, bob, carol))
 
     def test_get_or_create_node(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("surname", "Smith")
         alice = index1.get_or_create("surname", "Smith", {"name": "Alice Smith"})
         self.assertIsNotNone(alice)
@@ -93,7 +93,7 @@ class NodeIndexTestCase(unittest.TestCase):
             self.assertEqual(alice_id, alice.id)
 
     def test_add_node_if_none(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("surname", "Smith")
         alice, bob = self.graph_db.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"}
@@ -112,7 +112,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_node_index_query(self):
-        index1 = self.graph_db.get_node_index("index1")
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("colour", "red")
         index1.remove("colour", "green")
         index1.remove("colour", "blue")

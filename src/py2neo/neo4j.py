@@ -124,6 +124,7 @@ class GraphDatabaseService(rest.Resource):
         self._neo4j_version = tuple(map(_numberise, self._neo4j_version.replace("-", ".").split(".")))
         self._node_indexes = {}
         self._relationship_indexes = {}
+        self._indexes = {Node: {}, Relationship: {}}
 
     def _execute(self, plugin_name, function_name, data):
         """Execute a POST request against the specified plugin function using
@@ -192,28 +193,6 @@ class GraphDatabaseService(rest.Resource):
         result = self._post(self._lookup('node'), properties)
         return Node(result["self"])
 
-    def create_node_index(self, name, config=None):
-        """Create and return a new node index with the supplied name and
-        configuration.
-        """
-        index = Index(Node, uri=self._post(self._lookup('node_index'), {
-            'name': name,
-            'config': config or {}
-        }))
-        self._node_indexes.update({name: index})
-        return index
-
-    def create_relationship_index(self, name, config=None):
-        """Create and return a new relationship index with the supplied name
-        and configuration.
-        """
-        index = Index(Relationship, uri=self._post(self._lookup('relationship_index'), {
-            'name': name,
-            'config': config or {}
-        }))
-        self._relationship_indexes.update({name: index})
-        return index
-
     def delete(self, *entities):
         """Delete multiple nodes and/or relationships as part of a single
         batch.
@@ -227,13 +206,25 @@ class GraphDatabaseService(rest.Resource):
             for i in range(len(entities))
         ])
 
+    def get_indexes(self, type):
+        """Fetch a dictionary of all available indexes of a given type.
+        """
+        if type == Node:
+            indexes = self._get(self._lookup('node_index')) or {}
+        elif type == Relationship:
+            indexes = self._get(self._lookup('relationship_index')) or {}
+        else:
+            raise ValueError(type)
+        self._indexes[type] = dict([
+            (index, Index(type, indexes[index]['template']))
+            for index in indexes
+        ])
+        return self._indexes[type]
+
     def get_node(self, id):
         """Fetch a node by its ID.
         """
         return Node(self._lookup('node') + "/" + str(id))
-
-#    # TODO
-#    def get_nodes(self, <match criteria>): ...
 
     def get_node_count(self):
         """Fetch the number of nodes in this graph as an integer.
@@ -244,27 +235,26 @@ class GraphDatabaseService(rest.Resource):
         else:
             return 0
 
-    def get_node_index(self, name):
+    def get_or_create_index(self, type, name, config=None):
         """Fetch a specific node index from the current database. If such an
         index does not exist, one is created with default configuration.
         """
-        if name not in self._node_indexes:
-            self.get_node_indexes()
-        if name in self._node_indexes:
-            return self._node_indexes[name]
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            return self._indexes[type][name]
         else:
-            return self.create_node_index(name)
-
-    def get_node_indexes(self):
-        """Fetch a dictionary of all available node indexes within this
-        database instance.
-        """
-        indexes = self._get(self._lookup('node_index')) or {}
-        self._node_indexes = dict([
-            (index, Index(Node, indexes[index]['template']))
-            for index in indexes
-        ])
-        return self._node_indexes
+            if type == Node:
+                uri = self._lookup('node_index')
+            elif type == Relationship:
+                uri = self._lookup('relationship_index')
+            else:
+                raise ValueError(type)
+            config = config or {}
+            response = self._post(uri, {"name": name, "config": config})
+            index = Index(type, response["template"])
+            self._indexes[type].update({name: index})
+            return index
 
     def get_properties(self, *entities):
         """Fetch properties for multiple nodes and/or relationships as part
@@ -296,40 +286,6 @@ class GraphDatabaseService(rest.Resource):
             return data[0][0]
         else:
             return 0
-
-#    # TODO
-#    def get_relationships(self, start_node=None, type=None, end_node=None):
-#        type = type or ""
-#        if type:
-#            type = ":" + type
-#        data, metadata = cypher.execute(self,
-#            "start a=node({A}) match a-[r" + type + "]->b return r",
-#            {"A": start_node.id}
-#        )
-#        return [row[0] for row in data]
-
-    def get_relationship_index(self, name):
-        """Fetch a specific relationship index from the current database. If
-        such an index does not exist, one is created with default
-        configuration.
-        """
-        if name not in self._relationship_indexes:
-            self.get_relationship_indexes()
-        if name in self._relationship_indexes:
-            return self._relationship_indexes[name]
-        else:
-            return self.create_relationship_index(name)
-
-    def get_relationship_indexes(self):
-        """Fetch a dictionary of all available relationship indexes within this
-        database instance.
-        """
-        indexes = self._get(self._lookup('relationship_index')) or {}
-        self._relationship_indexes = dict([
-            (index, Index(Relationship, indexes[index]['template']))
-            for index in indexes
-        ])
-        return self._relationship_indexes
 
     def get_relationship_types(self):
         """Fetch a list of relationship type names currently defined within
@@ -401,7 +357,7 @@ class GraphDatabaseService(rest.Resource):
             )
 
 
-class _PropertyContainer(rest.Resource):
+class PropertyContainer(rest.Resource):
     """Base class from which node and relationship classes inherit. Extends a
     :py:class:`py2neo.rest.Resource` by providing property management
     functionality.
@@ -465,7 +421,7 @@ class _PropertyContainer(rest.Resource):
         self._delete(self._lookup('properties'))
 
 
-class Node(_PropertyContainer):
+class Node(PropertyContainer):
     """A node within a graph, identified by a URI. This class is
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
@@ -477,7 +433,7 @@ class Node(_PropertyContainer):
     """
 
     def __init__(self, uri, metadata=None, max_age=0, **kwargs):
-        _PropertyContainer.__init__(self, uri, "/node", metadata=metadata, \
+        PropertyContainer.__init__(self, uri, "/node", metadata=metadata, \
             max_age=max_age, **kwargs)
         self._id = int('0' + uri.rpartition('/')[-1])
         self._graph_db = GraphDatabaseService(self._uri.base + "/")
@@ -623,7 +579,7 @@ class Node(_PropertyContainer):
         return bool(self.get_relationships_with(other, direction, *types))
 
 
-class Relationship(_PropertyContainer):
+class Relationship(PropertyContainer):
     """A relationship within a graph, identified by a URI. This class is
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
@@ -635,7 +591,7 @@ class Relationship(_PropertyContainer):
     """
 
     def __init__(self, uri, metadata=None, max_age=0, **kwargs):
-        _PropertyContainer.__init__(self, uri, "/relationship", \
+        PropertyContainer.__init__(self, uri, "/relationship", \
             metadata=metadata, max_age=max_age, **kwargs)
         self._type = self._lookup('type')
         self._data = self._lookup('data')

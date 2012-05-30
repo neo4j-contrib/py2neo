@@ -56,7 +56,6 @@ class Query(object):
         self.query = query
 
     def execute(self, params=None, row_handler=None, metadata_handler=None, error_handler=None, **kwargs):
-        print self.graph_db, self.query, params
         logger.info((self.graph_db, self.query, params))
         if row_handler or metadata_handler:
             e = Query._Execution(self.graph_db, self.query, params,
