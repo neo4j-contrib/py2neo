@@ -9,6 +9,14 @@ py2neo Package
     :undoc-members:
     :show-inheritance:
 
+:mod:`neo4j` Module
+-------------------
+
+.. automodule:: py2neo.neo4j
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 :mod:`cypher` Module
 --------------------
 
@@ -29,14 +37,6 @@ py2neo Package
 ---------------------
 
 .. automodule:: py2neo.gremlin
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-:mod:`neo4j` Module
--------------------
-
-.. automodule:: py2neo.neo4j
     :members:
     :undoc-members:
     :show-inheritance:
