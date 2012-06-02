@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The neo4j module provides the main Neo4j client functionality within py2neo.
-This module will be the starting point for most people.
+"""The neo4j module provides the main Neo4j client functionality and will be
+the starting point for most applications.
 """
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -72,25 +72,27 @@ class Direction(object):
 class GraphDatabaseService(rest.Resource):
     """An instance of a `Neo4j <http://neo4j.org/>`_ database identified by its
     base URI. Generally speaking, this is the only URI which a system
-    attaching to this service should need to be aware of; all further entity
-    URIs will be discovered automatically from within response content
-    (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_).
+    attaching to this service should need to be directly aware of; all further
+    entity URIs will be discovered automatically from within response content
+    when possible (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_)
+    or will be derived from existing URIs.
 
-    :param uri:       the base URI of the database (defaults to <http://localhost:7474/db/data/>)
+    :param uri:       the base URI of the database (defaults to
+                      <http://localhost:7474/db/data/>)
     :param metadata:  optional resource metadata
 
-    The following code illustrates how to attach to a database server and
-    display its version number:
+    The following code illustrates how to connect to a database server and
+    display its version number::
 
-        >>> from py2neo import rest, neo4j
-        >>> uri = "http://localhost:7474/db/data/"
-        >>> try:
-        >>>     graph_db = neo4j.GraphDatabaseService(uri)
-        >>>     print graph_db.neo4j_version
-        >>> except rest.NoResponse:
-        >>>     print "Cannot connect to host"
-        >>> except rest.ResourceNotFound:
-        >>>     print "Database service not found"
+        from py2neo import rest, neo4j
+        uri = "http://localhost:7474/db/data/"
+        try:
+            graph_db = neo4j.GraphDatabaseService(uri)
+            print graph_db.neo4j_version
+        except rest.NoResponse:
+            print "Cannot connect to host"
+        except rest.ResourceNotFound:
+            print "Database service not found"
 
     """
 
@@ -160,22 +162,28 @@ class GraphDatabaseService(rest.Resource):
         single batch. For a node, simply pass a dictionary of properties; for a
         relationship, pass a tuple of (start, type, end) or (start, type, end,
         data) where start and end may be Node instances or zero-based integral
-        references to other node entities within this batch.
+        references to other node entities within this batch::
 
-            >>> # create two nodes
-            >>> a, b = graph_db.create({"name": "Alice"}, {"name": "Bob"})
+            # create a single node
+            alice, = graph_db.create({"name": "Alice"})
 
-            >>> # create two nodes with a connecting relationship
-            >>> a, b, ab = graph_db.create(
-            ...     {"name": "Alice"}, {"name": "Bob"},
-            ...     (0, "KNOWS", 1, {"since": 2006})
-            ... )
+            # create multiple nodes
+            people = graph_db.create(
+                {"name": "Alice", "age": 33}, {"name": "Bob", "age": 44},
+                {"name": "Carol", "age": 55}, {"name": "Dave", "age": 66},
+            )
 
-            >>> # create a node and a relationship to pre-existing node
-            >>> ref_node = graph_db.get_reference_node()
-            >>> a, rel = graph_db.create(
-            ...     {"name": "Alice"}, (ref_node, "PERSON", 0)
-            ... )
+            # create two nodes with a connecting relationship
+            alice, bob, rel = graph_db.create(
+                {"name": "Alice"}, {"name": "Bob"},
+                (0, "KNOWS", 1, {"since": 2006})
+            )
+
+            # create a node plus a relationship to pre-existing node
+            ref_node = graph_db.get_reference_node()
+            alice, rel = graph_db.create(
+                {"name": "Alice"}, (ref_node, "PERSON", 0)
+            )
 
         """
         try:
@@ -189,6 +197,9 @@ class GraphDatabaseService(rest.Resource):
     def create_node(self, properties=None):
         """Create and return a new node, optionally with properties supplied as
         a dictionary.
+
+        .. seealso:: :py:func:`create`
+
         """
         result = self._post(self._lookup('node'), properties)
         return Node(result["self"])
@@ -359,9 +370,30 @@ class GraphDatabaseService(rest.Resource):
 
 
 class PropertyContainer(rest.Resource):
-    """Base class from which node and relationship classes inherit. Extends a
-    :py:class:`py2neo.rest.Resource` by providing property management
-    functionality.
+    """Base class from which :py:class:`Node` and :py:class:`Relationship`
+    classes inherit. Provides property management functionality by defining
+    standard Python container handler methods::
+
+        # get the `name` property of `node`
+        name = node["name"]
+
+        # set the `name` property of `node` to `Alice`
+        node["name"] = "Alice"
+
+        # delete the `name` property from `node`
+        del node["name"]
+
+        # determine the number of properties within `node`
+        count = len(node)
+
+        # determine existence of the `name` property within `node`
+        if "name" in node:
+            pass
+
+        # iterate through property keys in `node`
+        for key in node:
+            value = node[key]
+
     """
 
     def __init__(self, uri, reference_marker, metadata=None, max_age=0, **kwargs):
@@ -380,27 +412,31 @@ class PropertyContainer(rest.Resource):
     def refresh(self):
         self._properties.update(self._get(self._lookup('properties')))
 
-    def __getitem__(self, key):
-        """Return a named property for this resource.
-        """
-        if self._properties.needs_update:
-            self.refresh()
-        return self._properties[key]
-
-    def __setitem__(self, key, value):
-        """Set a named property for this resource to the supplied value.
-        """
-        self._put(self._lookup('property').format(key=key), value)
-
-    def __delitem__(self, key):
-        """Delete a named property for this resource.
-        """
-        self._delete(self._lookup('property').format(key=key))
-
     def __contains__(self, key):
         if self._properties.needs_update:
             self.refresh()
         return key in self._properties
+
+    def __delitem__(self, key):
+        self._delete(self._lookup('property').format(key=key))
+
+    def __getitem__(self, key):
+        if self._properties.needs_update:
+            self.refresh()
+        return self._properties[key]
+
+    def __iter__(self):
+        if self._properties.needs_update:
+            self.refresh()
+        return self._properties.__iter__()
+
+    def __len__(self):
+        if self._properties.needs_update:
+            self.refresh()
+        return len(self._properties)
+
+    def __setitem__(self, key, value):
+        self._put(self._lookup('property').format(key=key), value)
 
     def get_properties(self):
         """Return all properties for this resource.
@@ -420,6 +456,7 @@ class PropertyContainer(rest.Resource):
         """Delete all properties for this resource.
         """
         self._delete(self._lookup('properties'))
+        self._properties.clear()
 
 
 class Node(PropertyContainer):

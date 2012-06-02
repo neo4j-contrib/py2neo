@@ -112,6 +112,9 @@ class PropertyCache(object):
     def needs_update(self):
         return not self._properties or self.expired
 
+    def clear(self):
+        self.update(None)
+
     def update(self, properties):
         self._properties.clear()
         if properties:
