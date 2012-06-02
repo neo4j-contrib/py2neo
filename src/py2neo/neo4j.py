@@ -352,8 +352,9 @@ class GraphDatabaseService(rest.Resource):
             return data[0]
         except cypher.CypherError:
             raise NotImplementedError(
-                "The Neo4j server at <{0}> does not " \
-                "support Cypher RELATE clauses".format(self._uri)
+                "The Neo4j server at <{0}> does not support " \
+                "Cypher RELATE clauses or the query contains " \
+                "an unsupported property type".format(self._uri)
             )
 
 
