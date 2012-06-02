@@ -36,12 +36,12 @@ logger = logging.getLogger(__name__)
 import time
 
 
-HTTP = httpclient.HTTPClient()
-REQUEST_PARAMS = {
+_HTTP = httpclient.HTTPClient()
+_REQUEST_PARAMS = {
     "request_timeout": 300,    #: default 5 minutes timeout
     "user_agent": "py2neo"
 }
-REQUEST_HEADERS = {
+_REQUEST_HEADERS = {
     "Accept": "application/json",
     "Content-Type": "application/json"
 }
@@ -154,7 +154,7 @@ class Resource(object):
         self._uri = URI(uri, reference_marker)
         #self._base_uri = self._uri.base
         #self._relative_uri = self._uri.reference
-        self._request_params = REQUEST_PARAMS.copy()
+        self._request_params = _REQUEST_PARAMS.copy()
         self._request_params.update(request_params)
         self._metadata = PropertyCache(metadata)
 
@@ -191,12 +191,12 @@ class Resource(object):
         params.update(request_params)
         params.update({
             "method": method,
-            "headers": REQUEST_HEADERS,
+            "headers": _REQUEST_HEADERS,
             "body": data
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            response = HTTP.fetch(str(uri), **params)
+            response = _HTTP.fetch(str(uri), **params)
             if response.code == 200:
                 if response.body:
                     return json.loads(response.body)
