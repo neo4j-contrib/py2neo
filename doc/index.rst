@@ -15,11 +15,6 @@ Py2neo has been built against the following software:
 
 Earlier versions of these may work but are not guaranteed to do so.
 
-Installation
-------------
-
-TODO
-
 Quick Start
 -----------
 
@@ -61,13 +56,17 @@ illustrates a simple usage of the py2neo library::
     # ...and execute the query
     cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
 
-Contents
---------
+Package Contents
+----------------
 
 .. toctree::
    :maxdepth: 4
 
-   py2neo
+   neo4j
+   cypher
+   geoff
+   gremlin
+   rest
 
 
 Indices and tables
