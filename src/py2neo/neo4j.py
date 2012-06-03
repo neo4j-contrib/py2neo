@@ -436,44 +436,34 @@ class PropertyContainer(rest.Resource):
 
     """
 
-    def __init__(self, uri, reference_marker, metadata=None, max_age=0, **kwargs):
+    def __init__(self, uri, reference_marker, metadata=None, **kwargs):
         """Create container for properties with caching capabilities.
 
         :param uri:       URI identifying this resource
         :param metadata:  index of resource metadata
-        :param max_age:   maximum allowed age (in seconds) of cached properties
         """
         rest.Resource.__init__(self, uri, reference_marker, metadata=metadata, **kwargs)
-        if metadata and "data" in metadata:
-            self._properties = rest.PropertyCache(metadata["data"], max_age=max_age)
-        else:
-            self._properties = rest.PropertyCache(max_age=max_age)
-
-    def refresh(self):
-        self._properties.update(self._get(self._lookup('properties')))
 
     def __contains__(self, key):
-        if self._properties.needs_update:
-            self.refresh()
-        return key in self._properties
+        return key in self.get_properties()
 
     def __delitem__(self, key):
-        self._delete(self._lookup('property').format(key=key))
+        try:
+            self._delete(self._lookup('property').format(key=key))
+        except rest.ResourceNotFound:
+            raise KeyError(key)
 
     def __getitem__(self, key):
-        if self._properties.needs_update:
-            self.refresh()
-        return self._properties[key]
+        try:
+            return self._get(self._lookup('property').format(key=key))
+        except rest.ResourceNotFound:
+            raise KeyError(key)
 
     def __iter__(self):
-        if self._properties.needs_update:
-            self.refresh()
-        return self._properties.__iter__()
+        return self.get_properties().__iter__()
 
     def __len__(self):
-        if self._properties.needs_update:
-            self.refresh()
-        return len(self._properties)
+        return len(self.get_properties())
 
     def __setitem__(self, key, value):
         self._put(self._lookup('property').format(key=key), value)
@@ -481,22 +471,18 @@ class PropertyContainer(rest.Resource):
     def get_properties(self):
         """Return all properties for this resource.
         """
-        if self._properties.needs_update:
-            self.refresh()
-        return self._properties.get_all()
+        return self._get(self._lookup('properties')) or {}
 
     def set_properties(self, properties=None):
         """Set all properties for this resource to the supplied dictionary of
         values.
         """
         self._put(self._lookup('properties'), properties)
-        self._properties.update(properties)
 
     def remove_properties(self):
         """Delete all properties for this resource.
         """
         self._delete(self._lookup('properties'))
-        self._properties.clear()
 
 
 class Node(PropertyContainer):
@@ -506,13 +492,10 @@ class Node(PropertyContainer):
     
     :param uri:             URI identifying this node
     :param metadata:        index of resource metadata
-    :param max_age:         maximum allowed age (in seconds) of cached
-                            properties
     """
 
-    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
-        PropertyContainer.__init__(self, uri, "/node", metadata=metadata, \
-            max_age=max_age, **kwargs)
+    def __init__(self, uri, metadata=None, **kwargs):
+        PropertyContainer.__init__(self, uri, "/node", metadata=metadata, **kwargs)
         self._id = int('0' + uri.rpartition('/')[-1])
         self._graph_db = GraphDatabaseService(self._uri.base + "/")
 
@@ -663,13 +646,10 @@ class Relationship(PropertyContainer):
     
     :param uri:             URI identifying this relationship
     :param metadata:        index of resource metadata
-    :param max_age:         maximum allowed age (in seconds) of cached
-                            properties
     """
 
-    def __init__(self, uri, metadata=None, max_age=0, **kwargs):
-        PropertyContainer.__init__(self, uri, "/relationship", \
-            metadata=metadata, max_age=max_age, **kwargs)
+    def __init__(self, uri, metadata=None, **kwargs):
+        PropertyContainer.__init__(self, uri, "/relationship", metadata=metadata, **kwargs)
         self._type = self._lookup('type')
         self._data = self._lookup('data')
         self._start_node = None

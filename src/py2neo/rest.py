@@ -95,6 +95,12 @@ class PropertyCache(object):
     def __getitem__(self, item):
         return self._properties[item]
 
+    def __setitem__(self, item, value):
+        self._properties[item] = value
+
+    def __delitem__(self, item):
+        del self._properties[item]
+
     def __iter__(self):
         return self._properties.__iter__()
 
