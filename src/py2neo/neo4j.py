@@ -158,12 +158,13 @@ class GraphDatabaseService(rest.Resource):
         return self._extensions[plugin_name][function_name]
 
     def create(self, *entities):
-        """Create and return multiple nodes and/or relationships as part of a
-        single batch. For a node, simply pass a dictionary of properties; for a
-        relationship, pass a tuple of (start, type, end) or (start, type,
-        end, data) where start and end may be :py:class:`Node` instances or
-        zero-based integral references to other node entities within this
-        batch::
+        """Create multiple nodes and/or relationships as part of a single
+        batch, returning a list of :py:class:`Node` and
+        :py:class:`Relationship` instances. For a node, simply pass a
+        dictionary of properties; for a relationship, pass a tuple of
+        (start, type, end) or (start, type, end, data) where start and end
+        may be :py:class:`Node` instances or zero-based integral references
+        to other node entities within this batch::
 
             # create a single node
             alice, = graph_db.create({"name": "Alice"})
@@ -248,8 +249,18 @@ class GraphDatabaseService(rest.Resource):
             return 0
 
     def get_or_create_index(self, type, name, config=None):
-        """Fetch a specific node index from the current database. If such an
-        index does not exist, one is created with default configuration.
+        """Fetch a specific index from the current database, returning an
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, one is created with either the
+        default configuration or that supplied in `config`::
+
+            # get or create a node index called "People"
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+
+            # get or create a relationship index called "Friends"
+            friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
+
+        .. seealso:: :py:class:`Index`
         """
         if name not in self._indexes[type]:
             self.get_indexes(type)
@@ -807,15 +818,17 @@ class Path(object):
 class Index(rest.Resource):
     """Searchable database index which can contain either nodes or
     relationships.
+
+    .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
     """
 
-    def __init__(self, entity_type, template_uri, metadata=None, **kwargs):
+    def __init__(self, content_type, template_uri, metadata=None, **kwargs):
         rest.Resource.__init__(
             self, template_uri.rpartition("/{key}/{value}")[0],
             "/index/", metadata=metadata, **kwargs
         )
         self._name = str(self._uri).rpartition("/")[2]
-        self._content_type = entity_type
+        self._content_type = content_type
         self._template_uri = template_uri
         self._graph_database_service = GraphDatabaseService(self._uri.base + "/")
 
@@ -826,21 +839,21 @@ class Index(rest.Resource):
             repr(self._uri)
         )
 
-    @property
-    def name(self):
-        """Return the name of this index.
-        """
-        return self._name
-
-    @property
-    def content_type(self):
-        """Return the type of entities contained within this index.
-        """
-        return self._content_type
-
     def add(self, key, value, *entities):
-        """Add one or more entities to the index under the key:value pair
-        supplied.
+        """Add one or more entities to this index under the `key`:`value` pair
+        supplied::
+
+            # create a couple of nodes and obtain
+            # a reference to the "People" node index
+            alice, bob = graph_db.create({"name": "Alice Smith"}, {"name": "Bob Smith"})
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+
+            # add the nodes to the index
+            people.add("family_name", "Smith", alice, bob)
+
+        Note that while Neo4j indexes allow multiple entities to be added under
+        a particular key:value, the same entity may only be represented once;
+        this method is therefore idempotent.
         """
         self._post(self._graph_database_service._batch_uri, [
             {
@@ -857,8 +870,15 @@ class Index(rest.Resource):
         ])
 
     def add_if_none(self, key, value, entity):
-        """Add an entity to the index under the key:value pair supplied if
-        and only if no entry already exists at that point.
+        """Add a single entity to this index under the `key`:`value` pair
+        supplied if no entry already exists at that point::
+
+            # obtain a reference to the "Rooms" node index and
+            # add node `alice` to room 100 if empty
+            rooms = graph_db.get_or_create_index(neo4j.Node, "Rooms")
+            rooms.add_if_none("room", 100, alice)
+
+        ..
         """
         self._post(str(self._uri) + "?unique", {
             "key": key,
@@ -866,29 +886,29 @@ class Index(rest.Resource):
             "uri": str(entity._uri)
         })
 
-    def remove(self, key, value):
-        """Remove any entries from the index which are associated with the
-        key:value pair supplied.
+    @property
+    def content_type(self):
+        """Return the type of entity contained within this index. Will return
+        either :py:class:`Node` or :py:class:`Relationship`.
         """
-        entities = [
-            item['indexed']
-            for item in self._get(self._template_uri.format(
-                key=_quote(key, ""),
-                value=_quote(value, "")
-            ))
-        ]
-        self._post(self._graph_database_service._batch_uri, [
-            {
-                'method': 'DELETE',
-                'to': rest.URI(entities[i], "/index/").reference,
-                'id': i
-            }
-            for i in range(len(entities))
-        ])
+        return self._content_type
+
+    @property
+    def name(self):
+        """Return the name of this index.
+        """
+        return self._name
 
     def get(self, key, value):
-        """Fetch all entities from the index which are associated with the
-        key:value pair supplied.
+        """Fetch a list of all entities from the index which are associated
+        with the `key`:`value` pair supplied::
+
+            # obtain a reference to the "People" node index and
+            # get all nodes where `family_name` equals "Smith"
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            smiths = people.get("family_name", "Smith")
+
+        ..
         """
         results = self._get(self._template_uri.format(
             key=_quote(key, ""),
@@ -900,14 +920,27 @@ class Index(rest.Resource):
         ]
 
     def get_or_create(self, key, value, entity):
-        """Fetch single entity from the index which is associated with the
-        key:value pair supplied, creating a new entity with the supplied
-        details if none exists.
+        """Fetch a single entity from the index which is associated with the
+        `key`:`value` pair supplied, creating a new entity with the supplied
+        details if none exists::
 
-            >>> people = self.graph_db.get_node_index("People")
-            >>> alice = people.get_or_create("surname", "Smith",
-            ...     {"name": "Alice Smith"})
+            # obtain a reference to the "Contacts" node index and
+            # ensure that Alice exists therein
+            contacts = graph_db.get_or_create_index(neo4j.Node, "Contacts")
+            alice = contacts.get_or_create("name", "SMITH, Alice", {
+                "given_name": "Alice Jane", "family_name": "Smith",
+                "phone": "01234 567 890", "mobile": "07890 123 456"
+            })
 
+            # obtain a reference to the "Friendships" relationship index and
+            # ensure that Alice and Bob's friendship is registered (`alice`
+            # and `bob` refer to existing nodes)
+            friendships = graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
+            alice_and_bob = friendships.get_or_create(
+                "friends", "Alice & Bob", (alice, "KNOWS", bob)
+            )
+
+        ..
         """
         if self._content_type == Node:
             body = {
@@ -933,9 +966,45 @@ class Index(rest.Resource):
         else:
             return None
 
+    def remove(self, key, value):
+        """Remove any entries from the index which are associated with the
+        `key`:`value` pair supplied::
+
+            # obtain a reference to the "People" node index and
+            # remove all nodes where `family_name` equals "Smith"
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            people.remove("family_name", "Smith")
+
+        ..
+        """
+        entities = [
+            item['indexed']
+            for item in self._get(self._template_uri.format(
+                key=_quote(key, ""),
+                value=_quote(value, "")
+            ))
+        ]
+        self._post(self._graph_database_service._batch_uri, [
+            {
+                'method': 'DELETE',
+                'to': rest.URI(entities[i], "/index/").reference,
+                'id': i
+            }
+            for i in range(len(entities))
+        ])
+
     def query(self, query):
         """Query the index according to the supplied query criteria, returning
-        a list of matched entities.
+        a list of matched entities::
+
+            # obtain a reference to the "People" node index and
+            # get all nodes where `family_name` equals "Smith"
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            s_people = people.query("family_name:S*")
+
+        The query syntax used should be appropriate for the configuration of
+        the index being queried. For indexes with default configuration, this
+        should be `Apache Lucene query syntax <http://lucene.apache.org/core/old_versioned_docs/versions/3_5_0/queryparsersyntax.html>`_.
         """
         return [
             self._content_type(item['self'])
