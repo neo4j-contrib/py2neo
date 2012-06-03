@@ -160,9 +160,10 @@ class GraphDatabaseService(rest.Resource):
     def create(self, *entities):
         """Create and return multiple nodes and/or relationships as part of a
         single batch. For a node, simply pass a dictionary of properties; for a
-        relationship, pass a tuple of (start, type, end) or (start, type, end,
-        data) where start and end may be Node instances or zero-based integral
-        references to other node entities within this batch::
+        relationship, pass a tuple of (start, type, end) or (start, type,
+        end, data) where start and end may be :py:class:`Node` instances or
+        zero-based integral references to other node entities within this
+        batch::
 
             # create a single node
             alice, = graph_db.create({"name": "Alice"})
@@ -327,9 +328,37 @@ class GraphDatabaseService(rest.Resource):
         return self._neo4j_version
 
     def relate(self, *relationships):
-        """Fetch or create relationships with the specified criteria, depending
-        or whether or not such relationships exist. Uses Cypher RELATE clause,
-        raising NotImplementedError if server support not available.
+        """Fetch or create relationships with the specified criteria depending
+        on whether or not such relationships exist. Each relationship
+        descriptor should be a tuple of (start, type, end) or (start, type,
+        end, data) where start and end are either existing :py:class:`Node`
+        instances or :py:const:`None` (both nodes cannot be :py:const:`None`)::
+
+            # set up three nodes
+            alice, bob, carol = graph_db.create(
+                {"name": "Alice"}, {"name": "Bob"}, {"name": "Carol"}
+            )
+
+            # ensure Alice and Bob and related
+            ab = graph_db.relate((alice, "LOVES", bob, {"since": 2006}))
+
+            # ensure relationships exist between Alice, Bob and Carol
+            # creating new relationships only where necessary
+            rels = graph_db.relate(
+                (alice, "LOVES", bob), (bob, "LIKES", alice),
+                (carol, "LOVES", bob), (alice, "HATES", carol),
+            )
+
+            # ensure Alice has an outgoing LIKES relationship
+            # (a new node will be created if required)
+            friendship = graph_db.relate((alice, "LIKES", None))
+
+            # ensure Alice has an incoming LIKES relationship
+            # (a new node will be created if required)
+            friendship = graph_db.relate((None, "LIKES", alice))
+
+        Uses Cypher `RELATE` clause, raising :py:class:`NotImplementedError` if
+        server support not available.
         """
         start, relate, return_, params = [], [], [], {}
         for i, rel in enumerate(relationships):
@@ -526,8 +555,7 @@ class Node(PropertyContainer):
         self._delete(self._lookup('self'))
 
     def get_related_nodes(self, direction=Direction.BOTH, *types):
-        """
-        Fetch all nodes related to the current node by a relationship in a
+        """Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
         """
         if types:
