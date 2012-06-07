@@ -377,6 +377,7 @@ class GraphDatabaseService(rest.Resource):
                 start_node, type, end_node = rel[0:3]
             except IndexError:
                 raise ValueError(rel)
+            type = "`" + type + "`"
             if len(rel) > 3:
                 param = "D" + str(i)
                 type += " {" + param + "}"
@@ -589,12 +590,12 @@ class Node(PropertyContainer):
         else:
             raise ValueError
         if types:
-            type = "[r:" + "|".join(types) + "]"
+            type = "[r:" + "|".join("`" + type + "`" for type in types) + "]"
         else:
             type = "[r]"
         query = query.format(self.id, other.id, type)
-        rows, columns = cypher.execute(self._graph_db, query)
-        return [row[0] for row in rows]
+        data, metadata = cypher.execute(self._graph_db, query)
+        return [row[0] for row in data]
 
     def get_single_related_node(self, direction=Direction.BOTH, *types):
         """Return only one node related to the current node by a relationship

@@ -148,17 +148,17 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Carol"}, {"name": "Dave"}
         )
         rels1 = self.graph_db.relate(
-            (alice, "IS_MARRIED_TO", bob, {"since": 1996}),
+            (alice, "IS~MARRIED~TO", bob, {"since": 1996}),
             #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
-            (alice, "DISLIKES", carol, {"reason": "youth"}),
+            (alice, "DISLIKES!", carol, {"reason": "youth"}),
         )
         self.assertIsNotNone(rels1)
         self.assertEqual(2, len(rels1))
         rels2 = self.graph_db.relate(
-            (bob, "WORKS_WITH", carol, {"since": 2004, "company": "Megacorp"}),
+            (bob, "WORKS WITH", carol, {"since": 2004, "company": "Megacorp"}),
             #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
-            (alice, "DISLIKES", carol, {"reason": "youth"}),
-            (bob, "WORKS_WITH", dave, {"since": 2009, "company": "Megacorp"}),
+            (alice, "DISLIKES!", carol, {"reason": "youth"}),
+            (bob, "WORKS WITH", dave, {"since": 2009, "company": "Megacorp"}),
         )
         self.assertIsNotNone(rels2)
         self.assertEqual(3, len(rels2))

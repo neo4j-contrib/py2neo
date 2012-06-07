@@ -236,6 +236,10 @@ class NodeTestCase(unittest.TestCase):
         self.assertEqual(self.fred, rels[0].start_node)
         self.assertEqual(self.wilma, rels[0].end_node)
 
+    def test_get_relationships_with_plus_space(self):
+        rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.BOTH, "REALLY LOVES")
+        self.assertEqual(0, len(rels))
+
     def tearDown(self):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
 
