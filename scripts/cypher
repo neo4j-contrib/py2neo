@@ -40,7 +40,7 @@ def _stringify(value, quoted=False, with_properties=False):
         if with_properties:
             out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
     elif isinstance(value, neo4j.Relationship):
-        out = str(value.get_start_node()) + str(value) + str(value.get_end_node())
+        out = str(value.start_node) + str(value) + str(value.end_node)
         if quoted:
             out = '"' + out + '"'
         if with_properties:
@@ -102,7 +102,7 @@ def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
         if isinstance(value, neo4j.Node):
             nodes[str(value)] = value._lookup('data')
         elif isinstance(value, neo4j.Relationship):
-            relationships[str(value.get_start_node()) + str(value) + str(value.get_end_node())] = value._lookup('data')
+            relationships[str(value.start_node) + str(value) + str(value.end_node)] = value._lookup('data')
         else:
             # property - not supported in GEOFF format, so ignore
             pass
