@@ -554,7 +554,9 @@ class Node(PropertyContainer):
         given `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+            uri = self._lookup(direction + '_typed_relationships').replace(
+                '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
+            )
         else:
             uri = self._lookup(direction + '_relationships')
         return [
@@ -567,7 +569,9 @@ class Node(PropertyContainer):
         `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(direction + '_typed_relationships').replace('{-list|&|types}', '&'.join(types))
+            uri = self._lookup(direction + '_typed_relationships').replace(
+                '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
+            )
         else:
             uri = self._lookup(direction + '_relationships')
         return [
