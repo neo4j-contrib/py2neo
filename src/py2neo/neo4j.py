@@ -289,10 +289,10 @@ class GraphDatabaseService(rest.Resource):
             for result in self._post(self._batch_uri, [
                 {
                     'method': 'GET',
-                    'to': entities[i]._uri.reference,
+                    'to': entity._uri.reference,
                     'id': i
                 }
-                for i in range(len(entities))
+                for i, entity in enumerate(entities)
             ])
         ]
 
@@ -501,7 +501,7 @@ class Node(PropertyContainer):
         self._graph_db = GraphDatabaseService(self._uri.base + "/")
 
     def __repr__(self):
-        return '{0}({1})'.format(
+        return "{0}('{1}')".format(
             self.__class__.__name__,
             repr(self._uri)
         )
@@ -662,7 +662,7 @@ class Relationship(PropertyContainer):
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
-        return '{0}({1})'.format(
+        return "{0}('{1}')".format(
             self.__class__.__name__,
             repr(self._uri)
         )
@@ -818,7 +818,7 @@ class Index(rest.Resource):
         self._graph_database_service = GraphDatabaseService(self._uri.base + "/")
 
     def __repr__(self):
-        return '{0}({1},{2})'.format(
+        return "{0}({1},'{2}')".format(
             self.__class__.__name__,
             repr(self._content_type.__name__),
             repr(self._uri)

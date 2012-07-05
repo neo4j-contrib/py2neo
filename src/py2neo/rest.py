@@ -170,7 +170,7 @@ class Resource(object):
     def __repr__(self):
         """Return a valid Python representation of this object.
         """
-        return '%s(%s)' % (self.__class__.__name__, repr(self._uri))
+        return "{0}('{1}')".format(self.__class__.__name__, repr(self._uri))
 
     def __eq__(self, other):
         """Determine equality of two objects based on URI.
