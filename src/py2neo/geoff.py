@@ -155,11 +155,12 @@ class Dumper(object):
             node_rule(self, node, node_props[i])
             for i, node in enumerate(nodes)
         ]))
-        self.write(self.rule_separator)
-        self.write(self.rule_separator.join([
-            relationship_rule(self, rel, rel_props[i])
-            for i, rel in enumerate(relationships)
-        ]))
+        if relationships:
+            self.write(self.rule_separator)
+            self.write(self.rule_separator.join([
+                relationship_rule(self, rel, rel_props[i])
+                for i, rel in enumerate(relationships)
+            ]))
 
 
 class Loader(object):

@@ -59,11 +59,21 @@ class DumperTest(unittest.TestCase):
     def setUp(self):
         self.graph_db = neo4j.GraphDatabaseService()
 
-    def test_simple_dump(self):
-        things = self.graph_db.create(
+    def test_node_dump(self):
+        a, = self.graph_db.create(
+            {"name": "Alice"}
+        )
+        out = geoff.dumps([a])
+        self.assertEqual('({0}) {{"name": "Alice"}}'.format(a.id), out)
+
+    def test_subgraph_dump(self):
+        a, b, ab = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
         )
-        print geoff.dumps(things)
+        out = geoff.dumps([a, b, ab])
+        self.assertEqual('({0}) {{"name": "Alice"}}\n' \
+                         '({1}) {{"name": "Bob"}}\n' \
+                         '({0})-[{2}:KNOWS]->({1}) {{}}'.format(a.id, b.id, ab.id), out)
 
 if __name__ == '__main__':
     unittest.main()
