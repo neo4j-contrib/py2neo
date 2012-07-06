@@ -69,13 +69,13 @@ def creator(id, value):
     except KeyError:
         raise TypeError(value)
 
-def result(value):
+def result(value, graph_db):
     try:
         metadata = value["body"]
         if "type" in metadata:
-            entity = neo4j.Relationship(metadata["self"])
+            entity = neo4j.Relationship(metadata["self"], graph_db=graph_db)
         else:
-            entity = neo4j.Node(metadata["self"])
+            entity = neo4j.Node(metadata["self"], graph_db=graph_db)
         entity._metadata = rest.PropertyCache(metadata)
         return entity
     except KeyError:

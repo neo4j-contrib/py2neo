@@ -90,7 +90,7 @@ class Query(object):
                         stacktrace=detail["stacktrace"]
                     )
             rows, columns = response['data'], response['columns']
-            return [map(_resolve, row) for row in rows], Query.Metadata(columns)
+            return [map(self.graph_db._resolve, row) for row in rows], Query.Metadata(columns)
 
 
     class Metadata(object):
@@ -107,6 +107,7 @@ class Query(object):
 
         def __init__(self, graph_db, query, params=None, row_handler=None, metadata_handler=None, error_handler=None):
 
+            self._graph_db = graph_db
             self._body = []
             self._decoder = json.JSONDecoder()
 
@@ -199,7 +200,7 @@ class Query(object):
                 if token == (1, "]") or token == (2, ","):
                     if self._row and self.row_handler:
                         try:
-                            self.row_handler(map(_resolve, json.loads(self._row)))
+                            self.row_handler(map(self._graph_db._resolve, json.loads(self._row)))
                         except Exception as ex:
                             self._handler_error = ex
                             raise ex
@@ -220,31 +221,6 @@ class Query(object):
             if src in "[{":
                 self._depth += 1
             self._last_value = value
-
-
-def _resolve(value):
-    if isinstance(value, dict) and "self" in value:
-        # is a neo4j resolvable entity
-        uri = value["self"]
-        if "type" in value:
-            rel = neo4j.Relationship(uri)
-            rel._metadata = rest.PropertyCache(value)
-            return rel
-        else:
-            node = neo4j.Node(uri)
-            node._metadata = rest.PropertyCache(value)
-            return node
-    elif isinstance(value, dict) and "length" in value and \
-         "nodes" in value and "relationships" in value and \
-         "start" in value and "end" in value:
-        # is a path
-        return neo4j.Path(
-            map(neo4j.Node, value["nodes"]),
-            map(neo4j.Relationship, value["relationships"])
-        )
-    else:
-        # is a plain value
-        return value
 
 def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, **kwargs):
     """Execute a Cypher query against a database and return a tuple of rows and

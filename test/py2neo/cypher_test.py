@@ -39,7 +39,7 @@ class CypherTestCase(unittest.TestCase):
 
     def test_query(self):
         rows, metadata = cypher.execute(self.graph_db,
-            "start a=node({}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(
+            "start a=node({0}),b=node({1}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(
                 self.node_a.id, self.node_b.id
             )
         )
@@ -57,6 +57,25 @@ class CypherTestCase(unittest.TestCase):
         self.assertEqual("ab", metadata.columns[2])
         self.assertEqual("a.name", metadata.columns[3])
         self.assertEqual("b.name", metadata.columns[4])
+
+    def test_query_returning_path(self):
+        rows, metadata = cypher.execute(self.graph_db,
+            "start a=node({0}),b=node({1}) match p=(a-[ab:KNOWS]->b) return p".format(
+                self.node_a.id, self.node_b.id
+            )
+        )
+        self.assertEqual(1, len(rows))
+        for row in rows:
+            self.assertEqual(1, len(row))
+            self.assertTrue(isinstance(row[0], neo4j.Path))
+            self.assertEqual(2, len(row[0].nodes))
+            self.assertEqual(self.node_a, row[0].nodes[0])
+            self.assertEqual(self.node_b, row[0].nodes[1])
+            self.assertEqual(id(self.graph_db), id(row[0].nodes[0]._graph_db))
+            self.assertEqual(id(self.graph_db), id(row[0].nodes[1]._graph_db))
+            self.assertEqual(id(self.graph_db), id(row[0].relationships[0]._graph_db))
+        self.assertEqual(1, len(metadata.columns))
+        self.assertEqual("p", metadata.columns[0])
 
     def test_query_with_handlers(self):
         a, b = self.graph_db.create(
