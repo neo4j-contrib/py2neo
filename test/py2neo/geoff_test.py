@@ -136,7 +136,6 @@ class MergeTest(unittest.TestCase):
         self.assertIn("(1)", params)
         self.assertIn("[0]", params)
 
-    def test_inser
     def test_merge_from_text(self):
         s = geoff.Subgraph(
             '(A) {"name": "Alice"}',
