@@ -501,6 +501,9 @@ class PropertyContainer(rest.Resource):
     def __len__(self):
         return len(self.get_properties())
 
+    def __nonzero__(self):
+        return True
+
     def __setitem__(self, key, value):
         self._put(self._lookup('property').format(key=key), value)
 
@@ -770,7 +773,7 @@ class Path(object):
     """Sequence of nodes connected by relationships.
     Note that there should always be exactly one more node supplied to
     the constructor than there are relationships.
-    
+
     :raise ValueError: when number of nodes is not exactly one more than number of relationships
     """
 
@@ -784,10 +787,10 @@ class Path(object):
     def __str__(self):
         """Return a human-readable string representation of this path object,
         e.g.:
-        
+
             >>> print str(my_path)
             '(0)-[:CUSTOMERS]->(1)-[:CUSTOMER]->(42)'
-        
+
         """
         return "".join([
             str(self._nodes[i]) + str(self._relationships[i])

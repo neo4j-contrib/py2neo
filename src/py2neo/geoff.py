@@ -35,7 +35,6 @@ try:
 except ValueError:
     import neo4j
 import re
-import string
 
 try:
     from io import StringIO
@@ -46,239 +45,185 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+NODE_DESCRIPTOR_PATTERN = re.compile(
+    r"^\(([0-9A-Za-z_]+)\)$"
+)
+RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(
+    r"^\(([0-9A-Za-z_]+)\)-\[([0-9A-Za-z_]*):([^\]]+)\]->\(([0-9A-Za-z_]+)\)$"
+)
+
+def _parse(string):
+    """Convert Geoff string into abstract nodes and relationships.
+    """
+    nodes = []
+    relationships = []
+    for i, line in enumerate(string.splitlines()):
+        if not line or line.startswith("#"):
+            continue
+        rule = re.split("\s+", line, 1)
+        try:
+            if len(rule) > 1:
+                rule[1] = json.loads(rule[1])
+        except TypeError:
+            pass
+        descriptor = str(rule[0])
+        data = dict(rule[1]) if len(rule) > 1 else {}
+        m = NODE_DESCRIPTOR_PATTERN.match(descriptor)
+        if m:
+            nodes.append((str(m.group(1)) or None, data))
+            continue
+        m = RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+        if m:
+            relationships.append((str(m.group(2)) or None, (
+                str(m.group(1)), str(m.group(3)),
+                str(m.group(4)), data,
+            )))
+            continue
+        raise ValueError(descriptor)
+    return nodes, relationships
+
+
 class Subgraph(object):
+    """Local, abstract representation of a graph portion.
+    """
 
-    def __init__(self, *rules):
-        self.rules = []
-        for rule in rules:
-            try:
-                self.load(rule)
-            except AttributeError:
-                self.add(rule)
+    def __init__(self, *entities):
+        self.nodes = {}
+        self.relationships = {}
+        self.real_nodes = {}
+        self.real_relationships = {}
+        self.add(*entities)
 
-    def __repr__(self):
-        return "Subgraph(" + ", ".join(["'" + str(rule) + "'" for rule in self.rules]) + ")"
+    def __len__(self):
+        return len(self.nodes) + len(self.relationships)
 
     def __str__(self):
-        return "\n".join([
-            "{0} {1}".format(rule[0], json.dumps(rule[1]))
-            for rule in self.rules
-        ])
+        return self.dumps()
 
-    def __json__(self):
-        return json.dumps([
-            "{0} {1}".format(rule[0], json.dumps(rule[1]))
-            for rule in self.rules
-        ])
+    def _add_abstract_node(self, abstract, label=None):
+        if not label:
+            label = len(self.nodes)
+        self.nodes[str(label)] = abstract
+        return label
 
-    def add(self, *rules):
-        for rule in rules:
-            if rule and not rule.startswith("#"):
-                try:
-                    rule = re.split("\s+", rule, 1)
-                    if len(rule) > 1:
-                        rule[1] = json.loads(rule[1])
-                except TypeError:
-                    pass
-                self.rules.append((
-                    str(rule[0]),
-                    dict(rule[1]) if len(rule) > 1 else {}
-                ))
+    def _add_abstract_relationship(self, abstract, label=None):
+        if not label:
+            label = len(self.relationships)
+        self.relationships[str(label)] = abstract
+        return label
 
-    def load(self, *files):
-        for file in files:
-            f = file.read()
-            try:
-                f = json.loads(f)
-            except ValueError:
-                f = f.splitlines()
-            for rule in f:
-                self.add(rule)
+    def _merge_real_node(self, node):
+        uri = str(node._uri)
+        if uri not in self.real_nodes:
+            self.real_nodes[uri] = self._add_abstract_node(node.get_properties())
+        return self.real_nodes[uri]
 
-    def loads(self, str):
-        try:
-            file = StringIO(str)
-        except TypeError:
-            file = StringIO(unicode(str))
-        self.load(file)
+    def _merge_real_relationship(self, relationship):
+        uri = str(relationship._uri)
+        if uri not in self.real_relationships:
+            start_node = self._merge_real_node(relationship.start_node)
+            end_node = self._merge_real_node(relationship.end_node)
+            self.real_relationships[uri] = self._add_abstract_relationship((
+                start_node, relationship.type, end_node,
+                relationship.get_properties()
+            ))
+        return self.real_relationships[uri]
 
-
-class Dumper(object):
-
-    def __init__(self, file):
-        self.write = file.write
-        self.rule_separator = u"\n"
-        self.data_separator = u" "
-        self.json_separators = (", ", ": ")
-
-    def dump(self, entities):
-        if not entities:
-            return
-        graph_db = neo4j.GraphDatabaseService(entities[0]._uri.base + "/")
-        nodes = {}
-        relationships = {}
+    def add(self, *entities):
+        """Add nodes and relationships into this subgraph.
+        """
         for entity in entities:
-            if isinstance(entity, neo4j.Node):
-                nodes[entity.id] = entity
+            if not entity:
+                continue
+            if isinstance(entity, list):
+                self.add(*entity)
+            elif isinstance(entity, (str, unicode)):
+                nodes, rels = _parse(entity)
+                for key, value in nodes:
+                    self._add_abstract_node(value, key)
+                for key, value in rels:
+                    self._add_abstract_relationship(value, key)
+            elif isinstance(entity, dict):
+                self._add_abstract_node(entity)
+            elif isinstance(entity, tuple):
+                self._add_abstract_relationship(entity)
+            elif isinstance(entity, neo4j.Node):
+                self._merge_real_node(entity)
             elif isinstance(entity, neo4j.Relationship):
-                relationships[entity.id] = entity
+                self._merge_real_relationship(entity)
             elif isinstance(entity, neo4j.Path):
-                nodes.update(dict([
-                    (node.id, node)
-                    for node in entity.nodes
-                ]))
-                relationships.update(dict([
-                    (rel.id, rel)
-                    for rel in entity.relationships
-                ]))
+                self.add(*entity.nodes)
+                self.add(*entity.relationships)
+            elif isinstance(entity, Subgraph):
+                self.add(*entity.nodes)
+                self.add(*entity.relationships)
             else:
                 raise TypeError(entity)
-        nodes = nodes.values()
-        relationships = relationships.values()
-        node_props = graph_db.get_properties(*nodes)
-        rel_props = graph_db.get_properties(*relationships)
-        def node_rule(self, node, properties):
-            return "{0}{1}{2}".format(
-                unicode(node),
-                self.data_separator,
-                json.dumps(properties, separators=self.json_separators),
-            )
-        def relationship_rule(self, rel, properties):
-            return "{0}{1}{2}{3}{4}".format(
-                unicode(rel.start_node),
-                unicode(rel),
-                unicode(rel.end_node),
-                self.data_separator,
-                json.dumps(properties, separators=self.json_separators),
-            )
-        self.write(self.rule_separator.join([
-            node_rule(self, node, node_props[i])
-            for i, node in enumerate(nodes)
-        ]))
-        if relationships:
-            self.write(self.rule_separator)
-            self.write(self.rule_separator.join([
-                relationship_rule(self, rel, rel_props[i])
-                for i, rel in enumerate(relationships)
-            ]))
 
+    def dump(self, file):
+        """Dump Geoff rules from this subgraph into a file.
+        """
+        file.write(self.dumps())
 
-class Loader(object):
+    def dumps(self):
+        """Dump Geoff rules from this subgraph into a string.
+        """
+        K = lambda x: x[0]
+        rules = []
+        for label, abstract in sorted(self.nodes.items(), key=K):
+            rules.append("({0}) {1}".format(label, json.dumps(abstract)))
+        for label, abstract in sorted(self.relationships.items(), key=K):
+            if len(abstract) > 3:
+                data = json.dumps(abstract[3])
+            else:
+                data = "{}"
+            rules.append("({0})-[{1}:{2}]->({3}) {4}".format(
+                abstract[0], label, abstract[1], abstract[2], data
+            ))
+        return "\n".join(rules)
 
-    def __init__(self, graph_db):
-        self.graph_db = graph_db
+    def load(self, file):
+        """Load Geoff rules from a file into this subgraph.
+        """
+        self.add(file.read())
+
+    def loads(self, str):
+        """Load Geoff rules from a string into this subgraph.
+        """
+        self.add(str)
+
+    def insert_into(self, graph_db, **params):
+        """Insert this subgraph into a graph database via Geoff plugin.
+        """
         try:
-            self._insert_uri = self.graph_db._extension_uri('GeoffPlugin', 'insert')
-            self._delete_uri = self.graph_db._extension_uri('GeoffPlugin', 'delete')
-            self._merge_uri  = self.graph_db._extension_uri('GeoffPlugin', 'merge')
+            uri = graph_db._extension_uri('GeoffPlugin', 'insert')
         except NotImplementedError:
-            self._insert_uri = None
-            self._delete_uri = None
-            self._merge_uri = None
+            raise NotImplementedError("Geoff plugin not available for insert")
+        response = graph_db._post(
+            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        )
+        return response['params']
 
-    def insert(self, subgraph, **params):
-        if self._insert_uri:
-            response = self.graph_db._post(
-                self._insert_uri,
-                {'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
-            )
-            return response['params']
-        else:
-            raise NotImplementedError
+    def merge_into(self, graph_db, **params):
+        """Merge this subgraph into a graph database via Geoff plugin.
+        """
+        try:
+            uri = graph_db._extension_uri('GeoffPlugin', 'merge')
+        except NotImplementedError:
+            raise NotImplementedError("Geoff plugin not available for merge")
+        response = graph_db._post(
+            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        )
+        return response['params']
 
-    def merge(self, subgraph, **params):
-        if self._merge_uri:
-            response = self.graph_db._post(
-                self._merge_uri,
-                {'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
-            )
-            return response['params']
-        else:
-            raise NotImplementedError
-
-    def delete(self, subgraph, **params):
-        if self._delete_uri:
-            response = self.graph_db._post(
-                self._delete_uri,
-                {'subgraph': [str(rule) for rule in subgraph.rules], 'params': dict(params)}
-            )
-            return response['params']
-        else:
-            raise NotImplementedError
-
-
-def dump(paths, file):
-    Dumper(file).dump(paths)
-
-def dumps(paths):
-    file = StringIO()
-    Dumper(file).dump(paths)
-    return file.getvalue()
-
-def insert(file, graph_db, **params):
-    return Loader(graph_db).insert(Subgraph(file), **params)
-
-def inserts(str, graph_db, **params):
-    return insert(StringIO(str), graph_db, **params)
-
-def merge(file, graph_db, **params):
-    return Loader(graph_db).merge(Subgraph(file), **params)
-
-def merges(str, graph_db, **params):
-    return merge(StringIO(str), graph_db, **params)
-
-def delete(file, graph_db, **params):
-    return Loader(graph_db).delete(Subgraph(file), **params)
-
-def deletes(str, graph_db, **params):
-    return delete(StringIO(str), graph_db, **params)
-
-
-if __name__ == "__main__":
-
-    def print_usage(cmd):
-        sys.stdout.write("""\
-Usage: {0} insert|merge|delete DATABASE [SUBGRAPH] [PARAM]...
-
-{0} is a command line tool for loading subgraphs into a Neo4j graph database
-using either insert, merge or delete methods.
-
-DATABASE - Neo4j graph database URI (e.g. http://localhost:7474/db/data/)
-SUBGRAPH - File containing subgraph data (delimited text or JSON)
-PARAM    - Input parameter such as A=/node/123 or AB=/relationship/45
-""".format(cmd))
-        sys.exit()
-
-    cmd = None
-    method = None
-    database = None
-    subgraph = None
-    params = {}
-    for arg in sys.argv:
-        if "=" in arg:
-            key, eq, value = arg.partition("=")
-            params[key] = value
-        elif cmd is None:
-            cmd = arg.rpartition("/")[2]
-        elif method is None:
-            method = arg
-        elif database is None:
-            database = neo4j.GraphDatabaseService(arg)
-        elif subgraph is None:
-            subgraph = open(arg, "r")
-        else:
-            print_usage(cmd)
-    database = database or neo4j.GraphDatabaseService()
-    subgraph = subgraph or sys.stdin
-    if method == "insert":
-        params = insert(subgraph, database, **params)
-    elif method == "merge":
-        params = merge(subgraph, database, **params)
-    elif method == "delete":
-        params = delete(subgraph, database, **params)
-    else:
-        print_usage(cmd)
-    names = sorted(params.keys())
-    width = max([len(name) for name in names]) + 1
-    for name in names:
-        print(string.ljust(name, width) + params[name])
+    def delete_from(self, graph_db, **params):
+        """Delete this subgraph from a graph database via Geoff plugin.
+        """
+        try:
+            uri = graph_db._extension_uri('GeoffPlugin', 'delete')
+        except NotImplementedError:
+            raise NotImplementedError("Geoff plugin not available for delete")
+        response = graph_db._post(
+            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        )
+        return response['params']
