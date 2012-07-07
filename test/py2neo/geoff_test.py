@@ -83,14 +83,14 @@ class DumpTest(unittest.TestCase):
         a, = self.graph_db.create(
             {"name": "Alice"}
         )
-        out = geoff.dumps([a])
+        out = geoff.Subgraph(a).dumps()
         self.assertEqual('(0) {"name": "Alice"}', out)
 
     def test_subgraph_dump(self):
         a, b, ab = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
         )
-        out = geoff.dumps([a, b, ab])
+        out = geoff.Subgraph(a, b, ab).dumps()
         self.assertEqual('(0) {"name": "Alice"}\n' \
                          '(1) {"name": "Bob"}\n' \
                          '(0)-[0:KNOWS]->(1) {}', out)
@@ -101,7 +101,16 @@ class InsertTest(unittest.TestCase):
     def setUp(self):
         self.graph_db = neo4j.GraphDatabaseService()
 
-    def test_insert(self):
+    def test_insert_from_abstract(self):
+        s = geoff.Subgraph(
+            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
+        )
+        params = s.insert_into(self.graph_db)
+        self.assertIn("(0)", params)
+        self.assertIn("(1)", params)
+        self.assertIn("[0]", params)
+
+    def test_insert_from_text(self):
         s = geoff.Subgraph(
             '(A) {"name": "Alice"}',
             '(B) {"name": "Bob"}',
@@ -118,7 +127,17 @@ class MergeTest(unittest.TestCase):
     def setUp(self):
         self.graph_db = neo4j.GraphDatabaseService()
 
-    def test_merge(self):
+    def test_merge_from_abstract(self):
+        s = geoff.Subgraph(
+            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
+        )
+        params = s.merge_into(self.graph_db)
+        self.assertIn("(0)", params)
+        self.assertIn("(1)", params)
+        self.assertIn("[0]", params)
+
+    def test_inser
+    def test_merge_from_text(self):
         s = geoff.Subgraph(
             '(A) {"name": "Alice"}',
             '(B) {"name": "Bob"}',
