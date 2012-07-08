@@ -45,12 +45,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-NODE_DESCRIPTOR_PATTERN = re.compile(
-    r"^\(([0-9A-Za-z_]+)\)$"
-)
-RELATIONSHIP_DESCRIPTOR_PATTERN = re.compile(
-    r"^\(([0-9A-Za-z_]+)\)-\[([0-9A-Za-z_]*):([^\]]+)\]->\(([0-9A-Za-z_]+)\)$"
-)
+NODE, RELATIONSHIP = 0x01, 0x02
+
+PATTERNS = {
+    NODE: re.compile(
+        r"^\(([0-9A-Za-z_]+)\)$"
+    ),
+    RELATIONSHIP: re.compile(
+        r"^\(([0-9A-Za-z_]+)\)-\[([0-9A-Za-z_]*):([^\]]+)\]->\(([0-9A-Za-z_]+)\)$"
+    ),
+}
 
 def _parse(string):
     """Convert Geoff string into abstract nodes and relationships.
@@ -68,11 +72,11 @@ def _parse(string):
             pass
         descriptor = str(rule[0])
         data = dict(rule[1]) if len(rule) > 1 else {}
-        m = NODE_DESCRIPTOR_PATTERN.match(descriptor)
+        m = PATTERNS[NODE].match(descriptor)
         if m:
             nodes.append((str(m.group(1)) or None, data))
             continue
-        m = RELATIONSHIP_DESCRIPTOR_PATTERN.match(descriptor)
+        m = PATTERNS[RELATIONSHIP].match(descriptor)
         if m:
             relationships.append((str(m.group(2)) or None, (
                 str(m.group(1)), str(m.group(3)),
@@ -87,13 +91,11 @@ class Subgraph(object):
     """Local, abstract representation of a graph portion.
     """
 
-    NODE_KEY = 1
-    RELATIONSHIP_KEY = 2
-
     def __init__(self, *entities):
         self._keys = []
         self._nodes = {}
         self._relationships = {}
+        self._index_entries = {}
         self._real_nodes = {}
         self._real_relationships = {}
         self.add(*entities)
@@ -108,7 +110,7 @@ class Subgraph(object):
         if not key:
             key = len(self._nodes)
         key = str(key)
-        self._keys.append((Subgraph.NODE_KEY, key))
+        self._keys.append((NODE, key))
         self._nodes[key] = abstract
         return key
 
@@ -116,7 +118,7 @@ class Subgraph(object):
         if not key:
             key = len(self._relationships)
         key = str(key)
-        self._keys.append((Subgraph.RELATIONSHIP_KEY, key))
+        self._keys.append((RELATIONSHIP, key))
         self._relationships[key] = abstract
         return key
 
@@ -186,10 +188,10 @@ class Subgraph(object):
         """
         rules = []
         for type, key in self._keys:
-            if type == Subgraph.NODE_KEY:
+            if type == NODE:
                 abstract = self._nodes[key]
                 rules.append("({0}) {1}".format(key, json.dumps(abstract)))
-            elif type == Subgraph.RELATIONSHIP_KEY:
+            elif type == RELATIONSHIP:
                 abstract = self._relationships[key]
                 if len(abstract) > 3:
                     data = json.dumps(abstract[3])
