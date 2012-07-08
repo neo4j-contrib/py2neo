@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Geoff file handling.
+The :py:mod:`py2neo.geoff` module deals with Geoff data handling.
 
 All Geoff functionality is focused around the :py:class:`Subgraph` class and
 requires the Geoff server plugin to be installed (see
