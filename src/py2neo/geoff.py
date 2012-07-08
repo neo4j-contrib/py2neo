@@ -45,7 +45,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-NODE, RELATIONSHIP = 0x01, 0x02
+UNKNOWN, NODE, RELATIONSHIP = 0x00, 0x01, 0x02
 
 PATTERNS = {
     NODE: re.compile(
@@ -59,8 +59,7 @@ PATTERNS = {
 def _parse(string):
     """Convert Geoff string into abstract nodes and relationships.
     """
-    nodes = []
-    relationships = []
+    rules = []
     for i, line in enumerate(string.splitlines()):
         if not line or line.startswith("#"):
             continue
@@ -74,17 +73,17 @@ def _parse(string):
         data = dict(rule[1]) if len(rule) > 1 else {}
         m = PATTERNS[NODE].match(descriptor)
         if m:
-            nodes.append((str(m.group(1)) or None, data))
+            rules.append((NODE, str(m.group(1)) or None, data))
             continue
         m = PATTERNS[RELATIONSHIP].match(descriptor)
         if m:
-            relationships.append((str(m.group(2)) or None, (
+            rules.append((RELATIONSHIP, str(m.group(2)) or None, (
                 str(m.group(1)), str(m.group(3)),
                 str(m.group(4)), data,
             )))
             continue
-        raise ValueError(descriptor)
-    return nodes, relationships
+        rules.append((UNKNOWN, None, (descriptor, data)))
+    return rules
 
 
 class Subgraph(object):
@@ -95,7 +94,7 @@ class Subgraph(object):
         self._keys = []
         self._nodes = {}
         self._relationships = {}
-        self._index_entries = {}
+        self._unknowns = []
         self._real_nodes = {}
         self._real_relationships = {}
         self.add(*entities)
@@ -120,6 +119,12 @@ class Subgraph(object):
         key = str(key)
         self._keys.append((RELATIONSHIP, key))
         self._relationships[key] = abstract
+        return key
+
+    def _add_unknown_abstract(self, abstract):
+        key = len(self._unknowns)
+        self._keys.append((UNKNOWN, key))
+        self._unknowns.append(abstract)
         return key
 
     def _merge_real_node(self, node):
@@ -156,11 +161,14 @@ class Subgraph(object):
             if isinstance(entity, list):
                 self.add(*entity)
             elif isinstance(entity, (str, unicode)):
-                nodes, rels = _parse(entity)
-                for key, value in nodes:
-                    self._add_abstract_node(value, key)
-                for key, value in rels:
-                    self._add_abstract_relationship(value, key)
+                rules = _parse(entity)
+                for type, key, abstract in rules:
+                    if type == NODE:
+                        self._add_abstract_node(abstract, key)
+                    elif type == RELATIONSHIP:
+                        self._add_abstract_relationship(abstract, key)
+                    else:
+                        self._add_unknown_abstract(abstract)
             elif isinstance(entity, dict):
                 self._add_abstract_node(entity)
             elif isinstance(entity, tuple):
@@ -201,7 +209,8 @@ class Subgraph(object):
                     abstract[0], key, abstract[1], abstract[2], data
                 ))
             else:
-                raise ValueError("Unexpected rule type " + str(type))
+                abstract = self._unknowns[key]
+                rules.append("{0} {1}".format(abstract[0], json.dumps(abstract[1])))
         return "\n".join(rules)
 
     def load(self, file):
