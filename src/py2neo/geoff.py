@@ -15,7 +15,23 @@
 # limitations under the License.
 
 """
-Geoff file handling (see `<http://geoff.nigelsmall.net/>`_).
+Geoff file handling.
+
+All Geoff functionality is focused around the :py:class:`Subgraph` class and
+requires the Geoff server plugin to be installed (see
+`<http://geoff.nigelsmall.net/>`_). A subgraph is a local, abstract
+representation of a portion of graph data and may be used to build up a data
+structure within a client application before submitting it to a database server
+in a single request which can act to reduce the amount of network traffic
+carried out.
+
+The following example shows how to build a simple client-side graph and submit
+it to the database server for insertion::
+
+    >>> from py2neo import geoff
+    >>> s = geoff.Subgraph({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)}
+    >>> s.insert_into(graph_db)
+
 """
 
 import sys
@@ -90,14 +106,14 @@ class Subgraph(object):
     """Local, abstract representation of a graph portion.
     """
 
-    def __init__(self, *entities):
+    def __init__(self, *items):
         self._keys = []
         self._nodes = {}
         self._relationships = {}
         self._unknowns = []
         self._real_nodes = {}
         self._real_relationships = {}
-        self.add(*entities)
+        self.add(*items)
 
     def __len__(self):
         return len(self._nodes) + len(self._relationships)
@@ -146,22 +162,56 @@ class Subgraph(object):
 
     @property
     def nodes(self):
+        """Return all nodes within this Subgraph.
+        """
         return self._nodes
 
     @property
     def relationships(self):
+        """Return all relationships within this Subgraph.
+        """
         return self._relationships
 
-    def add(self, *entities):
+    def add(self, *items):
         """Add nodes and relationships into this subgraph.
+        This method will attempt to take the most appropriate action depending
+        on the type of data supplied. Supported types are treated according to
+        the list below:
+
+        :py:const:`list`
+            a sub-list of items; these will be added recursively
+
+        :py:const:`str` or :py:const:`unicode`
+            a textual Geoff rule (e.g. `'(A) {"name": "Alice"}'`)
+
+        :py:const:`dict`
+            an abstract node representation (e.g. `{u'name': u'Alice'}`)
+
+        :py:const:`tuple`
+            an abstract relationship representation (e.g. `(0, 'KNOWS', 1)`);
+            the start and end node references may be numeric or textual and
+            should refer to nodes within the same subgraph
+
+        :py:class:`py2neo.neo4j.Node`
+            a concrete node object
+
+        :py:class:`py2neo.neo4j.Relationship`
+            a concrete relationship object
+
+        :py:class:`py2neo.neo4j.Path`
+            a path object; all nodes and relationships will be added
+
+        :py:class:`py2neo.geoff.Subgraph`
+            a subgraph object; all nodes and relationships will be added
+
         """
-        for entity in entities:
-            if not entity:
+        for item in items:
+            if not item:
                 continue
-            if isinstance(entity, list):
-                self.add(*entity)
-            elif isinstance(entity, (str, unicode)):
-                rules = _parse(entity)
+            if isinstance(item, list):
+                self.add(*item)
+            elif isinstance(item, (str, unicode)):
+                rules = _parse(item)
                 for type, key, abstract in rules:
                     if type == NODE:
                         self._add_abstract_node(abstract, key)
@@ -169,22 +219,22 @@ class Subgraph(object):
                         self._add_abstract_relationship(abstract, key)
                     else:
                         self._add_unknown_abstract(abstract)
-            elif isinstance(entity, dict):
-                self._add_abstract_node(entity)
-            elif isinstance(entity, tuple):
-                self._add_abstract_relationship(entity)
-            elif isinstance(entity, neo4j.Node):
-                self._merge_real_node(entity)
-            elif isinstance(entity, neo4j.Relationship):
-                self._merge_real_relationship(entity)
-            elif isinstance(entity, neo4j.Path):
-                self.add(*entity.nodes)
-                self.add(*entity.relationships)
-            elif isinstance(entity, Subgraph):
-                self.add(*entity.nodes)
-                self.add(*entity.relationships)
+            elif isinstance(item, dict):
+                self._add_abstract_node(item)
+            elif isinstance(item, tuple):
+                self._add_abstract_relationship(item)
+            elif isinstance(item, neo4j.Node):
+                self._merge_real_node(item)
+            elif isinstance(item, neo4j.Relationship):
+                self._merge_real_relationship(item)
+            elif isinstance(item, neo4j.Path):
+                self.add(*item.nodes)
+                self.add(*item.relationships)
+            elif isinstance(item, Subgraph):
+                self.add(*item.nodes)
+                self.add(*item.relationships)
             else:
-                raise TypeError(entity)
+                raise TypeError(item)
 
     def dump(self, file):
         """Dump Geoff rules from this subgraph into a file.
