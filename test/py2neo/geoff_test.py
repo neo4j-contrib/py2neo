@@ -12,38 +12,52 @@ import unittest
 class ParseTest(unittest.TestCase):
 
     def test_parsing_empty_string(self):
-        nodes, rels = geoff._parse('')
-        self.assertEqual([], nodes)
-        self.assertEqual([], rels)
+        rules = geoff._parse('')
+        self.assertEqual([], rules)
 
     def test_parsing_blank_lines(self):
-        nodes, rels = geoff._parse('\n\n\n')
-        self.assertEqual([], nodes)
-        self.assertEqual([], rels)
+        rules = geoff._parse('\n\n\n')
+        self.assertEqual([], rules)
 
     def test_parsing_comment(self):
-        nodes, rels = geoff._parse('# this is a comment')
-        self.assertEqual([], nodes)
-        self.assertEqual([], rels)
+        rules = geoff._parse('# this is a comment')
+        self.assertEqual([], rules)
 
     def test_parsing_single_node(self):
-        nodes, rels = geoff._parse('(A)')
-        self.assertEqual([('A', {})], nodes)
-        self.assertEqual([], rels)
+        rules = geoff._parse('(A)')
+        self.assertEqual([(geoff.NODE, 'A', {})], rules)
 
     def test_parsing_single_node_with_data(self):
-        nodes, rels = geoff._parse('(A) {"name": "Alice"}')
-        self.assertEqual([('A', {u'name': u'Alice'})], nodes)
-        self.assertEqual([], rels)
+        rules = geoff._parse('(A) {"name": "Alice"}')
+        self.assertEqual([(geoff.NODE, 'A', {u'name': u'Alice'})], rules)
 
     def test_parsing_simple_graph(self):
-        nodes, rels = geoff._parse(
+        rules = geoff._parse(
             '(A) {"name": "Alice"}\n' \
             '(B) {"name": "Bob"}\n' \
             '(A)-[:KNOWS]->(B)\n'
         )
-        self.assertEqual([('A', {u'name': u'Alice'}), ('B', {u'name': u'Bob'})], nodes)
-        self.assertEqual([(None, ('A', 'KNOWS', 'B', {}))], rels)
+        self.assertEqual([
+            (geoff.NODE, 'A', {u'name': u'Alice'}),
+            (geoff.NODE, 'B', {u'name': u'Bob'}),
+            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
+        ], rules)
+
+    def test_parsing_graph_with_unknown_rules(self):
+        rules = geoff._parse(
+            '(A)<=|People| {"name": "Alice"}\n' \
+            '(B)<=|People| {"name": "Bob"}\n' \
+            '(A) {"name": "Alice Allison"}\n' \
+            '(B) {"name": "Bob Robertson"}\n' \
+            '(A)-[:KNOWS]->(B)\n'
+        )
+        self.assertEqual([
+            (geoff.UNKNOWN, None, ('(A)<=|People|', {u'name': u'Alice'})),
+            (geoff.UNKNOWN, None, ('(B)<=|People|', {u'name': u'Bob'})),
+            (geoff.NODE, 'A', {u'name': u'Alice Allison'}),
+            (geoff.NODE, 'B', {u'name': u'Bob Robertson'}),
+            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
+        ], rules)
 
 
 class SubgraphCreationTest(unittest.TestCase):
