@@ -46,7 +46,7 @@ class ParseTest(unittest.TestCase):
         self.assertEqual([(None, ('A', 'KNOWS', 'B', {}))], rels)
 
 
-class SubgraphTest(unittest.TestCase):
+class SubgraphCreationTest(unittest.TestCase):
 
     def test_empty_subgraph_creation(self):
         s = geoff.Subgraph()
@@ -65,6 +65,19 @@ class SubgraphTest(unittest.TestCase):
             '(A)-[:KNOWS]->(B)'
         )
         self.assertEqual('(A) {"name": "Alice"}\n(B) {"name": "Bob"}\n(A)-[0:KNOWS]->(B) {}', s.dumps())
+
+    def test_subgraph_creation_from_text_with_alternate_ordering(self):
+        s = geoff.Subgraph(
+            '(D) {"name": "Dave"}',
+            '(B) {"name": "Bob"}',
+            '(C) {"name": "Carol"}',
+            '(C)-[:KNOWS]->(D)',
+            '(A) {"name": "Alice"}',
+            '(A)-[:KNOWS]->(B)',
+        )
+        self.assertEqual('(D) {"name": "Dave"}\n(B) {"name": "Bob"}\n' \
+                         '(C) {"name": "Carol"}\n(C)-[0:KNOWS]->(D) {}\n' \
+                         '(A) {"name": "Alice"}\n(A)-[1:KNOWS]->(B) {}', s.dumps())
 
     def test_subgraph_creation_from_db(self):
         graph_db = neo4j.GraphDatabaseService()

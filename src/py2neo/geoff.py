@@ -87,47 +87,63 @@ class Subgraph(object):
     """Local, abstract representation of a graph portion.
     """
 
+    NODE_KEY = 1
+    RELATIONSHIP_KEY = 2
+
     def __init__(self, *entities):
-        self.nodes = {}
-        self.relationships = {}
-        self.real_nodes = {}
-        self.real_relationships = {}
+        self._keys = []
+        self._nodes = {}
+        self._relationships = {}
+        self._real_nodes = {}
+        self._real_relationships = {}
         self.add(*entities)
 
     def __len__(self):
-        return len(self.nodes) + len(self.relationships)
+        return len(self._nodes) + len(self._relationships)
 
     def __str__(self):
         return self.dumps()
 
-    def _add_abstract_node(self, abstract, label=None):
-        if not label:
-            label = len(self.nodes)
-        self.nodes[str(label)] = abstract
-        return label
+    def _add_abstract_node(self, abstract, key=None):
+        if not key:
+            key = len(self._nodes)
+        key = str(key)
+        self._keys.append((Subgraph.NODE_KEY, key))
+        self._nodes[key] = abstract
+        return key
 
-    def _add_abstract_relationship(self, abstract, label=None):
-        if not label:
-            label = len(self.relationships)
-        self.relationships[str(label)] = abstract
-        return label
+    def _add_abstract_relationship(self, abstract, key=None):
+        if not key:
+            key = len(self._relationships)
+        key = str(key)
+        self._keys.append((Subgraph.RELATIONSHIP_KEY, key))
+        self._relationships[key] = abstract
+        return key
 
     def _merge_real_node(self, node):
         uri = str(node._uri)
-        if uri not in self.real_nodes:
-            self.real_nodes[uri] = self._add_abstract_node(node.get_properties())
-        return self.real_nodes[uri]
+        if uri not in self._real_nodes:
+            self._real_nodes[uri] = self._add_abstract_node(node.get_properties())
+        return self._real_nodes[uri]
 
     def _merge_real_relationship(self, relationship):
         uri = str(relationship._uri)
-        if uri not in self.real_relationships:
+        if uri not in self._real_relationships:
             start_node = self._merge_real_node(relationship.start_node)
             end_node = self._merge_real_node(relationship.end_node)
-            self.real_relationships[uri] = self._add_abstract_relationship((
+            self._real_relationships[uri] = self._add_abstract_relationship((
                 start_node, relationship.type, end_node,
                 relationship.get_properties()
             ))
-        return self.real_relationships[uri]
+        return self._real_relationships[uri]
+
+    @property
+    def nodes(self):
+        return self._nodes
+
+    @property
+    def relationships(self):
+        return self._relationships
 
     def add(self, *entities):
         """Add nodes and relationships into this subgraph.
@@ -168,18 +184,22 @@ class Subgraph(object):
     def dumps(self):
         """Dump Geoff rules from this subgraph into a string.
         """
-        K = lambda x: x[0]
         rules = []
-        for label, abstract in sorted(self.nodes.items(), key=K):
-            rules.append("({0}) {1}".format(label, json.dumps(abstract)))
-        for label, abstract in sorted(self.relationships.items(), key=K):
-            if len(abstract) > 3:
-                data = json.dumps(abstract[3])
+        for type, key in self._keys:
+            if type == Subgraph.NODE_KEY:
+                abstract = self._nodes[key]
+                rules.append("({0}) {1}".format(key, json.dumps(abstract)))
+            elif type == Subgraph.RELATIONSHIP_KEY:
+                abstract = self._relationships[key]
+                if len(abstract) > 3:
+                    data = json.dumps(abstract[3])
+                else:
+                    data = "{}"
+                rules.append("({0})-[{1}:{2}]->({3}) {4}".format(
+                    abstract[0], key, abstract[1], abstract[2], data
+                ))
             else:
-                data = "{}"
-            rules.append("({0})-[{1}:{2}]->({3}) {4}".format(
-                abstract[0], label, abstract[1], abstract[2], data
-            ))
+                raise ValueError("Unexpected rule type " + str(type))
         return "\n".join(rules)
 
     def load(self, file):
