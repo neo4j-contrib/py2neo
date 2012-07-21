@@ -39,7 +39,7 @@ class BatchError(SystemError):
 def relative_uri(uri, start):
     return "".join(uri.rpartition(start)[1:3])
 
-def creator(id, value):
+def creator(id, value, graph_db):
     if isinstance(value, dict):
         return {
             "method": "POST",
@@ -49,10 +49,12 @@ def creator(id, value):
         }
     try:
         if isinstance(value[0], neo4j.Node):
+            value[0]._must_belong_to(graph_db)
             start_node_uri = relative_uri(value[0]._lookup("self"), "/node")
         else:
             start_node_uri = "{" + str(value[0]) + "}"
         if isinstance(value[2], neo4j.Node):
+            value[2]._must_belong_to(graph_db)
             end_node_uri = relative_uri(value[2]._lookup("self"), "/node")
         else:
             end_node_uri = "{" + str(value[2]) + "}"

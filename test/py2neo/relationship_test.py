@@ -54,7 +54,7 @@ class RelateTestCase(unittest.TestCase):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        rel, = self.graph_db.relate((alice, "KNOWS", bob))
+        rel, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob))
         self.assertIsNotNone(rel)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
@@ -65,22 +65,22 @@ class RelateTestCase(unittest.TestCase):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        rel1, = self.graph_db.relate((alice, "KNOWS", bob))
+        rel1, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob))
         self.assertIsNotNone(rel1)
         self.assertTrue(isinstance(rel1, neo4j.Relationship))
         self.assertEqual(alice, rel1.start_node)
         self.assertEqual("KNOWS", rel1.type)
         self.assertEqual(bob, rel1.end_node)
-        rel2, = self.graph_db.relate((alice, "KNOWS", bob))
+        rel2, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob))
         self.assertEqual(rel1, rel2)
-        rel3, = self.graph_db.relate((alice, "KNOWS", bob))
+        rel3, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob))
         self.assertEqual(rel1, rel3)
 
     def test_relate_with_no_start_node(self):
         bob, = self.graph_db.create(
             {"name": "Bob"}
         )
-        rel, = self.graph_db.relate((None, "KNOWS", bob))
+        rel, = self.graph_db.get_or_create_relationships((None, "KNOWS", bob))
         self.assertIsNotNone(rel)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual("KNOWS", rel.type)
@@ -90,7 +90,7 @@ class RelateTestCase(unittest.TestCase):
         alice, = self.graph_db.create(
             {"name": "Alice"}
         )
-        rel, = self.graph_db.relate((alice, "KNOWS", None))
+        rel, = self.graph_db.get_or_create_relationships((alice, "KNOWS", None))
         self.assertIsNotNone(rel)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
@@ -98,13 +98,13 @@ class RelateTestCase(unittest.TestCase):
 
     def test_relate_with_no_nodes(self):
         rel = (None, "KNOWS", None)
-        self.assertRaises(ValueError, self.graph_db.relate, rel)
+        self.assertRaises(ValueError, self.graph_db.get_or_create_relationships, rel)
 
     def test_relate_with_data(self):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        rel, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        rel, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob, {"since": 2006}))
         self.assertIsNotNone(rel)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
@@ -117,22 +117,22 @@ class RelateTestCase(unittest.TestCase):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        rel1, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        rel1, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob, {"since": 2006}))
         self.assertIsNotNone(rel1)
         self.assertTrue(isinstance(rel1, neo4j.Relationship))
         self.assertEqual(alice, rel1.start_node)
         self.assertEqual("KNOWS", rel1.type)
         self.assertEqual(bob, rel1.end_node)
-        rel2, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        rel2, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob, {"since": 2006}))
         self.assertEqual(rel1, rel2)
-        rel3, = self.graph_db.relate((alice, "KNOWS", bob, {"since": 2006}))
+        rel3, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob, {"since": 2006}))
         self.assertEqual(rel1, rel3)
 
     def test_relate_with_list_data(self):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        rel, = self.graph_db.relate((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
+        rel, = self.graph_db.get_or_create_relationships((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
         self.assertIsNotNone(rel)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
@@ -147,14 +147,14 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"},
             {"name": "Carol"}, {"name": "Dave"}
         )
-        rels1 = self.graph_db.relate(
+        rels1 = self.graph_db.get_or_create_relationships(
             (alice, "IS~MARRIED~TO", bob, {"since": 1996}),
             #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
             (alice, "DISLIKES!", carol, {"reason": "youth"}),
         )
         self.assertIsNotNone(rels1)
         self.assertEqual(2, len(rels1))
-        rels2 = self.graph_db.relate(
+        rels2 = self.graph_db.get_or_create_relationships(
             (bob, "WORKS WITH", carol, {"since": 2004, "company": "Megacorp"}),
             #(alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}),
             (alice, "DISLIKES!", carol, {"reason": "youth"}),

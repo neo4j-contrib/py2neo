@@ -217,7 +217,7 @@ class GraphDatabaseService(rest.Resource):
         """
         try:
             return map(batch.result, self._post(self._batch_uri, [
-                batch.creator(i, entity)
+                batch.creator(i, entity, self)
                 for i, entity in enumerate(entities)
             ]), [self for e in entities])
         except SystemError as err:
@@ -306,6 +306,77 @@ class GraphDatabaseService(rest.Resource):
             self._indexes[type].update({name: index})
             return index
 
+    def get_or_create_relationships(self, *relationships):
+        """Fetch or create relationships with the specified criteria depending
+        on whether or not such relationships exist. Each relationship
+        descriptor should be a tuple of (start, type, end) or (start, type,
+        end, data) where start and end are either existing :py:class:`Node`
+        instances or :py:const:`None` (both nodes cannot be :py:const:`None`)::
+
+            # set up three nodes
+            alice, bob, carol = graph_db.create(
+                {"name": "Alice"}, {"name": "Bob"}, {"name": "Carol"}
+            )
+
+            # ensure Alice and Bob and related
+            ab = graph_db.relate((alice, "LOVES", bob, {"since": 2006}))
+
+            # ensure relationships exist between Alice, Bob and Carol
+            # creating new relationships only where necessary
+            rels = graph_db.relate(
+                (alice, "LOVES", bob), (bob, "LIKES", alice),
+                (carol, "LOVES", bob), (alice, "HATES", carol),
+            )
+
+            # ensure Alice has an outgoing LIKES relationship
+            # (a new node will be created if required)
+            friendship = graph_db.relate((alice, "LIKES", None))
+
+            # ensure Alice has an incoming LIKES relationship
+            # (a new node will be created if required)
+            friendship = graph_db.relate((None, "LIKES", alice))
+
+        Uses Cypher `CREATE UNIQUE` clause, raising
+        :py:class:`NotImplementedError` if server support not available.
+        """
+        start, relate, return_, params = [], [], [], {}
+        for i, rel in enumerate(relationships):
+            try:
+                start_node, type, end_node = rel[0:3]
+            except IndexError:
+                raise ValueError(rel)
+            type = "`" + type + "`"
+            if len(rel) > 3:
+                param = "D" + str(i)
+                type += " {" + param + "}"
+                params[param] = rel[3]
+            if start_node:
+                start.append("a{0}=node({1})".format(i, start_node.id))
+            if end_node:
+                start.append("b{0}=node({1})".format(i, end_node.id))
+            if start_node and end_node:
+                relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
+            elif start_node:
+                relate.append("a{0}-[r{0}:{1}]->()".format(i, type))
+            elif end_node:
+                relate.append("()-[r{0}:{1}]->b{0}".format(i, type))
+            else:
+                raise ValueError("Neither start node nor end node specified " \
+                                 "in relationship {0}: {1} ".format(i, rel))
+            return_.append("r{0}".format(i))
+        query = "START {0} CREATE UNIQUE {1} RETURN {2}".format(
+            ",".join(start), ",".join(relate), ",".join(return_)
+        )
+        try:
+            data, metadata = cypher.execute(self, query, params)
+            return data[0]
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not support " \
+                "Cypher CREATE UNIQUE clauses or the query contains " \
+                "an unsupported property type".format(self._uri)
+            )
+
     def get_properties(self, *entities):
         """Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
@@ -366,75 +437,11 @@ class GraphDatabaseService(rest.Resource):
         return self._neo4j_version
 
     def relate(self, *relationships):
-        """Fetch or create relationships with the specified criteria depending
-        on whether or not such relationships exist. Each relationship
-        descriptor should be a tuple of (start, type, end) or (start, type,
-        end, data) where start and end are either existing :py:class:`Node`
-        instances or :py:const:`None` (both nodes cannot be :py:const:`None`)::
-
-            # set up three nodes
-            alice, bob, carol = graph_db.create(
-                {"name": "Alice"}, {"name": "Bob"}, {"name": "Carol"}
-            )
-
-            # ensure Alice and Bob and related
-            ab = graph_db.relate((alice, "LOVES", bob, {"since": 2006}))
-
-            # ensure relationships exist between Alice, Bob and Carol
-            # creating new relationships only where necessary
-            rels = graph_db.relate(
-                (alice, "LOVES", bob), (bob, "LIKES", alice),
-                (carol, "LOVES", bob), (alice, "HATES", carol),
-            )
-
-            # ensure Alice has an outgoing LIKES relationship
-            # (a new node will be created if required)
-            friendship = graph_db.relate((alice, "LIKES", None))
-
-            # ensure Alice has an incoming LIKES relationship
-            # (a new node will be created if required)
-            friendship = graph_db.relate((None, "LIKES", alice))
-
-        Uses Cypher `RELATE` clause, raising :py:class:`NotImplementedError` if
-        server support not available.
+        """Alias for get_or_create_relationships. The Cypher RELATE clause was
+        replaced with CREATE UNIQUE before the final release of 1.8. Please
+        see https://github.com/neo4j/community/pull/724_.
         """
-        start, relate, return_, params = [], [], [], {}
-        for i, rel in enumerate(relationships):
-            try:
-                start_node, type, end_node = rel[0:3]
-            except IndexError:
-                raise ValueError(rel)
-            type = "`" + type + "`"
-            if len(rel) > 3:
-                param = "D" + str(i)
-                type += " {" + param + "}"
-                params[param] = rel[3]
-            if start_node:
-                start.append("a{0}=node({1})".format(i, start_node.id))
-            if end_node:
-                start.append("b{0}=node({1})".format(i, end_node.id))
-            if start_node and end_node:
-                relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
-            elif start_node:
-                relate.append("a{0}-[r{0}:{1}]->()".format(i, type))
-            elif end_node:
-                relate.append("()-[r{0}:{1}]->b{0}".format(i, type))
-            else:
-                raise ValueError("Neither start node nor end node specified " \
-                                 "in relationship {0}: {1} ".format(i, rel))
-            return_.append("r{0}".format(i))
-        query = "START {0} RELATE {1} RETURN {2}".format(
-            ",".join(start), ",".join(relate), ",".join(return_)
-        )
-        try:
-            data, metadata = cypher.execute(self, query, params)
-            return data[0]
-        except cypher.CypherError:
-            raise NotImplementedError(
-                "The Neo4j server at <{0}> does not support " \
-                "Cypher RELATE clauses or the query contains " \
-                "an unsupported property type".format(self._uri)
-            )
+        return self.get_or_create_relationships(*relationships)
 
 
 class PropertyContainer(rest.Resource):
@@ -472,10 +479,7 @@ class PropertyContainer(rest.Resource):
         """
         rest.Resource.__init__(self, uri, reference_marker, metadata=metadata, **kwargs)
         if graph_db:
-            if not isinstance(graph_db, GraphDatabaseService):
-                raise TypeError(graph_db)
-            if self._uri.base != graph_db._uri.base:
-                raise ValueError(graph_db)
+            self._must_belong_to(graph_db)
             self._graph_db = graph_db
         else:
             self._graph_db = GraphDatabaseService(self._uri.base + "/")
@@ -506,6 +510,19 @@ class PropertyContainer(rest.Resource):
 
     def __setitem__(self, key, value):
         self._put(self._lookup('property').format(key=key), value)
+
+    def _must_belong_to(self, graph_db):
+        """Raise a ValueError if this entity does not belong
+        to the graph supplied.
+        """
+        if not isinstance(graph_db, GraphDatabaseService):
+            raise TypeError(graph_db)
+        if self._uri.base != graph_db._uri.base:
+            raise ValueError(
+                "Entity <{0}> does not belong to graph <{1}>".format(
+                    self._uri, graph_db._uri
+                )
+            )
 
     def get_properties(self):
         """Return all properties for this resource.
