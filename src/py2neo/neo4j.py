@@ -184,6 +184,18 @@ class GraphDatabaseService(rest.Resource):
             # is a plain value
             return value
 
+    def clear(self):
+        """Clear all nodes and relationships from the graph (except
+        reference node).
+        """
+        ref_node = self.get_reference_node()
+        cypher.execute(self, "START n=node(*) "
+                             "MATCH n-[r?]-() "
+                             "WHERE ID(n) <> {Z} "
+                             "DELETE n, r", {
+            "Z": ref_node._id
+        })
+
     def create(self, *entities):
         """Create multiple nodes and/or relationships as part of a single
         batch, returning a list of :py:class:`Node` and
