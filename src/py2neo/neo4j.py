@@ -501,13 +501,13 @@ class PropertyContainer(rest.Resource):
 
     def __delitem__(self, key):
         try:
-            self._delete(self._lookup('property').format(key=key))
+            self._delete(self._lookup('property').format(key=_quote(key, "")))
         except rest.ResourceNotFound:
             raise KeyError(key)
 
     def __getitem__(self, key):
         try:
-            return self._get(self._lookup('property').format(key=key))
+            return self._get(self._lookup('property').format(key=_quote(key, "")))
         except rest.ResourceNotFound:
             raise KeyError(key)
 
@@ -521,7 +521,7 @@ class PropertyContainer(rest.Resource):
         return True
 
     def __setitem__(self, key, value):
-        self._put(self._lookup('property').format(key=key), value)
+        self._put(self._lookup('property').format(key=_quote(key, "")), value)
 
     def _must_belong_to(self, graph_db):
         """Raise a ValueError if this entity does not belong
