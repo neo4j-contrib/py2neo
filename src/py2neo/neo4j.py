@@ -99,6 +99,10 @@ class GraphDatabaseService(rest.Resource):
     def __init__(self, uri=None, metadata=None, **kwargs):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri, "/", metadata=metadata, **kwargs)
+        # force metadata update to populate `_last_response` attribute
+        self._metadata.update(self._get(self._uri))
+        # force URI adjustment (in case supplied without trailing slash)
+        self._uri = rest.URI(self._last_response.effective_url, "/")
         self._extensions = self._lookup('extensions')
         if 'neo4j_version' in self._metadata:
             # must be version 1.5 or greater

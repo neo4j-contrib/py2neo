@@ -30,6 +30,25 @@ class FailureTest(unittest.TestCase):
         )
 
 
+class BadDatabaseURITest(unittest.TestCase):
+
+    def test_wrong_host(self):
+        self.assertRaises(rest.NoResponse,
+            neo4j.GraphDatabaseService, "http://localtoast:7474/db/data/")
+
+    def test_wrong_port(self):
+        self.assertRaises(rest.NoResponse,
+            neo4j.GraphDatabaseService, "http://localhost:7575/db/data/")
+
+    def test_wrong_path(self):
+        self.assertRaises(rest.ResourceNotFound,
+            neo4j.GraphDatabaseService, "http://localhost:7474/foo/bar/")
+
+    def test_no_trailing_slash(self):
+        graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+        self.assertEqual("http://localhost:7474/db/data/", graph_db._uri)
+
+
 class GraphDatabaseServiceTest(unittest.TestCase):
 
     def setUp(self):

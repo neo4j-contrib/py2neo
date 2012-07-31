@@ -166,6 +166,7 @@ class Resource(object):
         self._uri = URI(uri, reference_marker)
         self._request_params = _REQUEST_PARAMS.copy()
         self._request_params.update(request_params)
+        self._last_response = None
         self._metadata = PropertyCache(metadata)
         if not hasattr(thread_local, "http_client"):
             thread_local.http_client = httpclient.HTTPClient()
@@ -209,6 +210,7 @@ class Resource(object):
         try:
             logger.info("{0} {1}".format(method, uri))
             response = thread_local.http_client.fetch(str(uri), **params)
+            self._last_response = response
             if response.code == 200:
                 if response.body:
                     return json.loads(response.body)
@@ -223,6 +225,7 @@ class Resource(object):
             elif response.code == 204:
                 return None
         except httpclient.HTTPError as err:
+            self._last_response = err.response
             if err.code == 400:
                 try:
                     args = json.loads(err.response.body)
