@@ -8,6 +8,7 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
+from threading import Thread
 import unittest
 
 from py2neo import cypher, neo4j
@@ -148,6 +149,19 @@ class CypherTestCase(unittest.TestCase):
         for i in range(2000):
             data, metadata = cypher.execute(self.graph_db, query)
             self.assertEqual(1, len(data))
+
+    def test_simultaneous_big_queries(self):
+        class BigQuery(Thread):
+            def run(self):
+                graph_db = neo4j.GraphDatabaseService()
+                query = "start z=node(*) return z"
+                for i in range(100):
+                    cypher.execute(graph_db, query)
+        queries = [BigQuery(), BigQuery(), BigQuery()]
+        for q in queries:
+            q.start()
+        for q in queries:
+            q.join()
 
 if __name__ == '__main__':
     unittest.main()

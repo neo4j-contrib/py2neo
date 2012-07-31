@@ -33,10 +33,13 @@ except ImportError:
 import logging
 logger = logging.getLogger(__name__)
 
+import threading
 import time
 
 
-_HTTP = httpclient.HTTPClient()
+thread_local = threading.local()
+
+#_HTTP = httpclient.HTTPClient()
 _REQUEST_PARAMS = {
     "request_timeout": 300,    #: default 5 minutes timeout
     "user_agent": "py2neo"
@@ -161,11 +164,11 @@ class Resource(object):
 
     def __init__(self, uri, reference_marker, metadata=None, **request_params):
         self._uri = URI(uri, reference_marker)
-        #self._base_uri = self._uri.base
-        #self._relative_uri = self._uri.reference
         self._request_params = _REQUEST_PARAMS.copy()
         self._request_params.update(request_params)
         self._metadata = PropertyCache(metadata)
+        if not hasattr(thread_local, "http_client"):
+            thread_local.http_client = httpclient.HTTPClient()
 
     def __repr__(self):
         """Return a valid Python representation of this object.
@@ -205,7 +208,7 @@ class Resource(object):
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            response = _HTTP.fetch(str(uri), **params)
+            response = thread_local.http_client.fetch(str(uri), **params)
             if response.code == 200:
                 if response.body:
                     return json.loads(response.body)
