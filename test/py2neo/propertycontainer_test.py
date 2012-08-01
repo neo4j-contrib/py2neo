@@ -43,12 +43,12 @@ class PropertyContainerTestCase(unittest.TestCase):
     def test_del_property(self):
         alice, = self.graph_db.create({"name": "Alice"})
         del alice["name"]
-        self.assertRaises(KeyError, alice.__getitem__, "name")
+        self.assertIsNone(alice["name"])
 
     def test_del_property_with_odd_name(self):
         foo, = self.graph_db.create({""" !"#$%&'()*+,-./?""": "foo"})
         del foo[""" !"#$%&'()*+,-./?"""]
-        self.assertRaises(KeyError, foo.__getitem__, """ !"#$%&'()*+,-./?""")
+        self.assertIsNone(foo[""" !"#$%&'()*+,-./?"""])
 
     def test_property_existence(self):
         alice, = self.graph_db.create({"name": "Alice"})

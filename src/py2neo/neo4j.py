@@ -486,13 +486,13 @@ class PropertyContainer(rest.Resource):
 
     """
 
-    def __init__(self, uri, reference_marker, graph_db=None, metadata=None, **kwargs):
+    def __init__(self, uri, reference_marker, graph_db=None, metadata=None):
         """Create container for properties with caching capabilities.
 
         :param uri:       URI identifying this resource
         :param metadata:  index of resource metadata
         """
-        rest.Resource.__init__(self, uri, reference_marker, metadata=metadata, **kwargs)
+        rest.Resource.__init__(self, uri, reference_marker, metadata=metadata)
         if graph_db:
             self._must_belong_to(graph_db)
             self._graph_db = graph_db
@@ -506,13 +506,13 @@ class PropertyContainer(rest.Resource):
         try:
             self._delete(self._lookup('property').format(key=_quote(key, "")))
         except rest.ResourceNotFound:
-            raise KeyError(key)
+            pass
 
     def __getitem__(self, key):
         try:
             return self._get(self._lookup('property').format(key=_quote(key, "")))
         except rest.ResourceNotFound:
-            raise KeyError(key)
+            return None
 
     def __iter__(self):
         return self.get_properties().__iter__()
@@ -524,7 +524,10 @@ class PropertyContainer(rest.Resource):
         return True
 
     def __setitem__(self, key, value):
-        self._put(self._lookup('property').format(key=_quote(key, "")), value)
+        if value is None:
+            self.__delitem__(key)
+        else:
+            self._put(self._lookup('property').format(key=_quote(key, "")), value)
 
     def _must_belong_to(self, graph_db):
         """Raise a ValueError if this entity does not belong
