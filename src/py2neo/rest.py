@@ -37,9 +37,14 @@ import threading
 import time
 
 
-thread_local = threading.local()
+_thread_local = threading.local()
 
-#_HTTP = httpclient.HTTPClient()
+def local_http_client():
+    if not hasattr(_thread_local, "http_client"):
+        _thread_local.http_client = httpclient.HTTPClient()
+    return _thread_local.http_client
+
+
 _REQUEST_PARAMS = {
     "request_timeout": 300,    #: default 5 minutes timeout
     "user_agent": "py2neo"
@@ -168,8 +173,6 @@ class Resource(object):
         self._request_params.update(request_params)
         self._last_response = None
         self._metadata = PropertyCache(metadata)
-        if not hasattr(thread_local, "http_client"):
-            thread_local.http_client = httpclient.HTTPClient()
 
     def __repr__(self):
         """Return a valid Python representation of this object.
@@ -209,7 +212,7 @@ class Resource(object):
         })
         try:
             logger.info("{0} {1}".format(method, uri))
-            response = thread_local.http_client.fetch(str(uri), **params)
+            response = local_http_client().fetch(str(uri), **params)
             self._last_response = response
             if response.code == 200:
                 if response.body:
