@@ -24,9 +24,9 @@ __license__   = "Apache License, Version 2.0"
 
 
 try:
-    import json
-except ImportError:
     import simplejson as json
+except ImportError:
+    import json
 try:
     from . import neo4j, rest
 except ImportError:
@@ -34,6 +34,18 @@ except ImportError:
 
 import logging
 logger = logging.getLogger(__name__)
+import threading
+
+
+_thread_local = threading.local()
+
+
+DEFAULT_BLOCK_SIZE = 8192
+
+def local_client():
+    if not hasattr(_thread_local, "client"):
+        _thread_local.client = CypherClient()
+    return _thread_local.client
 
 
 class CypherError(ValueError):
@@ -43,6 +55,36 @@ class CypherError(ValueError):
         self.exception = exception
         self.stacktrace = stacktrace
         logger.error(self)
+
+
+class CypherClient(rest.Client):
+
+    def __init__(self):
+        rest.Client.__init__(self)
+        self.block_size = DEFAULT_BLOCK_SIZE
+
+    def execute_query(self, method, uri, query="", params={}, handlers={}):
+        data = {
+            "query": query,
+            "params": params,
+        }
+        if handlers:
+            rs = self._send_request(method, uri, data)
+            if rs.status in handlers:
+                # asynchronous - use handler for each block received
+                handler = handlers[rs.status]
+                if self.block_size > 0:
+                    while True:
+                        block = rs.read(self.block_size)
+                        if block:
+                            handler(block)
+                        else:
+                            break
+                else:
+                    handler(rs.read())
+                return rs.status, uri, rs.getheaders(), None
+        else:
+            return rest.Client.request(self, method, uri, data)
 
 
 class Query(object):
@@ -71,23 +113,22 @@ class Query(object):
                 response = self.graph_db._post(
                     self.graph_db._cypher_uri, payload, **kwargs
                 )
-            except ValueError as err:
-                detail = err.args[0]
+            except rest.BadRequest as err:
                 if error_handler:
                     try:
                         error_handler(
-                            message=detail["message"],
-                            exception=detail["exception"],
-                            stacktrace=detail["stacktrace"]
+                            message=err.data["message"],
+                            exception=err.data["exception"],
+                            stacktrace=err.data["stacktrace"]
                         )
                         return [], None
                     except Exception as ex:
                         raise ex
                 else:
                     raise CypherError(
-                        detail["message"],
-                        exception=detail["exception"],
-                        stacktrace=detail["stacktrace"]
+                        err.data["message"],
+                        exception=err.data["exception"],
+                        stacktrace=err.data["stacktrace"]
                     )
             rows, columns = response['data'], response['columns']
             return [map(self.graph_db._resolve, row) for row in rows], Query.Metadata(columns)
@@ -127,15 +168,11 @@ class Query(object):
                 self.row_handler = row_handler
                 self.metadata_handler = metadata_handler
                 self.error_handler = error_handler
-                graph_db._post(
-                    graph_db._cypher_uri,
-                    payload,
-                    headers={
-                        "Accept": "application/json;stream=true",
-                        "Content-Type": "application/json"
-                    },
-                    streaming_callback=self.handle_chunk
-                )
+                status, self._last_location, self._last_headers, data = \
+                local_client().post(graph_db._cypher_uri, payload, handlers={
+                    200: self.handle_chunk,
+                    400: self.error_handler
+                })
                 self.handle_chunk(None, True)
             except Exception as ex:
                 if self._handler_error:

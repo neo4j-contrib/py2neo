@@ -24,7 +24,7 @@ def default_graph_db():
 class FailureTest(unittest.TestCase):
 
     def test_no_response(self):
-        self.assertRaises(rest.NoResponse,
+        self.assertRaises(rest.SocketError,
             neo4j.GraphDatabaseService,
             "http://localhsot:4747/data/db"
         )
@@ -33,11 +33,11 @@ class FailureTest(unittest.TestCase):
 class BadDatabaseURITest(unittest.TestCase):
 
     def test_wrong_host(self):
-        self.assertRaises(rest.NoResponse,
+        self.assertRaises(rest.SocketError,
             neo4j.GraphDatabaseService, "http://localtoast:7474/db/data/")
 
     def test_wrong_port(self):
-        self.assertRaises(rest.NoResponse,
+        self.assertRaises(rest.SocketError,
             neo4j.GraphDatabaseService, "http://localhost:7575/db/data/")
 
     def test_wrong_path(self):
@@ -335,7 +335,7 @@ class NewCreateTestCase(unittest.TestCase):
         self.assertEqual(results[0], results[1].end_node)
 
     def test_fails_on_bad_reference(self):
-        self.assertRaises(batch.BatchError, self.graph_db.create,
+        self.assertRaises(ValueError, self.graph_db.create,
             {"name": "Alice"},
             (0, "KNOWS", 1)
         )

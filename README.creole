@@ -9,7 +9,6 @@ In addition, the project provides support for the Graph Export Object File Forma
 Py2neo has been built against the following software:
 
 * Python 2.6+ <[[http://python.org/]]>
-* Tornado 2.2.1 <[[http://www.tornadoweb.org/]]>
 * Neo4j 1.6+ <[[http://neo4j.org/]]>
 
 Earlier versions of these may work but are not guaranteed to do so.
@@ -20,12 +19,6 @@ The easiest way to install py2neo is from the Python Package Index (PyPI), using
 
 {{{
 sudo pip install py2neo
-}}}
-
-You will also need to ensure that tornado is installed and up to date. This can be achieved with:
-
-{{{
-sudo pip install --upgrade tornado
 }}}
 
 Alternatively, you may prefer to use the latest code directly from GitHub:

@@ -1,17 +1,19 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+
 import sys
 PY3K = sys.version_info[0] >= 3
+
+from py2neo import cypher, neo4j
+from threading import Thread
+import unittest
+
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
-
-from threading import Thread
-import unittest
-
-from py2neo import cypher, neo4j
 
 
 class CypherTestCase(unittest.TestCase):
@@ -30,7 +32,7 @@ class CypherTestCase(unittest.TestCase):
 
     def test_nonsense_query_with_error_handler(self):
         def print_error(message, exception, stacktrace):
-            print message
+            print(message)
             self.assertTrue(len(message) > 0)
         cypher.execute(
             self.graph_db, "select z=nude(0) returns x",
@@ -85,6 +87,7 @@ class CypherTestCase(unittest.TestCase):
         )
         ab = a.create_relationship_to(b, "KNOWS")
         def check_metadata(metadata):
+            print(metadata)
             self.assertTrue(isinstance(metadata.columns, list))
             self.assertEqual(5, len(metadata.columns))
             self.assertEqual("a", metadata.columns[0])
@@ -93,6 +96,7 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual("a.name", metadata.columns[3])
             self.assertEqual("b.name", metadata.columns[4])
         def check_row(row):
+            print(row)
             self.assertTrue(isinstance(row, list))
             self.assertEqual(5, len(row))
             self.assertTrue(isinstance(row[0], neo4j.Node))
@@ -155,7 +159,7 @@ class CypherTestCase(unittest.TestCase):
             def run(self):
                 graph_db = neo4j.GraphDatabaseService()
                 query = "start z=node(*) return z"
-                for i in range(100):
+                for i in range(1):
                     cypher.execute(graph_db, query)
         queries = [BigQuery(), BigQuery(), BigQuery()]
         for q in queries:

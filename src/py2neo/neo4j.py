@@ -18,15 +18,10 @@
 the starting point for most applications.
 """
 
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011 Nigel Small"
-__license__   = "Apache License, Version 2.0"
-
-
 try:
-    import json
-except ImportError:
     import simplejson as json
+except ImportError:
+    import json
 try:
     from urllib.parse import quote
 except ImportError:
@@ -37,12 +32,19 @@ except ImportError:
     import rest, batch, cypher
 except ValueError:
     import rest, batch, cypher
-
 import logging
-logger = logging.getLogger(__name__)
+
+
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011 Nigel Small"
+__license__   = "Apache License, Version 2.0"
 
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
+
+logger = logging.getLogger(__name__)
+
+
 
 def _numberise(n):
     """Convert a value to an integer if possible, simply returning the input
@@ -96,13 +98,13 @@ class GraphDatabaseService(rest.Resource):
 
     """
 
-    def __init__(self, uri=None, metadata=None, **kwargs):
+    def __init__(self, uri=None, metadata=None):
         uri = uri or DEFAULT_URI
-        rest.Resource.__init__(self, uri, "/", metadata=metadata, **kwargs)
+        rest.Resource.__init__(self, uri, "/", metadata=metadata)
         # force metadata update to populate `_last_response` attribute
         self._metadata.update(self._get(self._uri))
         # force URI adjustment (in case supplied without trailing slash)
-        self._uri = rest.URI(self._last_response.effective_url, "/")
+        self._uri = rest.URI(self._last_location, "/")
         self._extensions = self._lookup('extensions')
         if 'neo4j_version' in self._metadata:
             # must be version 1.5 or greater
@@ -231,13 +233,10 @@ class GraphDatabaseService(rest.Resource):
             )
 
         """
-        try:
-            return map(batch.result, self._post(self._batch_uri, [
-                batch.creator(i, entity, self)
-                for i, entity in enumerate(entities)
-            ]), [self for e in entities])
-        except SystemError as err:
-            raise batch.BatchError(*err.args)
+        return map(batch.result, self._post(self._batch_uri, [
+            batch.creator(i, entity, self)
+            for i, entity in enumerate(entities)
+        ]), [self for e in entities])
 
     def create_node(self, properties=None):
         """Create and return a new node, optionally with properties supplied as

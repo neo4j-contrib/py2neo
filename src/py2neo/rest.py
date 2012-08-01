@@ -14,8 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tornado-based REST client for use with Neo4j REST interface.
+"""REST client based on httplib for use with Neo4j REST interface.
 """
+
+try:
+    import simplejson as json
+except ImportError:
+    import json
+import httplib
+import logging
+import socket
+import threading
+import time
+from urlparse import urlsplit
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -23,36 +34,27 @@ __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 
-from tornado import httpclient
+AUTO_REDIRECTS = [301, 302, 303, 307, 308]
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-import logging
 logger = logging.getLogger(__name__)
-
-import threading
-import time
-
 
 _thread_local = threading.local()
 
-def local_http_client():
-    if not hasattr(_thread_local, "http_client"):
-        _thread_local.http_client = httpclient.HTTPClient()
-    return _thread_local.http_client
+
+def local_client():
+    if not hasattr(_thread_local, "client"):
+        _thread_local.client = Client()
+    return _thread_local.client
 
 
-_REQUEST_PARAMS = {
-    "request_timeout": 300,    #: default 5 minutes timeout
-    "user_agent": "py2neo"
-}
-_REQUEST_HEADERS = {
-    "Accept": "application/json",
-    "Content-Type": "application/json"
-}
+class BadRequest(ValueError):
+
+    def __init__(self, data):
+        ValueError.__init__(self)
+        self.data = data
+
+    def __str__(self):
+        return repr(self.data)
 
 
 class ResourceNotFound(LookupError):
@@ -75,7 +77,7 @@ class ResourceConflict(EnvironmentError):
         return repr(self.uri)
 
 
-class NoResponse(IOError):
+class SocketError(IOError):
 
     def __init__(self, uri):
         IOError.__init__(self)
@@ -159,19 +161,89 @@ class URI(object):
         return str(self) != str(other)
 
 
+class Client(object):
+
+    def __init__(self):
+        self.http = {}
+        self.https = {}
+        self.headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Stream": "true",
+        }
+
+    def _http_connection(self, netloc):
+        if netloc not in self.http:
+            self.http[netloc] = httplib.HTTPConnection(netloc)
+        return self.http[netloc]
+
+    def _https_connection(self, netloc):
+        if netloc not in self.https:
+            self.https[netloc] = httplib.HTTPSConnection(netloc)
+        return self.https[netloc]
+
+    def _send_request(self, method, uri, data=None):
+        uri_values = urlsplit(uri)
+        scheme, netloc = uri_values[0:2]
+        if scheme == "http":
+            http = self._http_connection(netloc)
+        elif scheme == "https":
+            http = self._https_connection(netloc)
+        else:
+            raise ValueError("Unsupported URI scheme: " + scheme)
+        if uri_values[3]:
+            path = uri_values[2] + "?" + uri_values[3]
+        else:
+            path = uri_values[2]
+        if data is not None:
+            data = json.dumps(data)
+        logger.info("{0} {1}".format(method, path))
+        http.request(method, path, data, self.headers)
+        return http.getresponse()
+
+    def request(self, method, uri, data=None, **kwargs):
+        rs = self._send_request(method, uri, data)
+        if rs.status in AUTO_REDIRECTS:
+            # automatic redirection - discard data and call recursively
+            rs.read()
+            return self.request(
+                method, rs.getheader("Location"), data=data, **kwargs
+            )
+        else:
+            # direct response
+            rs_data = rs.read()
+            try:
+                rs_data = json.loads(rs_data)
+            except ValueError:
+                rs_data = None
+            return rs.status, uri, rs.getheaders(), rs_data
+
+    def get(self, uri, **kwargs):
+        return self.request("GET", uri, data=None, **kwargs)
+
+    def put(self, uri, data, **kwargs):
+        return self.request("PUT", uri, data=data, **kwargs)
+
+    def post(self, uri, data, **kwargs):
+        return self.request("POST", uri, data=data, **kwargs)
+
+    def delete(self, uri, **kwargs):
+        return self.request("DELETE", uri, data=None, **kwargs)
+
+
 class Resource(object):
     """Web service resource class, designed to work with a well-behaved REST
     web service.
 
-    :param uri:           the URI identifying this resource
-    :param metadata:      previously obtained resource metadata
+    :param uri:              the URI identifying this resource
+    :param reference_marker:
+    :param metadata:         previously obtained resource metadata
     """
 
-    def __init__(self, uri, reference_marker, metadata=None, **request_params):
+    def __init__(self, uri, reference_marker, metadata=None):
         self._uri = URI(uri, reference_marker)
-        self._request_params = _REQUEST_PARAMS.copy()
-        self._request_params.update(request_params)
-        self._last_response = None
+        self._last_location = None
+        self._last_headers = None
         self._metadata = PropertyCache(metadata)
 
     def __repr__(self):
@@ -189,66 +261,38 @@ class Resource(object):
         """
         return self._uri != other._uri
 
-    def _request(self, method, uri, data=None, **request_params):
+    def _request(self, method, uri, data=None):
         """Issue an HTTP request.
-        
+
         :param method: the HTTP method to use for this call
         :param uri: the URI of the resource to access
         :param data: optional data to be passed as request payload
-        :param request_params: extra parameters to be passed to HTTP engine
         :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
-        :raise ValueError: when supplied data is not appropriate (400)
+        :raise BadRequest: when supplied data is not appropriate (400)
         :raise ResourceNotFound: when URI is not found (404)
         :raise ResourceConflict: when a conflict occurs (409)
         :raise SystemError: when a server error occurs (500)
-        :raise NoResponse: when a connection fails or cannot be established
+        :raise SocketError: when a connection fails or cannot be established
         """
-        params = self._request_params.copy()
-        params.update(request_params)
-        params.update({
-            "method": method,
-            "headers": _REQUEST_HEADERS,
-            "body": data
-        })
         try:
-            logger.info("{0} {1}".format(method, uri))
-            response = local_http_client().fetch(str(uri), **params)
-            self._last_response = response
-            if response.code == 200:
-                if response.body:
-                    return json.loads(response.body)
-                else:
-                    return None
-            elif response.code == 201:
-                #return response.headers['location']
-                if response.body:
-                    return json.loads(response.body)
-                else:
-                    return None
-            elif response.code == 204:
+            status, self._last_location, self._last_headers, data = \
+            local_client().request(method, str(uri), data)
+            if status == 200:
+                return data
+            elif status == 201:
+                return data
+            elif status == 204:
                 return None
-        except httpclient.HTTPError as err:
-            self._last_response = err.response
-            if err.code == 400:
-                try:
-                    args = json.loads(err.response.body)
-                except ValueError:
-                    args = err.response.body
-                raise ValueError(args)
-            elif err.code == 404:
+            elif status == 400:
+                raise BadRequest(data)
+            elif status == 404:
                 raise ResourceNotFound(uri)
-            elif err.code == 409:
+            elif status == 409:
                 raise ResourceConflict(uri)
-            elif err.code == 500:
-                try:
-                    args = json.loads(err.response.body)
-                except ValueError:
-                    args = err.response.body
-                raise SystemError(args)
-            elif err.code == 599:
-                raise NoResponse(uri)
-            else:
-                raise err
+            elif status // 100 == 5:
+                raise SystemError(data)
+        except socket.error as err:
+            raise SocketError(err)
 
     def _get(self, uri, **kwargs):
         """Issue HTTP GET request.
@@ -258,12 +302,12 @@ class Resource(object):
     def _post(self, uri, data, **kwargs):
         """Issue HTTP POST request.
         """
-        return self._request('POST', uri, json.dumps(data), **kwargs)
+        return self._request('POST', uri, data, **kwargs)
 
     def _put(self, uri, data, **kwargs):
         """Issue HTTP PUT request.
         """
-        return self._request('PUT', uri, json.dumps(data), **kwargs)
+        return self._request('PUT', uri, data, **kwargs)
 
     def _delete(self, uri, **kwargs):
         """Issue HTTP DELETE request.
