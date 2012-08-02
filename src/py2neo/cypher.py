@@ -40,7 +40,7 @@ import threading
 _thread_local = threading.local()
 
 
-DEFAULT_BLOCK_SIZE = 8192
+DEFAULT_BLOCK_SIZE = 80  #8192
 
 def local_client():
     if not hasattr(_thread_local, "client"):
@@ -149,7 +149,7 @@ class Query(object):
         def __init__(self, graph_db, query, params=None, row_handler=None, metadata_handler=None, error_handler=None):
 
             self._graph_db = graph_db
-            self._body = []
+            self._data = ""
             self._decoder = json.JSONDecoder()
 
             self._section = None
@@ -162,18 +162,16 @@ class Query(object):
 
             try:
                 if params:
-                    payload = {"query": str(query), "params": dict(params)}
+                    params = dict(params)
                 else:
-                    payload = {"query": str(query)}
+                    params = {}
                 self.row_handler = row_handler
                 self.metadata_handler = metadata_handler
                 self.error_handler = error_handler
-                status, self._last_location, self._last_headers, data = \
-                local_client().post(graph_db._cypher_uri, payload, handlers={
-                    200: self.handle_chunk,
+                local_client().execute_query("POST", graph_db._cypher_uri, str(query), params, handlers={
+                    200: self.handle_block,
                     400: self.error_handler
                 })
-                self.handle_chunk(None, True)
             except Exception as ex:
                 if self._handler_error:
                     raise self._handler_error
@@ -184,32 +182,22 @@ class Query(object):
         def metadata(self):
             return self._metadata
 
-        def handle_chunk(self, data, finish=False):
-            if data:
-                self._body.extend(data.splitlines(True))
-            while self._body:
-                line = self._body.pop(0)
-                if line.endswith("\n"):
-                    self.handle_line(line)
-                elif self._body:
-                    self._body[0] = line + self._body[0]
-                elif finish:
-                    self.handle_line(line)
-                else:
-                    self._body.insert(0, line)
-                    return
-
-        def handle_line(self, line):
-            while len(line) > 0:
-                line = line.strip()
-                if line:
-                    if line[0] in ",:[]{}":
-                        self.handle_token(line[0], None)
-                        line = line[1:]
+        def handle_block(self, data):
+            self._data += data
+            while self._data:
+                self._data = self._data.strip()
+                if self._data:
+                    if self._data[0] in ",:[]{}":
+                        self.handle_token(self._data[0], None)
+                        self._data = self._data[1:]
                     else:
-                        value, pos = self._decoder.raw_decode(line)
-                        self.handle_token(line[:pos], value)
-                        line = line[pos:]
+                        try:
+                            value, pos = self._decoder.raw_decode(self._data)
+                            self.handle_token(self._data[:pos], value)
+                            self._data = self._data[pos:]
+                        except json.JSONDecodeError:
+                            # need more data - wait for next block
+                            break
 
         def handle_token(self, src, value):
             if src in "]}":

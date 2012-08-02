@@ -71,6 +71,15 @@ class Direction(object):
     OUTGOING = 'outgoing'
 
 
+def _direction_prefix(direction):
+    if direction == Direction.BOTH:
+        return "all"
+    elif direction == Direction.INCOMING:
+        return "incoming"
+    elif direction == Direction.OUTGOING:
+        return "outgoing"
+
+
 class GraphDatabaseService(rest.Resource):
     """An instance of a `Neo4j <http://neo4j.org/>`_ database identified by its
     base URI. Generally speaking, this is the only URI which a system
@@ -627,11 +636,11 @@ class Node(PropertyContainer):
         given `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(direction + '_typed_relationships').replace(
+            uri = self._lookup(_direction_prefix(direction) + '_typed_relationships').replace(
                 '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
             )
         else:
-            uri = self._lookup(direction + '_relationships')
+            uri = self._lookup(_direction_prefix(direction) + '_relationships')
         return [
             Node(rel['start'] if rel['end'] == self._uri else rel['end'], graph_db=self._graph_db)
             for rel in self._get(uri)
@@ -642,11 +651,11 @@ class Node(PropertyContainer):
         `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(direction + '_typed_relationships').replace(
+            uri = self._lookup(_direction_prefix(direction) + '_typed_relationships').replace(
                 '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
             )
         else:
-            uri = self._lookup(direction + '_relationships')
+            uri = self._lookup(_direction_prefix(direction) + '_relationships')
         return [
             Relationship(rel['self'])
             for rel in self._get(uri)
