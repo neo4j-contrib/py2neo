@@ -46,6 +46,12 @@ def local_client():
         _thread_local.client = CypherClient()
     return _thread_local.client
 
+def _payload(query, params=None):
+    if params:
+        return {"query": str(query), "params": dict(params)}
+    else:
+        return {"query": str(query)}
+
 
 class CypherError(ValueError):
 
@@ -62,11 +68,8 @@ class CypherClient(rest.Client):
         rest.Client.__init__(self)
         self.block_size = DEFAULT_BLOCK_SIZE
 
-    def execute_query(self, method, uri, query="", params={}, handlers={}):
-        data = {
-            "query": query,
-            "params": params,
-        }
+    def execute_query(self, method, uri, query="", params=None, handlers=None):
+        data = _payload(query, params)
         if handlers:
             rs = self._send_request(method, uri, data)
             if rs.status in handlers:
@@ -96,7 +99,7 @@ class Query(object):
         self.graph_db = graph_db
         self.query = query
 
-    def execute(self, params=None, row_handler=None, metadata_handler=None, error_handler=None, **kwargs):
+    def execute(self, params=None, row_handler=None, metadata_handler=None, error_handler=None):
         logger.info((self.graph_db, self.query, params))
         if row_handler or metadata_handler:
             e = Query._Execution(self.graph_db, self.query, params,
@@ -104,13 +107,9 @@ class Query(object):
             )
             return [], e.metadata
         else:
-            if params:
-                payload = {"query": str(self.query), "params": dict(params)}
-            else:
-                payload = {"query": str(self.query)}
             try:
                 response = self.graph_db._post(
-                    self.graph_db._cypher_uri, payload, **kwargs
+                    self.graph_db._cypher_uri, _payload(self.query, params)
                 )
             except rest.BadRequest as err:
                 if error_handler:
@@ -248,7 +247,7 @@ class Query(object):
                 self._depth += 1
             self._last_value = value
 
-def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, **kwargs):
+def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None):
     """Execute a Cypher query against a database and return a tuple of rows and
     metadata. If handlers are supplied, an empty list of rows is returned
     instead, with each row being passed to the row_handler as it becomes
@@ -260,11 +259,8 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     :param params: parameters to apply to the query provided
     :param row_handler: a handler function for each row returned
     :param metadata_handler: a handler function for returned metadata
-    :param kwargs: extra parameters to forward to the underlying HTTP request;
-        long-running queries may benefit from the request_timeout parameter in
-        order to avoid timeout errors
     """
     return Query(graph_db, query).execute(
         params, row_handler=row_handler,
-        metadata_handler=metadata_handler, **kwargs
+        metadata_handler=metadata_handler
     )
