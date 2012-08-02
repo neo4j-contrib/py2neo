@@ -172,34 +172,45 @@ class Client(object):
             "X-Stream": "true",
         }
 
-    def _http_connection(self, netloc):
-        if netloc not in self.http:
+    def _connection(self, scheme, netloc, reconnect=False):
+        if scheme == "http":
+            return self._http_connection(netloc, reconnect)
+        elif scheme == "https":
+            return self._https_connection(netloc, reconnect)
+        else:
+            raise ValueError("Unsupported URI scheme: " + scheme)
+
+    def _http_connection(self, netloc, reconnect=False):
+        if netloc not in self.http or reconnect:
             self.http[netloc] = httplib.HTTPConnection(netloc)
         return self.http[netloc]
 
-    def _https_connection(self, netloc):
-        if netloc not in self.https:
+    def _https_connection(self, netloc, reconnect=False):
+        if netloc not in self.https or reconnect:
             self.https[netloc] = httplib.HTTPSConnection(netloc)
         return self.https[netloc]
 
     def _send_request(self, method, uri, data=None):
+        reconnect = False
         uri_values = urlsplit(uri)
         scheme, netloc = uri_values[0:2]
-        if scheme == "http":
-            http = self._http_connection(netloc)
-        elif scheme == "https":
-            http = self._https_connection(netloc)
-        else:
-            raise ValueError("Unsupported URI scheme: " + scheme)
-        if uri_values[3]:
-            path = uri_values[2] + "?" + uri_values[3]
-        else:
-            path = uri_values[2]
-        if data is not None:
-            data = json.dumps(data)
-        logger.info("{0} {1}".format(method, path))
-        http.request(method, path, data, self.headers)
-        return http.getresponse()
+        for tries in range(1, 4):
+            http = self._connection(scheme, netloc, reconnect)
+            if uri_values[3]:
+                path = uri_values[2] + "?" + uri_values[3]
+            else:
+                path = uri_values[2]
+            if data is not None:
+                data = json.dumps(data)
+            logger.info("{0} {1}".format(method, path))
+            try:
+                http.request(method, path, data, self.headers)
+                return http.getresponse()
+            except httplib.HTTPException as err:
+                if tries < 3:
+                    reconnect = True
+                else:
+                    raise err
 
     def request(self, method, uri, data=None, **kwargs):
         rs = self._send_request(method, uri, data)
