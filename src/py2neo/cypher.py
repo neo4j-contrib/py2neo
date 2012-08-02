@@ -27,20 +27,19 @@ try:
     import simplejson as json
 except ImportError:
     import json
+import logging
+import threading
 try:
     from . import neo4j, rest
 except ImportError:
     import neo4j, rest
 
-import logging
 logger = logging.getLogger(__name__)
-import threading
-
 
 _thread_local = threading.local()
 
 
-DEFAULT_BLOCK_SIZE = 80  #8192
+DEFAULT_BLOCK_SIZE = 8192
 
 def local_client():
     if not hasattr(_thread_local, "client"):
@@ -172,6 +171,8 @@ class Query(object):
                     200: self.handle_block,
                     400: self.error_handler
                 })
+                if self._data:
+                    raise ValueError("Unexpected data: " + self._data)
             except Exception as ex:
                 if self._handler_error:
                     raise self._handler_error
