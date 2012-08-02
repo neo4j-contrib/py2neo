@@ -247,7 +247,7 @@ class Query(object):
                 self._depth += 1
             self._last_value = value
 
-def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None):
+def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, error_handler=None):
     """Execute a Cypher query against a database and return a tuple of rows and
     metadata. If handlers are supplied, an empty list of rows is returned
     instead, with each row being passed to the row_handler as it becomes
@@ -259,8 +259,8 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     :param params: parameters to apply to the query provided
     :param row_handler: a handler function for each row returned
     :param metadata_handler: a handler function for returned metadata
+    :param error_handler: a handler function for error conditions
     """
     return Query(graph_db, query).execute(
-        params, row_handler=row_handler,
-        metadata_handler=metadata_handler
+        params, row_handler=row_handler, metadata_handler=metadata_handler, error_handler=error_handler
     )
