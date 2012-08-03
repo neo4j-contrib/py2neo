@@ -285,6 +285,35 @@ class GraphDatabaseService(rest.Resource):
         else:
             return None
 
+    def get_indexed_node(self, index, key, value):
+        """Fetch the first node indexed with the specified details, returning
+        :py:const:`None` if none found.
+        """
+        index = self.get_index(Node, index)
+        if index:
+            nodes = index.get(key, value)
+            if nodes:
+                return nodes[0]
+        return None
+
+    def get_or_create_indexed_node(self, index, key, value):
+        """Fetch the first node indexed with the specified details, creating
+        and returning an empty node if none found.
+        """
+        index = self.get_or_create_index(Node, index)
+        return index.get_or_create(key, value, {})
+
+    def get_indexed_relationship(self, index, key, value):
+        """Fetch the first relationship indexed with the specified details,
+        returning :py:const:`None` if none found.
+        """
+        index = self.get_index(Relationship, index)
+        if index:
+            relationships = index.get(key, value)
+            if relationships:
+                return relationships[0]
+        return None
+
     def get_indexes(self, type):
         """Fetch a dictionary of all available indexes of a given type.
         """
