@@ -388,22 +388,28 @@ class GraphDatabaseService(rest.Resource):
             )
 
             # ensure Alice and Bob and related
-            ab = graph_db.relate((alice, "LOVES", bob, {"since": 2006}))
+            ab, = graph_db.get_or_create_relationships(
+                (alice, "LOVES", bob, {"since": 2006})
+            )
 
             # ensure relationships exist between Alice, Bob and Carol
             # creating new relationships only where necessary
-            rels = graph_db.relate(
+            rels = graph_db.get_or_create_relationships(
                 (alice, "LOVES", bob), (bob, "LIKES", alice),
                 (carol, "LOVES", bob), (alice, "HATES", carol),
             )
 
             # ensure Alice has an outgoing LIKES relationship
             # (a new node will be created if required)
-            friendship = graph_db.relate((alice, "LIKES", None))
+            friendship, = graph_db.get_or_create_relationships(
+                (alice, "LIKES", None)
+            )
 
             # ensure Alice has an incoming LIKES relationship
             # (a new node will be created if required)
-            friendship = graph_db.relate((None, "LIKES", alice))
+            friendship, = graph_db.get_or_create_relationships(
+                (None, "LIKES", alice)
+            )
 
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
