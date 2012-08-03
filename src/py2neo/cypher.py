@@ -195,7 +195,7 @@ class Query(object):
                             value, pos = self._decoder.raw_decode(self._data)
                             self.handle_token(self._data[:pos], value)
                             self._data = self._data[pos:]
-                        except json.JSONDecodeError:
+                        except ValueError:
                             # need more data - wait for next block
                             break
 
