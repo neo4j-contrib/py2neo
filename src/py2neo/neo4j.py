@@ -270,6 +270,21 @@ class GraphDatabaseService(rest.Resource):
             for i, entity in enumerate(entities)
         ])
 
+    def get_index(self, type, name, config=None):
+        """Fetch a specific index from the current database, returning an
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, :py:const:`None` is returned.
+
+        .. seealso:: :py:func:`get_or_create_index`
+        .. seealso:: :py:class:`Index`
+        """
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            return self._indexes[type][name]
+        else:
+            return None
+
     def get_indexes(self, type):
         """Fetch a dictionary of all available indexes of a given type.
         """
@@ -311,6 +326,7 @@ class GraphDatabaseService(rest.Resource):
             # get or create a relationship index called "Friends"
             friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
 
+        .. seealso:: :py:func:`get_index`
         .. seealso:: :py:class:`Index`
         """
         if name not in self._indexes[type]:
