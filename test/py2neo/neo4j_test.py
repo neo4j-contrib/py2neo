@@ -8,7 +8,7 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
-from py2neo import neo4j, rest, batch
+from py2neo import neo4j, rest
 
 import unittest
 

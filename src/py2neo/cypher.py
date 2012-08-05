@@ -68,25 +68,30 @@ class CypherClient(rest.Client):
         rest.Client.__init__(self)
         self.block_size = DEFAULT_BLOCK_SIZE
 
-    def execute_query(self, method, uri, query="", params=None, handlers=None):
-        data = _payload(query, params)
-        if handlers:
-            rs = self._send_request(method, uri, data)
-            if rs.status in handlers:
-                # asynchronous - use handler for each block received
-                handler = handlers[rs.status]
-                if self.block_size > 0:
-                    while True:
-                        block = rs.read(self.block_size)
-                        if block:
-                            handler(block)
-                        else:
-                            break
-                else:
-                    handler(rs.read())
-                return rs.status, uri, rs.getheaders(), None
-        else:
-            return rest.Client.request(self, method, uri, data)
+    def _client(self):
+        """Fetch the HTTP client for use by this resource.
+        Uses the client belonging to the local thread.
+        """
+        global _thread_local
+        if not hasattr(_thread_local, "client"):
+            _thread_local.client = CypherClient()
+        return _thread_local.client
+
+    def send(self, request, handlers=None):
+        rs = self._send_request(request.method, request.uri, request.body)
+        if rs.status in handlers:
+            # asynchronous - use handler for each block received
+            handler = handlers[rs.status]
+            if self.block_size > 0:
+                while True:
+                    block = rs.read(self.block_size)
+                    if block:
+                        handler(block)
+                    else:
+                        break
+            else:
+                handler(rs.read())
+        return rest.Response(rs.status, request.uri, rs.getheader("Location", None))
 
 
 class Query(object):
@@ -108,8 +113,8 @@ class Query(object):
             return [], e.metadata
         else:
             try:
-                response = self.graph_db._post(
-                    self.graph_db._cypher_uri, _payload(self.query, params)
+                rs = self.graph_db._send(
+                    rest.Request(self.graph_db, "POST", self.graph_db._cypher_uri, _payload(self.query, params))
                 )
             except rest.BadRequest as err:
                 if error_handler:
@@ -128,7 +133,7 @@ class Query(object):
                         exception=err.data["exception"],
                         stacktrace=err.data["stacktrace"]
                     )
-            rows, columns = response['data'], response['columns']
+            rows, columns = rs.body['data'], rs.body['columns']
             return [map(self.graph_db._resolve, row) for row in rows], Query.Metadata(columns)
 
 
@@ -166,10 +171,13 @@ class Query(object):
                 self.row_handler = row_handler
                 self.metadata_handler = metadata_handler
                 self.error_handler = error_handler
-                local_client().execute_query("POST", graph_db._cypher_uri, str(query), params, handlers={
-                    200: self.handle_block,
-                    400: self.error_handler
-                })
+                local_client().send(
+                    rest.Request(graph_db, "POST", graph_db._cypher_uri, _payload(query, params)),
+                    handlers={
+                        200: self.handle_block,
+                        400: self.error_handler,
+                    }
+                )
                 if self._data:
                     raise ValueError("Unexpected data: " + self._data)
             except Exception as ex:

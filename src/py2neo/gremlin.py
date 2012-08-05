@@ -18,11 +18,14 @@
 Gremlin utility module
 """
 
+import logging
+
+from py2neo import rest
+
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -37,5 +40,5 @@ def execute(script, graph_db):
 	if graph_db._gremlin_uri is None:
 		raise NotImplementedError("Gremlin functionality not available")
 	else:
-		response = graph_db._post(graph_db._gremlin_uri, {'script': script})
-		return response
+		rs = graph_db._send(rest.Request(graph_db, "POST", graph_db._gremlin_uri, {'script': script}))
+		return rs.body

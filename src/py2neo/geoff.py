@@ -47,9 +47,9 @@ try:
 except ImportError:
     import simplejson as json
 try:
-    from . import neo4j
+    from . import neo4j, rest
 except ValueError:
-    import neo4j
+    import neo4j, rest
 import re
 
 try:
@@ -280,10 +280,10 @@ class Subgraph(object):
             uri = graph_db._extension_uri('GeoffPlugin', 'insert')
         except NotImplementedError:
             raise NotImplementedError("Geoff plugin not available for insert")
-        response = graph_db._post(
-            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
-        )
-        return response['params']
+        rs = graph_db._send(
+            rest.Request(graph_db, "POST", uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        ))
+        return rs.body['params']
 
     def merge_into(self, graph_db, **params):
         """Merge this subgraph into a graph database via Geoff plugin.
@@ -292,10 +292,10 @@ class Subgraph(object):
             uri = graph_db._extension_uri('GeoffPlugin', 'merge')
         except NotImplementedError:
             raise NotImplementedError("Geoff plugin not available for merge")
-        response = graph_db._post(
-            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
-        )
-        return response['params']
+        rs = graph_db._send(
+            rest.Request(graph_db, "POST", uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        ))
+        return rs.body['params']
 
     def delete_from(self, graph_db, **params):
         """Delete this subgraph from a graph database via Geoff plugin.
@@ -304,7 +304,7 @@ class Subgraph(object):
             uri = graph_db._extension_uri('GeoffPlugin', 'delete')
         except NotImplementedError:
             raise NotImplementedError("Geoff plugin not available for delete")
-        response = graph_db._post(
-            uri, {'subgraph': [self.dumps()], 'params': dict(params)}
-        )
-        return response['params']
+        rs = graph_db._send(
+            rest.Request(graph_db, "POST", uri, {'subgraph': [self.dumps()], 'params': dict(params)}
+        ))
+        return rs.body['params']
