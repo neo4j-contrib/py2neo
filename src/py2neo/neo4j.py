@@ -647,7 +647,7 @@ class PropertyContainer(rest.Resource):
         """Return all properties for this resource.
         """
         rs = self._send(rest.Request(self._graph_db, "GET", self._lookup('properties')))
-        if rs:
+        if rs.body:
             return rs.body
         else:
             return {}

@@ -307,12 +307,8 @@ class Resource(object):
         """
         try:
             response = self._client().send(request)
-            if response.status == 200:
+            if response.status // 100 == 2:
                 return response
-            elif response.status == 201:
-                return response
-            elif response.status == 204:
-                return None
             elif response.status == 400:
                 raise BadRequest(response.body)
             elif response.status == 404:
