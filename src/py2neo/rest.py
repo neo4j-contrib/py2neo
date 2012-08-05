@@ -268,7 +268,7 @@ class Resource(object):
         self._uri = URI(uri, reference_marker)
         self._last_location = None
         self._last_headers = None
-        self._metadata = PropertyCache(metadata)
+        self.__metadata = PropertyCache(metadata)
 
     def __repr__(self):
         """Return a valid Python representation of this object.
@@ -320,17 +320,19 @@ class Resource(object):
         except socket.error as err:
             raise SocketError(err)
 
-    def _lookup(self, key):
+    def _metadata(self, key, default=None):
         """Look up a value in the resource metadata by key; will lazily load
         metadata if required.
         
         :param key: the key to look up
         """
-        if self._metadata.needs_update:
+        if self.__metadata.needs_update:
             rs = self._send(Request(None, "GET", self._uri))
-            self._metadata.update(rs.body)
-        if key in self._metadata:
-            return self._metadata[key]
+            self.__metadata.update(rs.body)
+        if key in self.__metadata:
+            return self.__metadata[key]
         else:
-            raise KeyError(key)
+            return default
 
+    def _update_metadata(self, metadata):
+        self.__metadata = PropertyCache(metadata)

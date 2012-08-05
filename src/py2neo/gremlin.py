@@ -30,15 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 def execute(script, graph_db):
-	"""
-	Execute a script against a database using the Gremlin plugin, if available.
+    """
+    Execute a script against a database using the Gremlin plugin, if available.
 
-	:param script:              a string containing the Gremlin script to execute
-	:raise NotImplementedError: if the Gremlin plugin is not available
-	:return:                    the result of the Gremlin script
-	"""
-	if graph_db._gremlin_uri is None:
-		raise NotImplementedError("Gremlin functionality not available")
-	else:
-		rs = graph_db._send(rest.Request(graph_db, "POST", graph_db._gremlin_uri, {'script': script}))
-		return rs.body
+    :param script:              a string containing the Gremlin script to execute
+    :raise NotImplementedError: if the Gremlin plugin is not available
+    :return:                    the result of the Gremlin script
+    """
+    try:
+        uri = graph_db._extension_uri('GremlinPlugin', 'execute_script')
+    except NotImplementedError:
+        raise NotImplementedError("Gremlin functionality not available")
+    rs = graph_db._send(rest.Request(graph_db, "POST", uri, {'script': script}))
+    return rs.body

@@ -133,35 +133,19 @@ class GraphDatabaseService(rest.Resource):
     def __init__(self, uri=None, metadata=None):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri, "/", metadata=metadata)
-        # force metadata update to populate `_last_response` attribute
         rs = self._send(rest.Request(self, "GET", self._uri))
-        self._metadata.update(rs.body)
+        self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self._uri = rest.URI(rs.uri, "/")
-        self._extensions = self._lookup('extensions')
-        if 'neo4j_version' in self._metadata:
-            # must be version 1.5 or greater
-            self._neo4j_version = self._lookup('neo4j_version')
-            self._batch_uri = self._lookup('batch')
-        else:
-            # assume version 1.4
-            self._neo4j_version = "1.4"
-            self._batch_uri = self._uri.base + "/batch"
-        if 'cypher' in self._metadata:
-            self._cypher_uri = self._lookup('cypher')
-        else:
+        self._extensions = self._metadata('extensions')
+        self._neo4j_version = self._metadata('neo4j_version', "1.4")
+        self._batch_uri = self._metadata('batch', self._uri.base + "/batch")
+        self._cypher_uri = self._metadata('cypher')
+        if not self._cypher_uri:
             try:
                 self._cypher_uri = self._extension_uri('CypherPlugin', 'execute_query')
             except NotImplementedError:
                 self._cypher_uri = None
-        try:
-            self._geoff_uri = self._extension_uri('GeoffPlugin', 'load_from_string')
-        except NotImplementedError:
-            self._geoff_uri = None
-        try:
-            self._gremlin_uri = self._extension_uri('GremlinPlugin', 'execute_script')
-        except NotImplementedError:
-            self._gremlin_uri = None
         self._neo4j_version = tuple(map(_numberise, self._neo4j_version.replace("-", ".").split(".")))
         self._node_indexes = {}
         self._relationship_indexes = {}
@@ -200,12 +184,10 @@ class GraphDatabaseService(rest.Resource):
             # is a neo4j resolvable entity
             uri = data["self"]
             if "type" in data:
-                rel = Relationship(uri, graph_db=self)
-                rel._metadata = rest.PropertyCache(data)
+                rel = Relationship(uri, graph_db=self, metadata=data)
                 return rel
             else:
-                node = Node(uri, graph_db=self)
-                node._metadata = rest.PropertyCache(data)
+                node = Node(uri, graph_db=self, metadata=data)
                 return node
         elif isinstance(data, dict) and "length" in data and \
              "nodes" in data and "relationships" in data and \
@@ -270,12 +252,12 @@ class GraphDatabaseService(rest.Resource):
                 try:
                     if isinstance(abstract[0], Node):
                         abstract[0]._must_belong_to(self)
-                        start_node_uri = rest.URI(abstract[0]._lookup("self"), "/node").reference
+                        start_node_uri = rest.URI(abstract[0]._metadata("self"), "/node").reference
                     else:
                         start_node_uri = "{" + str(abstract[0]) + "}"
                     if isinstance(abstract[2], Node):
                         abstract[2]._must_belong_to(self)
-                        end_node_uri = rest.URI(abstract[2]._lookup("self"), "/node").reference
+                        end_node_uri = rest.URI(abstract[2]._metadata("self"), "/node").reference
                     else:
                         end_node_uri = "{" + str(abstract[2]) + "}"
                     batch.append(rest.Request(self, "POST", start_node_uri + "/relationships", {
@@ -297,7 +279,7 @@ class GraphDatabaseService(rest.Resource):
         .. seealso:: :py:func:`create`
 
         """
-        rs = self._send(rest.Request(self, "POST", self._lookup("node"), properties))
+        rs = self._send(rest.Request(self, "POST", self._metadata("node"), properties))
         return Node(rs.body["self"], graph_db=self)
 
     def delete(self, *entities):
@@ -357,9 +339,9 @@ class GraphDatabaseService(rest.Resource):
         """Fetch a dictionary of all available indexes of a given type.
         """
         if type == Node:
-            rq = rest.Request(self, "GET", self._lookup('node_index'))
+            rq = rest.Request(self, "GET", self._metadata('node_index'))
         elif type == Relationship:
-            rq = rest.Request(self, "GET", self._lookup('relationship_index'))
+            rq = rest.Request(self, "GET", self._metadata('relationship_index'))
         else:
             raise ValueError(type)
         rs = self._send(rq)
@@ -373,7 +355,7 @@ class GraphDatabaseService(rest.Resource):
     def get_node(self, id):
         """Fetch a node by its ID.
         """
-        return Node(self._lookup('node') + "/" + str(id), graph_db=self)
+        return Node(self._metadata('node') + "/" + str(id), graph_db=self)
 
     def get_node_count(self):
         """Fetch the number of nodes in this graph as an integer.
@@ -405,9 +387,9 @@ class GraphDatabaseService(rest.Resource):
             return self._indexes[type][name]
         else:
             if type == Node:
-                uri = self._lookup('node_index')
+                uri = self._metadata('node_index')
             elif type == Relationship:
-                uri = self._lookup('relationship_index')
+                uri = self._metadata('relationship_index')
             else:
                 raise ValueError(type)
             config = config or {}
@@ -509,7 +491,7 @@ class GraphDatabaseService(rest.Resource):
     def get_relationship(self, id):
         """Fetch a relationship by its ID.
         """
-        return Relationship(self._lookup('relationship') + "/" + str(id), graph_db=self)
+        return Relationship(self._metadata('relationship') + "/" + str(id), graph_db=self)
 
     def get_relationship_count(self):
         """Fetch the number of relationships in this graph as an integer.
@@ -524,12 +506,12 @@ class GraphDatabaseService(rest.Resource):
         """Fetch a list of relationship type names currently defined within
         this database instance.
         """
-        return self._send(rest.Request(self,"GET", self._lookup('relationship_types'))).body
+        return self._send(rest.Request(self,"GET", self._metadata('relationship_types'))).body
 
     def get_reference_node(self):
         """Fetch the reference node for the current graph.
         """
-        return Node(self._lookup('reference_node'), graph_db=self)
+        return Node(self._metadata('reference_node'), graph_db=self)
 
     def get_subreference_node(self, name):
         """Fetch a named subreference node from the current graph. If such a
@@ -601,14 +583,14 @@ class PropertyContainer(rest.Resource):
 
     def __delitem__(self, key):
         try:
-            self._send(rest.Request(self._graph_db, "DELETE", self._lookup('property').format(key=_quote(key, ""))))
+            self._send(rest.Request(self._graph_db, "DELETE", self._metadata('property').format(key=_quote(key, ""))))
         except rest.ResourceNotFound:
             pass
 
     def __getitem__(self, key):
         try:
             return self._send(
-                rest.Request(self._graph_db, "GET", self._lookup('property').format(key=_quote(key, "")))
+                rest.Request(self._graph_db, "GET", self._metadata('property').format(key=_quote(key, "")))
             ).body
         except rest.ResourceNotFound:
             return None
@@ -627,7 +609,7 @@ class PropertyContainer(rest.Resource):
             self.__delitem__(key)
         else:
             self._send(
-                rest.Request(self._graph_db, "PUT", self._lookup('property').format(key=_quote(key, "")), value)
+                rest.Request(self._graph_db, "PUT", self._metadata('property').format(key=_quote(key, "")), value)
             )
 
     def _must_belong_to(self, graph_db):
@@ -646,7 +628,7 @@ class PropertyContainer(rest.Resource):
     def get_properties(self):
         """Return all properties for this resource.
         """
-        rs = self._send(rest.Request(self._graph_db, "GET", self._lookup('properties')))
+        rs = self._send(rest.Request(self._graph_db, "GET", self._metadata('properties')))
         if rs.body:
             return rs.body
         else:
@@ -656,12 +638,12 @@ class PropertyContainer(rest.Resource):
         """Set all properties for this resource to the supplied dictionary of
         values.
         """
-        self._send(rest.Request(self._graph_db, "PUT", self._lookup('properties'), properties))
+        self._send(rest.Request(self._graph_db, "PUT", self._metadata('properties'), properties))
 
     def remove_properties(self):
         """Delete all properties for this resource.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._lookup('properties')))
+        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('properties')))
 
 
 class Node(PropertyContainer):
@@ -674,8 +656,8 @@ class Node(PropertyContainer):
     :param
     """
 
-    def __init__(self, uri, graph_db=None, metadata=None, **kwargs):
-        PropertyContainer.__init__(self, uri, "/node", graph_db=graph_db, metadata=metadata, **kwargs)
+    def __init__(self, uri, graph_db=None, metadata=None):
+        PropertyContainer.__init__(self, uri, "/node", graph_db=graph_db, metadata=metadata)
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
@@ -715,7 +697,7 @@ class Node(PropertyContainer):
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
-        rs = self._send(rest.Request(self._graph_db, "POST", self._lookup('create_relationship'), {
+        rs = self._send(rest.Request(self._graph_db, "POST", self._metadata('create_relationship'), {
             'to': str(other_node._uri),
             'type': type,
             'data': properties
@@ -725,18 +707,18 @@ class Node(PropertyContainer):
     def delete(self):
         """Delete this node from the database.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._lookup('self')))
+        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
 
     def get_related_nodes(self, direction=Direction.BOTH, *types):
         """Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(_direction_prefix(direction) + '_typed_relationships').replace(
+            uri = self._metadata(_direction_prefix(direction) + '_typed_relationships').replace(
                 '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
             )
         else:
-            uri = self._lookup(_direction_prefix(direction) + '_relationships')
+            uri = self._metadata(_direction_prefix(direction) + '_relationships')
         return [
             Node(rel['start'] if rel['end'] == self._uri else rel['end'], graph_db=self._graph_db)
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
@@ -747,11 +729,11 @@ class Node(PropertyContainer):
         `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._lookup(_direction_prefix(direction) + '_typed_relationships').replace(
+            uri = self._metadata(_direction_prefix(direction) + '_typed_relationships').replace(
                 '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
             )
         else:
-            uri = self._lookup(_direction_prefix(direction) + '_relationships')
+            uri = self._metadata(_direction_prefix(direction) + '_relationships')
         return [
             Relationship(rel['self'])
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
@@ -831,10 +813,10 @@ class Relationship(PropertyContainer):
     :param metadata:        index of resource metadata
     """
 
-    def __init__(self, uri, graph_db=None, metadata=None, **kwargs):
-        PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db, metadata=metadata, **kwargs)
-        self._type = self._lookup('type')
-        self._data = self._lookup('data')
+    def __init__(self, uri, graph_db=None, metadata=None):
+        PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db, metadata=metadata)
+        self._type = self._metadata('type')
+        self._data = self._metadata('data')
         self._start_node = None
         self._end_node = None
         self._id = int('0' + uri.rpartition('/')[-1])
@@ -858,21 +840,21 @@ class Relationship(PropertyContainer):
     def delete(self):
         """Delete this relationship from the database.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._lookup('self')))
+        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
 
     @property
     def end_node(self):
         """Return the end node of this relationship.
         """
         if not self._end_node:
-            self._end_node = Node(self._lookup('end'), graph_db=self._graph_db)
+            self._end_node = Node(self._metadata('end'), graph_db=self._graph_db)
         return self._end_node
 
     def get_other_node(self, node):
         """Return a node object representing the node within this
         relationship which is not the one supplied.
         """
-        if self._lookup('end') == node._uri:
+        if self._metadata('end') == node._uri:
             return self.start_node
         else:
             return self.end_node
@@ -899,7 +881,7 @@ class Relationship(PropertyContainer):
         """Return the start node of this relationship.
         """
         if not self._start_node:
-            self._start_node = Node(self._lookup('start'), graph_db=self._graph_db)
+            self._start_node = Node(self._metadata('start'), graph_db=self._graph_db)
         return self._start_node
 
     @property
