@@ -10,7 +10,6 @@ Requirements
 Py2neo has been built against the following software:
 
 * Python 2.6+ <http://python.org/>
-* Tornado 2.2.1 <http://www.tornadoweb.org/>
 * Neo4j 1.6+ <http://neo4j.org/>
 
 Earlier versions of these may work but are not guaranteed to do so.
