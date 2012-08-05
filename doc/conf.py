@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'py2neo'
-copyright = u'2012, Nigel Small'
+copyright = u'2011-2012, Nigel Small'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -248,7 +248,7 @@ texinfo_documents = [
 epub_title = u'py2neo'
 epub_author = u'Nigel Small'
 epub_publisher = u'Nigel Small'
-epub_copyright = u'2012, Nigel Small'
+epub_copyright = u'2011-2012, Nigel Small'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.

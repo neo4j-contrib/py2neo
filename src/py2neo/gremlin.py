@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-# Copyright 2011 Nigel Small
+# Copyright 2011-2012 Nigel Small
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Gremlin utility module
+"""Gremlin utility module
 """
 
 import logging
@@ -23,7 +23,7 @@ import logging
 from py2neo import rest
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011 Nigel Small"
+__copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
 logger = logging.getLogger(__name__)
