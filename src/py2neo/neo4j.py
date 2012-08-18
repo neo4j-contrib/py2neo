@@ -332,12 +332,12 @@ class GraphDatabaseService(rest.Resource):
                 return nodes[0]
         return None
 
-    def get_or_create_indexed_node(self, index, key, value):
+    def get_or_create_indexed_node(self, index, key, value, properties=None):
         """Fetch the first node indexed with the specified details, creating
-        and returning an empty node if none found.
+        and returning a node if none found.
         """
         index = self.get_or_create_index(Node, index)
-        return index.get_or_create(key, value, {})
+        return index.get_or_create(key, value, properties or {})
 
     def get_indexed_relationship(self, index, key, value):
         """Fetch the first relationship indexed with the specified details,
