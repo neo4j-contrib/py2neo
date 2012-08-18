@@ -149,8 +149,6 @@ class GraphDatabaseService(rest.Resource):
             except NotImplementedError:
                 self._cypher_uri = None
         self._neo4j_version = tuple(map(_numberise, self._neo4j_version.replace("-", ".").split(".")))
-        self._node_indexes = {}
-        self._relationship_indexes = {}
         self._indexes = {Node: {}, Relationship: {}}
 
     def _extension_uri(self, plugin_name, function_name):
