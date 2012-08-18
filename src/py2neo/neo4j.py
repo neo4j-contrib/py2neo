@@ -1048,6 +1048,14 @@ class Index(rest.Resource):
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
         """
+        if not entities:
+            return
+        if len(entities) == 1:
+            self._send(rest.Request(self._graph_db, "POST", str(self._uri), {
+                "key": key,
+                "value": value,
+                "uri": str(entities[0]._uri),
+            }))
         batch = Batch(self._graph_db)
         for entity in entities:
             batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
