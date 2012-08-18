@@ -32,7 +32,7 @@ for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
 
 
 def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+    return neo4j.GraphDatabaseService()
 
 
 class FailureTest(unittest.TestCase):
@@ -66,29 +66,25 @@ class BadDatabaseURITest(unittest.TestCase):
 class GraphDatabaseServiceTest(unittest.TestCase):
 
     def setUp(self):
-        self.gdb = default_graph_db()
-        print("Neo4j Version: {0}".format(repr(self.gdb._neo4j_version)))
-        print("Node count: {0}".format(self.gdb.get_node_count()))
-        print("Relationship count: {0}".format(self.gdb.get_relationship_count()))
+        self.graph_db = default_graph_db()
+        print("Neo4j Version: {0}".format(repr(self.graph_db._neo4j_version)))
+        print("Node count: {0}".format(self.graph_db.get_node_count()))
+        print("Relationship count: {0}".format(self.graph_db.get_relationship_count()))
 
-    def test_get_reference_node(self):
-        ref_node = self.gdb.get_reference_node()
-        self.assertIsNotNone(ref_node)
-
-    def test_create_node(self):
-        self.gdb.create_node()
+    def test_create_single_empty_node(self):
+        a, = self.graph_db.create({})
 
     def test_get_node_by_id(self):
-        a1 = self.gdb.create_node({"foo": "bar"})
-        a2 = self.gdb.get_node(a1.id)
+        a1, = self.graph_db.create({"foo": "bar"})
+        a2 = self.graph_db.get_node(a1.id)
         self.assertEqual(a1, a2)
 
     def test_create_node_with_property_dict(self):
-        node = self.gdb.create_node({"foo": "bar"})
+        node, = self.graph_db.create({"foo": "bar"})
         self.assertEqual("bar", node["foo"])
 
     def test_create_node_with_mixed_property_types(self):
-        node = self.gdb.create_node(
+        node, = self.graph_db.create(
             {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
         self.assertEqual(4, len(node.get_properties()))
@@ -98,7 +94,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(False, node["true"])
 
     def test_create_multiple_nodes(self):
-        nodes = self.gdb.create(
+        nodes = self.graph_db.create(
                 {},
                 {"foo": "bar"},
                 {"number": 42, "foo": "baz", "true": True},
@@ -119,13 +115,13 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(109, nodes[3]["number"])
 
     def test_batch_get_properties(self):
-        nodes = self.gdb.create(
+        nodes = self.graph_db.create(
                 {},
                 {"foo": "bar"},
                 {"number": 42, "foo": "baz", "true": True},
                 {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
-        props = self.gdb.get_properties(*nodes)
+        props = self.graph_db.get_properties(*nodes)
         self.assertEqual(4, len(props))
         self.assertEqual(0, len(props[0]))
         self.assertEqual(1, len(props[1]))
@@ -156,8 +152,8 @@ class SingleNodeTestCase(unittest.TestCase):
     }
 
     def setUp(self):
-        self.gdb = default_graph_db()
-        self.node = self.gdb.create_node(self.data)
+        self.graph_db = default_graph_db()
+        self.node, = self.graph_db.create(self.data)
 
     def test_is_created(self):
         self.assertIsNotNone(self.node)
@@ -401,18 +397,6 @@ class MultipleNodeTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
-
-
-#class IteratorTestCase(unittest.TestCase):
-#
-#    def setUp(self):
-#        self.graph_db = default_graph_db()
-#
-#    def test_rel_iterator(self):
-#        ref_node = self.graph_db.get_reference_node()
-#        for rel in self.graph_db.relationships(start_node=ref_node,
-#            type=None):
-#            print rel
 
 if __name__ == '__main__':
     unittest.main()

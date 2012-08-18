@@ -148,7 +148,9 @@ class GraphDatabaseService(rest.Resource):
                 self._cypher_uri = self._extension_uri('CypherPlugin', 'execute_query')
             except NotImplementedError:
                 self._cypher_uri = None
-        self._neo4j_version = tuple(map(_numberise, self._neo4j_version.replace("-", ".").split(".")))
+        self._neo4j_version = tuple(map(_numberise,
+            str(self._neo4j_version).replace("-", ".").split(".")
+        ))
         self._indexes = {Node: {}, Relationship: {}}
 
     def _extension_uri(self, plugin_name, function_name):
@@ -194,8 +196,8 @@ class GraphDatabaseService(rest.Resource):
              "start" in data and "end" in data:
             # is a path
             return Path(
-                map(Node, data["nodes"], [self for i in data["nodes"]]),
-                map(Relationship, data["relationships"], [self for i in data["relationships"]])
+                map(Node, data["nodes"], [self] * len(data["nodes"])),
+                map(Relationship, data["relationships"], [self] * len(data["relationships"]))
             )
         else:
             # is a plain value
@@ -244,6 +246,13 @@ class GraphDatabaseService(rest.Resource):
             )
 
         """
+        if not abstracts:
+            return []
+        if len(abstracts) == 1 and isinstance(abstracts[0], dict):
+            rs = self._send(
+                rest.Request(self, "POST", self._metadata("node"), abstracts[0])
+            )
+            return [Node(rs.body["self"], graph_db=self)]
         batch = Batch(self)
         for abstract in abstracts:
             if isinstance(abstract, dict):
@@ -285,13 +294,17 @@ class GraphDatabaseService(rest.Resource):
             category=DeprecationWarning,
             stacklevel=2,
         )
-        rs = self._send(rest.Request(self, "POST", self._metadata("node"), properties))
+        rs = self._send(
+            rest.Request(self, "POST", self._metadata("node"), properties)
+        )
         return Node(rs.body["self"], graph_db=self)
 
     def delete(self, *entities):
         """Delete multiple nodes and/or relationships as part of a single
         batch.
         """
+        if not entities:
+            return
         batch = Batch(self)
         for entity in entities:
             batch.append(rest.Request(self, "DELETE", entity._uri.reference))
@@ -486,6 +499,10 @@ class GraphDatabaseService(rest.Resource):
         of a single batch; returns a list of dictionaries in the same order
         as the supplied entities.
         """
+        if not entities:
+            return []
+        if len(entities) == 1:
+            return [entities[0].get_properties()]
         batch = Batch(self)
         for entity in entities:
             batch.append(rest.Request(self, "GET", entity._uri.reference))
@@ -654,7 +671,9 @@ class PropertyContainer(rest.Resource):
     def get_properties(self):
         """Return all properties for this resource.
         """
-        rs = self._send(rest.Request(self._graph_db, "GET", self._metadata('properties')))
+        rs = self._send(
+            rest.Request(self._graph_db, "GET", self._metadata('properties'))
+        )
         if rs.body:
             return rs.body
         else:
