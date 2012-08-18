@@ -34,6 +34,7 @@ except ImportError:
 except ValueError:
     import rest, cypher
 import logging
+import warnings
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -280,6 +281,12 @@ class GraphDatabaseService(rest.Resource):
         .. seealso:: :py:func:`create`
 
         """
+        warnings.warn(
+            "Function `create_node` is deprecated, "
+            "please use `create` instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         rs = self._send(rest.Request(self, "POST", self._metadata("node"), properties))
         return Node(rs.body["self"], graph_db=self)
 
@@ -507,17 +514,31 @@ class GraphDatabaseService(rest.Resource):
         """Fetch a list of relationship type names currently defined within
         this database instance.
         """
-        return self._send(rest.Request(self,"GET", self._metadata('relationship_types'))).body
+        return self._send(
+            rest.Request(self,"GET", self._metadata('relationship_types'))
+        ).body
 
     def get_reference_node(self):
         """Fetch the reference node for the current graph.
         """
+        warnings.warn(
+            "Function `get_reference_node` is deprecated, "
+            "please use indexed nodes instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         return Node(self._metadata('reference_node'), graph_db=self)
 
     def get_subreference_node(self, name):
         """Fetch a named subreference node from the current graph. If such a
         node does not exist, one is created.
         """
+        warnings.warn(
+            "Function `get_subreference_node` is deprecated, "
+            "please use indexed nodes instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         ref_node = self.get_reference_node()
         subreference_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
         if subreference_node is None:
@@ -536,6 +557,12 @@ class GraphDatabaseService(rest.Resource):
         replaced with CREATE UNIQUE before the final release of 1.8. Please
         see https://github.com/neo4j/community/pull/724_.
         """
+        warnings.warn(
+            "Function `relate` is deprecated, "
+            "please use `get_or_create_relationships` instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get_or_create_relationships(*relationships)
 
 
