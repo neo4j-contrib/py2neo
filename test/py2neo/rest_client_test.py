@@ -18,6 +18,7 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
+import logging
 import socket
 import unittest
 
@@ -28,6 +29,10 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    level=logging.DEBUG,
+)
 
 class RESTClientTestCase(unittest.TestCase):
 

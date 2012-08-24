@@ -229,7 +229,7 @@ class Client(object):
                 path = uri_values[2]
             if data is not None:
                 data = json.dumps(data)
-            logger.info("{0} {1}".format(method, path))
+            logger.debug("{0} {1}".format(method, path))
             try:
                 http.request(method, path, data, self.headers)
                 return http.getresponse()
