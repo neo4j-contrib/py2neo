@@ -47,16 +47,14 @@ try:
     import json
 except ImportError:
     import simplejson as json
-try:
-    from . import neo4j, rest
-except ValueError:
-    import neo4j, rest
 import re
 
 try:
     from io import StringIO
 except ImportError:
     from cStringIO import StringIO
+
+from . import neo4j, rest
 
 import logging
 logger = logging.getLogger(__name__)

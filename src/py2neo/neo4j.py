@@ -27,14 +27,10 @@ try:
     from urllib.parse import quote
 except ImportError:
     from urllib import quote
-try:
-    from . import rest, cypher
-except ImportError:
-    import rest, cypher
-except ValueError:
-    import rest, cypher
 import logging
 import warnings
+
+from . import rest, cypher
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -856,8 +852,7 @@ class Relationship(PropertyContainer):
 
     def __init__(self, uri, graph_db=None, metadata=None):
         PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db, metadata=metadata)
-        self._type = self._metadata('type')
-        self._data = self._metadata('data')
+        self._type = None
         self._start_node = None
         self._end_node = None
         self._id = int('0' + uri.rpartition('/')[-1])
@@ -909,7 +904,7 @@ class Relationship(PropertyContainer):
     def is_type(self, type):
         """Return :py:const:`True` if this relationship is of the given type.
         """
-        return self._type == type
+        return self.type == type
 
     @property
     def nodes(self):
@@ -929,6 +924,8 @@ class Relationship(PropertyContainer):
     def type(self):
         """Return the type of this relationship.
         """
+        if not self._type:
+            self._type = self._metadata('type')
         return self._type
 
 

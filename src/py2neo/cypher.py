@@ -30,10 +30,8 @@ except ImportError:
     import json
 import logging
 import threading
-try:
-    from . import neo4j, rest
-except ImportError:
-    import neo4j, rest
+
+from . import rest
 
 logger = logging.getLogger(__name__)
 

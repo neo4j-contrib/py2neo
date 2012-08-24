@@ -20,7 +20,7 @@
 
 import logging
 
-from py2neo import rest
+from . import rest
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"

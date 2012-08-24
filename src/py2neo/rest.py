@@ -22,12 +22,18 @@ try:
     import simplejson as json
 except ImportError:
     import json
-import httplib
+try:
+    import http.client as httplib
+except ImportError:
+    import httplib
 import logging
 import socket
 import threading
 import time
-from urlparse import urlsplit
+try:
+    from urllib.parse import urlsplit
+except ImportError:
+    from urlparse import urlsplit
 
 
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
@@ -248,7 +254,7 @@ class Client(object):
             return self.send(request, *args, **kwargs)
         else:
             # direct response
-            rs_body = rs.read()
+            rs_body = rs.read().decode("utf-8")
             try:
                 rs_body = json.loads(rs_body)
             except ValueError:
