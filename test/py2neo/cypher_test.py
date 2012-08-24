@@ -20,7 +20,6 @@ from __future__ import print_function
 import sys
 PY3K = sys.version_info[0] >= 3
 
-import logging
 from py2neo import cypher, neo4j
 from threading import Thread
 import unittest
@@ -29,11 +28,6 @@ import unittest
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
-
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    level=logging.DEBUG,
-)
 
 class CypherTestCase(unittest.TestCase):
 

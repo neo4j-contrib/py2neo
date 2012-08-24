@@ -133,7 +133,8 @@ class Query(object):
                         stacktrace=err.data["stacktrace"]
                     )
             rows, columns = rs.body['data'], rs.body['columns']
-            return [map(self.graph_db._resolve, row) for row in rows], Query.Metadata(columns)
+            return [list(map(self.graph_db._resolve, row)) for row in rows], \
+                   Query.Metadata(columns)
 
 
     class Metadata(object):
