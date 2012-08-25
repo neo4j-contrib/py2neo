@@ -43,7 +43,7 @@ class ParseTest(unittest.TestCase):
 
     def test_parsing_single_node_with_data(self):
         rules = geoff._parse('(A) {"name": "Alice"}')
-        self.assertEqual([(geoff.NODE, 'A', {u'name': u'Alice'})], rules)
+        self.assertEqual([(geoff.NODE, 'A', {'name': 'Alice'})], rules)
 
     def test_parsing_simple_graph(self):
         rules = geoff._parse(
@@ -52,8 +52,8 @@ class ParseTest(unittest.TestCase):
             '(A)-[:KNOWS]->(B)\n'
         )
         self.assertEqual([
-            (geoff.NODE, 'A', {u'name': u'Alice'}),
-            (geoff.NODE, 'B', {u'name': u'Bob'}),
+            (geoff.NODE, 'A', {'name': 'Alice'}),
+            (geoff.NODE, 'B', {'name': 'Bob'}),
             (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
         ], rules)
 
@@ -66,10 +66,10 @@ class ParseTest(unittest.TestCase):
             '(A)-[:KNOWS]->(B)\n'
         )
         self.assertEqual([
-            (geoff.UNKNOWN, None, ('(A)<=|People|', {u'name': u'Alice'})),
-            (geoff.UNKNOWN, None, ('(B)<=|People|', {u'name': u'Bob'})),
-            (geoff.NODE, 'A', {u'name': u'Alice Allison'}),
-            (geoff.NODE, 'B', {u'name': u'Bob Robertson'}),
+            (geoff.UNKNOWN, None, ('(A)<=|People|', {'name': 'Alice'})),
+            (geoff.UNKNOWN, None, ('(B)<=|People|', {'name': 'Bob'})),
+            (geoff.NODE, 'A', {'name': 'Alice Allison'}),
+            (geoff.NODE, 'B', {'name': 'Bob Robertson'}),
             (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
         ], rules)
 

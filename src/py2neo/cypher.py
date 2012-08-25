@@ -191,7 +191,7 @@ class Query(object):
             return self._metadata
 
         def handle_block(self, data):
-            self._data += data
+            self._data += data.decode("utf-8")
             while self._data:
                 self._data = self._data.strip()
                 if self._data:
@@ -233,7 +233,10 @@ class Query(object):
                 if token == (1, "]") or token == (2, ","):
                     if self._row and self.row_handler:
                         try:
-                            self.row_handler(map(self._graph_db._resolve, json.loads(self._row)))
+                            self.row_handler(list(map(
+                                self._graph_db._resolve,
+                                json.loads(self._row)
+                            )))
                         except Exception as ex:
                             self._handler_error = ex
                             raise ex

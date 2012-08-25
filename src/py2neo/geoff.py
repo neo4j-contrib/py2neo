@@ -35,9 +35,6 @@ it to the database server for insertion::
 
 """
 
-import sys
-PY3K = sys.version_info[0] >= 3
-
 __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
@@ -54,7 +51,7 @@ try:
 except ImportError:
     from cStringIO import StringIO
 
-from . import neo4j, rest
+from . import neo4j, rest, compat
 
 import logging
 logger = logging.getLogger(__name__)
@@ -209,7 +206,7 @@ class Subgraph(object):
                 continue
             if isinstance(item, list):
                 self.add(*item)
-            elif isinstance(item, (str, unicode)):
+            elif compat.is_string(item):
                 rules = _parse(item)
                 for type, key, abstract in rules:
                     if type == NODE:

@@ -192,8 +192,8 @@ class GraphDatabaseService(rest.Resource):
              "start" in data and "end" in data:
             # is a path
             return Path(
-                map(Node, data["nodes"], [self] * len(data["nodes"])),
-                map(Relationship, data["relationships"], [self] * len(data["relationships"]))
+                list(map(Node, data["nodes"], [self] * len(data["nodes"]))),
+                list(map(Relationship, data["relationships"], [self] * len(data["relationships"])))
             )
         else:
             # is a plain value
@@ -942,7 +942,7 @@ class Path(object):
             self._nodes = nodes
             self._relationships = relationships
         else:
-            raise ValueError
+            raise ValueError("A path with N nodes must contain N-1 relationships")
 
     def __str__(self):
         """Return a human-readable string representation of this path object,
