@@ -18,12 +18,6 @@
 """Cypher Query Language
 """
 
-
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011-2012 Nigel Small"
-__license__   = "Apache License, Version 2.0"
-
-
 try:
     import simplejson as json
 except ImportError:

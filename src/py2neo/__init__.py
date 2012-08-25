@@ -15,4 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__package__ = "py2neo"
+__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__copyright__ = "Copyright 2011-2012 Nigel Small"
+__license__   = "Apache License, Version 2.0"
+__package__   = "py2neo"
+__version__   = "1.3.0"

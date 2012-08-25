@@ -9,7 +9,7 @@ PY2NEO=`pwd`/`dirname $0`/..
 rm -rf $PY2NEO/dist
 
 # check version number for this code
-THIS_VERSION=`cat VERSION | awk '{print $1}'`
+THIS_VERSION=`python $PY2NEO/version.py`
 
 # check last release version number
 LAST_VERSION=`curl http://pypi.python.org/pypi/py2neo/json 2> /dev/null | grep '"version"' | awk -F\" '{print $4}'`

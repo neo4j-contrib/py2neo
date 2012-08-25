@@ -32,12 +32,6 @@ import warnings
 
 from . import rest, cypher
 
-
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011-2012 Nigel Small"
-__license__   = "Apache License, Version 2.0"
-
-
 DEFAULT_URI = "http://localhost:7474/db/data/"
 
 logger = logging.getLogger(__name__)
@@ -562,7 +556,7 @@ class GraphDatabaseService(rest.Resource):
     def relate(self, *relationships):
         """Alias for get_or_create_relationships. The Cypher RELATE clause was
         replaced with CREATE UNIQUE before the final release of 1.8. Please
-        see https://github.com/neo4j/community/pull/724_.
+        see `https://github.com/neo4j/community/pull/724_`.
         """
         warnings.warn(
             "Function `relate` is deprecated, "
@@ -688,9 +682,9 @@ class Node(PropertyContainer):
     :py:class:`_Indexable` and, as such, may also contain URIs identifying how
     this relationship is represented within an index.
     
-    :param uri:             URI identifying this node
-    :param metadata:        index of resource metadata
-    :param
+    :param uri:      URI identifying this node
+    :param graph_db: GraphDatabaseService in which this Node resides
+    :param metadata: index of resource metadata
     """
 
     def __init__(self, uri, graph_db=None, metadata=None):

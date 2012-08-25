@@ -35,18 +35,20 @@ try:
 except ImportError:
     from urlparse import urlsplit
 
+from . import __package__ as py2neo_package
+from . import __version__ as py2neo_version
 
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
-__copyright__ = "Copyright 2011-2012 Nigel Small"
-__license__   = "Apache License, Version 2.0"
-
-
-AUTO_REDIRECTS = [301, 302, 303, 307, 308]
 
 logger = logging.getLogger(__name__)
 
-_thread_local = threading.local()
+# HTTP status codes to count as automatic redirects
+_auto_redirects = [301, 302, 303, 307, 308]
 
+# User-Agent string to pass in HTTP requests
+_user_agent = py2neo_package + "/" + py2neo_version
+
+
+_thread_local = threading.local()
 
 def local_client():
     if not hasattr(_thread_local, "client"):
@@ -202,6 +204,7 @@ class Client(object):
         self.headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
+            "User-Agent": _user_agent,
             "X-Stream": "true",
         }
 
@@ -247,7 +250,7 @@ class Client(object):
 
     def send(self, request, *args, **kwargs):
         rs = self._send_request(request.method, request.uri, request.body)
-        if rs.status in AUTO_REDIRECTS:
+        if rs.status in _auto_redirects:
             # automatic redirection - discard data and call recursively
             rs.read()
             request.uri = rs.getheader("Location")

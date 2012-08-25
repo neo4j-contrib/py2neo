@@ -15,12 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module for compatibility across multiple Python versions"""
 
 import sys
-__PY3K = sys.version_info[0] >= 3
+sys.path.insert(0, "src")
+from py2neo import __version__ as py2neo_version
+sys.path.pop(0)
 
-if __PY3K:
-    is_string = lambda value: isinstance(value, str)
-else:
-    is_string = lambda value: isinstance(value, (str, unicode))
+if __name__ == "__main__":
+    sys.stdout.write(py2neo_version)
