@@ -31,6 +31,7 @@ import logging
 import socket
 import threading
 import time
+import sys
 try:
     from urllib.parse import urlsplit
 except ImportError:
@@ -76,7 +77,10 @@ def set_http_auth(netloc, user_name, password):
 http_headers = HTTPHeaders()
 http_headers.add("Accept", "application/json")
 http_headers.add("Content-Type", "application/json")
-http_headers.add("User-Agent", py2neo_package + "/" + py2neo_version)
+http_headers.add("User-Agent", "{0}/{1} ({2} python-{3})".format(
+    py2neo_package, py2neo_version,
+    sys.platform, sys.version.partition(" ")[0],
+))
 http_headers.add("X-Stream", "true")
 
 
