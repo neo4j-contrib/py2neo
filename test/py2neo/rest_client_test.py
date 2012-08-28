@@ -54,6 +54,7 @@ class RESTClientTestCase(unittest.TestCase):
 
     def test_rest_client_with_bad_path(self):
         rest_client = rest.Client()
+        rest.http_headers.add("X-Foo", "bar", ".*/foo/")
         uri = "http://localhost:7474/foo/"
         rs = rest_client.send(rest.Request(None, "GET", uri))
         self.assertEqual(404, rs.status)

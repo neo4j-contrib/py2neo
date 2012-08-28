@@ -26,6 +26,7 @@ try:
     import http.client as httplib
 except ImportError:
     import httplib
+import base64
 import logging
 import socket
 import threading
@@ -44,8 +45,39 @@ logger = logging.getLogger(__name__)
 # HTTP status codes to count as automatic redirects
 _auto_redirects = [301, 302, 303, 307, 308]
 
-# User-Agent string to pass in HTTP requests
-_user_agent = py2neo_package + "/" + py2neo_version
+
+class HTTPHeaders(object):
+
+    def __init__(self):
+        self._headers = {}
+
+    def add(self, key, value, netloc=None):
+        """Add an HTTP header to be sent with all requests if no `netloc`
+        is provided or only to those matching the value supplied otherwise.
+        """
+        if netloc in self._headers:
+            self._headers[netloc].append((key, value))
+        else:
+            self._headers[netloc] = [(key, value)]
+
+    def get(self, netloc):
+        """Fetch all HTTP headers relevant to the `netloc` provided.
+        """
+        uri_headers = {}
+        for n, headers in self._headers.items():
+            if n is None or n == netloc:
+                uri_headers.update(headers)
+        return uri_headers
+
+def set_http_auth(netloc, user_name, password):
+    value = "Basic " + base64.b64encode(user_name + ":" + password)
+    http_headers.add("Authorization", value, netloc=netloc)
+
+http_headers = HTTPHeaders()
+http_headers.add("Accept", "application/json")
+http_headers.add("Content-Type", "application/json")
+http_headers.add("User-Agent", py2neo_package + "/" + py2neo_version)
+http_headers.add("X-Stream", "true")
 
 
 _thread_local = threading.local()
@@ -201,12 +233,6 @@ class Client(object):
     def __init__(self):
         self.http = {}
         self.https = {}
-        self.headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "User-Agent": _user_agent,
-            "X-Stream": "true",
-        }
 
     def _connection(self, scheme, netloc, reconnect=False):
         if scheme == "http":
@@ -238,9 +264,13 @@ class Client(object):
                 path = uri_values[2]
             if data is not None:
                 data = json.dumps(data)
-            logger.debug("{0} {1}".format(method, path))
+            headers = http_headers.get(netloc)
+            if data:
+                logger.debug("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
+            else:
+                logger.debug("{0} {1} {2} (no data)".format(method, path, headers))
             try:
-                http.request(method, path, data, self.headers)
+                http.request(method, path, data, headers)
                 return http.getresponse()
             except httplib.HTTPException as err:
                 if tries < 3:
