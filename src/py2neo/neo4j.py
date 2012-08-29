@@ -133,7 +133,7 @@ class GraphDatabaseService(rest.Resource):
     """
 
     def __init__(self, uri=None, metadata=None):
-        uri = uri or DEFAULT_GRAPH_DB_URI
+        uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri, "/", metadata=metadata)
         rs = self._send(rest.Request(self, "GET", self._uri))
         self._update_metadata(rs.body)
