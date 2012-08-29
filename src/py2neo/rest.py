@@ -26,7 +26,6 @@ try:
     import http.client as httplib
 except ImportError:
     import httplib
-import base64
 import logging
 import socket
 import threading
@@ -69,10 +68,6 @@ class HTTPHeaders(object):
             if n is None or n == netloc:
                 uri_headers.update(headers)
         return uri_headers
-
-def set_http_auth(netloc, user_name, password):
-    value = "Basic " + base64.b64encode(user_name + ":" + password)
-    http_headers.add("Authorization", value, netloc=netloc)
 
 http_headers = HTTPHeaders()
 http_headers.add("Accept", "application/json")

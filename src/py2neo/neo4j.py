@@ -27,6 +27,7 @@ try:
     from urllib.parse import quote
 except ImportError:
     from urllib import quote
+import base64
 import logging
 import warnings
 
@@ -52,6 +53,24 @@ def _quote(string, safe='/'):
         return quote(string, safe)
     except Exception:
         return string
+
+
+def authenticate(netloc, user_name, password):
+    """Set HTTP basic authentication values for specified `netloc`. The code
+    below shows a simple example::
+
+        # set up authentication parameters
+        neo4j.authenticate("camelot:7474", "arthur", "excalibur")
+
+        # connect to authenticated graph database
+        graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
+
+    Note: a `netloc` can be either a server name or a server name and port
+    number but must match exactly that used within the GraphDatabaseService
+    URI.
+    """
+    value = "Basic " + base64.b64encode(user_name + ":" + password)
+    rest.http_headers.add("Authorization", value, netloc=netloc)
 
 
 class Direction(object):
