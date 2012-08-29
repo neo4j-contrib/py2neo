@@ -214,6 +214,10 @@ class GraphDatabaseService(rest.Resource):
 
     def clear(self):
         """Clear all nodes and relationships from the graph.
+
+        .. warning::
+            This method will permanently remove **all** nodes and relationships
+            from the graph and cannot be undone.
         """
         cypher.execute(self, "START n=node(*) "
                              "MATCH n-[r?]-() "
@@ -290,6 +294,8 @@ class GraphDatabaseService(rest.Resource):
         """Create and return a new node, optionally with properties supplied as
         a dictionary.
 
+        .. deprecated:: 1.3.1
+            use the :py:func:`create` method instead.
         .. seealso:: :py:func:`create`
 
         """
@@ -540,6 +546,9 @@ class GraphDatabaseService(rest.Resource):
 
     def get_reference_node(self):
         """Fetch the reference node for the current graph.
+
+        .. deprecated:: 1.3.1
+            use indexed nodes instead.
         """
         warnings.warn(
             "Function `get_reference_node` is deprecated, "
@@ -552,6 +561,9 @@ class GraphDatabaseService(rest.Resource):
     def get_subreference_node(self, name):
         """Fetch a named subreference node from the current graph. If such a
         node does not exist, one is created.
+
+        .. deprecated:: 1.3.1
+            use indexed nodes instead.
         """
         warnings.warn(
             "Function `get_subreference_node` is deprecated, "
@@ -573,9 +585,13 @@ class GraphDatabaseService(rest.Resource):
         return self._neo4j_version
 
     def relate(self, *relationships):
-        """Alias for get_or_create_relationships. The Cypher RELATE clause was
-        replaced with CREATE UNIQUE before the final release of 1.8. Please
-        see `https://github.com/neo4j/community/pull/724_`.
+        """Alias for the :py:func:`get_or_create_relationships` method. The
+        Cypher RELATE clause was replaced with CREATE UNIQUE before the final
+        release of 1.8. For more details please see
+        `<https://github.com/neo4j/community/pull/724>`_.
+
+        .. deprecated:: 1.3.1
+            use the :py:func:`get_or_create_relationships` method instead.
         """
         warnings.warn(
             "Function `relate` is deprecated, "
