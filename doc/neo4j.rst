@@ -6,6 +6,11 @@
 Connecting to a Graph
 ---------------------
 
+A default installation of Neo4j will use the URI below for the root of the
+graph database service:
+
+.. autoattribute:: py2neo.neo4j.DEFAULT_URI
+
 .. autoclass:: py2neo.neo4j.GraphDatabaseService
     :members:
     :show-inheritance:

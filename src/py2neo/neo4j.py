@@ -33,10 +33,9 @@ import warnings
 
 from . import rest, cypher
 
-DEFAULT_URI = "http://localhost:7474/db/data/"
-
 logger = logging.getLogger(__name__)
 
+DEFAULT_URI = "http://localhost:7474/db/data/"
 
 
 def _numberise(n):
@@ -77,18 +76,10 @@ class Direction(object):
     """Used to define the direction of a relationship.
     """
 
-    BOTH     = 'all'
-    INCOMING = 'incoming'
-    OUTGOING = 'outgoing'
-
-
-def _direction_prefix(direction):
-    if direction == Direction.BOTH:
-        return "all"
-    elif direction == Direction.INCOMING:
-        return "incoming"
-    elif direction == Direction.OUTGOING:
-        return "outgoing"
+    BOTH     =  0
+    EITHER   =  0
+    INCOMING = -1
+    OUTGOING =  1
 
 
 class Batch(object):
@@ -122,8 +113,8 @@ class GraphDatabaseService(rest.Resource):
     when possible (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_)
     or will be derived from existing URIs.
 
-    :param uri:       the base URI of the database (defaults to
-                      <http://localhost:7474/db/data/>)
+    :param uri:       the base URI of the database (defaults to the value of
+                      :py:data:`DEFAULT_URI`)
     :param metadata:  optional resource metadata
 
     The following code illustrates how to connect to a database server and
@@ -142,7 +133,7 @@ class GraphDatabaseService(rest.Resource):
     """
 
     def __init__(self, uri=None, metadata=None):
-        uri = uri or DEFAULT_URI
+        uri = uri or DEFAULT_GRAPH_DB_URI
         rest.Resource.__init__(self, uri, "/", metadata=metadata)
         rs = self._send(rest.Request(self, "GET", self._uri))
         self._update_metadata(rs.body)
@@ -775,43 +766,63 @@ class Node(PropertyContainer):
         """
         self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
 
-    def get_related_nodes(self, direction=Direction.BOTH, *types):
+    def _relationships_uri(self, direction):
+        if not isinstance(direction, int):
+            raise ValueError("Relationship direction must be an integer value")
+        if direction > 0:
+            uri = self._metadata('outgoing_relationships')
+        elif direction < 0:
+            uri = self._metadata('incoming_relationships')
+        else:
+            uri = self._metadata('all_relationships')
+        return uri
+
+    def _typed_relationships_uri(self, direction, types):
+        if not isinstance(direction, int):
+            raise ValueError("Relationship direction must be an integer value")
+        if direction > 0:
+            uri = self._metadata('outgoing_typed_relationships')
+        elif direction < 0:
+            uri = self._metadata('incoming_typed_relationships')
+        else:
+            uri = self._metadata('all_typed_relationships')
+        return uri.replace(
+            '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
+        )
+
+    def get_related_nodes(self, direction=Direction.EITHER, *types):
         """Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._metadata(_direction_prefix(direction) + '_typed_relationships').replace(
-                '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
-            )
+            uri = self._typed_relationships_uri(direction, types)
         else:
-            uri = self._metadata(_direction_prefix(direction) + '_relationships')
+            uri = self._relationships_uri(direction)
         return [
             Node(rel['start'] if rel['end'] == self._uri else rel['end'], graph_db=self._graph_db)
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
-    def get_relationships(self, direction=Direction.BOTH, *types):
+    def get_relationships(self, direction=Direction.EITHER, *types):
         """Fetch all relationships from the current node in a given
         `direction` of a specific `type` (if supplied).
         """
         if types:
-            uri = self._metadata(_direction_prefix(direction) + '_typed_relationships').replace(
-                '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
-            )
+            uri = self._typed_relationships_uri(direction, types)
         else:
-            uri = self._metadata(_direction_prefix(direction) + '_relationships')
+            uri = self._relationships_uri(direction)
         return [
-            Relationship(rel['self'])
+            Relationship(rel['self'], graph_db=self._graph_db)
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
-    def get_relationships_with(self, other, direction=Direction.BOTH, *types):
+    def get_relationships_with(self, other, direction=Direction.EITHER, *types):
         """Return all relationships between this node and another node using
         the relationship criteria supplied.
         """
         if not isinstance(other, Node):
             raise ValueError
-        if direction == Direction.BOTH:
+        if direction == Direction.EITHER:
             query = "start a=node({0}),b=node({1}) match a-{2}-b return r"
         elif direction == Direction.OUTGOING:
             query = "start a=node({0}),b=node({1}) match a-{2}->b return r"
@@ -827,7 +838,7 @@ class Node(PropertyContainer):
         data, metadata = cypher.execute(self._graph_db, query)
         return [row[0] for row in data]
 
-    def get_single_related_node(self, direction=Direction.BOTH, *types):
+    def get_single_related_node(self, direction=Direction.EITHER, *types):
         """Return only one node related to the current node by a relationship
         in the given `direction` of the specified `type`, if any such
         relationships exist.
@@ -838,7 +849,7 @@ class Node(PropertyContainer):
         else:
             return None
 
-    def get_single_relationship(self, direction=Direction.BOTH, *types):
+    def get_single_relationship(self, direction=Direction.EITHER, *types):
         """Fetch only one relationship from the current node in the given
         `direction` of the specified `type`, if any such relationships exist.
         """
@@ -848,21 +859,21 @@ class Node(PropertyContainer):
         else:
             return None
 
-    def has_relationship(self, direction=Direction.BOTH, *types):
+    def has_relationship(self, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships(direction, *types)
         return bool(relationships)
 
-    def has_relationship_with(self, other, direction=Direction.BOTH, *types):
+    def has_relationship_with(self, other, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships_with(other, direction, *types)
         return bool(relationships)
 
-    def is_related_to(self, other, direction=Direction.BOTH, *types):
+    def is_related_to(self, other, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`
         otherwise.
