@@ -29,8 +29,15 @@ from distutils.core import setup
 setup(
     name=py2neo_package,
     version=py2neo_version,
-    description="Python bindings to Neo4j",
-    long_description="""The py2neo project provides bindings between Python and Neo4j via its RESTful web service interface. It attempts to be both Pythonic and consistent with the core Neo4j API and is compatible with Python 3.""",
+    description="Python client library for the Neo4j REST server",
+    long_description="Py2neo is a simple and pragmatic Python library that "
+                     "provides access to the popular graph database Neo4j via "
+                     "its RESTful web service interface. With no external "
+                     "dependencies, installation is straightforward and "
+                     "getting started with coding is easy. The library is "
+                     "actively maintained on GitHub, regularly updated in the "
+                     "Python Package Index and is built uniquely for Neo4j in "
+                     "close association with its team and community.",
     author=py2neo_author,
     author_email="py2neo@nigelsmall.net",
     url="http://py2neo.org/",
