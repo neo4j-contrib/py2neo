@@ -880,6 +880,30 @@ class Node(PropertyContainer):
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
+    def get_or_create_path(self, *relationship_node_pairs):
+        """Fetch or create a path starting at this node, creating only nodes
+        and relationships which do not already exist.
+        """
+        if not relationship_node_pairs:
+            return
+        relate, return_, params = [], [], {"z": self.id}
+        for i, (relationship, node) in enumerate(relationship_node_pairs):
+            relate.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
+            return_.append(",r{0},n{0}".format(i))
+            params["d" + str(i)] = node
+        query = "START z=node({{z}})\nCREATE UNIQUE z{0}\nRETURN z{1}".format(
+            "".join(relate), "".join(return_),
+        )
+        try:
+            data, metadata = cypher.execute(self._graph_db, query, params)
+            return Path(data[0][0::2], data[0][1::2])
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not support " \
+                "Cypher CREATE UNIQUE clauses or the query contains " \
+                "an unsupported property type".format(self._uri)
+            )
+
 
 class Relationship(PropertyContainer):
     """A relationship within a graph, identified by a URI. This class is
@@ -911,7 +935,7 @@ class Relationship(PropertyContainer):
             '-[23:KNOWS]->'
         
         """
-        return "-[{0}:{1}]->".format(self._id, self._type)
+        return "-[{0}:{1}]->".format(self.id, self.type)
 
     def delete(self):
         """Delete this relationship from the database.

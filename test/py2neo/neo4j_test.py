@@ -398,6 +398,66 @@ class MultipleNodeTestCase(unittest.TestCase):
     def tearDown(self):
         self.gdb.delete(*self.nodes)
 
+
+class GetOrCreatePathTest(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+
+    def test_can_create_single_path(self):
+        start_node, = self.graph_db.create({})
+        p1 = start_node.get_or_create_path(
+            ("YEAR",  {"number": 2000}),
+            ("MONTH", {"number": 12, "name": "December"}),
+            ("DAY",   {"number": 25}),
+        )
+        self.assertIsInstance(p1, neo4j.Path)
+        self.assertEqual(3, len(p1))
+        self.assertEqual(start_node, p1.nodes[0])
+
+    def test_can_create_overlapping_paths(self):
+        start_node, = self.graph_db.create({})
+        p1 = start_node.get_or_create_path(
+            ("YEAR",  {"number": 2000}),
+            ("MONTH", {"number": 12, "name": "December"}),
+            ("DAY",   {"number": 25, "name": "Christmas Day"}),
+        )
+        self.assertIsInstance(p1, neo4j.Path)
+        self.assertEqual(3, len(p1))
+        self.assertEqual(start_node, p1.nodes[0])
+        print p1
+        p2 = start_node.get_or_create_path(
+            ("YEAR",  {"number": 2000}),
+            ("MONTH", {"number": 12, "name": "December"}),
+            ("DAY",   {"number": 24, "name": "Christmas Eve"}),
+        )
+        self.assertIsInstance(p2, neo4j.Path)
+        self.assertEqual(3, len(p2))
+        self.assertEqual(p1.nodes[0], p2.nodes[0])
+        self.assertEqual(p1.nodes[1], p2.nodes[1])
+        self.assertEqual(p1.nodes[2], p2.nodes[2])
+        self.assertNotEqual(p1.nodes[3], p2.nodes[3])
+        self.assertEqual(p1.relationships[0], p2.relationships[0])
+        self.assertEqual(p1.relationships[1], p2.relationships[1])
+        self.assertNotEqual(p1.relationships[2], p2.relationships[2])
+        print p2
+        p3 = start_node.get_or_create_path(
+            ("YEAR",  {"number": 2000}),
+            ("MONTH", {"number": 11, "name": "November"}),
+            ("DAY",   {"number": 5, "name": "Bonfire Night"}),
+        )
+        self.assertIsInstance(p3, neo4j.Path)
+        self.assertEqual(3, len(p3))
+        self.assertEqual(p2.nodes[0], p3.nodes[0])
+        self.assertEqual(p2.nodes[1], p3.nodes[1])
+        self.assertNotEqual(p2.nodes[2], p3.nodes[2])
+        self.assertNotEqual(p2.nodes[3], p3.nodes[3])
+        self.assertEqual(p2.relationships[0], p3.relationships[0])
+        self.assertNotEqual(p2.relationships[1], p3.relationships[1])
+        self.assertNotEqual(p2.relationships[2], p3.relationships[2])
+        print p3
+
+
 if __name__ == '__main__':
     unittest.main()
 
