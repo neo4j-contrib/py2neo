@@ -882,7 +882,36 @@ class Node(PropertyContainer):
 
     def get_or_create_path(self, *relationship_node_pairs):
         """Fetch or create a path starting at this node, creating only nodes
-        and relationships which do not already exist.
+        and relationships which do not already exist. Each relationship-node
+        pair must be supplied as a 2-tuple of relationship type and node
+        properties. For example::
+
+            # add dates to calendar, starting at calendar_root
+            christmas_day = calendar_root.get_or_create_path(
+                ("YEAR",  {"number": 2000}),
+                ("MONTH", {"number": 12}),
+                ("DAY",   {"number": 25}),
+            )
+            # `christmas_day` will now contain a :py:class:`Path` object
+            # containing the nodes and relationships used:
+            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
+
+            # adding a second, overlapping path will reuse entities
+            # when possible
+            christmas_eve = calendar_root.get_or_create_path(
+                ("YEAR",  {"number": 2000}),
+                ("MONTH", {"number": 12}),
+                ("DAY",   {"number": 24}),
+            )
+            # `christmas_eve` will contain the same year and month nodes
+            # as `christmas_day` but a different (new) day node:
+            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12) [:DAY]->(25)
+            #                                  |
+            #                                [:DAY]
+            #                                  |
+            #                                  v
+            #                                 (24)
+
         """
         if not relationship_node_pairs:
             return
