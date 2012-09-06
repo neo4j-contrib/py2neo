@@ -892,12 +892,12 @@ class Node(PropertyContainer):
                 ("MONTH", {"number": 12}),
                 ("DAY",   {"number": 25}),
             )
-            # `christmas_day` will now contain a :py:class:`Path` object
+            # `christmas_day` will now contain a `Path` object
             # containing the nodes and relationships used:
             # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
 
-            # adding a second, overlapping path will reuse entities
-            # when possible
+            # adding a second, overlapping path will reuse
+            # nodes and relationships wherever possible
             christmas_eve = calendar_root.get_or_create_path(
                 ("YEAR",  {"number": 2000}),
                 ("MONTH", {"number": 12}),
