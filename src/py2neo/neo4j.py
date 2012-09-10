@@ -1146,14 +1146,16 @@ class Index(rest.Resource):
                 "value": value,
                 "uri": str(entities[0]._uri),
             }))
-        batch = Batch(self._graph_db)
-        for entity in entities:
-            batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
-                "key": key,
-                "value": value,
-                "uri": str(entity._uri),
-            }))
-        batch.submit()
+        else:
+            batch = Batch(self._graph_db)
+            for entity in entities:
+                batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
+                    "key": key,
+                    "value": value,
+                    "uri": str(entity._uri),
+                }))
+            batch.submit()
+        return entities
 
     def add_if_none(self, key, value, entity):
         """Add a single entity to this index under the `key`:`value` pair
@@ -1164,13 +1166,18 @@ class Index(rest.Resource):
             rooms = graph_db.get_or_create_index(neo4j.Node, "Rooms")
             rooms.add_if_none("room", 100, alice)
 
-        ..
+        If added, this method returns the entity, otherwise :py:const:`None`
+        is returned.
         """
-        self._send(rest.Request(self._graph_db, "POST", str(self._uri) + "?unique", {
+        rs = self._send(rest.Request(self._graph_db, "POST", str(self._uri) + "?unique", {
             "key": key,
             "value": value,
             "uri": str(entity._uri)
         }))
+        if rs.status == 201:
+            return entity
+        else:
+            return None
 
     @property
     def content_type(self):
@@ -1205,6 +1212,30 @@ class Index(rest.Resource):
             for result in results.body
         ]
 
+    def _create_unique(self, key, value, abstract):
+        """Internal method to support `get_or_create` and `create_if_none`.
+        """
+        if self._content_type == Node:
+            body = {
+                "key": key,
+                "value": value,
+                "properties": abstract
+            }
+        elif self._content_type == Relationship:
+            body = {
+                "key": key,
+                "value": value,
+                "start": str(abstract[0]._uri),
+                "type": abstract[1],
+                "end": str(abstract[2]._uri),
+                "properties": abstract[3] if len(abstract) > 3 else None
+            }
+        else:
+            raise TypeError(self._content_type + " indexes are not supported")
+        return self._send(rest.Request(
+            self._graph_db, "POST", str(self._uri) + "?unique", body)
+        )
+
     def get_or_create(self, key, value, abstract):
         """Fetch a single entity from the index which is associated with the
         `key`:`value` pair supplied, creating a new entity with the supplied
@@ -1228,26 +1259,27 @@ class Index(rest.Resource):
 
         ..
         """
-        if self._content_type == Node:
-            body = {
-                "key": key,
-                "value": value,
-                "properties": abstract
-            }
-        elif self._content_type == Relationship:
-            body = {
-                "key": key,
-                "value": value,
-                "start": str(abstract[0]._uri),
-                "type": abstract[1],
-                "end": str(abstract[2]._uri),
-                "properties": abstract[3] if len(abstract) > 3 else None
-            }
-        else:
-            raise TypeError(self._content_type +
-                            " indexes do not support get_or_create")
-        rs = self._send(rest.Request(self._graph_db, "POST", str(self._uri) + "?unique", body))
-        if rs.body:
+        rs = self._create_unique(key, value, abstract)
+        return self._content_type(rs.body["self"], self._graph_db)
+
+    def create_if_none(self, key, value, abstract):
+        """Create a new entity with the specified details within the current
+        index, under the `key`:`value` pair supplied, if no such entity already
+        exists. If creation occurs, the new entity will be returned, otherwise
+        :py:const:`None` will be returned.
+
+            # obtain a reference to the "Contacts" node index and
+            # create a node for Alice if one does not already exist
+            contacts = graph_db.get_or_create_index(neo4j.Node, "Contacts")
+            alice = contacts.create_if_none("name", "SMITH, Alice", {
+                "given_name": "Alice Jane", "family_name": "Smith",
+                "phone": "01234 567 890", "mobile": "07890 123 456"
+            })
+
+        ..
+        """
+        rs = self._create_unique(key, value, abstract)
+        if rs.status == 201:
             return self._content_type(rs.body["self"], self._graph_db)
         else:
             return None

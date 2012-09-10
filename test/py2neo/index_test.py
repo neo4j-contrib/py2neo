@@ -106,19 +106,35 @@ class NodeIndexTestCase(unittest.TestCase):
             self.assertEqual("Alice Smith", alice["name"])
             self.assertEqual(alice_id, alice.id)
 
+    def test_create_if_none(self):
+        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
+        index1.remove("surname", "Smith")
+        alice = index1.create_if_none("surname", "Smith", {"name": "Alice Smith"})
+        self.assertIsNotNone(alice)
+        self.assertTrue(isinstance(alice, neo4j.Node))
+        self.assertEqual("Alice Smith", alice["name"])
+        for i in range(10):
+            # subsequent calls fail as entity already exists
+            alice = index1.create_if_none("surname", "Smith", {"name": "Alice Smith"})
+            self.assertIsNone(alice)
+
     def test_add_node_if_none(self):
         index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
         index1.remove("surname", "Smith")
         alice, bob = self.graph_db.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"}
         )
-        index1.add_if_none("surname", "Smith", alice)
+        # add Alice to the index - this should be successful
+        result = index1.add_if_none("surname", "Smith", alice)
+        self.assertEqual(alice, result)
         entities = index1.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
-        index1.add_if_none("surname", "Smith", bob)
+        # add Bob to the index - this should fail as Alice is already there
+        result = index1.add_if_none("surname", "Smith", bob)
+        self.assertIsNone(result)
         entities = index1.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
