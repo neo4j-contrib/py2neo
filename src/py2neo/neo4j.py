@@ -1201,7 +1201,7 @@ class Index(rest.Resource):
             value=_quote(value, "")
         )))
         return [
-            self._content_type(result['self'])
+            self._content_type(result['self'], self._graph_db)
             for result in results.body
         ]
 
@@ -1248,7 +1248,7 @@ class Index(rest.Resource):
                             " indexes do not support get_or_create")
         rs = self._send(rest.Request(self._graph_db, "POST", str(self._uri) + "?unique", body))
         if rs.body:
-            return self._content_type(rs.body["self"])
+            return self._content_type(rs.body["self"], self._graph_db)
         else:
             return None
 
@@ -1289,7 +1289,7 @@ class Index(rest.Resource):
         should be `Apache Lucene query syntax <http://lucene.apache.org/core/old_versioned_docs/versions/3_5_0/queryparsersyntax.html>`_.
         """
         return [
-            self._content_type(item['self'])
+            self._content_type(item['self'], self._graph_db)
             for item in self._send(rest.Request(self._graph_db, "GET", "{0}?query={1}".format(
                 self._uri, _quote(query, "")
             ))).body
