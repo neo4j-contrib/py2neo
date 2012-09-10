@@ -1266,7 +1266,7 @@ class Index(rest.Resource):
         """Create a new entity with the specified details within the current
         index, under the `key`:`value` pair supplied, if no such entity already
         exists. If creation occurs, the new entity will be returned, otherwise
-        :py:const:`None` will be returned.
+        :py:const:`None` will be returned::
 
             # obtain a reference to the "Contacts" node index and
             # create a node for Alice if one does not already exist
