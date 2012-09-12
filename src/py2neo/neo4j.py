@@ -1307,6 +1307,24 @@ class Index(rest.Resource):
             batch.append(rest.Request(self._graph_db, "DELETE", rest.URI(entity, "/index/").reference,))
         batch.submit()
 
+    def remove_node(self, entity):
+        """Remove any entries from the index which are associated with the
+        node supplied::
+
+            # obtain a reference to the "People" node index and
+            # remove the node 'alice' from the index
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            alice = people.create_if_none("name", "SMITH, Alice", {
+                "given_name": "Alice Jane", "family_name": "Smith",
+            })
+            people.remove(alice)
+
+        ..
+        """
+
+        r = rest.Request(self._graph_db, "DELETE", str(self._uri) + '/' + str(entity.id),)
+        return self._send(r)
+
     def query(self, query):
         """Query the index according to the supplied query criteria, returning
         a list of matched entities::
