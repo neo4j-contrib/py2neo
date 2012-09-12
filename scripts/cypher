@@ -38,13 +38,13 @@ def _stringify(value, quoted=False, with_properties=False):
         if quoted:
             out = '"' + out + '"'
         if with_properties:
-            out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
+            out += " " + json.dumps(value._metadata('data'), separators=(',',':'))
     elif isinstance(value, neo4j.Relationship):
         out = str(value.start_node) + str(value) + str(value.end_node)
         if quoted:
             out = '"' + out + '"'
         if with_properties:
-            out += " " + json.dumps(value._lookup('data'), separators=(',',':'))
+            out += " " + json.dumps(value._metadata('data'), separators=(',',':'))
     else:
         if quoted:
             out = json.dumps(value)
@@ -100,9 +100,9 @@ def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
         err.write("{0}\n".format(message))
     def update_descriptors(value):
         if isinstance(value, neo4j.Node):
-            nodes[str(value)] = value._lookup('data')
+            nodes[str(value)] = value._metadata('data')
         elif isinstance(value, neo4j.Relationship):
-            relationships[str(value.start_node) + str(value) + str(value.end_node)] = value._lookup('data')
+            relationships[str(value.start_node) + str(value) + str(value.end_node)] = value._metadata('data')
         else:
             # property - not supported in GEOFF format, so ignore
             pass
