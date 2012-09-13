@@ -72,7 +72,7 @@ class HTTPHeaders(object):
 http_headers = HTTPHeaders()
 http_headers.add("Accept", "application/json")
 http_headers.add("Content-Type", "application/json")
-http_headers.add("User-Agent", "{0}/{1} ({2} python-{3})".format(
+http_headers.add("User-Agent", "{0}/{1} ({2}; python/{3})".format(
     py2neo_package, py2neo_version,
     sys.platform, sys.version.partition(" ")[0],
 ))
