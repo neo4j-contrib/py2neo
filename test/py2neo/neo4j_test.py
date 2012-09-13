@@ -345,7 +345,7 @@ class NewCreateTestCase(unittest.TestCase):
         self.assertEqual(results[0], results[1].end_node)
 
     def test_fails_on_bad_reference(self):
-        self.assertRaises(ValueError, self.graph_db.create,
+        self.assertRaises(rest.BadRequest, self.graph_db.create,
             {"name": "Alice"},
             (0, "KNOWS", 1)
         )

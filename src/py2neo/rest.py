@@ -91,10 +91,27 @@ class BadRequest(ValueError):
 
     def __init__(self, data):
         ValueError.__init__(self)
-        self.data = data
+        try:
+            self.exception = data["exception"]
+        except KeyError:
+            self.exception = None
+        try:
+            self.message = data["message"]
+        except KeyError:
+            self.message = None
+        try:
+            self.stacktrace = data["stacktrace"]
+        except KeyError:
+            self.stacktrace = None
+        self._data = data
 
     def __str__(self):
-        return repr(self.data)
+        if self.exception and self.message:
+            return "{0}: {1}".format(self.exception, self.message)
+        elif self.exception:
+            return repr(self.exception)
+        else:
+            return repr(self._data)
 
 
 class ResourceNotFound(LookupError):
@@ -217,14 +234,24 @@ class Request(object):
             "body": self.body,
         }
 
+
 class Response(object):
 
     def __init__(self, graph_db, status, uri, location=None, body=None):
         self.graph_db = graph_db
-        self.status = status
-        self.uri = str(uri)
-        self.location = location
-        self.body = body
+        self.status = int(status)
+        if self.status // 100 == 2:
+            self.uri = str(uri)
+            self.location = location
+            self.body = body
+        elif self.status == 400:
+            raise BadRequest(body)
+        elif self.status == 404:
+            raise ResourceNotFound(uri)
+        elif self.status == 409:
+            raise ResourceConflict(uri)
+        elif self.status // 100 == 5:
+            raise SystemError(body)
 
 
 class Client(object):
@@ -345,17 +372,7 @@ class Resource(object):
         :raise SocketError: when a connection fails or cannot be established
         """
         try:
-            response = self._client().send(request)
-            if response.status // 100 == 2:
-                return response
-            elif response.status == 400:
-                raise BadRequest(response.body)
-            elif response.status == 404:
-                raise ResourceNotFound(request.uri)
-            elif response.status == 409:
-                raise ResourceConflict(request.uri)
-            elif response.status // 100 == 5:
-                raise SystemError(response.body)
+            return self._client().send(request)
         except socket.error as err:
             raise SocketError(err)
 

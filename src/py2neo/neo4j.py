@@ -98,8 +98,11 @@ class Batch(object):
         ]))
         return [
             rest.Response(
-                self.graph_db, rs.status, response["from"],
-                response.get("location", None), response.get("body", None),
+                self.graph_db,
+                response["status"] if "status" in response else rs.status,
+                response["from"],
+                response.get("location", None),
+                response.get("body", None),
             )
             for response in rs.body
         ]

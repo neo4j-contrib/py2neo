@@ -152,9 +152,10 @@ class CypherTestCase(unittest.TestCase):
         class BigQuery(Thread):
             def run(self):
                 graph_db = neo4j.GraphDatabaseService()
-                query = "start z=node(*) return z"
+                query = "start z=node({nodes}) return z"
+                params = {"nodes": range(2000)}
                 for i in range(1):
-                    cypher.execute(graph_db, query)
+                    cypher.execute(graph_db, query, params)
         queries = [BigQuery(), BigQuery(), BigQuery()]
         for q in queries:
             q.start()

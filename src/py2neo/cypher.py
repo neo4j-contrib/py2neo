@@ -61,15 +61,6 @@ class CypherClient(rest.Client):
         rest.Client.__init__(self)
         self.block_size = DEFAULT_BLOCK_SIZE
 
-    def _client(self):
-        """Fetch the HTTP client for use by this resource.
-        Uses the client belonging to the local thread.
-        """
-        global _thread_local
-        if not hasattr(_thread_local, "client"):
-            _thread_local.client = CypherClient()
-        return _thread_local.client
-
     def send(self, request, handlers=None):
         rs = self._send_request(request.method, request.uri, request.body)
         if rs.status in handlers:
@@ -84,7 +75,10 @@ class CypherClient(rest.Client):
                         break
             else:
                 handler(rs.read())
-        return rest.Response(rs.status, request.uri, rs.getheader("Location", None))
+        return rest.Response(
+            request.graph_db, rs.status, request.uri,
+            rs.getheader("Location", None)
+        )
 
 
 class Query(object):
@@ -113,18 +107,18 @@ class Query(object):
                 if error_handler:
                     try:
                         error_handler(
-                            message=err.data["message"],
-                            exception=err.data["exception"],
-                            stacktrace=err.data["stacktrace"]
+                            message=err.message,
+                            exception=err.exception,
+                            stacktrace=err.stacktrace,
                         )
                         return [], None
                     except Exception as ex:
                         raise ex
                 else:
                     raise CypherError(
-                        err.data["message"],
-                        exception=err.data["exception"],
-                        stacktrace=err.data["stacktrace"]
+                        err.message,
+                        exception=err.exception,
+                        stacktrace=err.stacktrace,
                     )
             rows, columns = rs.body['data'], rs.body['columns']
             return [list(map(self.graph_db._resolve, row)) for row in rows], \
