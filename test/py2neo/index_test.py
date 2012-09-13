@@ -155,6 +155,15 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertTrue(green in colours_containing_R)
         self.assertFalse(blue in colours_containing_R)
 
+    def test_remove_node_from_index(self):
+        index2 = self.graph_db.get_or_create_index(neo4j.Node, 'index2')
+        node = self.graph_db.create({'email': 'rob@test.com'})[0]
+        index2.add('email', 'rob@test.com', node)
+        result = index2.get('email', 'rob@test.com')
+        self.assertTrue(len(result) == 1)
+        index2.remove_node(node)
+        result = index2.get('email', 'rob@test.com')
+        self.assertTrue(len(result) == 0)
 
 if __name__ == '__main__':
     unittest.main()
