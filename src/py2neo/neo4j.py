@@ -143,11 +143,6 @@ class GraphDatabaseService(rest.Resource):
         self._neo4j_version = self._metadata('neo4j_version', "1.4")
         self._batch_uri = self._metadata('batch', self._uri.base + "/batch")
         self._cypher_uri = self._metadata('cypher')
-        if not self._cypher_uri:
-            try:
-                self._cypher_uri = self._extension_uri('CypherPlugin', 'execute_query')
-            except NotImplementedError:
-                self._cypher_uri = None
         self._neo4j_version = tuple(map(_numberise,
             str(self._neo4j_version).replace("-", ".").split(".")
         ))
