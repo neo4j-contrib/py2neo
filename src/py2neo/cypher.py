@@ -18,10 +18,7 @@
 """Cypher Query Language
 """
 
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import json
 import logging
 import threading
 

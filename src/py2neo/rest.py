@@ -19,13 +19,10 @@
 """
 
 try:
-    import simplejson as json
-except ImportError:
-    import json
-try:
     import http.client as httplib
 except ImportError:
     import httplib
+import json
 import logging
 import socket
 import threading

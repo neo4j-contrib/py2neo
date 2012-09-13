@@ -20,10 +20,6 @@ the starting point for most applications.
 """
 
 try:
-    import simplejson as json
-except ImportError:
-    import json
-try:
     from urllib.parse import quote
 except ImportError:
     from urllib import quote

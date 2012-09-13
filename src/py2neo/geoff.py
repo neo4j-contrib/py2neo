@@ -35,10 +35,7 @@ it to the database server for insertion::
 
 """
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import json
 import re
 
 try:
