@@ -58,6 +58,13 @@ class RelationshipTestCase(unittest.TestCase):
         self.assertEqual("LIKES", ba.type)
         self.assertEqual(alice, ba.end_node)
 
+    def test_getting_no_relationships(self):
+        alice, = self.graph_db.create({"name": "Alice"})
+        rels = alice.get_relationships()
+        self.assertIsNotNone(rels)
+        self.assertTrue(isinstance(rels, list))
+        self.assertEqual(0, len(rels))
+
 
 class RelateTestCase(unittest.TestCase):
 
