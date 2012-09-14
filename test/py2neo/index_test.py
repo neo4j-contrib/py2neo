@@ -31,60 +31,69 @@ def default_graph_db():
     return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 
 
-class NodeIndexTestCase(unittest.TestCase):
+class CreationAndDeletionTests(unittest.TestCase):
 
     def setUp(self):
         self.graph_db = default_graph_db()
 
-    def test_get_node_index(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        self.assertIsNotNone(index1)
-        self.assertEqual("index1", index1.name)
-        self.assertEqual(neo4j.Node, index1.content_type)
+    def test_can_delete_create_and_delete_index(self):
+        self.graph_db.delete_index(neo4j.Node, "foo")
+        foo = self.graph_db.get_index(neo4j.Node, "foo")
+        self.assertTrue(foo is None)
+        foo = self.graph_db.get_or_create_index(neo4j.Node, "foo")
+        self.assertIsNotNone(foo)
+        self.assertIsInstance(foo, neo4j.Index)
+        self.assertEqual("foo", foo.name)
+        self.assertEqual(neo4j.Node, foo.content_type)
+        self.graph_db.delete_index(neo4j.Node, "foo")
+        foo = self.graph_db.get_index(neo4j.Node, "foo")
+        self.assertTrue(foo is None)
 
-    def test_add_node_to_index(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("surname", "Smith")
+
+class NodeIndexTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_test_index")
+
+    def tearDown(self):
+        self.graph_db.delete_index(self.index.content_type, self.index.name)
+
+    def test_add_existing_node_to_index(self):
         alice, = self.graph_db.create({"name": "Alice Smith"})
-        index1.add("surname", "Smith", alice)
-        entities = index1.get("surname", "Smith")
+        self.index.add("surname", "Smith", alice)
+        entities = self.index.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
 
-    def test_add_node_to_index_with_spaces(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("family name", "von Schmidt")
+    def test_add_existing_node_to_index_with_spaces_in_key_and_value(self):
         alice, = self.graph_db.create({"name": "Alice von Schmidt"})
-        index1.add("family name", "von Schmidt", alice)
-        entities = index1.get("family name", "von Schmidt")
+        self.index.add("family name", "von Schmidt", alice)
+        entities = self.index.get("family name", "von Schmidt")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
 
-    def test_add_node_to_index_with_odd_chars(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("@!%#", "!\"£$%^&*()")
+    def test_add_existing_node_to_index_with_odd_chars_in_key_and_value(self):
         alice = self.graph_db.create_node({"name": "Alice Smith"})
-        index1.add("@!%#", "!\"£$%^&*()", alice)
-        entities = index1.get("@!%#", "!\"£$%^&*()")
+        self.index.add("@!%#", "!\"£$%^&*()", alice)
+        entities = self.index.get("@!%#", "!\"£$%^&*()")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
 
-    def test_add_multiple_nodes_to_index(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("surname", "Smith")
+    def test_add_multiple_existing_nodes_to_index_under_same_key_and_value(self):
         alice, bob, carol = self.graph_db.create(
             {"name": "Alice Smith"},
             {"name": "Bob Smith"},
             {"name": "Carol Smith"}
         )
-        index1.add("surname", "Smith", alice, bob, carol)
-        entities = index1.get("surname", "Smith")
+        self.index.add("surname", "Smith", alice, bob, carol)
+        entities = self.index.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(3, len(entities))
@@ -92,65 +101,56 @@ class NodeIndexTestCase(unittest.TestCase):
             self.assertTrue(entity in (alice, bob, carol))
 
     def test_get_or_create_node(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("surname", "Smith")
-        alice = index1.get_or_create("surname", "Smith", {"name": "Alice Smith"})
+        alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
         self.assertIsNotNone(alice)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         alice_id = alice.id
         for i in range(10):
-            alice = index1.get_or_create("surname", "Smith", {"name": "Alice Smith"})
+            # subsequent calls return the same object as node already exists
+            alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
             self.assertIsNotNone(alice)
             self.assertTrue(isinstance(alice, neo4j.Node))
             self.assertEqual("Alice Smith", alice["name"])
             self.assertEqual(alice_id, alice.id)
 
     def test_create_if_none(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("surname", "Smith")
-        alice = index1.create_if_none("surname", "Smith", {"name": "Alice Smith"})
+        alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
         self.assertIsNotNone(alice)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         for i in range(10):
-            # subsequent calls fail as entity already exists
-            alice = index1.create_if_none("surname", "Smith", {"name": "Alice Smith"})
+            # subsequent calls fail as node already exists
+            alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
             self.assertIsNone(alice)
 
     def test_add_node_if_none(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("surname", "Smith")
         alice, bob = self.graph_db.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"}
         )
         # add Alice to the index - this should be successful
-        result = index1.add_if_none("surname", "Smith", alice)
+        result = self.index.add_if_none("surname", "Smith", alice)
         self.assertEqual(alice, result)
-        entities = index1.get("surname", "Smith")
+        entities = self.index.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
         # add Bob to the index - this should fail as Alice is already there
-        result = index1.add_if_none("surname", "Smith", bob)
+        result = self.index.add_if_none("surname", "Smith", bob)
         self.assertIsNone(result)
-        entities = index1.get("surname", "Smith")
+        entities = self.index.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
 
     def test_node_index_query(self):
-        index1 = self.graph_db.get_or_create_index(neo4j.Node, "index1")
-        index1.remove("colour", "red")
-        index1.remove("colour", "green")
-        index1.remove("colour", "blue")
         red, green, blue = self.graph_db.create({}, {}, {})
-        index1.add("colour", "red", red)
-        index1.add("colour", "green", green)
-        index1.add("colour", "blue", blue)
-        colours_containing_R = index1.query("colour:*r*")
+        self.index.add("colour", "red", red)
+        self.index.add("colour", "green", green)
+        self.index.add("colour", "blue", blue)
+        colours_containing_R = self.index.query("colour:*r*")
         self.assertTrue(red in colours_containing_R)
         self.assertTrue(green in colours_containing_R)
         self.assertFalse(blue in colours_containing_R)

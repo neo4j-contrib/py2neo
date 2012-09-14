@@ -400,18 +400,30 @@ class GraphDatabaseService(rest.Resource):
             self.get_indexes(type)
         if name in self._indexes[type]:
             return self._indexes[type][name]
+        if type == Node:
+            uri = self._metadata('node_index')
+        elif type == Relationship:
+            uri = self._metadata('relationship_index')
         else:
-            if type == Node:
-                uri = self._metadata('node_index')
-            elif type == Relationship:
-                uri = self._metadata('relationship_index')
-            else:
-                raise ValueError(type)
-            config = config or {}
-            rs = self._send(rest.Request(self, "POST", uri, {"name": name, "config": config}))
-            index = Index(type, rs.body["template"], graph_db=self)
-            self._indexes[type].update({name: index})
-            return index
+            raise ValueError(type)
+        config = config or {}
+        rs = self._send(rest.Request(self, "POST", uri, {"name": name, "config": config}))
+        index = Index(type, rs.body["template"], graph_db=self)
+        self._indexes[type].update({name: index})
+        return index
+
+    def delete_index(self, type, name):
+        """Delete the entire index identified by the type and name supplied.
+        """
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            index = self._indexes[type][name]
+            self._send(rest.Request(self, "DELETE", index._uri))
+            del self._indexes[type][name]
+            return True
+        else:
+            return False
 
     def get_or_create_relationships(self, *relationships):
         """Fetch or create relationships with the specified criteria depending
