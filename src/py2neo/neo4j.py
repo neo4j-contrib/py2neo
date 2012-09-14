@@ -817,10 +817,15 @@ class Node(PropertyContainer):
             uri = self._typed_relationships_uri(direction, types)
         else:
             uri = self._relationships_uri(direction)
-        return [
-            Relationship(rel['self'], graph_db=self._graph_db)
-            for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
-        ]
+
+        relationships = []
+        try:
+            for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body:
+                relationships.append(Relationship(rel['self'], graph_db=self._graph_db))
+        except rest.ResourceNotFound:
+            pass
+
+        return relationships
 
     def get_relationships_with(self, other, direction=Direction.EITHER, *types):
         """Return all relationships between this node and another node using
