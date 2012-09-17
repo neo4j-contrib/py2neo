@@ -156,6 +156,58 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertFalse(blue in colours_containing_R)
 
 
+class RemovalTests(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_removal_test_index")
+        self.fred, self.wilma, = self.graph_db.create(
+            {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
+        )
+        self.index.add("name", "Fred", self.fred)
+        self.index.add("name", "Wilma", self.wilma)
+        self.index.add("name", "Flintstone", self.fred, self.wilma)
+        self.index.add("flintstones", "%", self.fred, self.wilma)
+
+    def tearDown(self):
+        self.graph_db.delete(self.fred, self.wilma)
+        self.graph_db.delete_index(self.index.content_type, self.index.name)
+
+    def check(self, key, value, *entities):
+        e = self.index.get(key, value)
+        self.assertEqual(len(entities), len(e))
+        for entity in entities:
+            self.assertTrue(entity in e)
+
+    def test_remove_key_value_entity(self):
+        self.index.remove(key="name", value="Flintstone", entity=self.fred)
+        self.check("name", "Fred", self.fred)
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.fred, self.wilma)
+
+    def test_remove_key_value(self):
+        self.index.remove(key="name", value="Flintstone")
+        self.check("name", "Fred", self.fred)
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone")
+        self.check("flintstones", "%", self.fred, self.wilma)
+
+    def test_remove_key_entity(self):
+        self.index.remove(key="name", entity=self.fred)
+        self.check("name", "Fred")
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.fred, self.wilma)
+
+    def test_remove_entity(self):
+        self.index.remove(entity=self.fred)
+        self.check("name", "Fred")
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.wilma)
+
+
 if __name__ == '__main__':
     unittest.main()
 

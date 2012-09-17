@@ -1290,28 +1290,68 @@ class Index(rest.Resource):
         else:
             return None
 
-    def remove(self, key, value):
-        """Remove any entries from the index which are associated with the
-        `key`:`value` pair supplied::
+    def remove(self, key=None, value=None, entity=None):
+        """Remove any entries from the index which pertain to the parameters
+        supplied. The allowed parameter combinations are:
 
-            # obtain a reference to the "People" node index and
-            # remove all nodes where `family_name` equals "Smith"
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
-            people.remove("family_name", "Smith")
+        `key`, `value`, `entity`
+            remove a specific entity indexed under a given key-value pair
 
-        ..
+        `key`, `value`
+            remove all entities indexed under a given key-value pair
+
+        `key`, `entity`
+            remove a specific entity indexed against a given key but with
+            any value
+
+        `entity`
+            remove all occurrences of a specific entity regardless of
+            key and value
+
         """
-        entities = [
-            item['indexed']
-            for item in self._send(rest.Request(self._graph_db, "GET", self._template_uri.format(
-                key=_quote(key, ""),
-                value=_quote(value, "")
-            ))).body
-        ]
-        batch = Batch(self._graph_db)
-        for entity in entities:
-            batch.append(rest.Request(self._graph_db, "DELETE", rest.URI(entity, "/index/").reference,))
-        batch.submit()
+        if key and value and entity:
+            self._send(rest.Request(
+                self._graph_db, "DELETE", "{0}/{1}/{2}/{3}".format(
+                    self._uri,
+                    _quote(key, ""),
+                    _quote(value, ""),
+                    entity._id,
+                )
+            ))
+        elif key and value:
+            entities = [
+                item['indexed']
+                for item in self._send(rest.Request(
+                    self._graph_db, "GET", self._template_uri.format(
+                        key=_quote(key, ""),
+                        value=_quote(value, "")
+                    )
+                )).body
+            ]
+            batch = Batch(self._graph_db)
+            for entity in entities:
+                batch.append(rest.Request(
+                    self._graph_db, "DELETE",
+                    rest.URI(entity, "/index/").reference,
+                ))
+            batch.submit()
+        elif key and entity:
+            self._send(rest.Request(
+                self._graph_db, "DELETE", "{0}/{1}/{2}".format(
+                    self._uri,
+                    _quote(key, ""),
+                    entity._id,
+                )
+            ))
+        elif entity:
+            self._send(rest.Request(
+                self._graph_db, "DELETE", "{0}/{1}".format(
+                    self._uri,
+                    entity._id,
+                )
+            ))
+        else:
+            raise TypeError("Illegal parameter combination for index removal")
 
     def query(self, query):
         """Query the index according to the supplied query criteria, returning
