@@ -59,6 +59,12 @@ class PropertyContainerTestCase(unittest.TestCase):
         del alice["name"]
         self.assertIsNone(alice["name"])
 
+    def test_del_non_existent_property(self):
+        alice, = self.graph_db.create({"name": "Alice"})
+        del alice["foo"]
+        self.assertEqual("Alice", alice["name"])
+        self.assertIsNone(alice["foo"])
+
     def test_del_property_with_odd_name(self):
         foo, = self.graph_db.create({""" !"#$%&'()*+,-./?""": "foo"})
         del foo[""" !"#$%&'()*+,-./?"""]
@@ -88,6 +94,22 @@ class PropertyContainerTestCase(unittest.TestCase):
             self.assertEqual(properties[key], alice[key])
             count += 1
         self.assertEqual(len(properties), count)
+
+    def test_set_properties(self):
+        alice, = self.graph_db.create({"name": "Alice", "surname": "Smith"})
+        alice.set_properties({"full_name": "Alice Smith", "age": 33})
+        self.assertEqual(None, alice["name"])
+        self.assertEqual(None, alice["surname"])
+        self.assertEqual("Alice Smith", alice["full_name"])
+        self.assertEqual(33, alice["age"])
+
+    def test_update_properties(self):
+        alice, = self.graph_db.create({"name": "Alice", "surname": "Smith"})
+        alice.update_properties({"surname": None, "full_name": "Alice Smith", "age": 33})
+        self.assertEqual("Alice", alice["name"])
+        self.assertEqual(None, alice["surname"])
+        self.assertEqual("Alice Smith", alice["full_name"])
+        self.assertEqual(33, alice["age"])
 
 
 if __name__ == '__main__':

@@ -25,7 +25,6 @@ except ImportError:
     from urllib import quote
 import base64
 import logging
-import warnings
 
 from . import rest, cypher
 
@@ -81,27 +80,115 @@ class Direction(object):
 class Batch(object):
 
     def __init__(self, graph_db):
-        self.graph_db = graph_db
-        self.requests = []
+        assert isinstance(graph_db, GraphDatabaseService)
+        self._graph_db = graph_db
+        self._create_node_uri = rest.URI(self._graph_db._metadata("node"), "/node").reference
+        self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
+        self.clear()
 
-    def append(self, request):
+    def _append(self, request):
         self.requests.append(request)
 
-    def submit(self):
-        rs = self.graph_db._send(rest.Request(self.graph_db, "POST", self.graph_db._batch_uri, [
+    def _post(self, uri, body=None):
+        self.requests.append(rest.Request(self._graph_db, "POST", uri, body))
+
+    def _delete(self, uri, body=None):
+        self.requests.append(rest.Request(self._graph_db, "DELETE", uri, body))
+
+    def _put(self, uri, body=None):
+        self.requests.append(rest.Request(self._graph_db, "PUT", uri, body))
+
+    def _submit(self):
+        """ Submits batch of requests, returning list of Response objects.
+        """
+        rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
             request.description(i)
             for i, request in enumerate(self.requests)
         ]))
+        self.clear()
         return [
             rest.Response(
-                self.graph_db,
-                response["status"] if "status" in response else rs.status,
+                self._graph_db,
+                response.get("status", rs.status),
                 response["from"],
                 response.get("location", None),
                 response.get("body", None),
             )
             for response in rs.body
         ]
+
+    def clear(self):
+        self.requests = []
+
+    def submit(self):
+        """ Submits batch of requests, returning list of resolved objects.
+        """
+        return [
+            self._graph_db._resolve(response.body, response.status)
+            for response in self._submit()
+        ]
+
+    def create_node(self, properties=None):
+        self._post(self._create_node_uri, properties or {})
+
+    def create_relationship(self, start_node, type_, end_node, properties=None):
+        def node_uri(node):
+            if isinstance(node, Node):
+                node._must_belong_to(self._graph_db)
+                return rest.URI(node._metadata("self"), "/node").reference
+            else:
+                return "{" + str(node) + "}"
+        body = {
+            "type": type_,
+            "to": node_uri(end_node),
+        }
+        if properties:
+            body["data"] = properties
+        self._post(node_uri(start_node) + "/relationships", body)
+
+    def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
+        assert isinstance(start_node, Node) or start_node is None
+        assert isinstance(end_node, Node) or end_node is None
+        if start_node and end_node:
+            query = "START a=node({a}), b=node({b})" \
+                    "CREATE UNIQUE (a)-[ab:" + str(type_) + " {p}]->(b)" \
+                    "RETURN ab"
+        elif start_node:
+            query = "START a=node({a})" \
+                    "CREATE UNIQUE (a)-[ab:" + str(type_) + " {p}]->()" \
+                    "RETURN ab"
+        elif end_node:
+            query = "START b=node({b})" \
+                    "CREATE UNIQUE ()-[ab:" + str(type_) + " {p}]->(b)" \
+                    "RETURN ab"
+        else:
+            raise ValueError("Either start node or end node must be "
+                             "specified for a unique relationship")
+        params = {"p": properties or {}}
+        if start_node:
+            params["a"] = start_node._id
+        if end_node:
+            params["b"] = end_node._id
+        self._post(self._cypher_uri, {"query": query, "params": params})
+
+    def delete(self, entity):
+        self._delete(entity._uri.reference)
+
+    def set_property(self, entity, key, value):
+        uri = rest.URI(entity._metadata('property').format(key=_quote(key, "")), "/node")
+        self._put(uri.reference, value)
+
+    def set_properties(self, entity, properties):
+        uri = rest.URI(entity._metadata('properties'), "/node")
+        self._put(uri.reference, properties)
+
+    def delete_property(self, entity, key):
+        uri = rest.URI(entity._metadata('property').format(key=_quote(key, "")), "/node")
+        self._delete(uri.reference)
+
+    def delete_properties(self, entity):
+        uri = rest.URI(entity._metadata('properties'), "/node")
+        self._delete(uri.reference)
 
 
 class GraphDatabaseService(rest.Resource):
@@ -193,6 +280,16 @@ class GraphDatabaseService(rest.Resource):
                 list(map(Node, data["nodes"], [self] * len(data["nodes"]))),
                 list(map(Relationship, data["relationships"], [self] * len(data["relationships"])))
             )
+        elif isinstance(data, dict) and "columns" in data and "data" in data:
+            # is a value contained within a Cypher response
+            # (should only ever be single row, single value)
+            assert len(data["columns"]) == 1
+            rows = data["data"]
+            assert len(rows) == 1
+            values = rows[0]
+            assert len(values) == 1
+            value = values[0]
+            return self._resolve(value, status)
         else:
             # is a plain value
             return data
@@ -250,50 +347,13 @@ class GraphDatabaseService(rest.Resource):
         batch = Batch(self)
         for abstract in abstracts:
             if isinstance(abstract, dict):
-                batch.append(rest.Request(self, "POST", "/node", abstract))
+                batch.create_node(abstract)
             else:
-                try:
-                    if isinstance(abstract[0], Node):
-                        abstract[0]._must_belong_to(self)
-                        start_node_uri = rest.URI(abstract[0]._metadata("self"), "/node").reference
-                    else:
-                        start_node_uri = "{" + str(abstract[0]) + "}"
-                    if isinstance(abstract[2], Node):
-                        abstract[2]._must_belong_to(self)
-                        end_node_uri = rest.URI(abstract[2]._metadata("self"), "/node").reference
-                    else:
-                        end_node_uri = "{" + str(abstract[2]) + "}"
-                    batch.append(rest.Request(self, "POST", start_node_uri + "/relationships", {
-                        "to": end_node_uri,
-                        "data": abstract[3] if len(abstract) > 3 else {},
-                        "type": abstract[1]
-                    }))
-                except KeyError:
+                if 3 <= len(abstract) <= 4:
+                    batch.create_relationship(*abstract)
+                else:
                     raise TypeError(abstract)
-        return [
-            self._resolve(response.body, response.status)
-            for response in batch.submit()
-        ]
-
-    def create_node(self, properties=None):
-        """Create and return a new node, optionally with properties supplied as
-        a dictionary.
-
-        .. deprecated:: 1.3.1
-            use the :py:func:`create` method instead.
-        .. seealso:: :py:func:`create`
-
-        """
-        warnings.warn(
-            "Function `create_node` is deprecated, "
-            "please use `create` instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        rs = self._send(
-            rest.Request(self, "POST", self._metadata("node"), properties)
-        )
-        return Node(rs.body["self"], graph_db=self)
+        return batch.submit()
 
     def delete(self, *entities):
         """Delete multiple nodes and/or relationships as part of a single
@@ -303,8 +363,8 @@ class GraphDatabaseService(rest.Resource):
             return
         batch = Batch(self)
         for entity in entities:
-            batch.append(rest.Request(self, "DELETE", entity._uri.reference))
-        batch.submit()
+            batch.delete(entity)
+        batch._submit()
 
     def get_index(self, type, name, config=None):
         """Fetch a specific index from the current database, returning an
@@ -425,7 +485,7 @@ class GraphDatabaseService(rest.Resource):
         else:
             return False
 
-    def get_or_create_relationships(self, *relationships):
+    def get_or_create_relationships(self, *abstracts):
         """Fetch or create relationships with the specified criteria depending
         on whether or not such relationships exist. Each relationship
         descriptor should be a tuple of (start, type, end) or (start, type,
@@ -464,37 +524,14 @@ class GraphDatabaseService(rest.Resource):
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
         """
-        start, relate, return_, params = [], [], [], {}
-        for i, rel in enumerate(relationships):
-            try:
-                start_node, type, end_node = rel[0:3]
-            except IndexError:
-                raise ValueError(rel)
-            type = "`" + type + "`"
-            if len(rel) > 3:
-                param = "D" + str(i)
-                type += " {" + param + "}"
-                params[param] = rel[3]
-            if start_node:
-                start.append("a{0}=node({1})".format(i, start_node.id))
-            if end_node:
-                start.append("b{0}=node({1})".format(i, end_node.id))
-            if start_node and end_node:
-                relate.append("a{0}-[r{0}:{1}]->b{0}".format(i, type))
-            elif start_node:
-                relate.append("a{0}-[r{0}:{1}]->()".format(i, type))
-            elif end_node:
-                relate.append("()-[r{0}:{1}]->b{0}".format(i, type))
+        batch = Batch(self)
+        for abstract in abstracts:
+            if 3 <= len(abstract) <= 4:
+                batch.get_or_create_relationship(*abstract)
             else:
-                raise ValueError("Neither start node nor end node specified " \
-                                 "in relationship {0}: {1} ".format(i, rel))
-            return_.append("r{0}".format(i))
-        query = "START {0} CREATE UNIQUE {1} RETURN {2}".format(
-            ",".join(start), ",".join(relate), ",".join(return_)
-        )
+                raise TypeError(abstract)
         try:
-            data, metadata = cypher.execute(self, query, params)
-            return data[0]
+            return batch.submit()
         except cypher.CypherError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support " \
@@ -513,11 +550,8 @@ class GraphDatabaseService(rest.Resource):
             return [entities[0].get_properties()]
         batch = Batch(self)
         for entity in entities:
-            batch.append(rest.Request(self, "GET", entity._uri.reference))
-        return [
-            rs.body["data"]
-            for rs in batch.submit()
-        ]
+            batch._append(rest.Request(self, "GET", entity._uri.reference))
+        return [rs.body["data"] for rs in batch._submit()]
 
     def get_relationship(self, id):
         """Fetch a relationship by its ID.
@@ -541,62 +575,11 @@ class GraphDatabaseService(rest.Resource):
             rest.Request(self,"GET", self._metadata('relationship_types'))
         ).body
 
-    def get_reference_node(self):
-        """Fetch the reference node for the current graph.
-
-        .. deprecated:: 1.3.1
-            use indexed nodes instead.
-        """
-        warnings.warn(
-            "Function `get_reference_node` is deprecated, "
-            "please use indexed nodes instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return Node(self._metadata('reference_node'), graph_db=self)
-
-    def get_subreference_node(self, name):
-        """Fetch a named subreference node from the current graph. If such a
-        node does not exist, one is created.
-
-        .. deprecated:: 1.3.1
-            use indexed nodes instead.
-        """
-        warnings.warn(
-            "Function `get_subreference_node` is deprecated, "
-            "please use indexed nodes instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        ref_node = self.get_reference_node()
-        subreference_node = ref_node.get_single_related_node(Direction.OUTGOING, name)
-        if subreference_node is None:
-            subreference_node = self.create_node()
-            ref_node.create_relationship_to(subreference_node, name)
-        return subreference_node
-
     @property
     def neo4j_version(self):
         """Return the database software version as a tuple.
         """
         return self._neo4j_version
-
-    def relate(self, *relationships):
-        """Alias for the :py:func:`get_or_create_relationships` method. The
-        Cypher RELATE clause was replaced with CREATE UNIQUE before the final
-        release of 1.8. For more details please see
-        `<https://github.com/neo4j/community/pull/724>`_.
-
-        .. deprecated:: 1.3.1
-            use the :py:func:`get_or_create_relationships` method instead.
-        """
-        warnings.warn(
-            "Function `relate` is deprecated, "
-            "please use `get_or_create_relationships` instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.get_or_create_relationships(*relationships)
 
 
 class PropertyContainer(rest.Resource):
@@ -674,8 +657,8 @@ class PropertyContainer(rest.Resource):
             )
 
     def _must_belong_to(self, graph_db):
-        """Raise a ValueError if this entity does not belong
-        to the graph supplied.
+        """ Raise a ValueError if this entity does not belong
+            to the graph supplied.
         """
         if not isinstance(graph_db, GraphDatabaseService):
             raise TypeError(graph_db)
@@ -687,7 +670,7 @@ class PropertyContainer(rest.Resource):
             )
 
     def get_properties(self):
-        """Return all properties for this resource.
+        """ Fetch all properties for this resource.
         """
         rs = self._send(
             rest.Request(self._graph_db, "GET", self._metadata('properties'))
@@ -698,15 +681,34 @@ class PropertyContainer(rest.Resource):
             return {}
 
     def set_properties(self, properties=None):
-        """Set all properties for this resource to the supplied dictionary of
-        values.
+        """ Replace all properties for this resource with the supplied
+            dictionary of values.
         """
-        self._send(rest.Request(self._graph_db, "PUT", self._metadata('properties'), properties))
+        self._send(rest.Request(
+            self._graph_db, "PUT", self._metadata('properties'), dict([
+                (key, value)
+                for key, value in properties.items()
+                if value is not None
+            ])
+        ))
 
-    def remove_properties(self):
-        """Delete all properties for this resource.
+    def update_properties(self, properties=None):
+        """ Update the properties for this resource with the values supplied.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('properties')))
+        batch = Batch(self._graph_db)
+        for key, value in properties.items():
+            if value is None:
+                batch.delete_property(self, key)
+            else:
+                batch.set_property(self, key, value)
+        batch._submit()
+
+    def delete_properties(self):
+        """ Delete all properties for this resource.
+        """
+        self._send(rest.Request(
+            self._graph_db, "DELETE", self._metadata('properties')
+        ))
 
 
 class Node(PropertyContainer):
@@ -743,6 +745,15 @@ class Node(PropertyContainer):
         """Return the unique id for this node.
         """
         return self._id
+
+    def exists(self):
+        """ Determine whether this node still exists in the database.
+        """
+        try:
+            self._send(rest.Request(self._graph_db, "GET", self._metadata('self')))
+            return True
+        except rest.ResourceNotFound:
+            return False
 
     def create_relationship_from(self, other_node, type, properties=None):
         """Create and return a new relationship of type `type` from the node
@@ -972,6 +983,15 @@ class Relationship(PropertyContainer):
         """
         return "-[{0}:{1}]->".format(self.id, self.type)
 
+    def exists(self):
+        """ Determine whether this relationship still exists in the database.
+        """
+        try:
+            self._send(rest.Request(self._graph_db, "GET", self._metadata('self')))
+            return True
+        except rest.ResourceNotFound:
+            return False
+
     def delete(self):
         """Delete this relationship from the database.
         """
@@ -1155,12 +1175,12 @@ class Index(rest.Resource):
         else:
             batch = Batch(self._graph_db)
             for entity in entities:
-                batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
+                batch._append(rest.Request(self._graph_db, "POST", self._uri.reference, {
                     "key": key,
                     "value": value,
                     "uri": str(entity._uri),
                 }))
-            batch.submit()
+            batch._submit()
         return entities
 
     def add_if_none(self, key, value, entity):
@@ -1330,11 +1350,11 @@ class Index(rest.Resource):
             ]
             batch = Batch(self._graph_db)
             for entity in entities:
-                batch.append(rest.Request(
+                batch._append(rest.Request(
                     self._graph_db, "DELETE",
                     rest.URI(entity, "/index/").reference,
                 ))
-            batch.submit()
+            batch._submit()
         elif key and entity:
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}".format(
