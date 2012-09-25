@@ -328,7 +328,7 @@ class NewCreateTestCase(unittest.TestCase):
         self.assertEqual(1996, results[2]["since"])
 
     def test_can_create_graph_against_existing_node(self):
-        ref_node = self.graph_db.get_reference_node()
+        ref_node, = self.graph_db.create({})
         results = self.graph_db.create(
             {"name": "Alice"},
             (ref_node, "PERSON", 0)
@@ -343,6 +343,7 @@ class NewCreateTestCase(unittest.TestCase):
         self.assertEqual("PERSON", results[1].type)
         self.assertEqual(ref_node, results[1].start_node)
         self.assertEqual(results[0], results[1].end_node)
+        ref_node.delete()
 
     def test_fails_on_bad_reference(self):
         self.assertRaises(rest.BadRequest, self.graph_db.create,
@@ -374,7 +375,7 @@ class MultipleNodeTestCase(unittest.TestCase):
 
     def setUp(self):
         self.gdb = default_graph_db()
-        self.ref_node = self.gdb.get_reference_node()
+        self.ref_node, = self.gdb.create({})
         self.nodes = self.gdb.create(*self.flintstones)
 
     def test_is_created(self):
@@ -397,6 +398,7 @@ class MultipleNodeTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
+        self.ref_node.delete()
 
 
 class GetOrCreatePathTest(unittest.TestCase):
