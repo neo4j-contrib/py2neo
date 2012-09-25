@@ -15,12 +15,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Module for compatibility across multiple Python versions"""
+""" Utility module
+"""
 
 import sys
 __PY3K = sys.version_info[0] >= 3
+
+try:
+    from urllib.parse import quote as _quote
+except ImportError:
+    from urllib import quote as _quote
+
 
 if __PY3K:
     is_string = lambda value: isinstance(value, str)
 else:
     is_string = lambda value: isinstance(value, (str, unicode))
+
+
+def quote(string, safe='/'):
+    """ Quote a string for use in URIs.
+    """
+    try:
+        return _quote(string, safe)
+    except UnicodeEncodeError:
+        return string
+
+
+def numberise(n):
+    """ Convert a value to an integer if possible. If not, simply return
+        the input value.
+    """
+    try:
+        return int(n)
+    except ValueError:
+        return n

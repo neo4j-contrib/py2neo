@@ -43,7 +43,7 @@ try:
 except ImportError:
     from cStringIO import StringIO
 
-from . import neo4j, rest, compat
+from . import neo4j, rest, util
 
 import logging
 logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ class Subgraph(object):
                 continue
             if isinstance(item, list):
                 self.add(*item)
-            elif compat.is_string(item):
+            elif util.is_string(item):
                 rules = _parse(item)
                 for type, key, abstract in rules:
                     if type == NODE:

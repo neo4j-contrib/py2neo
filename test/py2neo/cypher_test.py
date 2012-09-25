@@ -34,8 +34,7 @@ class CypherTestCase(unittest.TestCase):
     def setUp(self):
         super(CypherTestCase, self).setUp()
         self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.node_a = self.graph_db.create_node({"name": "Alice"})
-        self.node_b = self.graph_db.create_node({"name": "Bob"})
+        self.node_a, self.node_b = self.graph_db.create({"name": "Alice"}, {"name": "Bob"})
         self.rel_ab = self.node_a.create_relationship_to(self.node_b, "KNOWS")
 
     def test_nonsense_query(self):
@@ -147,20 +146,6 @@ class CypherTestCase(unittest.TestCase):
         for i in range(2000):
             data, metadata = cypher.execute(self.graph_db, query)
             self.assertEqual(1, len(data))
-
-    def test_simultaneous_big_queries(self):
-        class BigQuery(Thread):
-            def run(self):
-                graph_db = neo4j.GraphDatabaseService()
-                query = "start z=node({nodes}) return z"
-                params = {"nodes": range(2000)}
-                for i in range(1):
-                    cypher.execute(graph_db, query, params)
-        queries = [BigQuery(), BigQuery(), BigQuery()]
-        for q in queries:
-            q.start()
-        for q in queries:
-            q.join()
 
 
 class PathTestCase(unittest.TestCase):

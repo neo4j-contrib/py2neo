@@ -26,27 +26,11 @@ except ImportError:
 import base64
 import logging
 
-from . import rest, cypher
+from . import rest, cypher, util
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
-
-
-def _numberise(n):
-    """Convert a value to an integer if possible, simply returning the input
-    value itself if not.
-    """
-    try:
-        return int(n)
-    except ValueError:
-        return n
-
-def _quote(string, safe='/'):
-    try:
-        return quote(string, safe)
-    except Exception:
-        return string
 
 
 def authenticate(netloc, user_name, password):
@@ -169,15 +153,15 @@ class WriteBatch(_Batch):
         assert isinstance(end_node, Node) or end_node is None
         if start_node and end_node:
             query = "START a=node({a}), b=node({b})" \
-                    "CREATE UNIQUE (a)-[ab:" + str(type_) + " {p}]->(b)" \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b)" \
                     "RETURN ab"
         elif start_node:
             query = "START a=node({a})" \
-                    "CREATE UNIQUE (a)-[ab:" + str(type_) + " {p}]->()" \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->()" \
                     "RETURN ab"
         elif end_node:
             query = "START b=node({b})" \
-                    "CREATE UNIQUE ()-[ab:" + str(type_) + " {p}]->(b)" \
+                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b)" \
                     "RETURN ab"
         else:
             raise ValueError("Either start node or end node must be "
@@ -193,7 +177,7 @@ class WriteBatch(_Batch):
         self._delete(entity._uri.reference)
 
     def set_property(self, entity, key, value):
-        uri = rest.URI(entity._metadata('property').format(key=_quote(key, "")), "/node")
+        uri = rest.URI(entity._metadata('property').format(key=util.quote(key, "")), "/node")
         self._put(uri.reference, value)
 
     def set_properties(self, entity, properties):
@@ -201,7 +185,7 @@ class WriteBatch(_Batch):
         self._put(uri.reference, properties)
 
     def delete_property(self, entity, key):
-        uri = rest.URI(entity._metadata('property').format(key=_quote(key, "")), "/node")
+        uri = rest.URI(entity._metadata('property').format(key=util.quote(key, "")), "/node")
         self._delete(uri.reference)
 
     def delete_properties(self, entity):
@@ -247,7 +231,7 @@ class GraphDatabaseService(rest.Resource):
         self._neo4j_version = self._metadata('neo4j_version', "1.4")
         self._batch_uri = self._metadata('batch', self._uri.base + "/batch")
         self._cypher_uri = self._metadata('cypher')
-        self._neo4j_version = tuple(map(_numberise,
+        self._neo4j_version = tuple(map(util.numberise,
             str(self._neo4j_version).replace("-", ".").split(".")
         ))
         self._indexes = {Node: {}, Relationship: {}}
@@ -645,14 +629,14 @@ class PropertyContainer(rest.Resource):
 
     def __delitem__(self, key):
         try:
-            self._send(rest.Request(self._graph_db, "DELETE", self._metadata('property').format(key=_quote(key, ""))))
+            self._send(rest.Request(self._graph_db, "DELETE", self._metadata('property').format(key=util.quote(key, ""))))
         except rest.ResourceNotFound:
             pass
 
     def __getitem__(self, key):
         try:
             return self._send(
-                rest.Request(self._graph_db, "GET", self._metadata('property').format(key=_quote(key, "")))
+                rest.Request(self._graph_db, "GET", self._metadata('property').format(key=util.quote(key, "")))
             ).body
         except rest.ResourceNotFound:
             return None
@@ -671,7 +655,7 @@ class PropertyContainer(rest.Resource):
             self.__delitem__(key)
         else:
             self._send(
-                rest.Request(self._graph_db, "PUT", self._metadata('property').format(key=_quote(key, "")), value)
+                rest.Request(self._graph_db, "PUT", self._metadata('property').format(key=util.quote(key, "")), value)
             )
 
     def _must_belong_to(self, graph_db):
@@ -822,7 +806,7 @@ class Node(PropertyContainer):
         else:
             uri = self._metadata('all_typed_relationships')
         return uri.replace(
-            '{-list|&|types}', '&'.join(_quote(type, "") for type in types)
+            '{-list|&|types}', '&'.join(util.quote(type, "") for type in types)
         )
 
     def get_related_nodes(self, direction=Direction.EITHER, *types):
@@ -1248,8 +1232,8 @@ class Index(rest.Resource):
         ..
         """
         results = self._send(rest.Request(self._graph_db, "GET", self._template_uri.format(
-            key=_quote(key, ""),
-            value=_quote(value, "")
+            key=util.quote(key, ""),
+            value=util.quote(value, "")
         )))
         return [
             self._content_type(result['self'], self._graph_db)
@@ -1351,8 +1335,8 @@ class Index(rest.Resource):
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}/{3}".format(
                     self._uri,
-                    _quote(key, ""),
-                    _quote(value, ""),
+                    util.quote(key, ""),
+                    util.quote(value, ""),
                     entity._id,
                 )
             ))
@@ -1361,8 +1345,8 @@ class Index(rest.Resource):
                 item['indexed']
                 for item in self._send(rest.Request(
                     self._graph_db, "GET", self._template_uri.format(
-                        key=_quote(key, ""),
-                        value=_quote(value, "")
+                        key=util.quote(key, ""),
+                        value=util.quote(value, "")
                     )
                 )).body
             ]
@@ -1377,7 +1361,7 @@ class Index(rest.Resource):
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}".format(
                     self._uri,
-                    _quote(key, ""),
+                    util.quote(key, ""),
                     entity._id,
                 )
             ))
@@ -1407,6 +1391,6 @@ class Index(rest.Resource):
         return [
             self._content_type(item['self'], self._graph_db)
             for item in self._send(rest.Request(self._graph_db, "GET", "{0}?query={1}".format(
-                self._uri, _quote(query, "")
+                self._uri, util.quote(query, "")
             ))).body
         ]
