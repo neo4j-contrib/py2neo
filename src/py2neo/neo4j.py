@@ -77,7 +77,7 @@ class Direction(object):
     OUTGOING =  1
 
 
-class Batch(object):
+class _Batch(object):
 
     def __init__(self, graph_db):
         assert isinstance(graph_db, GraphDatabaseService)
@@ -85,18 +85,6 @@ class Batch(object):
         self._create_node_uri = rest.URI(self._graph_db._metadata("node"), "/node").reference
         self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
         self.clear()
-
-    def _append(self, request):
-        self.requests.append(request)
-
-    def _post(self, uri, body=None):
-        self.requests.append(rest.Request(self._graph_db, "POST", uri, body))
-
-    def _delete(self, uri, body=None):
-        self.requests.append(rest.Request(self._graph_db, "DELETE", uri, body))
-
-    def _put(self, uri, body=None):
-        self.requests.append(rest.Request(self._graph_db, "PUT", uri, body))
 
     def _submit(self):
         """ Submits batch of requests, returning list of Response objects.
@@ -117,6 +105,9 @@ class Batch(object):
             for response in rs.body
         ]
 
+    def append(self, request):
+        self.requests.append(request)
+
     def clear(self):
         self.requests = []
 
@@ -127,6 +118,33 @@ class Batch(object):
             self._graph_db._resolve(response.body, response.status)
             for response in self._submit()
         ]
+
+
+class ReadBatch(_Batch):
+
+    def __init__(self, graph_db):
+        _Batch.__init__(self, graph_db)
+
+    def _get(self, uri, body=None):
+        self.append(rest.Request(self._graph_db, "GET", uri, body))
+
+    def get(self, entity):
+        self._get(entity._uri.reference)
+
+
+class WriteBatch(_Batch):
+
+    def __init__(self, graph_db):
+        _Batch.__init__(self, graph_db)
+
+    def _post(self, uri, body=None):
+        self.append(rest.Request(self._graph_db, "POST", uri, body))
+
+    def _delete(self, uri, body=None):
+        self.append(rest.Request(self._graph_db, "DELETE", uri, body))
+
+    def _put(self, uri, body=None):
+        self.append(rest.Request(self._graph_db, "PUT", uri, body))
 
     def create_node(self, properties=None):
         self._post(self._create_node_uri, properties or {})
@@ -344,7 +362,7 @@ class GraphDatabaseService(rest.Resource):
                 rest.Request(self, "POST", self._metadata("node"), abstracts[0])
             )
             return [Node(rs.body["self"], graph_db=self)]
-        batch = Batch(self)
+        batch = WriteBatch(self)
         for abstract in abstracts:
             if isinstance(abstract, dict):
                 batch.create_node(abstract)
@@ -361,7 +379,7 @@ class GraphDatabaseService(rest.Resource):
         """
         if not entities:
             return
-        batch = Batch(self)
+        batch = WriteBatch(self)
         for entity in entities:
             batch.delete(entity)
         batch._submit()
@@ -524,7 +542,7 @@ class GraphDatabaseService(rest.Resource):
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
         """
-        batch = Batch(self)
+        batch = WriteBatch(self)
         for abstract in abstracts:
             if 3 <= len(abstract) <= 4:
                 batch.get_or_create_relationship(*abstract)
@@ -548,9 +566,9 @@ class GraphDatabaseService(rest.Resource):
             return []
         if len(entities) == 1:
             return [entities[0].get_properties()]
-        batch = Batch(self)
+        batch = ReadBatch(self)
         for entity in entities:
-            batch._append(rest.Request(self, "GET", entity._uri.reference))
+            batch.get(entity)
         return [rs.body["data"] for rs in batch._submit()]
 
     def get_relationship(self, id):
@@ -695,7 +713,7 @@ class PropertyContainer(rest.Resource):
     def update_properties(self, properties=None):
         """ Update the properties for this resource with the values supplied.
         """
-        batch = Batch(self._graph_db)
+        batch = WriteBatch(self._graph_db)
         for key, value in properties.items():
             if value is None:
                 batch.delete_property(self, key)
@@ -1173,9 +1191,9 @@ class Index(rest.Resource):
                 "uri": str(entities[0]._uri),
             }))
         else:
-            batch = Batch(self._graph_db)
+            batch = _Batch(self._graph_db)
             for entity in entities:
-                batch._append(rest.Request(self._graph_db, "POST", self._uri.reference, {
+                batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
                     "key": key,
                     "value": value,
                     "uri": str(entity._uri),
@@ -1348,9 +1366,9 @@ class Index(rest.Resource):
                     )
                 )).body
             ]
-            batch = Batch(self._graph_db)
+            batch = _Batch(self._graph_db)
             for entity in entities:
-                batch._append(rest.Request(
+                batch.append(rest.Request(
                     self._graph_db, "DELETE",
                     rest.URI(entity, "/index/").reference,
                 ))

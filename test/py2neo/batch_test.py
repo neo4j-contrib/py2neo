@@ -41,7 +41,7 @@ def recycle(*entities):
 class TestNodeCreation(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.Batch(default_graph_db())
+        self.batch = neo4j.WriteBatch(default_graph_db())
         self.recycling = []
 
     def tearDown(self):
@@ -68,7 +68,7 @@ class TestNodeCreation(unittest.TestCase):
 class TestRelationshipCreation(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.Batch(default_graph_db())
+        self.batch = neo4j.WriteBatch(default_graph_db())
         self.recycling = []
 
     def tearDown(self):
@@ -172,7 +172,7 @@ class TestRelationshipCreation(unittest.TestCase):
 class TestUniqueRelationshipCreation(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.Batch(default_graph_db())
+        self.batch = neo4j.WriteBatch(default_graph_db())
         self.recycling = []
 
     def tearDown(self):
@@ -258,7 +258,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
 class TestDeletion(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.Batch(default_graph_db())
+        self.batch = neo4j.WriteBatch(default_graph_db())
         self.recycling = []
 
     def tearDown(self):
@@ -284,7 +284,7 @@ class TestDeletion(unittest.TestCase):
 class TestPropertyManagement(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.Batch(default_graph_db())
+        self.batch = neo4j.WriteBatch(default_graph_db())
         self.batch.create_node({"name": "Alice", "surname": "Allison"})
         self.alice, = self.batch.submit()
         self.recycling = []
