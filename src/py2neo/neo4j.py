@@ -781,9 +781,18 @@ class Node(PropertyContainer):
         return Relationship(rs.body["self"])
 
     def delete(self):
-        """Delete this node from the database.
+        """ Delete this node from the database.
         """
         self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
+
+    def delete_related(self):
+        """ Delete this node, plus all related nodes and relationships.
+        """
+        query = "START a=node({a}) " \
+                "MATCH (a)-[rels*0..]-(z) " \
+                "FOREACH(rel IN rels: DELETE rel) " \
+                "DELETE a, z"
+        cypher.execute(self._graph_db, query, {"a": self._id})
 
     def _relationships_uri(self, direction):
         if not isinstance(direction, int):

@@ -22,7 +22,7 @@ __author__    = "Nigel Small <py2neo@nigelsmall.org>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 
-from py2neo import neo4j, rest
+from py2neo import neo4j, cypher, rest
 
 import unittest
 
@@ -33,6 +33,13 @@ for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
 
 def default_graph_db():
     return neo4j.GraphDatabaseService()
+
+def recycle(*entities):
+    for entity in entities:
+        try:
+            entity.delete()
+        except Exception:
+            pass
 
 
 class FailureTest(unittest.TestCase):
@@ -461,6 +468,68 @@ class GetOrCreatePathTest(unittest.TestCase):
         print p3
 
 
+class TestRelatedDelete(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.recycling = []
+
+    def tearDown(self):
+        recycle(*self.recycling)
+
+    def test_can_delete_entire_subgraph(self):
+        query = '''\
+        CREATE (en {place: "England"}),
+               (sc {place: "Scotland"}),
+               (cy {place: "Wales"}),
+               (fr {place: "France"}),
+               (de {place: "Germany"}),
+               (es {place: "Spain"}),
+               (eng {lang: "English"}),
+               (fre {lang: "French"}),
+               (deu {lang: "German"}),
+               (esp {lang: "Spanish"}),
+               (A {name: "Alice"}),
+               (A)-[:LIVES_IN]->(en),
+               (A)-[:SPEAKS]->(eng),
+               (B {name: "Bob"}),
+               (B)-[:LIVES_IN]->(cy),
+               (B)-[:SPEAKS]->(eng),
+               (C {name: "Carlos"}),
+               (C)-[:LIVES_IN]->(es),
+               (C)-[:SPEAKS]->(esp),
+               (D {name: "Dagmar"}),
+               (D)-[:LIVES_IN]->(de),
+               (D)-[:SPEAKS]->(deu),
+               (E {name: "Elspeth"}),
+               (E)-[:LIVES_IN]->(sc),
+               (E)-[:SPEAKS]->(eng),
+               (E)-[:SPEAKS]->(deu),
+               (F {name: "François"}),
+               (F)-[:LIVES_IN]->(fr),
+               (F)-[:SPEAKS]->(eng),
+               (F)-[:SPEAKS]->(fre),
+               (G {name: "Gina"}),
+               (G)-[:LIVES_IN]->(de),
+               (G)-[:SPEAKS]->(eng),
+               (G)-[:SPEAKS]->(fre),
+               (G)-[:SPEAKS]->(deu),
+               (G)-[:SPEAKS]->(esp),
+               (H {name: "Hans"}),
+               (H)-[:LIVES_IN]->(de),
+               (H)-[:SPEAKS]->(deu)
+        RETURN en, sc, cy, fr, de, es, eng, fre, deu, esp,
+               A, B, C, D, E, F, G, H
+        '''
+        data, metadata = cypher.execute(self.graph_db, query)
+        entities = data[0]
+        for entity in entities:
+            assert entity.exists()
+        alice = entities[10]
+        alice.delete_related()
+        for entity in entities:
+            assert not entity.exists()
+
+
 if __name__ == '__main__':
     unittest.main()
-
