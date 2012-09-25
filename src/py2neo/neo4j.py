@@ -152,16 +152,16 @@ class WriteBatch(_Batch):
         assert isinstance(start_node, Node) or start_node is None
         assert isinstance(end_node, Node) or end_node is None
         if start_node and end_node:
-            query = "START a=node({a}), b=node({b})" \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b)" \
+            query = "START a=node({a}), b=node({b}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
                     "RETURN ab"
         elif start_node:
-            query = "START a=node({a})" \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->()" \
+            query = "START a=node({a}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->() " \
                     "RETURN ab"
         elif end_node:
-            query = "START b=node({b})" \
-                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b)" \
+            query = "START b=node({b}) " \
+                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b) " \
                     "RETURN ab"
         else:
             raise ValueError("Either start node or end node must be "
