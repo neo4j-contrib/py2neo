@@ -19,10 +19,6 @@
 the starting point for most applications.
 """
 
-try:
-    from urllib.parse import quote
-except ImportError:
-    from urllib import quote
 import base64
 import logging
 
