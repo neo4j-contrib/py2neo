@@ -92,13 +92,23 @@ class NodeIndexTestCase(unittest.TestCase):
             {"name": "Bob Smith"},
             {"name": "Carol Smith"}
         )
-        self.index.add("surname", "Smith", alice, bob, carol)
+        self.index.add("surname", "Smith", alice)
+        self.index.add("surname", "Smith", bob)
+        self.index.add("surname", "Smith", carol)
         entities = self.index.get("surname", "Smith")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(3, len(entities))
         for entity in entities:
             self.assertTrue(entity in (alice, bob, carol))
+
+    def test_create_node(self):
+        alice = self.index.create("surname", "Smith", {"name": "Alice Smith"})
+        self.assertIsNotNone(alice)
+        self.assertTrue(isinstance(alice, neo4j.Node))
+        self.assertEqual("Alice Smith", alice["name"])
+        smiths = self.index.get("surname", "Smith")
+        self.assertTrue(alice in smiths)
 
     def test_get_or_create_node(self):
         alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
@@ -166,8 +176,10 @@ class RemovalTests(unittest.TestCase):
         )
         self.index.add("name", "Fred", self.fred)
         self.index.add("name", "Wilma", self.wilma)
-        self.index.add("name", "Flintstone", self.fred, self.wilma)
-        self.index.add("flintstones", "%", self.fred, self.wilma)
+        self.index.add("name", "Flintstone", self.fred)
+        self.index.add("name", "Flintstone", self.wilma)
+        self.index.add("flintstones", "%", self.fred)
+        self.index.add("flintstones", "%", self.wilma)
 
     def tearDown(self):
         self.graph_db.delete(self.fred, self.wilma)

@@ -1317,38 +1317,30 @@ class Index(rest.Resource):
             repr(self._uri)
         )
 
-    def add(self, key, value, *entities):
-        """Add one or more entities to this index under the `key`:`value` pair
-        supplied::
+    def add(self, key, value, entity):
+        """Add an entity to this index under the `key`:`value` pair supplied::
 
-            # create a couple of nodes and obtain
+            # create a node and obtain
             # a reference to the "People" node index
-            alice, bob = graph_db.create({"name": "Alice Smith"}, {"name": "Bob Smith"})
+            alice, = graph_db.create({"name": "Alice Smith"})
             people = graph_db.get_or_create_index(neo4j.Node, "People")
 
-            # add the nodes to the index
-            people.add("family_name", "Smith", alice, bob)
+            # add the node to the index
+            people.add("family_name", "Smith", alice)
 
         Note that while Neo4j indexes allow multiple entities to be added under
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
         """
-        if not entities:
-            return
-        batch = WriteBatch(self._graph_db)
-        if self._content_type is Node:
-            for entity in entities:
-                batch.add_indexed_node(self, key, value, entity)
-        elif self._content_type is Relationship:
-            for entity in entities:
-                batch.add_indexed_relationship(self, key, value, entity)
-        else:
-            raise TypeError()
-        batch._submit()
-        return entities
+        self._send(rest.Request(self._graph_db, "POST", str(self._uri), {
+            "key": key,
+            "value": value,
+            "uri": str(entity._uri)
+        }))
+        return entity
 
     def add_if_none(self, key, value, entity):
-        """Add a single entity to this index under the `key`:`value` pair
+        """Add an entity to this index under the `key`:`value` pair
         supplied if no entry already exists at that point::
 
             # obtain a reference to the "Rooms" node index and
@@ -1402,16 +1394,40 @@ class Index(rest.Resource):
             for result in results.body
         ]
 
+    def create(self, key, value, abstract):
+        """ Create and index a new node or relationship using the abstract
+            provided.
+        """
+        batch = WriteBatch(self._graph_db)
+        if self._content_type is Node:
+            batch.create_node(abstract)
+            batch.add_indexed_node(self, key, value, 0)
+        elif self._content_type is Relationship:
+            if len(abstract) == 3:
+                (start_node, type_, end_node), properties = abstract, None
+            elif len(abstract) == 4:
+                start_node, type_, end_node, properties = abstract
+            else:
+                raise ValueError(abstract)
+            assert isinstance(start_node, Node)
+            assert isinstance(end_node, Node)
+            batch.create_relationship(start_node, type_, end_node, properties)
+            batch.add_indexed_relationship(self, key, value, 0)
+        else:
+            raise TypeError(self._content_type)
+        entity, index_entry = batch.submit()
+        return entity
+
     def _create_unique(self, key, value, abstract):
         """Internal method to support `get_or_create` and `create_if_none`.
         """
-        if self._content_type == Node:
+        if self._content_type is Node:
             body = {
                 "key": key,
                 "value": value,
                 "properties": abstract
             }
-        elif self._content_type == Relationship:
+        elif self._content_type is Relationship:
             body = {
                 "key": key,
                 "value": value,
@@ -1421,7 +1437,7 @@ class Index(rest.Resource):
                 "properties": abstract[3] if len(abstract) > 3 else None
             }
         else:
-            raise TypeError(self._content_type + " indexes are not supported")
+            raise TypeError(self._content_type)
         return self._send(rest.Request(
             self._graph_db, "POST", str(self._uri) + "?unique", body)
         )

@@ -612,8 +612,10 @@ class TestIndexedNodeRemoval(unittest.TestCase):
         )
         self.index.add("name", "Fred", self.fred)
         self.index.add("name", "Wilma", self.wilma)
-        self.index.add("name", "Flintstone", self.fred, self.wilma)
-        self.index.add("flintstones", "%", self.fred, self.wilma)
+        self.index.add("name", "Flintstone", self.fred)
+        self.index.add("name", "Flintstone", self.wilma)
+        self.index.add("flintstones", "%", self.fred)
+        self.index.add("flintstones", "%", self.wilma)
         self.batch = neo4j.WriteBatch(self.graph_db)
 
     def tearDown(self):
