@@ -122,5 +122,67 @@ class TestYears(unittest.TestCase):
         assert millennium_2000 != millennium_2001
 
 
+class TestDateRanges(unittest.TestCase):
+
+    def setUp(self):
+        self.calendar = GregorianCalendar(TIME)
+
+    def test_can_get_date_range(self):
+        xmas_year = self.calendar.date_range((2000, 12, 25), (2001, 12, 25))
+        assert isinstance(xmas_year, neo4j.Node)
+        assert xmas_year["start_date"] == "2000-12-25"
+        assert xmas_year["end_date"] == "2001-12-25"
+        rels = xmas_year.get_relationships(neo4j.Direction.OUTGOING, "START_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 25))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 25)
+        rels = xmas_year.get_relationships(neo4j.Direction.OUTGOING, "END_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2001, 12, 25))
+        assert rels[0].end_node == self.calendar.day(2001, 12, 25)
+
+    def test_will_always_get_same_date_range_node(self):
+        range1 = self.calendar.date_range((2000, 12, 25), (2001, 12, 25))
+        range2 = self.calendar.date_range((2000, 12, 25), (2001, 12, 25))
+        assert range1 == range2
+
+    def test_can_get_different_date_range_nodes(self):
+        range1 = self.calendar.date_range((2000, 12, 25), (2001, 12, 25))
+        range2 = self.calendar.date_range((2000, 1, 1), (2000, 12, 31))
+        assert range1 != range2
+
+    def test_single_day_range(self):
+        range = self.calendar.date_range((2000, 12, 25), (2000, 12, 25))
+        assert range == self.calendar.day(2000, 12, 25)
+
+    def test_range_within_month(self):
+        advent = self.calendar.date_range((2000, 12, 1), (2000, 12, 24))
+        rels = advent.get_relationships(neo4j.Direction.INCOMING, "DATE_RANGE")
+        assert len(rels) == 1
+        assert rels[0].start_node == self.calendar.month(2000, 12)
+        rels = advent.get_relationships(neo4j.Direction.OUTGOING, "START_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 1))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 1)
+        rels = advent.get_relationships(neo4j.Direction.OUTGOING, "END_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 24))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 24)
+
+    def test_range_within_year(self):
+        range = self.calendar.date_range((2000, 4, 10), (2000, 12, 24))
+        rels = range.get_relationships(neo4j.Direction.INCOMING, "DATE_RANGE")
+        assert len(rels) == 1
+        assert rels[0].start_node == self.calendar.year(2000)
+        rels = range.get_relationships(neo4j.Direction.OUTGOING, "START_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 4, 10))
+        assert rels[0].end_node == self.calendar.day(2000, 4, 10)
+        rels = range.get_relationships(neo4j.Direction.OUTGOING, "END_DATE")
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 24))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 24)
+
+
 if __name__ == "__main__":
     unittest.main()

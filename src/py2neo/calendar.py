@@ -47,13 +47,86 @@ from . import cypher
 
 class GregorianCalendar(object):
 
+    class Date(object):
+
+        def __init__(self, year, month=None, day=None):
+            if year and month and day:
+                self._date = _date(year, month, day)
+                self._resolution = 3
+                self.year = year
+                self.month = month
+                self.day = day
+            elif year and month:
+                self._date = _date(year, month, 1)
+                self._resolution = 2
+                self.year = year
+                self.month = month
+                self.day = None
+            elif year:
+                self._date = _date(year, 1, 1)
+                self._resolution = 1
+                self.year = year
+                self.month = None
+                self.day = None
+            else:
+                raise ValueError()
+
+        def __str__(self):
+            if self.year and self.month and self.day:
+                return "{y:04d}-{m:02d}-{d:02d}".format(
+                    y=self.year, m=self.month, d=self.day
+                )
+            elif self.year and self.month:
+                return "{y:04d}-{m:02d}".format(
+                    y=self.year, m=self.month
+                )
+            elif self.year:
+                return "{y:04d}".format(
+                    y=self.year
+                )
+            else:
+                raise ValueError()
+
+        def get_node(self, calendar):
+            if self.year and self.month and self.day:
+                return calendar.day(self.year, self.month, self.day)
+            elif self.year and self.month:
+                return calendar.month(self.year, self.month)
+            elif self.year:
+                return calendar.year(self.year)
+            else:
+                raise ValueError()
+
+    class DateRange(object):
+
+        def __init__(self, start_date=None, end_date=None):
+            if start_date and end_date:
+                self.start_date = GregorianCalendar.Date(*start_date)
+                self.end_date = GregorianCalendar.Date(*end_date)
+                # check both dates are compatible
+                if self.start_date._resolution != self.end_date._resolution:
+                    raise ValueError("Range start and end dates are specified "
+                                     "at different resolutions")
+                # ensure dates are correctly ordered
+                if self.start_date._date > self.end_date._date:
+                    self.start_date, self.end_date = self.end_date, self.start_date
+            elif start_date:
+                self.start_date = GregorianCalendar.Date(*start_date)
+                self.end_date = None
+            elif start_date:
+                self.start_date = None
+                self.end_date = GregorianCalendar.Date(*end_date)
+            else:
+                raise ValueError("Either start date or end date must "
+                                 "be specified for a date range")
+
     def __init__(self, index):
         """ Create a new calendar instance pointed to by the
             index provided.
         """
         self._index = index
         self._graph_db = self._index._graph_db
-        self._calendar = self._index.get_or_create("scheme", "Gregorian", {})
+        self._calendar = self._index.get_or_create("calendar", "Gregorian", {})
 
     def calendar(self):
         return self._calendar
@@ -62,7 +135,7 @@ class GregorianCalendar(object):
         """ Fetch the calendar node representing the day specified by `year`,
             `month` and `day`.
         """
-        d = _date(year, month, day)
+        d = GregorianCalendar.Date(year, month, day)
         date_path = self._calendar.get_or_create_path(
             ("YEAR",  {"year": d.year}),
             ("MONTH", {"year": d.year, "month": d.month}),
@@ -74,7 +147,7 @@ class GregorianCalendar(object):
         """ Fetch the calendar node representing the month specified by `year`
             and `month`.
         """
-        d = _date(year, month, 1)
+        d = GregorianCalendar.Date(year, month)
         date_path = self._calendar.get_or_create_path(
             ("YEAR",  {"year": d.year}),
             ("MONTH", {"year": d.year, "month": d.month}),
@@ -84,43 +157,85 @@ class GregorianCalendar(object):
     def year(self, year):
         """ Fetch the calendar node representing the year specified by `year`.
         """
-        d = _date(year, 1, 1)
+        d = GregorianCalendar.Date(year)
         date_path = self._calendar.get_or_create_path(
             ("YEAR",  {"year": d.year}),
         )
         return date_path.nodes[-1]
 
     def date(self, date):
-        bits = len(date)
-        if bits == 3:
-            return self.day(*date)
-        elif bits == 2:
-            return self.month(*date)
-        elif bits == 1:
-            return self.year(*date)
-        else:
-            raise ValueError(date)
+        return GregorianCalendar.Date(*date).get_node(self)
 
-    def date_range(self, start_date, end_date):
+    def date_range(self, start_date=None, end_date=None):
+        """ Fetch the calendar node representing the date range defined by
+            `start_date` and `end_date`. If either are unspecified, this
+            defines an open-ended range. Either `start_date` or `end_date`
+            must be specified.
+        """
         #                         (CAL)
         #                           |
         #                       [:RANGE]
         #                           |
         #                           v
         # (START)<-[:START_DATE]-(RANGE)-[:END_DATE]->(END)
-        query = "START cal=node({cal}), st=node({st}), en=node({en}) " \
-                "CREATE UNIQUE (st)<-[:START_DATE]-(r {rp})-[:END_DATE]->(en), " \
-                "              (cal)-[:DATE_RANGE]->(r {rp})" \
-                "RETURN r"
-        params = {
-            "cal": self._calendar._id,
-            "st": self.date(start_date)._id,
-            "en": self.date(end_date)._id,
-            "rp": {
-                "start_date": "-".join("0" + str(d) if d < 10 else str(d) for d in start_date),
-                "end_date": "-".join("0" + str(d) if d < 10 else str(d) for d in end_date),
-            },
-        }
+        range = GregorianCalendar.DateRange(start_date, end_date)
+        start, end = range.start_date, range.end_date
+        if start and end:
+            # if start and end are equal, return the day node instead
+            if (start.year, start.month, start.day) == (end.year, end.month, end.day):
+                return start.get_node(self)
+            if (start.year, start.month) == (end.year, end.month):
+                root = self.month(start.year, start.month)
+            elif start.year == end.year:
+                root = self.year(start.year)
+            else:
+                root = self._calendar
+            query = """\
+                START z=node({z}), s=node({s}), e=node({e})
+                CREATE UNIQUE (s)<-[:START_DATE]-(r {r})-[:END_DATE]->(e),
+                              (z)-[:DATE_RANGE]->(r {r})
+                RETURN r
+            """
+            params = {
+                "z": root._id,
+                "s": start.get_node(self)._id,
+                "e": end.get_node(self)._id,
+                "r": {
+                    "start_date": str(start),
+                    "end_date": str(end),
+                },
+            }
+        elif start:
+            query = """\
+                START z=node({z}), s=node({s})
+                CREATE UNIQUE (s)<-[:START_DATE]-(r {r}),
+                              (z)-[:DATE_RANGE]->(r {r})
+                RETURN r
+            """
+            params = {
+                "z": self._calendar._id,
+                "s": start.get_node(self)._id,
+                "r": {
+                    "start_date": str(start),
+                },
+            }
+        elif end:
+            query = """\
+                START z=node({z}), e=node({e})
+                CREATE UNIQUE (r {r})-[:END_DATE]->(e),
+                              (z)-[:DATE_RANGE]->(r {r})
+                RETURN r
+            """
+            params = {
+                "z": self._calendar._id,
+                "e": end.get_node(self)._id,
+                "r": {
+                    "end_date": str(end),
+                },
+            }
+        else:
+            raise ValueError("Either start or end date must be supplied "
+                             "for a date range")
         data, metadata = cypher.execute(self._graph_db, query, params)
         return data[0][0]
 
