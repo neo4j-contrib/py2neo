@@ -21,6 +21,7 @@ the starting point for most applications.
 
 import base64
 import logging
+import warnings
 
 from . import rest, cypher, util
 
@@ -649,6 +650,20 @@ class GraphDatabaseService(rest.Resource):
             else:
                 raise TypeError(entity)
         batch._submit()
+
+    def get_reference_node(self):
+        """Fetch the reference node for the current graph.
+
+        .. deprecated:: 1.3.1
+            use indexed nodes instead.
+        """
+        warnings.warn(
+            "Function `get_reference_node` is deprecated, "
+            "please use indexed nodes instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return Node(self._metadata('reference_node'), graph_db=self)
 
     def get_index(self, type, name, config=None):
         """Fetch a specific index from the current database, returning an
