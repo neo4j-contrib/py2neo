@@ -192,6 +192,164 @@ class WriteBatch(_Batch):
         uri = rest.URI(entity._metadata('properties'), "/node")
         self._delete(uri.reference)
 
+    def _node_uri(self, node):
+        if isinstance(node, Node):
+            return str(node._uri)
+        else:
+            return "{" + str(node) + "}"
+
+    def _relationship_uri(self, relationship):
+        if isinstance(relationship, Relationship):
+            return str(relationship._uri)
+        else:
+            return "{" + str(relationship) + "}"
+
+    def _index(self, content_type, index):
+        if isinstance(index, Index):
+            assert content_type == index._content_type
+            return index
+        else:
+            return self._graph_db.get_or_create_index(content_type, str(index))
+
+    def _create_indexed_node(self, index, uri_suffix, key, value, properties):
+        index_uri = self._index(Node, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "properties": properties or {}
+        })
+
+    def get_or_create_indexed_node(self, index, key, value, properties=None):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, properties)
+        else:
+            self._create_indexed_node(index, "?unique", key, value, properties)
+
+    def create_indexed_node_or_fail(self, index, key, value, properties=None):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, properties)
+        else:
+            raise NotImplemented("Uniqueness mode `create_or_fail` "
+                                 "requires version 1.9 or above")
+
+    def _add_indexed_node(self, index, uri_suffix, key, value, node):
+        index_uri = self._index(Node, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "uri": self._node_uri(node)
+        })
+
+    def add_indexed_node(self, index, key, value, node):
+        self._add_indexed_node(index, "", key, value, node)
+
+    def get_or_add_indexed_node(self, index, key, value, node):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._add_indexed_node(index, "?uniqueness=get_or_create", key, value, node)
+        else:
+            self._add_indexed_node(index, "?unique", key, value, node)
+
+    def add_indexed_node_or_fail(self, index, key, value, node):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._add_indexed_node(index, "?uniqueness=create_or_fail", key, value, node)
+        else:
+            raise NotImplemented("Uniqueness mode `create_or_fail` "
+                                 "requires version 1.9 or above")
+
+    def remove_indexed_node(self, index, key=None, value=None, node=None):
+        index_uri = self._index(Node, index)._uri
+        if key and value and node:
+            self._delete("{0}/{1}/{2}/{3}".format(
+                index_uri,
+                util.quote(key, ""),
+                util.quote(value, ""),
+                node._id,
+            ))
+        elif key and node:
+            self._delete("{0}/{1}/{2}".format(
+                index_uri,
+                util.quote(key, ""),
+                node._id,
+            ))
+        elif node:
+            self._delete("{0}/{1}".format(
+                index_uri,
+                node._id,
+            ))
+        else:
+            raise TypeError("Illegal parameter combination for index removal")
+
+    def _create_indexed_relationship(self, index, uri_suffix, key, value, start_node, type_, end_node, properties):
+        index_uri = self._index(Relationship, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "start": self._node_uri(start_node),
+            "type": str(type_),
+            "end": self._node_uri(end_node),
+            "properties": properties or {}
+        })
+
+    def get_or_create_indexed_relationship(self, index, key, value, start_node, type_, end_node, properties=None):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._create_indexed_relationship(index, "?uniqueness=get_or_create", key, value, start_node, type_, end_node, properties)
+        else:
+            self._create_indexed_relationship(index, "?unique", key, value, start_node, type_, end_node, properties)
+
+    def create_indexed_relationship_or_fail(self, index, key, value, start_node, type_, end_node, properties=None):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._create_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, start_node, type_, end_node, properties)
+        else:
+            raise NotImplemented("Uniqueness mode `create_or_fail` "
+                                 "requires version 1.9 or above")
+
+    def _add_indexed_relationship(self, index, uri_suffix, key, value, relationship):
+        index_uri = self._index(Relationship, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "uri": self._relationship_uri(relationship)
+        })
+
+    def add_indexed_relationship(self, index, key, value, relationship):
+        self._add_indexed_relationship(index, "", key, value, relationship)
+
+    def get_or_add_indexed_relationship(self, index, key, value, relationship):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._add_indexed_relationship(index, "?uniqueness=get_or_create", key, value, relationship)
+        else:
+            self._add_indexed_relationship(index, "?unique", key, value, relationship)
+
+    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
+        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+            self._add_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, relationship)
+        else:
+            raise NotImplemented("Uniqueness mode `create_or_fail` "
+                                 "requires version 1.9 or above")
+
+    def remove_indexed_relationship(self, index, key=None, value=None, relationship=None):
+        index_uri = self._index(Relationship, index)._uri
+        if key and value and relationship:
+            self._delete("{0}/{1}/{2}/{3}".format(
+                index_uri,
+                util.quote(key, ""),
+                util.quote(value, ""),
+                relationship._id,
+            ))
+        elif key and relationship:
+            self._delete("{0}/{1}/{2}".format(
+                index_uri,
+                util.quote(key, ""),
+                relationship._id,
+            ))
+        elif relationship:
+            self._delete("{0}/{1}".format(
+                index_uri,
+                relationship._id,
+            ))
+        else:
+            raise TypeError("Illegal parameter combination for index removal")
+
 
 class GraphDatabaseService(rest.Resource):
     """An instance of a `Neo4j <http://neo4j.org/>`_ database identified by its
@@ -1177,21 +1335,16 @@ class Index(rest.Resource):
         """
         if not entities:
             return
-        if len(entities) == 1:
-            self._send(rest.Request(self._graph_db, "POST", str(self._uri), {
-                "key": key,
-                "value": value,
-                "uri": str(entities[0]._uri),
-            }))
-        else:
-            batch = _Batch(self._graph_db)
+        batch = WriteBatch(self._graph_db)
+        if self._content_type is Node:
             for entity in entities:
-                batch.append(rest.Request(self._graph_db, "POST", self._uri.reference, {
-                    "key": key,
-                    "value": value,
-                    "uri": str(entity._uri),
-                }))
-            batch._submit()
+                batch.add_indexed_node(self, key, value, entity)
+        elif self._content_type is Relationship:
+            for entity in entities:
+                batch.add_indexed_relationship(self, key, value, entity)
+        else:
+            raise TypeError()
+        batch._submit()
         return entities
 
     def add_if_none(self, key, value, entity):
@@ -1359,7 +1512,7 @@ class Index(rest.Resource):
                     )
                 )).body
             ]
-            batch = _Batch(self._graph_db)
+            batch = WriteBatch(self._graph_db)
             for entity in entities:
                 batch.append(rest.Request(
                     self._graph_db, "DELETE",

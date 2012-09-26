@@ -325,3 +325,331 @@ class TestPropertyManagement(unittest.TestCase):
         self.batch.delete_properties(self.alice)
         self.batch.submit()
         self._check_properties(self.alice, {})
+
+
+class TestIndexedNodeCreation(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.people = self.graph_db.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.WriteBatch(self.graph_db)
+        self.recycling = []
+
+    def tearDown(self):
+        recycle(*self.recycling)
+        self.graph_db.delete_index(neo4j.Node, "People")
+
+    def test_can_create_single_indexed_node(self):
+        properties = {"name": "Alice Smith"}
+        # need to execute a pair of commands as "create in index" not available
+        self.batch.create_node(properties)
+        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        alice, index_entry = self.batch.submit()
+        assert isinstance(alice, neo4j.Node)
+        assert alice.get_properties() == properties
+        self.recycling = [alice]
+
+    def test_can_create_two_similarly_indexed_nodes(self):
+        # create Alice
+        alice_props = {"name": "Alice Smith"}
+        # need to execute a pair of commands as "create in index" not available
+        self.batch.create_node(alice_props)
+        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        alice, alice_index_entry = self.batch.submit()
+        assert isinstance(alice, neo4j.Node)
+        assert alice.get_properties() == alice_props
+        # create Bob
+        bob_props = {"name": "Bob Smith"}
+        # need to execute a pair of commands as "create in index" not available
+        self.batch.create_node(bob_props)
+        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        bob, bob_index_entry = self.batch.submit()
+        assert isinstance(bob, neo4j.Node)
+        assert bob.get_properties() == bob_props
+        # check entries
+        smiths = self.people.get("surname", "Smith")
+        assert len(smiths) == 2
+        assert alice in smiths
+        assert bob in smiths
+        # done
+        self.recycling = [alice, bob]
+
+    def test_can_get_or_create_uniquely_indexed_node(self):
+        # create Alice
+        alice_props = {"name": "Alice Smith"}
+        self.batch.get_or_create_indexed_node(self.people, "surname", "Smith", alice_props)
+        alice, = self.batch.submit()
+        assert isinstance(alice, neo4j.Node)
+        assert alice.get_properties() == alice_props
+        # create Bob
+        bob_props = {"name": "Bob Smith"}
+        self.batch.get_or_create_indexed_node(self.people, "surname", "Smith", bob_props)
+        bob, = self.batch.submit()
+        assert isinstance(bob, neo4j.Node)
+        assert bob.get_properties() != bob_props
+        assert bob.get_properties() == alice_props
+        assert bob == alice
+        # check entries
+        smiths = self.people.get("surname", "Smith")
+        assert len(smiths) == 1
+        assert alice in smiths
+        # done
+        self.recycling = [alice, bob]
+
+    def test_can_create_uniquely_indexed_node_or_fail(self):
+        try:
+            # create Alice
+            alice_props = {"name": "Alice Smith"}
+            self.batch.create_indexed_node_or_fail(self.people, "surname", "Smith", alice_props)
+            alice, = self.batch.submit()
+            assert isinstance(alice, neo4j.Node)
+            assert alice.get_properties() == alice_props
+            # create Bob
+            try:
+                bob_props = {"name": "Bob Smith"}
+                self.batch.create_indexed_node_or_fail(self.people, "surname", "Smith", bob_props)
+                self.batch.submit()
+                assert False
+            except rest.ResourceConflict:
+                assert True
+            # check entries
+            smiths = self.people.get("surname", "Smith")
+            assert len(smiths) == 1
+            assert alice in smiths
+            # done
+            self.recycling = [alice]
+        except NotImplemented:
+            # uniqueness mode `create_or_fail` not available in server version
+            assert True
+
+
+class TestIndexedNodeAddition(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.people = self.graph_db.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.WriteBatch(self.graph_db)
+        self.recycling = []
+
+    def tearDown(self):
+        recycle(*self.recycling)
+        self.graph_db.delete_index(neo4j.Node, "People")
+
+    def test_can_add_single_node(self):
+        alice, = self.graph_db.create({"name": "Alice Smith"})
+        self.batch.add_indexed_node(self.people, "surname", "Smith", alice)
+        self.batch.submit()
+        # check entries
+        smiths = self.people.get("surname", "Smith")
+        assert len(smiths) == 1
+        assert alice in smiths
+        # done
+        self.recycling = [alice]
+
+    def test_can_add_two_similar_nodes(self):
+        alice, bob = self.graph_db.create({"name": "Alice Smith"}, {"name": "Bob Smith"})
+        self.batch.add_indexed_node(self.people, "surname", "Smith", alice)
+        self.batch.add_indexed_node(self.people, "surname", "Smith", bob)
+        nodes = self.batch.submit()
+        assert nodes[0] != nodes[1]
+        # check entries
+        smiths = self.people.get("surname", "Smith")
+        assert len(smiths) == 2
+        assert alice in smiths
+        assert bob in smiths
+        # done
+        self.recycling = [alice, bob]
+
+    def test_can_add_nodes_only_if_none_exist(self):
+        alice, bob = self.graph_db.create({"name": "Alice Smith"}, {"name": "Bob Smith"})
+        self.batch.get_or_add_indexed_node(self.people, "surname", "Smith", alice)
+        self.batch.get_or_add_indexed_node(self.people, "surname", "Smith", bob)
+        nodes = self.batch.submit()
+        assert nodes[0] == nodes[1]
+        # check entries
+        smiths = self.people.get("surname", "Smith")
+        assert len(smiths) == 1
+        assert alice in smiths
+        # done
+        self.recycling = [alice, bob]
+
+    def test_can_add_nodes_or_fail(self):
+        alice, bob = self.graph_db.create({"name": "Alice Smith"}, {"name": "Bob Smith"})
+        try:
+            self.batch.add_indexed_node_or_fail(self.people, "surname", "Smith", alice)
+            self.batch.add_indexed_node_or_fail(self.people, "surname", "Smith", bob)
+            try:
+                self.batch.submit()
+                assert False
+            except rest.ResourceConflict:
+                assert True
+        except NotImplemented:
+            pass
+        self.recycling = [alice, bob]
+
+
+class TestIndexedRelationshipCreation(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.friendships = self.graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
+        self.alice, self.bob = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"}
+        )
+        self.batch = neo4j.WriteBatch(self.graph_db)
+        self.recycling = []
+
+    def tearDown(self):
+        recycle(*self.recycling)
+        recycle(self.alice, self.bob)
+        self.graph_db.delete_index(neo4j.Relationship, "Friendships")
+
+    def test_can_create_single_indexed_relationship(self):
+        self.batch.get_or_create_indexed_relationship(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
+        rels = self.batch.submit()
+        assert len(rels) == 1
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].start_node == self.alice
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == self.bob
+        assert rels[0].get_properties() == {}
+        self.recycling = rels
+
+    def test_can_get_or_create_uniquely_indexed_relationship(self):
+        self.batch.get_or_create_indexed_relationship(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
+        self.batch.get_or_create_indexed_relationship(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
+        rels = self.batch.submit()
+        assert len(rels) == 2
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[1], neo4j.Relationship)
+        assert rels[0] == rels[1]
+        self.recycling = rels
+
+    def test_can_create_uniquely_indexed_relationship_or_fail(self):
+        try:
+            self.batch.create_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
+            self.batch.create_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
+            try:
+                self.batch.submit()
+                assert False
+            except rest.ResourceConflict:
+                assert True
+        except NotImplemented:
+            pass
+
+
+class TestIndexedRelationshipAddition(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.friendships = self.graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
+        self.batch = neo4j.WriteBatch(self.graph_db)
+        self.recycling = []
+
+    def tearDown(self):
+        recycle(*self.recycling)
+        self.graph_db.delete_index(neo4j.Relationship, "Friendships")
+
+    def test_can_add_single_relationship(self):
+        alice, bob, ab = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
+        self.batch.add_indexed_relationship(self.friendships, "friends", "alice_&_bob", ab)
+        self.batch.submit()
+        # check entries
+        rels = self.friendships.get("friends", "alice_&_bob")
+        assert len(rels) == 1
+        assert ab in rels
+        # done
+        self.recycling = [ab, alice, bob]
+
+    def test_can_add_two_similar_relationships(self):
+        alice, bob, ab1, ab2 = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1), (0, "KNOWS", 1))
+        self.batch.add_indexed_relationship(self.friendships, "friends", "alice_&_bob", ab1)
+        self.batch.add_indexed_relationship(self.friendships, "friends", "alice_&_bob", ab2)
+        self.batch.submit()
+        # check entries
+        entries = self.friendships.get("friends", "alice_&_bob")
+        assert len(entries) == 2
+        assert ab1 in entries
+        assert ab2 in entries
+        # done
+        self.recycling = [ab1, ab2, alice, bob]
+
+    def test_can_add_relationships_only_if_none_exist(self):
+        alice, bob, ab1, ab2 = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1), (0, "KNOWS", 1))
+        self.batch.get_or_add_indexed_relationship(self.friendships, "friends", "alice_&_bob", ab1)
+        self.batch.get_or_add_indexed_relationship(self.friendships, "friends", "alice_&_bob", ab2)
+        results = self.batch.submit()
+        assert results[0] == results[1]
+        # check entries
+        entries = self.friendships.get("friends", "alice_&_bob")
+        assert len(entries) == 1
+        assert ab1 in entries
+        # done
+        self.recycling = [ab1, ab2, alice, bob]
+
+    def test_can_add_relationships_or_fail(self):
+        alice, bob, ab1, ab2 = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1), (0, "KNOWS", 1))
+        try:
+            self.batch.add_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", ab1)
+            self.batch.add_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", ab2)
+            try:
+                results = self.batch.submit()
+                assert False
+            except rest.ResourceConflict:
+                assert True
+        except NotImplemented:
+            pass
+        self.recycling = [ab1, ab2, alice, bob]
+
+
+class TestIndexedNodeRemoval(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = default_graph_db()
+        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_removal_test_index")
+        self.fred, self.wilma, = self.graph_db.create(
+            {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
+        )
+        self.index.add("name", "Fred", self.fred)
+        self.index.add("name", "Wilma", self.wilma)
+        self.index.add("name", "Flintstone", self.fred, self.wilma)
+        self.index.add("flintstones", "%", self.fred, self.wilma)
+        self.batch = neo4j.WriteBatch(self.graph_db)
+
+    def tearDown(self):
+        self.graph_db.delete(self.fred, self.wilma)
+        self.graph_db.delete_index(self.index.content_type, self.index.name)
+
+    def check(self, key, value, *entities):
+        e = self.index.get(key, value)
+        self.assertEqual(len(entities), len(e))
+        for entity in entities:
+            self.assertTrue(entity in e)
+
+    def test_remove_key_value_entity(self):
+        self.batch.remove_indexed_node(self.index, key="name", value="Flintstone", node=self.fred)
+        self.batch.submit()
+        self.check("name", "Fred", self.fred)
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.fred, self.wilma)
+
+    def test_remove_key_entity(self):
+        self.batch.remove_indexed_node(self.index, key="name", node=self.fred)
+        self.batch.submit()
+        self.check("name", "Fred")
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.fred, self.wilma)
+
+    def test_remove_entity(self):
+        self.batch.remove_indexed_node(self.index, node=self.fred)
+        self.batch.submit()
+        self.check("name", "Fred")
+        self.check("name", "Wilma", self.wilma)
+        self.check("name", "Flintstone", self.wilma)
+        self.check("flintstones", "%", self.wilma)
+
+
+if __name__ == "__main__":
+    unittest.main()
