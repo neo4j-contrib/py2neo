@@ -97,7 +97,7 @@ class PropertyContainerTestCase(unittest.TestCase):
 
     def test_set_properties(self):
         alice, = self.graph_db.create({"name": "Alice", "surname": "Smith"})
-        alice.set_properties({"full_name": "Alice Smith", "age": 33})
+        alice.set_node_properties({"full_name": "Alice Smith", "age": 33})
         self.assertEqual(None, alice["name"])
         self.assertEqual(None, alice["surname"])
         self.assertEqual("Alice Smith", alice["full_name"])

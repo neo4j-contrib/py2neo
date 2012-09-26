@@ -272,9 +272,9 @@ class TestDeletion(unittest.TestCase):
         assert alice.exists()
         assert bob.exists()
         assert knows.exists()
-        self.batch.delete(knows)
-        self.batch.delete(alice)
-        self.batch.delete(bob)
+        self.batch.delete_relationship(knows)
+        self.batch.delete_node(alice)
+        self.batch.delete_node(bob)
         self.batch.submit()
         assert not alice.exists()
         assert not bob.exists()
@@ -284,14 +284,18 @@ class TestDeletion(unittest.TestCase):
 class TestPropertyManagement(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.WriteBatch(default_graph_db())
-        self.batch.create_node({"name": "Alice", "surname": "Allison"})
-        self.alice, = self.batch.submit()
+        self.graph_db = default_graph_db()
+        self.alice, self.bob, self.friends = self.graph_db.create(
+            {"name": "Alice", "surname": "Allison"},
+            {"name": "Bob", "surname": "Robertson"},
+            (0, "KNOWS", 1, {"since": 2000}),
+        )
+        self.batch = neo4j.WriteBatch(self.graph_db)
         self.recycling = []
 
     def tearDown(self):
         recycle(*self.recycling)
-        self.alice.delete()
+        self.alice.delete_related()
 
     def _check_properties(self, entity, expected_properties):
         actual_properties = entity.get_properties()
@@ -300,31 +304,36 @@ class TestPropertyManagement(unittest.TestCase):
             assert key in actual_properties
             assert str(actual_properties[key]) == str(value)
 
-    def test_can_add_new_property(self):
-        self.batch.set_property(self.alice, "age", 33)
+    def test_can_add_new_node_property(self):
+        self.batch.set_node_property(self.alice, "age", 33)
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alice", "surname": "Allison", "age": 33})
 
-    def test_can_overwrite_existing_property(self):
-        self.batch.set_property(self.alice, "name", "Alison")
+    def test_can_overwrite_existing_node_property(self):
+        self.batch.set_node_property(self.alice, "name", "Alison")
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alison", "surname": "Allison"})
 
-    def test_can_replace_all_properties(self):
+    def test_can_replace_all_node_properties(self):
         props = {"full_name": "Alice Allison", "age": 33}
-        self.batch.set_properties(self.alice, props)
+        self.batch.set_node_properties(self.alice, props)
         self.batch.submit()
         self._check_properties(self.alice, props)
 
-    def test_can_add_delete_property(self):
-        self.batch.delete_property(self.alice, "surname")
+    def test_can_add_delete_node_property(self):
+        self.batch.delete_node_property(self.alice, "surname")
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alice"})
 
-    def test_can_add_delete_all_properties(self):
-        self.batch.delete_properties(self.alice)
+    def test_can_add_delete_all_node_properties(self):
+        self.batch.delete_node_properties(self.alice)
         self.batch.submit()
         self._check_properties(self.alice, {})
+
+    def test_can_add_new_relationship_property(self):
+        self.batch.set_relationship_property(self.friends, "foo", "bar")
+        self.batch.submit()
+        self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
 
 class TestIndexedNodeCreation(unittest.TestCase):

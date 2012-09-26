@@ -47,3 +47,10 @@ Paths
 .. autoclass:: py2neo.neo4j.Path
     :members:
     :show-inheritance:
+
+Batches
+-------
+
+.. autoclass:: py2neo.neo4j.WriteBatch
+    :members:
+    :inherited-members:
