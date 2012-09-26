@@ -66,6 +66,7 @@ Package Contents
    geoff
    gremlin
    rest
+   calendar
 
 
 Indices and tables
