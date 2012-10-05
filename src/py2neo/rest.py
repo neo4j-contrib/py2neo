@@ -280,23 +280,31 @@ class Client(object):
         uri_values = urlsplit(str(uri))
         scheme, netloc = uri_values[0:2]
         for tries in range(1, 4):
+            logger.debug("Establishing " + scheme + " connection to " + netloc)
             http = self._connection(scheme, netloc, reconnect)
             if uri_values[3]:
                 path = uri_values[2] + "?" + uri_values[3]
             else:
                 path = uri_values[2]
             if data is not None:
+                logger.debug("Encoding payload as JSON")
                 data = json.dumps(data)
             headers = http_headers.get(netloc)
+            logger.debug("Sending request")
             if data:
-                logger.debug("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
+                logger.info("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
             else:
-                logger.debug("{0} {1} {2} (no data)".format(method, path, headers))
+                logger.info("{0} {1} {2} (no data)".format(method, path, headers))
             try:
                 http.request(method, path, data, headers)
-                return http.getresponse()
+                logger.debug("Awaiting response")
+                rs = http.getresponse()
+                logger.info("{0} {1} {2}".format(rs.status, rs.reason, dict(rs.getheaders())))
+                return rs
             except httplib.HTTPException as err:
+                logger.info("{0} {1}".format(err.value, httplib.responses[err.value]))
                 if tries < 3:
+                    logger.warn("Request failed, retrying")
                     reconnect = True
                 else:
                     raise err

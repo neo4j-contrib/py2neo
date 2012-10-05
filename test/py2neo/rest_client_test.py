@@ -31,7 +31,7 @@ __license__   = "Apache License, Version 2.0"
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    level=logging.DEBUG,
+    level=logging.INFO,
 )
 
 class RESTClientTestCase(unittest.TestCase):
