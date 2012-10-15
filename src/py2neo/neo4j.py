@@ -67,6 +67,12 @@ class _Batch(object):
         self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
         self.clear()
 
+    def __len__(self):
+        return len(self.requests)
+
+    def __nonzero__(self):
+        return bool(self.requests)
+
     def _submit(self):
         """ Submits batch of requests, returning list of Response objects.
         """
