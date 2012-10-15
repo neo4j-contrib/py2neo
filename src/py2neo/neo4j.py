@@ -299,8 +299,8 @@ class WriteBatch(_Batch):
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
             self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, properties)
         else:
-            raise NotImplemented("Uniqueness mode `create_or_fail` "
-                                 "requires version 1.9 or above")
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
 
     def _add_indexed_node(self, index, uri_suffix, key, value, node):
         index_uri = self._index(Node, index)._uri
@@ -332,8 +332,8 @@ class WriteBatch(_Batch):
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
             self._add_indexed_node(index, "?uniqueness=create_or_fail", key, value, node)
         else:
-            raise NotImplemented("Uniqueness mode `create_or_fail` "
-                                 "requires version 1.9 or above")
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
 
     def remove_indexed_node(self, index, key=None, value=None, node=None):
         """Remove any entries from the index which pertain to the parameters
@@ -400,8 +400,8 @@ class WriteBatch(_Batch):
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
             self._create_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, start_node, type_, end_node, properties)
         else:
-            raise NotImplemented("Uniqueness mode `create_or_fail` "
-                                 "requires version 1.9 or above")
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
 
     def _add_indexed_relationship(self, index, uri_suffix, key, value, relationship):
         index_uri = self._index(Relationship, index)._uri
@@ -433,8 +433,8 @@ class WriteBatch(_Batch):
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
             self._add_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, relationship)
         else:
-            raise NotImplemented("Uniqueness mode `create_or_fail` "
-                                 "requires version 1.9 or above")
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
 
     def remove_indexed_relationship(self, index, key=None, value=None, relationship=None):
         """Remove any entries from the index which pertain to the parameters
@@ -671,7 +671,7 @@ class GraphDatabaseService(rest.Resource):
         )
         return Node(self._metadata('reference_node'), graph_db=self)
 
-    def get_index(self, type, name, config=None):
+    def get_index(self, type, name):
         """Fetch a specific index from the current database, returning an
         :py:class:`Index` instance. If an index with the supplied `name` and
         content `type` does not exist, :py:const:`None` is returned.
