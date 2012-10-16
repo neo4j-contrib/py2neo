@@ -18,6 +18,7 @@
 """ Server administration module
 """
 
+import time
 
 from datetime import datetime
 from . import rest, util
@@ -27,13 +28,30 @@ DEFAULT_URI = "http://localhost:7474/db/manage/"
 
 class _Service(rest.Resource):
 
-    def __init__(self, admin_uri, service, metadata=None):
+    def __init__(self, admin_uri, service=None, metadata=None):
         rest.Resource.__init__(self, admin_uri, "/server", metadata=metadata)
-        rs = self._send(rest.Request(self, "GET", self._uri))
+        self._metadata_request = rest.Request(self, "GET", self._uri)
+        self._refresh_metadata()
+        if service:
+            self._service_uri = self._metadata('services')[service]
+        else:
+            self._service_uri = None
+
+    def _refresh_metadata(self):
+        rs = self._send(self._metadata_request)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self._uri = rest.URI(rs.uri, "/")
-        self._service_uri = self._metadata('services')[service]
+
+
+class Sonar(_Service):
+
+    def __init__(self, admin_uri=None, metadata=None):
+        admin_uri = admin_uri or DEFAULT_URI
+        _Service.__init__(self, admin_uri, metadata=metadata)
+
+    def ping(self):
+        return util.execution_time(_Service._refresh_metadata, self)
 
 
 class Monitor(_Service):

@@ -20,5 +20,9 @@ from pprint import pprint
 from py2neo import admin
 
 if __name__ == "__main__":
+
+    sonar = admin.Sonar()
+    pprint(sonar.ping())
+
     monitor = admin.Monitor()
     pprint(monitor.fetch_latest_data())

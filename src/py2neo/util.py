@@ -21,6 +21,8 @@
 import sys
 __PY3K = sys.version_info[0] >= 3
 
+import time
+
 try:
     from urllib.parse import quote as _quote
 except ImportError:
@@ -31,7 +33,6 @@ if __PY3K:
     is_string = lambda value: isinstance(value, str)
 else:
     is_string = lambda value: isinstance(value, (str, unicode))
-
 
 def quote(string, safe='/'):
     """ Quote a string for use in URIs.
@@ -52,3 +53,14 @@ def numberise(n):
         return int(n)
     except ValueError:
         return n
+
+def execution_time(func, *args, **kwargs):
+    if sys.platform == "win32":
+        timer = time.clock
+    else:
+        timer = time.time
+    t0 = timer()
+    try:
+        func(*args, **kwargs)
+    finally:
+        return timer() - t0
