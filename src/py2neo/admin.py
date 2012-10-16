@@ -18,8 +18,6 @@
 """ Server administration module
 """
 
-import time
-
 from datetime import datetime
 from . import rest, util
 
