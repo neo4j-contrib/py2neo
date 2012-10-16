@@ -46,6 +46,8 @@ def numberise(n):
     """ Convert a value to an integer if possible. If not, simply return
         the input value.
     """
+    if n == "NaN":
+        return None
     try:
         return int(n)
     except ValueError:
