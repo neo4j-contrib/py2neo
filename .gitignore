@@ -46,3 +46,6 @@ nosetests.xml
 
 # Sphinx
 doc/_build
+
+# Virtual environment
+venv
