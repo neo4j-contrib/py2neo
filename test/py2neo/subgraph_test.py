@@ -82,6 +82,61 @@ class MergeTest(unittest.TestCase):
         assert isinstance(bob, neo4j.Node)
         assert alice.has_relationship_with(bob, neo4j.Direction.OUTGOING, "KNOWS")
 
+    def test_empty_node_properties_matches_any_existing(self):
+        abstract = {
+            "People": {
+                "__uniquekey__": "email",
+                "__nodes__": {
+                    "alice": {"name": "Alice", "email": "alice@example.com"},
+                    "bob":   {"name": "Bob", "email": "bob@example.com"}
+                },
+                "__rels__": [
+                    ["alice", "KNOWS", "bob", {"since": 1999}]
+                ]
+            }
+        }
+        nodes = subgraph.merge(abstract, self.graph_db)
+        assert self.graph_db.get_node_count() == 2
+        assert len(nodes) == 1
+        assert "People" in nodes
+        people = nodes["People"]
+        assert len(people) == 2
+        assert "alice" in people
+        assert "bob" in people
+        alice, bob = people["alice"], people["bob"]
+        assert isinstance(alice, neo4j.Node)
+        assert isinstance(bob, neo4j.Node)
+        assert alice.has_relationship_with(bob, neo4j.Direction.OUTGOING, "KNOWS")
+        abstract = {
+            "People": {
+                "__uniquekey__": "email",
+                "__nodes__": {
+                    "alice": {"email": "alice@example.com"},
+                    "bob":   {}
+                },
+                "__rels__": [
+                    ["alice", "KNOWS", "bob"]
+                ]
+            }
+        }
+        nodes = subgraph.merge(abstract, self.graph_db)
+        assert self.graph_db.get_node_count() == 2
+        assert self.graph_db.get_relationship_count() == 1
+        assert len(nodes) == 1
+        assert "People" in nodes
+        people = nodes["People"]
+        assert len(people) == 2
+        assert "alice" in people
+        assert "bob" in people
+        alice, bob = people["alice"], people["bob"]
+        assert isinstance(alice, neo4j.Node)
+        assert isinstance(bob, neo4j.Node)
+        assert alice["name"] == "Alice"
+        assert bob["name"] == "Bob"
+        assert alice["email"] == "alice@example.com"
+        assert bob["email"] == "bob@example.com"
+        assert alice.has_relationship_with(bob, neo4j.Direction.OUTGOING, "KNOWS")
+
     def test_merge_of_unique_node_is_idempotent(self):
         abstract = {
             "People": {
