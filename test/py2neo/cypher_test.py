@@ -142,10 +142,12 @@ class CypherTestCase(unittest.TestCase):
         )
 
     def test_many_queries(self):
-        query = "start z=node(0) return z"
+        node, = self.graph_db.create({})
+        query = "start z=node(" + str(node._id) + ") return z"
         for i in range(2000):
             data, metadata = cypher.execute(self.graph_db, query)
             self.assertEqual(1, len(data))
+        self.graph_db.delete(node)
 
 
 class PathTestCase(unittest.TestCase):
