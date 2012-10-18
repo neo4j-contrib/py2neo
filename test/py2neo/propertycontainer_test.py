@@ -27,6 +27,27 @@ from py2neo import neo4j
 import unittest
 
 
+class MetadataPropertiesTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+
+    def test_can_get_properties_from_metadata(self):
+        # create node
+        props = {"name": "Alice", "age": 33}
+        alice, = self.graph_db.create(props)
+        # check properties are in metadata
+        assert alice.__metadata__["data"] == props
+        # update property
+        alice["age"] = 34
+        assert alice["age"] == 34
+        # check metadata has not been updated
+        assert alice.__metadata__["data"]["age"] == 33
+        # refresh metadata
+        alice.refresh()
+        assert alice.__metadata__["data"]["age"] == 34
+
+
 class PropertyContainerTestCase(unittest.TestCase):
 
     def setUp(self):

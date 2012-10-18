@@ -63,7 +63,7 @@ class _Batch(object):
     def __init__(self, graph_db):
         assert isinstance(graph_db, GraphDatabaseService)
         self._graph_db = graph_db
-        self._create_node_uri = rest.URI(self._graph_db._metadata("node"), "/node").reference
+        self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"], "/node").reference
         self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
         self.clear()
 
@@ -149,7 +149,7 @@ class WriteBatch(_Batch):
         def node_uri(node):
             if isinstance(node, Node):
                 node._must_belong_to(self._graph_db)
-                return rest.URI(node._metadata("self"), "/node").reference
+                return rest.URI(node.__metadata__["self"], "/node").reference
             else:
                 return "{" + str(node) + "}"
         body = {
@@ -204,56 +204,56 @@ class WriteBatch(_Batch):
         """ Set a single property on a node.
         """
         assert isinstance(node, Node)
-        uri = rest.URI(node._metadata('property').format(key=util.quote(key, "")), "/node")
+        uri = rest.URI(node.__metadata__['property'].format(key=util.quote(key, "")), "/node")
         self._put(uri.reference, value)
 
     def set_node_properties(self, node, properties):
         """ Replace all properties on a node.
         """
         assert isinstance(node, Node)
-        uri = rest.URI(node._metadata('properties'), "/node")
+        uri = rest.URI(node.__metadata__['properties'], "/node")
         self._put(uri.reference, properties)
 
     def delete_node_property(self, node, key):
         """ Delete a single property from a node.
         """
         assert isinstance(node, Node)
-        uri = rest.URI(node._metadata('property').format(key=util.quote(key, "")), "/node")
+        uri = rest.URI(node.__metadata__['property'].format(key=util.quote(key, "")), "/node")
         self._delete(uri.reference)
 
     def delete_node_properties(self, node):
         """ Delete all properties from a node.
         """
         assert isinstance(node, Node)
-        uri = rest.URI(node._metadata('properties'), "/node")
+        uri = rest.URI(node.__metadata__['properties'], "/node")
         self._delete(uri.reference)
 
     def set_relationship_property(self, relationship, key, value):
         """ Set a single property on a relationship.
         """
         assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship._metadata('property').format(key=util.quote(key, "")), "/relationship")
+        uri = rest.URI(relationship.__metadata__['property'].format(key=util.quote(key, "")), "/relationship")
         self._put(uri.reference, value)
 
     def set_relationship_properties(self, relationship, properties):
         """ Replace all properties on a relationship.
         """
         assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship._metadata('properties'), "/relationship")
+        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
         self._put(uri.reference, properties)
 
     def delete_relationship_property(self, relationship, key):
         """ Delete a single property from a relationship.
         """
         assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship._metadata('property').format(key=util.quote(key, "")), "/relationship")
+        uri = rest.URI(relationship.__metadata__['property'].format(key=util.quote(key, "")), "/relationship")
         self._delete(uri.reference)
 
     def delete_relationship_properties(self, relationship):
         """ Delete all properties from a relationship.
         """
         assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship._metadata('properties'), "/relationship")
+        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
         self._delete(uri.reference)
 
     def _node_uri(self, node):
@@ -509,10 +509,10 @@ class GraphDatabaseService(rest.Resource):
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self._uri = rest.URI(rs.uri, "/")
-        self._extensions = self._metadata('extensions')
-        self._neo4j_version = self._metadata('neo4j_version', "1.4")
-        self._batch_uri = self._metadata('batch', self._uri.base + "/batch")
-        self._cypher_uri = self._metadata('cypher')
+        self._extensions = self.__metadata__.get('extensions', None)
+        self._neo4j_version = self.__metadata__.get('neo4j_version', "1.4")
+        self._batch_uri = self.__metadata__.get('batch', self._uri.base + "/batch")
+        self._cypher_uri = self.__metadata__.get('cypher', None)
         self._neo4j_version = tuple(map(util.numberise,
             str(self._neo4j_version).replace("-", ".").split(".")
         ))
@@ -625,7 +625,7 @@ class GraphDatabaseService(rest.Resource):
             return []
         if len(abstracts) == 1 and isinstance(abstracts[0], dict):
             rs = self._send(
-                rest.Request(self, "POST", self._metadata("node"), abstracts[0])
+                rest.Request(self, "POST", self.__metadata__["node"], abstracts[0])
             )
             return [Node(rs.body["self"], graph_db=self)]
         batch = WriteBatch(self)
@@ -669,7 +669,7 @@ class GraphDatabaseService(rest.Resource):
             category=DeprecationWarning,
             stacklevel=2,
         )
-        return Node(self._metadata('reference_node'), graph_db=self)
+        return Node(self.__metadata__['reference_node'], graph_db=self)
 
     def get_index(self, type, name):
         """Fetch a specific index from the current database, returning an
@@ -719,9 +719,9 @@ class GraphDatabaseService(rest.Resource):
         """Fetch a dictionary of all available indexes of a given type.
         """
         if type == Node:
-            rq = rest.Request(self, "GET", self._metadata('node_index'))
+            rq = rest.Request(self, "GET", self.__metadata__['node_index'])
         elif type == Relationship:
-            rq = rest.Request(self, "GET", self._metadata('relationship_index'))
+            rq = rest.Request(self, "GET", self.__metadata__['relationship_index'])
         else:
             raise ValueError(type)
         rs = self._send(rq)
@@ -735,7 +735,7 @@ class GraphDatabaseService(rest.Resource):
     def get_node(self, id):
         """Fetch a node by its ID.
         """
-        return Node(self._metadata('node') + "/" + str(id), graph_db=self)
+        return Node(self.__metadata__['node'] + "/" + str(id), graph_db=self)
 
     def get_node_count(self):
         """Fetch the number of nodes in this graph as an integer.
@@ -766,9 +766,9 @@ class GraphDatabaseService(rest.Resource):
         if name in self._indexes[type]:
             return self._indexes[type][name]
         if type == Node:
-            uri = self._metadata('node_index')
+            uri = self.__metadata__['node_index']
         elif type == Relationship:
-            uri = self._metadata('relationship_index')
+            uri = self.__metadata__['relationship_index']
         else:
             raise ValueError(type)
         config = config or {}
@@ -861,7 +861,7 @@ class GraphDatabaseService(rest.Resource):
     def get_relationship(self, id):
         """Fetch a relationship by its ID.
         """
-        return Relationship(self._metadata('relationship') + "/" + str(id), graph_db=self)
+        return Relationship(self.__metadata__['relationship'] + "/" + str(id), graph_db=self)
 
     def get_relationship_count(self):
         """Fetch the number of relationships in this graph as an integer.
@@ -877,7 +877,7 @@ class GraphDatabaseService(rest.Resource):
         this database instance.
         """
         return self._send(
-            rest.Request(self,"GET", self._metadata('relationship_types'))
+            rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
     @property
@@ -932,14 +932,14 @@ class PropertyContainer(rest.Resource):
 
     def __delitem__(self, key):
         try:
-            self._send(rest.Request(self._graph_db, "DELETE", self._metadata('property').format(key=util.quote(key, ""))))
+            self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['property'].format(key=util.quote(key, ""))))
         except rest.ResourceNotFound:
             pass
 
     def __getitem__(self, key):
         try:
             return self._send(
-                rest.Request(self._graph_db, "GET", self._metadata('property').format(key=util.quote(key, "")))
+                rest.Request(self._graph_db, "GET", self.__metadata__['property'].format(key=util.quote(key, "")))
             ).body
         except rest.ResourceNotFound:
             return None
@@ -958,7 +958,7 @@ class PropertyContainer(rest.Resource):
             self.__delitem__(key)
         else:
             self._send(
-                rest.Request(self._graph_db, "PUT", self._metadata('property').format(key=util.quote(key, "")), value)
+                rest.Request(self._graph_db, "PUT", self.__metadata__['property'].format(key=util.quote(key, "")), value)
             )
 
     def _must_belong_to(self, graph_db):
@@ -978,7 +978,7 @@ class PropertyContainer(rest.Resource):
         """ Fetch all properties for this resource.
         """
         rs = self._send(
-            rest.Request(self._graph_db, "GET", self._metadata('properties'))
+            rest.Request(self._graph_db, "GET", self.__metadata__['properties'])
         )
         if rs.body:
             return rs.body
@@ -990,7 +990,7 @@ class PropertyContainer(rest.Resource):
             dictionary of values.
         """
         self._send(rest.Request(
-            self._graph_db, "PUT", self._metadata('properties'), dict([
+            self._graph_db, "PUT", self.__metadata__['properties'], dict([
                 (key, value)
                 for key, value in properties.items()
                 if value is not None
@@ -1001,7 +1001,7 @@ class PropertyContainer(rest.Resource):
         """ Delete all properties for this resource.
         """
         self._send(rest.Request(
-            self._graph_db, "DELETE", self._metadata('properties')
+            self._graph_db, "DELETE", self.__metadata__['properties']
         ))
 
 
@@ -1044,7 +1044,7 @@ class Node(PropertyContainer):
         """ Determine whether this node still exists in the database.
         """
         try:
-            self._send(rest.Request(self._graph_db, "GET", self._metadata('self')))
+            self._send(rest.Request(self._graph_db, "GET", self.__metadata__['self']))
             return True
         except rest.ResourceNotFound:
             return False
@@ -1076,7 +1076,7 @@ class Node(PropertyContainer):
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
-        rs = self._send(rest.Request(self._graph_db, "POST", self._metadata('create_relationship'), {
+        rs = self._send(rest.Request(self._graph_db, "POST", self.__metadata__['create_relationship'], {
             'to': str(other_node._uri),
             'type': type,
             'data': properties
@@ -1086,7 +1086,7 @@ class Node(PropertyContainer):
     def delete(self):
         """ Delete this node from the database.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
+        self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
 
     def delete_related(self):
         """ Delete this node, plus all related nodes and relationships.
@@ -1101,22 +1101,22 @@ class Node(PropertyContainer):
         if not isinstance(direction, int):
             raise ValueError("Relationship direction must be an integer value")
         if direction > 0:
-            uri = self._metadata('outgoing_relationships')
+            uri = self.__metadata__['outgoing_relationships']
         elif direction < 0:
-            uri = self._metadata('incoming_relationships')
+            uri = self.__metadata__['incoming_relationships']
         else:
-            uri = self._metadata('all_relationships')
+            uri = self.__metadata__['all_relationships']
         return uri
 
     def _typed_relationships_uri(self, direction, types):
         if not isinstance(direction, int):
             raise ValueError("Relationship direction must be an integer value")
         if direction > 0:
-            uri = self._metadata('outgoing_typed_relationships')
+            uri = self.__metadata__['outgoing_typed_relationships']
         elif direction < 0:
-            uri = self._metadata('incoming_typed_relationships')
+            uri = self.__metadata__['incoming_typed_relationships']
         else:
-            uri = self._metadata('all_typed_relationships')
+            uri = self.__metadata__['all_typed_relationships']
         return uri.replace(
             '{-list|&|types}', '&'.join(util.quote(type, "") for type in types)
         )
@@ -1301,7 +1301,7 @@ class Relationship(PropertyContainer):
         """ Determine whether this relationship still exists in the database.
         """
         try:
-            self._send(rest.Request(self._graph_db, "GET", self._metadata('self')))
+            self._send(rest.Request(self._graph_db, "GET", self.__metadata__['self']))
             return True
         except rest.ResourceNotFound:
             return False
@@ -1320,21 +1320,21 @@ class Relationship(PropertyContainer):
     def delete(self):
         """Delete this relationship from the database.
         """
-        self._send(rest.Request(self._graph_db, "DELETE", self._metadata('self')))
+        self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
 
     @property
     def end_node(self):
         """Return the end node of this relationship.
         """
         if not self._end_node:
-            self._end_node = Node(self._metadata('end'), graph_db=self._graph_db)
+            self._end_node = Node(self.__metadata__['end'], graph_db=self._graph_db)
         return self._end_node
 
     def get_other_node(self, node):
         """Return a node object representing the node within this
         relationship which is not the one supplied.
         """
-        if self._metadata('end') == node._uri:
+        if self.__metadata__['end'] == node._uri:
             return self.start_node
         else:
             return self.end_node
@@ -1361,7 +1361,7 @@ class Relationship(PropertyContainer):
         """Return the start node of this relationship.
         """
         if not self._start_node:
-            self._start_node = Node(self._metadata('start'), graph_db=self._graph_db)
+            self._start_node = Node(self.__metadata__['start'], graph_db=self._graph_db)
         return self._start_node
 
     @property
@@ -1369,7 +1369,7 @@ class Relationship(PropertyContainer):
         """Return the type of this relationship.
         """
         if not self._type:
-            self._type = self._metadata('type')
+            self._type = self.__metadata__['type']
         return self._type
 
 

@@ -31,7 +31,7 @@ class _Service(rest.Resource):
         self._metadata_request = rest.Request(self, "GET", self._uri)
         self._refresh_metadata()
         if service:
-            self._service_uri = self._metadata('services')[service]
+            self._service_uri = self.__metadata__['services'][service]
         else:
             self._service_uri = None
 

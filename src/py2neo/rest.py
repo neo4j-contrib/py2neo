@@ -388,8 +388,7 @@ class Resource(object):
         :param key: the key to look up
         """
         if self.__metadata.needs_update:
-            rs = self._send(Request(None, "GET", self._uri))
-            self.__metadata.update(rs.body)
+            self.refresh()
         if key in self.__metadata:
             return self.__metadata[key]
         else:
@@ -397,3 +396,13 @@ class Resource(object):
 
     def _update_metadata(self, metadata):
         self.__metadata = PropertyCache(metadata)
+
+    @property
+    def __metadata__(self):
+        if self.__metadata.needs_update:
+            self.refresh()
+        return self.__metadata._properties
+
+    def refresh(self):
+        rs = self._send(Request(None, "GET", self._uri))
+        self.__metadata.update(rs.body)
