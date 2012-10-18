@@ -62,11 +62,13 @@ Package Contents
    :maxdepth: 4
 
    neo4j
+   subgraph
    cypher
    geoff
    gremlin
    rest
    calendar
+   admin
 
 
 Indices and tables
