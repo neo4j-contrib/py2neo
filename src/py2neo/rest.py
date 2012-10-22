@@ -335,8 +335,8 @@ class Client(object):
 
 
 class Resource(object):
-    """Web service resource class, designed to work with a well-behaved REST
-    web service.
+    """ Web service resource class, designed to work with a well-behaved REST
+        web service.
 
     :param uri:              the URI identifying this resource
     :param reference_marker:
@@ -350,23 +350,23 @@ class Resource(object):
         self.__metadata = PropertyCache(metadata)
 
     def __repr__(self):
-        """Return a valid Python representation of this object.
+        """ Return a valid Python representation of this object.
         """
         return "{0}('{1}')".format(self.__class__.__name__, repr(self._uri))
 
     def __eq__(self, other):
-        """Determine equality of two objects based on URI.
+        """ Determine equality of two objects based on URI.
         """
         return self._uri == other._uri
 
     def __ne__(self, other):
-        """Determine inequality of two objects based on URI.
+        """ Determine inequality of two objects based on URI.
         """
         return self._uri != other._uri
 
     def _client(self):
-        """Fetch the HTTP client for use by this resource.
-        Uses the client belonging to the local thread.
+        """ Fetch the HTTP client for use by this resource.
+            Uses the client belonging to the local thread.
         """
         global _thread_local
         if not hasattr(_thread_local, "client"):
@@ -374,7 +374,7 @@ class Resource(object):
         return _thread_local.client
 
     def _send(self, request):
-        """Issue an HTTP request.
+        """ Issue an HTTP request.
 
         :param request: a rest.Request object
         :return: object created from returned content (200), C{Location} header value (201) or C{None} (204)
@@ -390,8 +390,8 @@ class Resource(object):
             raise SocketError(err)
 
     def _metadata(self, key, default=None):
-        """Look up a value in the resource metadata by key; will lazily load
-        metadata if required.
+        """ Look up a value in the resource metadata by key; will lazily load
+            metadata if required.
         
         :param key: the key to look up
         """
@@ -412,5 +412,7 @@ class Resource(object):
         return self.__metadata._properties
 
     def refresh(self):
+        """ Refresh resource metadata by making GET request to main URI.
+        """
         rs = self._send(Request(None, "GET", self._uri))
         self.__metadata.update(rs.body)
