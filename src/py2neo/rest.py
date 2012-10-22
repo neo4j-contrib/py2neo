@@ -25,9 +25,9 @@ except ImportError:
 import json
 import logging
 import socket
+import sys
 import threading
 import time
-import sys
 try:
     from urllib.parse import urlsplit
 except ImportError:
@@ -85,6 +85,8 @@ def local_client():
 
 
 class BadRequest(ValueError):
+    """ Exception triggered by a 400 HTTP response status.
+    """
 
     def __init__(self, data):
         ValueError.__init__(self)
@@ -112,6 +114,8 @@ class BadRequest(ValueError):
 
 
 class ResourceNotFound(LookupError):
+    """ Exception triggered by a 404 HTTP response status.
+    """
 
     def __init__(self, uri):
         LookupError.__init__(self)
@@ -122,6 +126,8 @@ class ResourceNotFound(LookupError):
 
 
 class ResourceConflict(EnvironmentError):
+    """ Exception triggered by a 409 HTTP response status.
+    """
 
     def __init__(self, uri):
         EnvironmentError.__init__(self)
@@ -132,6 +138,8 @@ class ResourceConflict(EnvironmentError):
 
 
 class SocketError(IOError):
+    """ Exception triggered by low-level socket error.
+    """
 
     def __init__(self, uri):
         IOError.__init__(self)
