@@ -302,7 +302,7 @@ class Client(object):
                 logger.info("{0} {1} {2}".format(rs.status, rs.reason, dict(rs.getheaders())))
                 return rs
             except httplib.HTTPException as err:
-                logger.info("{0} {1}".format(err.value, httplib.responses[err.value]))
+                logger.error(str(err))
                 if tries < 3:
                     logger.warn("Request failed, retrying")
                     reconnect = True
