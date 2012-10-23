@@ -88,8 +88,9 @@ class BadRequest(ValueError):
     """ Exception triggered by a 400 HTTP response status.
     """
 
-    def __init__(self, data):
+    def __init__(self, data, id_=None):
         ValueError.__init__(self)
+        self.id = id_
         try:
             self.exception = data["exception"]
         except KeyError:
@@ -117,8 +118,9 @@ class ResourceNotFound(LookupError):
     """ Exception triggered by a 404 HTTP response status.
     """
 
-    def __init__(self, uri):
+    def __init__(self, uri, id_=None):
         LookupError.__init__(self)
+        self.id = id_
         self.uri = uri
 
     def __str__(self):
@@ -129,8 +131,9 @@ class ResourceConflict(EnvironmentError):
     """ Exception triggered by a 409 HTTP response status.
     """
 
-    def __init__(self, uri):
+    def __init__(self, uri, id_=None):
         EnvironmentError.__init__(self)
+        self.id = id_
         self.uri = uri
 
     def __str__(self):
@@ -231,9 +234,9 @@ class Request(object):
         self.uri = uri
         self.body = body
 
-    def description(self, id_):
+    def description(self, id):
         return {
-            "id": id_,
+            "id": id,
             "method": self.method,
             "to": self.uri,
             "body": self.body,
@@ -242,21 +245,22 @@ class Request(object):
 
 class Response(object):
 
-    def __init__(self, graph_db, status, uri, location=None, body=None):
+    def __init__(self, graph_db, status, uri, location=None, body=None, id=None):
         self.graph_db = graph_db
         self.status = int(status)
         if self.status // 100 == 2:
             self.uri = str(uri)
             self.location = location
             self.body = body
+            self.id = id
         elif self.status == 400:
-            raise BadRequest(body)
+            raise BadRequest(body, id_=id)
         elif self.status == 404:
-            raise ResourceNotFound(uri)
+            raise ResourceNotFound(uri, id_=id)
         elif self.status == 409:
-            raise ResourceConflict(uri)
+            raise ResourceConflict(uri, id_=id)
         elif self.status // 100 == 5:
-            raise SystemError(body)
+            raise SystemError(body, id=id)
 
 
 class Client(object):

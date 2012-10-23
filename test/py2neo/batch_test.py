@@ -218,7 +218,8 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
             self.recycling = [knows, k1, k2, alice, bob]
             assert False
         except rest.BadRequest as err:
-            sys.stderr.write(err.exception + ": " + err.message + "\n")
+            assert err.id == 0
+            sys.stderr.write("{0}: {1} (id={2})\n".format(err.exception, err.message, err.id))
             self.recycling = [k1, k2, alice, bob]
             assert True
 

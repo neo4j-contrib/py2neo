@@ -77,8 +77,8 @@ class _Batch(object):
         """ Submits batch of requests, returning list of Response objects.
         """
         rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
-            request.description(i)
-            for i, request in enumerate(self.requests)
+            request.description(id_)
+            for id_, request in enumerate(self.requests)
         ]))
         self.clear()
         return [
@@ -88,6 +88,7 @@ class _Batch(object):
                 response["from"],
                 response.get("location", None),
                 response.get("body", None),
+                id=response.get("id", None),
             )
             for response in rs.body
         ]
