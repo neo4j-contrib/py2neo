@@ -89,6 +89,10 @@ class BadRequest(ValueError):
     """
 
     def __init__(self, data, id_=None):
+        """
+        :param data: information describing the fault identified
+        :param id_:  unique request ID
+        """
         ValueError.__init__(self)
         self.id = id_
         try:
@@ -119,6 +123,10 @@ class ResourceNotFound(LookupError):
     """
 
     def __init__(self, uri, id_=None):
+        """
+        :param uri:  URI of the resource
+        :param id_:  unique request ID
+        """
         LookupError.__init__(self)
         self.id = id_
         self.uri = uri
@@ -132,6 +140,10 @@ class ResourceConflict(EnvironmentError):
     """
 
     def __init__(self, uri, id_=None):
+        """
+        :param uri:  URI of the resource
+        :param id_:  unique request ID
+        """
         EnvironmentError.__init__(self)
         self.id = id_
         self.uri = uri
@@ -343,7 +355,7 @@ class Resource(object):
         web service.
 
     :param uri:              the URI identifying this resource
-    :param reference_marker:
+    :param reference_marker: marker delimiting relative part of URI, e.g. "/node"
     :param metadata:         previously obtained resource metadata
     """
 
@@ -367,6 +379,12 @@ class Resource(object):
         """ Determine inequality of two objects based on URI.
         """
         return self._uri != other._uri
+
+    @property
+    def __uri__(self):
+        """ Absolute URI of this resource.
+        """
+        return str(self._uri)
 
     def _client(self):
         """ Fetch the HTTP client for use by this resource.
@@ -411,12 +429,17 @@ class Resource(object):
 
     @property
     def __metadata__(self):
+        """ Dictionary of resource metadata, cached from the last request made
+            to the remote server. To force an update of this metadata, use the
+            :py:func:`refresh` method.
+        """
         if self.__metadata.needs_update:
             self.refresh()
         return self.__metadata._properties
 
     def refresh(self):
-        """ Refresh resource metadata by making GET request to main URI.
+        """ Refresh resource metadata by submitting a GET request to the main
+            resource URI.
         """
         rs = self._send(Request(None, "GET", self._uri))
         self.__metadata.update(rs.body)

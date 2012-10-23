@@ -15,8 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The :py:mod:`py2neo.subgraph` module deals with abstract subgraph data
-    encoded in Geoff jr. For example::
+""" The :py:mod:`py2neo.subgraph` module allows abstract subgraph data to be
+    merged into a database in a single step. For example::
 
         abstract = {
             "People": {
