@@ -2,6 +2,11 @@
 ====================
 
 .. automodule:: py2neo.cypher
-    :members:
-    :undoc-members:
-    :show-inheritance:
+
+.. autofunction:: py2neo.cypher.execute
+
+Synchronous Execution
+---------------------
+
+Asynchronous Execution
+----------------------

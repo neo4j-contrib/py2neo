@@ -88,8 +88,13 @@ class BadRequest(ValueError):
     """ Exception triggered by a 400 HTTP response status.
     """
 
-    def __init__(self, data):
+    def __init__(self, data, id_=None):
+        """
+        :param data: information describing the fault identified
+        :param id_:  unique request ID
+        """
         ValueError.__init__(self)
+        self.id = id_
         try:
             self.exception = data["exception"]
         except KeyError:
@@ -117,8 +122,13 @@ class ResourceNotFound(LookupError):
     """ Exception triggered by a 404 HTTP response status.
     """
 
-    def __init__(self, uri):
+    def __init__(self, uri, id_=None):
+        """
+        :param uri:  URI of the resource
+        :param id_:  unique request ID
+        """
         LookupError.__init__(self)
+        self.id = id_
         self.uri = uri
 
     def __str__(self):
@@ -129,8 +139,13 @@ class ResourceConflict(EnvironmentError):
     """ Exception triggered by a 409 HTTP response status.
     """
 
-    def __init__(self, uri):
+    def __init__(self, uri, id_=None):
+        """
+        :param uri:  URI of the resource
+        :param id_:  unique request ID
+        """
         EnvironmentError.__init__(self)
+        self.id = id_
         self.uri = uri
 
     def __str__(self):
@@ -231,9 +246,9 @@ class Request(object):
         self.uri = uri
         self.body = body
 
-    def description(self, id_):
+    def description(self, id):
         return {
-            "id": id_,
+            "id": id,
             "method": self.method,
             "to": self.uri,
             "body": self.body,
@@ -242,21 +257,22 @@ class Request(object):
 
 class Response(object):
 
-    def __init__(self, graph_db, status, uri, location=None, body=None):
+    def __init__(self, graph_db, status, uri, location=None, body=None, id=None):
         self.graph_db = graph_db
         self.status = int(status)
         if self.status // 100 == 2:
             self.uri = str(uri)
             self.location = location
             self.body = body
+            self.id = id
         elif self.status == 400:
-            raise BadRequest(body)
+            raise BadRequest(body, id_=id)
         elif self.status == 404:
-            raise ResourceNotFound(uri)
+            raise ResourceNotFound(uri, id_=id)
         elif self.status == 409:
-            raise ResourceConflict(uri)
+            raise ResourceConflict(uri, id_=id)
         elif self.status // 100 == 5:
-            raise SystemError(body)
+            raise SystemError(body, id=id)
 
 
 class Client(object):
@@ -339,7 +355,7 @@ class Resource(object):
         web service.
 
     :param uri:              the URI identifying this resource
-    :param reference_marker:
+    :param reference_marker: marker delimiting relative part of URI, e.g. "/node"
     :param metadata:         previously obtained resource metadata
     """
 
@@ -363,6 +379,12 @@ class Resource(object):
         """ Determine inequality of two objects based on URI.
         """
         return self._uri != other._uri
+
+    @property
+    def __uri__(self):
+        """ Absolute URI of this resource.
+        """
+        return str(self._uri)
 
     def _client(self):
         """ Fetch the HTTP client for use by this resource.
@@ -407,12 +429,17 @@ class Resource(object):
 
     @property
     def __metadata__(self):
+        """ Dictionary of resource metadata, cached from the last request made
+            to the remote server. To force an update of this metadata, use the
+            :py:func:`refresh` method.
+        """
         if self.__metadata.needs_update:
             self.refresh()
         return self.__metadata._properties
 
     def refresh(self):
-        """ Refresh resource metadata by making GET request to main URI.
+        """ Refresh resource metadata by submitting a GET request to the main
+            resource URI.
         """
         rs = self._send(Request(None, "GET", self._uri))
         self.__metadata.update(rs.body)

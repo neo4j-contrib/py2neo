@@ -25,6 +25,7 @@ Nodes and Relationships
 
 .. autoclass:: py2neo.neo4j.PropertyContainer
     :members:
+    :show-inheritance:
 
 .. autoclass:: py2neo.neo4j.Node
     :members:

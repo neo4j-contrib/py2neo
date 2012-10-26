@@ -77,8 +77,8 @@ class _Batch(object):
         """ Submits batch of requests, returning list of Response objects.
         """
         rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
-            request.description(i)
-            for i, request in enumerate(self.requests)
+            request.description(id_)
+            for id_, request in enumerate(self.requests)
         ]))
         self.clear()
         return [
@@ -88,6 +88,7 @@ class _Batch(object):
                 response["from"],
                 response.get("location", None),
                 response.get("body", None),
+                id=response.get("id", None),
             )
             for response in rs.body
         ]
@@ -107,7 +108,7 @@ class _Batch(object):
             the objects returned.
         """
         return [
-            self._graph_db._resolve(response.body, response.status)
+            self._graph_db._resolve(response.body, response.status, id_=response.id)
             for response in self._submit()
         ]
 
@@ -533,18 +534,18 @@ class GraphDatabaseService(rest.Resource):
             raise NotImplementedError(plugin_name + "." + function_name)
         return self._extensions[plugin_name][function_name]
 
-    def _resolve(self, data, status=200):
+    def _resolve(self, data, status=200, id_=None):
         """Create `Node`, `Relationship` or `Path` object from dictionary
         of key:value pairs.
         """
         if data is None:
             return None
         elif status == 400:
-            raise rest.BadRequest(data["message"])
+            raise rest.BadRequest(data["message"], id_=id_)
         elif status == 404:
-            raise rest.ResourceNotFound(data["message"])
+            raise rest.ResourceNotFound(data["message"], id_=id_)
         elif status == 409:
-            raise rest.ResourceConflict(data["message"])
+            raise rest.ResourceConflict(data["message"], id_=id_)
         elif status // 100 == 5:
             raise SystemError(data["message"])
         elif isinstance(data, dict) and "self" in data:
@@ -573,7 +574,7 @@ class GraphDatabaseService(rest.Resource):
             values = rows[0]
             assert len(values) == 1
             value = values[0]
-            return self._resolve(value, status)
+            return self._resolve(value, status, id_=id_)
         else:
             # is a plain value
             return data
