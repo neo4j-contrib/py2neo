@@ -64,3 +64,16 @@ def execution_time(func, *args, **kwargs):
         func(*args, **kwargs)
     finally:
         return timer() - t0
+
+def compacted(obj):
+    """ Generate a copy of an iterable object with all :py:const:`None`
+        values removed.
+
+    :param obj:
+    :return:
+    """
+    K = obj.__class__
+    if isinstance(obj, dict):
+        return K(item for item in obj.iteritems() if item[1] is not None)
+    else:
+        return K([item for item in obj if item is not None])
