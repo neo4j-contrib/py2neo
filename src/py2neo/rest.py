@@ -272,7 +272,7 @@ class Response(object):
         elif self.status == 409:
             raise ResourceConflict(uri, id_=id)
         elif self.status // 100 == 5:
-            raise SystemError(body, id=id)
+            raise SystemError(body)
 
 
 class Client(object):
