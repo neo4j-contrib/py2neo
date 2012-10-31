@@ -21,7 +21,6 @@ import sys
 PY3K = sys.version_info[0] >= 3
 
 from py2neo import cypher, neo4j
-from threading import Thread
 import unittest
 
 

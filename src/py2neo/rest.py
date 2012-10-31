@@ -76,12 +76,10 @@ http_headers.add("User-Agent", "{0}/{1} ({2}; python/{3})".format(
 http_headers.add("X-Stream", "true")
 
 
-_thread_local = threading.local()
+http_timeouts = {}
 
-def local_client():
-    if not hasattr(_thread_local, "client"):
-        _thread_local.client = Client()
-    return _thread_local.client
+
+_thread_local = threading.local()
 
 
 class BadRequest(ValueError):
@@ -93,6 +91,10 @@ class BadRequest(ValueError):
         :param data: information describing the fault identified
         :param id_:  unique request ID
         """
+        if id_:
+            logger.debug("Bad request for id {0}:\n{1}".format(id_, data))
+        else:
+            logger.debug("Bad request:\n{0}".format(data))
         ValueError.__init__(self)
         self.id = id_
         try:
@@ -127,6 +129,10 @@ class ResourceNotFound(LookupError):
         :param uri:  URI of the resource
         :param id_:  unique request ID
         """
+        if id_:
+            logger.debug("Resource not found for id {0} <{1}>".format(id_, uri))
+        else:
+            logger.debug("Resource not found <{0}>".format(uri))
         LookupError.__init__(self)
         self.id = id_
         self.uri = uri
@@ -144,6 +150,10 @@ class ResourceConflict(EnvironmentError):
         :param uri:  URI of the resource
         :param id_:  unique request ID
         """
+        if id_:
+            logger.debug("Resource conflict for id {0} <{1}>".format(id_, uri))
+        else:
+            logger.debug("Resource conflict <{0}>".format(uri))
         EnvironmentError.__init__(self)
         self.id = id_
         self.uri = uri
@@ -157,6 +167,7 @@ class SocketError(IOError):
     """
 
     def __init__(self, uri):
+        logger.debug("Socket error <{0}>".format(uri))
         IOError.__init__(self)
         self.uri = uri
 
@@ -276,6 +287,11 @@ class Response(object):
 
 
 class Client(object):
+    """ HTTP/HTTPS connection manager intended to be instantiated once per
+        thread. Maintains a collection of HTTP and HTTPS connection objects,
+        each for use with a unique combination of host and port (e.g.
+        "localhost:7474").
+    """
 
     def __init__(self):
         self.http = {}
@@ -291,12 +307,12 @@ class Client(object):
 
     def _http_connection(self, netloc, reconnect=False):
         if netloc not in self.http or reconnect:
-            self.http[netloc] = httplib.HTTPConnection(netloc)
+            self.http[netloc] = httplib.HTTPConnection(netloc, timeout=http_timeouts.get(netloc))
         return self.http[netloc]
 
     def _https_connection(self, netloc, reconnect=False):
         if netloc not in self.https or reconnect:
-            self.https[netloc] = httplib.HTTPSConnection(netloc)
+            self.https[netloc] = httplib.HTTPSConnection(netloc, timeout=http_timeouts.get(netloc))
         return self.https[netloc]
 
     def _send_request(self, method, uri, data=None):
@@ -326,9 +342,8 @@ class Client(object):
                 logger.info("{0} {1} {2}".format(rs.status, rs.reason, dict(rs.getheaders())))
                 return rs
             except httplib.HTTPException as err:
-                logger.error(str(err))
                 if tries < 3:
-                    logger.warn("Request failed, retrying")
+                    logger.warn("Request failed ({0}), retrying".format(err.__class__.__name__))
                     reconnect = True
                 else:
                     raise err
