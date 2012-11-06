@@ -327,12 +327,13 @@ class Client(object):
             else:
                 path = uri_values[2]
             if data is not None:
-                logger.debug("Encoding payload as JSON")
-                data = json.dumps(data)
+                logger.debug("Encoding request body as JSON")
+                data = json.dumps(data, separators=(",", ":"))
             headers = http_headers.get(netloc)
             logger.debug("Sending request")
             if data:
                 logger.info("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
+                logger.debug("Request body: " + data)
             else:
                 logger.info("{0} {1} {2} (no data)".format(method, path, headers))
             try:
