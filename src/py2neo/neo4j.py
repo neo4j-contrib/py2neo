@@ -1267,7 +1267,7 @@ class Node(PropertyContainer):
         for i, (relationship, node) in enumerate(relationship_node_pairs):
             relate.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
             return_.append(",r{0},n{0}".format(i))
-            params["d" + str(i)] = util.compacted(node)
+            params["d" + str(i)] = compact(node or {})
         query = "START z=node({{z}})\nCREATE UNIQUE z{0}\nRETURN z{1}".format(
             "".join(relate), "".join(return_),
         )
