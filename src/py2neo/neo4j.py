@@ -32,25 +32,38 @@ DEFAULT_URI = "http://localhost:7474/db/data/"
 
 
 def authenticate(netloc, user_name, password):
-    """Set HTTP basic authentication values for specified `netloc`. The code
-    below shows a simple example::
+    """ Set HTTP basic authentication values for specified `netloc`. The code
+        below shows a simple example::
 
-        # set up authentication parameters
-        neo4j.authenticate("camelot:7474", "arthur", "excalibur")
+            # set up authentication parameters
+            neo4j.authenticate("camelot:7474", "arthur", "excalibur")
 
-        # connect to authenticated graph database
-        graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
+            # connect to authenticated graph database
+            graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
 
-    Note: a `netloc` can be either a server name or a server name and port
-    number but must match exactly that used within the GraphDatabaseService
-    URI.
+        Note: a `netloc` can be either a server name or a server name and port
+        number but must match exactly that used within the GraphDatabaseService
+        URI.
+
+    :param netloc: the host and port requiring authentication (e.g. "camelot:7474")
+    :param user_name: the user name to authenticate as
+    :param password: the password
     """
     value = "Basic " + base64.b64encode(user_name + ":" + password)
     rest.http_headers.add("Authorization", value, netloc=netloc)
 
 
+def set_timeout(netloc, timeout):
+    """ Set a timeout for all HTTP blocking operations for specified `netloc`.
+
+    :param netloc: the host and port to set the timeout value for (e.g. "camelot:7474")
+    :param timeout: the timeout value in seconds
+    """
+    rest.http_timeouts[netloc] = timeout
+
+
 class Direction(object):
-    """Used to define the direction of a relationship.
+    """ Defines the direction of a relationship.
     """
 
     BOTH     =  0
@@ -1254,7 +1267,7 @@ class Node(PropertyContainer):
         for i, (relationship, node) in enumerate(relationship_node_pairs):
             relate.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
             return_.append(",r{0},n{0}".format(i))
-            params["d" + str(i)] = node
+            params["d" + str(i)] = util.compacted(node)
         query = "START z=node({{z}})\nCREATE UNIQUE z{0}\nRETURN z{1}".format(
             "".join(relate), "".join(return_),
         )

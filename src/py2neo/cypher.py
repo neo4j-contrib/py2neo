@@ -46,6 +46,7 @@ def _payload(query, params=None):
 class CypherError(ValueError):
 
     def __init__(self, message, exception, stacktrace):
+        logger.debug("{0}: {1}\n{2}".format(exception, message, stacktrace))
         ValueError.__init__(self, message, exception, stacktrace)
         self.exception = exception
         self.stacktrace = stacktrace
@@ -58,8 +59,9 @@ class CypherClient(rest.Client):
         rest.Client.__init__(self)
         self.block_size = DEFAULT_BLOCK_SIZE
 
-    def send(self, request, handlers=None):
+    def send(self, request, **kwargs):
         rs = self._send_request(request.method, request.uri, request.body)
+        handlers = kwargs.get("handlers")
         if rs.status in handlers:
             # asynchronous - use handler for each block received
             handler = handlers[rs.status]
