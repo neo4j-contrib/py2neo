@@ -134,6 +134,20 @@ class RelateTestCase(unittest.TestCase):
         self.assertTrue("since" in rel)
         self.assertEqual(2006, rel["since"])
 
+    def test_relate_with_null_data(self):
+        alice, bob = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"}
+        )
+        rel, = self.graph_db.get_or_create_relationships((alice, "KNOWS", bob, {"since": 2006, "dummy": None}))
+        self.assertIsNotNone(rel)
+        self.assertTrue(isinstance(rel, neo4j.Relationship))
+        self.assertEqual(alice, rel.start_node)
+        self.assertEqual("KNOWS", rel.type)
+        self.assertEqual(bob, rel.end_node)
+        self.assertTrue("since" in rel)
+        self.assertEqual(2006, rel["since"])
+        self.assertEqual(None, rel["dummy"])
+
     def test_repeated_relate_with_data(self):
         alice, bob = self.graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}

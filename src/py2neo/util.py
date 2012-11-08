@@ -64,3 +64,11 @@ def execution_time(func, *args, **kwargs):
         func(*args, **kwargs)
     finally:
         return timer() - t0
+
+def compact(obj):
+    """ Return a copy of an object with all :py:const:`None` values removed.
+    """
+    if isinstance(obj, dict):
+        return dict((key, value) for key, value in obj.items() if value is not None)
+    else:
+        return obj.__class__(value for value in obj if value is not None)

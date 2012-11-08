@@ -24,6 +24,7 @@ import logging
 import warnings
 
 from . import rest, cypher, util
+from .util import compact, quote
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class WriteBatch(_Batch):
     def create_node(self, properties=None):
         """ Create a new node with the properties supplied.
         """
-        self._post(self._create_node_uri, properties or {})
+        self._post(self._create_node_uri, compact(properties or {}))
 
     def create_relationship(self, start_node, type_, end_node, properties=None):
         """ Create a new relationship with the values supplied.
@@ -158,7 +159,7 @@ class WriteBatch(_Batch):
             "to": node_uri(end_node),
         }
         if properties:
-            body["data"] = properties
+            body["data"] = compact(properties)
         self._post(node_uri(start_node) + "/relationships", body)
 
     def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
@@ -182,7 +183,7 @@ class WriteBatch(_Batch):
         else:
             raise ValueError("Either start node or end node must be "
                              "specified for a unique relationship")
-        params = {"p": properties or {}}
+        params = {"p": compact(properties or {})}
         if start_node:
             params["a"] = start_node._id
         if end_node:
@@ -204,22 +205,25 @@ class WriteBatch(_Batch):
     def set_node_property(self, node, key, value):
         """ Set a single property on a node.
         """
-        assert isinstance(node, Node)
-        uri = rest.URI(node.__metadata__['property'].format(key=util.quote(key, "")), "/node")
-        self._put(uri.reference, value)
+        if value is None:
+            self.delete_node_property(node, key)
+        else:
+            assert isinstance(node, Node)
+            uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
+            self._put(uri.reference, value)
 
     def set_node_properties(self, node, properties):
         """ Replace all properties on a node.
         """
         assert isinstance(node, Node)
         uri = rest.URI(node.__metadata__['properties'], "/node")
-        self._put(uri.reference, properties)
+        self._put(uri.reference, compact(properties))
 
     def delete_node_property(self, node, key):
         """ Delete a single property from a node.
         """
         assert isinstance(node, Node)
-        uri = rest.URI(node.__metadata__['property'].format(key=util.quote(key, "")), "/node")
+        uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
         self._delete(uri.reference)
 
     def delete_node_properties(self, node):
@@ -232,22 +236,25 @@ class WriteBatch(_Batch):
     def set_relationship_property(self, relationship, key, value):
         """ Set a single property on a relationship.
         """
-        assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship.__metadata__['property'].format(key=util.quote(key, "")), "/relationship")
-        self._put(uri.reference, value)
+        if value is None:
+            self.delete_relationship_property(relationship, key)
+        else:
+            assert isinstance(relationship, Relationship)
+            uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
+            self._put(uri.reference, value)
 
     def set_relationship_properties(self, relationship, properties):
         """ Replace all properties on a relationship.
         """
         assert isinstance(relationship, Relationship)
         uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
-        self._put(uri.reference, properties)
+        self._put(uri.reference, compact(properties))
 
     def delete_relationship_property(self, relationship, key):
         """ Delete a single property from a relationship.
         """
         assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship.__metadata__['property'].format(key=util.quote(key, "")), "/relationship")
+        uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
         self._delete(uri.reference)
 
     def delete_relationship_properties(self, relationship):
@@ -281,7 +288,7 @@ class WriteBatch(_Batch):
         self._post(index_uri.reference + uri_suffix, body = {
             "key": key,
             "value": value,
-            "properties": properties or {}
+            "properties": compact(properties or {})
         })
 
     def get_or_create_indexed_node(self, index, key, value, properties=None):
@@ -289,16 +296,16 @@ class WriteBatch(_Batch):
             returning either the new node or the existing one.
         """
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
-            self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, properties)
+            self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, compact(properties))
         else:
-            self._create_indexed_node(index, "?unique", key, value, properties)
+            self._create_indexed_node(index, "?unique", key, value, compact(properties))
 
     def create_indexed_node_or_fail(self, index, key, value, properties=None):
         """ Create and index a new node if one does not already exist,
             fail otherwise.
         """
         if self._graph_db.neo4j_version >= (1, 8, 'M07'):
-            self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, properties)
+            self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, compact(properties))
         else:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
                                       "requires version 1.9 or above")
@@ -356,14 +363,14 @@ class WriteBatch(_Batch):
         if key and value and node:
             self._delete("{0}/{1}/{2}/{3}".format(
                 index_uri,
-                util.quote(key, ""),
-                util.quote(value, ""),
+                quote(key, ""),
+                quote(value, ""),
                 node._id,
             ))
         elif key and node:
             self._delete("{0}/{1}/{2}".format(
                 index_uri,
-                util.quote(key, ""),
+                quote(key, ""),
                 node._id,
             ))
         elif node:
@@ -457,14 +464,14 @@ class WriteBatch(_Batch):
         if key and value and relationship:
             self._delete("{0}/{1}/{2}/{3}".format(
                 index_uri,
-                util.quote(key, ""),
-                util.quote(value, ""),
+                quote(key, ""),
+                quote(value, ""),
                 relationship._id,
             ))
         elif key and relationship:
             self._delete("{0}/{1}/{2}".format(
                 index_uri,
-                util.quote(key, ""),
+                quote(key, ""),
                 relationship._id,
             ))
         elif relationship:
@@ -626,7 +633,7 @@ class GraphDatabaseService(rest.Resource):
             return []
         if len(abstracts) == 1 and isinstance(abstracts[0], dict):
             rs = self._send(
-                rest.Request(self, "POST", self.__metadata__["node"], abstracts[0])
+                rest.Request(self, "POST", self.__metadata__["node"], compact(abstracts[0]))
             )
             return [Node(rs.body["self"], graph_db=self)]
         batch = WriteBatch(self)
@@ -933,14 +940,14 @@ class PropertyContainer(rest.Resource):
 
     def __delitem__(self, key):
         try:
-            self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['property'].format(key=util.quote(key, ""))))
+            self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['property'].format(key=quote(key, ""))))
         except rest.ResourceNotFound:
             pass
 
     def __getitem__(self, key):
         try:
             return self._send(
-                rest.Request(self._graph_db, "GET", self.__metadata__['property'].format(key=util.quote(key, "")))
+                rest.Request(self._graph_db, "GET", self.__metadata__['property'].format(key=quote(key, "")))
             ).body
         except rest.ResourceNotFound:
             return None
@@ -959,7 +966,7 @@ class PropertyContainer(rest.Resource):
             self.__delitem__(key)
         else:
             self._send(
-                rest.Request(self._graph_db, "PUT", self.__metadata__['property'].format(key=util.quote(key, "")), value)
+                rest.Request(self._graph_db, "PUT", self.__metadata__['property'].format(key=quote(key, "")), value)
             )
 
     def _must_belong_to(self, graph_db):
@@ -991,11 +998,7 @@ class PropertyContainer(rest.Resource):
             dictionary of values.
         """
         self._send(rest.Request(
-            self._graph_db, "PUT", self.__metadata__['properties'], dict([
-                (key, value)
-                for key, value in properties.items()
-                if value is not None
-            ])
+            self._graph_db, "PUT", self.__metadata__['properties'], compact(properties)
         ))
 
     def delete_properties(self):
@@ -1080,7 +1083,7 @@ class Node(PropertyContainer):
         rs = self._send(rest.Request(self._graph_db, "POST", self.__metadata__['create_relationship'], {
             'to': str(other_node._uri),
             'type': type,
-            'data': properties
+            'data': compact(properties or {})
         }))
         return Relationship(rs.body["self"])
 
@@ -1119,7 +1122,7 @@ class Node(PropertyContainer):
         else:
             uri = self.__metadata__['all_typed_relationships']
         return uri.replace(
-            '{-list|&|types}', '&'.join(util.quote(type, "") for type in types)
+            '{-list|&|types}', '&'.join(quote(type, "") for type in types)
         )
 
     def get_related_nodes(self, direction=Direction.EITHER, *types):
@@ -1543,8 +1546,8 @@ class Index(rest.Resource):
         ..
         """
         results = self._send(rest.Request(self._graph_db, "GET", self._template_uri.format(
-            key=util.quote(key, ""),
-            value=util.quote(value, "")
+            key=quote(key, ""),
+            value=quote(value, "")
         )))
         return [
             self._content_type(result['self'], self._graph_db)
@@ -1670,8 +1673,8 @@ class Index(rest.Resource):
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}/{3}".format(
                     self._uri,
-                    util.quote(key, ""),
-                    util.quote(value, ""),
+                    quote(key, ""),
+                    quote(value, ""),
                     entity._id,
                 )
             ))
@@ -1680,8 +1683,8 @@ class Index(rest.Resource):
                 item['indexed']
                 for item in self._send(rest.Request(
                     self._graph_db, "GET", self._template_uri.format(
-                        key=util.quote(key, ""),
-                        value=util.quote(value, "")
+                        key=quote(key, ""),
+                        value=quote(value, "")
                     )
                 )).body
             ]
@@ -1696,7 +1699,7 @@ class Index(rest.Resource):
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}".format(
                     self._uri,
-                    util.quote(key, ""),
+                    quote(key, ""),
                     entity._id,
                 )
             ))
@@ -1726,6 +1729,6 @@ class Index(rest.Resource):
         return [
             self._content_type(item['self'], self._graph_db)
             for item in self._send(rest.Request(self._graph_db, "GET", "{0}?query={1}".format(
-                self._uri, util.quote(query, "")
+                self._uri, quote(query, "")
             ))).body
         ]

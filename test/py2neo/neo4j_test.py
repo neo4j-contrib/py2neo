@@ -100,6 +100,11 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(13, node["number"])
         self.assertEqual(False, node["true"])
 
+    def test_create_node_with_null_properties(self):
+        node, = self.graph_db.create({"foo": "bar", "no-foo": None})
+        self.assertEqual("bar", node["foo"])
+        self.assertEqual(None, node["no-foo"])
+
     def test_create_multiple_nodes(self):
         nodes = self.graph_db.create(
                 {},
