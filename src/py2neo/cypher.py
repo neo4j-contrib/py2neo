@@ -66,14 +66,21 @@ class CypherClient(rest.Client):
             # asynchronous - use handler for each block received
             handler = handlers[rs.status]
             if self.block_size > 0:
+                data = []
                 while True:
                     block = rs.read(self.block_size)
                     if block:
-                        handler(block)
+                        data.append(block)
                     else:
                         break
+                    try:
+                        utf8_data = "".join(data).decode("utf-8")
+                        data = []
+                        handler(utf8_data)
+                    except UnicodeDecodeError:
+                        continue
             else:
-                handler(rs.read())
+                handler(rs.read().decode("utf-8"))
         return rest.Response(
             request.graph_db, rs.status, request.uri,
             rs.getheader("Location", None)
@@ -178,7 +185,7 @@ class Query(object):
             return self._metadata
 
         def handle_block(self, data):
-            self._data += data.decode("utf-8")
+            self._data += data
             while self._data:
                 self._data = self._data.strip()
                 if self._data:
