@@ -15,13 +15,10 @@ Errors
 ------
 
 .. autoclass:: py2neo.rest.BadRequest
-    :members: exception, message, stacktrace, id
     :show-inheritance:
 
 .. autoclass:: py2neo.rest.ResourceNotFound
-    :members: uri, id
     :show-inheritance:
 
 .. autoclass:: py2neo.rest.ResourceConflict
-    :members: uri, id
     :show-inheritance:
