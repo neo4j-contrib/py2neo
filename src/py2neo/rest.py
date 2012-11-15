@@ -316,20 +316,20 @@ class Client(object):
         return self.https[netloc]
 
     def _send_request(self, method, uri, data=None):
-        reconnect = False
         uri_values = urlsplit(str(uri))
+        if uri_values[3]:
+            path = uri_values[2] + "?" + uri_values[3]
+        else:
+            path = uri_values[2]
         scheme, netloc = uri_values[0:2]
+        headers = http_headers.get(netloc)
+        if data is not None:
+            logger.debug("Encoding request body as JSON")
+            data = json.dumps(data, separators=(",", ":"))
+        reconnect = False
         for tries in range(1, 4):
             logger.debug("Establishing " + scheme + " connection to " + netloc)
             http = self._connection(scheme, netloc, reconnect)
-            if uri_values[3]:
-                path = uri_values[2] + "?" + uri_values[3]
-            else:
-                path = uri_values[2]
-            if data is not None:
-                logger.debug("Encoding request body as JSON")
-                data = json.dumps(data, separators=(",", ":"))
-            headers = http_headers.get(netloc)
             logger.debug("Sending request")
             if data:
                 logger.info("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
