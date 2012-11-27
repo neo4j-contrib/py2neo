@@ -56,7 +56,7 @@ def execute_and_output_as_delimited(graph_db, query, field_delimiter="\t", out=N
     out = out or sys.stdout
     err = err or sys.stderr
     def on_error(message, exception, stacktrace):
-        err.write("{0}\n".format(message))
+        err.write("{0}: {1}\n".format(exception, message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
     if data or metadata:
         out.write(field_delimiter.join([
@@ -75,7 +75,7 @@ def execute_and_output_as_json(graph_db, query, out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
     def on_error(message, exception, stacktrace):
-        err.write("{0}\n".format(message))
+        err.write("{0}: {1}\n".format(exception, message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
     if data or metadata:
         columns = [json.dumps(column) for column in metadata.columns]
@@ -97,7 +97,7 @@ def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
     nodes = {}
     relationships = {}
     def on_error(message, exception, stacktrace):
-        err.write("{0}\n".format(message))
+        err.write("{0}: {1}\n".format(exception, message))
     def update_descriptors(value):
         if isinstance(value, neo4j.Node):
             nodes[str(value)] = value._metadata('data')
@@ -126,7 +126,7 @@ def execute_and_output_as_text(graph_db, query, out=None, err=None):
     out = out or sys.stdout
     err = err or sys.stderr
     def on_error(message, exception, stacktrace):
-        err.write("{0}\n".format(message))
+        err.write("{0}: {1}\n".format(exception, message))
     data, metadata = cypher.execute(graph_db, query, error_handler=on_error)
     if data or metadata:
         columns = metadata.columns
@@ -165,16 +165,20 @@ if __name__ == "__main__":
     parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (e.g. /db/data/)")
     parser.add_argument("-f", "--format", metavar="format", default='text', help="output file format")
     #parser.add_argument("-n", "--no-header", metavar="no_header", default=False, help="header suppression flag")
-    parser.add_argument("query", help="the Cypher query to execute")
+    parser.add_argument("query", nargs="?", default='-', help="the Cypher query to execute")
     args = parser.parse_args()
     graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))
-    if args.format == "csv":
-        execute_and_output_as_delimited(graph_db, args.query, ",")
-    elif args.format == "geoff":
-        execute_and_output_as_geoff(graph_db, args.query)
-    elif args.format == "json":
-        execute_and_output_as_json(graph_db, args.query)
-    elif args.format == "tsv":
-        execute_and_output_as_delimited(graph_db, args.query, "\t")
+    if args.query == "-":
+        query = sys.stdin.read()
     else:
-        execute_and_output_as_text(graph_db, args.query)
+        query = args.query
+    if args.format == "csv":
+        execute_and_output_as_delimited(graph_db, query, ",")
+    elif args.format == "geoff":
+        execute_and_output_as_geoff(graph_db, query)
+    elif args.format == "json":
+        execute_and_output_as_json(graph_db, query)
+    elif args.format == "tsv":
+        execute_and_output_as_delimited(graph_db, query, "\t")
+    else:
+        execute_and_output_as_text(graph_db, query)
