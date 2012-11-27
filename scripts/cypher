@@ -160,12 +160,12 @@ def execute_and_output_as_text(graph_db, query, out=None, err=None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
-    parser.add_argument("-H", "--host", metavar="host", default='localhost', help="Neo4j server host name")
-    parser.add_argument("-P", "--port", metavar="port", default=7474, help="Neo4j server port")
-    parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (e.g. /db/data/)")
-    parser.add_argument("-f", "--format", metavar="format", default='text', help="output file format")
+    parser.add_argument("-H", "--host", metavar="host", default='localhost', help="Neo4j server host name (default \"localhost\"')")
+    parser.add_argument("-P", "--port", metavar="port", default=7474, help="Neo4j server port (default 7474)")
+    parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (default \"/db/data/\")")
+    parser.add_argument("-f", "--format", metavar="format", default='text', help="output file format (default \"text\")")
     #parser.add_argument("-n", "--no-header", metavar="no_header", default=False, help="header suppression flag")
-    parser.add_argument("query", nargs="?", default='-', help="the Cypher query to execute")
+    parser.add_argument("query", nargs="?", default='-', help="the Cypher query to execute (if omitted, will read from standard input)")
     args = parser.parse_args()
     graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))
     if args.query == "-":
