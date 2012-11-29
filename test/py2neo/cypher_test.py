@@ -179,5 +179,20 @@ class PathTestCase(unittest.TestCase):
         self.assertEqual("p", metadata.columns[0])
 
 
+class CollectionTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+        self.graph_db.clear()
+
+    def test_query_returning_collection(self):
+        node, = self.graph_db.create({})
+        query = "START a = node({N}) RETURN collect(a);"
+        params = {"N": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        print(data)
+        assert data[0][0] == [node]
+
+
 if __name__ == '__main__':
     unittest.main()

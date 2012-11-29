@@ -595,6 +595,8 @@ class GraphDatabaseService(rest.Resource):
             assert len(values) == 1
             value = values[0]
             return self._resolve(value, status, id_=id_)
+        elif isinstance(data, list):
+            return [self._resolve(item, status, id_) for item in data]
         else:
             # is a plain value
             return data
