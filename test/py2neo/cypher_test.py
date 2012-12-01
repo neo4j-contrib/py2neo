@@ -194,5 +194,33 @@ class CollectionTestCase(unittest.TestCase):
         assert data[0][0] == [node]
 
 
+class ReusedParamsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+        self.graph_db.clear()
+
+    def test_param_used_once(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X})RETURN a"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node]
+
+    def test_param_used_twice(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X}), b=node({X}) RETURN a, b"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node, node]
+
+    def test_param_used_thrice(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X}), b=node({X}), c=node({X}) RETURN a, b, c"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node, node, node]
+
+
 if __name__ == '__main__':
     unittest.main()
