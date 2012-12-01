@@ -1458,6 +1458,14 @@ class Path(object):
         """
         return len(self._relationships)
 
+    def __eq__(self, other):
+        return self.nodes == other.nodes and \
+               self.relationships == other.relationships
+
+    def __ne__(self, other):
+        return self.nodes != other.nodes or \
+               self.relationships != other.relationships
+
     @property
     def nodes(self):
         """Return a list of all the nodes which make up this path.
