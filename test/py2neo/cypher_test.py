@@ -221,6 +221,23 @@ class ReusedParamsTestCase(unittest.TestCase):
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [node, node, node]
 
+    def test_param_reused_after_with_statement(self):
+        a, b, ab = self.graph_db.create(
+            {"name": "Alice", "age": 66},
+            {"name": "Bob", "age": 77},
+            (0, "KNOWS", 1),
+        )
+        query = "START a=node({A}) " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE a.age > {min_age} " \
+                "WITH a " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE b.age > {min_age} " \
+                "RETURN a, b"
+        params = {"A": a._id, "min_age": 50}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [a, b]
+
 
 if __name__ == '__main__':
     unittest.main()
