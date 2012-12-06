@@ -69,6 +69,23 @@ class BadDatabaseURITest(unittest.TestCase):
         graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
         self.assertEqual("http://localhost:7474/db/data/", graph_db._uri)
 
+    def test_no_path(self):
+        try:
+            neo4j.GraphDatabaseService("http://localhost:7474")
+            assert False
+        except AssertionError as err:
+            sys.stderr.write(str(err) + "\n")
+            assert True
+
+
+    def test_root_path(self):
+        try:
+            neo4j.GraphDatabaseService("http://localhost:7474/")
+            assert False
+        except AssertionError as err:
+            sys.stderr.write(str(err) + "\n")
+            assert True
+
 
 class GraphDatabaseServiceTest(unittest.TestCase):
 

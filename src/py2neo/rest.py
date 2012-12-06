@@ -27,7 +27,7 @@ import logging
 import socket
 import sys
 import threading
-import time
+
 try:
     from urllib.parse import urlsplit
 except ImportError:
@@ -36,6 +36,7 @@ except ImportError:
 from . import __package__ as py2neo_package
 from . import __version__ as py2neo_version
 
+from .util import PropertyCache
 
 logger = logging.getLogger(__name__)
 
@@ -173,63 +174,6 @@ class SocketError(IOError):
 
     def __str__(self):
         return repr(self.uri)
-
-
-class PropertyCache(object):
-
-    def __init__(self, properties=None, max_age=None):
-        self._properties = {}
-        self.max_age = max_age
-        self._last_updated_time = None
-        if properties:
-            self.update(properties)
-
-    def __nonzero__(self):
-        return bool(self._properties)
-
-    def __len__(self):
-        return len(self._properties)
-
-    def __getitem__(self, item):
-        return self._properties[item]
-
-    def __setitem__(self, item, value):
-        self._properties[item] = value
-
-    def __delitem__(self, item):
-        del self._properties[item]
-
-    def __iter__(self):
-        return self._properties.__iter__()
-
-    def __contains__(self, item):
-        return item in self._properties
-
-    @property
-    def expired(self):
-        if self._last_updated_time and self.max_age:
-            return time.time() - self._last_updated_time > self.max_age
-        else:
-            return None
-
-    @property
-    def needs_update(self):
-        return not self._properties or self.expired
-
-    def clear(self):
-        self.update(None)
-
-    def update(self, properties):
-        self._properties.clear()
-        if properties:
-            self._properties.update(properties)
-        self._last_updated_time = time.time()
-
-    def get(self, key, default=None):
-        return self._properties.get(key, default)
-
-    def get_all(self):
-        return self._properties
 
 
 class URI(object):

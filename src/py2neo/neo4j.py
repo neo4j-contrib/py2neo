@@ -15,11 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The neo4j module provides the main Neo4j client functionality and will be
-the starting point for most applications.
+""" The neo4j module provides the main Neo4j client functionality and will be
+    the starting point for most applications.
 """
 
 import base64
+import json
 import logging
 import warnings
 
@@ -60,6 +61,33 @@ def set_timeout(netloc, timeout):
     :param timeout: the timeout value in seconds
     """
     rest.http_timeouts[netloc] = timeout
+
+
+def _assert_expected_response(cls, uri, metadata):
+    """ Checks the metadata received against a specific class to confirm this
+        is the type of response expected.
+    """
+    has_all = lambda iterable, items: all(item in iterable for item in items)
+    if cls is GraphDatabaseService:
+        if has_all(metadata, ("extensions", "node", "node_index",
+                              "relationship_index", "relationship_types")):
+           return
+    elif cls is Node:
+        if has_all(metadata, ("self", "property", "properties", "data",
+                              "create_relationship", "incoming_relationships",
+                              "outgoing_relationships", "all_relationships")):
+            return
+    elif cls is Relationship:
+        if has_all(metadata, ("self", "property", "properties", "data",
+                              "start", "type", "end")):
+            return
+    else:
+        raise TypeError("Cannot confirm metadata for class " + cls.__name__)
+    raise AssertionError(
+        "URI <{0}> does not appear to identify a {1}: {2}".format(
+            uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
+        )
+    )
 
 
 class Direction(object):
@@ -527,6 +555,7 @@ class GraphDatabaseService(rest.Resource):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri, "/", metadata=metadata)
         rs = self._send(rest.Request(self, "GET", self._uri))
+        _assert_expected_response(self.__class__, self._uri, rs.body)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self._uri = rest.URI(rs.uri, "/")
