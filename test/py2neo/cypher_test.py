@@ -194,5 +194,50 @@ class CollectionTestCase(unittest.TestCase):
         assert data[0][0] == [node]
 
 
+class ReusedParamsTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+        self.graph_db.clear()
+
+    def test_param_used_once(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X})RETURN a"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node]
+
+    def test_param_used_twice(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X}), b=node({X}) RETURN a, b"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node, node]
+
+    def test_param_used_thrice(self):
+        node, = self.graph_db.create({})
+        query = "START a=node({X}), b=node({X}), c=node({X}) RETURN a, b, c"
+        params = {"X": node._id}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [node, node, node]
+
+    def test_param_reused_after_with_statement(self):
+        a, b, ab = self.graph_db.create(
+            {"name": "Alice", "age": 66},
+            {"name": "Bob", "age": 77},
+            (0, "KNOWS", 1),
+        )
+        query = "START a=node({A}) " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE a.age > {min_age} " \
+                "WITH a " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE b.age > {min_age} " \
+                "RETURN a, b"
+        params = {"A": a._id, "min_age": 50}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [a, b]
+
+
 if __name__ == '__main__':
     unittest.main()

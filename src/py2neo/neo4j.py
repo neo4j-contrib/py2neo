@@ -1293,15 +1293,47 @@ class Node(PropertyContainer):
 
         """
         if not relationship_node_pairs:
-            return
-        relate, return_, params = [], [], {"z": self.id}
+            return Path([self], [])
+        nodes, path, values, params = \
+            ["z=node({z})"], ["z"], ["z"], {"z": self._id}
         for i, (relationship, node) in enumerate(relationship_node_pairs):
-            relate.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
-            return_.append(",r{0},n{0}".format(i))
-            params["d" + str(i)] = compact(node or {})
-        query = "START z=node({{z}})\nCREATE UNIQUE z{0}\nRETURN z{1}".format(
-            "".join(relate), "".join(return_),
+            if node is None:
+                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
+                values.append("r{0}".format(i))
+                values.append("n{0}".format(i))
+            elif isinstance(node, Node):
+                nodes.append("n{0}=node({{i{0}}})".format(i))
+                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
+                values.append("r{0}".format(i))
+                values.append("n{0}".format(i))
+                params["i{0}".format(i)] = node._id
+            elif isinstance(node, int):
+                nodes.append("n{0}=node({{i{0}}})".format(i))
+                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
+                values.append("r{0}".format(i))
+                values.append("n{0}".format(i))
+                params["i{0}".format(i)] = node
+            elif isinstance(node, tuple):
+                nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
+                values.append("r{0}".format(i))
+                values.append("n{0}".format(i))
+                params["i{0}".format(i)] = node[2]
+            elif isinstance(node, dict):
+                path.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
+                values.append("r{0}".format(i))
+                values.append("n{0}".format(i))
+                params["d{0}".format(i)] = compact(node or {})
+            else:
+                raise TypeError("Cannot infer node from {0}".format(type(node)))
+        query = "START {nodes} CREATE UNIQUE {path} RETURN {values}".format(
+            nodes  = ",".join(nodes),
+            path   = "".join(path),
+            values = ",".join(values),
         )
+        print(query)
+        print(params)
+        print
         try:
             data, metadata = cypher.execute(self._graph_db, query, params)
             return Path(data[0][0::2], data[0][1::2])
@@ -1454,6 +1486,14 @@ class Path(object):
         relationships).
         """
         return len(self._relationships)
+
+    def __eq__(self, other):
+        return self.nodes == other.nodes and \
+               self.relationships == other.relationships
+
+    def __ne__(self, other):
+        return self.nodes != other.nodes or \
+               self.relationships != other.relationships
 
     @property
     def nodes(self):

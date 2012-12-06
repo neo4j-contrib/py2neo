@@ -32,7 +32,7 @@ from py2neo import neo4j, cypher
 import sys
 
 
-def _stringify(value, quoted=False, with_properties=False):
+def _stringify(value, quoted=False, bracketed=False, with_properties=False):
     if isinstance(value, neo4j.Node):
         out = str(value)
         if quoted:
@@ -45,6 +45,28 @@ def _stringify(value, quoted=False, with_properties=False):
             out = '"' + out + '"'
         if with_properties:
             out += " " + json.dumps(value._metadata('data'), separators=(',',':'))
+    elif isinstance(value, list):
+        # quoted=False, bracketed=False
+        #   (1) (2)
+        # quoted=True, bracketed=False
+        #   "(1) (2)"
+        # quoted=False, bracketed=True
+        # (may be slightly confusing as individual values are quoted)
+        #   ["(1)","(2)"]
+        # quoted=True, bracketed=True
+        #   "[\"(1)\",\"(2)\"]"
+        if bracketed:
+            out = "[" + ",".join(
+                _stringify(item, quoted=bracketed, with_properties=with_properties)
+                for item in value
+            ) + "]"
+        else:
+            out = " ".join(
+                _stringify(item, quoted=bracketed, with_properties=with_properties)
+                for item in value
+            )
+        if quoted:
+            out = json.dumps(out, separators=(',',':'))
     else:
         if quoted:
             out = json.dumps(value)
@@ -66,8 +88,8 @@ def execute_and_output_as_delimited(graph_db, query, field_delimiter="\t", out=N
         out.write("\n")
         for row in data:
             out.write(field_delimiter.join([
-            _stringify(value, quoted=True)
-            for value in row
+                _stringify(value, quoted=True, bracketed=False)
+                for value in row
             ]))
             out.write("\n")
 
@@ -86,7 +108,7 @@ def execute_and_output_as_json(graph_db, query, out=None, err=None):
             if row_count > 1:
                 out.write(",\n")
             out.write("\t{" + ", ".join([
-            columns[i] + ": " + _stringify(row[i], quoted=True)
+            columns[i] + ": " + _stringify(row[i], quoted=False, bracketed=True)
             for i in range(len(row))
             ]) + "}")
         out.write("\n]\n")
@@ -103,6 +125,9 @@ def execute_and_output_as_geoff(graph_db, query, out=None, err=None):
             nodes[str(value)] = value._metadata('data')
         elif isinstance(value, neo4j.Relationship):
             relationships[str(value.start_node) + str(value) + str(value.end_node)] = value._metadata('data')
+        elif isinstance(value, list):
+            for item in value:
+                update_descriptors(item)
         else:
             # property - not supported in GEOFF format, so ignore
             pass
