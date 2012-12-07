@@ -1262,8 +1262,16 @@ class Node(PropertyContainer):
     def get_or_create_path(self, *relationship_node_pairs):
         """Fetch or create a path starting at this node, creating only nodes
         and relationships which do not already exist. Each relationship-node
-        pair must be supplied as a 2-tuple of relationship type and node
-        properties. For example::
+        pair must be supplied as a 2-tuple of relationship type and node where
+        the node can be any of the following:
+
+        - `None` (create a new, empty node)
+        - a dictionary (create a new node with properties)
+        - an integer (an existing node, referenced by ID)
+        - a 3-tuple (an existing, indexed node, referenced by index name, key and value)
+        - a `Node` object (an existing node as represented by this object)
+
+        Some examples::
 
             # add dates to calendar, starting at calendar_root
             christmas_day = calendar_root.get_or_create_path(
@@ -1297,43 +1305,30 @@ class Node(PropertyContainer):
         nodes, path, values, params = \
             ["z=node({z})"], ["z"], ["z"], {"z": self._id}
         for i, (relationship, node) in enumerate(relationship_node_pairs):
-            if node is None:
-                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
-                values.append("r{0}".format(i))
-                values.append("n{0}".format(i))
-            elif isinstance(node, Node):
-                nodes.append("n{0}=node({{i{0}}})".format(i))
-                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
-                values.append("r{0}".format(i))
-                values.append("n{0}".format(i))
-                params["i{0}".format(i)] = node._id
-            elif isinstance(node, int):
-                nodes.append("n{0}=node({{i{0}}})".format(i))
-                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
-                values.append("r{0}".format(i))
-                values.append("n{0}".format(i))
-                params["i{0}".format(i)] = node
-            elif isinstance(node, tuple):
-                nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
-                path.append("-[r{0}:{1}]->(n{0})".format(i, relationship))
-                values.append("r{0}".format(i))
-                values.append("n{0}".format(i))
-                params["i{0}".format(i)] = node[2]
-            elif isinstance(node, dict):
-                path.append("-[r{0}:{1}]->(n{0} {{d{0}}})".format(i, relationship))
-                values.append("r{0}".format(i))
-                values.append("n{0}".format(i))
+            path.append("-[r{0}:{1}]->".format(i, relationship))
+            if isinstance(node, dict):
+                path.append("(n{0} {{d{0}}})".format(i))
                 params["d{0}".format(i)] = compact(node or {})
             else:
-                raise TypeError("Cannot infer node from {0}".format(type(node)))
+                path.append("(n{0})".format(i))
+                if isinstance(node, Node):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node._id
+                elif isinstance(node, int):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node
+                elif isinstance(node, tuple):
+                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                    params["i{0}".format(i)] = node[2]
+                elif node is not None:
+                    raise TypeError("Cannot infer node from {0}".format(type(node)))
+            values.append("r{0}".format(i))
+            values.append("n{0}".format(i))
         query = "START {nodes} CREATE UNIQUE {path} RETURN {values}".format(
             nodes  = ",".join(nodes),
             path   = "".join(path),
             values = ",".join(values),
         )
-        print(query)
-        print(params)
-        print
         try:
             data, metadata = cypher.execute(self._graph_db, query, params)
             return Path(data[0][0::2], data[0][1::2])
