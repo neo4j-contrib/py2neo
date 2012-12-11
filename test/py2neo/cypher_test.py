@@ -221,7 +221,7 @@ class ReusedParamsTestCase(unittest.TestCase):
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [node, node, node]
 
-    def test_param_reused_after_with_statement(self):
+    def test_param_reused_once_after_with_statement(self):
         a, b, ab = self.graph_db.create(
             {"name": "Alice", "age": 66},
             {"name": "Bob", "age": 77},
@@ -233,10 +233,32 @@ class ReusedParamsTestCase(unittest.TestCase):
                 "WITH a " \
                 "MATCH (a)-[:KNOWS]->(b) " \
                 "WHERE b.age > {min_age} " \
-                "RETURN a, b"
+                "RETURN b"
         params = {"A": a._id, "min_age": 50}
         data, metadata = cypher.execute(self.graph_db, query, params)
-        assert data[0] == [a, b]
+        assert data[0] == [b]
+
+    def test_param_reused_twice_after_with_statement(self):
+        a, b, c, ab, bc = self.graph_db.create(
+            {"name": "Alice", "age": 66},
+            {"name": "Bob", "age": 77},
+            {"name": "Carol", "age": 88},
+            (0, "KNOWS", 1),
+            (1, "KNOWS", 2),
+        )
+        query = "START a=node({A}) " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE a.age > {min_age} " \
+                "WITH a " \
+                "MATCH (a)-[:KNOWS]->(b) " \
+                "WHERE b.age > {min_age} " \
+                "WITH b " \
+                "MATCH (b)-[:KNOWS]->(c) " \
+                "WHERE c.age > {min_age} " \
+                "RETURN c"
+        params = {"A": a._id, "min_age": 50}
+        data, metadata = cypher.execute(self.graph_db, query, params)
+        assert data[0] == [c]
 
 
 if __name__ == '__main__':
