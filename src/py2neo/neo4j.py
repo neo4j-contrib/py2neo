@@ -911,9 +911,10 @@ class GraphDatabaseService(rest.Resource):
         return [rs.body["data"] for rs in batch._submit()]
 
     def get_relationship(self, id):
-        """Fetch a relationship by its ID.
+        """ Fetch a relationship by its ID.
         """
-        return Relationship(self.__metadata__['relationship'] + "/" + str(id), graph_db=self)
+        uri = "{0}/relationship/{1}".format(self._uri.base, id)
+        return Relationship(uri, graph_db=self)
 
     def get_relationship_count(self):
         """Fetch the number of relationships in this graph as an integer.
