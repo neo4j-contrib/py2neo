@@ -61,6 +61,27 @@ class PropertyContainerTestCase(unittest.TestCase):
         alice, = self.graph_db.create({"name": "Alice"})
         self.assertEqual("Alice", alice["name"])
 
+    def test_get_list_property(self):
+        thing, = self.graph_db.create({"counts": [0]})
+        self.assertEqual([0], thing["counts"])
+
+    def test_set_list_property(self):
+        thing, = self.graph_db.create({"counts": [0]})
+        thing["counts"] = [1]
+        self.assertEqual([1], thing["counts"])
+
+    def test_set_list_property_item(self):
+        thing, = self.graph_db.create({"counts": [0]})
+        thing["counts"][0] += 1
+        self.assertEqual([1], thing["counts"])
+
+    def test_set_list_property_item_workaround(self):
+        thing, = self.graph_db.create({"counts": [0]})
+        tc = thing["counts"]
+        tc[0] += 1
+        thing["counts"] = tc
+        self.assertEqual([1], thing["counts"])
+
     def test_get_property_with_odd_name(self):
         foo, = self.graph_db.create({""" !"#$%&'()*+,-./?""": "foo"})
         self.assertEqual("foo", foo[""" !"#$%&'()*+,-./?"""])
