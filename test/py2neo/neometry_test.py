@@ -53,6 +53,27 @@ class CreateTest(unittest.TestCase):
         graph.relate("Neo", "KILLS", "Smith")
         assert len(graph) == 7
         assert graph["Neo"] == {"name": "Neo"}
+        assert graph.nodes() == {
+            'Neo': {'name': 'Neo'},
+            'Cypher': {'name': 'Cypher'},
+            'Smith': {'name': 'Agent Smith'},
+            'Morpheus': {'name': 'Morpheus'},
+            'Barney': {'name': 'Barney the Dinosaur'},
+            'Architect': {'name': 'The Architect'},
+            'Trinity': {'name': 'Trinity'}
+        }
+        assert graph.nodes(value={'name': 'Trinity'}) == {'Trinity': {'name': 'Trinity'}}
+        assert graph.edges() == {
+            ('Neo', 'KNOWS', 'Morpheus'): None,
+            ('Neo', 'KILLS', 'Smith'): None,
+            ('Morpheus', 'KNOWS', 'Cypher'): None,
+            ('Neo', 'KNOWS', 'Trinity'): None,
+            ('Smith', 'CODED_BY', 'Architect'): 1337,
+            ('Morpheus', 'KNOWS', 'Trinity'): None,
+            ('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'},
+            ('Trinity', 'KNOWS', 'Cypher'): None,
+            ('Cypher', 'KNOWS', 'Smith'): None,
+        }
 
 
 class PathTest(unittest.TestCase):
@@ -80,20 +101,20 @@ class PathTest(unittest.TestCase):
     def test_can_remove_rels(self):
         self.graph.relate("Trinity", "LIKES", "Barney")
         self.graph.relate("Morpheus", "LIKES", "Barney")
-        assert self.graph.match(predicate="LIKES") == {('Trinity', 'LIKES', 'Barney'): None, ('Morpheus', 'LIKES', 'Barney'): None}
-        self.graph.remove(predicate="LIKES", object="Barney")
-        assert self.graph.match(predicate="LIKES", object="Barney") == {}
+        assert self.graph.edges(relationship="LIKES") == {('Trinity', 'LIKES', 'Barney'): None, ('Morpheus', 'LIKES', 'Barney'): None}
+        self.graph.unrelate(relationship="LIKES", end="Barney")
+        assert self.graph.edges(relationship="LIKES", end="Barney") == {}
 
     def test_can_query_rels(self):
-        assert self.graph.match(subject="Neo") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Neo', 'KNOWS', 'Morpheus'): None, ('Neo', 'KILLS', 'Smith'): {}, ('Neo', 'KNOWS', 'Trinity'): None}
-        assert self.graph.match(subject="Neo", object="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Neo', 'KNOWS', 'Trinity'): None}
-        assert self.graph.match(subject="Neo", predicate="KNOWS") == {('Neo', 'KNOWS', 'Morpheus'): None, ('Neo', 'KNOWS', 'Trinity'): None}
-        assert self.graph.match(subject="Neo", predicate="LOVES", object="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}}
-        assert self.graph.match(object="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Morpheus', 'KNOWS', 'Trinity'): None, ('Neo', 'KNOWS', 'Trinity'): None}
-        assert self.graph.match(predicate="KNOWS", object="Trinity") == {('Morpheus', 'KNOWS', 'Trinity'): None, ('Neo', 'KNOWS', 'Trinity'): None}
-        assert self.graph.match(predicate="CODED_BY") == {('Smith', 'CODED_BY', 'Architect'): 1337}
-        assert self.graph.match(value=1337) == {('Smith', 'CODED_BY', 'Architect'): 1337, ('Morpheus', 'KNOWS', 'Cypher'): 1337}
-        assert self.graph.match(value={}) == {('Neo', 'KILLS', 'Smith'): {}}
+        assert self.graph.edges(start="Neo") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Neo', 'KNOWS', 'Morpheus'): None, ('Neo', 'KILLS', 'Smith'): {}, ('Neo', 'KNOWS', 'Trinity'): None}
+        assert self.graph.edges(start="Neo", end="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Neo', 'KNOWS', 'Trinity'): None}
+        assert self.graph.edges(start="Neo", relationship="KNOWS") == {('Neo', 'KNOWS', 'Morpheus'): None, ('Neo', 'KNOWS', 'Trinity'): None}
+        assert self.graph.edges(start="Neo", relationship="LOVES", end="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}}
+        assert self.graph.edges(end="Trinity") == {('Neo', 'LOVES', 'Trinity'): {'amount': 'lots'}, ('Morpheus', 'KNOWS', 'Trinity'): None, ('Neo', 'KNOWS', 'Trinity'): None}
+        assert self.graph.edges(relationship="KNOWS", end="Trinity") == {('Morpheus', 'KNOWS', 'Trinity'): None, ('Neo', 'KNOWS', 'Trinity'): None}
+        assert self.graph.edges(relationship="CODED_BY") == {('Smith', 'CODED_BY', 'Architect'): 1337}
+        assert self.graph.edges(value=1337) == {('Smith', 'CODED_BY', 'Architect'): 1337, ('Morpheus', 'KNOWS', 'Cypher'): 1337}
+        assert self.graph.edges(value={}) == {('Neo', 'KILLS', 'Smith'): {}}
 
     def test_can_get_shortest_path(self):
         print self.graph.find_shortest_path("Neo", "Architect")
@@ -116,7 +137,7 @@ class BigTest(unittest.TestCase):
             graph[i] = i
             graph.relate("root", "NUMBER", i)
         assert len(graph) == 10001
-        assert len(graph.match(predicate="NUMBER")) == 10000
+        assert len(graph.edges(relationship="NUMBER")) == 10000
 
 
 if __name__ == '__main__':

@@ -19,30 +19,25 @@
 
 """
 
-from itertools import product
-
 
 class Graph(object):
 
     def __init__(self):
-        self._nodes = {}
-        self._structure = {}
+        self.clear()
 
     def __len__(self):
-        return len(self._structure)
+        return len(self._edges)
 
     def __nonzero__(self):
-        return bool(self._structure)
+        return bool(self._edges)
 
     def __contains__(self, key):
         """ Return :py:const:`True` if the node identified by `key` exists
             within this graph.
         """
-        return key in self._structure
+        return key in self._edges
 
     def __getitem__(self, key):
-        """ Return the value of the node identified by `key`.
-        """
         self._assert_exists(key)
         return self._nodes[key]
 
@@ -50,64 +45,88 @@ class Graph(object):
         """ Insert or update node identified by `key`, setting the value to
             `value`.
         """
-        if key not in self._structure:
-            self._nodes[key] = value
-            self._structure[key] = {}
+        self._nodes[key] = value
+        if key not in self._edges:
+            self._edges[key] = {}
 
     def __delitem__(self, key):
         pass
-        # has connections?
+
+    def __iter__(self):
+        return iter(self._nodes)
+
+    def clear(self):
+        self._nodes = {}
+        self._edges = {}
+
+    def copy(self):
+        pass
 
     def _assert_exists(self, key):
         """ Raise an exception if a node identified by `key` does not exist
             within this graph.
         """
-        if key not in self._structure:
+        if key not in self._edges:
             raise KeyError("Node '{0}' not found".format(key))
 
-    def match(self, subject=None, predicate=None, object=None, value=None):
-        """ Match and return a dictionary of all relationships which fulfil the
-            criteria specified.
+    def get(self, key, default=None):
+        """ Return the value of the node identified by `key`.
         """
-        if object:
-            self._assert_exists(object)
-        if subject:
-            self._assert_exists(subject)
+        try:
+            return self._nodes[key]
+        except KeyError:
+            return default
+
+    def nodes(self, value=None):
+        """ Return a dictionary of all nodes, filtered by the criteria specified.
+        """
+        if value is None:
+            return self._nodes
+        else:
+            return dict((k, v) for k, v in self._nodes.items() if value == v)
+
+    def edges(self, start=None, relationship=None, end=None, value=None):
+        """ Return a dictionary of all edges, filtered by the criteria specified.
+        """
+        if end is not None:
+            self._assert_exists(end)
+        if start is not None:
+            self._assert_exists(start)
             return dict(
-                ((subject, p, o), v)
-                for o in self._structure[subject]
-                for p, v in self._structure[subject][o].items()
-                if object is None or object == o
-                if predicate is None or predicate == p
+                ((start, r, e), v)
+                for e in self._edges[start]
+                for r, v in self._edges[start][e].items()
+                if end is None or end == e
+                if relationship is None or relationship == r
                 if value is None or value == v
             )
         else:
             return dict(
-                ((s, p, o), v)
-                for s in self._structure
-                for o in self._structure[s]
-                for p, v in self._structure[s][o].items()
-                if object is None or object == o
-                if predicate is None or predicate == p
+                ((s, r, e), v)
+                for s in self._edges
+                for e in self._edges[s]
+                for r, v in self._edges[s][e].items()
+                if end is None or end == e
+                if relationship is None or relationship == r
                 if value is None or value == v
             )
 
-    def relate(self, subject, predicate, object, value=None):
+    def relate(self, start, relationship, end, value=None):
         """ Establish a relationship between two nodes, optionally assigning
             a value to that relationship.
         """
-        self._assert_exists(subject)
-        self._assert_exists(object)
-        if object not in self._structure[subject]:
-            self._structure[subject][object] = {}
-        self._structure[subject][object][predicate] = value
+        self._assert_exists(start)
+        self._assert_exists(end)
+        if end not in self._edges[start]:
+            self._edges[start][end] = {}
+        self._edges[start][end][relationship] = value
 
-    def remove(self, subject=None, predicate=None, object=None, value=None):
+    def unrelate(self, start=None, relationship=None, end=None, value=None):
         """ Disestablish one or more relationships which match the criteria
             specified.
         """
-        for s, p, o in self.match(subject, predicate, object, value):
-            del self._structure[s][o][p]
+        for s, r, e in self.edges(start, relationship, end, value):
+            del self._edges[s][e][r]
 
     def find_all_paths(self, *waypoints):
         if len(waypoints) < 2:
@@ -116,10 +135,10 @@ class Graph(object):
             path = path + [start]
             if start == end:
                 return [path]
-            if start not in self._structure:
+            if start not in self._edges:
                 return []
             paths = []
-            for node in self._structure[start]:
+            for node in self._edges[start]:
                 if node not in path:
                     new_paths = _find_all_paths(node, end, path)
                     for new_path in new_paths:
@@ -151,10 +170,10 @@ class Graph(object):
             path = path + [start]
             if start == end:
                 return path
-            if start not in self._structure:
+            if start not in self._edges:
                 return None
             shortest = None
-            for node in self._structure[start]:
+            for node in self._edges[start]:
                 if node not in path:
                     new_path = _find_shortest_path(node, end, path)
                     if new_path:
