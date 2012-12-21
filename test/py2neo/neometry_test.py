@@ -80,6 +80,7 @@ class PathTest(unittest.TestCase):
 
     def setUp(self):
         self.graph = neometry.Graph()
+        self.graph["foo"] = "bar"
         self.graph["Neo"] = {"name": "Neo"}
         self.graph["Morpheus"] = {"name": "Morpheus"}
         self.graph["Trinity"] = {"name": "Trinity"}
@@ -116,13 +117,13 @@ class PathTest(unittest.TestCase):
         assert self.graph.edges(value=1337) == {('Smith', 'CODED_BY', 'Architect'): 1337, ('Morpheus', 'KNOWS', 'Cypher'): 1337}
         assert self.graph.edges(value={}) == {('Neo', 'KILLS', 'Smith'): {}}
 
-    def test_can_get_shortest_path(self):
-        print self.graph.find_shortest_path("Neo", "Architect")
-        assert self.graph.find_shortest_path("Neo", "Architect") == ("Neo", "Smith", "Architect")
-
-    def test_can_get_shortest_path_via_waypoint(self):
-        print self.graph.find_shortest_path("Neo", "Trinity", "Architect")
-        assert self.graph.find_shortest_path("Neo", "Trinity", "Architect") == ("Neo", "Trinity", "Cypher", "Smith", "Architect")
+#    def test_can_get_shortest_path(self):
+#        print self.graph.find_shortest_path("Neo", "Architect")
+#        assert self.graph.find_shortest_path("Neo", "Architect") == ("Neo", "Smith", "Architect")
+#
+#    def test_can_get_shortest_path_via_waypoint(self):
+#        print self.graph.find_shortest_path("Neo", "Trinity", "Architect")
+#        assert self.graph.find_shortest_path("Neo", "Trinity", "Architect") == ("Neo", "Trinity", "Cypher", "Smith", "Architect")
 
     def test_can_get_all_paths(self):
         print self.graph.find_all_paths("Neo", "Trinity", "Architect")

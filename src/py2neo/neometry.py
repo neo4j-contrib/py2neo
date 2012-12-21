@@ -20,10 +20,33 @@
 """
 
 
+import json
+
+
 class Graph(object):
 
     def __init__(self):
-        self.clear()
+        Graph.clear(self)
+
+    def __repr__(self):
+        out = []
+        for key, value in self._nodes.items():
+            if value is None:
+                out.append("({0})".format(key))
+            else:
+                out.append("({0}:={1})".format(key, json.dumps(value, separators=(",", ":"))))
+        for (start, rel, end), value in self.edges().items():
+            if value is None:
+                out.append("({0})-[:{1}]->({2})".format(start, rel, end))
+            else:
+                out.append("({0})-[:{1}:={3}]->({2})".format(start, rel, end, json.dumps(value, separators=(",", ":"))))
+        return "\n".join(out)
+
+    def __eq__(self, other):
+        return self._nodes == other._nodes and self._edges == other._edges
+
+    def __ne__(self, other):
+        return self._nodes != other._nodes or self._edges != other._edges
 
     def __len__(self):
         return len(self._edges)
@@ -31,26 +54,28 @@ class Graph(object):
     def __nonzero__(self):
         return bool(self._edges)
 
-    def __contains__(self, key):
+    def __contains__(self, node):
         """ Return :py:const:`True` if the node identified by `key` exists
             within this graph.
         """
-        return key in self._edges
+        return node in self._edges
 
-    def __getitem__(self, key):
-        self._assert_exists(key)
-        return self._nodes[key]
+    def __getitem__(self, node):
+        self._assert_exists(node)
+        return self._nodes[node]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, node, value):
         """ Insert or update node identified by `key`, setting the value to
             `value`.
         """
-        self._nodes[key] = value
-        if key not in self._edges:
-            self._edges[key] = {}
+        self._nodes[node] = value
+        if node not in self._edges:
+            self._edges[node] = {}
 
-    def __delitem__(self, key):
+    def __delitem__(self, node):
         pass
+        # delete if related?
+        # clear start if none left
 
     def __iter__(self):
         return iter(self._nodes)
@@ -62,18 +87,18 @@ class Graph(object):
     def copy(self):
         pass
 
-    def _assert_exists(self, key):
+    def _assert_exists(self, node):
         """ Raise an exception if a node identified by `key` does not exist
             within this graph.
         """
-        if key not in self._edges:
-            raise KeyError("Node '{0}' not found".format(key))
+        if node not in self._edges:
+            raise KeyError("Node \"{0}\" not found".format(node))
 
-    def get(self, key, default=None):
+    def get(self, node, default=None):
         """ Return the value of the node identified by `key`.
         """
         try:
-            return self._nodes[key]
+            return self._nodes[node]
         except KeyError:
             return default
 
@@ -139,10 +164,11 @@ class Graph(object):
                 return []
             paths = []
             for node in self._edges[start]:
-                if node not in path:
-                    new_paths = _find_all_paths(node, end, path)
-                    for new_path in new_paths:
-                        paths.append(new_path)
+                if node not in path[::2]:
+                    for rel in self._edges[start][node]:
+                        new_paths = _find_all_paths(node, end, path + [(start, rel, node)])
+                        for new_path in new_paths:
+                            paths.append(new_path)
             return paths
         paths = []
         waypoints = list(waypoints)
@@ -161,31 +187,86 @@ class Graph(object):
                     paths = p
             else:
                 return []
-        return set([tuple(path) for path in paths])
+        for i, path in enumerate(paths):
+            is_node = True
+            for j, step in enumerate(path):
+                if is_node:
+                    path[j] = (step, self._nodes[step])
+                else:
+                    start, relationship, end = step
+                    path[j] = (relationship, self._edges[start][end][relationship])
+                is_node = not is_node
+        return [Path(*path) for path in paths]
 
-    def find_shortest_path(self, *waypoints):
-        if len(waypoints) < 2:
-            raise ValueError("At least two waypoints must be given for a path")
-        def _find_shortest_path(start, end, path):
-            path = path + [start]
-            if start == end:
-                return path
-            if start not in self._edges:
-                return None
-            shortest = None
-            for node in self._edges[start]:
-                if node not in path:
-                    new_path = _find_shortest_path(node, end, path)
-                    if new_path:
-                        if not shortest or len(new_path) < len(shortest):
-                            shortest = new_path
-            return shortest
-        path = []
-        waypoints = list(waypoints)
-        end = waypoints.pop(0)
-        while waypoints:
-            start, end = end, waypoints.pop(0)
-            path = _find_shortest_path(start, end, path[:-1])
-            if path is None:
-                return None
-        return tuple(path), [self._nodes[node] for node in path]
+#    def find_shortest_path(self, *waypoints):
+#        if len(waypoints) < 2:
+#            raise ValueError("At least two waypoints must be given for a path")
+#        def _find_shortest_path(start, end, path):
+#            path = path + [start]
+#            if start == end:
+#                return path
+#            if start not in self._edges:
+#                return None
+#            shortest = None
+#            for node in self._edges[start]:
+#                if node not in path:
+#                    new_path = _find_shortest_path(node, end, path)
+#                    if new_path:
+#                        if not shortest or len(new_path) < len(shortest):
+#                            shortest = new_path
+#            return shortest
+#        path = []
+#        waypoints = list(waypoints)
+#        end = waypoints.pop(0)
+#        while waypoints:
+#            start, end = end, waypoints.pop(0)
+#            path = _find_shortest_path(start, end, path[:-1])
+#            if path is None:
+#                return None
+#        return tuple(path), [self._nodes[node] for node in path]
+
+
+class Path(Graph):
+
+    def __init__(self, *steps):
+        Graph.__init__(self)
+        self._ordered_nodes = []
+        for step in steps[::2]:
+            node, value = step
+            Graph.__setitem__(self, node, value)
+            self._ordered_nodes.append(node)
+        for i, step in enumerate(steps):
+            if i % 2:
+                start, end = steps[i - 1][0], steps[i + 1][0]
+                relationship, value = step
+                Graph.relate(self, start, relationship, end, value)
+
+    def __repr__(self):
+        out = []
+        last_node = None
+        for node in self._ordered_nodes:
+            node_value = self._nodes[node]
+            if last_node is not None:
+                for rel, rel_value in self._edges[last_node][node].items():
+                    if rel_value is None:
+                        out.append("-[:{0}]->".format(rel))
+                    else:
+                        out.append("-[:{0}:={1}]->".format(rel, json.dumps(rel_value, separators=(",", ":"))))
+            if node_value is None:
+                out.append("({0})".format(node))
+            else:
+                out.append("({0}:={1})".format(node, json.dumps(node_value, separators=(",", ":"))))
+            last_node = node
+        return "".join(out)
+
+    def __setitem__(self, node, value):
+        raise TypeError("Paths are immutable")
+
+    def __delitem__(self, node):
+        raise TypeError("Paths are immutable")
+
+    def clear(self):
+        raise TypeError("Paths are immutable")
+
+    def unrelate(self, start=None, relationship=None, end=None, value=None):
+        raise TypeError("Paths are immutable")
