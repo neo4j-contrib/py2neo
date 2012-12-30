@@ -24,7 +24,7 @@ from py2neo import cypher, neo4j
 import unittest
 
 
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__author__    = "Nigel Small <nasmall@gmail.com>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 

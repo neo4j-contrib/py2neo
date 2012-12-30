@@ -18,7 +18,7 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-__author__    = "Nigel Small <py2neo@nigelsmall.org>"
+__author__    = "Nigel Small <nasmall@gmail.com>"
 __copyright__ = "Copyright 2011-2012 Nigel Small"
 __license__   = "Apache License, Version 2.0"
 

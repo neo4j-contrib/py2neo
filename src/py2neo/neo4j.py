@@ -24,7 +24,7 @@ import json
 import logging
 import warnings
 
-from . import rest, cypher, util
+from . import rest, cypher, util, neometry
 from .util import compact, quote
 
 logger = logging.getLogger(__name__)
@@ -1447,6 +1447,17 @@ class Relationship(PropertyContainer):
         if not self._type:
             self._type = self.__metadata__['type']
         return self._type
+
+
+class Graph(neometry.Graph):
+
+    def __init__(self, graph_db):
+        neometry.Graph.__init__(self)
+        self.graph_db = graph_db
+        self.hooks = {}
+
+    def push(self):
+        pass
 
 
 class Path(object):

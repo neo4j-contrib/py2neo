@@ -15,7 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
+""" Generic graph-based, local data structures.
+
+    Graph: an in-memory graph object, comprised of nodes and edges
+    Path: a linear sequence of nodes, connected by edges
 
 """
 
@@ -155,7 +158,7 @@ class Graph(object):
 
     def find_all_paths(self, *waypoints):
         if len(waypoints) < 2:
-            raise ValueError("At least two waypoints must be given for a path")
+            raise ValueError("At least two waypoints must be given to determine a path")
         def _find_all_paths(start, end, path):
             path = path + [start]
             if start == end:

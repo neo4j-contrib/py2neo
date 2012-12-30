@@ -39,7 +39,7 @@ setup(
                      "Python Package Index and is built uniquely for Neo4j in "
                      "close association with its team and community.",
     author=py2neo_author,
-    author_email="py2neo@nigelsmall.net",
+    author_email="nasmall@gmail.com",
     url="http://py2neo.org/",
     scripts=["scripts/cypher", "scripts/geoff"],
     package_dir={"": "src"},
