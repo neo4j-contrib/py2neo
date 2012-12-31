@@ -117,17 +117,6 @@ class PathTest(unittest.TestCase):
         assert self.graph.edges(value=1337) == {('Smith', 'CODED_BY', 'Architect'): 1337, ('Morpheus', 'KNOWS', 'Cypher'): 1337}
         assert self.graph.edges(value={}) == {('Neo', 'KILLS', 'Smith'): {}}
 
-#    def test_can_get_shortest_path(self):
-#        print self.graph.find_shortest_path("Neo", "Architect")
-#        assert self.graph.find_shortest_path("Neo", "Architect") == ("Neo", "Smith", "Architect")
-#
-#    def test_can_get_shortest_path_via_waypoint(self):
-#        print self.graph.find_shortest_path("Neo", "Trinity", "Architect")
-#        assert self.graph.find_shortest_path("Neo", "Trinity", "Architect") == ("Neo", "Trinity", "Cypher", "Smith", "Architect")
-
-    def test_can_get_all_paths(self):
-        print self.graph.find_all_paths("Neo", "Trinity", "Architect")
-
 
 class BigTest(unittest.TestCase):
 
@@ -139,6 +128,62 @@ class BigTest(unittest.TestCase):
             graph.relate("root", "NUMBER", i)
         assert len(graph) == 10001
         assert len(graph.edges(relationship="NUMBER")) == 10000
+
+
+class PathTestCase(unittest.TestCase):
+
+    def test_can_create_path(self):
+        path = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        assert len(path) == 1
+        assert path.nodes[0]["name"] == "Alice"
+        assert path.edges[0] == "KNOWS"
+        assert path.nodes[-1]["name"] == "Bob"
+        path.append("KNOWS", {"name": "Carol"})
+        assert len(path) == 2
+        assert path.nodes[0]["name"] == "Alice"
+        assert path.edges[0] == "KNOWS"
+        assert path.nodes[1]["name"] == "Bob"
+
+    def test_can_slice_path(self):
+        path = neometry.Path({"name": "Alice"},
+            "KNOWS", {"name": "Bob"},
+            "KNOWS", {"name": "Carol"},
+            "KNOWS", {"name": "Dave"},
+            "KNOWS", {"name": "Eve"},
+            "KNOWS", {"name": "Frank"},
+        )
+        assert len(path) == 5
+        assert path[0] == neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        assert path[1] == neometry.Path({"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[2] == neometry.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        assert path[-1] == neometry.Path({"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[0:2] == neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[3:5] == neometry.Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[:] == neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        path2 = path[:]
+        path2.nodes[0]["name"] = "Alison"
+        assert path2.nodes[0]["name"] == "Alison"
+        assert path.nodes[0]["name"] == "Alice"
+        path2 = path[0]
+        path2.nodes[0]["name"] = "Alison"
+        assert path2.nodes[0]["name"] == "Alison"
+        assert path.nodes[0]["name"] == "Alice"
+
+    def test_can_iterate_path(self):
+        path = neometry.Path({"name": "Alice"},
+            "KNOWS", {"name": "Bob"},
+            "KNOWS", {"name": "Carol"},
+            "KNOWS", {"name": "Dave"},
+            "KNOWS", {"name": "Eve"},
+            "KNOWS", {"name": "Frank"},
+        )
+        assert list(iter(path)) == [
+            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+            ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
+            ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'})
+        ]
 
 
 if __name__ == '__main__':

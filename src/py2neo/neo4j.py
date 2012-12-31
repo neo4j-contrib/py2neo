@@ -1260,6 +1260,50 @@ class Node(PropertyContainer):
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
+    def _create_path(self, action, *relationship_node_pairs):
+        if not relationship_node_pairs:
+            return Path([self], [])
+        nodes, path, values, params = \
+            ["z=node({z})"], ["z"], ["z"], {"z": self._id}
+        for i, (relationship, node) in enumerate(relationship_node_pairs):
+            path.append("-[r{0}:{1}]->".format(i, relationship))
+            if isinstance(node, dict):
+                path.append("(n{0} {{d{0}}})".format(i))
+                params["d{0}".format(i)] = compact(node or {})
+            else:
+                path.append("(n{0})".format(i))
+                if isinstance(node, Node):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node._id
+                elif isinstance(node, int):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node
+                elif isinstance(node, tuple):
+                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                    params["i{0}".format(i)] = node[2]
+                elif node is not None:
+                    raise TypeError("Cannot infer node from {0}".format(type(node)))
+            values.append("r{0}".format(i))
+            values.append("n{0}".format(i))
+        query = "START {nodes} {action} {path} RETURN {values}".format(
+            nodes  = ",".join(nodes),
+            action = action,
+            path   = "".join(path),
+            values = ",".join(values),
+        )
+        try:
+            data, metadata = cypher.execute(self._graph_db, query, params)
+            return Path(data[0][0::2], data[0][1::2])
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not support " \
+                "Cypher CREATE UNIQUE clauses or the query contains " \
+                "an unsupported property type".format(self._uri)
+            )
+
+    def create_path(self, *relationship_node_pairs):
+        return self._create_path("CREATE", *relationship_node_pairs)
+
     def get_or_create_path(self, *relationship_node_pairs):
         """Fetch or create a path starting at this node, creating only nodes
         and relationships which do not already exist. Each relationship-node
@@ -1301,44 +1345,7 @@ class Node(PropertyContainer):
             #                                 (24)
 
         """
-        if not relationship_node_pairs:
-            return Path([self], [])
-        nodes, path, values, params = \
-            ["z=node({z})"], ["z"], ["z"], {"z": self._id}
-        for i, (relationship, node) in enumerate(relationship_node_pairs):
-            path.append("-[r{0}:{1}]->".format(i, relationship))
-            if isinstance(node, dict):
-                path.append("(n{0} {{d{0}}})".format(i))
-                params["d{0}".format(i)] = compact(node or {})
-            else:
-                path.append("(n{0})".format(i))
-                if isinstance(node, Node):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node._id
-                elif isinstance(node, int):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node
-                elif isinstance(node, tuple):
-                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
-                    params["i{0}".format(i)] = node[2]
-                elif node is not None:
-                    raise TypeError("Cannot infer node from {0}".format(type(node)))
-            values.append("r{0}".format(i))
-            values.append("n{0}".format(i))
-        query = "START {nodes} CREATE UNIQUE {path} RETURN {values}".format(
-            nodes  = ",".join(nodes),
-            path   = "".join(path),
-            values = ",".join(values),
-        )
-        try:
-            data, metadata = cypher.execute(self._graph_db, query, params)
-            return Path(data[0][0::2], data[0][1::2])
-        except cypher.CypherError:
-            raise NotImplementedError(
-                "The Neo4j server at <{0}> does not support " \
-                "Cypher CREATE UNIQUE clauses or the query contains " \
-                "an unsupported property type".format(self._uri)
-            )
+        return self._create_path("CREATE UNIQUE", *relationship_node_pairs)
 
 
 class Relationship(PropertyContainer):
@@ -1447,17 +1454,6 @@ class Relationship(PropertyContainer):
         if not self._type:
             self._type = self.__metadata__['type']
         return self._type
-
-
-class Graph(neometry.Graph):
-
-    def __init__(self, graph_db):
-        neometry.Graph.__init__(self)
-        self.graph_db = graph_db
-        self.hooks = {}
-
-    def push(self):
-        pass
 
 
 class Path(object):

@@ -28,6 +28,8 @@ try:
 except ImportError:
     from urllib import quote as _quote
 
+from itertools import cycle, islice
+
 
 if __PY3K:
     is_string = lambda value: isinstance(value, str)
@@ -72,6 +74,25 @@ def compact(obj):
         return dict((key, value) for key, value in obj.items() if value is not None)
     else:
         return obj.__class__(value for value in obj if value is not None)
+
+def round_robin(*iterables):
+    """ Alternately cycle around input iterables, yielding
+        values from each in turn, e.g.:
+
+        round_robin('ABC', 'D', 'EF') --> A D E B F C
+
+        Recipe credited to George Sakkis
+        <http://docs.python.org/2/library/itertools.html#recipes>
+    """
+    pending = len(iterables)
+    nexts = cycle(iter(it).next for it in iterables)
+    while pending:
+        try:
+            for next in nexts:
+                yield next()
+        except StopIteration:
+            pending -= 1
+            nexts = cycle(islice(nexts, pending))
 
 
 class PropertyCache(object):

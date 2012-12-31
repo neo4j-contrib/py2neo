@@ -23,6 +23,7 @@
 """
 
 
+import copy
 import json
 
 
@@ -83,12 +84,21 @@ class Graph(object):
     def __iter__(self):
         return iter(self._nodes)
 
+    def order(self):
+        return len(self._nodes)
+
+    def size(self):
+        return len(self._edges)
+
     def clear(self):
         self._nodes = {}
         self._edges = {}
 
     def copy(self):
-        pass
+        graph = Graph()
+        graph._nodes = copy.deepcopy(self._nodes)
+        graph._edges = copy.deepcopy(self._edges)
+        return graph
 
     def _assert_exists(self, node):
         """ Raise an exception if a node identified by `key` does not exist
@@ -156,120 +166,98 @@ class Graph(object):
         for s, r, e in self.edges(start, relationship, end, value):
             del self._edges[s][e][r]
 
-    def find_all_paths(self, *waypoints):
-        if len(waypoints) < 2:
-            raise ValueError("At least two waypoints must be given to determine a path")
-        def _find_all_paths(start, end, path):
-            path = path + [start]
-            if start == end:
-                return [path]
-            if start not in self._edges:
-                return []
-            paths = []
-            for node in self._edges[start]:
-                if node not in path[::2]:
-                    for rel in self._edges[start][node]:
-                        new_paths = _find_all_paths(node, end, path + [(start, rel, node)])
-                        for new_path in new_paths:
-                            paths.append(new_path)
-            return paths
-        paths = []
-        waypoints = list(waypoints)
-        end = waypoints.pop(0)
-        while waypoints:
-            start, end = end, waypoints.pop(0)
-            p = _find_all_paths(start, end, [])
-            if p:
-                if paths:
-                    new_paths = []
-                    for old_path in paths:
-                        for new_path in p:
-                            new_paths.append(old_path[:-1] + new_path)
-                    paths = new_paths
-                else:
-                    paths = p
-            else:
-                return []
-        for i, path in enumerate(paths):
-            is_node = True
-            for j, step in enumerate(path):
-                if is_node:
-                    path[j] = (step, self._nodes[step])
-                else:
-                    start, relationship, end = step
-                    path[j] = (relationship, self._edges[start][end][relationship])
-                is_node = not is_node
-        return [Path(*path) for path in paths]
 
-#    def find_shortest_path(self, *waypoints):
-#        if len(waypoints) < 2:
-#            raise ValueError("At least two waypoints must be given for a path")
-#        def _find_shortest_path(start, end, path):
-#            path = path + [start]
-#            if start == end:
-#                return path
-#            if start not in self._edges:
-#                return None
-#            shortest = None
-#            for node in self._edges[start]:
-#                if node not in path:
-#                    new_path = _find_shortest_path(node, end, path)
-#                    if new_path:
-#                        if not shortest or len(new_path) < len(shortest):
-#                            shortest = new_path
-#            return shortest
-#        path = []
-#        waypoints = list(waypoints)
-#        end = waypoints.pop(0)
-#        while waypoints:
-#            start, end = end, waypoints.pop(0)
-#            path = _find_shortest_path(start, end, path[:-1])
-#            if path is None:
-#                return None
-#        return tuple(path), [self._nodes[node] for node in path]
+class Path(object):
 
-
-class Path(Graph):
-
-    def __init__(self, *steps):
-        Graph.__init__(self)
-        self._ordered_nodes = []
-        for step in steps[::2]:
-            node, value = step
-            Graph.__setitem__(self, node, value)
-            self._ordered_nodes.append(node)
-        for i, step in enumerate(steps):
-            if i % 2:
-                start, end = steps[i - 1][0], steps[i + 1][0]
-                relationship, value = step
-                Graph.relate(self, start, relationship, end, value)
+    def __init__(self, start_node, *edges_and_nodes):
+        self._nodes = [start_node]
+        self._edges = []
+        self.append(*edges_and_nodes)
 
     def __repr__(self):
         out = []
-        last_node = None
-        for node in self._ordered_nodes:
-            node_value = self._nodes[node]
-            if last_node is not None:
-                for rel, rel_value in self._edges[last_node][node].items():
-                    if rel_value is None:
-                        out.append("-[:{0}]->".format(rel))
-                    else:
-                        out.append("-[:{0}:={1}]->".format(rel, json.dumps(rel_value, separators=(",", ":"))))
-            if node_value is None:
-                out.append("({0})".format(node))
-            else:
-                out.append("({0}:={1})".format(node, json.dumps(node_value, separators=(",", ":"))))
-            last_node = node
+        for i, edge in enumerate(self._edges):
+            out.append("(")
+            out.append(json.dumps(self._nodes[i], separators=(",", ":")))
+            out.append(")")
+            out.append("-[:")
+            out.append(str(edge))
+            out.append("]->")
+        out.append("(")
+        out.append(json.dumps(self._nodes[-1], separators=(",", ":")))
+        out.append(")")
         return "".join(out)
 
-    def __setitem__(self, node, value):
-        raise TypeError("Paths are immutable")
+    def __nonzero__(self):
+        return bool(self._edges)
 
-    def __delitem__(self, node):
-        raise TypeError("Paths are immutable")
+    def __len__(self):
+        return len(self._edges)
 
-    def clear(self):
-        raise TypeError("Paths are immutable")
+    def __eq__(self, other):
+        return self._nodes == other._nodes and \
+               self._edges == other._edges
 
-    def unrelate(self, start=None, relationship=None, end=None, value=None):
-        raise TypeError("Paths are immutable")
+    def __ne__(self, other):
+        return self._nodes != other._nodes or \
+               self._edges != other._edges
+
+    def __getitem__(self, item):
+        size = len(self._edges)
+        def adjust(value, default=None):
+            if value is None:
+                return default
+            if value < 0:
+                return value + size
+            else:
+                return value
+        if isinstance(item, slice):
+            if item.step is not None:
+                raise ValueError("Steps not supported in path slicing")
+            start, stop = adjust(item.start, 0), adjust(item.stop, size)
+            path = Path(copy.deepcopy(self._nodes[start]))
+            for i in range(start, stop):
+                path.append(
+                    copy.deepcopy(self._edges[i]),
+                    copy.deepcopy(self._nodes[i + 1]),
+                )
+            return path
+        else:
+            i = int(item)
+            if i < 0:
+                i += len(self._edges)
+            return Path(
+                copy.deepcopy(self._nodes[i]),
+                copy.deepcopy(self._edges[i]),
+                copy.deepcopy(self._nodes[i + 1]),
+            )
+
+    def __iter__(self):
+        def edge_tuples():
+            for i, edge in enumerate(self._edges):
+                yield self._nodes[i], edge, self._nodes[i + 1]
+        return iter(edge_tuples())
+
+    def order(self):
+        return len(self._nodes)
+
+    def size(self):
+        return len(self._edges)
+
+    @property
+    def nodes(self):
+        """ Return a list of all the nodes which make up this path.
+        """
+        return self._nodes
+
+    @property
+    def edges(self):
+        """ Return a list of all the edges which make up this path.
+        """
+        return self._edges
+
+    def append(self, *edges_and_nodes):
+        if len(edges_and_nodes) % 2 != 0:
+            raise ValueError("Missing trailing node")
+        self._edges.extend(edges_and_nodes[0::2])
+        self._nodes.extend(edges_and_nodes[1::2])
