@@ -15,11 +15,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+import unittest
+
 from py2neo import neo4j
 from py2neo.calendar import GregorianCalendar
 
-import unittest
-
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    level=logging.DEBUG,
+)
 
 def default_graph_db():
     return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")

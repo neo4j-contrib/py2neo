@@ -24,6 +24,7 @@
 
 
 import json
+from util import round_robin
 
 
 class Graph(object):
@@ -176,13 +177,17 @@ class Path(object):
         self._edges = list(edges_and_nodes[0::2])
 
     def __repr__(self):
+        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._edges))
+        return "Path({0})".format(out)
+
+    def __str__(self):
         out = []
         for i, edge in enumerate(self._edges):
-            out.append(repr(self._nodes[i]))
+            out.append(str(self._nodes[i]))
             out.append("-")
-            out.append(repr(edge))
+            out.append(str(edge))
             out.append("->")
-        out.append(repr(self._nodes[-1]))
+        out.append(str(self._nodes[-1]))
         return "".join(out)
 
     def __nonzero__(self):

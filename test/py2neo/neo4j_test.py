@@ -24,7 +24,13 @@ __license__   = "Apache License, Version 2.0"
 
 from py2neo import neo4j, cypher, rest
 
+import logging
 import unittest
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    level=logging.DEBUG,
+)
 
 UNICODE_TEST_STR = ""
 for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
@@ -443,6 +449,7 @@ class GetOrCreatePathTest(unittest.TestCase):
             ("MONTH", {"number": 12, "name": "December"}),
             ("DAY",   {"number": 25}),
         )
+        print p1
         self.assertIsInstance(p1, neo4j.Path)
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])

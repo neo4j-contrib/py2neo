@@ -183,6 +183,13 @@ class PathTestCase(unittest.TestCase):
             ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
             ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
         ]
+        assert list(enumerate(path)) == [
+            (0, ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})),
+            (1, ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'})),
+            (2, ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'})),
+            (3, ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'})),
+            (4, ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}))
+        ]
 
     def test_can_join_paths(self):
         path1 = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
@@ -196,7 +203,10 @@ class PathTestCase(unittest.TestCase):
 
     def test_path_representation(self):
         path = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        print path
+        print str(path)
+        assert str(path) == "{'name': 'Alice'}-KNOWS->{'name': 'Bob'}"
+        print repr(path)
+        assert repr(path) == "Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})"
 
 
 if __name__ == '__main__':
