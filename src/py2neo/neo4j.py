@@ -1437,39 +1437,44 @@ class Path(neometry.Path):
         return self._edges
 
     def _query(self, graph_db, action):
-        nodes, path, values, params = \
-            ["z=node({z})"], ["z"], ["z"], {"z": self.nodes[0]._id}
-        for i, (start, rel, end) in enumerate(self):
+        nodes, path, values, params = [], [], [], {}
+        def append_node(i, node):
+            if isinstance(node, dict):
+                path.append("(n{0} {{p{0}}})".format(i))
+                params["p{0}".format(i)] = compact(node or {})
+            else:
+                path.append("(n{0})".format(i))
+                if isinstance(node, Node):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node._id
+                elif isinstance(node, int):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node
+                elif isinstance(node, tuple):
+                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                    params["i{0}".format(i)] = node[2]
+                elif node is not None:
+                    raise TypeError("Cannot infer node from {0}".format(type(node)))
+            values.append("n{0}".format(i))
+        def append_rel(i, rel):
             if isinstance(rel, Relationship):
                 path.append("-[r{0}:`{1}`]->".format(i, rel.type))
             elif isinstance(rel, tuple):
-                path.append("-[r{0}:`{1}`]->".format(i, rel[0]))
+                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
+                params["q{0}".format(i)] = compact(rel[1] or {})
             else:
                 path.append("-[r{0}:`{1}`]->".format(i, rel))
-            if isinstance(end, dict):
-                path.append("(n{0} {{d{0}}})".format(i))
-                params["d{0}".format(i)] = compact(end or {})
-            else:
-                path.append("(n{0})".format(i))
-                if isinstance(end, Node):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = end._id
-                elif isinstance(end, int):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = end
-                elif isinstance(end, tuple):
-                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, end[0], end[1]))
-                    params["i{0}".format(i)] = end[2]
-                elif end is not None:
-                    raise TypeError("Cannot infer node from {0}".format(type(end)))
             values.append("r{0}".format(i))
-            values.append("n{0}".format(i))
-        query = "START {nodes} {action} {path} RETURN {values}".format(
-            nodes  = ",".join(nodes),
-            action = action,
-            path   = "".join(path),
-            values = ",".join(values),
-        )
+        append_node(0, self.nodes[0])
+        for i, (start, rel, end) in enumerate(self):
+            append_rel(i, rel)
+            append_node(i + 1, end)
+        clauses = []
+        if nodes:
+            clauses.append("START {0}".format(",".join(nodes)))
+        clauses.append("{0} {1}".format(action, "".join(path)))
+        clauses.append("RETURN {0}".format(",".join(values)))
+        query = " ".join(clauses)
         try:
             data, metadata = cypher.execute(graph_db, query, params)
             return Path(*data[0])
