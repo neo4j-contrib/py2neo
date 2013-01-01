@@ -178,15 +178,11 @@ class Path(object):
     def __repr__(self):
         out = []
         for i, edge in enumerate(self._edges):
-            out.append("(")
-            out.append(json.dumps(self._nodes[i], separators=(",", ":")))
-            out.append(")")
-            out.append("-[:")
-            out.append(str(edge))
-            out.append("]->")
-        out.append("(")
-        out.append(json.dumps(self._nodes[-1], separators=(",", ":")))
-        out.append(")")
+            out.append(repr(self._nodes[i]))
+            out.append("-")
+            out.append(repr(edge))
+            out.append("->")
+        out.append(repr(self._nodes[-1]))
         return "".join(out)
 
     def __nonzero__(self):

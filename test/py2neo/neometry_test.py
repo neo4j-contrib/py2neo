@@ -194,6 +194,10 @@ class PathTestCase(unittest.TestCase):
             ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
         ]
 
+    def test_path_representation(self):
+        path = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        print path
+
 
 if __name__ == '__main__':
     unittest.main()
