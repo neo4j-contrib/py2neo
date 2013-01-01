@@ -1472,6 +1472,8 @@ class Path(neometry.Path):
         clauses = []
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
+        elif action == "MATCH":
+            pass
         clauses.append("{0} {1}".format(action, "".join(path)))
         clauses.append("RETURN {0}".format(",".join(values)))
         query = " ".join(clauses)

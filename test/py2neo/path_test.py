@@ -33,6 +33,53 @@ logging.basicConfig(
 )
 
 
+class GetPathTestCase(unittest.TestCase):
+
+    def test_can_get_path(self):
+        graph_db = neo4j.GraphDatabaseService()
+        alice, bob, alice_bob = graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
+        path = neo4j.Path(alice, "KNOWS", None)
+        assert path.nodes[0] == alice
+        assert path.relationships[0] == "KNOWS"
+        assert path.nodes[1] is None
+        path = path.get(graph_db)
+        assert isinstance(path.nodes[0], neo4j.Node)
+        assert path.nodes[0]["name"] == "Alice"
+        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert path.relationships[0].type == "KNOWS"
+        assert isinstance(path.nodes[1], neo4j.Node)
+        assert path.nodes[1]["name"] == "Bob"
+
+    def test_can_get_path_including_node_properties(self):
+        graph_db = neo4j.GraphDatabaseService()
+        alice, bob, alice_bob = graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
+        path = neo4j.Path(alice, "KNOWS", {"name": "Bob"})
+        assert path.nodes[0] == alice
+        assert path.relationships[0] == "KNOWS"
+        assert path.nodes[1] == {"name": "Bob"}
+        path = path.get(graph_db)
+        assert isinstance(path.nodes[0], neo4j.Node)
+        assert path.nodes[0]["name"] == "Alice"
+        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert path.relationships[0].type == "KNOWS"
+        assert isinstance(path.nodes[1], neo4j.Node)
+        assert path.nodes[1]["name"] == "Bob"
+
+#    def test_cannot_get_path_with_no_existing_nodes(self):
+#        graph_db = neo4j.GraphDatabaseService()
+#        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+#        assert path.nodes[0] == {"name": "Alice"}
+#        assert path.relationships[0] == "KNOWS"
+#        assert path.nodes[1] == {"name": "Bob"}
+#        path = path.get(graph_db)
+#        assert isinstance(path.nodes[0], neo4j.Node)
+#        assert path.nodes[0]["name"] == "Alice"
+#        assert isinstance(path.relationships[0], neo4j.Relationship)
+#        assert path.relationships[0].type == "KNOWS"
+#        assert isinstance(path.nodes[1], neo4j.Node)
+#        assert path.nodes[1]["name"] == "Bob"
+
+
 class CreatePathTestCase(unittest.TestCase):
 
     def test_can_create_path(self):
