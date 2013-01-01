@@ -138,11 +138,18 @@ class PathTestCase(unittest.TestCase):
         assert path.nodes[0]["name"] == "Alice"
         assert path.edges[0] == "KNOWS"
         assert path.nodes[-1]["name"] == "Bob"
-        path.append("KNOWS", {"name": "Carol"})
+        path = neometry.Path.join(path, "KNOWS", {"name": "Carol"})
         assert len(path) == 2
         assert path.nodes[0]["name"] == "Alice"
         assert path.edges[0] == "KNOWS"
         assert path.nodes[1]["name"] == "Bob"
+        path = neometry.Path.join({"name": "Zach"}, "KNOWS", path)
+        assert len(path) == 3
+        assert path.nodes[0]["name"] == "Zach"
+        assert path.edges[0] == "KNOWS"
+        assert path.nodes[1]["name"] == "Alice"
+        assert path.edges[1] == "KNOWS"
+        assert path.nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
         path = neometry.Path({"name": "Alice"},
@@ -160,14 +167,6 @@ class PathTestCase(unittest.TestCase):
         assert path[0:2] == neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
         assert path[3:5] == neometry.Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
         assert path[:] == neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
-        path2 = path[:]
-        path2.nodes[0]["name"] = "Alison"
-        assert path2.nodes[0]["name"] == "Alison"
-        assert path.nodes[0]["name"] == "Alice"
-        path2 = path[0]
-        path2.nodes[0]["name"] = "Alison"
-        assert path2.nodes[0]["name"] == "Alison"
-        assert path.nodes[0]["name"] == "Alice"
 
     def test_can_iterate_path(self):
         path = neometry.Path({"name": "Alice"},
@@ -182,7 +181,17 @@ class PathTestCase(unittest.TestCase):
             ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
             ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
             ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
-            ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'})
+            ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
+        ]
+
+    def test_can_join_paths(self):
+        path1 = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        path2 = neometry.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        path = neometry.Path.join(path1, "KNOWS", path2)
+        assert list(iter(path)) == [
+            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
         ]
 
 

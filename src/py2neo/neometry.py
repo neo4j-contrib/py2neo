@@ -23,7 +23,6 @@
 """
 
 
-import copy
 import json
 
 
@@ -169,10 +168,12 @@ class Graph(object):
 
 class Path(object):
 
-    def __init__(self, start_node, *edges_and_nodes):
-        self._nodes = [start_node]
-        self._edges = []
-        self.append(*edges_and_nodes)
+    def __init__(self, node, *edges_and_nodes):
+        if len(edges_and_nodes) % 2 != 0:
+            raise ValueError("Edges and nodes must come in pairs")
+        self._nodes = [node]
+        self._nodes.extend(edges_and_nodes[1::2])
+        self._edges = list(edges_and_nodes[0::2])
 
     def __repr__(self):
         out = []
@@ -215,22 +216,16 @@ class Path(object):
             if item.step is not None:
                 raise ValueError("Steps not supported in path slicing")
             start, stop = adjust(item.start, 0), adjust(item.stop, size)
-            path = Path(copy.deepcopy(self._nodes[start]))
+            path = Path(self._nodes[start])
             for i in range(start, stop):
-                path.append(
-                    copy.deepcopy(self._edges[i]),
-                    copy.deepcopy(self._nodes[i + 1]),
-                )
+                path._edges.append(self._edges[i])
+                path._nodes.append(self._nodes[i + 1])
             return path
         else:
             i = int(item)
             if i < 0:
                 i += len(self._edges)
-            return Path(
-                copy.deepcopy(self._nodes[i]),
-                copy.deepcopy(self._edges[i]),
-                copy.deepcopy(self._nodes[i + 1]),
-            )
+            return Path(self._nodes[i], self._edges[i], self._nodes[i + 1])
 
     def __iter__(self):
         def edge_tuples():
@@ -256,8 +251,17 @@ class Path(object):
         """
         return self._edges
 
-    def append(self, *edges_and_nodes):
-        if len(edges_and_nodes) % 2 != 0:
-            raise ValueError("Missing trailing node")
-        self._edges.extend(edges_and_nodes[0::2])
-        self._nodes.extend(edges_and_nodes[1::2])
+    @classmethod
+    def join(cls, left, edge, right):
+        if isinstance(left, Path):
+            left = left[:]
+        else:
+            left = Path(left)
+        if isinstance(right, Path):
+            right = right[:]
+        else:
+            right = Path(right)
+        left._edges.append(edge)
+        left._nodes.extend(right._nodes)
+        left._edges.extend(right._edges)
+        return left
