@@ -1436,7 +1436,7 @@ class Path(neometry.Path):
     def relationships(self):
         return self._edges
 
-    def _query(self, graph_db, action):
+    def _create(self, graph_db, verb):
         nodes, path, values, params = [], [], [], {}
         def append_node(i, node):
             if isinstance(node, dict):
@@ -1472,9 +1472,7 @@ class Path(neometry.Path):
         clauses = []
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
-        elif action == "MATCH":
-            pass
-        clauses.append("{0} {1}".format(action, "".join(path)))
+        clauses.append("{0} {1}".format(verb, "".join(path)))
         clauses.append("RETURN {0}".format(",".join(values)))
         query = " ".join(clauses)
         try:
@@ -1488,13 +1486,10 @@ class Path(neometry.Path):
             )
 
     def create(self, graph_db):
-        return self._query(graph_db, "CREATE")
-
-    def get(self, graph_db):
-        return self._query(graph_db, "MATCH")
+        return self._create(graph_db, "CREATE")
 
     def get_or_create(self, graph_db):
-        return self._query(graph_db, "CREATE UNIQUE")
+        return self._create(graph_db, "CREATE UNIQUE")
 
 
 class Index(rest.Resource):
