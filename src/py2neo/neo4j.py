@@ -1260,6 +1260,31 @@ class Node(PropertyContainer):
         return bool(self.get_relationships_with(other, direction, *types))
 
     def create_path(self, *relationship_node_pairs):
+        """ Create a new path, starting at this node and chaining together the
+            2-tuples of relationships and nodes provided:
+
+                (self) -[rel_0]->(node_0) -[rel_1]->(node_1) ...
+                       |----------------| |----------------|
+                         first 2-tuple      second 2-tuple
+
+            Each relationship may be specified as one of the following:
+            - a string holding the relationship type, e.g. "KNOWS"
+            - a (`str`, `dict`) tuple holding both the relationship type and
+              its properties, e.g. ("KNOWS", {"since": 1999})
+            - an existing Relationship instance
+
+            Nodes can be any of the following:
+            - :py:const:`None`, representing an unspecified node that will be
+              created as required
+            - an integer containing a node ID
+            - a 3-tuple holding an index name, key and value for identifying
+              indexed nodes, e.g. ("People", "email", "bob@example.com")
+            - a `dict` holding a set of properties for a new node
+            - an existing Node instance
+
+            :param relationship_node_pairs: 2-tuples of (rel, node)
+            :return: `Path` object representing the newly-created path
+        """
         items = []
         for (rel, node) in relationship_node_pairs:
             items.append(rel)
@@ -1268,44 +1293,36 @@ class Node(PropertyContainer):
         return path.create(self._graph_db)
 
     def get_or_create_path(self, *relationship_node_pairs):
-        """Fetch or create a path starting at this node, creating only nodes
-        and relationships which do not already exist. Each relationship-node
-        pair must be supplied as a 2-tuple of relationship type and node where
-        the node can be any of the following:
+        """ Identical to `create_path` except will reuse parts of the path
+            which already exist.
 
-        - `None` (create a new, empty node)
-        - a dictionary (create a new node with properties)
-        - an integer (an existing node, referenced by ID)
-        - a 3-tuple (an existing, indexed node, referenced by index name, key and value)
-        - a `Node` object (an existing node as represented by this object)
+            Some examples::
 
-        Some examples::
+                # add dates to calendar, starting at calendar_root
+                christmas_day = calendar_root.get_or_create_path(
+                    ("YEAR",  {"number": 2000}),
+                    ("MONTH", {"number": 12}),
+                    ("DAY",   {"number": 25}),
+                )
+                # `christmas_day` will now contain a `Path` object
+                # containing the nodes and relationships used:
+                # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
 
-            # add dates to calendar, starting at calendar_root
-            christmas_day = calendar_root.get_or_create_path(
-                ("YEAR",  {"number": 2000}),
-                ("MONTH", {"number": 12}),
-                ("DAY",   {"number": 25}),
-            )
-            # `christmas_day` will now contain a `Path` object
-            # containing the nodes and relationships used:
-            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
-
-            # adding a second, overlapping path will reuse
-            # nodes and relationships wherever possible
-            christmas_eve = calendar_root.get_or_create_path(
-                ("YEAR",  {"number": 2000}),
-                ("MONTH", {"number": 12}),
-                ("DAY",   {"number": 24}),
-            )
-            # `christmas_eve` will contain the same year and month nodes
-            # as `christmas_day` but a different (new) day node:
-            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12) [:DAY]->(25)
-            #                                  |
-            #                                [:DAY]
-            #                                  |
-            #                                  v
-            #                                 (24)
+                # adding a second, overlapping path will reuse
+                # nodes and relationships wherever possible
+                christmas_eve = calendar_root.get_or_create_path(
+                    ("YEAR",  {"number": 2000}),
+                    ("MONTH", {"number": 12}),
+                    ("DAY",   {"number": 24}),
+                )
+                # `christmas_eve` will contain the same year and month nodes
+                # as `christmas_day` but a different (new) day node:
+                # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12) [:DAY]->(25)
+                #                                  |
+                #                                [:DAY]
+                #                                  |
+                #                                  v
+                #                                 (24)
 
         """
         items = []
