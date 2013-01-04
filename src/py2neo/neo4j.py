@@ -1261,7 +1261,7 @@ class Node(PropertyContainer):
 
     def create_path(self, *relationship_node_pairs):
         """ Create a new path, starting at this node and chaining together the
-            2-tuples of relationships and nodes provided:
+            2-tuples of relationships and nodes provided::
 
                 (self) -[rel_0]->(node_0) -[rel_1]->(node_1) ...
                        |----------------| |----------------|
@@ -1270,15 +1270,15 @@ class Node(PropertyContainer):
             Each relationship may be specified as one of the following:
             - a string holding the relationship type, e.g. "KNOWS"
             - a (`str`, `dict`) tuple holding both the relationship type and
-              its properties, e.g. ("KNOWS", {"since": 1999})
+            its properties, e.g. ("KNOWS", {"since": 1999})
             - an existing Relationship instance
 
             Nodes can be any of the following:
             - :py:const:`None`, representing an unspecified node that will be
-              created as required
+            created as required
             - an integer containing a node ID
             - a 3-tuple holding an index name, key and value for identifying
-              indexed nodes, e.g. ("People", "email", "bob@example.com")
+            indexed nodes, e.g. ("People", "email", "bob@example.com")
             - a `dict` holding a set of properties for a new node
             - an existing Node instance
 
