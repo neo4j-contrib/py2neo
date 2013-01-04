@@ -73,7 +73,8 @@ class PropertyContainerTestCase(unittest.TestCase):
     def test_set_list_property_item(self):
         thing, = self.graph_db.create({"counts": [0]})
         thing["counts"][0] += 1
-        self.assertEqual([1], thing["counts"])
+        # does not increment as local-only
+        self.assertEqual([0], thing["counts"])
 
     def test_set_list_property_item_workaround(self):
         thing, = self.graph_db.create({"counts": [0]})
