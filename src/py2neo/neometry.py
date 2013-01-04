@@ -17,7 +17,6 @@
 
 """ Generic graph-based, local data structures.
 
-    Graph: an in-memory graph object, comprised of nodes and edges
     Path: a linear sequence of nodes, connected by edges
 
 """
