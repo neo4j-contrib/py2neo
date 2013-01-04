@@ -1271,16 +1271,16 @@ class Node(PropertyContainer):
 
             - a string holding the relationship type, e.g. "KNOWS"
             - a (`str`, `dict`) tuple holding both the relationship type and
-            its properties, e.g. ("KNOWS", {"since": 1999})
+              its properties, e.g. ("KNOWS", {"since": 1999})
             - an existing Relationship instance
 
             Nodes can be any of the following:
 
             - :py:const:`None`, representing an unspecified node that will be
-            created as required
+              created as required
             - an integer containing a node ID
             - a 3-tuple holding an index name, key and value for identifying
-            indexed nodes, e.g. ("People", "email", "bob@example.com")
+              indexed nodes, e.g. ("People", "email", "bob@example.com")
             - a `dict` holding a set of properties for a new node
             - an existing Node instance
 
