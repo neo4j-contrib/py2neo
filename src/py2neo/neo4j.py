@@ -1268,12 +1268,14 @@ class Node(PropertyContainer):
                          first 2-tuple      second 2-tuple
 
             Each relationship may be specified as one of the following:
+
             - a string holding the relationship type, e.g. "KNOWS"
             - a (`str`, `dict`) tuple holding both the relationship type and
             its properties, e.g. ("KNOWS", {"since": 1999})
             - an existing Relationship instance
 
             Nodes can be any of the following:
+
             - :py:const:`None`, representing an unspecified node that will be
             created as required
             - an integer containing a node ID
