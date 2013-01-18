@@ -1257,13 +1257,13 @@ class Node(PropertyContainer):
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
-    def create_path(self, *relationship_node_pairs):
+    def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
-            2-tuples of relationships and nodes provided::
+            alternating relationships and nodes provided::
 
-                (self) -[rel_0]->(node_0) -[rel_1]->(node_1) ...
-                       |----------------| |----------------|
-                         first 2-tuple      second 2-tuple
+                (self)-[rel_0]->(node_0)-[rel_1]->(node_1) ...
+                       |-----|  |------| |-----|  |------|
+                 item:    0        1        2        3
 
             Each relationship may be specified as one of the following:
 
@@ -1282,17 +1282,18 @@ class Node(PropertyContainer):
             - a `dict` holding a set of properties for a new node
             - an existing Node instance
 
-            :param relationship_node_pairs: 2-tuples of (rel, node)
+            Note there MUST be an even number of items supplied
+
+            :param items: alternating relationships and nodes
             :return: `Path` object representing the newly-created path
         """
-        items = []
-        for (rel, node) in relationship_node_pairs:
-            items.append(rel)
-            items.append(node)
+        if len(items) % 2 != 0:
+            raise ValueError("An equal number of relationships and nodes must "
+                             "be provided")
         path = Path(self, *items)
         return path.create(self._graph_db)
 
-    def get_or_create_path(self, *relationship_node_pairs):
+    def get_or_create_path(self, *items):
         """ Identical to `create_path` except will reuse parts of the path
             which already exist.
 
@@ -1300,9 +1301,9 @@ class Node(PropertyContainer):
 
                 # add dates to calendar, starting at calendar_root
                 christmas_day = calendar_root.get_or_create_path(
-                    ("YEAR",  {"number": 2000}),
-                    ("MONTH", {"number": 12}),
-                    ("DAY",   {"number": 25}),
+                    "YEAR",  {"number": 2000},
+                    "MONTH", {"number": 12},
+                    "DAY",   {"number": 25},
                 )
                 # `christmas_day` will now contain a `Path` object
                 # containing the nodes and relationships used:
@@ -1311,9 +1312,9 @@ class Node(PropertyContainer):
                 # adding a second, overlapping path will reuse
                 # nodes and relationships wherever possible
                 christmas_eve = calendar_root.get_or_create_path(
-                    ("YEAR",  {"number": 2000}),
-                    ("MONTH", {"number": 12}),
-                    ("DAY",   {"number": 24}),
+                    "YEAR",  {"number": 2000},
+                    "MONTH", {"number": 12},
+                    "DAY",   {"number": 24},
                 )
                 # `christmas_eve` will contain the same year and month nodes
                 # as `christmas_day` but a different (new) day node:
@@ -1325,10 +1326,9 @@ class Node(PropertyContainer):
                 #                                 (24)
 
         """
-        items = []
-        for (rel, node) in relationship_node_pairs:
-            items.append(rel)
-            items.append(node)
+        if len(items) % 2 != 0:
+            raise ValueError("An equal number of relationships and nodes must "
+                             "be provided")
         path = Path(self, *items)
         return path.get_or_create(self._graph_db)
 

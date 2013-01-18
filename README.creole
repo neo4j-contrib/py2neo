@@ -6,19 +6,16 @@ In addition, the library provides support for the Graph Export Object File Forma
 
 == Requirements
 
-Py2neo has been built and tested against the following software:
+You will need to be running version 1.8 or above of Neo4j (available from http://neo4j.org/) in order to use the full feature set of py2neo. Reduced capabilities will be available for server versions 1.6 and 1.7.
 
-* Python 2.6+ <[[http://python.org/]]>
-* Neo4j 1.6+ <[[http://neo4j.org/]]>
-
-Other versions may work but are not guaranteed to do so. If you are using Jython, IronPython or Python 3 then please help to improve support for these versions by providing feedback.
+Your Python version should be at least 2.6 although 2.7 is recommended. Py2neo is also fully compatible with Python 3.3 and above. Partial support exists for Jython - if you are using this then please help to improve support by providing feedback.
 
 == Installation
 
 The easiest way to install py2neo is from the Python Package Index (PyPI), using pip:
 
 {{{
-sudo pip install py2neo
+pip install py2neo
 }}}
 
 Alternatively, you may prefer to use the latest code directly from GitHub:
@@ -31,7 +28,6 @@ git clone git@github.com:nigelsmall/py2neo.git
 
 The following short programme illustrates a simple usage of the py2neo library:
 
-<<code lang="python">>
 {{{
 #!/usr/bin/env python
 
@@ -40,22 +36,21 @@ Simple example showing node and relationship creation plus
 execution of Cypher queries
 """
 
-from __future__ import print_function
-
 # Import Neo4j modules
 from py2neo import neo4j, cypher
 
 # Attach to the graph db instance
 graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 
-# Create two nodes
-node_a, node_b = graph_db.create(
+# Create some nodes
+alice, bob, carol = graph_db.create(
     {"name": "Alice"},
-    {"name": "Bob"}
+    {"name": "Bob"},
+    {"name": "Carol"},
 )
 
-# Join the nodes with a relationship
-rel_ab = node_a.create_relationship_to(node_b, "KNOWS")
+# Then build some relationships
+path = alice.create_path("KNOWS", bob, "KNOWS", carol)
 
 # Build a Cypher query
 query = "START a=node({A}) MATCH a-[:KNOWS]->b RETURN a,b"
@@ -68,7 +63,6 @@ def print_row(row):
 # ...and execute the query
 cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
 }}}
-<</code>>
 
-For more examples, browse the [[http://py2neo.org/tutorials/|tutorials]] or for full details of the functionality available, check out the [[http://packages.python.org/py2neo/|API documentation]].
+For more examples, browse the [[http://py2neo.org/tutorials/|tutorials]] or for full details of the functionality available, check out the [[http://nigelsmall.com/_api/py2neo/|API documentation]].
 

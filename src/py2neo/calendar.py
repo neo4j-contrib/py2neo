@@ -137,9 +137,9 @@ class GregorianCalendar(object):
         """
         d = GregorianCalendar.Date(year, month, day)
         date_path = self._calendar.get_or_create_path(
-            ("YEAR",  {"year": d.year}),
-            ("MONTH", {"year": d.year, "month": d.month}),
-            ("DAY",   {"year": d.year, "month": d.month, "day": d.day}),
+            "YEAR",  {"year": d.year},
+            "MONTH", {"year": d.year, "month": d.month},
+            "DAY",   {"year": d.year, "month": d.month, "day": d.day},
         )
         return date_path.nodes[-1]
 
@@ -149,8 +149,8 @@ class GregorianCalendar(object):
         """
         d = GregorianCalendar.Date(year, month)
         date_path = self._calendar.get_or_create_path(
-            ("YEAR",  {"year": d.year}),
-            ("MONTH", {"year": d.year, "month": d.month}),
+            "YEAR",  {"year": d.year},
+            "MONTH", {"year": d.year, "month": d.month},
         )
         return date_path.nodes[-1]
 
@@ -159,7 +159,7 @@ class GregorianCalendar(object):
         """
         d = GregorianCalendar.Date(year)
         date_path = self._calendar.get_or_create_path(
-            ("YEAR",  {"year": d.year}),
+            "YEAR",  {"year": d.year},
         )
         return date_path.nodes[-1]
 
