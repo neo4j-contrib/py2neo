@@ -103,9 +103,9 @@ class PathTestCase(unittest.TestCase):
 
     def test_path_representation(self):
         path = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        print str(path)
+        print(str(path))
         assert str(path) == "{'name': 'Alice'}-KNOWS->{'name': 'Bob'}"
-        print repr(path)
+        print(repr(path))
         assert repr(path) == "Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})"
 
 

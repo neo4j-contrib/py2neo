@@ -22,7 +22,7 @@
 """
 
 
-from util import round_robin
+from .util import round_robin
 
 
 class Path(object):

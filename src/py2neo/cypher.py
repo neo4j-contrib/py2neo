@@ -68,13 +68,13 @@ class CypherClient(rest.Client):
             if self.block_size > 0:
                 data = []
                 while True:
-                    block = rs.read(self.block_size)
+                    block = rs.read(self.block_size).decode("utf-8")
                     if block:
                         data.append(block)
                     else:
                         break
                     try:
-                        utf8_data = "".join(data).decode("utf-8")
+                        utf8_data = "".join(data)
                         data = []
                         handler(utf8_data)
                     except UnicodeDecodeError:

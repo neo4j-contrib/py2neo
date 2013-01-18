@@ -76,24 +76,23 @@ def compact(obj):
         return obj.__class__(value for value in obj if value is not None)
 
 def round_robin(*iterables):
-    """ Alternately cycle around input iterables, yielding
-        values from each in turn, e.g.:
+    """ Cycle through a number of iterables, returning
+        the next item from each in turn.
 
         round_robin('ABC', 'D', 'EF') --> A D E B F C
 
-        Recipe credited to George Sakkis
-        <http://docs.python.org/2/library/itertools.html#recipes>
+        Original recipe credited to George Sakkis
+        Python 2/3 cross-compatibility tweak by Nigel Small
     """
     pending = len(iterables)
-    nexts = cycle(iter(it).next for it in iterables)
+    nexts = cycle(iter(it) for it in iterables)
     while pending:
         try:
-            for next in nexts:
-                yield next()
+            for n in nexts:
+                yield next(n)
         except StopIteration:
             pending -= 1
             nexts = cycle(islice(nexts, pending))
-
 
 class PropertyCache(object):
 

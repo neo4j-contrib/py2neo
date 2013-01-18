@@ -47,8 +47,8 @@ class ParseTest(unittest.TestCase):
 
     def test_parsing_simple_graph(self):
         rules = geoff._parse(
-            '(A) {"name": "Alice"}\n' \
-            '(B) {"name": "Bob"}\n' \
+            '(A) {"name": "Alice"}\n'
+            '(B) {"name": "Bob"}\n'
             '(A)-[:KNOWS]->(B)\n'
         )
         self.assertEqual([
@@ -59,10 +59,10 @@ class ParseTest(unittest.TestCase):
 
     def test_parsing_graph_with_unknown_rules(self):
         rules = geoff._parse(
-            '(A)<=|People| {"name": "Alice"}\n' \
-            '(B)<=|People| {"name": "Bob"}\n' \
-            '(A) {"name": "Alice Allison"}\n' \
-            '(B) {"name": "Bob Robertson"}\n' \
+            '(A)<=|People| {"name": "Alice"}\n'
+            '(B)<=|People| {"name": "Bob"}\n'
+            '(A) {"name": "Alice Allison"}\n'
+            '(B) {"name": "Bob Robertson"}\n'
             '(A)-[:KNOWS]->(B)\n'
         )
         self.assertEqual([
@@ -103,8 +103,8 @@ class SubgraphCreationTest(unittest.TestCase):
             '(A) {"name": "Alice"}',
             '(A)-[:KNOWS]->(B)',
         )
-        self.assertEqual('(D) {"name": "Dave"}\n(B) {"name": "Bob"}\n' \
-                         '(C) {"name": "Carol"}\n(C)-[0:KNOWS]->(D) {}\n' \
+        self.assertEqual('(D) {"name": "Dave"}\n(B) {"name": "Bob"}\n'
+                         '(C) {"name": "Carol"}\n(C)-[0:KNOWS]->(D) {}\n'
                          '(A) {"name": "Alice"}\n(A)-[1:KNOWS]->(B) {}', s.dumps())
 
     def test_subgraph_creation_from_db(self):
@@ -132,8 +132,8 @@ class DumpTest(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
         )
         out = geoff.Subgraph(a, b, ab).dumps()
-        self.assertEqual('(0) {"name": "Alice"}\n' \
-                         '(1) {"name": "Bob"}\n' \
+        self.assertEqual('(0) {"name": "Alice"}\n'
+                         '(1) {"name": "Bob"}\n'
                          '(0)-[0:KNOWS]->(1) {}', out)
 
 
