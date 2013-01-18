@@ -50,7 +50,8 @@ def authenticate(netloc, user_name, password):
     :param user_name: the user name to authenticate as
     :param password: the password
     """
-    value = "Basic " + base64.b64encode(user_name + ":" + password)
+    credentials = (user_name + ":" + password).encode("UTF-8")
+    value = "Basic " + base64.b64encode(credentials).decode("ASCII")
     rest.http_headers.add("Authorization", value, netloc=netloc)
 
 
