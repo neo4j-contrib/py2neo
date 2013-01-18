@@ -637,10 +637,7 @@ class GraphDatabaseService(rest.Resource):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        cypher.execute(self, "START n=node(*) "
-                             "MATCH n-[r?]-() "
-                             "DELETE n, r", {}
-        )
+        cypher.execute(self, "START n=node(*), r=rel(*) DELETE r, n", {})
 
     def create(self, *abstracts):
         """Create multiple nodes and/or relationships as part of a single
