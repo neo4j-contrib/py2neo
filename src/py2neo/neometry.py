@@ -28,10 +28,11 @@ from .util import round_robin
 class Path(object):
 
     def __init__(self, node, *edges_and_nodes):
-        if len(edges_and_nodes) % 2 != 0:
-            raise ValueError("Edges and nodes must come in pairs")
         self._nodes = [node]
         self._nodes.extend(edges_and_nodes[1::2])
+        if len(edges_and_nodes) % 2 != 0:
+            # If a trailing relationship is supplied, add a dummy end node
+            self._nodes.append(None)
         self._edges = list(edges_and_nodes[0::2])
 
     def __repr__(self):
