@@ -526,30 +526,30 @@ class WriteBatch(_Batch):
 
 
 class GraphDatabaseService(rest.Resource):
-    """An instance of a `Neo4j <http://neo4j.org/>`_ database identified by its
-    base URI. Generally speaking, this is the only URI which a system
-    attaching to this service should need to be directly aware of; all further
-    entity URIs will be discovered automatically from within response content
-    when possible (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_)
-    or will be derived from existing URIs.
+    """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
+        its base URI. Generally speaking, this is the only URI which a system
+        attaching to this service should need to be directly aware of; all
+        further entity URIs will be discovered automatically from within
+        response content when possible (see
+        `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_) or will be
+        derived from existing URIs.
+
+        The following code illustrates how to connect to a database server and
+        display its version number::
+
+            from py2neo import rest, neo4j
+            uri = "http://localhost:7474/db/data/"
+            try:
+                graph_db = neo4j.GraphDatabaseService(uri)
+                print graph_db.neo4j_version
+            except rest.NoResponse:
+                print "Cannot connect to host"
+            except rest.ResourceNotFound:
+                print "Database service not found"
 
     :param uri:       the base URI of the database (defaults to the value of
                       :py:data:`DEFAULT_URI`)
     :param metadata:  optional resource metadata
-
-    The following code illustrates how to connect to a database server and
-    display its version number::
-
-        from py2neo import rest, neo4j
-        uri = "http://localhost:7474/db/data/"
-        try:
-            graph_db = neo4j.GraphDatabaseService(uri)
-            print graph_db.neo4j_version
-        except rest.NoResponse:
-            print "Cannot connect to host"
-        except rest.ResourceNotFound:
-            print "Database service not found"
-
     """
 
     def __init__(self, uri=None, metadata=None):
@@ -569,8 +569,23 @@ class GraphDatabaseService(rest.Resource):
         ))
         self._indexes = {Node: {}, Relationship: {}}
 
+    def __nonzero__(self):
+        """ Return :py:const:`True` is this graph contains at least one
+            relationship.
+        """
+        data, metadata = cypher.execute(self, "START r=rel(*) RETURN r LIMIT 1")
+        if data and data[0]:
+            return True
+        else:
+            return False
+
+    def __len__(self):
+        """ Return the size of this graph (i.e. the number of relationships).
+        """
+        return self.size()
+
     def _extension_uri(self, plugin_name, function_name):
-        """Return the URI of an extension function.
+        """ Return the URI of an extension function.
 
         :param plugin_name: the name of the plugin
         :param function_name: the name of the function within the specified plugin
@@ -585,8 +600,8 @@ class GraphDatabaseService(rest.Resource):
         return self._extensions[plugin_name][function_name]
 
     def _resolve(self, data, status=200, id_=None):
-        """Create `Node`, `Relationship` or `Path` object from dictionary
-        of key:value pairs.
+        """ Create `Node`, `Relationship` or `Path` object from dictionary
+            of key:value pairs.
         """
         if data is None:
             return None
@@ -786,15 +801,6 @@ class GraphDatabaseService(rest.Resource):
         """
         return Node(self.__metadata__['node'] + "/" + str(id), graph_db=self)
 
-    def get_node_count(self):
-        """Fetch the number of nodes in this graph as an integer.
-        """
-        data, metadata = cypher.execute(self, "start z=node(*) return count(z)")
-        if data and data[0]:
-            return data[0][0]
-        else:
-            return 0
-
     def get_or_create_index(self, type, name, config=None):
         """Fetch a specific index from the current database, returning an
         :py:class:`Index` instance. If an index with the supplied `name` and
@@ -913,15 +919,6 @@ class GraphDatabaseService(rest.Resource):
         uri = "{0}/relationship/{1}".format(self._uri.base, id)
         return Relationship(uri, graph_db=self)
 
-    def get_relationship_count(self):
-        """ Fetch the number of relationships in this graph as an integer.
-        """
-        data, metadata = cypher.execute(self, "start z=rel(*) return count(z)")
-        if data and data[0]:
-            return data[0][0]
-        else:
-            return 0
-
     def get_relationship_types(self):
         """ Fetch a list of relationship type names currently defined within
             this database instance.
@@ -979,6 +976,24 @@ class GraphDatabaseService(rest.Resource):
         """ Return the database software version as a tuple.
         """
         return self._neo4j_version
+
+    def order(self):
+        """ Fetch the number of nodes in this graph.
+        """
+        data, metadata = cypher.execute(self, "START n=node(*) RETURN count(n)")
+        if data and data[0]:
+            return data[0][0]
+        else:
+            raise EnvironmentError("Unable to count nodes")
+
+    def size(self):
+        """ Fetch the number of relationships in this graph.
+        """
+        data, metadata = cypher.execute(self, "START r=rel(*) RETURN count(r)")
+        if data and data[0]:
+            return data[0][0]
+        else:
+            raise EnvironmentError("Unable to count relationships")
 
 
 class PropertyContainer(rest.Resource):
