@@ -97,9 +97,9 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def setUp(self):
         self.graph_db = default_graph_db()
-        print("Neo4j Version: {0}".format(repr(self.graph_db._neo4j_version)))
-        print("Node count: {0}".format(self.graph_db.get_node_count()))
-        print("Relationship count: {0}".format(self.graph_db.get_relationship_count()))
+        print("Neo4j Version: {0}".format(repr(self.graph_db.neo4j_version)))
+        print("Node count: {0}".format(self.graph_db.order()))
+        print("Relationship count: {0}".format(self.graph_db.size()))
 
     def test_create_single_empty_node(self):
         a, = self.graph_db.create({})
