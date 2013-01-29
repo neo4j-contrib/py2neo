@@ -914,7 +914,7 @@ class GraphDatabaseService(rest.Resource):
         return Relationship(uri, graph_db=self)
 
     def get_relationship_count(self):
-        """Fetch the number of relationships in this graph as an integer.
+        """ Fetch the number of relationships in this graph as an integer.
         """
         data, metadata = cypher.execute(self, "start z=rel(*) return count(z)")
         if data and data[0]:
@@ -923,16 +923,60 @@ class GraphDatabaseService(rest.Resource):
             return 0
 
     def get_relationship_types(self):
-        """Fetch a list of relationship type names currently defined within
-        this database instance.
+        """ Fetch a list of relationship type names currently defined within
+            this database instance.
         """
         return self._send(
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
+    def match(self, start_node=None, type=None, end_node=None, bidirectional=False, limit=None):
+        """ Fetch all relationships which match a specific set of criteria.
+
+        :param start_node: start :py:class:`Node` to match
+        :param type: type of the relationships to match
+        :param end_node: end :py:class:`Node` to match
+        :param bidirectional: :py:const:`True` if reversed relationships should
+        also be included
+        :param limit: maximum number of relationships to match
+        """
+        if start_node is None and end_node is None:
+            query = "START a=node(*)"
+            params = {}
+        elif end_node is None:
+            query = "START a=node({A})"
+            params = {"A": start_node._id}
+        elif start_node is None:
+            query = "START b=node({B})"
+            params = {"B": end_node._id}
+        else:
+            query = "START a=node({A}),b=node({B})"
+            params = {"A": start_node._id, "B": end_node._id}
+        if type is None:
+            if bidirectional:
+                query += " MATCH (a)-[r]-(b) RETURN r"
+            else:
+                query += " MATCH (a)-[r]->(b) RETURN r"
+        else:
+            if bidirectional:
+                query += " MATCH (a)-[r:`" + str(type) + "`]-(b) RETURN r"
+            else:
+                query += " MATCH (a)-[r:`" + str(type) + "`]->(b) RETURN r"
+        if limit is not None:
+            query += " LIMIT {0}".format(int(limit))
+        data, metadata = cypher.execute(self, query, params)
+        return [row[0] for row in data]
+
+    def match_one(self, start_node=None, type=None, end_node=None, bidirectional=False):
+        rels = self.match(start_node, type, end_node, bidirectional, 1)
+        if rels:
+            return rels[0]
+        else:
+            return None
+
     @property
     def neo4j_version(self):
-        """Return the database software version as a tuple.
+        """ Return the database software version as a tuple.
         """
         return self._neo4j_version
 
