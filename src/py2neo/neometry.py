@@ -17,7 +17,7 @@
 
 """ Generic graph-based, local data structures.
 
-    Path: a linear sequence of nodes, connected by edges
+    Path: a linear sequence of nodes, connected by relationships
 
 """
 
@@ -27,44 +27,44 @@ from .util import round_robin
 
 class Path(object):
 
-    def __init__(self, node, *edges_and_nodes):
+    def __init__(self, node, *rels_and_nodes):
         self._nodes = [node]
-        self._nodes.extend(edges_and_nodes[1::2])
-        if len(edges_and_nodes) % 2 != 0:
+        self._nodes.extend(rels_and_nodes[1::2])
+        if len(rels_and_nodes) % 2 != 0:
             # If a trailing relationship is supplied, add a dummy end node
             self._nodes.append(None)
-        self._edges = list(edges_and_nodes[0::2])
+        self._relationships = list(rels_and_nodes[0::2])
 
     def __repr__(self):
-        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._edges))
+        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
         return "Path({0})".format(out)
 
     def __str__(self):
         out = []
-        for i, edge in enumerate(self._edges):
+        for i, rel in enumerate(self._relationships):
             out.append(str(self._nodes[i]))
             out.append("-")
-            out.append(str(edge))
+            out.append(str(rel))
             out.append("->")
         out.append(str(self._nodes[-1]))
         return "".join(out)
 
     def __nonzero__(self):
-        return bool(self._edges)
+        return bool(self._relationships)
 
     def __len__(self):
-        return len(self._edges)
+        return len(self._relationships)
 
     def __eq__(self, other):
         return self._nodes == other._nodes and \
-               self._edges == other._edges
+               self._relationships == other._relationships
 
     def __ne__(self, other):
         return self._nodes != other._nodes or \
-               self._edges != other._edges
+               self._relationships != other._relationships
 
     def __getitem__(self, item):
-        size = len(self._edges)
+        size = len(self._relationships)
         def adjust(value, default=None):
             if value is None:
                 return default
@@ -78,26 +78,26 @@ class Path(object):
             start, stop = adjust(item.start, 0), adjust(item.stop, size)
             path = Path(self._nodes[start])
             for i in range(start, stop):
-                path._edges.append(self._edges[i])
+                path._relationships.append(self._relationships[i])
                 path._nodes.append(self._nodes[i + 1])
             return path
         else:
             i = int(item)
             if i < 0:
-                i += len(self._edges)
-            return Path(self._nodes[i], self._edges[i], self._nodes[i + 1])
+                i += len(self._relationships)
+            return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
 
     def __iter__(self):
-        def edge_tuples():
-            for i, edge in enumerate(self._edges):
-                yield self._nodes[i], edge, self._nodes[i + 1]
-        return iter(edge_tuples())
+        def relationship_tuples():
+            for i, rel in enumerate(self._relationships):
+                yield self._nodes[i], rel, self._nodes[i + 1]
+        return iter(relationship_tuples())
 
     def order(self):
         return len(self._nodes)
 
     def size(self):
-        return len(self._edges)
+        return len(self._relationships)
 
     @property
     def nodes(self):
@@ -106,13 +106,13 @@ class Path(object):
         return self._nodes
 
     @property
-    def edges(self):
-        """ Return a list of all the edges which make up this path.
+    def relationships(self):
+        """ Return a list of all the relationships which make up this path.
         """
-        return self._edges
+        return self._relationships
 
     @classmethod
-    def join(cls, left, edge, right):
+    def join(cls, left, rel, right):
         if isinstance(left, Path):
             left = left[:]
         else:
@@ -121,7 +121,7 @@ class Path(object):
             right = right[:]
         else:
             right = Path(right)
-        left._edges.append(edge)
+        left._relationships.append(rel)
         left._nodes.extend(right._nodes)
-        left._edges.extend(right._edges)
+        left._relationships.extend(right._relationships)
         return left

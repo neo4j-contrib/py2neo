@@ -36,19 +36,19 @@ class PathTestCase(unittest.TestCase):
         path = neometry.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert len(path) == 1
         assert path.nodes[0]["name"] == "Alice"
-        assert path.edges[0] == "KNOWS"
+        assert path.relationships[0] == "KNOWS"
         assert path.nodes[-1]["name"] == "Bob"
         path = neometry.Path.join(path, "KNOWS", {"name": "Carol"})
         assert len(path) == 2
         assert path.nodes[0]["name"] == "Alice"
-        assert path.edges[0] == "KNOWS"
+        assert path.relationships[0] == "KNOWS"
         assert path.nodes[1]["name"] == "Bob"
         path = neometry.Path.join({"name": "Zach"}, "KNOWS", path)
         assert len(path) == 3
         assert path.nodes[0]["name"] == "Zach"
-        assert path.edges[0] == "KNOWS"
+        assert path.relationships[0] == "KNOWS"
         assert path.nodes[1]["name"] == "Alice"
-        assert path.edges[1] == "KNOWS"
+        assert path.relationships[1] == "KNOWS"
         assert path.nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):

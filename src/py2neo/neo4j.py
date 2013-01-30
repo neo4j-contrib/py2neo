@@ -1508,10 +1508,6 @@ class Path(neometry.Path):
         """
         neometry.Path.__init__(self, node, *rels_and_nodes)
 
-    @property
-    def relationships(self):
-        return self._edges
-
     def _create(self, graph_db, verb):
         nodes, path, values, params = [], [], [], {}
         def append_node(i, node):
