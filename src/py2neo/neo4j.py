@@ -1452,7 +1452,7 @@ class Relationship(PropertyContainer):
             self._end_node = Node(self.__metadata__['end'], graph_db=self._graph_db)
         return self._end_node
 
-    def get_other_node(self, node):
+    def other_node(self, node):
         """Return a node object representing the node within this
         relationship which is not the one supplied.
         """
