@@ -1348,9 +1348,6 @@ class Node(PropertyContainer):
             :param items: alternating relationships and nodes
             :return: `Path` object representing the newly-created path
         """
-        if len(items) % 2 != 0:
-            raise ValueError("An equal number of relationships and nodes must "
-                             "be provided")
         path = Path(self, *items)
         return path.create(self._graph_db)
 
@@ -1387,9 +1384,6 @@ class Node(PropertyContainer):
                 #                                 (24)
 
         """
-        if len(items) % 2 != 0:
-            raise ValueError("An equal number of relationships and nodes must "
-                             "be provided")
         path = Path(self, *items)
         return path.get_or_create(self._graph_db)
 
