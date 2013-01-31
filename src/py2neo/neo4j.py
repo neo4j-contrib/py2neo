@@ -19,12 +19,14 @@
     the starting point for most applications.
 """
 
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 import base64
 import json
 import logging
 import warnings
 
-from . import rest, cypher, util, neometry
+from . import rest, cypher, util
 from .util import compact, quote, round_robin
 
 logger = logging.getLogger(__name__)
@@ -1499,71 +1501,6 @@ class Relationship(PropertyContainer):
         return self._type
 
 
-class Path(neometry.Path):
-
-    def __init__(self, node, *rels_and_nodes):
-        """ Create a new `Path` object by providing an alternating sequence of
-            nodes and relationships. There should always be an odd number of
-            arguments supplied in total, beginning and ending with a node.
-        """
-        neometry.Path.__init__(self, node, *rels_and_nodes)
-
-    def _create(self, graph_db, verb):
-        nodes, path, values, params = [], [], [], {}
-        def append_node(i, node):
-            if isinstance(node, dict):
-                path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = compact(node or {})
-            else:
-                path.append("(n{0})".format(i))
-                if isinstance(node, Node):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node._id
-                elif isinstance(node, int):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node
-                elif isinstance(node, tuple):
-                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
-                    params["i{0}".format(i)] = node[2]
-                elif node is not None:
-                    raise TypeError("Cannot infer node from {0}".format(type(node)))
-            values.append("n{0}".format(i))
-        def append_rel(i, rel):
-            if isinstance(rel, Relationship):
-                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
-            elif isinstance(rel, tuple):
-                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
-                params["q{0}".format(i)] = compact(rel[1] or {})
-            else:
-                path.append("-[r{0}:`{1}`]->".format(i, rel))
-            values.append("r{0}".format(i))
-        append_node(0, self.nodes[0])
-        for i, (start, rel, end) in enumerate(self):
-            append_rel(i, rel)
-            append_node(i + 1, end)
-        clauses = []
-        if nodes:
-            clauses.append("START {0}".format(",".join(nodes)))
-        clauses.append("{0} {1}".format(verb, "".join(path)))
-        clauses.append("RETURN {0}".format(",".join(values)))
-        query = " ".join(clauses)
-        try:
-            data, metadata = cypher.execute(graph_db, query, params)
-            return Path(*data[0])
-        except cypher.CypherError:
-            raise NotImplementedError(
-                "The Neo4j server at <{0}> does not support " \
-                "Cypher CREATE UNIQUE clauses or the query contains " \
-                "an unsupported property type".format(graph_db._uri)
-            )
-
-    def create(self, graph_db):
-        return self._create(graph_db, "CREATE")
-
-    def get_or_create(self, graph_db):
-        return self._create(graph_db, "CREATE UNIQUE")
-
-
 class Index(rest.Resource):
     """Searchable database index which can contain either nodes or
     relationships.
@@ -1850,3 +1787,160 @@ class Index(rest.Resource):
                 self._uri, quote(query, "")
             ))).body
         ]
+
+
+class Path(object):
+
+    def __init__(self, node, *rels_and_nodes):
+        self._nodes = [node]
+        self._nodes.extend(rels_and_nodes[1::2])
+        if len(rels_and_nodes) % 2 != 0:
+            # If a trailing relationship is supplied, add a dummy end node
+            self._nodes.append(None)
+        self._relationships = list(rels_and_nodes[0::2])
+
+    def __repr__(self):
+        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
+        return "Path({0})".format(out)
+
+    def __str__(self):
+        out = []
+        for i, rel in enumerate(self._relationships):
+            out.append(str(self._nodes[i]))
+            out.append("-")
+            out.append(str(rel))
+            out.append("->")
+        out.append(str(self._nodes[-1]))
+        return "".join(out)
+
+    def __nonzero__(self):
+        return bool(self._relationships)
+
+    def __len__(self):
+        return len(self._relationships)
+
+    def __eq__(self, other):
+        return self._nodes == other._nodes and \
+               self._relationships == other._relationships
+
+    def __ne__(self, other):
+        return self._nodes != other._nodes or \
+               self._relationships != other._relationships
+
+    def __getitem__(self, item):
+        size = len(self._relationships)
+        def adjust(value, default=None):
+            if value is None:
+                return default
+            if value < 0:
+                return value + size
+            else:
+                return value
+        if isinstance(item, slice):
+            if item.step is not None:
+                raise ValueError("Steps not supported in path slicing")
+            start, stop = adjust(item.start, 0), adjust(item.stop, size)
+            path = Path(self._nodes[start])
+            for i in range(start, stop):
+                path._relationships.append(self._relationships[i])
+                path._nodes.append(self._nodes[i + 1])
+            return path
+        else:
+            i = int(item)
+            if i < 0:
+                i += len(self._relationships)
+            return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
+
+    def __iter__(self):
+        def relationship_tuples():
+            for i, rel in enumerate(self._relationships):
+                yield self._nodes[i], rel, self._nodes[i + 1]
+        return iter(relationship_tuples())
+
+    def order(self):
+        return len(self._nodes)
+
+    def size(self):
+        return len(self._relationships)
+
+    @property
+    def nodes(self):
+        """ Return a list of all the nodes which make up this path.
+        """
+        return self._nodes
+
+    @property
+    def relationships(self):
+        """ Return a list of all the relationships which make up this path.
+        """
+        return self._relationships
+
+    @classmethod
+    def join(cls, left, rel, right):
+        if isinstance(left, Path):
+            left = left[:]
+        else:
+            left = Path(left)
+        if isinstance(right, Path):
+            right = right[:]
+        else:
+            right = Path(right)
+        left._relationships.append(rel)
+        left._nodes.extend(right._nodes)
+        left._relationships.extend(right._relationships)
+        return left
+
+    def _create(self, graph_db, verb):
+        nodes, path, values, params = [], [], [], {}
+        def append_node(i, node):
+            if isinstance(node, dict):
+                path.append("(n{0} {{p{0}}})".format(i))
+                params["p{0}".format(i)] = compact(node or {})
+            else:
+                path.append("(n{0})".format(i))
+                if isinstance(node, Node):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node._id
+                elif isinstance(node, int):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node
+                elif isinstance(node, tuple):
+                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                    params["i{0}".format(i)] = node[2]
+                elif node is not None:
+                    raise TypeError("Cannot infer node from {0}".format(type(node)))
+            values.append("n{0}".format(i))
+        def append_rel(i, rel):
+            if isinstance(rel, Relationship):
+                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
+            elif isinstance(rel, tuple):
+                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
+                params["q{0}".format(i)] = compact(rel[1] or {})
+            else:
+                path.append("-[r{0}:`{1}`]->".format(i, rel))
+            values.append("r{0}".format(i))
+        append_node(0, self.nodes[0])
+        for i, (start, rel, end) in enumerate(self):
+            append_rel(i, rel)
+            append_node(i + 1, end)
+        clauses = []
+        if nodes:
+            clauses.append("START {0}".format(",".join(nodes)))
+        clauses.append("{0} {1}".format(verb, "".join(path)))
+        clauses.append("RETURN {0}".format(",".join(values)))
+        query = " ".join(clauses)
+        try:
+            data, metadata = cypher.execute(graph_db, query, params)
+            return Path(*data[0])
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not support "
+                "Cypher CREATE UNIQUE clauses or the query contains "
+                "an unsupported property type".format(graph_db._uri)
+            )
+
+    def create(self, graph_db):
+        return self._create(graph_db, "CREATE")
+
+    def get_or_create(self, graph_db):
+        return self._create(graph_db, "CREATE UNIQUE")

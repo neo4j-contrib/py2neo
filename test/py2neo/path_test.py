@@ -33,6 +33,85 @@ logging.basicConfig(
 )
 
 
+class PathTestCase(unittest.TestCase):
+
+    def test_can_create_path(self):
+        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        assert len(path) == 1
+        assert path.nodes[0]["name"] == "Alice"
+        assert path.relationships[0] == "KNOWS"
+        assert path.nodes[-1]["name"] == "Bob"
+        path = neo4j.Path.join(path, "KNOWS", {"name": "Carol"})
+        assert len(path) == 2
+        assert path.nodes[0]["name"] == "Alice"
+        assert path.relationships[0] == "KNOWS"
+        assert path.nodes[1]["name"] == "Bob"
+        path = neo4j.Path.join({"name": "Zach"}, "KNOWS", path)
+        assert len(path) == 3
+        assert path.nodes[0]["name"] == "Zach"
+        assert path.relationships[0] == "KNOWS"
+        assert path.nodes[1]["name"] == "Alice"
+        assert path.relationships[1] == "KNOWS"
+        assert path.nodes[2]["name"] == "Bob"
+
+    def test_can_slice_path(self):
+        path = neo4j.Path({"name": "Alice"},
+            "KNOWS", {"name": "Bob"},
+            "KNOWS", {"name": "Carol"},
+            "KNOWS", {"name": "Dave"},
+            "KNOWS", {"name": "Eve"},
+            "KNOWS", {"name": "Frank"},
+        )
+        assert len(path) == 5
+        assert path[0] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        assert path[1] == neo4j.Path({"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[2] == neo4j.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        assert path[-1] == neo4j.Path({"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[0:2] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[3:5] == neo4j.Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[:] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+
+    def test_can_iterate_path(self):
+        path = neo4j.Path({"name": "Alice"},
+            "KNOWS", {"name": "Bob"},
+            "KNOWS", {"name": "Carol"},
+            "KNOWS", {"name": "Dave"},
+            "KNOWS", {"name": "Eve"},
+            "KNOWS", {"name": "Frank"},
+        )
+        assert list(iter(path)) == [
+            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+            ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
+            ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
+        ]
+        assert list(enumerate(path)) == [
+            (0, ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})),
+            (1, ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'})),
+            (2, ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'})),
+            (3, ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'})),
+            (4, ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}))
+        ]
+
+    def test_can_join_paths(self):
+        path1 = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        path2 = neo4j.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        path = neo4j.Path.join(path1, "KNOWS", path2)
+        assert list(iter(path)) == [
+            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+        ]
+
+    def test_path_representation(self):
+        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        print(str(path))
+        assert str(path) == "{'name': 'Alice'}-KNOWS->{'name': 'Bob'}"
+        print(repr(path))
+        assert repr(path) == "Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})"
+
+
 class CreatePathTestCase(unittest.TestCase):
 
     def test_can_create_path(self):
@@ -73,9 +152,9 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_create_single_path(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25},
         )
         print(p1)
         self.assertIsInstance(p1, neo4j.Path)
@@ -85,18 +164,18 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_create_overlapping_paths(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25, "name": "Christmas Day"}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25, "name": "Christmas Day"},
         )
         self.assertIsInstance(p1, neo4j.Path)
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])
         print(p1)
         p2 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 24, "name": "Christmas Eve"}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 24, "name": "Christmas Eve"},
         )
         self.assertIsInstance(p2, neo4j.Path)
         self.assertEqual(3, len(p2))
@@ -109,9 +188,9 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertNotEqual(p1.relationships[2], p2.relationships[2])
         print(p2)
         p3 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 11, "name": "November"}),
-            ("DAY",   {"number": 5, "name": "Bonfire Night"}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 11, "name": "November"},
+            "DAY",   {"number": 5, "name": "Bonfire Night"},
         )
         self.assertIsInstance(p3, neo4j.Path)
         self.assertEqual(3, len(p3))
@@ -127,14 +206,14 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_use_none_for_nodes(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25},
         )
         p2 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", None),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", None,
+            "DAY",   {"number": 25},
         )
         self.assertIsInstance(p2, neo4j.Path)
         self.assertEqual(3, len(p2))
@@ -149,14 +228,14 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_use_node_for_nodes(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25},
         )
         p2 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", p1.nodes[2]),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", p1.nodes[2],
+            "DAY",   {"number": 25},
         )
         self.assertIsInstance(p2, neo4j.Path)
         self.assertEqual(3, len(p2))
@@ -171,14 +250,14 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_use_int_for_nodes(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25},
         )
         p2 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", p1.nodes[2]._id),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", p1.nodes[2]._id,
+            "DAY",   {"number": 25},
         )
         self.assertIsInstance(p2, neo4j.Path)
         self.assertEqual(3, len(p2))
@@ -193,17 +272,17 @@ class GetOrCreatePathTestCase(unittest.TestCase):
     def test_can_use_tuple_for_nodes(self):
         start_node, = self.graph_db.create({})
         p1 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   {"number": 25}),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   {"number": 25},
         )
         events = self.graph_db.get_or_create_index(neo4j.Node, "EVENTS")
         events.remove("name", "Christmas")
         events.add("name", "Christmas", p1.nodes[3])
         p2 = start_node.get_or_create_path(
-            ("YEAR",  {"number": 2000}),
-            ("MONTH", {"number": 12, "name": "December"}),
-            ("DAY",   ("EVENTS", "name", "Christmas")),
+            "YEAR",  {"number": 2000},
+            "MONTH", {"number": 12, "name": "December"},
+            "DAY",   ("EVENTS", "name", "Christmas"),
         )
         self.assertIsInstance(p2, neo4j.Path)
         self.assertEqual(3, len(p2))
