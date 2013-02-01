@@ -1318,6 +1318,12 @@ class Node(PropertyContainer):
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
+    def match(self, type=None, end_node=None, bidirectional=False, limit=None):
+        return self._graph_db.match(self, type, end_node, bidirectional, limit)
+
+    def match_one(self, type=None, end_node=None, bidirectional=False):
+        return self._graph_db.match(self, type, end_node, bidirectional)
+
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
             alternating relationships and nodes provided::
