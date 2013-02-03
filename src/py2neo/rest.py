@@ -201,6 +201,13 @@ class Request(object):
         self.uri = uri
         self.body = body
 
+    def __repr__(self):
+        return repr({
+            "method": self.method,
+            "to": self.uri,
+            "body": self.body,
+        })
+
     def description(self, id):
         return {
             "id": id,
