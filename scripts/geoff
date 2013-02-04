@@ -26,12 +26,9 @@ __license__   = "Apache License, Version 2.0"
 
 
 import argparse
-try:
-    import json
-except ImportError:
-    import simplejson as json
-from py2neo import neo4j, geoff
 import sys
+
+from py2neo import neo4j, geoff
 
 
 if __name__ == "__main__":
@@ -39,21 +36,18 @@ if __name__ == "__main__":
     parser.add_argument("-H", "--host", metavar="host", default='localhost', help="Neo4j server host name")
     parser.add_argument("-P", "--port", metavar="port", default=7474, help="Neo4j server port")
     parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (e.g. /db/data/)")
-    parser.add_argument("operation", help="Geoff operation (insert|merge/delete)")
+    parser.add_argument("operation", help="Geoff operation (insert|merge)")
     parser.add_argument("file", nargs="?", default="-", help="file from which to load Geoff data")
     args = parser.parse_args()
     graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))
-    subgraph = geoff.Subgraph()
     if args.file == "-":
-        subgraph.load(sys.stdin)
+        subgraph = geoff.Subgraph(sys.stdin)
     else:
-        subgraph.load(file(args.file))
+        subgraph = geoff.Subgraph(open(args.file))
     if args.operation == "insert":
         params = subgraph.insert_into(graph_db)
     elif args.operation == "merge":
         params = subgraph.merge_into(graph_db)
-    elif args.operation == "delete":
-        params = subgraph.delete_from(graph_db)
     else:
         sys.stderr.write("Unknown operation: " + args.operation)
         sys.exit(1)
