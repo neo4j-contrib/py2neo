@@ -339,7 +339,7 @@ class WriteBatch(_Batch):
         """ Create and index a new node if one does not already exist,
             returning either the new node or the existing one.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, compact(properties))
         else:
             self._create_indexed_node(index, "?unique", key, value, compact(properties))
@@ -348,7 +348,7 @@ class WriteBatch(_Batch):
         """ Create and index a new node if one does not already exist,
             fail otherwise.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, compact(properties))
         else:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
