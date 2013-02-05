@@ -2,13 +2,13 @@
 
 Py2neo is a simple and pragmatic Python library that provides access to the popular graph database Neo4j via its RESTful web service interface. With no external dependencies, installation is straightforward and getting started with coding is easy. The library is actively maintained on GitHub, regularly updated in the Python Package Index and is built uniquely for Neo4j in close association with its team and community.
 
-In addition, the library provides support for the Graph Export Object File Format (Geoff). For further information on Geoff, visit [[http://geoff.nigelsmall.net/]].
+In addition, the library provides support for the Graph Export Object File Format (Geoff). For further information on Geoff, visit [[http://nigelsmall.com/geoff]].
 
 == Requirements
 
-You will need to be running version 1.8 or above of Neo4j (available from http://neo4j.org/) in order to use the full feature set of py2neo. Reduced capabilities will be available for server versions 1.6 and 1.7.
+You will need to be running version 1.8.1 or above of Neo4j (available from http://neo4j.org/) in order to use the full feature set of py2neo. Reduced capabilities will be available for server versions 1.6 and 1.7.
 
-Your Python version should be at least 2.6 although 2.7 is recommended. Py2neo is also fully compatible with Python 3.3 and above. Partial support exists for Jython - if you are using this then please help to improve support by providing feedback.
+Your Python version should be at least 2.6 although 2.7 is recommended. Py2neo is also fully compatible with Python 3. Partial support exists for Jython - if you are using this then please help to improve support by providing feedback.
 
 == Installation
 
@@ -16,6 +16,12 @@ The easiest way to install py2neo is from the Python Package Index (PyPI), using
 
 {{{
 pip install py2neo
+}}}
+
+or, if you must, easy_install:
+
+{{{
+easy_install py2neo
 }}}
 
 Alternatively, you may prefer to use the latest code directly from GitHub:
