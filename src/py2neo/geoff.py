@@ -356,7 +356,7 @@ class _Parser(object):
             else:
                 # path
                 rels = []
-                while not self.parse_pattern(self.WHITESPACE):
+                while self.n < len(self.source) and not self.parse_pattern(self.WHITESPACE):
                     next_char = self.peek()
                     if next_char == "-":
                         rel = self.parse_forward_path(node)
