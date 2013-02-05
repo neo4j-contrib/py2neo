@@ -539,15 +539,10 @@ class GraphDatabaseService(rest.Resource):
         The following code illustrates how to connect to a database server and
         display its version number::
 
-            from py2neo import rest, neo4j
+            from py2neo import neo4j
             uri = "http://localhost:7474/db/data/"
-            try:
-                graph_db = neo4j.GraphDatabaseService(uri)
-                print graph_db.neo4j_version
-            except rest.NoResponse:
-                print "Cannot connect to host"
-            except rest.ResourceNotFound:
-                print "Database service not found"
+            graph_db = neo4j.GraphDatabaseService(uri)
+            print(graph_db.neo4j_version)
 
     :param uri:       the base URI of the database (defaults to the value of
                       :py:data:`DEFAULT_URI`)
