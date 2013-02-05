@@ -771,6 +771,13 @@ class GraphDatabaseService(rest.Resource):
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
         """
+        warnings.warn(
+            "Function `get_or_create_relationships` is deprecated, please use "
+            "either `WriteBatch.get_or_create_relationship` or "
+            "`Path.get_or_create` instead.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
         batch = WriteBatch(self)
         for abstract in abstracts:
             if 3 <= len(abstract) <= 4:
