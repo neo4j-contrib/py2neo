@@ -52,43 +52,54 @@ class ParseTest(unittest.TestCase):
         assert rels == []
         assert entries == {}
 
-    def test_can_parse_single_node(self):
+    def test_can_parse_node_with_no_data(self):
         nodes, rels, entries = parse('(A)')
         assert nodes == {"A": geoff.AbstractNode("A", {})}
         assert rels == []
         assert entries == {}
 
-    def test_parsing_single_node_with_data(self):
+    def test_can_parse_node_with_infix_data(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"})')
+        assert nodes == {"A": geoff.AbstractNode("A", {"name": "Alice"})}
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_node_with_postfix_data(self):
         nodes, rels, entries = parse('(A) {"name": "Alice"}')
-        self.assertEqual([(geoff.NODE, 'A', {'name': 'Alice'})], rules)
+        assert nodes == {"A": geoff.AbstractNode("A", {"name": "Alice"})}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_simple_graph(self):
-        nodes, rels, entries = parse(
-            '(A) {"name": "Alice"}\n'
-            '(B) {"name": "Bob"}\n'
-            '(A)-[:KNOWS]->(B)\n'
+    def test_can_parse_graph(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"}) '
+                                     '(B {"name": "Bob"}) '
+                                     '(A)-[:KNOWS]->(B) '
         )
-        self.assertEqual([
-            (geoff.NODE, 'A', {'name': 'Alice'}),
-            (geoff.NODE, 'B', {'name': 'Bob'}),
-            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
-            ], rules)
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice"}),
+            "B": geoff.AbstractNode("B", {"name": "Bob"}),
+        }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["A"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["B"]
+        assert rels[0].properties == {}
+        assert entries == {}
 
-    def test_parsing_graph_with_unknown_rules(self):
-        nodes, rels, entries = parse(
-            '(A)<=|People| {"name": "Alice"}\n'
-            '(B)<=|People| {"name": "Bob"}\n'
-            '(A) {"name": "Alice Allison"}\n'
-            '(B) {"name": "Bob Robertson"}\n'
-            '(A)-[:KNOWS]->(B)\n'
-        )
-        self.assertEqual([
-            (geoff.UNKNOWN, None, ('(A)<=|People|', {'name': 'Alice'})),
-            (geoff.UNKNOWN, None, ('(B)<=|People|', {'name': 'Bob'})),
-            (geoff.NODE, 'A', {'name': 'Alice Allison'}),
-            (geoff.NODE, 'B', {'name': 'Bob Robertson'}),
-            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
-            ], rules)
+    def test_can_parse_one_liner_graph(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"})-[:KNOWS]->(B {"name": "Bob"})')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice"}),
+            "B": geoff.AbstractNode("B", {"name": "Bob"}),
+            }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["A"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["B"]
+        assert rels[0].properties == {}
+        assert entries == {}
 
 
 if __name__ == '__main__':
