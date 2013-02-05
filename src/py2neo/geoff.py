@@ -28,21 +28,24 @@
         geoff          := [element (_ element)*]
         element        := path | index_entry | comment
 
-        path           := node (forward_path | reverse_path)* [_ properties]
+        path           := node (forward_path | reverse_path)* [_ property_map]
         forward_path   := "-" relationship "->" node
         reverse_path   := "<-" relationship "-" node
 
-        index_entry    := ((node "<=" index_point) | (index_point "=>" node)) [_ properties]
-        index_point    := "|" ~ index_name [_ "{" ~ key_value ~ "}"] ~ "|"
+        index_entry    := forward_entry | reverse_entry | postfix_entry
+        forward_entry  := "|" ~ index_name _ property_pair ~ "|" "=>" node
+        reverse_entry  := node "<=" "|" ~ index_name _ property_pair ~ "|"
+        postfix_entry  := node "<=" "|" ~ index_name ~ "|" _ property_pair
         index_name     := name | JSON_STRING
 
         comment        := "/*" (((any text excluding sequence "*/"))) "*/"
 
         node           := named_node | anonymous_node
-        named_node     := "(" ~ node_name [_ properties] ~ ")"
-        anonymous_node := "(" ~ properties ~ ")"
-        relationship   := "[" ~ ":" type [_ properties] ~ "]"
-        properties     := "{" ~ [key_value (~ "," ~ key_value)*] ~ "}"
+        named_node     := "(" ~ node_name [_ property_map] ~ ")"
+        anonymous_node := "(" ~ property_map ~ ")"
+        relationship   := "[" ~ ":" type [_ property_map] ~ "]"
+        property_pair  := "{" ~ key_value ~ "}"
+        property_map   := "{" ~ [key_value (~ "," ~ key_value)* ~] "}"
         node_name      := name | JSON_STRING
         name           := (ALPHA | DIGIT | "_")+
         type           := name | JSON_STRING
