@@ -732,116 +732,6 @@ class GraphDatabaseService(rest.Resource):
         )
         return Node(self.__metadata__['reference_node'], graph_db=self)
 
-    def get_index(self, type, name):
-        """Fetch a specific index from the current database, returning an
-        :py:class:`Index` instance. If an index with the supplied `name` and
-        content `type` does not exist, :py:const:`None` is returned.
-
-        .. seealso:: :py:func:`get_or_create_index`
-        .. seealso:: :py:class:`Index`
-        """
-        if name not in self._indexes[type]:
-            self.get_indexes(type)
-        if name in self._indexes[type]:
-            return self._indexes[type][name]
-        else:
-            return None
-
-    def get_indexed_node(self, index, key, value):
-        """Fetch the first node indexed with the specified details, returning
-        :py:const:`None` if none found.
-        """
-        index = self.get_index(Node, index)
-        if index:
-            nodes = index.get(key, value)
-            if nodes:
-                return nodes[0]
-        return None
-
-    def get_or_create_indexed_node(self, index, key, value, properties=None):
-        """Fetch the first node indexed with the specified details, creating
-        and returning a node if none found.
-        """
-        index = self.get_or_create_index(Node, index)
-        return index.get_or_create(key, value, properties or {})
-
-    def get_indexed_relationship(self, index, key, value):
-        """Fetch the first relationship indexed with the specified details,
-        returning :py:const:`None` if none found.
-        """
-        index = self.get_index(Relationship, index)
-        if index:
-            relationships = index.get(key, value)
-            if relationships:
-                return relationships[0]
-        return None
-
-    def get_indexes(self, type):
-        """Fetch a dictionary of all available indexes of a given type.
-        """
-        if type == Node:
-            rq = rest.Request(self, "GET", self.__metadata__['node_index'])
-        elif type == Relationship:
-            rq = rest.Request(self, "GET", self.__metadata__['relationship_index'])
-        else:
-            raise ValueError(type)
-        rs = self._send(rq)
-        indexes = rs.body or {}
-        self._indexes[type] = dict([
-            (index, Index(type, indexes[index]['template'], graph_db=self))
-            for index in indexes
-        ])
-        return self._indexes[type]
-
-    def get_node(self, id):
-        """Fetch a node by its ID.
-        """
-        return Node(self.__metadata__['node'] + "/" + str(id), graph_db=self)
-
-    def get_or_create_index(self, type, name, config=None):
-        """Fetch a specific index from the current database, returning an
-        :py:class:`Index` instance. If an index with the supplied `name` and
-        content `type` does not exist, one is created with either the
-        default configuration or that supplied in `config`::
-
-            # get or create a node index called "People"
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
-
-            # get or create a relationship index called "Friends"
-            friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
-
-        .. seealso:: :py:func:`get_index`
-        .. seealso:: :py:class:`Index`
-        """
-        if name not in self._indexes[type]:
-            self.get_indexes(type)
-        if name in self._indexes[type]:
-            return self._indexes[type][name]
-        if type == Node:
-            uri = self.__metadata__['node_index']
-        elif type == Relationship:
-            uri = self.__metadata__['relationship_index']
-        else:
-            raise ValueError(type)
-        config = config or {}
-        rs = self._send(rest.Request(self, "POST", uri, {"name": name, "config": config}))
-        index = Index(type, rs.body["template"], graph_db=self)
-        self._indexes[type].update({name: index})
-        return index
-
-    def delete_index(self, type, name):
-        """Delete the entire index identified by the type and name supplied.
-        """
-        if name not in self._indexes[type]:
-            self.get_indexes(type)
-        if name in self._indexes[type]:
-            index = self._indexes[type][name]
-            self._send(rest.Request(self, "DELETE", index._uri))
-            del self._indexes[type][name]
-            return True
-        else:
-            return False
-
     def get_or_create_relationships(self, *abstracts):
         """Fetch or create relationships with the specified criteria depending
         on whether or not such relationships exist. Each relationship
@@ -910,12 +800,6 @@ class GraphDatabaseService(rest.Resource):
             batch.get(entity)
         return [rs.body["data"] for rs in batch._submit()]
 
-    def get_relationship(self, id):
-        """ Fetch a relationship by its ID.
-        """
-        uri = "{0}/relationship/{1}".format(self._uri.base, id)
-        return Relationship(uri, graph_db=self)
-
     def get_relationship_types(self):
         """ Fetch a list of relationship type names currently defined within
             this database instance.
@@ -931,7 +815,7 @@ class GraphDatabaseService(rest.Resource):
         :param type: type of the relationships to match
         :param end_node: end :py:class:`Node` to match
         :param bidirectional: :py:const:`True` if reversed relationships should
-        also be included
+            also be included
         :param limit: maximum number of relationships to match
         """
         if start_node is None and end_node is None:
@@ -962,6 +846,14 @@ class GraphDatabaseService(rest.Resource):
         return [row[0] for row in data]
 
     def match_one(self, start_node=None, type=None, end_node=None, bidirectional=False):
+        """ Fetch a single relationships which matches a specific set of criteria.
+
+        :param start_node: start :py:class:`Node` to match
+        :param type: type of the relationships to match
+        :param end_node: end :py:class:`Node` to match
+        :param bidirectional: :py:const:`True` if reversed relationships should
+            also be included
+        """
         rels = self.match(start_node, type, end_node, bidirectional, 1)
         if rels:
             return rels[0]
@@ -974,6 +866,11 @@ class GraphDatabaseService(rest.Resource):
         """
         return self._neo4j_version
 
+    def node(self, id):
+        """ Fetch a node by ID.
+        """
+        return Node(self.__metadata__['node'] + "/" + str(id), graph_db=self)
+
     def order(self):
         """ Fetch the number of nodes in this graph.
         """
@@ -983,6 +880,12 @@ class GraphDatabaseService(rest.Resource):
         else:
             raise EnvironmentError("Unable to count nodes")
 
+    def relationship(self, id):
+        """ Fetch a relationship by ID.
+        """
+        uri = "{0}/relationship/{1}".format(self._uri.base, id)
+        return Relationship(uri, graph_db=self)
+
     def size(self):
         """ Fetch the number of relationships in this graph.
         """
@@ -991,6 +894,111 @@ class GraphDatabaseService(rest.Resource):
             return data[0][0]
         else:
             raise EnvironmentError("Unable to count relationships")
+
+    def get_indexes(self, type):
+        """ Fetch a dictionary of all available indexes of a given type.
+        """
+        if type == Node:
+            rq = rest.Request(self, "GET", self.__metadata__['node_index'])
+        elif type == Relationship:
+            rq = rest.Request(self, "GET", self.__metadata__['relationship_index'])
+        else:
+            raise ValueError(type)
+        rs = self._send(rq)
+        indexes = rs.body or {}
+        self._indexes[type] = dict(
+            (index, Index(type, indexes[index]['template'], graph_db=self))
+            for index in indexes
+        )
+        return self._indexes[type]
+
+    def get_index(self, type, name):
+        """ Fetch a specific index from the current database, returning an
+            :py:class:`Index` instance. If an index with the supplied `name` and
+            content `type` does not exist, :py:const:`None` is returned.
+
+        .. seealso:: :py:func:`get_or_create_index`
+        .. seealso:: :py:class:`Index`
+        """
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            return self._indexes[type][name]
+        else:
+            return None
+
+    def get_or_create_index(self, type, name, config=None):
+        """ Fetch a specific index from the current database, returning an
+            :py:class:`Index` instance. If an index with the supplied `name` and
+            content `type` does not exist, one is created with either the
+            default configuration or that supplied in `config`::
+
+                # get or create a node index called "People"
+                people = graph_db.get_or_create_index(neo4j.Node, "People")
+
+                # get or create a relationship index called "Friends"
+                friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
+
+        .. seealso:: :py:func:`get_index`
+        .. seealso:: :py:class:`Index`
+        """
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            return self._indexes[type][name]
+        if type == Node:
+            uri = self.__metadata__['node_index']
+        elif type == Relationship:
+            uri = self.__metadata__['relationship_index']
+        else:
+            raise ValueError(type)
+        config = config or {}
+        rs = self._send(rest.Request(self, "POST", uri, {"name": name, "config": config}))
+        index = Index(type, rs.body["template"], graph_db=self)
+        self._indexes[type].update({name: index})
+        return index
+
+    def delete_index(self, type, name):
+        """ Delete the entire index identified by the type and name supplied.
+        """
+        if name not in self._indexes[type]:
+            self.get_indexes(type)
+        if name in self._indexes[type]:
+            index = self._indexes[type][name]
+            self._send(rest.Request(self, "DELETE", index._uri))
+            del self._indexes[type][name]
+            return True
+        else:
+            return False
+
+    def get_indexed_node(self, index, key, value):
+        """ Fetch the first node indexed with the specified details, returning
+            :py:const:`None` if none found.
+        """
+        index = self.get_index(Node, index)
+        if index:
+            nodes = index.get(key, value)
+            if nodes:
+                return nodes[0]
+        return None
+
+    def get_or_create_indexed_node(self, index, key, value, properties=None):
+        """ Fetch the first node indexed with the specified details, creating
+            and returning a node if none found.
+        """
+        index = self.get_or_create_index(Node, index)
+        return index.get_or_create(key, value, properties or {})
+
+    def get_indexed_relationship(self, index, key, value):
+        """ Fetch the first relationship indexed with the specified details,
+            returning :py:const:`None` if none found.
+        """
+        index = self.get_index(Relationship, index)
+        if index:
+            relationships = index.get(key, value)
+            if relationships:
+                return relationships[0]
+        return None
 
 
 class PropertyContainer(rest.Resource):

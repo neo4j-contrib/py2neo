@@ -106,7 +106,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def test_get_node_by_id(self):
         a1, = self.graph_db.create({"foo": "bar"})
-        a2 = self.graph_db.get_node(a1.id)
+        a2 = self.graph_db.node(a1.id)
         self.assertEqual(a1, a2)
 
     def test_create_node_with_property_dict(self):

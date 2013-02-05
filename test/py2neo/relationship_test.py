@@ -67,7 +67,7 @@ class RelationshipTestCase(unittest.TestCase):
 
     def test_get_relationship(self):
         alice, bob, ab = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
-        rel = self.graph_db.get_relationship(ab._id)
+        rel = self.graph_db.relationship(ab._id)
         assert rel == ab
 
 
