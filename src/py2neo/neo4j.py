@@ -1042,7 +1042,7 @@ class PropertyContainer(rest.Resource):
         :param metadata:  index of resource metadata
         """
         rest.Resource.__init__(self, uri, reference_marker, metadata=metadata)
-        if graph_db:
+        if graph_db is not None:
             self._must_belong_to(graph_db)
             self._graph_db = graph_db
         else:
@@ -1526,7 +1526,7 @@ class Index(rest.Resource):
         self._name = str(self._uri).rpartition("/")[2]
         self._content_type = content_type
         self._template_uri = template_uri
-        if graph_db:
+        if graph_db is not None:
             if not isinstance(graph_db, GraphDatabaseService):
                 raise TypeError(graph_db)
             if self._uri.base != graph_db._uri.base:
