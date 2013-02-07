@@ -27,7 +27,7 @@ import logging
 import warnings
 
 from . import rest, cypher, util
-from .util import compact, quote, round_robin
+from .util import compact, quote, round_robin, deprecated
 
 logger = logging.getLogger(__name__)
 
@@ -718,20 +718,19 @@ class GraphDatabaseService(rest.Resource):
                 raise TypeError(entity)
         batch._submit()
 
+    @deprecated("GraphDatabaseService.get_reference_node is deprecated, "
+                "please use indexed nodes instead.")
     def get_reference_node(self):
         """Fetch the reference node for the current graph.
 
         .. deprecated:: 1.3.1
             use indexed nodes instead.
         """
-        warnings.warn(
-            "Function `get_reference_node` is deprecated, "
-            "please use indexed nodes instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
         return Node(self.__metadata__['reference_node'], graph_db=self)
 
+    @deprecated("GraphDatabaseService.get_or_create_relationships is "
+                "deprecated, please use either WriteBatch."
+                "get_or_create_relationship or Path.get_or_create instead.")
     def get_or_create_relationships(self, *abstracts):
         """Fetch or create relationships with the specified criteria depending
         on whether or not such relationships exist. Each relationship
@@ -771,13 +770,6 @@ class GraphDatabaseService(rest.Resource):
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
         """
-        warnings.warn(
-            "Function `get_or_create_relationships` is deprecated, please use "
-            "either `WriteBatch.get_or_create_relationship` or "
-            "`Path.get_or_create` instead.",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
         batch = WriteBatch(self)
         for abstract in abstracts:
             if 3 <= len(abstract) <= 4:
@@ -1177,19 +1169,23 @@ class Node(PropertyContainer):
                 batch.set_node_property(self, key, value)
         batch._submit()
 
+    @deprecated("Node.create_relationship_from is deprecated, please use "
+                "Node.create_path instead.")
     def create_relationship_from(self, other_node, type, properties=None):
-        """Create and return a new relationship of type `type` from the node
-        represented by `other_node` to the node represented by the current
-        instance.
+        """ Create and return a new relationship of type `type` from the node
+            represented by `other_node` to the node represented by the current
+            instance.
         """
         if not isinstance(other_node, Node):
             return TypeError("Start node is not a neo4j.Node instance")
         return other_node.create_relationship_to(self, type, properties)
 
+    @deprecated("Node.create_relationship_to is deprecated, please use "
+                "Node.create_path instead.")
     def create_relationship_to(self, other_node, type, properties=None):
-        """Create and return a new relationship of type `type` from the node
-        represented by the current instance to the node represented by
-        `other_node`.
+        """ Create and return a new relationship of type `type` from the node
+            represented by the current instance to the node represented by
+            `other_node`.
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
@@ -1214,6 +1210,7 @@ class Node(PropertyContainer):
                 "DELETE a, z"
         cypher.execute(self._graph_db, query, {"a": self._id})
 
+    # only used by deprecated methods below
     def _relationships_uri(self, direction):
         if not isinstance(direction, int):
             raise ValueError("Relationship direction must be an integer value")
@@ -1225,6 +1222,7 @@ class Node(PropertyContainer):
             uri = self.__metadata__['all_relationships']
         return uri
 
+    # only used by deprecated methods below
     def _typed_relationships_uri(self, direction, types):
         if not isinstance(direction, int):
             raise ValueError("Relationship direction must be an integer value")
@@ -1238,6 +1236,8 @@ class Node(PropertyContainer):
             '{-list|&|types}', '&'.join(quote(type, "") for type in types)
         )
 
+    @deprecated("Node.get_related_nodes is deprecated, please use "
+                "Node.match instead.")
     def get_related_nodes(self, direction=Direction.EITHER, *types):
         """Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
@@ -1251,6 +1251,8 @@ class Node(PropertyContainer):
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
+    @deprecated("Node.get_relationships is deprecated, please use "
+                "Node.match instead.")
     def get_relationships(self, direction=Direction.EITHER, *types):
         """Fetch all relationships from the current node in a given
         `direction` of a specific `type` (if supplied).
@@ -1264,6 +1266,8 @@ class Node(PropertyContainer):
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
+    @deprecated("Node.get_relationships_with is deprecated, please use "
+                "Node.match instead.")
     def get_relationships_with(self, other, direction=Direction.EITHER, *types):
         """Return all relationships between this node and another node using
         the relationship criteria supplied.
@@ -1286,6 +1290,8 @@ class Node(PropertyContainer):
         data, metadata = cypher.execute(self._graph_db, query)
         return [row[0] for row in data]
 
+    @deprecated("Node.get_single_related_node is deprecated, please use "
+                "Node.match_one instead.")
     def get_single_related_node(self, direction=Direction.EITHER, *types):
         """Return only one node related to the current node by a relationship
         in the given `direction` of the specified `type`, if any such
@@ -1297,6 +1303,8 @@ class Node(PropertyContainer):
         else:
             return None
 
+    @deprecated("Node.get_single_relationship is deprecated, please use "
+                "Node.match_one instead.")
     def get_single_relationship(self, direction=Direction.EITHER, *types):
         """Fetch only one relationship from the current node in the given
         `direction` of the specified `type`, if any such relationships exist.
@@ -1307,6 +1315,8 @@ class Node(PropertyContainer):
         else:
             return None
 
+    @deprecated("Node.has_relationship is deprecated, please use "
+                "Node.match_one instead.")
     def has_relationship(self, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
@@ -1314,6 +1324,8 @@ class Node(PropertyContainer):
         relationships = self.get_relationships(direction, *types)
         return bool(relationships)
 
+    @deprecated("Node.has_relationship_with is deprecated, please use "
+                "Node.match_one instead.")
     def has_relationship_with(self, other, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
@@ -1321,6 +1333,8 @@ class Node(PropertyContainer):
         relationships = self.get_relationships_with(other, direction, *types)
         return bool(relationships)
 
+    @deprecated("Node.is_related_to is deprecated, please use "
+                "Node.match_one instead.")
     def is_related_to(self, other, direction=Direction.EITHER, *types):
         """Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`

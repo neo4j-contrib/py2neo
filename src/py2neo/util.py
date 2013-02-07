@@ -19,9 +19,11 @@
 """
 
 import sys
+
 __PY3K = sys.version_info[0] >= 3
 
 import time
+import warnings
 
 try:
     from urllib.parse import quote as _quote
@@ -149,3 +151,21 @@ class PropertyCache(object):
 
     def get_all(self):
         return self._properties
+
+
+def deprecated(message):
+    """ Decorator for deprecating functions and methods.
+
+        ::
+
+            @deprecated("'foo' has been deprecated in favour of 'bar'")
+            def foo(x):
+                pass
+
+    """
+    def f__(f):
+        def f_(*args, **kwargs):
+            warnings.warn(message, category=DeprecationWarning, stacklevel=2)
+            f(*args, **kwargs)
+        return f_
+    return f__
