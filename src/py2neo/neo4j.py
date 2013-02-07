@@ -372,7 +372,7 @@ class WriteBatch(_Batch):
             already exist for the given key-value pair, returning either the
             added node or the one already in the index.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._add_indexed_node(index, "?uniqueness=get_or_create", key, value, node)
         else:
             self._add_indexed_node(index, "?unique", key, value, node)
@@ -381,7 +381,7 @@ class WriteBatch(_Batch):
         """ Add an existing node to the index specified if an entry does not
             already exist for the given key-value pair, fail otherwise.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._add_indexed_node(index, "?uniqueness=create_or_fail", key, value, node)
         else:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
@@ -440,7 +440,7 @@ class WriteBatch(_Batch):
         """ Create and index a new relationship if one does not already exist,
             returning either the new relationship or the existing one.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._create_indexed_relationship(index, "?uniqueness=get_or_create", key, value, start_node, type_, end_node, properties)
         else:
             self._create_indexed_relationship(index, "?unique", key, value, start_node, type_, end_node, properties)
@@ -449,7 +449,7 @@ class WriteBatch(_Batch):
         """ Create and index a new relationship if one does not already exist,
             fail otherwise.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._create_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, start_node, type_, end_node, properties)
         else:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
@@ -473,7 +473,7 @@ class WriteBatch(_Batch):
             already exist for the given key-value pair, returning either the
             added relationship or the one already in the index.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._add_indexed_relationship(index, "?uniqueness=get_or_create", key, value, relationship)
         else:
             self._add_indexed_relationship(index, "?unique", key, value, relationship)
@@ -482,7 +482,7 @@ class WriteBatch(_Batch):
         """ Add an existing relationship to the index specified if an entry does not
             already exist for the given key-value pair, fail otherwise.
         """
-        if self._graph_db.neo4j_version >= (1, 8, 'M07'):
+        if self._graph_db.neo4j_version >= (1, 9):
             self._add_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, relationship)
         else:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "

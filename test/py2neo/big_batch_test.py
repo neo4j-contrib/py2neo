@@ -49,14 +49,17 @@ class TestBigBatches(unittest.TestCase):
             assert isinstance(node, neo4j.Node)
         print("done")
 
-    #def test_can_send_batch_of_100(self):
-    #    self._send_big_batch(100)
+    def test_can_send_batch_of_100(self):
+        self._send_big_batch(100)
 
-    #def test_can_send_batch_of_1000(self):
-    #    self._send_big_batch(1000)
+    def test_can_send_batch_of_1000(self):
+        self._send_big_batch(1000)
 
     def test_can_send_batch_of_10000(self):
         self._send_big_batch(10000)
+
+    def test_can_send_batch_of_100000(self):
+        self._send_big_batch(100000)
 
 
 if __name__ == "__main__":

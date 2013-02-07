@@ -382,7 +382,7 @@ class NewCreateTestCase(unittest.TestCase):
         ref_node.delete()
 
     def test_fails_on_bad_reference(self):
-        self.assertRaises(rest.BadRequest, self.graph_db.create,
+        self.assertRaises(Exception, self.graph_db.create,
             {"name": "Alice"},
             (0, "KNOWS", 1)
         )

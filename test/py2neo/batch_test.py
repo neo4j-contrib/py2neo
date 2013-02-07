@@ -217,9 +217,8 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
             knows, = self.batch.submit()
             self.recycling = [knows, k1, k2, alice, bob]
             assert False
-        except rest.BadRequest as err:
-            assert err.id == 0
-            sys.stderr.write("{0}: {1} (id={2})\n".format(err.exception, err.message, err.id))
+        except Exception as err:
+            sys.stderr.write("{0}: {1}\n".format(err.args[0]["exception"], err.args[0]["message"]))
             self.recycling = [k1, k2, alice, bob]
             assert True
 
@@ -428,7 +427,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
             assert alice in smiths
             # done
             self.recycling = [alice]
-        except NotImplemented:
+        except NotImplementedError:
             # uniqueness mode `create_or_fail` not available in server version
             assert True
 
@@ -493,7 +492,7 @@ class TestIndexedNodeAddition(unittest.TestCase):
                 assert False
             except rest.ResourceConflict:
                 assert True
-        except NotImplemented:
+        except NotImplementedError:
             pass
         self.recycling = [alice, bob]
 
@@ -544,7 +543,7 @@ class TestIndexedRelationshipCreation(unittest.TestCase):
                 assert False
             except rest.ResourceConflict:
                 assert True
-        except NotImplemented:
+        except NotImplementedError:
             pass
 
 
@@ -607,7 +606,7 @@ class TestIndexedRelationshipAddition(unittest.TestCase):
                 assert False
             except rest.ResourceConflict:
                 assert True
-        except NotImplemented:
+        except NotImplementedError:
             pass
         self.recycling = [ab1, ab2, alice, bob]
 

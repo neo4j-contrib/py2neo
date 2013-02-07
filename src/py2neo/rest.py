@@ -74,7 +74,6 @@ http_headers.add("User-Agent", "{0}/{1} ({2}; python/{3})".format(
     py2neo_package, py2neo_version,
     sys.platform, sys.version.partition(" ")[0],
 ))
-http_headers.add("X-Stream", "true")
 
 
 http_timeouts = {}
@@ -195,11 +194,12 @@ class URI(object):
 
 class Request(object):
 
-    def __init__(self, graph_db, method, uri, body=None):
+    def __init__(self, graph_db, method, uri, body=None, headers=None):
         self.graph_db = graph_db
         self.method = method
         self.uri = uri
         self.body = body
+        self.headers = headers
 
     def __repr__(self):
         return repr({
@@ -266,14 +266,15 @@ class Client(object):
             self.https[netloc] = httplib.HTTPSConnection(netloc, timeout=http_timeouts.get(netloc))
         return self.https[netloc]
 
-    def _send_request(self, method, uri, data=None):
+    def _send_request(self, method, uri, data=None, headers=None):
         uri_values = urlsplit(str(uri))
         if uri_values[3]:
             path = uri_values[2] + "?" + uri_values[3]
         else:
             path = uri_values[2]
         scheme, netloc = uri_values[0:2]
-        headers = http_headers.get(netloc)
+        _headers = http_headers.get(netloc)
+        _headers.update(headers or {})
         if data is not None:
             logger.debug("Encoding request body as JSON")
             data = json.dumps(data, separators=(",", ":"))
@@ -283,12 +284,12 @@ class Client(object):
             http = self._connection(scheme, netloc, reconnect)
             logger.debug("Sending request")
             if data:
-                logger.info("{0} {1} {2} ({3} bytes)".format(method, path, headers, len(data)))
+                logger.info("{0} {1} {2} ({3} bytes)".format(method, path, _headers, len(data)))
                 logger.debug("Request body: " + data)
             else:
-                logger.info("{0} {1} {2} (no data)".format(method, path, headers))
+                logger.info("{0} {1} {2} (no data)".format(method, path, _headers))
             try:
-                http.request(method, path, data, headers)
+                http.request(method, path, data, _headers)
                 logger.debug("Awaiting response")
                 rs = http.getresponse()
                 logger.info("{0} {1} {2}".format(rs.status, rs.reason, dict(rs.getheaders())))
@@ -301,7 +302,7 @@ class Client(object):
                     raise err
 
     def send(self, request, *args, **kwargs):
-        rs = self._send_request(request.method, request.uri, request.body)
+        rs = self._send_request(request.method, request.uri, request.body, request.headers)
         if rs.status in _auto_redirects:
             # automatic redirection - discard data and call recursively
             rs.read()
