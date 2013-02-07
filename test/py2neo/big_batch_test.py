@@ -33,21 +33,11 @@ logging.basicConfig(
 )
 
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-
-def recycle(*entities):
-    for entity in entities:
-        try:
-            entity.delete()
-        except Exception:
-            pass
-
-
 class TestBigBatches(unittest.TestCase):
 
     def _send_big_batch(self, node_count):
-        graph_db = default_graph_db()
+        graph_db = neo4j.GraphDatabaseService()
+        graph_db.clear()
         print("creating batch of " + str(node_count))
         batch = neo4j.WriteBatch(graph_db)
         for i in range(node_count):
@@ -55,20 +45,19 @@ class TestBigBatches(unittest.TestCase):
         print("submitting batch")
         nodes = batch.submit()
         print("checking batch")
-        for i, node in enumerate(nodes):
+        for node in nodes:
             assert isinstance(node, neo4j.Node)
-            assert node["number"] == i
-        print("removing evidence")
-        graph_db.delete(*nodes)
+        print("done")
 
-    def test_can_send_batch_of_100(self):
-        self._send_big_batch(100)
+    #def test_can_send_batch_of_100(self):
+    #    self._send_big_batch(100)
 
-    def test_can_send_batch_of_1000(self):
-        self._send_big_batch(1000)
+    #def test_can_send_batch_of_1000(self):
+    #    self._send_big_batch(1000)
 
     def test_can_send_batch_of_10000(self):
         self._send_big_batch(10000)
+
 
 if __name__ == "__main__":
     unittest.main()
