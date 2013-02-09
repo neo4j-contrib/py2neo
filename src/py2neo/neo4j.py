@@ -808,15 +808,30 @@ class GraphDatabaseService(rest.Resource):
         ).body
 
     def _load(self, cls, node):
+        """ Load a specific node from the database into an object
+        """
+        graph_db = self
+        def _related(self, rel_type):
+            try:
+                cls = self.__rel__[rel_type]
+            except AttributeError:
+                raise NotImplementedError("Class '{0}' does not provide relationship mappings.".format(self.__class__.__name__))
+            except KeyError:
+                raise TypeError("Class '{0}' does not provide a mapping for `{1}` relationships.".format(self.__class__.__name__, rel_type))
+            return [
+                graph_db._load(cls, r.end_node)
+                for r in self.__node__.match(rel_type)
+            ]
         inst = cls()
+        inst.__node__ = node
         for key, value in node.get_properties().items():
             setattr(inst, key, value)
-        if hasattr(cls, "__rel__"):
-            setattr(inst, "related", lambda rel_type, cls: [self._load(cls, r.end_node) for r in node.match(rel_type)])
+        if hasattr(cls, "__rel__") and not hasattr(cls, "_related"):
+            setattr(cls, "_related", _related)
         return inst
 
     def load(self, cls, index_name, key, value):
-        """ Load an object from the database.
+        """ Load a uniquely indexed node from the database into an object.
 
         :param cls:
         :param index_name:
@@ -829,11 +844,13 @@ class GraphDatabaseService(rest.Resource):
         if not nodes:
             return None
         if len(nodes) > 1:
-            raise LookupError("Multiple nodes match the given criteria; consider using `load_all` instead.")
+            raise LookupError("Multiple nodes match the given criteria; "
+                              "consider using `load_all` instead.")
         return self._load(cls, nodes[0])
 
     def load_all(self, cls, index_name, key, value):
-        """ Load zero or more objects from the database.
+        """ Load zero or more indexed nodes from the database into a list of
+            objects.
 
         :param cls:
         :param index_name:
