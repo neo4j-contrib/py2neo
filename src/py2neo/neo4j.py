@@ -24,7 +24,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import base64
 import json
 import logging
-import warnings
 
 from . import rest, cypher, util
 from .util import compact, quote, round_robin, deprecated
@@ -807,58 +806,6 @@ class GraphDatabaseService(rest.Resource):
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
-    def _load(self, cls, node):
-        """ Load a specific node from the database into an object
-        """
-        inst = cls()
-        setattr(inst, "__node__", node)
-        setattr(inst, "__rel__", {})
-        def _load(rel_type, cls):
-            try:
-                return [self._load(cls, end_node) for props, end_node in inst.__rel__[rel_type]]
-            except KeyError:
-                return []
-        setattr(inst, "_load", _load)
-        for key, value in node.get_properties().items():
-            setattr(inst, key, value)
-        for rel in node.match():
-            if rel.type not in inst.__rel__:
-                inst.__rel__[rel.type] = []
-            inst.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
-        return inst
-
-    def load(self, cls, index_name, key, value):
-        """ Load a uniquely indexed node from the database into an object.
-
-        :param cls:
-        :param index_name:
-        :param key:
-        :param value:
-        :return: as instance of `cls` containing the loaded data
-        """
-        index = self.get_index(Node, index_name)
-        nodes = index.get(key, value)
-        if not nodes:
-            return None
-        if len(nodes) > 1:
-            raise LookupError("Multiple nodes match the given criteria; "
-                              "consider using `load_all` instead.")
-        return self._load(cls, nodes[0])
-
-    def load_all(self, cls, index_name, key, value):
-        """ Load zero or more indexed nodes from the database into a list of
-            objects.
-
-        :param cls:
-        :param index_name:
-        :param key:
-        :param value:
-        :return: a list of `cls` instances
-        """
-        index = self.get_index(Node, index_name)
-        nodes = index.get(key, value)
-        return [self._load(cls, node) for node in nodes]
-
     def match(self, start_node=None, type=None, end_node=None, bidirectional=False, limit=None):
         """ Fetch all relationships which match a specific set of criteria.
 
@@ -1256,10 +1203,12 @@ class Node(PropertyContainer):
     def delete_related(self):
         """ Delete this node, plus all related nodes and relationships.
         """
-        query = "START a=node({a}) " \
-                "MATCH (a)-[rels*0..]-(z) " \
-                "FOREACH(rel IN rels: DELETE rel) " \
-                "DELETE a, z"
+        query = (
+            "START a=node({a}) "
+            "MATCH (a)-[rels*0..]-(z) "
+            "FOREACH(rel IN rels: DELETE rel) "
+            "DELETE a, z"
+        )
         cypher.execute(self._graph_db, query, {"a": self._id})
 
     # only used by deprecated methods below
