@@ -807,6 +807,44 @@ class GraphDatabaseService(rest.Resource):
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
+    def _load(self, cls, node):
+        inst = cls()
+        for key, value in node.get_properties().items():
+            setattr(inst, key, value)
+        if hasattr(cls, "__rel__"):
+            setattr(inst, "related", lambda rel_type, cls: [self._load(cls, r.end_node) for r in node.match(rel_type)])
+        return inst
+
+    def load(self, cls, index_name, key, value):
+        """ Load an object from the database.
+
+        :param cls:
+        :param index_name:
+        :param key:
+        :param value:
+        :return: as instance of `cls` containing the loaded data
+        """
+        index = self.get_index(Node, index_name)
+        nodes = index.get(key, value)
+        if not nodes:
+            return None
+        if len(nodes) > 1:
+            raise LookupError("Multiple nodes match the given criteria; consider using `load_all` instead.")
+        return self._load(cls, nodes[0])
+
+    def load_all(self, cls, index_name, key, value):
+        """ Load zero or more objects from the database.
+
+        :param cls:
+        :param index_name:
+        :param key:
+        :param value:
+        :return: a list of `cls` instances
+        """
+        index = self.get_index(Node, index_name)
+        nodes = index.get(key, value)
+        return [self._load(cls, node) for node in nodes]
+
     def match(self, start_node=None, type=None, end_node=None, bidirectional=False, limit=None):
         """ Fetch all relationships which match a specific set of criteria.
 
