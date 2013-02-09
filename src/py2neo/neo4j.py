@@ -810,24 +810,21 @@ class GraphDatabaseService(rest.Resource):
     def _load(self, cls, node):
         """ Load a specific node from the database into an object
         """
-        graph_db = self
-        def _related(self, rel_type):
-            try:
-                cls = self.__rel__[rel_type]
-            except AttributeError:
-                raise NotImplementedError("Class '{0}' does not provide relationship mappings.".format(self.__class__.__name__))
-            except KeyError:
-                raise TypeError("Class '{0}' does not provide a mapping for `{1}` relationships.".format(self.__class__.__name__, rel_type))
-            return [
-                graph_db._load(cls, r.end_node)
-                for r in self.__node__.match(rel_type)
-            ]
         inst = cls()
-        inst.__node__ = node
+        setattr(inst, "__node__", node)
+        setattr(inst, "__rel__", {})
+        def _load(rel_type, cls):
+            try:
+                return [self._load(cls, end_node) for props, end_node in inst.__rel__[rel_type]]
+            except KeyError:
+                return []
+        setattr(inst, "_load", _load)
         for key, value in node.get_properties().items():
             setattr(inst, key, value)
-        if hasattr(cls, "__rel__") and not hasattr(cls, "_related"):
-            setattr(cls, "_related", _related)
+        for rel in node.match():
+            if rel.type not in inst.__rel__:
+                inst.__rel__[rel.type] = []
+            inst.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
         return inst
 
     def load(self, cls, index_name, key, value):

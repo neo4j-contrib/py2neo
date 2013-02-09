@@ -24,16 +24,7 @@ import unittest
 
 
 class Person(object):
-
-    def friends(self):
-        if hasattr(self, "_related"):
-            return self._related("KNOWS")
-        else:
-            raise NotImplementedError("Cannot find friends")
-
-Person.__rel__ = {
-    "KNOWS": Person,
-}
+    pass
 
 
 class SaveTestCase(unittest.TestCase):
@@ -47,17 +38,17 @@ class LoadTestCase(unittest.TestCase):
 
     def test_can_load_simple_object(self):
         graph_db = neo4j.GraphDatabaseService()
-        graph_db.get_or_create_indexed_node("People", "email", "alice@example.com", {
+        alice_node = graph_db.get_or_create_indexed_node("People", "email", "alice@example.com", {
             "email": "alice@example.com",
             "name": "Alice Allison",
             "age": 34,
         })
-        class Person(object):
-            email = None
-            name = None
-            age = None
         alice = graph_db.load(Person, "People", "email", "alice@example.com")
         assert isinstance(alice, Person)
+        assert hasattr(alice, "__node__")
+        assert alice.__node__ == alice_node
+        assert hasattr(alice, "__rel__")
+        assert alice.__rel__ == {}
         assert alice.email == "alice@example.com"
         assert alice.name == "Alice Allison"
         assert alice.age == 34
@@ -69,19 +60,50 @@ class LoadTestCase(unittest.TestCase):
             "name": "Alice Allison",
             "age": 34,
         })
-        alice_node.create_path("KNOWS", {"name": "Bob Robertson"})
+        path = alice_node.create_path("LIKES", {"name": "Bob Robertson"})
+        bob_node = path.nodes[1]
         alice = graph_db.load(Person, "People", "email", "alice@example.com")
         assert isinstance(alice, Person)
-        assert hasattr(alice, "__node__") and alice.__node__ == alice_node
-        assert hasattr(alice, "__rel__") and alice.__rel__ == {"KNOWS": Person}
-        assert hasattr(alice, "email") and alice.email == "alice@example.com"
-        assert hasattr(alice, "name") and alice.name == "Alice Allison"
-        assert hasattr(alice, "age") and alice.age == 34
-        bob, = alice.friends()  # 'friends' wraps a call to '_related'
-        assert isinstance(bob, Person)
-        assert hasattr(bob, "name") and bob.name == "Bob Robertson"
-        no_friends = bob.friends()
-        assert no_friends == []
+        assert hasattr(alice, "__node__")
+        assert alice.__node__ == alice_node
+        assert hasattr(alice, "__rel__")
+        assert alice.__rel__ == {
+            "LIKES": [({}, bob_node)],
+        }
+        assert alice.email == "alice@example.com"
+        assert alice.name == "Alice Allison"
+        assert alice.age == 34
+        assert hasattr(alice, "_load")
+        friends = alice._load("LIKES", Person)
+        assert isinstance(friends, list)
+        assert len(friends) == 1
+        friend = friends[0]
+        assert isinstance(friend, Person)
+        assert friend.__node__ == bob_node
+        enemies = alice._load("DISLIKES", Person)
+        assert isinstance(enemies, list)
+        assert len(enemies) == 0
+#
+#    def test_can_load_object_with_relationships(self):
+#        graph_db = neo4j.GraphDatabaseService()
+#        alice_node = graph_db.get_or_create_indexed_node("People", "email", "alice@example.com", {
+#            "email": "alice@example.com",
+#            "name": "Alice Allison",
+#            "age": 34,
+#        })
+#        alice_node.create_path("KNOWS", {"name": "Bob Robertson"})
+#        alice = graph_db.load(Person, "People", "email", "alice@example.com")
+#        assert isinstance(alice, Person)
+#        assert hasattr(alice, "__node__") and alice.__node__ == alice_node
+#        assert hasattr(alice, "__rel__") and alice.__rel__ == {"KNOWS": Person}
+#        assert hasattr(alice, "email") and alice.email == "alice@example.com"
+#        assert hasattr(alice, "name") and alice.name == "Alice Allison"
+#        assert hasattr(alice, "age") and alice.age == 34
+#        bob, = alice.friends()  # 'friends' wraps a call to '_related'
+#        assert isinstance(bob, Person)
+#        assert hasattr(bob, "name") and bob.name == "Bob Robertson"
+#        no_friends = bob.friends()
+#        assert no_friends == []
 
 
 class LoadAllTestCase(unittest.TestCase):
