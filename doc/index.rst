@@ -31,12 +31,12 @@ Package Contents
 
    neo4j
    cypher
-   subgraph
+   ogm
    geoff
    gremlin
-   rest
    calendar
    admin
+   rest
 
 Quick Start
 -----------

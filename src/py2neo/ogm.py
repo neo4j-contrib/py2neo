@@ -17,36 +17,65 @@
 
 """ The ogm (pronounced "Ogham") module provides Object to Graph Mapping
     features similar to ORM facilities available for relational databases.
+
+    This module provides a :py:class:`Store` class which is the core of all
+    object storage. The methods provided allow standard Python objects to be
+    persisted and retrieved using save and load calls respectively::
+
+        from py2neo import neo4j, ogm
+
+        class Person(object):
+
+            def __init__(self, email=None, name=None, age=None):
+                self.email = email
+                self.name = name
+                self.age = age
+
+        graph_db = neo4j.GraphDatabaseService()
+        store = ogm.Store(graph_db)
+
+        alice = Person("alice@example,com", "Alice Allison", 34)
+        store.save_unique(alice, "People", "email", alice.email)
+
+        bob = Person("bob@example,org", "Bob Robertson", 66)
+        store.save_unique(bob, "People", "email", bob.email)
+
+        carol = Person("carol@example,net", "Carol Carlsson", 42)
+        store.save_unique(carol, "People", "email", carol.email)
+
+        ogm.attach(alice, "LIKES", bob)
+        ogm.attach(alice, "DISLIKES", carol)
+        store.save(alice)
+
+        ogm.attach(bob, "LIKES", alice)
+        ogm.attach(bob, "LIKES", carol)
+        store.save(bob)
+
+        ogm.attach(carol, "LIKES", bob)
+        store.save(carol)
+
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from . import neo4j
+from . import neo4j, cypher
 
-
-def attach():
-    pass
-
-def detach():
-    pass
-
-def cast(value):
-    return value
-
-def uncast(value, cls):
-    return cls(value)
 
 def _export_properties(obj):
+    # cast object attributes to neo4j-compatible properties
     props = {}
     for key, value in obj.__dict__.items():
         if not key.startswith("_"):
-            props[key] = cast(value)
+            # cast value
+            props[key] = value
     return props
 
-def _import_properties(obj, props):
+def _import_properties(subj, props):
+    # write neo4j properties to object attributes
     for key, value in props.items():
         if not key.startswith("_"):
-            setattr(obj, key, value)
+            # uncast value to key type
+            setattr(subj, key, value)
 
 
 class Store(object):
@@ -54,12 +83,53 @@ class Store(object):
     def __init__(self, graph_db):
         self.graph_db = graph_db
 
-    def _load(self, cls, node):
-        """ Load a specific node from the database into an object
-            # MAKE ATOMIC!
+    def attach(self, subj, rel_type, obj, properties=None):
+        if not hasattr(obj, "__node__"):
+            self.save(obj)
+        if not hasattr(subj, "__rel__"):
+            subj.__rel__ = {}
+        if rel_type not in subj.__rel__:
+            subj.__rel__[rel_type] = []
+        subj.__rel__[rel_type].append((properties or {}, obj.__node__))
+
+    def detach(self, subj, rel_type):
+        try:
+            del subj.__rel__[rel_type]
+        except AttributeError:
+            pass
+        except KeyError:
+            pass
+
+    def load_related(self, subj, rel_type, cls):
+        if not hasattr(subj, "__rel__"):
+            return []
+        if rel_type not in subj.__rel__:
+            return []
+        return [
+            self.load(cls(), end_node)
+            for rel_props, end_node in subj.__rel__[rel_type]
+        ]
+
+    def load(self, obj, node=None):
+        """ Load data from a database node into a local object. If the `node`
+        parameter is not specified, an existing `__node__` attribute will be
+        used instead, if available. This (will be) an atomic operation, carried out
+        in a single Neo4j batch.
+
+        :param obj: the object to load into
+        :param node: the node to load from
+        :return: the object
+        :raise TypeError: if no `node` specified and
+            no `__node__` attribute found
         """
-        obj = cls()
-        setattr(obj, "__node__", node)
+        # MAKE ATOMIC!
+        if node is not None:
+            setattr(obj, "__node__", node)
+        if hasattr(obj, "__node__"):
+            node = obj.__node__
+        else:
+            node, = self.graph_db.create({})
+            obj.__node__ = node
         setattr(obj, "__rel__", {})
         _import_properties(obj, node.get_properties())
         for rel in node.match():
@@ -67,29 +137,6 @@ class Store(object):
                 obj.__rel__[rel.type] = []
             obj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
         return obj
-
-    def _save(self, obj, node):
-        """ Atomically save object to node.
-        """
-        obj.__node__ = node
-        batch = neo4j.WriteBatch(self.graph_db)
-        batch.set_node_properties(node, _export_properties(obj))
-        # remove all outgoing relationships
-        batch._post(batch._cypher_uri, {
-            "query": (
-                "START a=node({A}) "
-                "MATCH (a)-[r]->(b) "
-                "DELETE r"
-            ),
-            "params": {"A": node._id},
-        })
-        # rebuild outgoing relationships
-        if hasattr(obj, "__rel__"):
-            for rel_type, rels in obj.__rel__.items():
-                for rel_props, end_node in rels:
-                    end_node._must_belong_to(self.graph_db)
-                    batch.create_relationship(node, rel_type, end_node, rel_props)
-        batch._submit()
 
     def load_indexed(self, cls, index_name, key, value):
         """ Load zero or more indexed nodes from the database into a list of
@@ -103,17 +150,7 @@ class Store(object):
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
         nodes = index.get(key, value)
-        return [self._load(cls, node) for node in nodes]
-
-    def load_related(self, cls, obj, rel_type):
-        if not hasattr(obj, "__rel__"):
-            return []
-        if rel_type not in obj.__rel__:
-            return []
-        return [
-            self._load(cls, end_node)
-            for rel_props, end_node in obj.__rel__[rel_type]
-        ]
+        return [self.load(cls(), node) for node in nodes]
 
     def load_unique(self, cls, index_name, key, value):
         """ Load a uniquely indexed node from the database into an object.
@@ -131,14 +168,38 @@ class Store(object):
         if len(nodes) > 1:
             raise LookupError("Multiple nodes match the given criteria; "
                               "consider using `load_all` instead.")
-        return self._load(cls, nodes[0])
+        return self.load(cls(), nodes[0])
 
-    def save_indexed(self, obj, index_name, key, value):
+    def save(self, obj, node=None):
+        """ Save object to node.
+        """
+        if node is not None:
+            obj.__node__ = node
+        # write properties
+        props = _export_properties(obj)
+        if hasattr(obj, "__node__"):
+            obj.__node__.set_properties(props)
+            cypher.execute(self.graph_db, "START a=node({A}) "
+                                          "MATCH (a)-[r]->(b) "
+                                          "DELETE r", {"A": obj.__node__._id})
+        else:
+            obj.__node__, = self.graph_db.create(props)
+        # write rels
+        if hasattr(obj, "__rel__"):
+            batch = neo4j.WriteBatch(self.graph_db)
+            for rel_type, rels in obj.__rel__.items():
+                for rel_props, end_node in rels:
+                    end_node._must_belong_to(self.graph_db)
+                    batch.create_relationship(obj.__node__, rel_type, end_node, rel_props)
+            batch._submit()
+        return obj
+
+    def save_indexed(self, obj_list, index_name, key, value):
         index = self.graph_db.get_index(neo4j.Node, index_name)
-        node = index.create(key, value, {})
-        self._save(obj, node)
+        for obj in obj_list:
+            index.add(key, value, self.save(obj))
 
     def save_unique(self, obj, index_name, key, value):
         index = self.graph_db.get_index(neo4j.Node, index_name)
         node = index.get_or_create(key, value, {})
-        self._save(obj, node)
+        self.save(obj, node)

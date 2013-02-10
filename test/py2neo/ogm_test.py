@@ -31,30 +31,49 @@ class Person(object):
         self.age = age
 
 
-class SaveUniqueTestCase(unittest.TestCase):
+class ExampleCodeTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
-        self.store = ogm.Store(self.graph_db)
+        neo4j.GraphDatabaseService().clear()
 
-    def test_can_save_simple_object(self):
-        alice = Person("alice@example.com", "Alice Allison", 34)
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
-        print(alice.__node__)
+    def test_can_execute_example_code(self):
 
-    def test_can_save_object_with_rels(self):
-        alice = Person("alice@example.com", "Alice Allison", 34)
-        bob_node, carol_node = self.graph_db.create(
-            {"name": "Bob Robertson"},
-            {"name": "Carol Carlsson"},
-        )
-        alice.__rel__ = {"KNOWS": [({}, bob_node)]}
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
-        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
-        alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
-        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
+        from py2neo import neo4j, ogm
+
+        class Person(object):
+
+            def __init__(self, email=None, name=None, age=None):
+                self.email = email
+                self.name = name
+                self.age = age
+
+        graph_db = neo4j.GraphDatabaseService()
+        store = ogm.Store(graph_db)
+
+        alice = Person("alice@example,com", "Alice Allison", 34)
+        store.save_unique(alice, "People", "email", alice.email)
+
+        bob = Person("bob@example,org", "Bob Robertson", 66)
+        carol = Person("carol@example,org", "Carol Carlsson", 42)
+        store.attach(alice, "KNOWS", bob)
+        store.attach(alice, "KNOWS", carol)
+        store.save(alice)
+
+
+class AttachTestCase(unittest.TestCase):
+    pass
+
+
+class DetachTestCase(unittest.TestCase):
+    pass
+
+
+class LoadIndexedTestCase(unittest.TestCase):
+    pass
+
+
+class LoadRelatedTestCase(unittest.TestCase):
+    pass
 
 
 class LoadUniqueTestCase(unittest.TestCase):
@@ -99,23 +118,45 @@ class LoadUniqueTestCase(unittest.TestCase):
         assert alice.email == "alice@example.com"
         assert alice.name == "Alice Allison"
         assert alice.age == 34
-        friends = self.store.load_related(Person, alice, "LIKES")
+        friends = self.store.load_related(alice, "LIKES", Person)
         assert isinstance(friends, list)
         assert len(friends) == 1
         friend = friends[0]
         assert isinstance(friend, Person)
         assert friend.__node__ == bob_node
-        enemies = self.store.load_related(Person, alice, "DISLIKES")
+        enemies = self.store.load_related(alice, "DISLIKES", Person)
         assert isinstance(enemies, list)
         assert len(enemies) == 0
 
 
-class LoadIndexedTestCase(unittest.TestCase):
+class SaveIndexedTestCase(unittest.TestCase):
     pass
 
 
-class LoadRelatedTestCase(unittest.TestCase):
-    pass
+class SaveUniqueTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_save_simple_object(self):
+        alice = Person("alice@example.com", "Alice Allison", 34)
+        self.store.save_unique(alice, "People", "email", "alice@example.com")
+        print(alice.__node__)
+
+    def test_can_save_object_with_rels(self):
+        alice = Person("alice@example.com", "Alice Allison", 34)
+        bob_node, carol_node = self.graph_db.create(
+            {"name": "Bob Robertson"},
+            {"name": "Carol Carlsson"},
+        )
+        alice.__rel__ = {"KNOWS": [({}, bob_node)]}
+        self.store.save_unique(alice, "People", "email", "alice@example.com")
+        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
+        alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
+        self.store.save_unique(alice, "People", "email", "alice@example.com")
+        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
 
 
 if __name__ == '__main__':
