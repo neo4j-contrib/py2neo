@@ -83,7 +83,7 @@ class Store(object):
     def __init__(self, graph_db):
         self.graph_db = graph_db
 
-    def attach(self, subj, rel_type, obj, properties=None):
+    def relate(self, subj, rel_type, obj, properties=None):
         if not hasattr(obj, "__node__"):
             self.save(obj)
         if not hasattr(subj, "__rel__"):
@@ -92,7 +92,8 @@ class Store(object):
             subj.__rel__[rel_type] = []
         subj.__rel__[rel_type].append((properties or {}, obj.__node__))
 
-    def detach(self, subj, rel_type):
+    def divorce(self, subj, rel_type):
+        # make rel_type optional and add optional obj?
         try:
             del subj.__rel__[rel_type]
         except AttributeError:
