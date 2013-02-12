@@ -83,23 +83,52 @@ class Store(object):
     def __init__(self, graph_db):
         self.graph_db = graph_db
 
+    def _get_node(self, endpoint):
+        if isinstance(endpoint, neo4j.Node):
+            return endpoint
+        if not hasattr(endpoint, "__node__"):
+            self.save(endpoint)
+        return endpoint.__node__
+
+    def _is_same(self, obj, endpoint):
+        if isinstance(endpoint, neo4j.Node):
+            if hasattr(obj, "__node__"):
+                return endpoint == obj.__node__
+            else:
+                return False
+        else:
+            return endpoint is obj
+
     def relate(self, subj, rel_type, obj, properties=None):
-        if not hasattr(obj, "__node__"):
-            self.save(obj)
+        """ Define a `rel_type` relationship between `subj` and `obj`. This
+        is a local operation only: nothing is saved to the database until a
+        save method is called. Relationship properties may optionally be
+        specified.
+        """
         if not hasattr(subj, "__rel__"):
             subj.__rel__ = {}
         if rel_type not in subj.__rel__:
             subj.__rel__[rel_type] = []
-        subj.__rel__[rel_type].append((properties or {}, obj.__node__))
+        subj.__rel__[rel_type].append((properties or {}, obj))
 
-    def divorce(self, subj, rel_type):
-        # make rel_type optional and add optional obj?
-        try:
+    def separate(self, subj, rel_type, obj=None):
+        """ Remove any relationship definitions which match the criteria
+        specified. This is a local operation only: nothing is saved to the
+        database until a save method is called. If no object is specified, all
+        relationships of type `rel_type` are removed.
+        """
+        if not hasattr(subj, "__rel__"):
+            return
+        if rel_type not in subj.__rel__:
+            return
+        if obj is None:
             del subj.__rel__[rel_type]
-        except AttributeError:
-            pass
-        except KeyError:
-            pass
+        else:
+            subj.__rel__[rel_type] = [
+                (props, endpoint)
+                for props, endpoint in subj.__rel__[rel_type]
+                if not self._is_same(obj, endpoint)
+            ]
 
     def load_related(self, subj, rel_type, cls):
         if not hasattr(subj, "__rel__"):
@@ -107,15 +136,14 @@ class Store(object):
         if rel_type not in subj.__rel__:
             return []
         return [
-            self.load(cls(), end_node)
-            for rel_props, end_node in subj.__rel__[rel_type]
+            self.load(cls(), self._get_node(endpoint))
+            for rel_props, endpoint in subj.__rel__[rel_type]
         ]
 
     def load(self, obj, node=None):
         """ Load data from a database node into a local object. If the `node`
         parameter is not specified, an existing `__node__` attribute will be
-        used instead, if available. This (will be) an atomic operation, carried out
-        in a single Neo4j batch.
+        used instead, if available.
 
         :param obj: the object to load into
         :param node: the node to load from
@@ -123,7 +151,6 @@ class Store(object):
         :raise TypeError: if no `node` specified and
             no `__node__` attribute found
         """
-        # MAKE ATOMIC!
         if node is not None:
             setattr(obj, "__node__", node)
         if hasattr(obj, "__node__"):
@@ -141,7 +168,7 @@ class Store(object):
 
     def load_indexed(self, cls, index_name, key, value):
         """ Load zero or more indexed nodes from the database into a list of
-            objects.
+        objects.
 
         :param cls:
         :param index_name:
@@ -172,7 +199,7 @@ class Store(object):
         return self.load(cls(), nodes[0])
 
     def save(self, obj, node=None):
-        """ Save object to node.
+        """ Save an object to a database node.
         """
         if node is not None:
             obj.__node__ = node
@@ -189,7 +216,8 @@ class Store(object):
         if hasattr(obj, "__rel__"):
             batch = neo4j.WriteBatch(self.graph_db)
             for rel_type, rels in obj.__rel__.items():
-                for rel_props, end_node in rels:
+                for rel_props, endpoint in rels:
+                    end_node = self._get_node(endpoint)
                     end_node._must_belong_to(self.graph_db)
                     batch.create_relationship(obj.__node__, rel_type, end_node, rel_props)
             batch._submit()

@@ -47,6 +47,9 @@ class ExampleCodeTestCase(unittest.TestCase):
                 self.name = name
                 self.age = age
 
+            def __repr__(self):
+                return self.name
+
         graph_db = neo4j.GraphDatabaseService()
         store = ogm.Store(graph_db)
 
@@ -55,24 +58,35 @@ class ExampleCodeTestCase(unittest.TestCase):
 
         bob = Person("bob@example,org", "Bob Robertson", 66)
         carol = Person("carol@example,org", "Carol Carlsson", 42)
-        store.attach(alice, "KNOWS", bob)
-        store.attach(alice, "KNOWS", carol)
+        store.relate(alice, "LIKES", bob)
+        store.relate(alice, "LIKES", carol)
         store.save(alice)
 
+        friends = store.load_related(alice, "LIKES", Person)
+        print(friends)
 
-class AttachTestCase(unittest.TestCase):
+        store.separate(alice, "LIKES", carol)
+        friends = store.load_related(alice, "LIKES", Person)
+        print(friends)
+
+
+class RelateTestCase(unittest.TestCase):
     pass
 
 
-class DetachTestCase(unittest.TestCase):
-    pass
-
-
-class LoadIndexedTestCase(unittest.TestCase):
+class SeparateTestCase(unittest.TestCase):
     pass
 
 
 class LoadRelatedTestCase(unittest.TestCase):
+    pass
+
+
+class LoadTestCase(unittest.TestCase):
+    pass
+
+
+class LoadIndexedTestCase(unittest.TestCase):
     pass
 
 
@@ -127,6 +141,10 @@ class LoadUniqueTestCase(unittest.TestCase):
         enemies = self.store.load_related(alice, "DISLIKES", Person)
         assert isinstance(enemies, list)
         assert len(enemies) == 0
+
+
+class SaveTestCase(unittest.TestCase):
+    pass
 
 
 class SaveIndexedTestCase(unittest.TestCase):
