@@ -15,39 +15,72 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The ogm (pronounced "Ogham") module provides Object to Graph Mapping
-    features similar to ORM facilities available for relational databases.
+""" The ogm module provides Object to Graph Mapping features similar to ORM
+facilities available for relational databases. All functionality is available
+through the :py:class:`Store` class which is bound to a specific
+:py:class:`neo4j.GraphDatabaseService` instance on creation.
 
-    This module provides a :py:class:`Store` class which is the core of all
-    object storage. The methods provided allow standard Python objects to be
-    persisted and retrieved using save and load calls respectively::
+Conceptually, a mapped object "owns" a single node within the graph along with
+all of that node's outgoing relationships. These features are managed via a
+pair of attributes called `__node__` and `__rel__` which store details of the
+mapped node and the outgoing relationships respectively. There are specific
+requirements for a mapped object except for a nullary constructor which can be
+used to create new instances.
 
-        from py2neo import neo4j, ogm
+The `__node__` attribute holds a :py:class:`neo4j.Node` object which is the
+node to which this object is mapped. If the attribute does not exist, or is
+:py:const:`None`, the object is considered "unsaved".
 
-        class Person(object):
+The `__rel__` attribute holds a dictionary of outgoing relationship details.
+Each key corresponds to a relationship type and each value to a list of
+2-tuples representing the outgoing relationships of that type. Within each
+2-tuple, the first value holds a dictionary of relationship properties (which
+may be empty) and the second value holds the endpoint. The endpoint may be
+either a :py:class:`neo4j.Node` instance or another mapped object. Any such
+objects which are unsaved will be lazily saved as required by creation of the
+relationship itself. The following data structure outline shows an example of
+a `__rel__` attribute (where `alice` and `bob` represent other mapped objects::
 
-            def __init__(self, email=None, name=None, age=None):
-                self.email = email
-                self.name = name
-                self.age = age
+    {
+        "LIKES": [
+            ({}, alice),
+            ({"since": 1999}, bob)
+        ]
+    }
 
-            def __str__(self):
-                return self.name
+To manage relationships, use the :py:func:`Store.relate` and
+:py:func:`Store.separate` methods. Neither method makes any calls to the
+database and operates only on the local `__rel__` attribute. Changes must be
+explicitly saved via one of the available save methods.
 
-        graph_db = neo4j.GraphDatabaseService()
-        store = ogm.Store(graph_db)
+The code below shows a quick example of usage::
 
-        alice = Person("alice@example,com", "Alice Allison", 34)
-        store.save_unique(alice, "People", "email", alice.email)
+    from py2neo import neo4j, ogm
 
-        bob = Person("bob@example,org", "Bob Robertson", 66)
-        carol = Person("carol@example,org", "Carol Carlsson", 42)
-        store.relate(alice, "LIKES", bob)
-        store.relate(alice, "LIKES", carol)
-        store.save(alice)
+    class Person(object):
 
-        friends = store.load_related(alice, "LIKES", Person)
-        print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
+        def __init__(self, email=None, name=None, age=None):
+            self.email = email
+            self.name = name
+            self.age = age
+
+        def __str__(self):
+            return self.name
+
+    graph_db = neo4j.GraphDatabaseService()
+    store = ogm.Store(graph_db)
+
+    alice = Person("alice@example,com", "Alice", 34)
+    store.save_unique(alice, "People", "email", alice.email)
+
+    bob = Person("bob@example,org", "Bob", 66)
+    carol = Person("carol@example,org", "Carol", 42)
+    store.relate(alice, "LIKES", bob)
+    store.relate(alice, "LIKES", carol)
+    store.save(alice)
+
+    friends = store.load_related(alice, "LIKES", Person)
+    print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 """
 
@@ -126,8 +159,8 @@ class Store(object):
         :param obj: the object to load into
         :param node: the node to load from
         :return: the object
-        :raise TypeError: if no `node` specified and
-            no `__node__` attribute found
+        :raise TypeError: if no `node` specified and no `__node__`
+            attribute found
         """
         if node is not None:
             setattr(obj, "__node__", node)
