@@ -31,6 +31,9 @@
                 self.name = name
                 self.age = age
 
+            def __str__(self):
+                return self.name
+
         graph_db = neo4j.GraphDatabaseService()
         store = ogm.Store(graph_db)
 
@@ -38,44 +41,19 @@
         store.save_unique(alice, "People", "email", alice.email)
 
         bob = Person("bob@example,org", "Bob Robertson", 66)
-        store.save_unique(bob, "People", "email", bob.email)
-
-        carol = Person("carol@example,net", "Carol Carlsson", 42)
-        store.save_unique(carol, "People", "email", carol.email)
-
-        ogm.attach(alice, "LIKES", bob)
-        ogm.attach(alice, "DISLIKES", carol)
+        carol = Person("carol@example,org", "Carol Carlsson", 42)
+        store.relate(alice, "LIKES", bob)
+        store.relate(alice, "LIKES", carol)
         store.save(alice)
 
-        ogm.attach(bob, "LIKES", alice)
-        ogm.attach(bob, "LIKES", carol)
-        store.save(bob)
-
-        ogm.attach(carol, "LIKES", bob)
-        store.save(carol)
+        friends = store.load_related(alice, "LIKES", Person)
+        print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import absolute_import, unicode_literals
 
 from . import neo4j, cypher
-
-
-def _export_properties(obj):
-    # cast object attributes to neo4j-compatible properties
-    props = {}
-    for key, value in obj.__dict__.items():
-        if not key.startswith("_"):
-            # cast value
-            props[key] = value
-    return props
-
-def _import_properties(subj, props):
-    # write neo4j properties to object attributes
-    for key, value in props.items():
-        if not key.startswith("_"):
-            # uncast value to key type
-            setattr(subj, key, value)
 
 
 class Store(object):
@@ -159,7 +137,10 @@ class Store(object):
             node, = self.graph_db.create({})
             obj.__node__ = node
         setattr(obj, "__rel__", {})
-        _import_properties(obj, node.get_properties())
+        # naively copy properties from node to object
+        for key, value in node.get_properties().items():
+            if not key.startswith("_"):
+                setattr(obj, key, value)
         for rel in node.match():
             if rel.type not in obj.__rel__:
                 obj.__rel__[rel.type] = []
@@ -203,8 +184,11 @@ class Store(object):
         """
         if node is not None:
             obj.__node__ = node
-        # write properties
-        props = _export_properties(obj)
+        # naively copy properties from object to node
+        props = {}
+        for key, value in obj.__dict__.items():
+            if not key.startswith("_"):
+                props[key] = value
         if hasattr(obj, "__node__"):
             obj.__node__.set_properties(props)
             cypher.execute(self.graph_db, "START a=node({A}) "

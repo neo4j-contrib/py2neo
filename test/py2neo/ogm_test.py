@@ -47,7 +47,7 @@ class ExampleCodeTestCase(unittest.TestCase):
                 self.name = name
                 self.age = age
 
-            def __repr__(self):
+            def __str__(self):
                 return self.name
 
         graph_db = neo4j.GraphDatabaseService()
@@ -63,11 +63,7 @@ class ExampleCodeTestCase(unittest.TestCase):
         store.save(alice)
 
         friends = store.load_related(alice, "LIKES", Person)
-        print(friends)
-
-        store.separate(alice, "LIKES", carol)
-        friends = store.load_related(alice, "LIKES", Person)
-        print(friends)
+        print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 
 class RelateTestCase(unittest.TestCase):
