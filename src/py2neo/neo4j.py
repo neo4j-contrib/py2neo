@@ -16,7 +16,7 @@
 # limitations under the License.
 
 """ The neo4j module provides the main Neo4j client functionality and will be
-    the starting point for most applications.
+the starting point for most applications.
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -35,17 +35,17 @@ DEFAULT_URI = "http://localhost:7474/db/data/"
 
 def authenticate(netloc, user_name, password):
     """ Set HTTP basic authentication values for specified `netloc`. The code
-        below shows a simple example::
+    below shows a simple example::
 
-            # set up authentication parameters
-            neo4j.authenticate("camelot:7474", "arthur", "excalibur")
+        # set up authentication parameters
+        neo4j.authenticate("camelot:7474", "arthur", "excalibur")
 
-            # connect to authenticated graph database
-            graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
+        # connect to authenticated graph database
+        graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
 
-        Note: a `netloc` can be either a server name or a server name and port
-        number but must match exactly that used within the GraphDatabaseService
-        URI.
+    Note: a `netloc` can be either a server name or a server name and port
+    number but must match exactly that used within the GraphDatabaseService
+    URI.
 
     :param netloc: the host and port requiring authentication (e.g. "camelot:7474")
     :param user_name: the user name to authenticate as
@@ -67,7 +67,7 @@ def set_timeout(netloc, timeout):
 
 def _assert_expected_response(cls, uri, metadata):
     """ Checks the metadata received against a specific class to confirm this
-        is the type of response expected.
+    is the type of response expected.
     """
     has_all = lambda iterable, items: all(item in iterable for item in items)
     if cls is GraphDatabaseService:
@@ -93,7 +93,8 @@ def _assert_expected_response(cls, uri, metadata):
 
 
 class Direction(object):
-    """ Defines the direction of a relationship.
+    """ Defines the direction of a relationship. This class is deprecated as
+    all dependent functions are also deprecated.
     """
 
     BOTH     =  0
@@ -528,24 +529,23 @@ class WriteBatch(_Batch):
 
 class GraphDatabaseService(rest.Resource):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
-        its base URI. Generally speaking, this is the only URI which a system
-        attaching to this service should need to be directly aware of; all
-        further entity URIs will be discovered automatically from within
-        response content when possible (see
-        `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_) or will be
-        derived from existing URIs.
+    its base URI. Generally speaking, this is the only URI which a system
+    attaching to this service should need to be directly aware of; all further
+    entity URIs will be discovered automatically from within response content
+    when possible (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_)
+    or will be derived from existing URIs.
 
-        The following code illustrates how to connect to a database server and
-        display its version number::
+    The following code illustrates how to connect to a database server and
+    display its version number::
 
-            from py2neo import neo4j
-            uri = "http://localhost:7474/db/data/"
-            graph_db = neo4j.GraphDatabaseService(uri)
-            print(graph_db.neo4j_version)
+        from py2neo import neo4j
+        
+        graph_db = neo4j.GraphDatabaseService(neo4j.DEFAULT_URI)
+        print(graph_db.neo4j_version)
 
-    :param uri:       the base URI of the database (defaults to the value of
-                      :py:data:`DEFAULT_URI`)
-    :param metadata:  optional resource metadata
+    :param uri: the base URI of the database (defaults to the value of
+        :py:data:`DEFAULT_URI`)
+    :param metadata: optional resource metadata
     """
 
     def __init__(self, uri=None, metadata=None):
@@ -567,7 +567,7 @@ class GraphDatabaseService(rest.Resource):
 
     def __nonzero__(self):
         """ Return :py:const:`True` is this graph contains at least one
-            relationship.
+        relationship.
         """
         data, metadata = cypher.execute(self, "START r=rel(*) RETURN r LIMIT 1")
         if data and data[0]:
@@ -596,8 +596,8 @@ class GraphDatabaseService(rest.Resource):
         return self._extensions[plugin_name][function_name]
 
     def _resolve(self, data, status=200, id_=None):
-        """ Create `Node`, `Relationship` or `Path` object from dictionary
-            of key:value pairs.
+        """ Create `Node`, `Relationship` or `Path` object from dictionary of
+        key:value pairs.
         """
         if data is None:
             return None
@@ -642,7 +642,7 @@ class GraphDatabaseService(rest.Resource):
             return data
 
     def clear(self):
-        """Clear all nodes and relationships from the graph.
+        """ Clear all nodes and relationships from the graph.
 
         .. warning::
             This method will permanently remove **all** nodes and relationships
@@ -651,7 +651,7 @@ class GraphDatabaseService(rest.Resource):
         cypher.execute(self, "START n=node(*), r=rel(*) DELETE r, n", {})
 
     def create(self, *abstracts):
-        """Create multiple nodes and/or relationships as part of a single
+        """ Create multiple nodes and/or relationships as part of a single
         batch, returning a list of :py:class:`Node` and
         :py:class:`Relationship` instances. For a node, simply pass a
         dictionary of properties; for a relationship, pass a tuple of
@@ -700,7 +700,7 @@ class GraphDatabaseService(rest.Resource):
         return batch.submit()
 
     def delete(self, *entities):
-        """Delete multiple nodes and/or relationships as part of a single
+        """ Delete multiple nodes and/or relationships as part of a single
         batch.
         """
         if not entities:
@@ -731,7 +731,7 @@ class GraphDatabaseService(rest.Resource):
                 "deprecated, please use either WriteBatch."
                 "get_or_create_relationship or Path.get_or_create instead.")
     def get_or_create_relationships(self, *abstracts):
-        """Fetch or create relationships with the specified criteria depending
+        """ Fetch or create relationships with the specified criteria depending
         on whether or not such relationships exist. Each relationship
         descriptor should be a tuple of (start, type, end) or (start, type,
         end, data) where start and end are either existing :py:class:`Node`
@@ -785,7 +785,7 @@ class GraphDatabaseService(rest.Resource):
             )
 
     def get_properties(self, *entities):
-        """Fetch properties for multiple nodes and/or relationships as part
+        """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
         as the supplied entities.
         """
@@ -800,7 +800,7 @@ class GraphDatabaseService(rest.Resource):
 
     def get_relationship_types(self):
         """ Fetch a list of relationship type names currently defined within
-            this database instance.
+        this database instance.
         """
         return self._send(
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
@@ -844,7 +844,8 @@ class GraphDatabaseService(rest.Resource):
         return [row[0] for row in data]
 
     def match_one(self, start_node=None, type=None, end_node=None, bidirectional=False):
-        """ Fetch a single relationships which matches a specific set of criteria.
+        """ Fetch a single relationship which matches a specific set of
+        criteria.
 
         :param start_node: start :py:class:`Node` to match
         :param type: type of the relationships to match
@@ -912,11 +913,11 @@ class GraphDatabaseService(rest.Resource):
 
     def get_index(self, type, name):
         """ Fetch a specific index from the current database, returning an
-            :py:class:`Index` instance. If an index with the supplied `name` and
-            content `type` does not exist, :py:const:`None` is returned.
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, :py:const:`None` is returned.
 
-            .. seealso:: :py:func:`get_or_create_index`
-            .. seealso:: :py:class:`Index`
+        .. seealso:: :py:func:`get_or_create_index`
+        .. seealso:: :py:class:`Index`
         """
         if name not in self._indexes[type]:
             self.get_indexes(type)
@@ -927,18 +928,18 @@ class GraphDatabaseService(rest.Resource):
 
     def get_or_create_index(self, type, name, config=None):
         """ Fetch a specific index from the current database, returning an
-            :py:class:`Index` instance. If an index with the supplied `name` and
-            content `type` does not exist, one is created with either the
-            default configuration or that supplied in `config`::
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, one is created with either the
+        default configuration or that supplied in `config`::
 
-                # get or create a node index called "People"
-                people = graph_db.get_or_create_index(neo4j.Node, "People")
+            # get or create a node index called "People"
+            people = graph_db.get_or_create_index(neo4j.Node, "People")
 
-                # get or create a relationship index called "Friends"
-                friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
+            # get or create a relationship index called "Friends"
+            friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
 
-            .. seealso:: :py:func:`get_index`
-            .. seealso:: :py:class:`Index`
+        .. seealso:: :py:func:`get_index`
+        .. seealso:: :py:class:`Index`
         """
         if name not in self._indexes[type]:
             self.get_indexes(type)
@@ -971,7 +972,7 @@ class GraphDatabaseService(rest.Resource):
 
     def get_indexed_node(self, index, key, value):
         """ Fetch the first node indexed with the specified details, returning
-            :py:const:`None` if none found.
+        :py:const:`None` if none found.
         """
         index = self.get_index(Node, index)
         if index:
@@ -982,14 +983,14 @@ class GraphDatabaseService(rest.Resource):
 
     def get_or_create_indexed_node(self, index, key, value, properties=None):
         """ Fetch the first node indexed with the specified details, creating
-            and returning a node if none found.
+        and returning a new indexed node if none found.
         """
         index = self.get_or_create_index(Node, index)
         return index.get_or_create(key, value, properties or {})
 
     def get_indexed_relationship(self, index, key, value):
         """ Fetch the first relationship indexed with the specified details,
-            returning :py:const:`None` if none found.
+        returning :py:const:`None` if none found.
         """
         index = self.get_index(Relationship, index)
         if index:
@@ -1000,7 +1001,7 @@ class GraphDatabaseService(rest.Resource):
 
 
 class PropertyContainer(rest.Resource):
-    """Base class from which :py:class:`Node` and :py:class:`Relationship`
+    """ Base class from which :py:class:`Node` and :py:class:`Relationship`
     classes inherit. Provides property management functionality by defining
     standard Python container handler methods::
 
@@ -1027,10 +1028,11 @@ class PropertyContainer(rest.Resource):
     """
 
     def __init__(self, uri, reference_marker, graph_db=None, metadata=None):
-        """Create container for properties with caching capabilities.
+        """ Create container for properties with caching capabilities.
 
-        :param uri:       URI identifying this resource
-        :param metadata:  index of resource metadata
+        :param uri: URI identifying this resource
+        :param graph_db: graph database to which this resource belongs
+        :param metadata: resource metadata
         """
         rest.Resource.__init__(self, uri, reference_marker, metadata=metadata)
         if graph_db is not None:
@@ -1074,8 +1076,8 @@ class PropertyContainer(rest.Resource):
             )
 
     def _must_belong_to(self, graph_db):
-        """ Raise a ValueError if this entity does not belong
-            to the graph supplied.
+        """ Raise a :py:error:`ValueError` if this entity does not belong to
+        the graph supplied.
         """
         if not isinstance(graph_db, GraphDatabaseService):
             raise TypeError(graph_db)
@@ -1097,9 +1099,9 @@ class PropertyContainer(rest.Resource):
         else:
             return {}
 
-    def set_properties(self, properties=None):
+    def set_properties(self, properties):
         """ Replace all properties for this resource with the supplied
-            dictionary of values.
+        dictionary of values.
         """
         self._send(rest.Request(
             self._graph_db, "PUT", self.__metadata__['properties'], compact(properties)
@@ -1114,13 +1116,11 @@ class PropertyContainer(rest.Resource):
 
 
 class Node(PropertyContainer):
-    """A node within a graph, identified by a URI. This class is
-    :py:class:`_Indexable` and, as such, may also contain URIs identifying how
-    this relationship is represented within an index.
+    """ A node within a graph, identified by a URI.
     
-    :param uri:      URI identifying this node
-    :param graph_db: GraphDatabaseService in which this Node resides
-    :param metadata: index of resource metadata
+    :param uri: URI identifying this node
+    :param graph_db: the graph database to which this node belongs
+    :param metadata: resource metadata
     """
 
     def __init__(self, uri, graph_db=None, metadata=None):
@@ -1134,7 +1134,7 @@ class Node(PropertyContainer):
         )
 
     def __str__(self):
-        """Return a human-readable string representation of this node
+        """ Return a human-readable string representation of this node
         object, e.g.:
         
             >>> print str(my_node)
@@ -1144,7 +1144,7 @@ class Node(PropertyContainer):
 
     @property
     def id(self):
-        """Return the unique id for this node.
+        """ Return the unique id for this node.
         """
         return self._id
 
@@ -1157,7 +1157,7 @@ class Node(PropertyContainer):
         except rest.ResourceNotFound:
             return False
 
-    def update_properties(self, properties=None):
+    def update_properties(self, properties):
         """ Update the properties for this node with the values supplied.
         """
         batch = WriteBatch(self._graph_db)
@@ -1172,8 +1172,8 @@ class Node(PropertyContainer):
                 "Node.create_path instead.")
     def create_relationship_from(self, other_node, type, properties=None):
         """ Create and return a new relationship of type `type` from the node
-            represented by `other_node` to the node represented by the current
-            instance.
+        represented by `other_node` to the node represented by the current
+        instance.
         """
         if not isinstance(other_node, Node):
             return TypeError("Start node is not a neo4j.Node instance")
@@ -1183,8 +1183,8 @@ class Node(PropertyContainer):
                 "Node.create_path instead.")
     def create_relationship_to(self, other_node, type, properties=None):
         """ Create and return a new relationship of type `type` from the node
-            represented by the current instance to the node represented by
-            `other_node`.
+        represented by the current instance to the node represented by
+        `other_node`.
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
@@ -1240,7 +1240,7 @@ class Node(PropertyContainer):
     @deprecated("Node.get_related_nodes is deprecated, please use "
                 "Node.match instead.")
     def get_related_nodes(self, direction=Direction.EITHER, *types):
-        """Fetch all nodes related to the current node by a relationship in a
+        """ Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
         """
         if types:
@@ -1255,7 +1255,7 @@ class Node(PropertyContainer):
     @deprecated("Node.get_relationships is deprecated, please use "
                 "Node.match instead.")
     def get_relationships(self, direction=Direction.EITHER, *types):
-        """Fetch all relationships from the current node in a given
+        """ Fetch all relationships from the current node in a given
         `direction` of a specific `type` (if supplied).
         """
         if types:
@@ -1270,7 +1270,7 @@ class Node(PropertyContainer):
     @deprecated("Node.get_relationships_with is deprecated, please use "
                 "Node.match instead.")
     def get_relationships_with(self, other, direction=Direction.EITHER, *types):
-        """Return all relationships between this node and another node using
+        """ Return all relationships between this node and another node using
         the relationship criteria supplied.
         """
         if not isinstance(other, Node):
@@ -1294,7 +1294,7 @@ class Node(PropertyContainer):
     @deprecated("Node.get_single_related_node is deprecated, please use "
                 "Node.match_one instead.")
     def get_single_related_node(self, direction=Direction.EITHER, *types):
-        """Return only one node related to the current node by a relationship
+        """ Return only one node related to the current node by a relationship
         in the given `direction` of the specified `type`, if any such
         relationships exist.
         """
@@ -1307,7 +1307,7 @@ class Node(PropertyContainer):
     @deprecated("Node.get_single_relationship is deprecated, please use "
                 "Node.match_one instead.")
     def get_single_relationship(self, direction=Direction.EITHER, *types):
-        """Fetch only one relationship from the current node in the given
+        """ Fetch only one relationship from the current node in the given
         `direction` of the specified `type`, if any such relationships exist.
         """
         relationships = self.get_relationships(direction, *types)
@@ -1319,7 +1319,7 @@ class Node(PropertyContainer):
     @deprecated("Node.has_relationship is deprecated, please use "
                 "Node.match_one instead.")
     def has_relationship(self, direction=Direction.EITHER, *types):
-        """Return :py:const:`True` if this node has any relationships with the
+        """ Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships(direction, *types)
@@ -1328,7 +1328,7 @@ class Node(PropertyContainer):
     @deprecated("Node.has_relationship_with is deprecated, please use "
                 "Node.match_one instead.")
     def has_relationship_with(self, other, direction=Direction.EITHER, *types):
-        """Return :py:const:`True` if this node has any relationships with the
+        """ Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
         """
         relationships = self.get_relationships_with(other, direction, *types)
@@ -1337,7 +1337,7 @@ class Node(PropertyContainer):
     @deprecated("Node.is_related_to is deprecated, please use "
                 "Node.match_one instead.")
     def is_related_to(self, other, direction=Direction.EITHER, *types):
-        """Return :py:const:`True` if the current node is related to the other
+        """ Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`
         otherwise.
         """
@@ -1351,68 +1351,66 @@ class Node(PropertyContainer):
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
-            alternating relationships and nodes provided::
+        alternating relationships and nodes provided::
 
-                (self)-[rel_0]->(node_0)-[rel_1]->(node_1) ...
-                       |-----|  |------| |-----|  |------|
-                 item:    0        1        2        3
+            (self)-[rel_0]->(node_0)-[rel_1]->(node_1) ...
+                   |-----|  |------| |-----|  |------|
+             item:    0        1        2        3
 
-            Each relationship may be specified as one of the following:
+        Each relationship may be specified as one of the following:
 
-            - a string holding the relationship type, e.g. "KNOWS"
-            - a (`str`, `dict`) tuple holding both the relationship type and
-              its properties, e.g. ("KNOWS", {"since": 1999})
-            - an existing Relationship instance
+        - an existing Relationship instance
+        - a string holding the relationship type, e.g. "KNOWS"
+        - a (`str`, `dict`) tuple holding both the relationship type and
+          its properties, e.g. ("KNOWS", {"since": 1999})
 
-            Nodes can be any of the following:
+        Nodes can be any of the following:
 
-            - :py:const:`None`, representing an unspecified node that will be
-              created as required
-            - an integer containing a node ID
-            - a 3-tuple holding an index name, key and value for identifying
-              indexed nodes, e.g. ("People", "email", "bob@example.com")
-            - a `dict` holding a set of properties for a new node
-            - an existing Node instance
+        - an existing Node instance
+        - an integer containing the ID of an existing node
+        - a `dict` holding a set of properties for a new node
+        - a 3-tuple holding an index name, key and value for identifying
+          indexed nodes, e.g. ("People", "email", "bob@example.com")
+        - :py:const:`None`, representing an unspecified node that will be
+          created as required
 
-            Note there MUST be an even number of items supplied
-
-            :param items: alternating relationships and nodes
-            :return: `Path` object representing the newly-created path
+        :param items: alternating relationships and nodes
+        :return: `Path` object representing the newly-created path
         """
         path = Path(self, *items)
         return path.create(self._graph_db)
 
     def get_or_create_path(self, *items):
         """ Identical to `create_path` except will reuse parts of the path
-            which already exist.
+        which already exist.
 
-            Some examples::
+        Some examples::
 
-                # add dates to calendar, starting at calendar_root
-                christmas_day = calendar_root.get_or_create_path(
-                    "YEAR",  {"number": 2000},
-                    "MONTH", {"number": 12},
-                    "DAY",   {"number": 25},
-                )
-                # `christmas_day` will now contain a `Path` object
-                # containing the nodes and relationships used:
-                # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
+            # add dates to calendar, starting at calendar_root
+            christmas_day = calendar_root.get_or_create_path(
+                "YEAR",  {"number": 2000},
+                "MONTH", {"number": 12},
+                "DAY",   {"number": 25},
+            )
+            # `christmas_day` will now contain a `Path` object
+            # containing the nodes and relationships used:
+            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
 
-                # adding a second, overlapping path will reuse
-                # nodes and relationships wherever possible
-                christmas_eve = calendar_root.get_or_create_path(
-                    "YEAR",  {"number": 2000},
-                    "MONTH", {"number": 12},
-                    "DAY",   {"number": 24},
-                )
-                # `christmas_eve` will contain the same year and month nodes
-                # as `christmas_day` but a different (new) day node:
-                # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12) [:DAY]->(25)
-                #                                  |
-                #                                [:DAY]
-                #                                  |
-                #                                  v
-                #                                 (24)
+            # adding a second, overlapping path will reuse
+            # nodes and relationships wherever possible
+            christmas_eve = calendar_root.get_or_create_path(
+                "YEAR",  {"number": 2000},
+                "MONTH", {"number": 12},
+                "DAY",   {"number": 24},
+            )
+            # `christmas_eve` will contain the same year and month nodes
+            # as `christmas_day` but a different (new) day node:
+            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
+            #                                  |
+            #                                [:DAY]
+            #                                  |
+            #                                  v
+            #                                 (24)
 
         """
         path = Path(self, *items)
@@ -1420,12 +1418,11 @@ class Node(PropertyContainer):
 
 
 class Relationship(PropertyContainer):
-    """A relationship within a graph, identified by a URI. This class is
-    :py:class:`_Indexable` and, as such, may also contain URIs identifying how
-    this relationship is represented within an index.
+    """ A relationship within a graph, identified by a URI.
     
-    :param uri:             URI identifying this relationship
-    :param metadata:        index of resource metadata
+    :param uri: URI identifying this relationship
+    :param graph_db: the graph database to which this relationship belongs
+    :param metadata: resource metadata
     """
 
     def __init__(self, uri, graph_db=None, metadata=None):
@@ -1444,9 +1441,9 @@ class Relationship(PropertyContainer):
     def __str__(self):
         """ Return an ASCII art representation of this relationship, e.g.:
         
-                >>> print str(my_rel)
-                '[23:KNOWS]'
-        
+            >>> print str(my_rel)
+            '[23:KNOWS]'
+    
         """
         return "[{0}:{1}]".format(self.id, self.type)
 
@@ -1459,8 +1456,9 @@ class Relationship(PropertyContainer):
         except rest.ResourceNotFound:
             return False
 
-    def update_properties(self, properties=None):
-        """ Update the properties for this relationship with the values supplied.
+    def update_properties(self, properties):
+        """ Update the properties for this relationship with the values
+        supplied.
         """
         batch = WriteBatch(self._graph_db)
         for key, value in properties.items():
@@ -1471,20 +1469,20 @@ class Relationship(PropertyContainer):
         batch._submit()
 
     def delete(self):
-        """Delete this relationship from the database.
+        """ Delete this relationship from the database.
         """
         self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
 
     @property
     def end_node(self):
-        """Return the end node of this relationship.
+        """ Return the end node of this relationship.
         """
         if not self._end_node:
             self._end_node = Node(self.__metadata__['end'], graph_db=self._graph_db)
         return self._end_node
 
     def other_node(self, node):
-        """Return a node object representing the node within this
+        """ Return a node object representing the node within this
         relationship which is not the one supplied.
         """
         if self.__metadata__['end'] == node._uri:
@@ -1494,24 +1492,24 @@ class Relationship(PropertyContainer):
 
     @property
     def id(self):
-        """Return the unique id for this relationship.
+        """ Return the unique id for this relationship.
         """
         return self._id
 
     def is_type(self, type):
-        """Return :py:const:`True` if this relationship is of the given type.
+        """ Return :py:const:`True` if this relationship is of the given type.
         """
         return self.type == type
 
     @property
     def nodes(self):
-        """Return a tuple of the two nodes attached to this relationship.
+        """ Return a tuple of the two nodes attached to this relationship.
         """
         return self.start_node, self.end_node
 
     @property
     def start_node(self):
-        """Return the start node of this relationship.
+        """ Return the start node of this relationship.
         """
         if not self._start_node:
             self._start_node = Node(self.__metadata__['start'], graph_db=self._graph_db)
@@ -1519,7 +1517,7 @@ class Relationship(PropertyContainer):
 
     @property
     def type(self):
-        """Return the type of this relationship.
+        """ Return the type of this relationship.
         """
         if not self._type:
             self._type = self.__metadata__['type']
@@ -1527,7 +1525,7 @@ class Relationship(PropertyContainer):
 
 
 class Index(rest.Resource):
-    """Searchable database index which can contain either nodes or
+    """ Searchable database index which can contain either nodes or
     relationships.
 
     .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
@@ -1558,10 +1556,9 @@ class Index(rest.Resource):
         )
 
     def add(self, key, value, entity):
-        """Add an entity to this index under the `key`:`value` pair supplied::
+        """ Add an entity to this index under the `key`:`value` pair supplied::
 
-            # create a node and obtain
-            # a reference to the "People" node index
+            # create a node and obtain a reference to the "People" node index
             alice, = graph_db.create({"name": "Alice Smith"})
             people = graph_db.get_or_create_index(neo4j.Node, "People")
 
@@ -1580,7 +1577,7 @@ class Index(rest.Resource):
         return entity
 
     def add_if_none(self, key, value, entity):
-        """Add an entity to this index under the `key`:`value` pair
+        """ Add an entity to this index under the `key`:`value` pair
         supplied if no entry already exists at that point::
 
             # obtain a reference to the "Rooms" node index and
@@ -1603,19 +1600,19 @@ class Index(rest.Resource):
 
     @property
     def content_type(self):
-        """Return the type of entity contained within this index. Will return
+        """ Return the type of entity contained within this index. Will return
         either :py:class:`Node` or :py:class:`Relationship`.
         """
         return self._content_type
 
     @property
     def name(self):
-        """Return the name of this index.
+        """ Return the name of this index.
         """
         return self._name
 
     def get(self, key, value):
-        """Fetch a list of all entities from the index which are associated
+        """ Fetch a list of all entities from the index which are associated
         with the `key`:`value` pair supplied::
 
             # obtain a reference to the "People" node index and
@@ -1636,7 +1633,7 @@ class Index(rest.Resource):
 
     def create(self, key, value, abstract):
         """ Create and index a new node or relationship using the abstract
-            provided.
+        provided.
         """
         batch = WriteBatch(self._graph_db)
         if self._content_type is Node:
@@ -1659,7 +1656,7 @@ class Index(rest.Resource):
         return entity
 
     def _create_unique(self, key, value, abstract):
-        """Internal method to support `get_or_create` and `create_if_none`.
+        """ Internal method to support `get_or_create` and `create_if_none`.
         """
         if self._content_type is Node:
             body = {
@@ -1683,7 +1680,7 @@ class Index(rest.Resource):
         )
 
     def get_or_create(self, key, value, abstract):
-        """Fetch a single entity from the index which is associated with the
+        """ Fetch a single entity from the index which is associated with the
         `key`:`value` pair supplied, creating a new entity with the supplied
         details if none exists::
 
@@ -1709,7 +1706,7 @@ class Index(rest.Resource):
         return self._content_type(rs.body["self"], self._graph_db)
 
     def create_if_none(self, key, value, abstract):
-        """Create a new entity with the specified details within the current
+        """ Create a new entity with the specified details within the current
         index, under the `key`:`value` pair supplied, if no such entity already
         exists. If creation occurs, the new entity will be returned, otherwise
         :py:const:`None` will be returned::
@@ -1731,7 +1728,7 @@ class Index(rest.Resource):
             return None
 
     def remove(self, key=None, value=None, entity=None):
-        """Remove any entries from the index which pertain to the parameters
+        """ Remove any entries from the index which match the parameters
         supplied. The allowed parameter combinations are:
 
         `key`, `value`, `entity`
@@ -1794,7 +1791,7 @@ class Index(rest.Resource):
             raise TypeError("Illegal parameter combination for index removal")
 
     def query(self, query):
-        """Query the index according to the supplied query criteria, returning
+        """ Query the index according to the supplied query criteria, returning
         a list of matched entities::
 
             # obtain a reference to the "People" node index and
@@ -1815,6 +1812,8 @@ class Index(rest.Resource):
 
 
 class Path(object):
+    """ A representation of a sequence of nodes connected by relationships.
+    """
 
     def __init__(self, node, *rels_and_nodes):
         self._nodes = [node]
@@ -1883,9 +1882,13 @@ class Path(object):
         return iter(relationship_tuples())
 
     def order(self):
+        """ Return the number of nodes within this path.
+        """
         return len(self._nodes)
 
     def size(self):
+        """ Return the number of relationships within this path.
+        """
         return len(self._relationships)
 
     @property
@@ -1902,6 +1905,8 @@ class Path(object):
 
     @classmethod
     def join(cls, left, rel, right):
+        """ Join the two paths `left` and `right` with the relationship `rel`.
+        """
         if isinstance(left, Path):
             left = left[:]
         else:
@@ -1965,7 +1970,15 @@ class Path(object):
             )
 
     def create(self, graph_db):
+        """ Construct a path within the specified `graph_db` from the nodes
+        and relationships within this :py:class:`Path` instance. This makes
+        use of Cypher's ``CREATE`` clause.
+        """
         return self._create(graph_db, "CREATE")
 
     def get_or_create(self, graph_db):
+        """ Construct a unique path within the specified `graph_db` from the
+        nodes and relationships within this :py:class:`Path` instance. This
+        makes use of Cypher's ``CREATE UNIQUE`` clause.
+        """
         return self._create(graph_db, "CREATE UNIQUE")
