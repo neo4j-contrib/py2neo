@@ -1,7 +1,7 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2012 Nigel Small
+# Copyright 2011-2013, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,11 +23,6 @@ import socket
 import unittest
 
 from py2neo import rest
-
-
-__author__    = "Nigel Small <nasmall@gmail.com>"
-__copyright__ = "Copyright 2011-2012 Nigel Small"
-__license__   = "Apache License, Version 2.0"
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",

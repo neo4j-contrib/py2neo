@@ -1,7 +1,7 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2012 Nigel Small
+# Copyright 2011-2013, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,11 +22,6 @@ PY3K = sys.version_info[0] >= 3
 
 from py2neo import cypher, neo4j
 import unittest
-
-
-__author__    = "Nigel Small <nasmall@gmail.com>"
-__copyright__ = "Copyright 2011-2012 Nigel Small"
-__license__   = "Apache License, Version 2.0"
 
 class CypherTestCase(unittest.TestCase):
 
