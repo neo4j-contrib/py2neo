@@ -15,45 +15,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
-
-import sys
-PY3K = sys.version_info[0] >= 3
+import unittest
 
 from py2neo import cypher, neo4j
-import unittest
+
+def alice_and_bob(graph_db):
+    return graph_db.create(
+        {"name": "Alice", "age": 66},
+        {"name": "Bob", "age": 77},
+        (0, "KNOWS", 1),
+    )
+
 
 class CypherTestCase(unittest.TestCase):
 
     def setUp(self):
-        super(CypherTestCase, self).setUp()
-        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.node_a, self.node_b = self.graph_db.create({"name": "Alice"}, {"name": "Bob"})
-        self.rel_ab = self.node_a.create_relationship_to(self.node_b, "KNOWS")
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
 
     def test_nonsense_query(self):
-        self.assertRaises(cypher.CypherError, cypher.execute,
-            self.graph_db, "select z=nude(0) returns x"
-        )
+        self.assertRaises(cypher.CypherError, cypher.execute, self.graph_db, (
+            "SELECT z=nude(0) "
+            "RETURNS x"
+        ))
 
     def test_nonsense_query_with_error_handler(self):
         def print_error(message, exception, stacktrace):
             print(message)
             self.assertTrue(len(message) > 0)
-        cypher.execute(
-            self.graph_db, "select z=nude(0) returns x",
-            error_handler=print_error
-        )
+        cypher.execute(self.graph_db, (
+            "SELECT z=nude(0) "
+            "RETURNS x"
+        ), error_handler=print_error)
         self.assertTrue(True)
 
     def test_query(self):
-        rows, metadata = cypher.execute(self.graph_db,
-            "start a=node({0}),b=node({1}) match a-[ab:KNOWS]->b return a,b,ab,a.name,b.name".format(
-                self.node_a.id, self.node_b.id
-            )
-        )
-        self.assertEqual(1, len(rows))
-        for row in rows:
+        a, b, ab = alice_and_bob(self.graph_db)
+        data, metadata = cypher.execute(self.graph_db, (
+            "start a=node({0}),b=node({1}) "
+            "match a-[ab:KNOWS]->b "
+            "return a,b,ab,a.name,b.name"
+        ).format(a.id, b.id))
+        self.assertEqual(1, len(data))
+        for row in data:
             self.assertEqual(5, len(row))
             self.assertTrue(isinstance(row[0], neo4j.Node))
             self.assertTrue(isinstance(row[1], neo4j.Node))
@@ -68,13 +72,8 @@ class CypherTestCase(unittest.TestCase):
         self.assertEqual("b.name", metadata.columns[4])
 
     def test_query_with_handlers(self):
-        a, b = self.graph_db.create(
-            {"name": "Alice"},
-            {"name": "Bob"}
-        )
-        ab = a.create_relationship_to(b, "KNOWS")
+        a, b, ab = alice_and_bob(self.graph_db)
         def check_metadata(metadata):
-            print(metadata)
             self.assertTrue(isinstance(metadata.columns, list))
             self.assertEqual(5, len(metadata.columns))
             self.assertEqual("a", metadata.columns[0])
@@ -83,7 +82,6 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual("a.name", metadata.columns[3])
             self.assertEqual("b.name", metadata.columns[4])
         def check_row(row):
-            print(row)
             self.assertTrue(isinstance(row, list))
             self.assertEqual(5, len(row))
             self.assertTrue(isinstance(row[0], neo4j.Node))
@@ -94,20 +92,17 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual(row[2], ab)
             self.assertEqual(row[3], "Alice")
             self.assertEqual(row[4], "Bob")
-        query = """\
-        start a=node({0}),b=node({1})\
-        match a-[ab]-b\
-        return a,b,ab,a.name,b.name""".format(a.id, b.id)
+        query = (
+            "START a=node({0}), b=node({1}) "
+            "MATCH a-[ab]-b "
+            "RETURN a,b,ab,a.name,b.name"
+        ).format(a.id, b.id)
         cypher.execute(self.graph_db, query,
             row_handler=check_row, metadata_handler=check_metadata
         )
 
     def test_query_with_params(self):
-        a, b = self.graph_db.create(
-                {"name": "Alice"},
-                {"name": "Bob"}
-        )
-        ab = a.create_relationship_to(b, "KNOWS")
+        a, b, ab = alice_and_bob(self.graph_db)
         def check_metadata(metadata):
             self.assertTrue(isinstance(metadata.columns, list))
             self.assertEqual(5, len(metadata.columns))
@@ -127,45 +122,40 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual(row[2], ab)
             self.assertEqual(row[3], "Alice")
             self.assertEqual(row[4], "Bob")
-        query = """\
-        start a=node({A}),b=node({B})\
-        match a-[ab]-b\
-        return a,b,ab,a.name,b.name"""
+        query = (
+            "START a=node({A}),b=node({B}) "
+            "MATCH a-[ab]-b "
+            "RETURN a,b,ab,a.name,b.name"
+        )
         cypher.execute(self.graph_db, query, {"A": a.id, "B": b.id},
             row_handler=check_row, metadata_handler=check_metadata
         )
 
     def test_many_queries(self):
         node, = self.graph_db.create({})
-        query = "start z=node(" + str(node._id) + ") return z"
+        query = (
+            "start z=node({0}) "
+            "return z"
+        ).format(node._id)
         for i in range(2000):
             data, metadata = cypher.execute(self.graph_db, query)
             self.assertEqual(1, len(data))
         self.graph_db.delete(node)
 
-
-class PathTestCase(unittest.TestCase):
-
-    def setUp(self):
-        super(PathTestCase, self).setUp()
-        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.node_a, self.node_b, self.rel_ab = self.graph_db.create(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
-        )
-
-    def test_query_returning_path(self):
-        rows, metadata = cypher.execute(self.graph_db,
-            "start a=node({0}),b=node({1}) match p=(a-[ab:KNOWS]->b) return p".format(
-                self.node_a.id, self.node_b.id
-            )
-        )
-        self.assertEqual(1, len(rows))
-        for row in rows:
+    def test_query_can_return_path(self):
+        a, b, ab = alice_and_bob(self.graph_db)
+        data, metadata = cypher.execute(self.graph_db, (
+            "start a=node({0}),b=node({1}) "
+            "match p=(a-[ab:KNOWS]->b) "
+            "return p"
+        ).format(a.id, b.id))
+        self.assertEqual(1, len(data))
+        for row in data:
             self.assertEqual(1, len(row))
             self.assertTrue(isinstance(row[0], neo4j.Path))
             self.assertEqual(2, len(row[0].nodes))
-            self.assertEqual(self.node_a, row[0].nodes[0])
-            self.assertEqual(self.node_b, row[0].nodes[1])
+            self.assertEqual(a, row[0].nodes[0])
+            self.assertEqual(b, row[0].nodes[1])
             self.assertEqual("KNOWS", row[0].relationships[0].type)
             self.assertEqual(id(self.graph_db), id(row[0].nodes[0]._graph_db))
             self.assertEqual(id(self.graph_db), id(row[0].nodes[1]._graph_db))
@@ -173,84 +163,76 @@ class PathTestCase(unittest.TestCase):
         self.assertEqual(1, len(metadata.columns))
         self.assertEqual("p", metadata.columns[0])
 
-
-class CollectionTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.graph_db.clear()
-
-    def test_query_returning_collection(self):
+    def test_query_can_return_collection(self):
         node, = self.graph_db.create({})
         query = "START a = node({N}) RETURN collect(a);"
         params = {"N": node._id}
         data, metadata = cypher.execute(self.graph_db, query, params)
-        print(data)
         assert data[0][0] == [node]
-
-
-class ReusedParamsTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-        self.graph_db.clear()
 
     def test_param_used_once(self):
         node, = self.graph_db.create({})
-        query = "START a=node({X})RETURN a"
+        query = (
+            "START a=node({X}) "
+            "RETURN a"
+        )
         params = {"X": node._id}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [node]
 
     def test_param_used_twice(self):
         node, = self.graph_db.create({})
-        query = "START a=node({X}), b=node({X}) RETURN a, b"
+        query = (
+            "START a=node({X}), b=node({X}) "
+            "RETURN a, b"
+        )
         params = {"X": node._id}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [node, node]
 
     def test_param_used_thrice(self):
         node, = self.graph_db.create({})
-        query = "START a=node({X}), b=node({X}), c=node({X}) RETURN a, b, c"
+        query = (
+            "START a=node({X}), b=node({X}), c=node({X})"
+            "RETURN a, b, c"
+        )
         params = {"X": node._id}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [node, node, node]
 
     def test_param_reused_once_after_with_statement(self):
-        a, b, ab = self.graph_db.create(
-            {"name": "Alice", "age": 66},
-            {"name": "Bob", "age": 77},
-            (0, "KNOWS", 1),
+        a, b, ab = alice_and_bob(self.graph_db)
+        query = (
+            "START a=node({A}) "
+            "MATCH (a)-[:KNOWS]->(b) "
+            "WHERE a.age > {min_age} "
+            "WITH a "
+            "MATCH (a)-[:KNOWS]->(b) "
+            "WHERE b.age > {min_age} "
+            "RETURN b"
         )
-        query = "START a=node({A}) " \
-                "MATCH (a)-[:KNOWS]->(b) " \
-                "WHERE a.age > {min_age} " \
-                "WITH a " \
-                "MATCH (a)-[:KNOWS]->(b) " \
-                "WHERE b.age > {min_age} " \
-                "RETURN b"
         params = {"A": a._id, "min_age": 50}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [b]
 
     def test_param_reused_twice_after_with_statement(self):
-        a, b, c, ab, bc = self.graph_db.create(
-            {"name": "Alice", "age": 66},
-            {"name": "Bob", "age": 77},
+        a, b, ab = alice_and_bob(self.graph_db)
+        c, bc = self.graph_db.create(
             {"name": "Carol", "age": 88},
-            (0, "KNOWS", 1),
-            (1, "KNOWS", 2),
+            (b, "KNOWS", 0),
         )
-        query = "START a=node({A}) " \
-                "MATCH (a)-[:KNOWS]->(b) " \
-                "WHERE a.age > {min_age} " \
-                "WITH a " \
-                "MATCH (a)-[:KNOWS]->(b) " \
-                "WHERE b.age > {min_age} " \
-                "WITH b " \
-                "MATCH (b)-[:KNOWS]->(c) " \
-                "WHERE c.age > {min_age} " \
-                "RETURN c"
+        query = (
+            "START a=node({A}) "
+            "MATCH (a)-[:KNOWS]->(b) "
+            "WHERE a.age > {min_age} "
+            "WITH a "
+            "MATCH (a)-[:KNOWS]->(b) "
+            "WHERE b.age > {min_age} "
+            "WITH b "
+            "MATCH (b)-[:KNOWS]->(c) "
+            "WHERE c.age > {min_age} "
+            "RETURN c"
+        )
         params = {"A": a._id, "min_age": 50}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [c]

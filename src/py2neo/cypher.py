@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Cypher Query Language
+""" Cypher Query Language module.
 """
 
 import json
@@ -30,7 +30,7 @@ _thread_local = threading.local()
 
 
 DEFAULT_BLOCK_SIZE = 8192
-HEADERS = {"X-Stream": "true"}
+STREAMING = {"X-Stream": "true"}
 
 def local_client():
     if not hasattr(_thread_local, "client"):
@@ -108,7 +108,7 @@ class Query(object):
         else:
             try:
                 rs = self.graph_db._send(
-                    rest.Request(self.graph_db, "POST", self.graph_db._cypher_uri, _payload(self.query, params), headers=HEADERS)
+                    rest.Request(self.graph_db, "POST", self.graph_db._cypher_uri, _payload(self.query, params))
                 )
             except rest.BadRequest as err:
                 if error_handler:
@@ -167,7 +167,7 @@ class Query(object):
                 self.metadata_handler = metadata_handler
                 self.error_handler = error_handler
                 local_client().send(
-                    rest.Request(graph_db, "POST", graph_db._cypher_uri, _payload(query, params), headers=HEADERS),
+                    rest.Request(graph_db, "POST", graph_db._cypher_uri, _payload(query, params), headers=STREAMING),
                     handlers={
                         200: self.handle_block,
                         400: self.error_handler,
