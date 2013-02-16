@@ -27,6 +27,37 @@ def default_graph_db():
     return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 
 
+class IsolateTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+
+    def test_can_isolate_node(self):
+        posse = self.graph_db.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            {"name": "Carol"},
+            {"name": "Dave"},
+            {"name": "Eve"},
+            {"name": "Frank"},
+            (0, "KNOWS", 1),
+            (0, "KNOWS", 2),
+            (0, "KNOWS", 3),
+            (0, "KNOWS", 4),
+            (2, "KNOWS", 0),
+            (3, "KNOWS", 0),
+            (4, "KNOWS", 0),
+            (5, "KNOWS", 0),
+        )
+        alice = posse[0]
+        friendships = alice.match(bidirectional=True)
+        assert len(friendships) == 8
+        alice.isolate()
+        friendships = alice.match(bidirectional=True)
+        assert len(friendships) == 0
+
+
 class RelationshipTestCase(unittest.TestCase):
 
     def setUp(self):

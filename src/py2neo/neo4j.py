@@ -1343,6 +1343,16 @@ class Node(PropertyContainer):
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
+    def isolate(self):
+        """ Delete all relationships connected to this node, both incoming and
+        outgoing.
+        """
+        cypher.execute(self._graph_db, (
+            "START a=node({A}) "
+            "MATCH a-[r]-b "
+            "DELETE r "
+        ), {"A": self._id})
+
     def match(self, type=None, end_node=None, bidirectional=False, limit=None):
         return self._graph_db.match(self, type, end_node, bidirectional, limit)
 
