@@ -18,7 +18,7 @@
 """ Geoff is a textual interchange format for graph data, designed with Neo4j
     in mind.
 
-    Note: This module will only work against server version 1.8.1 and above.
+    Note: This module requires server version 1.8.1 or above.
 
     Full Geoff Syntax
     -----------------
@@ -28,21 +28,20 @@
         geoff          := [element (_ element)*]
         element        := path | index_entry | comment
 
-        path           := node (forward_path | reverse_path)* [_ property_map]
+        path           := node (forward_path | reverse_path)*
         forward_path   := "-" relationship "->" node
         reverse_path   := "<-" relationship "-" node
 
-        index_entry    := forward_entry | reverse_entry | postfix_entry
+        index_entry    := forward_entry | reverse_entry
         forward_entry  := "|" ~ index_name _ property_pair ~ "|" "=>" node
         reverse_entry  := node "<=" "|" ~ index_name _ property_pair ~ "|"
-        postfix_entry  := node "<=" "|" ~ index_name ~ "|" _ property_pair
         index_name     := name | JSON_STRING
 
-        comment        := "/*" (((any text excluding sequence "*/"))) "*/"
+        comment        := "/*" <<any text excluding sequence "*/">> "*/"
 
         node           := named_node | anonymous_node
         named_node     := "(" ~ node_name [_ property_map] ~ ")"
-        anonymous_node := "(" ~ property_map ~ ")"
+        anonymous_node := "(" ~ [property_map ~] ")"
         relationship   := "[" ~ ":" type [_ property_map] ~ "]"
         property_pair  := "{" ~ key_value ~ "}"
         property_map   := "{" ~ [key_value (~ "," ~ key_value)* ~] "}"
@@ -69,12 +68,12 @@ import logging
 import re
 
 from . import neo4j, rest
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 
-class GeoffError(SyntaxError):
-
+class ConstraintViolation(ValueError):
     pass
 
 
@@ -168,7 +167,7 @@ class Subgraph(object):
                 try:
                     params["sp" + str(i)] = self._nodes[name].properties
                 except KeyError:
-                    raise KeyError("Node '{0}' not found".format(name))
+                    raise SystemError("Broken internal reference - node '{0}' not found".format(name))
                 output_names.append(name)
                 return "(out{0} {{{1}}})".format(output_names.index(name), "sp" + str(i))
             #
@@ -230,13 +229,7 @@ class Subgraph(object):
             batch.create_node(self._nodes[name].properties)
         # submit batch unless empty (in which case bail out and return nothing)
         if batch:
-            try:
-                responses = batch._submit()
-            except rest.BadRequest as err:
-                if err.exception == "UniquePathNotUniqueException":
-                    err = GeoffError("Duplicate relationships exist - "
-                                     "cannot merge")
-                raise err
+            responses = batch._submit()
         else:
             return {}
         # parse response and build return value
@@ -266,7 +259,15 @@ class Subgraph(object):
     def merge_into(self, graph_db):
         """ Merge subgraph into graph database using Cypher CREATE UNIQUE.
         """
-        return self._execute_load_batch(graph_db, True)
+        try:
+            return self._execute_load_batch(graph_db, True)
+        except rest.BadRequest as err:
+            if err.exception == "UniquePathNotUniqueException":
+                err = ConstraintViolation(
+                    "Unable to merge relationship onto multiple "
+                    "existing relationships."
+                )
+            raise err
 
 
 class _Parser(object):
@@ -280,6 +281,11 @@ class _Parser(object):
     def __init__(self, source):
         self.source = source       # original source data
         self.n = 0                 # pointer to next position to be parsed
+
+    def _unexpected_character(self):
+        next_char = self.peek()
+        message = "Unexpected character '{0}' at position {1}.".format(next_char, self.n)
+        return SyntaxError(message)
 
     def peek(self, length=1):
         return self.source[self.n:self.n + length]
@@ -295,7 +301,7 @@ class _Parser(object):
                 if elements:
                     elements[-1].properties = element
                 else:
-                    raise GeoffError("Property map cannot occur as first element")
+                    raise TypeError("Property map cannot occur as first element.")
             elif isinstance(element, tuple):
                 elements.extend(element)
             elif element is not None:
@@ -304,7 +310,9 @@ class _Parser(object):
         # SECOND PASS - consolidate into collections of similar elements
         nodes, rels, index_entries = {}, [], {}
         def set_node(name, node):
-            if name in nodes:
+            if name is None:
+                nodes[uuid4()] = node
+            elif name in nodes:
                 nodes[name].properties.update(node.properties)
             else:
                 nodes[name] = node
@@ -323,25 +331,41 @@ class _Parser(object):
                 key = (element.index_name, element.key, element.value, element.node.name)
                 index_entries[key] = element
             else:
-                raise AssertionError("Unknown element type '{0}'".format(type(element)))
+                raise TypeError("Unexpected element type '{0}'".format(element.__class__.__name__))
         return nodes, rels, index_entries
 
-    def parse_pattern(self, pattern):
-        m = pattern.match(self.source, self.n)
-        if m:
-            self.n += len(m.group(0))
-            return m.group(0)
-        else:
-            raise GeoffError("Unexpected character at position {0}".format(self.n))
+    def parse_array(self):
+        items = []
+        self.parse_literal("[")
+        self.parse_pattern(self.WHITESPACE)
+        next_char = self.peek()
+        if next_char != "]":
+            if next_char == '"':
+                value_pattern = self.JSON_STRING
+            elif next_char in "-0123456789":
+                value_pattern = self.JSON_NUMBER
+            elif next_char in "tf":
+                value_pattern = self.JSON_BOOLEAN
+            else:
+                raise self._unexpected_character()
+            items.append(self.parse_pattern(value_pattern, json.loads))
+            self.parse_pattern(self.WHITESPACE)
+            while self.peek() == ",":
+                self.parse_literal(",")
+                self.parse_pattern(self.WHITESPACE)
+                items.append(self.parse_pattern(value_pattern, json.loads))
+                self.parse_pattern(self.WHITESPACE)
+        self.parse_literal("]")
+        return items
 
-    def parse_literal(self, literal):
-        len_literal = len(literal)
-        test = self.source[self.n:self.n + len_literal]
-        if test == literal:
-            self.n += len_literal
-            return literal
-        else:
-            raise GeoffError("Unexpected character at position {0}".format(self.n))
+    def parse_comment(self):
+        self.parse_literal("/*")
+        m = self.n
+        while self.n < len(self.source) and self.peek(2) != "*/":
+            self.n += 1
+        comment = self.source[m:self.n]
+        self.n += 2
+        return comment
 
     def parse_element(self):
         element = None
@@ -351,7 +375,7 @@ class _Parser(object):
             if self.peek(2) == "<=":
                 # index entry
                 self.parse_literal("<=")
-                index_name, key, value = self.read_index_point()
+                index_name, key, value = self.parse_index_point()
                 element = AbstractIndexEntry(index_name, key, value, node)
             else:
                 # path
@@ -367,50 +391,103 @@ class _Parser(object):
                         node = rel.start_node
                         rels.append(rel)
                     else:
-                        raise GeoffError("Unexpected character '{0}' at position {1}".format(next_char, self.n))
+                        raise self._unexpected_character()
                 if rels:
                     element = tuple(rels)
                 else:
                     element = node
         elif next_char == "|":
-            index_name, key, value = self.read_index_point()
+            index_name, key, value = self.parse_index_point()
             self.parse_literal("=>")
             node = self.parse_node()
             element = AbstractIndexEntry(index_name, key, value, node)
         elif next_char == "/":
             self.parse_comment()
         elif next_char == "{":
-            element = self.parse_properties()
+            element = self.parse_property_map()
         else:
-            raise GeoffError("Unexpected character '{0}' at position {1}".format(next_char, self.n))
+            raise self._unexpected_character()
         return element
+
+    def parse_forward_path(self, start_node):
+        self.parse_literal("-")
+        rel = self.parse_relationship(start_node=start_node)
+        self.parse_literal("->")
+        rel.start_node = start_node
+        rel.end_node = self.parse_node()
+        return rel
+
+    def parse_index_point(self):
+        self.parse_literal("|")
+        self.parse_pattern(self.WHITESPACE)
+        index_name = self.parse_name()
+        self.parse_pattern(self.WHITESPACE)
+        next_char = self.peek()
+        if next_char == "{":
+            key, value = self.parse_property_pair()
+            self.parse_pattern(self.WHITESPACE)
+            self.parse_literal("|")
+        elif next_char == "|":
+            self.parse_literal("|")
+            self.parse_pattern(self.WHITESPACE)
+            key, value = self.parse_property_pair()
+        else:
+            raise self._unexpected_character()
+        return index_name, key, value
+
+    def parse_key_value_pair(self):
+        key = self.parse_name()
+        self.parse_pattern(self.WHITESPACE)
+        self.parse_literal(":")
+        self.parse_pattern(self.WHITESPACE)
+        value = self.parse_value()
+        return key, value
+
+    def parse_literal(self, literal):
+        len_literal = len(literal)
+        test = self.source[self.n:self.n + len_literal]
+        if test == literal:
+            self.n += len_literal
+            return literal
+        else:
+            raise self._unexpected_character()
+
+    def parse_name(self):
+        if self.peek() == "\"":
+            return self.parse_pattern(self.JSON_STRING, json.loads)
+        else:
+            return self.parse_pattern(self.NAME)
 
     def parse_node(self):
         self.parse_literal("(")
         self.parse_pattern(self.WHITESPACE)
         next_char = self.peek()
-        if next_char == "{":
-            node = AbstractNode(None, self.parse_properties())
+        if next_char == ")":
+            node = AbstractNode(None, None)
+        elif next_char == "{":
+            node = AbstractNode(None, self.parse_property_map())
         else:
             name = self.parse_name()
             if not self.parse_pattern(self.WHITESPACE):
                 node = AbstractNode(name, None)
             else:
-                node = AbstractNode(name, self.parse_properties())
+                node = AbstractNode(name, self.parse_property_map())
         self.parse_pattern(self.WHITESPACE)
         self.parse_literal(")")
         return node
 
-    def parse_name(self):
-        if self.peek() == "\"":
-            return self.parse_json_pattern(self.JSON_STRING)
+    def parse_pattern(self, pattern, decoder=None):
+        m = pattern.match(self.source, self.n)
+        if m:
+            self.n += len(m.group(0))
+            value= m.group(0)
         else:
-            return self.parse_pattern(self.NAME)
+            raise self._unexpected_character()
+        if decoder:
+            value = decoder(value)
+        return value
 
-    def parse_json_pattern(self, pattern):
-        return json.loads(self.parse_pattern(pattern))
-
-    def parse_properties(self):
+    def parse_property_map(self):
         properties = []
         self.parse_literal("{")
         self.parse_pattern(self.WHITESPACE)
@@ -425,71 +502,15 @@ class _Parser(object):
         self.parse_literal("}")
         return dict(properties)
 
-    def parse_key_value_pair(self):
-        key = self.parse_name()
+    def parse_property_pair(self):
+        self.parse_literal("{")
         self.parse_pattern(self.WHITESPACE)
-        self.parse_literal(":")
+        key, value = self.parse_key_value_pair()
         self.parse_pattern(self.WHITESPACE)
-        value = self.parse_json_value()
+        self.parse_literal("}")
         return key, value
 
-    def parse_json_value(self):
-        next_char = self.peek()
-        if next_char == "[":
-            return self.parse_array()
-        elif next_char == '"':
-            return self.parse_json_pattern(self.JSON_STRING)
-        elif next_char in "-0123456789":
-            return self.parse_json_pattern(self.JSON_NUMBER)
-        elif next_char in "tf":
-            return self.parse_json_pattern(self.JSON_BOOLEAN)
-        elif next_char == "n":
-            self.parse_literal("null")
-            return None
-        else:
-            raise GeoffError("Unexpected character '{0}' at position {1}".format(next_char, self.n))
-
-    def parse_array(self):
-        items = []
-        self.parse_literal("[")
-        self.parse_pattern(self.WHITESPACE)
-        next_char = self.peek()
-        if next_char != "]":
-            if next_char == '"':
-                value_pattern = self.JSON_STRING
-            elif next_char in "-0123456789":
-                value_pattern = self.JSON_NUMBER
-            elif next_char in "tf":
-                value_pattern = self.JSON_BOOLEAN
-            else:
-                raise SyntaxError("Unexpected")
-            items.append(self.parse_json_pattern(value_pattern))
-            self.parse_pattern(self.WHITESPACE)
-            while self.peek() == ",":
-                self.parse_literal(",")
-                self.parse_pattern(self.WHITESPACE)
-                items.append(self.parse_json_pattern(value_pattern))
-                self.parse_pattern(self.WHITESPACE)
-        self.parse_literal("]")
-        return items
-
-    def parse_forward_path(self, start_node):
-        self.parse_literal("-")
-        rel = self.parse_relationship()
-        self.parse_literal("->")
-        rel.start_node = start_node
-        rel.end_node = self.parse_node()
-        return rel
-
-    def parse_reverse_path(self, end_node):
-        self.parse_literal("<-")
-        rel = self.parse_relationship()
-        self.parse_literal("-")
-        rel.start_node = self.parse_node()
-        rel.end_node = end_node
-        return rel
-
-    def parse_relationship(self):
+    def parse_relationship(self, start_node=None, end_node=None):
         self.parse_literal("[")
         self.parse_pattern(self.WHITESPACE)
         self.parse_literal(":")
@@ -497,35 +518,41 @@ class _Parser(object):
         self.parse_pattern(self.WHITESPACE)
         next_char = self.peek()
         if next_char == "{":
-            rel = AbstractRelationship(type, self.parse_properties())
+            rel = AbstractRelationship(start_node, type, self.parse_property_map(), end_node)
             self.parse_pattern(self.WHITESPACE)
         else:
-            rel = AbstractRelationship(type, None)
+            rel = AbstractRelationship(start_node, type, None, end_node)
         self.parse_literal("]")
         return rel
 
-    def parse_comment(self):
-        self.parse_literal("/*")
-        m = self.n
-        while self.n < len(self.source) and self.peek(2) != "*/":
-            self.n += 1
-        comment = self.source[m:self.n]
-        self.n += 2
-        return comment
+    def parse_reverse_path(self, end_node):
+        self.parse_literal("<-")
+        rel = self.parse_relationship(end_node=end_node)
+        self.parse_literal("-")
+        rel.start_node = self.parse_node()
+        rel.end_node = end_node
+        return rel
 
-    def read_index_point(self):
-        self.parse_literal("|")
-        self.parse_pattern(self.WHITESPACE)
-        index_name = self.parse_name()
-        self.parse_pattern(self.WHITESPACE)
-        self.parse_literal("{")
-        self.parse_pattern(self.WHITESPACE)
-        key, value = self.parse_key_value_pair()
-        self.parse_pattern(self.WHITESPACE)
-        self.parse_literal("}")
-        self.parse_pattern(self.WHITESPACE)
-        self.parse_literal("|")
-        return index_name, key, value
+    def parse_value(self):
+        next_char = self.peek()
+        if next_char == "[":
+            value = self.parse_array()
+        elif next_char == '"':
+            value = self.parse_pattern(self.JSON_STRING, json.loads)
+        elif next_char in "-0123456789":
+            value = self.parse_pattern(self.JSON_NUMBER, json.loads)
+        elif next_char == "t":
+            self.parse_literal("true")
+            value = True
+        elif next_char == "f":
+            self.parse_literal("false")
+            value = False
+        elif next_char == "n":
+            self.parse_literal("null")
+            value = None
+        else:
+            raise self._unexpected_character()
+        return value
 
 
 class AbstractNode(object):
@@ -555,11 +582,23 @@ class AbstractNode(object):
 
 class AbstractRelationship(object):
 
-    def __init__(self, type, properties=None):
-        self.start_node = None
+    def __init__(self, start_node, type, properties, end_node):
+        self.start_node = start_node
         self.type = type
-        self.end_node = None
         self.properties = properties or {}
+        self.end_node = end_node
+
+    def __eq__(self, other):
+        return self.start_node == other.start_node and \
+               self.type == other.type and \
+               self.properties == other.properties and \
+               self.end_node == other.end_node
+
+    def __ne__(self, other):
+        return self.start_node != other.start_node or \
+               self.type != other.type or \
+               self.properties != other.properties or \
+               self.end_node != other.end_node
 
     def __str__(self):
         if self.properties:
@@ -576,5 +615,17 @@ class AbstractIndexEntry(object):
         self.value = value
         self.node = node
 
-    def __repr__(self):
+    def __eq__(self, other):
+        return self.index_name == other.index_name and \
+               self.key == other.key and \
+               self.value == other.value and \
+               self.node == other.node
+
+    def __ne__(self, other):
+        return self.index_name != other.index_name or \
+               self.key != other.key or \
+               self.value != other.value or \
+               self.node != other.node
+
+    def __str__(self):
         return "|{0} {1}|=>{2}".format(self.index_name, json.dumps({self.key: self.value}, separators=(",", ":")), self.node)

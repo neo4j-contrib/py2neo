@@ -15,176 +15,301 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import neo4j, geoff
+from py2neo import geoff, neo4j
 import unittest
+
+
+def parse(source):
+    return geoff._Parser(source).parse()
 
 
 class ParseTest(unittest.TestCase):
 
-    def test_parsing_empty_string(self):
-        rules = geoff._parse('')
-        self.assertEqual([], rules)
+    def test_can_parse_empty_string(self):
+        nodes, rels, entries = parse('')
+        assert nodes == {}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_blank_lines(self):
-        rules = geoff._parse('\n\n\n')
-        self.assertEqual([], rules)
+    def test_can_parse_linear_whitespace(self):
+        nodes, rels, entries = parse('  \t   \t ')
+        assert nodes == {}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_comment(self):
-        rules = geoff._parse('# this is a comment')
-        self.assertEqual([], rules)
+    def test_can_parse_blank_lines(self):
+        nodes, rels, entries = parse('\n\n\n')
+        assert nodes == {}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_single_node(self):
-        rules = geoff._parse('(A)')
-        self.assertEqual([(geoff.NODE, 'A', {})], rules)
+    def test_can_parse_comment(self):
+        nodes, rels, entries = parse('/* this is a comment */')
+        assert nodes == {}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_single_node_with_data(self):
-        rules = geoff._parse('(A) {"name": "Alice"}')
-        self.assertEqual([(geoff.NODE, 'A', {'name': 'Alice'})], rules)
+    def test_can_parse_comment_with_other_elements(self):
+        nodes, rels, entries = parse('(A) /* this is a comment */ (B)')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+            "B": geoff.AbstractNode("B", {}),
+        }
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_simple_graph(self):
-        rules = geoff._parse(
-            '(A) {"name": "Alice"}\n'
-            '(B) {"name": "Bob"}\n'
-            '(A)-[:KNOWS]->(B)\n'
+    def test_can_parse_node(self):
+        nodes, rels, entries = parse('(A)')
+        assert nodes == {"A": geoff.AbstractNode("A", {})}
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_node_with_data(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"})')
+        assert nodes == {"A": geoff.AbstractNode("A", {"name": "Alice"})}
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_node_with_many_data_types(self):
+        nodes, rels, entries = parse(
+            '(A {"name":"Alice","age":34,"awesome":true,"lazy":false,'
+            '"children":null,"fib":[1,1,2,3,5,8,13,21],"empty":[],'
+            '"rainbow":["red","orange","yellow","green","blue","indigo","violet"]})'
         )
-        self.assertEqual([
-            (geoff.NODE, 'A', {'name': 'Alice'}),
-            (geoff.NODE, 'B', {'name': 'Bob'}),
-            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
-        ], rules)
+        assert nodes == {"A": geoff.AbstractNode("A", {
+            "name": "Alice",
+            "age": 34,
+            "awesome": True,
+            "lazy": False,
+            "children": None,
+            "fib": [1,1,2,3,5,8,13,21],
+            "empty":[],
+            "rainbow": ["red","orange","yellow","green","blue","indigo","violet"],
+        })}
+        assert rels == []
+        assert entries == {}
 
-    def test_parsing_graph_with_unknown_rules(self):
-        rules = geoff._parse(
-            '(A)<=|People| {"name": "Alice"}\n'
-            '(B)<=|People| {"name": "Bob"}\n'
-            '(A) {"name": "Alice Allison"}\n'
-            '(B) {"name": "Bob Robertson"}\n'
-            '(A)-[:KNOWS]->(B)\n'
+    def test_can_parse_node_with_non_json_data(self):
+        nodes, rels, entries = parse('(A {name: "Alice"})')
+        assert nodes == {"A": geoff.AbstractNode("A", {"name": "Alice"})}
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_anonymous_node(self):
+        nodes, rels, entries = parse('()')
+        assert len(nodes) == 1
+        for key, value in nodes.items():
+            assert value == geoff.AbstractNode(None, {})
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_anonymous_node_with_data(self):
+        nodes, rels, entries = parse('({"name": "Alice"})')
+        assert len(nodes) == 1
+        for key, value in nodes.items():
+            assert value == geoff.AbstractNode(None, {"name": "Alice"})
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_anonymous_node_with_non_json_data(self):
+        nodes, rels, entries = parse('({name: "Alice"})')
+        assert len(nodes) == 1
+        for key, value in nodes.items():
+            assert value == geoff.AbstractNode(None, {"name": "Alice"})
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_node_plus_forward_path(self):
+        nodes, rels, entries = parse('(A)-[:KNOWS]->(B)')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+            "B": geoff.AbstractNode("B", {}),
+        }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["A"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["B"]
+        assert rels[0].properties == {}
+        assert entries == {}
+
+    def test_can_parse_node_plus_reverse_path(self):
+        nodes, rels, entries = parse('(A)<-[:KNOWS]-(B)')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+            "B": geoff.AbstractNode("B", {}),
+        }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["B"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["A"]
+        assert rels[0].properties == {}
+        assert entries == {}
+
+    def test_can_parse_longer_path(self):
+        nodes, rels, entries = parse(
+            '(A)-[:KNOWS]->'
+            '(B)-[:KNOWS]->'
+            '(C)<-[:KNOWS]-'
+            '(D)'
         )
-        self.assertEqual([
-            (geoff.UNKNOWN, None, ('(A)<=|People|', {'name': 'Alice'})),
-            (geoff.UNKNOWN, None, ('(B)<=|People|', {'name': 'Bob'})),
-            (geoff.NODE, 'A', {'name': 'Alice Allison'}),
-            (geoff.NODE, 'B', {'name': 'Bob Robertson'}),
-            (geoff.RELATIONSHIP, None, ('A', 'KNOWS', 'B', {})),
-        ], rules)
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+            "B": geoff.AbstractNode("B", {}),
+            "C": geoff.AbstractNode("C", {}),
+            "D": geoff.AbstractNode("D", {}),
+        }
+        assert rels == [
+            geoff.AbstractRelationship(nodes["A"], "KNOWS", {}, nodes["B"]),
+            geoff.AbstractRelationship(nodes["B"], "KNOWS", {}, nodes["C"]),
+            geoff.AbstractRelationship(nodes["D"], "KNOWS", {}, nodes["C"]),
+        ]
+        assert entries == {}
 
-
-class SubgraphCreationTest(unittest.TestCase):
-
-    def test_empty_subgraph_creation(self):
-        s = geoff.Subgraph()
-        self.assertEqual(0, len(s.nodes))
-        self.assertEqual(0, len(s.relationships))
-
-    def test_simple_subgraph_creation(self):
-        s = geoff.Subgraph({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
-        self.assertEqual(2, len(s.nodes))
-        self.assertEqual(1, len(s.relationships))
-
-    def test_subgraph_creation_from_text(self):
-        s = geoff.Subgraph(
-            '(A) {"name": "Alice"}',
-            '(B) {"name": "Bob"}',
-            '(A)-[:KNOWS]->(B)'
+    def test_can_parse_longer_path_and_data(self):
+        nodes, rels, entries = parse(
+            '(A {"name":"Alice","age":34})-[:KNOWS {since:1999}]->'
+            '(B {"name":"Bob"})-[:KNOWS {friends:true}]->'
+            '(C {"name":"Carol"})<-[:KNOWS]-'
+            '(D {"name":"Dave"})'
         )
-        self.assertEqual('(A) {"name": "Alice"}\n(B) {"name": "Bob"}\n(A)-[0:KNOWS]->(B) {}', s.dumps())
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice", "age": 34}),
+            "B": geoff.AbstractNode("B", {"name": "Bob"}),
+            "C": geoff.AbstractNode("C", {"name": "Carol"}),
+            "D": geoff.AbstractNode("D", {"name": "Dave"}),
+        }
+        assert rels == [
+            geoff.AbstractRelationship(nodes["A"], "KNOWS", {"since": 1999}, nodes["B"]),
+            geoff.AbstractRelationship(nodes["B"], "KNOWS", {"friends": True}, nodes["C"]),
+            geoff.AbstractRelationship(nodes["D"], "KNOWS", {}, nodes["C"]),
+        ]
+        assert entries == {}
 
-    def test_subgraph_creation_from_text_with_alternate_ordering(self):
-        s = geoff.Subgraph(
-            '(D) {"name": "Dave"}',
-            '(B) {"name": "Bob"}',
-            '(C) {"name": "Carol"}',
-            '(C)-[:KNOWS]->(D)',
-            '(A) {"name": "Alice"}',
-            '(A)-[:KNOWS]->(B)',
+    def test_can_parse_forward_index_entry(self):
+        nodes, rels, entries = parse(
+            '|People {"email":"alice@example.com"}|=>(A)'
         )
-        self.assertEqual('(D) {"name": "Dave"}\n(B) {"name": "Bob"}\n'
-                         '(C) {"name": "Carol"}\n(C)-[0:KNOWS]->(D) {}\n'
-                         '(A) {"name": "Alice"}\n(A)-[1:KNOWS]->(B) {}', s.dumps())
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+        }
+        assert rels == []
+        assert entries == {
+            ('People', 'email', 'alice@example.com', 'A'):
+                geoff.AbstractIndexEntry("People", "email", "alice@example.com", nodes["A"]),
+        }
 
-    def test_subgraph_creation_from_db(self):
-        graph_db = neo4j.GraphDatabaseService()
-        a, b, ab = graph_db.create(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
+    def test_can_parse_reverse_index_entry(self):
+        nodes, rels, entries = parse(
+            '(A)<=|People {"email":"alice@example.com"}|'
         )
-        s = geoff.Subgraph(a, b, ab)
-        self.assertEqual('(0) {"name": "Alice"}\n(1) {"name": "Bob"}\n(0)-[0:KNOWS]->(1) {}', s.dumps())
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+        }
+        assert rels == []
+        assert entries == {
+            ('People', 'email', 'alice@example.com', 'A'):
+                geoff.AbstractIndexEntry("People", "email", "alice@example.com", nodes["A"]),
+        }
 
-class DumpTest(unittest.TestCase):
+
+class LegacyParseTest(unittest.TestCase):
+
+    def test_can_parse_node(self):
+        nodes, rels, entries = parse('(A) {"name": "Alice"}')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice"}),
+        }
+        assert rels == []
+        assert entries == {}
+
+    def test_can_parse_relationship(self):
+        nodes, rels, entries = parse('(A)-[:KNOWS]->(B) {"since": 1999}')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+            "B": geoff.AbstractNode("B", {}),
+        }
+        assert rels == [
+            geoff.AbstractRelationship(nodes["A"], "KNOWS", {"since": 1999}, nodes["B"]),
+        ]
+        assert entries == {}
+
+    def test_can_parse_index_entry(self):
+        nodes, rels, entries = parse('(A)<=|People| {"email": "alice@example.com"}')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {}),
+        }
+        assert rels == []
+        assert entries == {
+            ('People', 'email', 'alice@example.com', 'A'):
+                geoff.AbstractIndexEntry("People", "email", "alice@example.com", nodes["A"]),
+        }
+
+
+class MultiElementParseTest(unittest.TestCase):
+
+    def test_can_parse_graph(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"}) '
+                                     '(B {"name": "Bob"}) '
+                                     '(A)-[:KNOWS]->(B) '
+        )
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice"}),
+            "B": geoff.AbstractNode("B", {"name": "Bob"}),
+        }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["A"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["B"]
+        assert rels[0].properties == {}
+        assert entries == {}
+
+    def test_can_parse_one_liner_graph(self):
+        nodes, rels, entries = parse('(A {"name": "Alice"})-[:KNOWS]->(B {"name": "Bob"})')
+        assert nodes == {
+            "A": geoff.AbstractNode("A", {"name": "Alice"}),
+            "B": geoff.AbstractNode("B", {"name": "Bob"}),
+        }
+        assert len(rels) == 1
+        assert isinstance(rels[0], geoff.AbstractRelationship)
+        assert rels[0].start_node == nodes["A"]
+        assert rels[0].type == "KNOWS"
+        assert rels[0].end_node == nodes["B"]
+        assert rels[0].properties == {}
+        assert entries == {}
+
+
+class InsertTestCase(unittest.TestCase):
 
     def setUp(self):
         self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
 
-    def test_node_dump(self):
-        a, = self.graph_db.create(
-            {"name": "Alice"}
-        )
-        out = geoff.Subgraph(a).dumps()
-        self.assertEqual('(0) {"name": "Alice"}', out)
+    def test_stuff(self):
+        source = r"""
+        |People {"email":"bob@example.com"}|=>(b)
+        |People {"email":"ernie@example.com"}|=>(e)
+        |People {"email":"ernie@example.com"}|=>(e)
+        (a {name:"Alice"})  (b) {"name":"Bob Robertson"}
+        (a {age:43})-[:KNOWS]->(b)-[:KNOWS]->(c)<-[:LOVES {amount:"lots"}]-(d)
+        (f {name:"Lonely Frank"})
 
-    def test_subgraph_dump(self):
-        a, b, ab = self.graph_db.create(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
-        )
-        out = geoff.Subgraph(a, b, ab).dumps()
-        self.assertEqual('(0) {"name": "Alice"}\n'
-                         '(1) {"name": "Bob"}\n'
-                         '(0)-[0:KNOWS]->(1) {}', out)
-
-
-class InsertTest(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-
-    def test_insert_from_abstract(self):
-        s = geoff.Subgraph(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
-        )
-        params = s.insert_into(self.graph_db)
-        self.assertIn("(0)", params)
-        self.assertIn("(1)", params)
-        self.assertIn("[0]", params)
-
-    def test_insert_from_text(self):
-        s = geoff.Subgraph(
-            '(A) {"name": "Alice"}',
-            '(B) {"name": "Bob"}',
-            '(A)-[:KNOWS]->(B)'
-        )
-        params = s.insert_into(self.graph_db)
-        self.assertIn("(A)", params)
-        self.assertIn("(B)", params)
-        self.assertIn("[0]", params)
-
-
-class MergeTest(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-
-    def test_merge_from_abstract(self):
-        s = geoff.Subgraph(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1)
-        )
-        params = s.merge_into(self.graph_db)
-        self.assertIn("(0)", params)
-        self.assertIn("(1)", params)
-        self.assertIn("[0]", params)
-
-    def test_merge_from_text(self):
-        s = geoff.Subgraph(
-            '(A) {"name": "Alice"}',
-            '(B) {"name": "Bob"}',
-            '(A)-[:KNOWS]->(B)'
-        )
-        params = s.merge_into(self.graph_db)
-        self.assertIn("(A)", params)
-        self.assertIn("(B)", params)
-        self.assertIn("[0]", params)
+        /* Alice and Bob got married twice */
+        (a)-[:MARRIED {date:"1970-01-01"}]->(b)
+        (a)-[:MARRIED {date:"2001-09-11"}]->(b)
+        """
+        s = geoff.Subgraph(source)
+        print(s.nodes)
+        print(s.relationships)
+        print(s.index_entries)
+        print(s.indexed_nodes)
+        print(s.related_nodes)
+        print(s.odd_nodes)
+        for name, node in s.insert_into(self.graph_db).items():
+            print(name, node)
 
 
 if __name__ == '__main__':
     unittest.main()
-

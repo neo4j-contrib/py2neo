@@ -15,7 +15,7 @@
 # limitations under the License.
 
 """
-Cypher command line tool
+Geoff command line tool
 """
 
 from __future__ import print_function
