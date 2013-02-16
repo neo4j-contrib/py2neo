@@ -22,6 +22,7 @@ import sys
 
 __PY3K = sys.version_info[0] >= 3
 
+import re
 import time
 import warnings
 
@@ -156,11 +157,11 @@ class PropertyCache(object):
 def deprecated(message):
     """ Decorator for deprecating functions and methods.
 
-        ::
+    ::
 
-            @deprecated("'foo' has been deprecated in favour of 'bar'")
-            def foo(x):
-                pass
+        @deprecated("'foo' has been deprecated in favour of 'bar'")
+        def foo(x):
+            pass
 
     """
     def f__(f):
@@ -169,3 +170,19 @@ def deprecated(message):
             return f(*args, **kwargs)
         return f_
     return f__
+
+
+VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
+
+def version_tuple(string):
+    numbers = VERSION.match(string)
+    if numbers:
+        version = [int(n) for n in numbers.group(0).split(".")]
+        extra = string[len(numbers.group(0)):].lstrip("-")
+    else:
+        version = []
+        extra = string
+    while len(version) < 3:
+        version += [0]
+    version += [extra]
+    return tuple(version)

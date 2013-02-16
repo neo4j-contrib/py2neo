@@ -25,8 +25,8 @@ import base64
 import json
 import logging
 
-from . import rest, cypher, util
-from .util import compact, quote, round_robin, deprecated
+from . import rest, cypher
+from .util import compact, quote, round_robin, deprecated, version_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -560,9 +560,6 @@ class GraphDatabaseService(rest.Resource):
         self._neo4j_version = self.__metadata__.get('neo4j_version', "1.4")
         self._batch_uri = self.__metadata__.get('batch', self._uri.base + "/batch")
         self._cypher_uri = self.__metadata__.get('cypher', None)
-        self._neo4j_version = tuple(map(util.numberise,
-            str(self._neo4j_version).replace("-", ".").split(".")
-        ))
         self._indexes = {Node: {}, Relationship: {}}
 
     def __nonzero__(self):
@@ -863,7 +860,7 @@ class GraphDatabaseService(rest.Resource):
     def neo4j_version(self):
         """ Return the database software version as a tuple.
         """
-        return self._neo4j_version
+        return version_tuple(self._neo4j_version)
 
     def node(self, id):
         """ Fetch a node by ID.
