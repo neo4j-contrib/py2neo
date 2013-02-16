@@ -166,6 +166,6 @@ def deprecated(message):
     def f__(f):
         def f_(*args, **kwargs):
             warnings.warn(message, category=DeprecationWarning, stacklevel=2)
-            f(*args, **kwargs)
+            return f(*args, **kwargs)
         return f_
     return f__
