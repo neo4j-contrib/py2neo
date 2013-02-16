@@ -178,7 +178,9 @@ def version_tuple(string):
     numbers = VERSION.match(string)
     if numbers:
         version = [int(n) for n in numbers.group(0).split(".")]
-        extra = string[len(numbers.group(0)):].lstrip("-")
+        extra = string[len(numbers.group(0)):]
+        while extra.startswith(".") or extra.startswith("-"):
+            extra = extra[1:]
     else:
         version = []
         extra = string
