@@ -15,15 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import time
-from py2neo.util import PropertyCache
-
-PY3K = sys.version_info[0] >= 3
-
-
-from py2neo import rest, neo4j
 import unittest
+
+from py2neo import neo4j
+from py2neo.util import PropertyCache
 
 
 class PropertyCacheTest(unittest.TestCase):
