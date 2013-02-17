@@ -116,7 +116,7 @@ html_theme = 'nature'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = '../art/py2neo.128x128.back.png'
+html_logo = '../art/py2neo.190x180.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -189,7 +189,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'py2neo.tex', u'py2neo Documentation',
+  ('index', 'py2neo.tex', 'py2neo Documentation',
    py2neo_author, 'manual'),
 ]
 
@@ -219,7 +219,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'py2neo', u'py2neo Documentation',
+    ('index', 'py2neo', 'py2neo Documentation',
      [py2neo_author], 1)
 ]
 
@@ -233,7 +233,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-  ('index', 'py2neo', u'py2neo Documentation',
+  ('index', 'py2neo', 'py2neo Documentation',
    py2neo_author, 'py2neo', 'One line description of project.',
    'Miscellaneous'),
 ]
