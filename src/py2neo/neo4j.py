@@ -25,9 +25,9 @@ classes provided are:
 - :py:class:`Node` - a representation of a database node
 - :py:class:`Relationship` - a representation of a relationship between two
   database nodes
+- :py:class:`Path` - a sequence of alternating nodes and relationships
 - :py:class:`Index` - a index of key-value pairs for storing links to nodes or
   relationships
-- :py:class:`Path` - a sequence of alternating nodes and relationships
 - :py:class:`ReadBatch` - a batch of read requests to be carried out within a
   single transaction
 - :py:class:`WriteBatch` - a batch of write requests to be carried out within
@@ -132,6 +132,8 @@ def _assert_expected_response(cls, uri, metadata):
 class Direction(object):
     """ Defines the direction of a relationship. This class is deprecated as
     all dependent functions are also deprecated.
+
+    .. deprecated:: 1.5
     """
 
     BOTH     =  0
@@ -330,7 +332,7 @@ class GraphDatabaseService(rest.Resource):
     @deprecated("GraphDatabaseService.get_reference_node is deprecated, "
                 "please use indexed nodes instead.")
     def get_reference_node(self):
-        """Fetch the reference node for the current graph.
+        """ Fetch the reference node for the current graph.
 
         .. deprecated:: 1.3.1
             use indexed nodes instead.
@@ -345,39 +347,14 @@ class GraphDatabaseService(rest.Resource):
         on whether or not such relationships exist. Each relationship
         descriptor should be a tuple of (start, type, end) or (start, type,
         end, data) where start and end are either existing :py:class:`Node`
-        instances or :py:const:`None` (both nodes cannot be :py:const:`None`)::
-
-            # set up three nodes
-            alice, bob, carol = graph_db.create(
-                {"name": "Alice"}, {"name": "Bob"}, {"name": "Carol"}
-            )
-
-            # ensure Alice and Bob and related
-            ab, = graph_db.get_or_create_relationships(
-                (alice, "LOVES", bob, {"since": 2006})
-            )
-
-            # ensure relationships exist between Alice, Bob and Carol
-            # creating new relationships only where necessary
-            rels = graph_db.get_or_create_relationships(
-                (alice, "LOVES", bob), (bob, "LIKES", alice),
-                (carol, "LOVES", bob), (alice, "HATES", carol),
-            )
-
-            # ensure Alice has an outgoing LIKES relationship
-            # (a new node will be created if required)
-            friendship, = graph_db.get_or_create_relationships(
-                (alice, "LIKES", None)
-            )
-
-            # ensure Alice has an incoming LIKES relationship
-            # (a new node will be created if required)
-            friendship, = graph_db.get_or_create_relationships(
-                (None, "LIKES", alice)
-            )
+        instances or :py:const:`None` (both nodes cannot be :py:const:`None`).
 
         Uses Cypher `CREATE UNIQUE` clause, raising
         :py:class:`NotImplementedError` if server support not available.
+
+        .. deprecated:: 1.5
+            use either :py:func:`WriteBatch.get_or_create_relationship` or
+            :py:func:`Path.get_or_create` instead.
         """
         batch = WriteBatch(self)
         for abstract in abstracts:
@@ -471,7 +448,8 @@ class GraphDatabaseService(rest.Resource):
 
     @property
     def neo4j_version(self):
-        """ Return the database software version as a tuple.
+        """ Return the database software version as a 4-tuple of (``int``,
+        ``int``, ``int``, ``str``).
         """
         return version_tuple(self._neo4j_version)
 
@@ -784,6 +762,9 @@ class Node(PropertyContainer):
         """ Create and return a new relationship of type `type` from the node
         represented by `other_node` to the node represented by the current
         instance.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.create_path` instead.
         """
         if not isinstance(other_node, Node):
             return TypeError("Start node is not a neo4j.Node instance")
@@ -795,6 +776,9 @@ class Node(PropertyContainer):
         """ Create and return a new relationship of type `type` from the node
         represented by the current instance to the node represented by
         `other_node`.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.create_path` instead.
         """
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
@@ -852,6 +836,9 @@ class Node(PropertyContainer):
     def get_related_nodes(self, direction=Direction.EITHER, *types):
         """ Fetch all nodes related to the current node by a relationship in a
         given `direction` of a specific `type` (if supplied).
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match` instead.
         """
         if types:
             uri = self._typed_relationships_uri(direction, types)
@@ -867,6 +854,9 @@ class Node(PropertyContainer):
     def get_relationships(self, direction=Direction.EITHER, *types):
         """ Fetch all relationships from the current node in a given
         `direction` of a specific `type` (if supplied).
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match` instead.
         """
         if types:
             uri = self._typed_relationships_uri(direction, types)
@@ -882,6 +872,9 @@ class Node(PropertyContainer):
     def get_relationships_with(self, other, direction=Direction.EITHER, *types):
         """ Return all relationships between this node and another node using
         the relationship criteria supplied.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match` instead.
         """
         if not isinstance(other, Node):
             raise ValueError
@@ -907,6 +900,9 @@ class Node(PropertyContainer):
         """ Return only one node related to the current node by a relationship
         in the given `direction` of the specified `type`, if any such
         relationships exist.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match_one` instead.
         """
         nodes = self.get_related_nodes(direction, *types)
         if nodes:
@@ -919,6 +915,9 @@ class Node(PropertyContainer):
     def get_single_relationship(self, direction=Direction.EITHER, *types):
         """ Fetch only one relationship from the current node in the given
         `direction` of the specified `type`, if any such relationships exist.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match_one` instead.
         """
         relationships = self.get_relationships(direction, *types)
         if relationships:
@@ -931,6 +930,9 @@ class Node(PropertyContainer):
     def has_relationship(self, direction=Direction.EITHER, *types):
         """ Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match_one` instead.
         """
         relationships = self.get_relationships(direction, *types)
         return bool(relationships)
@@ -940,6 +942,9 @@ class Node(PropertyContainer):
     def has_relationship_with(self, other, direction=Direction.EITHER, *types):
         """ Return :py:const:`True` if this node has any relationships with the
         specified criteria, :py:const:`False` otherwise.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match_one` instead.
         """
         relationships = self.get_relationships_with(other, direction, *types)
         return bool(relationships)
@@ -950,6 +955,9 @@ class Node(PropertyContainer):
         """ Return :py:const:`True` if the current node is related to the other
         node using the relationship criteria supplied, :py:const:`False`
         otherwise.
+
+        .. deprecated:: 1.5
+            use :py:func:`Node.match_one` instead.
         """
         return bool(self.get_relationships_with(other, direction, *types))
 
@@ -1142,6 +1150,179 @@ class Relationship(PropertyContainer):
         if not self._type:
             self._type = self.__metadata__['type']
         return self._type
+
+
+class Path(object):
+    """ A representation of a sequence of nodes connected by relationships.
+    """
+
+    def __init__(self, node, *rels_and_nodes):
+        self._nodes = [node]
+        self._nodes.extend(rels_and_nodes[1::2])
+        if len(rels_and_nodes) % 2 != 0:
+            # If a trailing relationship is supplied, add a dummy end node
+            self._nodes.append(None)
+        self._relationships = list(rels_and_nodes[0::2])
+
+    def __repr__(self):
+        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
+        return "Path({0})".format(out)
+
+    def __str__(self):
+        out = []
+        for i, rel in enumerate(self._relationships):
+            out.append(str(self._nodes[i]))
+            out.append("-")
+            out.append(str(rel))
+            out.append("->")
+        out.append(str(self._nodes[-1]))
+        return "".join(out)
+
+    def __nonzero__(self):
+        return bool(self._relationships)
+
+    def __len__(self):
+        return len(self._relationships)
+
+    def __eq__(self, other):
+        return self._nodes == other._nodes and \
+               self._relationships == other._relationships
+
+    def __ne__(self, other):
+        return self._nodes != other._nodes or \
+               self._relationships != other._relationships
+
+    def __getitem__(self, item):
+        size = len(self._relationships)
+        def adjust(value, default=None):
+            if value is None:
+                return default
+            if value < 0:
+                return value + size
+            else:
+                return value
+        if isinstance(item, slice):
+            if item.step is not None:
+                raise ValueError("Steps not supported in path slicing")
+            start, stop = adjust(item.start, 0), adjust(item.stop, size)
+            path = Path(self._nodes[start])
+            for i in range(start, stop):
+                path._relationships.append(self._relationships[i])
+                path._nodes.append(self._nodes[i + 1])
+            return path
+        else:
+            i = int(item)
+            if i < 0:
+                i += len(self._relationships)
+            return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
+
+    def __iter__(self):
+        def relationship_tuples():
+            for i, rel in enumerate(self._relationships):
+                yield self._nodes[i], rel, self._nodes[i + 1]
+        return iter(relationship_tuples())
+
+    def order(self):
+        """ Return the number of nodes within this path.
+        """
+        return len(self._nodes)
+
+    def size(self):
+        """ Return the number of relationships within this path.
+        """
+        return len(self._relationships)
+
+    @property
+    def nodes(self):
+        """ Return a list of all the nodes which make up this path.
+        """
+        return self._nodes
+
+    @property
+    def relationships(self):
+        """ Return a list of all the relationships which make up this path.
+        """
+        return self._relationships
+
+    @classmethod
+    def join(cls, left, rel, right):
+        """ Join the two paths `left` and `right` with the relationship `rel`.
+        """
+        if isinstance(left, Path):
+            left = left[:]
+        else:
+            left = Path(left)
+        if isinstance(right, Path):
+            right = right[:]
+        else:
+            right = Path(right)
+        left._relationships.append(rel)
+        left._nodes.extend(right._nodes)
+        left._relationships.extend(right._relationships)
+        return left
+
+    def _create(self, graph_db, verb):
+        nodes, path, values, params = [], [], [], {}
+        def append_node(i, node):
+            if isinstance(node, dict):
+                path.append("(n{0} {{p{0}}})".format(i))
+                params["p{0}".format(i)] = compact(node or {})
+            else:
+                path.append("(n{0})".format(i))
+                if isinstance(node, Node):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node._id
+                elif isinstance(node, int):
+                    nodes.append("n{0}=node({{i{0}}})".format(i))
+                    params["i{0}".format(i)] = node
+                elif isinstance(node, tuple):
+                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
+                    params["i{0}".format(i)] = node[2]
+                elif node is not None:
+                    raise TypeError("Cannot infer node from {0}".format(type(node)))
+            values.append("n{0}".format(i))
+        def append_rel(i, rel):
+            if isinstance(rel, Relationship):
+                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
+            elif isinstance(rel, tuple):
+                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
+                params["q{0}".format(i)] = compact(rel[1] or {})
+            else:
+                path.append("-[r{0}:`{1}`]->".format(i, rel))
+            values.append("r{0}".format(i))
+        append_node(0, self.nodes[0])
+        for i, (start, rel, end) in enumerate(self):
+            append_rel(i, rel)
+            append_node(i + 1, end)
+        clauses = []
+        if nodes:
+            clauses.append("START {0}".format(",".join(nodes)))
+        clauses.append("{0} {1}".format(verb, "".join(path)))
+        clauses.append("RETURN {0}".format(",".join(values)))
+        query = " ".join(clauses)
+        try:
+            data, metadata = cypher.execute(graph_db, query, params)
+            return Path(*data[0])
+        except cypher.CypherError:
+            raise NotImplementedError(
+                "The Neo4j server at <{0}> does not support "
+                "Cypher CREATE UNIQUE clauses or the query contains "
+                "an unsupported property type".format(graph_db._uri)
+            )
+
+    def create(self, graph_db):
+        """ Construct a path within the specified `graph_db` from the nodes
+        and relationships within this :py:class:`Path` instance. This makes
+        use of Cypher's ``CREATE`` clause.
+        """
+        return self._create(graph_db, "CREATE")
+
+    def get_or_create(self, graph_db):
+        """ Construct a unique path within the specified `graph_db` from the
+        nodes and relationships within this :py:class:`Path` instance. This
+        makes use of Cypher's ``CREATE UNIQUE`` clause.
+        """
+        return self._create(graph_db, "CREATE UNIQUE")
 
 
 class Index(rest.Resource):
@@ -1429,179 +1610,6 @@ class Index(rest.Resource):
                 self._uri, quote(query, "")
             ))).body
         ]
-
-
-class Path(object):
-    """ A representation of a sequence of nodes connected by relationships.
-    """
-
-    def __init__(self, node, *rels_and_nodes):
-        self._nodes = [node]
-        self._nodes.extend(rels_and_nodes[1::2])
-        if len(rels_and_nodes) % 2 != 0:
-            # If a trailing relationship is supplied, add a dummy end node
-            self._nodes.append(None)
-        self._relationships = list(rels_and_nodes[0::2])
-
-    def __repr__(self):
-        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
-        return "Path({0})".format(out)
-
-    def __str__(self):
-        out = []
-        for i, rel in enumerate(self._relationships):
-            out.append(str(self._nodes[i]))
-            out.append("-")
-            out.append(str(rel))
-            out.append("->")
-        out.append(str(self._nodes[-1]))
-        return "".join(out)
-
-    def __nonzero__(self):
-        return bool(self._relationships)
-
-    def __len__(self):
-        return len(self._relationships)
-
-    def __eq__(self, other):
-        return self._nodes == other._nodes and \
-               self._relationships == other._relationships
-
-    def __ne__(self, other):
-        return self._nodes != other._nodes or \
-               self._relationships != other._relationships
-
-    def __getitem__(self, item):
-        size = len(self._relationships)
-        def adjust(value, default=None):
-            if value is None:
-                return default
-            if value < 0:
-                return value + size
-            else:
-                return value
-        if isinstance(item, slice):
-            if item.step is not None:
-                raise ValueError("Steps not supported in path slicing")
-            start, stop = adjust(item.start, 0), adjust(item.stop, size)
-            path = Path(self._nodes[start])
-            for i in range(start, stop):
-                path._relationships.append(self._relationships[i])
-                path._nodes.append(self._nodes[i + 1])
-            return path
-        else:
-            i = int(item)
-            if i < 0:
-                i += len(self._relationships)
-            return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
-
-    def __iter__(self):
-        def relationship_tuples():
-            for i, rel in enumerate(self._relationships):
-                yield self._nodes[i], rel, self._nodes[i + 1]
-        return iter(relationship_tuples())
-
-    def order(self):
-        """ Return the number of nodes within this path.
-        """
-        return len(self._nodes)
-
-    def size(self):
-        """ Return the number of relationships within this path.
-        """
-        return len(self._relationships)
-
-    @property
-    def nodes(self):
-        """ Return a list of all the nodes which make up this path.
-        """
-        return self._nodes
-
-    @property
-    def relationships(self):
-        """ Return a list of all the relationships which make up this path.
-        """
-        return self._relationships
-
-    @classmethod
-    def join(cls, left, rel, right):
-        """ Join the two paths `left` and `right` with the relationship `rel`.
-        """
-        if isinstance(left, Path):
-            left = left[:]
-        else:
-            left = Path(left)
-        if isinstance(right, Path):
-            right = right[:]
-        else:
-            right = Path(right)
-        left._relationships.append(rel)
-        left._nodes.extend(right._nodes)
-        left._relationships.extend(right._relationships)
-        return left
-
-    def _create(self, graph_db, verb):
-        nodes, path, values, params = [], [], [], {}
-        def append_node(i, node):
-            if isinstance(node, dict):
-                path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = compact(node or {})
-            else:
-                path.append("(n{0})".format(i))
-                if isinstance(node, Node):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node._id
-                elif isinstance(node, int):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node
-                elif isinstance(node, tuple):
-                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
-                    params["i{0}".format(i)] = node[2]
-                elif node is not None:
-                    raise TypeError("Cannot infer node from {0}".format(type(node)))
-            values.append("n{0}".format(i))
-        def append_rel(i, rel):
-            if isinstance(rel, Relationship):
-                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
-            elif isinstance(rel, tuple):
-                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
-                params["q{0}".format(i)] = compact(rel[1] or {})
-            else:
-                path.append("-[r{0}:`{1}`]->".format(i, rel))
-            values.append("r{0}".format(i))
-        append_node(0, self.nodes[0])
-        for i, (start, rel, end) in enumerate(self):
-            append_rel(i, rel)
-            append_node(i + 1, end)
-        clauses = []
-        if nodes:
-            clauses.append("START {0}".format(",".join(nodes)))
-        clauses.append("{0} {1}".format(verb, "".join(path)))
-        clauses.append("RETURN {0}".format(",".join(values)))
-        query = " ".join(clauses)
-        try:
-            data, metadata = cypher.execute(graph_db, query, params)
-            return Path(*data[0])
-        except cypher.CypherError:
-            raise NotImplementedError(
-                "The Neo4j server at <{0}> does not support "
-                "Cypher CREATE UNIQUE clauses or the query contains "
-                "an unsupported property type".format(graph_db._uri)
-            )
-
-    def create(self, graph_db):
-        """ Construct a path within the specified `graph_db` from the nodes
-        and relationships within this :py:class:`Path` instance. This makes
-        use of Cypher's ``CREATE`` clause.
-        """
-        return self._create(graph_db, "CREATE")
-
-    def get_or_create(self, graph_db):
-        """ Construct a unique path within the specified `graph_db` from the
-        nodes and relationships within this :py:class:`Path` instance. This
-        makes use of Cypher's ``CREATE UNIQUE`` clause.
-        """
-        return self._create(graph_db, "CREATE UNIQUE")
 
 
 class _Batch(object):
