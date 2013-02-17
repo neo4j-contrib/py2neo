@@ -40,17 +40,17 @@ Nodes and Relationships
     :members:
     :show-inheritance:
 
-Indexes
--------
-
-.. autoclass:: py2neo.neo4j.Index
-    :members:
-    :show-inheritance:
-
 Paths
 -----
 
 .. autoclass:: py2neo.neo4j.Path
+    :members:
+    :show-inheritance:
+
+Indexes
+-------
+
+.. autoclass:: py2neo.neo4j.Index
     :members:
     :show-inheritance:
 
