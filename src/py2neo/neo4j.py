@@ -55,6 +55,30 @@ def authenticate(netloc, user_name, password):
     value = "Basic " + base64.b64encode(credentials).decode("ASCII")
     rest.http_headers.add("Authorization", value, netloc=netloc)
 
+def rewrite(from_scheme_netloc, to_scheme_netloc):
+    """ Automatically rewrite all URIs directed to the scheme and netloc
+    specified in `from_scheme_netloc` to that specified in `to_scheme_netloc`.
+    This applies *before* any netloc-specific headers or timeouts are applied.
+
+    As an example::
+
+        # implicitly convert all URIs beginning with <http://localhost:7474>
+        # to instead use <https://dbserver:9999>
+        neo4j.rewrite(("http", "localhost:7474"), ("https", "dbserver:9999"))
+
+    if `to_scheme_netloc` is :py:const:`None` then any rewrite rule for
+    `from_scheme_netloc` is removed.
+
+    This facility is primarily intended for use by database servers behind
+    proxies which are unaware of their externally visible network address.
+    """
+    if to_scheme_netloc is None:
+        try:
+            del rest.http_rewrites[from_scheme_netloc]
+        except KeyError:
+            pass
+    else:
+        rest.http_rewrites[from_scheme_netloc] = to_scheme_netloc
 
 def set_timeout(netloc, timeout):
     """ Set a timeout for all HTTP blocking operations for specified `netloc`.

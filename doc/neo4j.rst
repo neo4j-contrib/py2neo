@@ -20,6 +20,11 @@ Authentication
 
 .. autofunction:: py2neo.neo4j.authenticate
 
+URI Rewriting
+-------------
+
+.. autofunction:: py2neo.neo4j.rewrite
+
 Nodes and Relationships
 -----------------------
 

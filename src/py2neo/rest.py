@@ -75,6 +75,7 @@ http_headers.add("User-Agent", "{0}/{1} ({2}; python/{3})".format(
     sys.platform, sys.version.partition(" ")[0],
 ))
 
+http_rewrites = {}
 
 http_timeouts = {}
 
@@ -118,6 +119,22 @@ class BadRequest(ValueError):
             return repr(self.exception)
         else:
             return repr(self._data)
+
+
+class Unauthorized(Exception):
+    """ Exception triggered by a 401 HTTP response status.
+    """
+
+    def __init__(self, uri):
+        """
+        :param uri:  URI of the resource
+        """
+        logger.debug("Resource <{0}> requires user authentication.".format(uri))
+        Exception.__init__(self)
+        self.uri = uri
+
+    def __str__(self):
+        return repr(self.uri)
 
 
 class ResourceNotFound(LookupError):
@@ -229,6 +246,8 @@ class Response(object):
             self.id = id
         elif self.status == 400:
             raise BadRequest(body, id_=id)
+        elif self.status == 401:
+            raise Unauthorized(uri)
         elif self.status == 404:
             raise ResourceNotFound(uri, id_=id)
         elif self.status == 409:
@@ -273,6 +292,10 @@ class Client(object):
         else:
             path = uri_values[2]
         scheme, netloc = uri_values[0:2]
+        if (scheme, netloc) in http_rewrites:
+            alt_scheme, alt_netloc = http_rewrites[(scheme, netloc)]
+            logger.debug("Rewriting <{0}://{1}> to <{2}://{3}>".format(scheme, netloc, alt_scheme, alt_netloc))
+            scheme, netloc = alt_scheme, alt_netloc
         _headers = http_headers.get(netloc)
         _headers.update(headers or {})
         if data is not None:
