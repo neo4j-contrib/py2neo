@@ -15,23 +15,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The neo4j module provides the main Neo4j client functionality and will be
-the starting point for most applications.
+""" The neo4j module provides the main `Neo4j <http://neo4j.org/>`_ client
+functionality and will be the starting point for most applications. The main
+classes provided are:
+
+- :py:class:`GraphDatabaseService` - an instance of a Neo4j database server,
+  providing a number of graph-global methods for handling nodes and
+  relationships
+- :py:class:`Node` - a representation of a database node
+- :py:class:`Relationship` - a representation of a relationship between two
+  database nodes
+- :py:class:`Index` - a index of key-value pairs for storing links to nodes or
+  relationships
+- :py:class:`Path` - a sequence of alternating nodes and relationships
+- :py:class:`ReadBatch` - a batch of read requests to be carried out within a
+  single transaction
+- :py:class:`WriteBatch` - a batch of write requests to be carried out within
+  a single transaction
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
+from . import rest, cypher
+from .util import compact, quote, round_robin, deprecated, version_tuple
 
 import base64
 import json
 import logging
 
-from . import rest, cypher
-from .util import compact, quote, round_robin, deprecated, version_tuple
-
-logger = logging.getLogger(__name__)
-
 DEFAULT_URI = "http://localhost:7474/db/data/"
 
+logger = logging.getLogger(__name__)
 
 def authenticate(netloc, user_name, password):
     """ Set HTTP basic authentication values for specified `netloc`. The code
@@ -125,430 +138,6 @@ class Direction(object):
     EITHER   =  0
     INCOMING = -1
     OUTGOING =  1
-
-
-class _Batch(object):
-
-    def __init__(self, graph_db):
-        assert isinstance(graph_db, GraphDatabaseService)
-        self._graph_db = graph_db
-        self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"], "/node").reference
-        self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
-        self.clear()
-
-    def __len__(self):
-        return len(self.requests)
-
-    def __nonzero__(self):
-        return bool(self.requests)
-
-    def _submit(self):
-        """ Submits batch of requests, returning list of Response objects.
-        """
-        rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
-            request.description(id_)
-            for id_, request in enumerate(self.requests)
-        ]))
-        self.clear()
-        return [
-            rest.Response(
-                self._graph_db,
-                response.get("status", rs.status),
-                response["from"],
-                response.get("location", None),
-                response.get("body", None),
-                id=response.get("id", None),
-            )
-            for response in rs.body
-        ]
-
-    def _append(self, request):
-        """ Append a :py:class:`rest.Request` to this batch.
-        """
-        self.requests.append(request)
-
-    def clear(self):
-        """ Clear all requests from this batch.
-        """
-        self.requests = []
-
-    def submit(self):
-        """ Submit the current batch of requests, returning a list of
-            the objects returned.
-        """
-        return [
-            self._graph_db._resolve(response.body, response.status, id_=response.id)
-            for response in self._submit()
-        ]
-
-
-class ReadBatch(_Batch):
-
-    def __init__(self, graph_db):
-        _Batch.__init__(self, graph_db)
-
-    def _get(self, uri, body=None):
-        self._append(rest.Request(self._graph_db, "GET", uri, body))
-
-    def get(self, entity):
-        self._get(entity._uri.reference)
-
-
-class WriteBatch(_Batch):
-
-    def __init__(self, graph_db):
-        _Batch.__init__(self, graph_db)
-
-    def _post(self, uri, body=None):
-        self._append(rest.Request(self._graph_db, "POST", uri, body))
-
-    def _delete(self, uri, body=None):
-        self._append(rest.Request(self._graph_db, "DELETE", uri, body))
-
-    def _put(self, uri, body=None):
-        self._append(rest.Request(self._graph_db, "PUT", uri, body))
-
-    def create_node(self, properties=None):
-        """ Create a new node with the properties supplied.
-        """
-        self._post(self._create_node_uri, compact(properties or {}))
-
-    def create_relationship(self, start_node, type_, end_node, properties=None):
-        """ Create a new relationship with the values supplied.
-        """
-        def node_uri(node):
-            if isinstance(node, Node):
-                node._must_belong_to(self._graph_db)
-                return rest.URI(node.__metadata__["self"], "/node").reference
-            else:
-                return "{" + str(node) + "}"
-        body = {
-            "type": type_,
-            "to": node_uri(end_node),
-        }
-        if properties:
-            body["data"] = compact(properties)
-        self._post(node_uri(start_node) + "/relationships", body)
-
-    def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
-        """ Create a new relationship with the values supplied if one does not
-            already exist.
-        """
-        assert isinstance(start_node, Node) or start_node is None
-        assert isinstance(end_node, Node) or end_node is None
-        if start_node and end_node:
-            query = "START a=node({a}), b=node({b}) " \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
-                    "RETURN ab"
-        elif start_node:
-            query = "START a=node({a}) " \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->() " \
-                    "RETURN ab"
-        elif end_node:
-            query = "START b=node({b}) " \
-                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b) " \
-                    "RETURN ab"
-        else:
-            raise ValueError("Either start node or end node must be "
-                             "specified for a unique relationship")
-        params = {"p": compact(properties or {})}
-        if start_node:
-            params["a"] = start_node._id
-        if end_node:
-            params["b"] = end_node._id
-        self._post(self._cypher_uri, {"query": query, "params": params})
-
-    def delete_node(self, node):
-        """ Delete the specified node from the graph.
-        """
-        assert isinstance(node, Node)
-        self._delete(node._uri.reference)
-
-    def delete_relationship(self, relationship):
-        """ Delete the specified relationship from the graph.
-        """
-        assert isinstance(relationship, Relationship)
-        self._delete(relationship._uri.reference)
-
-    def set_node_property(self, node, key, value):
-        """ Set a single property on a node.
-        """
-        if value is None:
-            self.delete_node_property(node, key)
-        else:
-            assert isinstance(node, Node)
-            uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
-            self._put(uri.reference, value)
-
-    def set_node_properties(self, node, properties):
-        """ Replace all properties on a node.
-        """
-        assert isinstance(node, Node)
-        uri = rest.URI(node.__metadata__['properties'], "/node")
-        self._put(uri.reference, compact(properties))
-
-    def delete_node_property(self, node, key):
-        """ Delete a single property from a node.
-        """
-        assert isinstance(node, Node)
-        uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
-        self._delete(uri.reference)
-
-    def delete_node_properties(self, node):
-        """ Delete all properties from a node.
-        """
-        assert isinstance(node, Node)
-        uri = rest.URI(node.__metadata__['properties'], "/node")
-        self._delete(uri.reference)
-
-    def set_relationship_property(self, relationship, key, value):
-        """ Set a single property on a relationship.
-        """
-        if value is None:
-            self.delete_relationship_property(relationship, key)
-        else:
-            assert isinstance(relationship, Relationship)
-            uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
-            self._put(uri.reference, value)
-
-    def set_relationship_properties(self, relationship, properties):
-        """ Replace all properties on a relationship.
-        """
-        assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
-        self._put(uri.reference, compact(properties))
-
-    def delete_relationship_property(self, relationship, key):
-        """ Delete a single property from a relationship.
-        """
-        assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
-        self._delete(uri.reference)
-
-    def delete_relationship_properties(self, relationship):
-        """ Delete all properties from a relationship.
-        """
-        assert isinstance(relationship, Relationship)
-        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
-        self._delete(uri.reference)
-
-    def _node_uri(self, node):
-        if isinstance(node, Node):
-            return str(node._uri)
-        else:
-            return "{" + str(node) + "}"
-
-    def _relationship_uri(self, relationship):
-        if isinstance(relationship, Relationship):
-            return str(relationship._uri)
-        else:
-            return "{" + str(relationship) + "}"
-
-    def _index(self, content_type, index):
-        if isinstance(index, Index):
-            assert content_type == index._content_type
-            return index
-        else:
-            return self._graph_db.get_or_create_index(content_type, str(index))
-
-    def _create_indexed_node(self, index, uri_suffix, key, value, properties):
-        index_uri = self._index(Node, index)._uri
-        self._post(index_uri.reference + uri_suffix, body = {
-            "key": key,
-            "value": value,
-            "properties": compact(properties or {})
-        })
-
-    def get_or_create_indexed_node(self, index, key, value, properties=None):
-        """ Create and index a new node if one does not already exist,
-            returning either the new node or the existing one.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, compact(properties))
-        else:
-            self._create_indexed_node(index, "?unique", key, value, compact(properties))
-
-    def create_indexed_node_or_fail(self, index, key, value, properties=None):
-        """ Create and index a new node if one does not already exist,
-            fail otherwise.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, compact(properties))
-        else:
-            raise NotImplementedError("Uniqueness mode `create_or_fail` "
-                                      "requires version 1.9 or above")
-
-    def _add_indexed_node(self, index, uri_suffix, key, value, node):
-        index_uri = self._index(Node, index)._uri
-        self._post(index_uri.reference + uri_suffix, body = {
-            "key": key,
-            "value": value,
-            "uri": self._node_uri(node)
-        })
-
-    def add_indexed_node(self, index, key, value, node):
-        """ Add an existing node to the index specified.
-        """
-        self._add_indexed_node(index, "", key, value, node)
-
-    def get_or_add_indexed_node(self, index, key, value, node):
-        """ Add an existing node to the index specified if an entry does not
-            already exist for the given key-value pair, returning either the
-            added node or the one already in the index.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._add_indexed_node(index, "?uniqueness=get_or_create", key, value, node)
-        else:
-            self._add_indexed_node(index, "?unique", key, value, node)
-
-    def add_indexed_node_or_fail(self, index, key, value, node):
-        """ Add an existing node to the index specified if an entry does not
-            already exist for the given key-value pair, fail otherwise.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._add_indexed_node(index, "?uniqueness=create_or_fail", key, value, node)
-        else:
-            raise NotImplementedError("Uniqueness mode `create_or_fail` "
-                                      "requires version 1.9 or above")
-
-    def remove_indexed_node(self, index, key=None, value=None, node=None):
-        """Remove any entries from the index which pertain to the parameters
-        supplied. The allowed parameter combinations are:
-
-        `key`, `value`, `node`
-            remove a specific node indexed under a given key-value pair
-
-        `key`, `node`
-            remove a specific node indexed against a given key but with
-            any value
-
-        `node`
-            remove all occurrences of a specific node regardless of
-            key and value
-
-        """
-        index_uri = self._index(Node, index)._uri
-        if key and value and node:
-            self._delete("{0}/{1}/{2}/{3}".format(
-                index_uri,
-                quote(key, ""),
-                quote(value, ""),
-                node._id,
-            ))
-        elif key and node:
-            self._delete("{0}/{1}/{2}".format(
-                index_uri,
-                quote(key, ""),
-                node._id,
-            ))
-        elif node:
-            self._delete("{0}/{1}".format(
-                index_uri,
-                node._id,
-            ))
-        else:
-            raise TypeError("Illegal parameter combination for index removal")
-
-    def _create_indexed_relationship(self, index, uri_suffix, key, value, start_node, type_, end_node, properties):
-        index_uri = self._index(Relationship, index)._uri
-        self._post(index_uri.reference + uri_suffix, body = {
-            "key": key,
-            "value": value,
-            "start": self._node_uri(start_node),
-            "type": str(type_),
-            "end": self._node_uri(end_node),
-            "properties": properties or {}
-        })
-
-    def get_or_create_indexed_relationship(self, index, key, value, start_node, type_, end_node, properties=None):
-        """ Create and index a new relationship if one does not already exist,
-            returning either the new relationship or the existing one.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._create_indexed_relationship(index, "?uniqueness=get_or_create", key, value, start_node, type_, end_node, properties)
-        else:
-            self._create_indexed_relationship(index, "?unique", key, value, start_node, type_, end_node, properties)
-
-    def create_indexed_relationship_or_fail(self, index, key, value, start_node, type_, end_node, properties=None):
-        """ Create and index a new relationship if one does not already exist,
-            fail otherwise.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._create_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, start_node, type_, end_node, properties)
-        else:
-            raise NotImplementedError("Uniqueness mode `create_or_fail` "
-                                      "requires version 1.9 or above")
-
-    def _add_indexed_relationship(self, index, uri_suffix, key, value, relationship):
-        index_uri = self._index(Relationship, index)._uri
-        self._post(index_uri.reference + uri_suffix, body = {
-            "key": key,
-            "value": value,
-            "uri": self._relationship_uri(relationship)
-        })
-
-    def add_indexed_relationship(self, index, key, value, relationship):
-        """ Add an existing relationship to the index specified.
-        """
-        self._add_indexed_relationship(index, "", key, value, relationship)
-
-    def get_or_add_indexed_relationship(self, index, key, value, relationship):
-        """ Add an existing relationship to the index specified if an entry does not
-            already exist for the given key-value pair, returning either the
-            added relationship or the one already in the index.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._add_indexed_relationship(index, "?uniqueness=get_or_create", key, value, relationship)
-        else:
-            self._add_indexed_relationship(index, "?unique", key, value, relationship)
-
-    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
-        """ Add an existing relationship to the index specified if an entry does not
-            already exist for the given key-value pair, fail otherwise.
-        """
-        if self._graph_db.neo4j_version >= (1, 9):
-            self._add_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, relationship)
-        else:
-            raise NotImplementedError("Uniqueness mode `create_or_fail` "
-                                      "requires version 1.9 or above")
-
-    def remove_indexed_relationship(self, index, key=None, value=None, relationship=None):
-        """Remove any entries from the index which pertain to the parameters
-        supplied. The allowed parameter combinations are:
-
-        `key`, `value`, `relationship`
-            remove a specific relationship indexed under a given key-value pair
-
-        `key`, `relationship`
-            remove a specific relationship indexed against a given key but with
-            any value
-
-        `relationship`
-            remove all occurrences of a specific relationship regardless of
-            key and value
-
-        """
-        index_uri = self._index(Relationship, index)._uri
-        if key and value and relationship:
-            self._delete("{0}/{1}/{2}/{3}".format(
-                index_uri,
-                quote(key, ""),
-                quote(value, ""),
-                relationship._id,
-            ))
-        elif key and relationship:
-            self._delete("{0}/{1}/{2}".format(
-                index_uri,
-                quote(key, ""),
-                relationship._id,
-            ))
-        elif relationship:
-            self._delete("{0}/{1}".format(
-                index_uri,
-                relationship._id,
-            ))
-        else:
-            raise TypeError("Illegal parameter combination for index removal")
 
 
 class GraphDatabaseService(rest.Resource):
@@ -2013,3 +1602,427 @@ class Path(object):
         makes use of Cypher's ``CREATE UNIQUE`` clause.
         """
         return self._create(graph_db, "CREATE UNIQUE")
+
+
+class _Batch(object):
+
+    def __init__(self, graph_db):
+        assert isinstance(graph_db, GraphDatabaseService)
+        self._graph_db = graph_db
+        self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"], "/node").reference
+        self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
+        self.clear()
+
+    def __len__(self):
+        return len(self.requests)
+
+    def __nonzero__(self):
+        return bool(self.requests)
+
+    def _submit(self):
+        """ Submits batch of requests, returning list of Response objects.
+        """
+        rs = self._graph_db._send(rest.Request(self._graph_db, "POST", self._graph_db._batch_uri, [
+            request.description(id_)
+            for id_, request in enumerate(self.requests)
+        ]))
+        self.clear()
+        return [
+            rest.Response(
+                self._graph_db,
+                response.get("status", rs.status),
+                response["from"],
+                response.get("location", None),
+                response.get("body", None),
+                id=response.get("id", None),
+            )
+            for response in rs.body
+        ]
+
+    def _append(self, request):
+        """ Append a :py:class:`rest.Request` to this batch.
+        """
+        self.requests.append(request)
+
+    def clear(self):
+        """ Clear all requests from this batch.
+        """
+        self.requests = []
+
+    def submit(self):
+        """ Submit the current batch of requests, returning a list of
+            the objects returned.
+        """
+        return [
+            self._graph_db._resolve(response.body, response.status, id_=response.id)
+            for response in self._submit()
+        ]
+
+
+class ReadBatch(_Batch):
+
+    def __init__(self, graph_db):
+        _Batch.__init__(self, graph_db)
+
+    def _get(self, uri, body=None):
+        self._append(rest.Request(self._graph_db, "GET", uri, body))
+
+    def get(self, entity):
+        self._get(entity._uri.reference)
+
+
+class WriteBatch(_Batch):
+
+    def __init__(self, graph_db):
+        _Batch.__init__(self, graph_db)
+
+    def _post(self, uri, body=None):
+        self._append(rest.Request(self._graph_db, "POST", uri, body))
+
+    def _delete(self, uri, body=None):
+        self._append(rest.Request(self._graph_db, "DELETE", uri, body))
+
+    def _put(self, uri, body=None):
+        self._append(rest.Request(self._graph_db, "PUT", uri, body))
+
+    def create_node(self, properties=None):
+        """ Create a new node with the properties supplied.
+        """
+        self._post(self._create_node_uri, compact(properties or {}))
+
+    def create_relationship(self, start_node, type_, end_node, properties=None):
+        """ Create a new relationship with the values supplied.
+        """
+        def node_uri(node):
+            if isinstance(node, Node):
+                node._must_belong_to(self._graph_db)
+                return rest.URI(node.__metadata__["self"], "/node").reference
+            else:
+                return "{" + str(node) + "}"
+        body = {
+            "type": type_,
+            "to": node_uri(end_node),
+        }
+        if properties:
+            body["data"] = compact(properties)
+        self._post(node_uri(start_node) + "/relationships", body)
+
+    def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
+        """ Create a new relationship with the values supplied if one does not
+        already exist.
+        """
+        assert isinstance(start_node, Node) or start_node is None
+        assert isinstance(end_node, Node) or end_node is None
+        if start_node and end_node:
+            query = "START a=node({a}), b=node({b}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
+                    "RETURN ab"
+        elif start_node:
+            query = "START a=node({a}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->() " \
+                    "RETURN ab"
+        elif end_node:
+            query = "START b=node({b}) " \
+                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b) " \
+                    "RETURN ab"
+        else:
+            raise ValueError("Either start node or end node must be "
+                             "specified for a unique relationship")
+        params = {"p": compact(properties or {})}
+        if start_node:
+            params["a"] = start_node._id
+        if end_node:
+            params["b"] = end_node._id
+        self._post(self._cypher_uri, {"query": query, "params": params})
+
+    def delete_node(self, node):
+        """ Delete the specified node from the graph.
+        """
+        assert isinstance(node, Node)
+        self._delete(node._uri.reference)
+
+    def delete_relationship(self, relationship):
+        """ Delete the specified relationship from the graph.
+        """
+        assert isinstance(relationship, Relationship)
+        self._delete(relationship._uri.reference)
+
+    def set_node_property(self, node, key, value):
+        """ Set a single property on a node.
+        """
+        if value is None:
+            self.delete_node_property(node, key)
+        else:
+            assert isinstance(node, Node)
+            uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
+            self._put(uri.reference, value)
+
+    def set_node_properties(self, node, properties):
+        """ Replace all properties on a node.
+        """
+        assert isinstance(node, Node)
+        uri = rest.URI(node.__metadata__['properties'], "/node")
+        self._put(uri.reference, compact(properties))
+
+    def delete_node_property(self, node, key):
+        """ Delete a single property from a node.
+        """
+        assert isinstance(node, Node)
+        uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
+        self._delete(uri.reference)
+
+    def delete_node_properties(self, node):
+        """ Delete all properties from a node.
+        """
+        assert isinstance(node, Node)
+        uri = rest.URI(node.__metadata__['properties'], "/node")
+        self._delete(uri.reference)
+
+    def set_relationship_property(self, relationship, key, value):
+        """ Set a single property on a relationship.
+        """
+        if value is None:
+            self.delete_relationship_property(relationship, key)
+        else:
+            assert isinstance(relationship, Relationship)
+            uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
+            self._put(uri.reference, value)
+
+    def set_relationship_properties(self, relationship, properties):
+        """ Replace all properties on a relationship.
+        """
+        assert isinstance(relationship, Relationship)
+        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
+        self._put(uri.reference, compact(properties))
+
+    def delete_relationship_property(self, relationship, key):
+        """ Delete a single property from a relationship.
+        """
+        assert isinstance(relationship, Relationship)
+        uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
+        self._delete(uri.reference)
+
+    def delete_relationship_properties(self, relationship):
+        """ Delete all properties from a relationship.
+        """
+        assert isinstance(relationship, Relationship)
+        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
+        self._delete(uri.reference)
+
+    def _node_uri(self, node):
+        if isinstance(node, Node):
+            return str(node._uri)
+        else:
+            return "{" + str(node) + "}"
+
+    def _relationship_uri(self, relationship):
+        if isinstance(relationship, Relationship):
+            return str(relationship._uri)
+        else:
+            return "{" + str(relationship) + "}"
+
+    def _index(self, content_type, index):
+        if isinstance(index, Index):
+            assert content_type == index._content_type
+            return index
+        else:
+            return self._graph_db.get_or_create_index(content_type, str(index))
+
+    def _create_indexed_node(self, index, uri_suffix, key, value, properties):
+        index_uri = self._index(Node, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "properties": compact(properties or {})
+        })
+
+    def get_or_create_indexed_node(self, index, key, value, properties=None):
+        """ Create and index a new node if one does not already exist,
+            returning either the new node or the existing one.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._create_indexed_node(index, "?uniqueness=get_or_create", key, value, compact(properties))
+        else:
+            self._create_indexed_node(index, "?unique", key, value, compact(properties))
+
+    def create_indexed_node_or_fail(self, index, key, value, properties=None):
+        """ Create and index a new node if one does not already exist,
+            fail otherwise.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._create_indexed_node(index, "?uniqueness=create_or_fail", key, value, compact(properties))
+        else:
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
+
+    def _add_indexed_node(self, index, uri_suffix, key, value, node):
+        index_uri = self._index(Node, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "uri": self._node_uri(node)
+        })
+
+    def add_indexed_node(self, index, key, value, node):
+        """ Add an existing node to the index specified.
+        """
+        self._add_indexed_node(index, "", key, value, node)
+
+    def get_or_add_indexed_node(self, index, key, value, node):
+        """ Add an existing node to the index specified if an entry does not
+            already exist for the given key-value pair, returning either the
+            added node or the one already in the index.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._add_indexed_node(index, "?uniqueness=get_or_create", key, value, node)
+        else:
+            self._add_indexed_node(index, "?unique", key, value, node)
+
+    def add_indexed_node_or_fail(self, index, key, value, node):
+        """ Add an existing node to the index specified if an entry does not
+            already exist for the given key-value pair, fail otherwise.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._add_indexed_node(index, "?uniqueness=create_or_fail", key, value, node)
+        else:
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
+
+    def remove_indexed_node(self, index, key=None, value=None, node=None):
+        """Remove any entries from the index which pertain to the parameters
+        supplied. The allowed parameter combinations are:
+
+        `key`, `value`, `node`
+            remove a specific node indexed under a given key-value pair
+
+        `key`, `node`
+            remove a specific node indexed against a given key but with
+            any value
+
+        `node`
+            remove all occurrences of a specific node regardless of
+            key and value
+
+        """
+        index_uri = self._index(Node, index)._uri
+        if key and value and node:
+            self._delete("{0}/{1}/{2}/{3}".format(
+                index_uri,
+                quote(key, ""),
+                quote(value, ""),
+                node._id,
+            ))
+        elif key and node:
+            self._delete("{0}/{1}/{2}".format(
+                index_uri,
+                quote(key, ""),
+                node._id,
+            ))
+        elif node:
+            self._delete("{0}/{1}".format(
+                index_uri,
+                node._id,
+            ))
+        else:
+            raise TypeError("Illegal parameter combination for index removal")
+
+    def _create_indexed_relationship(self, index, uri_suffix, key, value, start_node, type_, end_node, properties):
+        index_uri = self._index(Relationship, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "start": self._node_uri(start_node),
+            "type": str(type_),
+            "end": self._node_uri(end_node),
+            "properties": properties or {}
+        })
+
+    def get_or_create_indexed_relationship(self, index, key, value, start_node, type_, end_node, properties=None):
+        """ Create and index a new relationship if one does not already exist,
+            returning either the new relationship or the existing one.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._create_indexed_relationship(index, "?uniqueness=get_or_create", key, value, start_node, type_, end_node, properties)
+        else:
+            self._create_indexed_relationship(index, "?unique", key, value, start_node, type_, end_node, properties)
+
+    def create_indexed_relationship_or_fail(self, index, key, value, start_node, type_, end_node, properties=None):
+        """ Create and index a new relationship if one does not already exist,
+            fail otherwise.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._create_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, start_node, type_, end_node, properties)
+        else:
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
+
+    def _add_indexed_relationship(self, index, uri_suffix, key, value, relationship):
+        index_uri = self._index(Relationship, index)._uri
+        self._post(index_uri.reference + uri_suffix, body = {
+            "key": key,
+            "value": value,
+            "uri": self._relationship_uri(relationship)
+        })
+
+    def add_indexed_relationship(self, index, key, value, relationship):
+        """ Add an existing relationship to the index specified.
+        """
+        self._add_indexed_relationship(index, "", key, value, relationship)
+
+    def get_or_add_indexed_relationship(self, index, key, value, relationship):
+        """ Add an existing relationship to the index specified if an entry does not
+            already exist for the given key-value pair, returning either the
+            added relationship or the one already in the index.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._add_indexed_relationship(index, "?uniqueness=get_or_create", key, value, relationship)
+        else:
+            self._add_indexed_relationship(index, "?unique", key, value, relationship)
+
+    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
+        """ Add an existing relationship to the index specified if an entry does not
+            already exist for the given key-value pair, fail otherwise.
+        """
+        if self._graph_db.neo4j_version >= (1, 9):
+            self._add_indexed_relationship(index, "?uniqueness=create_or_fail", key, value, relationship)
+        else:
+            raise NotImplementedError("Uniqueness mode `create_or_fail` "
+                                      "requires version 1.9 or above")
+
+    def remove_indexed_relationship(self, index, key=None, value=None, relationship=None):
+        """Remove any entries from the index which pertain to the parameters
+        supplied. The allowed parameter combinations are:
+
+        `key`, `value`, `relationship`
+            remove a specific relationship indexed under a given key-value pair
+
+        `key`, `relationship`
+            remove a specific relationship indexed against a given key but with
+            any value
+
+        `relationship`
+            remove all occurrences of a specific relationship regardless of
+            key and value
+
+        """
+        index_uri = self._index(Relationship, index)._uri
+        if key and value and relationship:
+            self._delete("{0}/{1}/{2}/{3}".format(
+                index_uri,
+                quote(key, ""),
+                quote(value, ""),
+                relationship._id,
+            ))
+        elif key and relationship:
+            self._delete("{0}/{1}/{2}".format(
+                index_uri,
+                quote(key, ""),
+                relationship._id,
+            ))
+        elif relationship:
+            self._delete("{0}/{1}".format(
+                index_uri,
+                relationship._id,
+            ))
+        else:
+            raise TypeError("Illegal parameter combination for index removal")

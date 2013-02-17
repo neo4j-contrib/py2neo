@@ -16,12 +16,12 @@ graph database service:
     :show-inheritance:
 
 Authentication
---------------
+~~~~~~~~~~~~~~
 
 .. autofunction:: py2neo.neo4j.authenticate
 
 URI Rewriting
--------------
+~~~~~~~~~~~~~
 
 .. autofunction:: py2neo.neo4j.rewrite
 
