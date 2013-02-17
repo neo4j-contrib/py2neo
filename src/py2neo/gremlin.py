@@ -15,23 +15,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Gremlin utility module
+""" The Gremlin language module allows
+`Gremlin <https://github.com/tinkerpop/gremlin/wiki>`_ scripts to be executed
+against a graph database.
 """
-
-import logging
 
 from . import rest
 
-logger = logging.getLogger(__name__)
+import logging
 
+logger = logging.getLogger(__name__)
 
 def execute(script, graph_db):
     """
     Execute a script against a database using the Gremlin plugin, if available.
 
-    :param script:              a string containing the Gremlin script to execute
+    :param script: string containing the Gremlin script to execute
     :raise NotImplementedError: if the Gremlin plugin is not available
-    :return:                    the result of the Gremlin script
+    :return: result of the Gremlin script
     """
     try:
         uri = graph_db._extension_uri('GremlinPlugin', 'execute_script')
