@@ -298,6 +298,7 @@ class Client(object):
             scheme, netloc = alt_scheme, alt_netloc
         _headers = http_headers.get(netloc)
         _headers.update(headers or {})
+        _headers["Host"] = netloc
         if data is not None:
             logger.debug("Encoding request body as JSON")
             data = json.dumps(data, separators=(",", ":"))
