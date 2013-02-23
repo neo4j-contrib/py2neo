@@ -53,7 +53,7 @@ To manage relationships, use the :py:func:`Store.relate` and
 database and operates only on the local `__rel__` attribute. Changes must be
 explicitly saved via one of the available save methods.
 
-The code below shows a quick example of usage::
+The code below shows an example of usage::
 
     from py2neo import neo4j, ogm
 
@@ -93,6 +93,14 @@ class Store(object):
 
     def __init__(self, graph_db):
         self.graph_db = graph_db
+
+    def _assert_saved(self, subj):
+        try:
+            node = subj.__node__
+            if node is None:
+                raise ValueError("Object is unsaved")
+        except AttributeError:
+            raise ValueError("Object is unsaved")
 
     def _get_node(self, endpoint):
         if isinstance(endpoint, neo4j.Node):
@@ -142,43 +150,23 @@ class Store(object):
             ]
 
     def load_related(self, subj, rel_type, cls):
+        """ Load all nodes related to `subj` by a relationship of type
+        `rel_type` into objects of type `cls`.
+        """
         if not hasattr(subj, "__rel__"):
             return []
         if rel_type not in subj.__rel__:
             return []
         return [
-            self.load(cls(), self._get_node(endpoint))
+            self.load(cls, self._get_node(endpoint))
             for rel_props, endpoint in subj.__rel__[rel_type]
         ]
 
-    def load(self, obj, node=None):
-        """ Load data from a database node into a local object. If the `node`
-        parameter is not specified, an existing `__node__` attribute will be
-        used instead, if available.
-
-        :param obj: the object to load into
-        :param node: the node to load from
-        :return: the object
-        :raise TypeError: if no `node` specified and no `__node__`
-            attribute found
-        """
-        if node is not None:
-            setattr(obj, "__node__", node)
-        if hasattr(obj, "__node__"):
-            node = obj.__node__
-        else:
-            node, = self.graph_db.create({})
-            obj.__node__ = node
-        setattr(obj, "__rel__", {})
-        # naively copy properties from node to object
-        for key, value in node.get_properties().items():
-            if not key.startswith("_"):
-                setattr(obj, key, value)
-        for rel in node.match():
-            if rel.type not in obj.__rel__:
-                obj.__rel__[rel.type] = []
-            obj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
-        return obj
+    def load(self, cls, node):
+        subj = cls()
+        setattr(subj, "__node__", node)
+        self.reload(subj)
+        return subj
 
     def load_indexed(self, cls, index_name, key, value):
         """ Load zero or more indexed nodes from the database into a list of
@@ -192,7 +180,7 @@ class Store(object):
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
         nodes = index.get(key, value)
-        return [self.load(cls(), node) for node in nodes]
+        return [self.load(cls, node) for node in nodes]
 
     def load_unique(self, cls, index_name, key, value):
         """ Load a uniquely indexed node from the database into an object.
@@ -210,42 +198,67 @@ class Store(object):
         if len(nodes) > 1:
             raise LookupError("Multiple nodes match the given criteria; "
                               "consider using `load_all` instead.")
-        return self.load(cls(), nodes[0])
+        return self.load(cls, nodes[0])
 
-    def save(self, obj, node=None):
+    def reload(self, subj):
+        self._assert_saved(subj)
+        # naively copy properties from node to object
+        properties = node.get_properties()
+        for key in subj.__dict__:
+            if not key.startswith("_") and key not in properties:
+                setattr(subj, key, None)
+        for key, value in properties.items():
+            if not key.startswith("_"):
+                setattr(subj, key, value)
+        subj.__rel__ = {}
+        for rel in node.match():
+            if rel.type not in subj.__rel__:
+                subj.__rel__[rel.type] = []
+            subj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
+        return subj
+
+    def save(self, subj, node=None):
         """ Save an object to a database node.
         """
         if node is not None:
-            obj.__node__ = node
+            subj.__node__ = node
         # naively copy properties from object to node
         props = {}
-        for key, value in obj.__dict__.items():
+        for key, value in subj.__dict__.items():
             if not key.startswith("_"):
                 props[key] = value
-        if hasattr(obj, "__node__"):
-            obj.__node__.set_properties(props)
+        if hasattr(subj, "__node__"):
+            subj.__node__.set_properties(props)
             cypher.execute(self.graph_db, "START a=node({A}) "
                                           "MATCH (a)-[r]->(b) "
-                                          "DELETE r", {"A": obj.__node__._id})
+                                          "DELETE r", {"A": subj.__node__._id})
         else:
-            obj.__node__, = self.graph_db.create(props)
+            subj.__node__, = self.graph_db.create(props)
         # write rels
-        if hasattr(obj, "__rel__"):
+        if hasattr(subj, "__rel__"):
             batch = neo4j.WriteBatch(self.graph_db)
-            for rel_type, rels in obj.__rel__.items():
+            for rel_type, rels in subj.__rel__.items():
                 for rel_props, endpoint in rels:
                     end_node = self._get_node(endpoint)
                     end_node._must_belong_to(self.graph_db)
-                    batch.create_relationship(obj.__node__, rel_type, end_node, rel_props)
+                    batch.create_relationship(subj.__node__, rel_type, end_node, rel_props)
             batch._submit()
-        return obj
+        return subj
 
-    def save_indexed(self, obj_list, index_name, key, value):
-        index = self.graph_db.get_index(neo4j.Node, index_name)
-        for obj in obj_list:
-            index.add(key, value, self.save(obj))
+    def save_indexed(self, subj_list, index_name, key, value):
+        index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
+        for subj in subj_list:
+            index.add(key, value, self.save(subj))
 
-    def save_unique(self, obj, index_name, key, value):
-        index = self.graph_db.get_index(neo4j.Node, index_name)
+    def save_unique(self, subj, index_name, key, value):
+        index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
         node = index.get_or_create(key, value, {})
-        self.save(obj, node)
+        self.save(subj, node)
+
+    def delete(self, subj):
+        self._assert_saved(subj)
+        node = subj.__node__
+        del subj.__node__
+        node.isolate()
+        node.delete()
+

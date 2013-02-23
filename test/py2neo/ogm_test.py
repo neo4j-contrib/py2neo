@@ -49,11 +49,11 @@ class ExampleCodeTestCase(unittest.TestCase):
         graph_db = neo4j.GraphDatabaseService()
         store = ogm.Store(graph_db)
 
-        alice = Person("alice@example,com", "Alice Allison", 34)
+        alice = Person("alice@example,com", "Alice", 34)
         store.save_unique(alice, "People", "email", alice.email)
 
-        bob = Person("bob@example,org", "Bob Robertson", 66)
-        carol = Person("carol@example,org", "Carol Carlsson", 42)
+        bob = Person("bob@example,org", "Bob", 66)
+        carol = Person("carol@example,org", "Carol", 42)
         store.relate(alice, "LIKES", bob)
         store.relate(alice, "LIKES", carol)
         store.save(alice)
