@@ -26,6 +26,15 @@ class Person(object):
         self.name = name
         self.age = age
 
+    def __eq__(self, other):
+        return self.email == other.email
+
+    def __ne__(self, other):
+        return self.email != other.email
+
+    def __repr__(self):
+        return "{0} <{1}>".format(self.name, self.email)
+
 
 class ExampleCodeTestCase(unittest.TestCase):
 
@@ -99,8 +108,8 @@ class SeparateTestCase(unittest.TestCase):
         alice = Person("alice@example.com", "Alice", 34)
         bob = Person("bob@example.org", "Bob", 66)
         carol = Person("carol@example.net", "Carol", 42)
-        alice.__rel__ = {}
-        alice.__rel__["LIKES"] = [({}, bob), ({}, carol)]
+        self.store.relate(alice, "LIKES", bob)
+        self.store.relate(alice, "LIKES", carol)
         self.store.separate(alice, "LIKES", carol)
         assert alice.__rel__["LIKES"] == [({}, bob)]
         self.store.separate(alice, "LIKES", bob)
@@ -109,8 +118,7 @@ class SeparateTestCase(unittest.TestCase):
     def test_nothing_happens_if_unknown_rel_type_supplied(self):
         alice = Person("alice@example.com", "Alice", 34)
         bob = Person("bob@example.org", "Bob", 66)
-        alice.__rel__ = {}
-        alice.__rel__["LIKES"] = [({}, bob)]
+        self.store.relate(alice, "LIKES", bob)
         self.store.separate(alice, "DISLIKES", bob)
         assert alice.__rel__["LIKES"] == [({}, bob)]
 
@@ -118,14 +126,50 @@ class SeparateTestCase(unittest.TestCase):
         alice = Person("alice@example.com", "Alice", 34)
         bob = Person("bob@example.org", "Bob", 66)
         carol = Person("carol@example.net", "Carol", 42)
-        alice.__rel__ = {}
-        alice.__rel__["LIKES"] = [({}, bob)]
+        self.store.relate(alice, "LIKES", bob)
         self.store.separate(alice, "LIKES", carol)
         assert alice.__rel__["LIKES"] == [({}, bob)]
 
 
 class LoadRelatedTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_load_single_related_object(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        self.store.relate(alice, "LIKES", bob)
+        self.store.save(alice)
+        friends = self.store.load_related(alice, "LIKES", Person)
+        assert friends == [bob]
+
+    def test_can_load_multiple_related_objects(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        carol = Person("carol@example.net", "Carol", 42)
+        self.store.relate(alice, "LIKES", bob)
+        self.store.relate(alice, "LIKES", carol)
+        self.store.save(alice)
+        friends = self.store.load_related(alice, "LIKES", Person)
+        assert friends == [bob, carol]
+
+    def test_can_load_related_objects_among_other_relationships(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        carol = Person("carol@example.net", "Carol", 42)
+        dave = Person("dave@example.co.uk", "Dave", 18)
+        self.store.relate(alice, "LIKES", bob)
+        self.store.relate(alice, "LIKES", carol)
+        self.store.relate(alice, "DISLIKES", dave)
+        self.store.save(alice)
+        print(alice.__node__)
+        friends = self.store.load_related(alice, "LIKES", Person)
+        assert friends == [bob, carol]
+        enemies = self.store.load_related(alice, "DISLIKES", Person)
+        assert enemies == [dave]
 
 
 class LoadTestCase(unittest.TestCase):
@@ -209,18 +253,23 @@ class SaveUniqueTestCase(unittest.TestCase):
         self.store = ogm.Store(self.graph_db)
 
     def test_can_save_simple_object(self):
-        alice = Person("alice@example.com", "Alice Allison", 34)
+        alice = Person("alice@example.com", "Alice", 34)
         self.store.save_unique(alice, "People", "email", "alice@example.com")
-        print(alice.__node__)
+        assert hasattr(alice, "__node__")
+        assert isinstance(alice.__node__, neo4j.Node)
+        assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
 
     def test_can_save_object_with_rels(self):
         alice = Person("alice@example.com", "Alice Allison", 34)
         bob_node, carol_node = self.graph_db.create(
-            {"name": "Bob Robertson"},
-            {"name": "Carol Carlsson"},
+            {"name": "Bob"},
+            {"name": "Carol"},
         )
         alice.__rel__ = {"KNOWS": [({}, bob_node)]}
         self.store.save_unique(alice, "People", "email", "alice@example.com")
+        assert hasattr(alice, "__node__")
+        assert isinstance(alice.__node__, neo4j.Node)
+        assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
         print(alice.__node__, bob_node, carol_node, alice.__node__.match())
         alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
         self.store.save_unique(alice, "People", "email", "alice@example.com")

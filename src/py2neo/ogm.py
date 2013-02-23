@@ -203,7 +203,7 @@ class Store(object):
     def reload(self, subj):
         self._assert_saved(subj)
         # naively copy properties from node to object
-        properties = node.get_properties()
+        properties = subj.__node__.get_properties()
         for key in subj.__dict__:
             if not key.startswith("_") and key not in properties:
                 setattr(subj, key, None)
@@ -211,7 +211,7 @@ class Store(object):
             if not key.startswith("_"):
                 setattr(subj, key, value)
         subj.__rel__ = {}
-        for rel in node.match():
+        for rel in subj.__node__.match():
             if rel.type not in subj.__rel__:
                 subj.__rel__[rel.type] = []
             subj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
