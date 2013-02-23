@@ -23,9 +23,9 @@ through the :py:class:`Store` class which is bound to a specific
 Conceptually, a mapped object "owns" a single node within the graph along with
 all of that node's outgoing relationships. These features are managed via a
 pair of attributes called `__node__` and `__rel__` which store details of the
-mapped node and the outgoing relationships respectively. There are specific
-requirements for a mapped object except for a nullary constructor which can be
-used to create new instances.
+mapped node and the outgoing relationships respectively. The only specific
+requirement for a mapped object is that it has a nullary constructor which can
+be used to create new instances.
 
 The `__node__` attribute holds a :py:class:`neo4j.Node` object which is the
 node to which this object is mapped. If the attribute does not exist, or is

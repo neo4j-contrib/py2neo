@@ -49,11 +49,11 @@ class ExampleCodeTestCase(unittest.TestCase):
         graph_db = neo4j.GraphDatabaseService()
         store = ogm.Store(graph_db)
 
-        alice = Person("alice@example,com", "Alice", 34)
+        alice = Person("alice@example.com", "Alice", 34)
         store.save_unique(alice, "People", "email", alice.email)
 
-        bob = Person("bob@example,org", "Bob", 66)
-        carol = Person("carol@example,org", "Carol", 42)
+        bob = Person("bob@example.org", "Bob", 66)
+        carol = Person("carol@example.net", "Carol", 42)
         store.relate(alice, "LIKES", bob)
         store.relate(alice, "LIKES", carol)
         store.save(alice)
@@ -63,11 +63,65 @@ class ExampleCodeTestCase(unittest.TestCase):
 
 
 class RelateTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_relate_to_other_object(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        self.store.relate(alice, "LIKES", bob)
+        assert hasattr(alice, "__rel__")
+        assert isinstance(alice.__rel__, dict)
+        assert "LIKES" in alice.__rel__
+        assert alice.__rel__["LIKES"] == [({}, bob)]
+
+    def test_can_relate_to_other_object_with_properties(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        self.store.relate(alice, "LIKES", bob, {"since": 1999})
+        assert hasattr(alice, "__rel__")
+        assert isinstance(alice.__rel__, dict)
+        assert "LIKES" in alice.__rel__
+        assert alice.__rel__["LIKES"] == [({"since": 1999}, bob)]
 
 
 class SeparateTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_separate_from_other_objects(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        carol = Person("carol@example.net", "Carol", 42)
+        alice.__rel__ = {}
+        alice.__rel__["LIKES"] = [({}, bob), ({}, carol)]
+        self.store.separate(alice, "LIKES", carol)
+        assert alice.__rel__["LIKES"] == [({}, bob)]
+        self.store.separate(alice, "LIKES", bob)
+        assert alice.__rel__["LIKES"] == []
+
+    def test_nothing_happens_if_unknown_rel_type_supplied(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        alice.__rel__ = {}
+        alice.__rel__["LIKES"] = [({}, bob)]
+        self.store.separate(alice, "DISLIKES", bob)
+        assert alice.__rel__["LIKES"] == [({}, bob)]
+
+    def test_nothing_happens_if_unknown_endpoint_supplied(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        carol = Person("carol@example.net", "Carol", 42)
+        alice.__rel__ = {}
+        alice.__rel__["LIKES"] = [({}, bob)]
+        self.store.separate(alice, "LIKES", carol)
+        assert alice.__rel__["LIKES"] == [({}, bob)]
 
 
 class LoadRelatedTestCase(unittest.TestCase):
@@ -135,6 +189,10 @@ class LoadUniqueTestCase(unittest.TestCase):
         assert len(enemies) == 0
 
 
+class ReloadTestCase(unittest.TestCase):
+    pass
+
+
 class SaveTestCase(unittest.TestCase):
     pass
 
@@ -167,6 +225,10 @@ class SaveUniqueTestCase(unittest.TestCase):
         alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
         self.store.save_unique(alice, "People", "email", "alice@example.com")
         print(alice.__node__, bob_node, carol_node, alice.__node__.match())
+
+
+class DeleteTestCase(unittest.TestCase):
+    pass
 
 
 if __name__ == '__main__':
