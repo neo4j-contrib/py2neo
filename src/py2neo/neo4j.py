@@ -1715,8 +1715,22 @@ class ReadBatch(_Batch):
     def _get(self, uri, body=None):
         self._append(rest.Request(self._graph_db, "GET", uri, body))
 
+    def _index(self, content_type, index):
+        if isinstance(index, Index):
+            assert content_type == index._content_type
+            return index
+        else:
+            return self._graph_db.get_or_create_index(content_type, str(index))
+
     def get(self, entity):
         self._get(entity._uri.reference)
+
+    def get_indexed_nodes(self, index, key, value):
+        index = self._index(Node, index)
+        self._get(index._template_uri.format(
+            key=quote(key, ""),
+            value=quote(value, "")
+        ))
 
 
 class WriteBatch(_Batch):
