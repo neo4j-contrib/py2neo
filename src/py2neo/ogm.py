@@ -70,11 +70,11 @@ The code below shows an example of usage::
     graph_db = neo4j.GraphDatabaseService()
     store = ogm.Store(graph_db)
 
-    alice = Person("alice@example,com", "Alice", 34)
-    store.save_unique(alice, "People", "email", alice.email)
+    alice = Person("alice@example.com", "Alice", 34)
+    store.save_unique("People", "email", alice.email, alice)
 
-    bob = Person("bob@example,org", "Bob", 66)
-    carol = Person("carol@example,org", "Carol", 42)
+    bob = Person("bob@example.org", "Bob", 66)
+    carol = Person("carol@example.net", "Carol", 42)
     store.relate(alice, "LIKES", bob)
     store.relate(alice, "LIKES", carol)
     store.save(alice)
@@ -89,6 +89,10 @@ from __future__ import absolute_import, unicode_literals
 from . import neo4j, cypher
 
 
+class NotSaved(ValueError):
+    pass
+
+
 class Store(object):
 
     def __init__(self, graph_db):
@@ -98,9 +102,9 @@ class Store(object):
         try:
             node = subj.__node__
             if node is None:
-                raise ValueError("Object is unsaved")
+                raise NotSaved(subj)
         except AttributeError:
-            raise ValueError("Object is unsaved")
+            raise NotSaved(subj)
 
     def _get_node(self, endpoint):
         if isinstance(endpoint, neo4j.Node):
@@ -123,6 +127,11 @@ class Store(object):
         is a local operation only: nothing is saved to the database until a
         save method is called. Relationship properties may optionally be
         specified.
+
+        :param subj:
+        :param rel_type:
+        :param obj:
+        :param properties:
         """
         if not hasattr(subj, "__rel__"):
             subj.__rel__ = {}
@@ -135,6 +144,10 @@ class Store(object):
         specified. This is a local operation only: nothing is saved to the
         database until a save method is called. If no object is specified, all
         relationships of type `rel_type` are removed.
+
+        :param subj:
+        :param rel_type:
+        :param obj:
         """
         if not hasattr(subj, "__rel__"):
             return
@@ -152,6 +165,11 @@ class Store(object):
     def load_related(self, subj, rel_type, cls):
         """ Load all nodes related to `subj` by a relationship of type
         `rel_type` into objects of type `cls`.
+
+        :param subj:
+        :param rel_type:
+        :param cls:
+        :return: list of `cls` instances
         """
         if not hasattr(subj, "__rel__"):
             return []
@@ -163,32 +181,38 @@ class Store(object):
         ]
 
     def load(self, cls, node):
+        """ Load and return an object of type `cls` from database node `node`.
+
+        :param cls: the class of the object to be returned
+        :param node: the node from which to load object data
+        :return: a `cls` instance
+        """
         subj = cls()
         setattr(subj, "__node__", node)
         self.reload(subj)
         return subj
 
-    def load_indexed(self, cls, index_name, key, value):
+    def load_indexed(self, index_name, key, value, cls):
         """ Load zero or more indexed nodes from the database into a list of
         objects.
 
-        :param cls:
         :param index_name:
         :param key:
         :param value:
+        :param cls:
         :return: a list of `cls` instances
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
         nodes = index.get(key, value)
         return [self.load(cls, node) for node in nodes]
 
-    def load_unique(self, cls, index_name, key, value):
+    def load_unique(self, index_name, key, value, cls):
         """ Load a uniquely indexed node from the database into an object.
 
-        :param cls:
         :param index_name:
         :param key:
         :param value:
+        :param cls:
         :return: as instance of `cls` containing the loaded data
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
@@ -201,6 +225,12 @@ class Store(object):
         return self.load(cls, nodes[0])
 
     def reload(self, subj):
+        """ Reload properties and relationships from a database node into
+        `subj`.
+
+        :param subj: the object to reload
+        :raise NotSaved: if `subj` is not linked to a database node
+        """
         self._assert_saved(subj)
         # naively copy properties from node to object
         properties = subj.__node__.get_properties()
@@ -215,10 +245,13 @@ class Store(object):
             if rel.type not in subj.__rel__:
                 subj.__rel__[rel.type] = []
             subj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
-        return subj
 
     def save(self, subj, node=None):
         """ Save an object to a database node.
+
+        :param subj: the object to save
+        :param node: the database node to save to (if omitted, will re-save to
+            same node as previous save)
         """
         if node is not None:
             subj.__node__ = node
@@ -229,9 +262,10 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            cypher.execute(self.graph_db, "START a=node({A}) "
-                                          "MATCH (a)-[r]->(b) "
-                                          "DELETE r", {"A": subj.__node__._id})
+            cypher.execute(self.graph_db,
+                "START a=node({A}) "
+                "MATCH (a)-[r]->(b) "
+                "DELETE r", {"A": subj.__node__._id})
         else:
             subj.__node__, = self.graph_db.create(props)
         # write rels
@@ -245,20 +279,44 @@ class Store(object):
             batch._submit()
         return subj
 
-    def save_indexed(self, subj_list, index_name, key, value):
-        index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
-        for subj in subj_list:
-            index.add(key, value, self.save(subj))
+    def save_indexed(self, index_name, key, value, *subjects):
+        """ Save one or more objects to the database, indexed under the
+        supplied criteria.
 
-    def save_unique(self, subj, index_name, key, value):
+        :param index_name:
+        :param key:
+        :param value:
+        :param subjects:
+        """
+        index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
+        for subj in subjects:
+            index.add(key, value, self.save(self._get_node(subj)))
+
+    def save_unique(self, index_name, key, value, subj):
+        """ Save an object to the database, uniquely indexed under the
+        supplied criteria.
+
+        :param index_name:
+        :param key:
+        :param value:
+        :param subj:
+        """
         index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
         node = index.get_or_create(key, value, {})
         self.save(subj, node)
 
     def delete(self, subj):
+        """ Delete a saved object node from the database as well as all
+        incoming and outgoing relationships.
+
+        :param subj: the object to delete from the database
+        :raise NotSaved: if `subj` is not linked to a database node
+        """
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        node.isolate()
-        node.delete()
-
+        cypher.execute(self.graph_db, (
+            "START a=node({A}) "
+            "MATCH a-[r?]-b "
+            "DELETE r, a"
+        ), {"A": node._id})

@@ -260,7 +260,10 @@ class GraphDatabaseService(rest.Resource):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        cypher.execute(self, "START n=node(*), r=rel(*) DELETE r, n", {})
+        batch = WriteBatch(self)
+        batch._post(self._cypher_uri, {"query": "START r=rel(*) DELETE r"})
+        batch._post(self._cypher_uri, {"query": "START n=node(*) DELETE n"})
+        batch._submit()
 
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
@@ -393,11 +396,11 @@ class GraphDatabaseService(rest.Resource):
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
-    def match(self, start_node=None, type=None, end_node=None, bidirectional=False, limit=None):
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Fetch all relationships which match a specific set of criteria.
 
         :param start_node: start :py:class:`Node` to match
-        :param type: type of the relationships to match
+        :param rel_type: type of the relationships to match
         :param end_node: end :py:class:`Node` to match
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
@@ -415,32 +418,32 @@ class GraphDatabaseService(rest.Resource):
         else:
             query = "START a=node({A}),b=node({B})"
             params = {"A": start_node._id, "B": end_node._id}
-        if type is None:
+        if rel_type is None:
             if bidirectional:
                 query += " MATCH (a)-[r]-(b) RETURN r"
             else:
                 query += " MATCH (a)-[r]->(b) RETURN r"
         else:
             if bidirectional:
-                query += " MATCH (a)-[r:`" + str(type) + "`]-(b) RETURN r"
+                query += " MATCH (a)-[r:`" + str(rel_type) + "`]-(b) RETURN r"
             else:
-                query += " MATCH (a)-[r:`" + str(type) + "`]->(b) RETURN r"
+                query += " MATCH (a)-[r:`" + str(rel_type) + "`]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
         data, metadata = cypher.execute(self, query, params)
         return [row[0] for row in data]
 
-    def match_one(self, start_node=None, type=None, end_node=None, bidirectional=False):
+    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Fetch a single relationship which matches a specific set of
         criteria.
 
         :param start_node: start :py:class:`Node` to match
-        :param type: type of the relationships to match
+        :param rel_type: type of the relationships to match
         :param end_node: end :py:class:`Node` to match
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
         """
-        rels = self.match(start_node, type, end_node, bidirectional, 1)
+        rels = self.match(start_node, rel_type, end_node, bidirectional, 1)
         if rels:
             return rels[0]
         else:
@@ -971,11 +974,11 @@ class Node(PropertyContainer):
             "DELETE r "
         ), {"A": self._id})
 
-    def match(self, type=None, end_node=None, bidirectional=False, limit=None):
-        return self._graph_db.match(self, type, end_node, bidirectional, limit)
+    def match(self, rel_type=None, end_node=None, bidirectional=False, limit=None):
+        return self._graph_db.match(self, rel_type, end_node, bidirectional, limit)
 
-    def match_one(self, type=None, end_node=None, bidirectional=False):
-        return self._graph_db.match(self, type, end_node, bidirectional)
+    def match_one(self, rel_type=None, end_node=None, bidirectional=False):
+        return self._graph_db.match(self, rel_type, end_node, bidirectional)
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
@@ -1323,6 +1326,52 @@ class Path(object):
         makes use of Cypher's ``CREATE UNIQUE`` clause.
         """
         return self._create(graph_db, "CREATE UNIQUE")
+
+
+class _IndexCache(object):
+
+    def __init__(self, uri, graph_db):
+        self._uri = uri
+        self._graph_db = graph_db
+        self._indexes = {}
+
+    def refresh(self):
+        rs = self._graph_db._send(rest.Request(self, "GET", self._uri))
+        indexes = rs.body or {}
+        self._indexes = dict(
+            (index, Index(type, indexes[index]['template'], graph_db=self._graph_db))
+            for index in indexes
+        )
+
+    def get(self, index_name):
+        if index_name not in self._indexes:
+            self.refresh()
+        try:
+            return self._indexes[index_name]
+        except KeyError:
+            raise LookupError("Index '{0}' not found.".format(index_name))
+
+    def get_or_create(self, index_name, config=None):
+        if index_name not in self._indexes:
+            self.refresh()
+        try:
+            index = self._indexes[index_name]
+        except KeyError:
+            config = config or {}
+            rs = self._graph_db._send(rest.Request(self, "POST", self._uri, {"name": index_name, "config": config}))
+            index = Index(type, rs.body["template"], graph_db=self._graph_db)
+            self._indexes.update({index_name: index})
+        return index
+
+    def delete(self, index_name):
+        if index_name not in self._indexes:
+            self.refresh()
+        try:
+            index = self._indexes[index_name]
+            self._graph_db._send(rest.Request(self, "DELETE", index._uri))
+            del self._indexes[index_name]
+        except KeyError:
+            raise LookupError("Index '{0}' not found.".format(index_name))
 
 
 class Index(rest.Resource):

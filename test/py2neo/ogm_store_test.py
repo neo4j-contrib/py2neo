@@ -59,7 +59,7 @@ class ExampleCodeTestCase(unittest.TestCase):
         store = ogm.Store(graph_db)
 
         alice = Person("alice@example.com", "Alice", 34)
-        store.save_unique(alice, "People", "email", alice.email)
+        store.save_unique("People", "email", alice.email, alice)
 
         bob = Person("bob@example.org", "Bob", 66)
         carol = Person("carol@example.net", "Carol", 42)
@@ -165,7 +165,6 @@ class LoadRelatedTestCase(unittest.TestCase):
         self.store.relate(alice, "LIKES", carol)
         self.store.relate(alice, "DISLIKES", dave)
         self.store.save(alice)
-        print(alice.__node__)
         friends = self.store.load_related(alice, "LIKES", Person)
         assert friends == [bob, carol]
         enemies = self.store.load_related(alice, "DISLIKES", Person)
@@ -173,11 +172,50 @@ class LoadRelatedTestCase(unittest.TestCase):
 
 
 class LoadTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_load(self):
+        alice_node, = self.graph_db.create({
+            "email": "alice@example.com",
+            "name": "Alice",
+            "age": 34,
+        })
+        alice = self.store.load(Person, alice_node)
+        assert alice.email == "alice@example.com"
+        assert alice.name == "Alice"
+        assert alice.age == 34
 
 
 class LoadIndexedTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_load(self):
+        people = self.graph_db.get_or_create_index(neo4j.Node, "People")
+        alice_node, bob_node = self.graph_db.create({
+            "email": "alice@example.com",
+            "name": "Alice Smith",
+            "age": 34,
+        }, {
+            "email": "bob@example.org",
+            "name": "Bob Smith",
+            "age": 66,
+        })
+        people.add("family_name", "Smith", alice_node)
+        people.add("family_name", "Smith", bob_node)
+        smiths = self.store.load_indexed("People", "family_name", "Smith", Person)
+        assert len(smiths) == 2
+        for i, smith in enumerate(smiths):
+            assert smiths[i].email in ("alice@example.com", "bob@example.org")
+            assert smiths[i].name in ("Alice Smith", "Bob Smith")
+            assert smiths[i].age in (34, 66)
 
 
 class LoadUniqueTestCase(unittest.TestCase):
@@ -193,7 +231,7 @@ class LoadUniqueTestCase(unittest.TestCase):
             "name": "Alice Allison",
             "age": 34,
         })
-        alice = self.store.load_unique(Person, "People", "email", "alice@example.com")
+        alice = self.store.load_unique("People", "email", "alice@example.com", Person)
         assert isinstance(alice, Person)
         assert hasattr(alice, "__node__")
         assert alice.__node__ == alice_node
@@ -211,7 +249,7 @@ class LoadUniqueTestCase(unittest.TestCase):
         })
         path = alice_node.create_path("LIKES", {"name": "Bob Robertson"})
         bob_node = path.nodes[1]
-        alice = self.store.load_unique(Person, "People", "email", "alice@example.com")
+        alice = self.store.load_unique("People", "email", "alice@example.com", Person)
         assert isinstance(alice, Person)
         assert hasattr(alice, "__node__")
         assert alice.__node__ == alice_node
@@ -234,15 +272,66 @@ class LoadUniqueTestCase(unittest.TestCase):
 
 
 class ReloadTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_reload(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        self.store.save_unique("People", "email", "alice@example.com", alice)
+        assert alice.__node__["name"] == "Alice"
+        assert alice.__node__["age"] == 34
+        alice.__node__["name"] = "Alice Smith"
+        alice.__node__["age"] = 35
+        self.store.reload(alice)
+        assert alice.name == "Alice Smith"
+        assert alice.age == 35
 
 
 class SaveTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_save_simple_object(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        self.store.save_unique("People", "email", "alice@example.com", alice)
+        assert alice.__node__["name"] == "Alice"
+        assert alice.__node__["age"] == 34
+        alice.name = "Alice Smith"
+        alice.age = 35
+        self.store.save(alice)
+        assert alice.__node__["name"] == "Alice Smith"
+        assert alice.__node__["age"] == 35
 
 
 class SaveIndexedTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_save(self):
+        alice = Person("alice@example.com", "Alice Smith", 34)
+        bob = Person("bob@example.org", "Bob Smith", 66)
+        self.store.save_indexed("People", "family_name", "Smith", alice, bob)
+        people = self.graph_db.get_index(neo4j.Node, "People")
+        smiths = people.get("family_name", "Smith")
+        assert len(smiths) == 2
+        assert alice.__node__ in smiths
+        assert bob.__node__ in smiths
+        carol = Person("carol@example.net", "Carol Smith", 42)
+        self.store.save_indexed("People", "family_name", "Smith", carol)
+        smiths = people.get("family_name", "Smith")
+        assert len(smiths) == 3
+        assert alice.__node__ in smiths
+        assert bob.__node__ in smiths
+        assert carol.__node__ in smiths
 
 
 class SaveUniqueTestCase(unittest.TestCase):
@@ -254,7 +343,7 @@ class SaveUniqueTestCase(unittest.TestCase):
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
+        self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, neo4j.Node)
         assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
@@ -266,18 +355,36 @@ class SaveUniqueTestCase(unittest.TestCase):
             {"name": "Carol"},
         )
         alice.__rel__ = {"KNOWS": [({}, bob_node)]}
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
+        self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, neo4j.Node)
         assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
-        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
+        friend_rels = alice.__node__.match("KNOWS")
+        assert len(friend_rels) == 1
+        assert bob_node in (rel.end_node for rel in friend_rels)
         alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
-        self.store.save_unique(alice, "People", "email", "alice@example.com")
-        print(alice.__node__, bob_node, carol_node, alice.__node__.match())
+        self.store.save_unique("People", "email", "alice@example.com", alice)
+        friend_rels = alice.__node__.match("KNOWS")
+        assert len(friend_rels) == 2
+        assert bob_node in (rel.end_node for rel in friend_rels)
+        assert carol_node in (rel.end_node for rel in friend_rels)
 
 
 class DeleteTestCase(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.store = ogm.Store(self.graph_db)
+
+    def test_can_delete_object(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        self.store.save_unique("People", "email", "alice@example.com", alice)
+        node = alice.__node__
+        assert node.exists()
+        self.store.delete(alice)
+        assert not node.exists()
+
 
 
 if __name__ == '__main__':
