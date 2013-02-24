@@ -51,7 +51,9 @@ a `__rel__` attribute (where `alice` and `bob` represent other mapped objects::
 To manage relationships, use the :py:func:`Store.relate` and
 :py:func:`Store.separate` methods. Neither method makes any calls to the
 database and operates only on the local `__rel__` attribute. Changes must be
-explicitly saved via one of the available save methods.
+explicitly saved via one of the available save methods. The
+:py:func:`Store.load_related` method loads all objects marked as related by
+the `__rel__` attribute.
 
 The code below shows an example of usage::
 
@@ -75,8 +77,8 @@ The code below shows an example of usage::
 
     bob = Person("bob@example.org", "Bob", 66)
     carol = Person("carol@example.net", "Carol", 42)
-    store.relate(alice, "LIKES", bob)
-    store.relate(alice, "LIKES", carol)
+    store.relate(alice, "LIKES", bob)     # these relationships are not saved
+    store.relate(alice, "LIKES", carol)   # until `alice` is saved
     store.save(alice)
 
     friends = store.load_related(alice, "LIKES", Person)
@@ -90,6 +92,8 @@ from . import neo4j, cypher
 
 
 class NotSaved(ValueError):
+    """ Raised when an object has not been saved but a bound node is required.
+    """
     pass
 
 
@@ -122,16 +126,24 @@ class Store(object):
         else:
             return endpoint is obj
 
+    def is_saved(self, subj):
+        """ Return :py:const:`True` if the object `subj` has been saved to
+        the database, :py:const:`False` otherwise.
+
+        :param subj: the object to test
+        """
+        return hasattr(subj, "__node__") and subj.__node__ is not None
+
     def relate(self, subj, rel_type, obj, properties=None):
-        """ Define a `rel_type` relationship between `subj` and `obj`. This
-        is a local operation only: nothing is saved to the database until a
-        save method is called. Relationship properties may optionally be
+        """ Define a relationship between `subj` and `obj` of type `rel_type`.
+        This is a local operation only: nothing is saved to the database until
+        a save method is called. Relationship properties may optionally be
         specified.
 
-        :param subj:
-        :param rel_type:
-        :param obj:
-        :param properties:
+        :param subj: the object bound to the start of the relationship
+        :param rel_type: the relationship type
+        :param obj: the object bound to the end of the relationship
+        :param properties: properties attached to the relationship (optional)
         """
         if not hasattr(subj, "__rel__"):
             subj.__rel__ = {}
@@ -145,9 +157,9 @@ class Store(object):
         database until a save method is called. If no object is specified, all
         relationships of type `rel_type` are removed.
 
-        :param subj:
-        :param rel_type:
-        :param obj:
+        :param subj: the object bound to the start of the relationship
+        :param rel_type: the relationship type
+        :param obj: the object bound to the end of the relationship (optional)
         """
         if not hasattr(subj, "__rel__"):
             return
@@ -166,9 +178,9 @@ class Store(object):
         """ Load all nodes related to `subj` by a relationship of type
         `rel_type` into objects of type `cls`.
 
-        :param subj:
-        :param rel_type:
-        :param cls:
+        :param subj: the object bound to the start of the relationship
+        :param rel_type: the relationship type
+        :param cls: the class to load all related objects into
         :return: list of `cls` instances
         """
         if not hasattr(subj, "__rel__"):
@@ -196,10 +208,10 @@ class Store(object):
         """ Load zero or more indexed nodes from the database into a list of
         objects.
 
-        :param index_name:
-        :param key:
-        :param value:
-        :param cls:
+        :param index_name: the node index name
+        :param key: the index key
+        :param value: the index value
+        :param cls: the class of the object to be returned
         :return: a list of `cls` instances
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
@@ -209,10 +221,10 @@ class Store(object):
     def load_unique(self, index_name, key, value, cls):
         """ Load a uniquely indexed node from the database into an object.
 
-        :param index_name:
-        :param key:
-        :param value:
-        :param cls:
+        :param index_name: the node index name
+        :param key: the index key
+        :param value: the index value
+        :param cls: the class of the object to be returned
         :return: as instance of `cls` containing the loaded data
         """
         index = self.graph_db.get_index(neo4j.Node, index_name)
@@ -279,27 +291,27 @@ class Store(object):
             batch._submit()
         return subj
 
-    def save_indexed(self, index_name, key, value, *subjects):
+    def save_indexed(self, index_name, key, value, *subj):
         """ Save one or more objects to the database, indexed under the
         supplied criteria.
 
-        :param index_name:
-        :param key:
-        :param value:
-        :param subjects:
+        :param index_name: the node index name
+        :param key: the index key
+        :param value: the index value
+        :param subj: one or more objects to save
         """
         index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
-        for subj in subjects:
+        for subj in subj:
             index.add(key, value, self.save(self._get_node(subj)))
 
     def save_unique(self, index_name, key, value, subj):
         """ Save an object to the database, uniquely indexed under the
         supplied criteria.
 
-        :param index_name:
-        :param key:
-        :param value:
-        :param subj:
+        :param index_name: the node index name
+        :param key: the index key
+        :param value: the index value
+        :param subj: the object to save
         """
         index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
         node = index.get_or_create(key, value, {})
