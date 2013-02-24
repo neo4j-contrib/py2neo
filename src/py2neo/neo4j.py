@@ -1328,52 +1328,6 @@ class Path(object):
         return self._create(graph_db, "CREATE UNIQUE")
 
 
-class _IndexCache(object):
-
-    def __init__(self, uri, graph_db):
-        self._uri = uri
-        self._graph_db = graph_db
-        self._indexes = {}
-
-    def refresh(self):
-        rs = self._graph_db._send(rest.Request(self, "GET", self._uri))
-        indexes = rs.body or {}
-        self._indexes = dict(
-            (index, Index(type, indexes[index]['template'], graph_db=self._graph_db))
-            for index in indexes
-        )
-
-    def get(self, index_name):
-        if index_name not in self._indexes:
-            self.refresh()
-        try:
-            return self._indexes[index_name]
-        except KeyError:
-            raise LookupError("Index '{0}' not found.".format(index_name))
-
-    def get_or_create(self, index_name, config=None):
-        if index_name not in self._indexes:
-            self.refresh()
-        try:
-            index = self._indexes[index_name]
-        except KeyError:
-            config = config or {}
-            rs = self._graph_db._send(rest.Request(self, "POST", self._uri, {"name": index_name, "config": config}))
-            index = Index(type, rs.body["template"], graph_db=self._graph_db)
-            self._indexes.update({index_name: index})
-        return index
-
-    def delete(self, index_name):
-        if index_name not in self._indexes:
-            self.refresh()
-        try:
-            index = self._indexes[index_name]
-            self._graph_db._send(rest.Request(self, "DELETE", index._uri))
-            del self._indexes[index_name]
-        except KeyError:
-            raise LookupError("Index '{0}' not found.".format(index_name))
-
-
 class Index(rest.Resource):
     """ Searchable database index which can contain either nodes or
     relationships.
