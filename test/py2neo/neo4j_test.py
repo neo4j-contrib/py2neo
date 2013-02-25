@@ -93,9 +93,9 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def setUp(self):
         self.graph_db = default_graph_db()
-        print("Neo4j Version: {0}".format(repr(self.graph_db.neo4j_version)))
-        print("Node count: {0}".format(self.graph_db.order()))
-        print("Relationship count: {0}".format(self.graph_db.size()))
+        #print("Neo4j Version: {0}".format(repr(self.graph_db.neo4j_version)))
+        #print("Node count: {0}".format(self.graph_db.order()))
+        #print("Relationship count: {0}".format(self.graph_db.size()))
 
     def test_neo4j_version_format(self):
         version = self.graph_db.neo4j_version
@@ -156,10 +156,10 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def test_batch_get_properties(self):
         nodes = self.graph_db.create(
-                {},
-                {"foo": "bar"},
-                {"number": 42, "foo": "baz", "true": True},
-                {"fish": ["cod", "haddock", "plaice"], "number": 109}
+            {},
+            {"foo": "bar"},
+            {"number": 42, "foo": "baz", "true": True},
+            {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
         props = self.graph_db.get_properties(*nodes)
         self.assertEqual(4, len(props))

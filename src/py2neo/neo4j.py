@@ -240,11 +240,14 @@ class GraphDatabaseService(rest.Resource):
         elif isinstance(data, dict) and "columns" in data and "data" in data:
             # is a value contained within a Cypher response
             # (should only ever be single row, single value)
-            assert len(data["columns"]) == 1
+            if len(data["columns"]) != 1:
+                raise ValueError("Expected single column")
             rows = data["data"]
-            assert len(rows) == 1
+            if len(rows) != 1:
+                raise ValueError("Expected single row")
             values = rows[0]
-            assert len(values) == 1
+            if len(values) != 1:
+                raise ValueError("Expected single value")
             value = values[0]
             return self._resolve(value, status, id_=id_)
         elif isinstance(data, list):
@@ -385,8 +388,13 @@ class GraphDatabaseService(rest.Resource):
             return [entities[0].get_properties()]
         batch = ReadBatch(self)
         for entity in entities:
-            batch.get(entity)
-        return [rs.body["data"] for rs in batch._submit()]
+            if isinstance(entity, Node):
+                batch.get_node_properties(entity)
+            elif isinstance(entity, Relationship):
+                batch.get_relationship_properties(entity)
+            else:
+                raise TypeError(entity.__class__)
+        return [rs.body or {} for rs in batch._submit()]
 
     def get_relationship_types(self):
         """ Fetch a list of relationship type names currently defined within
@@ -1487,8 +1495,10 @@ class Index(rest.Resource):
                 start_node, type_, end_node, properties = abstract
             else:
                 raise ValueError(abstract)
-            assert isinstance(start_node, Node)
-            assert isinstance(end_node, Node)
+            if not isinstance(start_node, Node):
+                raise TypeError(start_node)
+            if not isinstance(end_node, Node):
+                raise TypeError(end_node)
             batch.create_relationship(start_node, type_, end_node, properties)
             batch.add_indexed_relationship(self, key, value, 0)
         else:
@@ -1655,7 +1665,8 @@ class Index(rest.Resource):
 class _Batch(object):
 
     def __init__(self, graph_db):
-        assert isinstance(graph_db, GraphDatabaseService)
+        if not isinstance(graph_db, GraphDatabaseService):
+            raise TypeError(graph_db)
         self._graph_db = graph_db
         self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"], "/node").reference
         self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
@@ -1717,15 +1728,25 @@ class ReadBatch(_Batch):
 
     def _index(self, content_type, index):
         if isinstance(index, Index):
-            assert content_type == index._content_type
+            if content_type != index._content_type:
+                raise TypeError("Index is not for {0}s".format(content_type))
             return index
         else:
             return self._graph_db.get_or_create_index(content_type, str(index))
 
-    def get(self, entity):
-        self._get(entity._uri.reference)
+    def get_node_properties(self, node):
+        """ Fetch properties for the given node.
+        """
+        self._get(rest.URI(node.__metadata__["properties"], "/node").reference)
+
+    def get_relationship_properties(self, relationship):
+        """ Fetch properties for the given relationship.
+        """
+        self._get(rest.URI(relationship.__metadata__["properties"], "/relationship").reference)
 
     def get_indexed_nodes(self, index, key, value):
+        """ Fetch all nodes indexed under the given key-value pair.
+        """
         index = self._index(Node, index)
         self._get(index._template_uri.format(
             key=quote(key, ""),
@@ -1773,8 +1794,10 @@ class WriteBatch(_Batch):
         """ Create a new relationship with the values supplied if one does not
         already exist.
         """
-        assert isinstance(start_node, Node) or start_node is None
-        assert isinstance(end_node, Node) or end_node is None
+        if not (isinstance(start_node, Node) or start_node is None):
+            raise TypeError(start_node)
+        if not (isinstance(end_node, Node) or end_node is None):
+            raise TypeError(end_node)
         if start_node and end_node:
             query = "START a=node({a}), b=node({b}) " \
                     "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
@@ -1800,13 +1823,11 @@ class WriteBatch(_Batch):
     def delete_node(self, node):
         """ Delete the specified node from the graph.
         """
-        assert isinstance(node, Node)
         self._delete(node._uri.reference)
 
     def delete_relationship(self, relationship):
         """ Delete the specified relationship from the graph.
         """
-        assert isinstance(relationship, Relationship)
         self._delete(relationship._uri.reference)
 
     def set_node_property(self, node, key, value):
@@ -1815,28 +1836,24 @@ class WriteBatch(_Batch):
         if value is None:
             self.delete_node_property(node, key)
         else:
-            assert isinstance(node, Node)
             uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
             self._put(uri.reference, value)
 
     def set_node_properties(self, node, properties):
         """ Replace all properties on a node.
         """
-        assert isinstance(node, Node)
         uri = rest.URI(node.__metadata__['properties'], "/node")
         self._put(uri.reference, compact(properties))
 
     def delete_node_property(self, node, key):
         """ Delete a single property from a node.
         """
-        assert isinstance(node, Node)
         uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
         self._delete(uri.reference)
 
     def delete_node_properties(self, node):
         """ Delete all properties from a node.
         """
-        assert isinstance(node, Node)
         uri = rest.URI(node.__metadata__['properties'], "/node")
         self._delete(uri.reference)
 
@@ -1846,28 +1863,24 @@ class WriteBatch(_Batch):
         if value is None:
             self.delete_relationship_property(relationship, key)
         else:
-            assert isinstance(relationship, Relationship)
             uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
             self._put(uri.reference, value)
 
     def set_relationship_properties(self, relationship, properties):
         """ Replace all properties on a relationship.
         """
-        assert isinstance(relationship, Relationship)
         uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
         self._put(uri.reference, compact(properties))
 
     def delete_relationship_property(self, relationship, key):
         """ Delete a single property from a relationship.
         """
-        assert isinstance(relationship, Relationship)
         uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
         self._delete(uri.reference)
 
     def delete_relationship_properties(self, relationship):
         """ Delete all properties from a relationship.
         """
-        assert isinstance(relationship, Relationship)
         uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
         self._delete(uri.reference)
 
@@ -1885,7 +1898,8 @@ class WriteBatch(_Batch):
 
     def _index(self, content_type, index):
         if isinstance(index, Index):
-            assert content_type == index._content_type
+            if content_type != index._content_type:
+                raise TypeError("Index is not for {0}s".format(content_type))
             return index
         else:
             return self._graph_db.get_or_create_index(content_type, str(index))
