@@ -16,49 +16,49 @@
 # limitations under the License.
 
 """ Geoff is a textual interchange format for graph data, designed with Neo4j
-    in mind.
+in mind.
 
-    Note: This module requires server version 1.8.1 or above.
+Note: This module requires server version 1.8.1 or above.
 
-    Full Geoff Syntax
-    -----------------
+Full Geoff Syntax
+-----------------
 
-    ::
+::
 
-        geoff          := [element (_ element)*]
-        element        := path | index_entry | comment
+    geoff          := [element (_ element)*]
+    element        := path | index_entry | comment
 
-        path           := node (forward_path | reverse_path)*
-        forward_path   := "-" relationship "->" node
-        reverse_path   := "<-" relationship "-" node
+    path           := node (forward_path | reverse_path)*
+    forward_path   := "-" relationship "->" node
+    reverse_path   := "<-" relationship "-" node
 
-        index_entry    := forward_entry | reverse_entry
-        forward_entry  := "|" ~ index_name _ property_pair ~ "|" "=>" node
-        reverse_entry  := node "<=" "|" ~ index_name _ property_pair ~ "|"
-        index_name     := name | JSON_STRING
+    index_entry    := forward_entry | reverse_entry
+    forward_entry  := "|" ~ index_name _ property_pair ~ "|" "=>" node
+    reverse_entry  := node "<=" "|" ~ index_name _ property_pair ~ "|"
+    index_name     := name | JSON_STRING
 
-        comment        := "/*" <<any text excluding sequence "*/">> "*/"
+    comment        := "/*" <<any text excluding sequence "*/">> "*/"
 
-        node           := named_node | anonymous_node
-        named_node     := "(" ~ node_name [_ property_map] ~ ")"
-        anonymous_node := "(" ~ [property_map ~] ")"
-        relationship   := "[" ~ ":" type [_ property_map] ~ "]"
-        property_pair  := "{" ~ key_value ~ "}"
-        property_map   := "{" ~ [key_value (~ "," ~ key_value)* ~] "}"
-        node_name      := name | JSON_STRING
-        name           := (ALPHA | DIGIT | "_")+
-        type           := name | JSON_STRING
-        key_value      := key ~ ":" ~ value
-        key            := name | JSON_STRING
-        value          := array | JSON_STRING | JSON_NUMBER | JSON_BOOLEAN | JSON_NULL
+    node           := named_node | anonymous_node
+    named_node     := "(" ~ node_name [_ property_map] ~ ")"
+    anonymous_node := "(" ~ [property_map ~] ")"
+    relationship   := "[" ~ ":" type [_ property_map] ~ "]"
+    property_pair  := "{" ~ key_value ~ "}"
+    property_map   := "{" ~ [key_value (~ "," ~ key_value)* ~] "}"
+    node_name      := name | JSON_STRING
+    name           := (ALPHA | DIGIT | "_")+
+    type           := name | JSON_STRING
+    key_value      := key ~ ":" ~ value
+    key            := name | JSON_STRING
+    value          := array | JSON_STRING | JSON_NUMBER | JSON_BOOLEAN | JSON_NULL
 
-        array          := empty_array | string_array | numeric_array | boolean_array
-        empty_array    := "[" ~ "]"
-        string_array   := "[" ~ JSON_STRING (~ "," ~ JSON_STRING)* ~ "]"
-        numeric_array  := "[" ~ JSON_NUMBER (~ "," ~ JSON_NUMBER)* ~ "]"
-        boolean_array  := "[" ~ JSON_BOOLEAN (~ "," ~ JSON_BOOLEAN)* ~ "]"
+    array          := empty_array | string_array | numeric_array | boolean_array
+    empty_array    := "[" ~ "]"
+    string_array   := "[" ~ JSON_STRING (~ "," ~ JSON_STRING)* ~ "]"
+    numeric_array  := "[" ~ JSON_NUMBER (~ "," ~ JSON_NUMBER)* ~ "]"
+    boolean_array  := "[" ~ JSON_BOOLEAN (~ "," ~ JSON_BOOLEAN)* ~ "]"
 
-        * Mandatory whitespace is represented by "_" and optional whitespace by "~"
+    * Mandatory whitespace is represented by "_" and optional whitespace by "~"
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -629,3 +629,19 @@ class AbstractIndexEntry(object):
 
     def __str__(self):
         return "|{0} {1}|=>{2}".format(self.index_name, json.dumps({self.key: self.value}, separators=(",", ":")), self.node)
+
+
+def dump(graph_db, query, params=None):
+    pass
+
+def insert(graph_db, source):
+    Subgraph(source).insert_into(graph_db)
+     
+def merge(graph_db, source):
+    Subgraph(source).merge_into(graph_db)
+
+def insert_xml(graph_db, xml):
+    Subgraph.from_xml(xml).insert_into(graph_db)
+
+def merge_xml(graph_db, xml):
+    Subgraph.from_xml(xml).merge_into(graph_db)
