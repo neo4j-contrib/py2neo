@@ -160,12 +160,11 @@ class GraphDatabaseService(rest.Resource):
 
     :param uri: the base URI of the database (defaults to the value of
         :py:data:`DEFAULT_URI`)
-    :param metadata: optional resource metadata
     """
 
-    def __init__(self, uri=None, metadata=None):
+    def __init__(self, uri=None):
         uri = uri or DEFAULT_URI
-        rest.Resource.__init__(self, uri, "/", metadata=metadata)
+        rest.Resource.__init__(self, uri, "/")
         rs = self._send(rest.Request(self, "GET", self._uri))
         _assert_expected_response(self.__class__, self._uri, rs.body)
         self._update_metadata(rs.body)
@@ -225,14 +224,16 @@ class GraphDatabaseService(rest.Resource):
             # is a neo4j resolvable entity
             uri = data["self"]
             if "type" in data:
-                rel = Relationship(uri, graph_db=self, metadata=data)
+                rel = Relationship(uri, graph_db=self)
+                rel._update_metadata(data)
                 return rel
             else:
-                node = Node(uri, graph_db=self, metadata=data)
+                node = Node(uri, graph_db=self)
+                node._update_metadata(data)
                 return node
         elif isinstance(data, dict) and "length" in data and \
-             "nodes" in data and "relationships" in data and \
-             "start" in data and "end" in data:
+                "nodes" in data and "relationships" in data and \
+                "start" in data and "end" in data:
             # is a path
             nodes = map(Node, data["nodes"], [self] * len(data["nodes"]))
             rels = map(Relationship, data["relationships"], [self] * len(data["relationships"]))
@@ -663,14 +664,13 @@ class PropertyContainer(rest.Resource):
 
     """
 
-    def __init__(self, uri, reference_marker, graph_db=None, metadata=None):
+    def __init__(self, uri, reference_marker, graph_db=None):
         """ Create container for properties with caching capabilities.
 
         :param uri: URI identifying this resource
         :param graph_db: graph database to which this resource belongs
-        :param metadata: resource metadata
         """
-        rest.Resource.__init__(self, uri, reference_marker, metadata=metadata)
+        rest.Resource.__init__(self, uri, reference_marker)
         if graph_db is not None:
             self._must_belong_to(graph_db)
             self._graph_db = graph_db
@@ -756,11 +756,10 @@ class Node(PropertyContainer):
     
     :param uri: URI identifying this node
     :param graph_db: the graph database to which this node belongs
-    :param metadata: resource metadata
     """
 
-    def __init__(self, uri, graph_db=None, metadata=None):
-        PropertyContainer.__init__(self, uri, "/node", graph_db=graph_db, metadata=metadata)
+    def __init__(self, uri, graph_db=None):
+        PropertyContainer.__init__(self, uri, "/node", graph_db=graph_db)
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
@@ -1092,11 +1091,10 @@ class Relationship(PropertyContainer):
     
     :param uri: URI identifying this relationship
     :param graph_db: the graph database to which this relationship belongs
-    :param metadata: resource metadata
     """
 
-    def __init__(self, uri, graph_db=None, metadata=None):
-        PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db, metadata=metadata)
+    def __init__(self, uri, graph_db=None):
+        PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db)
         self._type = None
         self._start_node = None
         self._end_node = None
@@ -1368,10 +1366,10 @@ class Index(rest.Resource):
     .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
     """
 
-    def __init__(self, content_type, template_uri, graph_db=None, metadata=None):
+    def __init__(self, content_type, template_uri, graph_db=None):
         rest.Resource.__init__(
             self, template_uri.rpartition("/{key}/{value}")[0],
-            "/index/", metadata=metadata
+            "/index/"
         )
         self._name = str(self._uri).rpartition("/")[2]
         self._content_type = content_type
