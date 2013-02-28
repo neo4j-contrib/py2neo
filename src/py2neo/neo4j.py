@@ -770,12 +770,6 @@ class Node(PropertyContainer):
         )
 
     def __str__(self):
-        """ Return a human-readable string representation of this node
-        object, e.g.:
-        
-            >>> print str(my_node)
-            '(42)'
-        """
         return "({0})".format(self._id)
 
     @property
@@ -1115,12 +1109,6 @@ class Relationship(PropertyContainer):
         )
 
     def __str__(self):
-        """ Return an ASCII art representation of this relationship, e.g.:
-        
-            >>> print str(my_rel)
-            '[23:KNOWS]'
-    
-        """
         return "[{0}:{1}]".format(self.id, self.type)
 
     def exists(self):
