@@ -352,8 +352,6 @@ class Resource(object):
 
     def __init__(self, uri, reference_marker):
         self._uri = URI(uri, reference_marker)
-        self._last_location = None
-        self._last_headers = None
         self.__metadata = PropertyCache()
 
     def __repr__(self):
