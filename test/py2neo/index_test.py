@@ -220,7 +220,7 @@ class IndexedNodeTests(unittest.TestCase):
 
     def test_get_or_create_indexed_node_with_int_property(self):
         graph_db = neo4j.GraphDatabaseService()
-        fred = graph_db.get_or_create_indexed_node(index="person", key="name", value="Fred", properties={"level" : 1})
+        fred = graph_db.get_or_create_indexed_node(index_name="person", key="name", value="Fred", properties={"level" : 1})
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
         graph_db.delete(fred)
