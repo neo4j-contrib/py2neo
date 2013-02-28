@@ -26,8 +26,8 @@ DEFAULT_URI = "http://localhost:7474/db/manage/"
 
 class _Service(rest.Resource):
 
-    def __init__(self, admin_uri, service=None, metadata=None):
-        rest.Resource.__init__(self, admin_uri, "/server", metadata=metadata)
+    def __init__(self, admin_uri, service=None):
+        rest.Resource.__init__(self, admin_uri, "/server")
         self._metadata_request = rest.Request(self, "GET", self._uri)
         self._refresh_metadata()
         if service:
@@ -44,9 +44,9 @@ class _Service(rest.Resource):
 
 class Sonar(_Service):
 
-    def __init__(self, admin_uri=None, metadata=None):
+    def __init__(self, admin_uri=None):
         admin_uri = admin_uri or DEFAULT_URI
-        _Service.__init__(self, admin_uri, metadata=metadata)
+        _Service.__init__(self, admin_uri)
 
     def ping(self):
         return util.execution_time(_Service._refresh_metadata, self)
@@ -54,9 +54,9 @@ class Sonar(_Service):
 
 class Monitor(_Service):
 
-    def __init__(self, admin_uri=None, metadata=None):
+    def __init__(self, admin_uri=None):
         admin_uri = admin_uri or DEFAULT_URI
-        _Service.__init__(self, admin_uri, "monitor", metadata=metadata)
+        _Service.__init__(self, admin_uri, "monitor")
         self._resource_uris = self._send(
             rest.Request(None, "GET", self._service_uri)
         ).body["resources"]
