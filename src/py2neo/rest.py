@@ -348,14 +348,13 @@ class Resource(object):
 
     :param uri:              the URI identifying this resource
     :param reference_marker: marker delimiting relative part of URI, e.g. "/node"
-    :param metadata:         previously obtained resource metadata
     """
 
-    def __init__(self, uri, reference_marker, metadata=None):
+    def __init__(self, uri, reference_marker):
         self._uri = URI(uri, reference_marker)
         self._last_location = None
         self._last_headers = None
-        self.__metadata = PropertyCache(metadata)
+        self.__metadata = PropertyCache()
 
     def __repr__(self):
         """ Return a valid Python representation of this object.
