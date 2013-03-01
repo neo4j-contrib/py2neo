@@ -29,9 +29,9 @@ import sys
 import threading
 
 try:
-    from urllib.parse import urlsplit
+    from urllib.parse import urlsplit, urlparse
 except ImportError:
-    from urlparse import urlsplit
+    from urlparse import urlsplit, urlparse
 
 from . import __package__ as py2neo_package
 from . import __version__ as py2neo_version
@@ -194,19 +194,38 @@ class SocketError(IOError):
 
 class URI(object):
 
-    def __init__(self, uri, marker):
-        bits = str(uri).rpartition(marker)
-        self.base = bits[0]
-        self.reference = "".join(bits[1:])
+    def __init__(self, uri, *args):
+        try:
+            self.__uri__ = str(uri.__uri__)
+        except AttributeError:
+            self.__uri__ = str(uri)
+        parsed = urlparse(self.__uri__)
+        self.scheme = parsed.scheme
+        self.netloc = parsed.netloc
+        self.path = parsed.path
+        self.params = parsed.params
+        self.query = parsed.query
+        self.fragment = parsed.fragment
+        self.username = parsed.username
+        self.password = parsed.password
+        self.hostname = parsed.hostname
+        self.port = parsed.port
+        metadata = ServiceRoot.get(self.scheme, self.hostname, self.port)
+        for key, value in metadata.items():
+            if self.__uri__.startswith(value):
+                self.base, self.reference = self.__uri__.partition(value)[1:3]
+                break
+        else:
+            self.base, self.reference = self.__uri__, ""
 
     def __repr__(self):
-        return self.base + self.reference
+        return self.__uri__
 
     def __eq__(self, other):
-        return str(self) == str(other)
+        return URI(self).__uri__ == URI(other).__uri__
 
     def __ne__(self, other):
-        return str(self) != str(other)
+        return URI(self).__uri__ != URI(other).__uri__
 
 
 class Request(object):
@@ -344,40 +363,33 @@ class Client(object):
 
 class Resource(object):
     """ Web service resource class, designed to work with a well-behaved REST
-        web service.
+    web service.
 
-    :param uri:              the URI identifying this resource
-    :param reference_marker: marker delimiting relative part of URI, e.g. "/node"
+    :param uri: the URI identifying this resource
     """
 
-    def __init__(self, uri, reference_marker):
-        self._uri = URI(uri, reference_marker)
+    def __init__(self, uri):
+        self.__uri__ = URI(uri)
         self.__metadata = PropertyCache()
 
     def __repr__(self):
         """ Return a valid Python representation of this object.
         """
-        return "{0}('{1}')".format(self.__class__.__name__, repr(self._uri))
+        return "{0}('{1}')".format(self.__class__.__name__, repr(self.__uri__))
 
     def __eq__(self, other):
         """ Determine equality of two objects based on URI.
         """
-        return self._uri == other._uri
+        return self.__uri__ == other.__uri__
 
     def __ne__(self, other):
         """ Determine inequality of two objects based on URI.
         """
-        return self._uri != other._uri
-
-    @property
-    def __uri__(self):
-        """ Absolute URI of this resource.
-        """
-        return str(self._uri)
+        return self.__uri__ != other.__uri__
 
     def _client(self):
-        """ Fetch the HTTP client for use by this resource.
-            Uses the client belonging to the local thread.
+        """ Fetch the HTTP client for use by this resource. Uses the client
+        belonging to the local thread.
         """
         global _thread_local
         if not hasattr(_thread_local, "client"):
@@ -419,8 +431,8 @@ class Resource(object):
     @property
     def __metadata__(self):
         """ Dictionary of resource metadata, cached from the last request made
-            to the remote server. To force an update of this metadata, use the
-            :py:func:`refresh` method.
+        to the remote server. To force an update of this metadata, use the
+        :py:func:`refresh` method.
         """
         if self.__metadata.needs_update:
             self.refresh()
@@ -428,9 +440,9 @@ class Resource(object):
 
     def refresh(self):
         """ Refresh resource metadata by submitting a GET request to the main
-            resource URI.
+        resource URI.
         """
-        rs = self._send(Request(None, "GET", self._uri))
+        rs = self._send(Request(None, "GET", self.__uri__))
         self.__metadata.update(rs.body)
 
 

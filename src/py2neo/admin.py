@@ -27,8 +27,8 @@ DEFAULT_URI = "http://localhost:7474/db/manage/"
 class _Service(rest.Resource):
 
     def __init__(self, admin_uri, service=None):
-        rest.Resource.__init__(self, admin_uri, "/server")
-        self._metadata_request = rest.Request(self, "GET", self._uri)
+        rest.Resource.__init__(self, admin_uri)
+        self._metadata_request = rest.Request(self, "GET", self.__uri__)
         self._refresh_metadata()
         if service:
             self._service_uri = self.__metadata__['services'][service]
@@ -39,7 +39,7 @@ class _Service(rest.Resource):
         rs = self._send(self._metadata_request)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
-        self._uri = rest.URI(rs.uri, "/")
+        self.__uri__ = rest.URI(rs.uri)
 
 
 class Sonar(_Service):

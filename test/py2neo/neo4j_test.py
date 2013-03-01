@@ -69,7 +69,7 @@ class BadDatabaseURITest(unittest.TestCase):
 
     def test_no_trailing_slash(self):
         graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
-        self.assertEqual("http://localhost:7474/db/data/", graph_db._uri)
+        self.assertEqual("http://localhost:7474/db/data/", graph_db.__uri__)
 
     def test_no_path(self):
         try:

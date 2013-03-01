@@ -164,15 +164,15 @@ class GraphDatabaseService(rest.Resource):
 
     def __init__(self, uri=None):
         uri = uri or DEFAULT_URI
-        rest.Resource.__init__(self, uri, "/")
-        rs = self._send(rest.Request(self, "GET", self._uri))
-        _assert_expected_response(self.__class__, self._uri, rs.body)
+        rest.Resource.__init__(self, uri)
+        rs = self._send(rest.Request(self, "GET", self.__uri__))
+        _assert_expected_response(self.__class__, self.__uri__, rs.body)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
-        self._uri = rest.URI(rs.uri, "/")
+        self.__uri__ = rest.URI(rs.uri)
         self._extensions = self.__metadata__.get('extensions', None)
         self._neo4j_version = self.__metadata__.get('neo4j_version', "1.4")
-        self._batch_uri = self.__metadata__.get('batch', self._uri.base + "/batch")
+        self._batch_uri = self.__metadata__.get('batch', self.__uri__.base + "/batch")
         self._cypher_uri = self.__metadata__.get('cypher', None)
         self._indexes = {Node: {}, Relationship: {}}
 
@@ -375,7 +375,7 @@ class GraphDatabaseService(rest.Resource):
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support " \
                 "Cypher CREATE UNIQUE clauses or the query contains " \
-                "an unsupported property type".format(self._uri)
+                "an unsupported property type".format(self.__uri__)
             )
 
     def get_properties(self, *entities):
@@ -482,7 +482,7 @@ class GraphDatabaseService(rest.Resource):
     def relationship(self, id):
         """ Fetch a relationship by ID.
         """
-        uri = "{0}/relationship/{1}".format(self._uri.base, id)
+        uri = "{0}relationship/{1}".format(self.__uri__.base, id)
         return Relationship(uri, graph_db=self)
 
     def size(self):
@@ -584,7 +584,7 @@ class GraphDatabaseService(rest.Resource):
             self.get_indexes(content_type)
         if index_name in self._indexes[content_type]:
             index = self._indexes[content_type][index_name]
-            self._send(rest.Request(self, "DELETE", index._uri))
+            self._send(rest.Request(self, "DELETE", index.__uri__))
             del self._indexes[content_type][index_name]
             return True
         else:
@@ -664,18 +664,18 @@ class PropertyContainer(rest.Resource):
 
     """
 
-    def __init__(self, uri, reference_marker, graph_db=None):
+    def __init__(self, uri, graph_db=None):
         """ Create container for properties with caching capabilities.
 
         :param uri: URI identifying this resource
         :param graph_db: graph database to which this resource belongs
         """
-        rest.Resource.__init__(self, uri, reference_marker)
+        rest.Resource.__init__(self, uri)
         if graph_db is not None:
             self._must_belong_to(graph_db)
             self._graph_db = graph_db
         else:
-            self._graph_db = GraphDatabaseService(self._uri.base + "/")
+            self._graph_db = GraphDatabaseService(self.__uri__.base)
 
     def __contains__(self, key):
         return key in self.get_properties()
@@ -717,10 +717,10 @@ class PropertyContainer(rest.Resource):
         """
         if not isinstance(graph_db, GraphDatabaseService):
             raise TypeError(graph_db)
-        if self._uri.base != graph_db._uri.base:
+        if self.__uri__.base != graph_db.__uri__.base:
             raise ValueError(
                 "Entity <{0}> does not belong to graph <{1}>".format(
-                    self._uri, graph_db._uri
+                    self.__uri__, graph_db.__uri__
                 )
             )
 
@@ -759,13 +759,13 @@ class Node(PropertyContainer):
     """
 
     def __init__(self, uri, graph_db=None):
-        PropertyContainer.__init__(self, uri, "/node", graph_db=graph_db)
+        PropertyContainer.__init__(self, uri, graph_db=graph_db)
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
         return "{0}('{1}')".format(
             self.__class__.__name__,
-            repr(self._uri)
+            repr(self.__uri__)
         )
 
     def __str__(self):
@@ -824,7 +824,7 @@ class Node(PropertyContainer):
         if not isinstance(other_node, Node):
             return TypeError("End node is not a neo4j.Node instance")
         rs = self._send(rest.Request(self._graph_db, "POST", self.__metadata__['create_relationship'], {
-            'to': str(other_node._uri),
+            'to': str(other_node.__uri__),
             'type': type,
             'data': compact(properties or {})
         }))
@@ -886,7 +886,7 @@ class Node(PropertyContainer):
         else:
             uri = self._relationships_uri(direction)
         return [
-            Node(rel['start'] if rel['end'] == self._uri else rel['end'], graph_db=self._graph_db)
+            Node(rel['start'] if rel['end'] == self.__uri__ else rel['end'], graph_db=self._graph_db)
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
@@ -1094,7 +1094,7 @@ class Relationship(PropertyContainer):
     """
 
     def __init__(self, uri, graph_db=None):
-        PropertyContainer.__init__(self, uri, "/relationship", graph_db=graph_db)
+        PropertyContainer.__init__(self, uri, graph_db=graph_db)
         self._type = None
         self._start_node = None
         self._end_node = None
@@ -1103,7 +1103,7 @@ class Relationship(PropertyContainer):
     def __repr__(self):
         return "{0}('{1}')".format(
             self.__class__.__name__,
-            repr(self._uri)
+            repr(self.__uri__)
         )
 
     def __str__(self):
@@ -1147,7 +1147,7 @@ class Relationship(PropertyContainer):
         """ Return a node object representing the node within this
         relationship which is not the one supplied.
         """
-        if self.__metadata__['end'] == node._uri:
+        if self.__metadata__['end'] == node.__uri__:
             return self.start_node
         else:
             return self.end_node
@@ -1341,7 +1341,7 @@ class Path(object):
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
                 "Cypher CREATE UNIQUE clauses or the query contains "
-                "an unsupported property type".format(graph_db._uri)
+                "an unsupported property type".format(graph_db.__uri__)
             )
 
     def create(self, graph_db):
@@ -1368,26 +1368,25 @@ class Index(rest.Resource):
 
     def __init__(self, content_type, template_uri, graph_db=None):
         rest.Resource.__init__(
-            self, template_uri.rpartition("/{key}/{value}")[0],
-            "/index/"
+            self, template_uri.rpartition("/{key}/{value}")[0]
         )
-        self._name = str(self._uri).rpartition("/")[2]
+        self._name = str(self.__uri__).rpartition("/")[2]
         self._content_type = content_type
         self._template_uri = template_uri
         if graph_db is not None:
             if not isinstance(graph_db, GraphDatabaseService):
                 raise TypeError(graph_db)
-            if self._uri.base != graph_db._uri.base:
+            if self.__uri__.base != graph_db.__uri__.base:
                 raise ValueError(graph_db)
             self._graph_db = graph_db
         else:
-            self._graph_db = GraphDatabaseService(self._uri.base + "/")
+            self._graph_db = GraphDatabaseService(self.__uri__.base)
 
     def __repr__(self):
         return "{0}({1},'{2}')".format(
             self.__class__.__name__,
             repr(self._content_type.__name__),
-            repr(self._uri)
+            repr(self.__uri__)
         )
 
     def add(self, key, value, entity):
@@ -1404,10 +1403,10 @@ class Index(rest.Resource):
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
         """
-        self._send(rest.Request(self._graph_db, "POST", str(self._uri), {
+        self._send(rest.Request(self._graph_db, "POST", str(self.__uri__), {
             "key": key,
             "value": value,
-            "uri": str(entity._uri)
+            "uri": str(entity.__uri__)
         }))
         return entity
 
@@ -1423,10 +1422,10 @@ class Index(rest.Resource):
         If added, this method returns the entity, otherwise :py:const:`None`
         is returned.
         """
-        rs = self._send(rest.Request(self._graph_db, "POST", str(self._uri) + "?unique", {
+        rs = self._send(rest.Request(self._graph_db, "POST", str(self.__uri__) + "?unique", {
             "key": key,
             "value": value,
-            "uri": str(entity._uri)
+            "uri": str(entity.__uri__)
         }))
         if rs.status == 201:
             return entity
@@ -1505,15 +1504,15 @@ class Index(rest.Resource):
             body = {
                 "key": key,
                 "value": value,
-                "start": str(abstract[0]._uri),
+                "start": str(abstract[0].__uri__),
                 "type": abstract[1],
-                "end": str(abstract[2]._uri),
+                "end": str(abstract[2].__uri__),
                 "properties": abstract[3] if len(abstract) > 3 else None
             }
         else:
             raise TypeError(self._content_type)
         return self._send(rest.Request(
-            self._graph_db, "POST", str(self._uri) + "?unique", body)
+            self._graph_db, "POST", str(self.__uri__) + "?unique", body)
         )
 
     def get_or_create(self, key, value, abstract):
@@ -1586,7 +1585,7 @@ class Index(rest.Resource):
         if key and value and entity:
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}/{3}".format(
-                    self._uri,
+                    self.__uri__,
                     quote(key, ""),
                     quote(value, ""),
                     entity._id,
@@ -1606,13 +1605,13 @@ class Index(rest.Resource):
             for entity in entities:
                 batch._append(rest.Request(
                     self._graph_db, "DELETE",
-                    rest.URI(entity, "/index/").reference,
+                    rest.URI(entity).reference,
                 ))
             batch._submit()
         elif key and entity:
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}/{2}".format(
-                    self._uri,
+                    self.__uri__,
                     quote(key, ""),
                     entity._id,
                 )
@@ -1620,7 +1619,7 @@ class Index(rest.Resource):
         elif entity:
             self._send(rest.Request(
                 self._graph_db, "DELETE", "{0}/{1}".format(
-                    self._uri,
+                    self.__uri__,
                     entity._id,
                 )
             ))
@@ -1643,7 +1642,7 @@ class Index(rest.Resource):
         return [
             self._content_type(item['self'], self._graph_db)
             for item in self._send(rest.Request(self._graph_db, "GET", "{0}?query={1}".format(
-                self._uri, quote(query, "")
+                self.__uri__, quote(query, "")
             ))).body
         ]
 
@@ -1654,8 +1653,8 @@ class _Batch(object):
         if not isinstance(graph_db, GraphDatabaseService):
             raise TypeError(graph_db)
         self._graph_db = graph_db
-        self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"], "/node").reference
-        self._cypher_uri = rest.URI(self._graph_db._cypher_uri, "/cypher").reference
+        self._create_node_uri = rest.URI(self._graph_db.__metadata__["node"]).reference
+        self._cypher_uri = rest.URI(self._graph_db._cypher_uri).reference
         self.clear()
 
     def __len__(self):
@@ -1723,12 +1722,12 @@ class ReadBatch(_Batch):
     def get_node_properties(self, node):
         """ Fetch properties for the given node.
         """
-        self._get(rest.URI(node.__metadata__["properties"], "/node").reference)
+        self._get(rest.URI(node.__metadata__["properties"]).reference)
 
     def get_relationship_properties(self, relationship):
         """ Fetch properties for the given relationship.
         """
-        self._get(rest.URI(relationship.__metadata__["properties"], "/relationship").reference)
+        self._get(rest.URI(relationship.__metadata__["properties"]).reference)
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under the given key-value pair.
@@ -1809,12 +1808,12 @@ class WriteBatch(_Batch):
     def delete_node(self, node):
         """ Delete the specified node from the graph.
         """
-        self._delete(node._uri.reference)
+        self._delete(node.__uri__.reference)
 
     def delete_relationship(self, relationship):
         """ Delete the specified relationship from the graph.
         """
-        self._delete(relationship._uri.reference)
+        self._delete(relationship.__uri__.reference)
 
     def set_node_property(self, node, key, value):
         """ Set a single property on a node.
@@ -1834,13 +1833,13 @@ class WriteBatch(_Batch):
     def delete_node_property(self, node, key):
         """ Delete a single property from a node.
         """
-        uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
+        uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
     def delete_node_properties(self, node):
         """ Delete all properties from a node.
         """
-        uri = rest.URI(node.__metadata__['properties'], "/node")
+        uri = rest.URI(node.__metadata__['properties'])
         self._delete(uri.reference)
 
     def set_relationship_property(self, relationship, key, value):
@@ -1849,36 +1848,36 @@ class WriteBatch(_Batch):
         if value is None:
             self.delete_relationship_property(relationship, key)
         else:
-            uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
+            uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
             self._put(uri.reference, value)
 
     def set_relationship_properties(self, relationship, properties):
         """ Replace all properties on a relationship.
         """
-        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
+        uri = rest.URI(relationship.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
     def delete_relationship_property(self, relationship, key):
         """ Delete a single property from a relationship.
         """
-        uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")), "/relationship")
+        uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
     def delete_relationship_properties(self, relationship):
         """ Delete all properties from a relationship.
         """
-        uri = rest.URI(relationship.__metadata__['properties'], "/relationship")
+        uri = rest.URI(relationship.__metadata__['properties'])
         self._delete(uri.reference)
 
     def _node_uri(self, node):
         if isinstance(node, Node):
-            return str(node._uri)
+            return str(node.__uri__)
         else:
             return "{" + str(node) + "}"
 
     def _relationship_uri(self, relationship):
         if isinstance(relationship, Relationship):
-            return str(relationship._uri)
+            return str(relationship.__uri__)
         else:
             return "{" + str(relationship) + "}"
 
@@ -1891,7 +1890,7 @@ class WriteBatch(_Batch):
             return self._graph_db.get_or_create_index(content_type, str(index))
 
     def _create_indexed_node(self, index, uri_suffix, key, value, properties):
-        index_uri = self._index(Node, index)._uri
+        index_uri = self._index(Node, index).__uri__
         self._post(index_uri.reference + uri_suffix, body = {
             "key": key,
             "value": value,
@@ -1918,7 +1917,7 @@ class WriteBatch(_Batch):
                                       "requires version 1.9 or above")
 
     def _add_indexed_node(self, index, uri_suffix, key, value, node):
-        index_uri = self._index(Node, index)._uri
+        index_uri = self._index(Node, index).__uri__
         self._post(index_uri.reference + uri_suffix, body = {
             "key": key,
             "value": value,
@@ -1966,7 +1965,7 @@ class WriteBatch(_Batch):
             key and value
 
         """
-        index_uri = self._index(Node, index)._uri
+        index_uri = self._index(Node, index).__uri__
         if key and value and node:
             self._delete("{0}/{1}/{2}/{3}".format(
                 index_uri,
@@ -1989,7 +1988,7 @@ class WriteBatch(_Batch):
             raise TypeError("Illegal parameter combination for index removal")
 
     def _create_indexed_relationship(self, index, uri_suffix, key, value, start_node, type_, end_node, properties):
-        index_uri = self._index(Relationship, index)._uri
+        index_uri = self._index(Relationship, index).__uri__
         self._post(index_uri.reference + uri_suffix, body = {
             "key": key,
             "value": value,
@@ -2019,7 +2018,7 @@ class WriteBatch(_Batch):
                                       "requires version 1.9 or above")
 
     def _add_indexed_relationship(self, index, uri_suffix, key, value, relationship):
-        index_uri = self._index(Relationship, index)._uri
+        index_uri = self._index(Relationship, index).__uri__
         self._post(index_uri.reference + uri_suffix, body = {
             "key": key,
             "value": value,
@@ -2067,7 +2066,7 @@ class WriteBatch(_Batch):
             key and value
 
         """
-        index_uri = self._index(Relationship, index)._uri
+        index_uri = self._index(Relationship, index).__uri__
         if key and value and relationship:
             self._delete("{0}/{1}/{2}/{3}".format(
                 index_uri,
