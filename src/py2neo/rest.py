@@ -432,3 +432,27 @@ class Resource(object):
         """
         rs = self._send(Request(None, "GET", self._uri))
         self.__metadata.update(rs.body)
+
+
+class ServiceRoot(object):
+
+    _cache = {}
+
+    @classmethod
+    def _client(cls):
+        global _thread_local
+        if not hasattr(_thread_local, "client"):
+            _thread_local.client = Client()
+        return _thread_local.client
+
+    @classmethod
+    def get(cls, scheme, hostname, port):
+        uri = "{0}://{1}:{2}/".format(scheme, hostname, port)
+        if uri not in cls._cache:
+            try:
+                response = cls._client().send(Request(None, "GET", uri))
+            except socket.error as err:
+                raise SocketError(err)
+            if response.status // 100 == 2:
+                cls._cache[uri] = response.body
+        return cls._cache[uri]
