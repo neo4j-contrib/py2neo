@@ -451,8 +451,7 @@ class ServiceRoot(object):
         if uri not in cls._cache:
             try:
                 response = cls._client().send(Request(None, "GET", uri))
+                cls._cache[uri] = response.body
             except socket.error as err:
                 raise SocketError(err)
-            if response.status // 100 == 2:
-                cls._cache[uri] = response.body
         return cls._cache[uri]
