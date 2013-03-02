@@ -194,7 +194,7 @@ class SocketError(IOError):
 
 class URI(object):
 
-    def __init__(self, uri, *args):
+    def __init__(self, uri):
         try:
             self.__uri__ = str(uri.__uri__)
         except AttributeError:

@@ -1763,7 +1763,7 @@ class WriteBatch(_Batch):
         def node_uri(node):
             if isinstance(node, Node):
                 node._must_belong_to(self._graph_db)
-                return rest.URI(node.__metadata__["self"], "/node").reference
+                return rest.URI(node.__metadata__["self"]).reference
             else:
                 return "{" + str(node) + "}"
         body = {
@@ -1820,13 +1820,13 @@ class WriteBatch(_Batch):
         if value is None:
             self.delete_node_property(node, key)
         else:
-            uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")), "/node")
+            uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
             self._put(uri.reference, value)
 
     def set_node_properties(self, node, properties):
         """ Replace all properties on a node.
         """
-        uri = rest.URI(node.__metadata__['properties'], "/node")
+        uri = rest.URI(node.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
     def delete_node_property(self, node, key):
