@@ -369,7 +369,7 @@ class Resource(object):
     """
 
     def __init__(self, uri):
-        self.__uri__ = URI(uri)
+        self.__uri__ = uri
         self.__metadata = PropertyCache()
 
     def __repr__(self):
@@ -386,6 +386,17 @@ class Resource(object):
         """ Determine inequality of two objects based on URI.
         """
         return self.__uri__ != other.__uri__
+
+    @property
+    def __uri__(self):
+        return self.__uri
+
+    @__uri__.setter
+    def __uri__(self, uri):
+        if uri is None:
+            self.__uri = None
+        else:
+            self.__uri = URI(uri)
 
     def _client(self):
         """ Fetch the HTTP client for use by this resource. Uses the client
