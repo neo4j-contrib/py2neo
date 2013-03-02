@@ -650,7 +650,7 @@ class GraphDatabaseService(rest.Resource):
         return None
 
 
-class PropertyContainer(rest.Resource):
+class Entity(rest.Resource):
     """ Base class from which :py:class:`Node` and :py:class:`Relationship`
     classes inherit. Provides property management functionality by defining
     standard Python container handler methods::
@@ -759,14 +759,14 @@ class PropertyContainer(rest.Resource):
         ))
 
 
-class Node(PropertyContainer):
+class Node(Entity):
     """ A node within a graph, identified by a URI.
     
     :param uri: URI identifying this node
     """
 
     def __init__(self, uri):
-        PropertyContainer.__init__(self, uri)
+        Entity.__init__(self, uri)
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
@@ -1093,14 +1093,14 @@ class Node(PropertyContainer):
         return path.get_or_create(self._graph_db)
 
 
-class Relationship(PropertyContainer):
+class Relationship(Entity):
     """ A relationship within a graph, identified by a URI.
     
     :param uri: URI identifying this relationship
     """
 
     def __init__(self, uri):
-        PropertyContainer.__init__(self, uri)
+        Entity.__init__(self, uri)
         self._type = None
         self._start_node = None
         self._end_node = None
