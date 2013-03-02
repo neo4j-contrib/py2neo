@@ -97,6 +97,11 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         #print("Node count: {0}".format(self.graph_db.order()))
         #print("Relationship count: {0}".format(self.graph_db.size()))
 
+    def test_can_get_same_instance(self):
+        graph_db_1 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
+        graph_db_2 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
+        assert graph_db_1 is graph_db_2
+
     def test_neo4j_version_format(self):
         version = self.graph_db.neo4j_version
         assert isinstance(version, tuple)

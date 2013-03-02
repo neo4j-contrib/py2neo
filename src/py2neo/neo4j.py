@@ -162,6 +162,19 @@ class GraphDatabaseService(rest.Resource):
         :py:data:`DEFAULT_URI`)
     """
 
+    _instances = {}
+
+    @classmethod
+    def get_instance(cls, uri):
+        """ Fetch a cached instance of a :py:class:`GraphDatabaseService` for
+        a given URI. This method can be used to reduce both the number of
+        instances in existence at any one time and the number of network
+        messages sent for discovery.
+        """
+        if uri not in cls._instances:
+            cls._instances[uri] = cls(uri)
+        return cls._instances[uri]
+
     def __init__(self, uri=None):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri)
@@ -224,19 +237,19 @@ class GraphDatabaseService(rest.Resource):
             # is a neo4j resolvable entity
             uri = data["self"]
             if "type" in data:
-                rel = Relationship(uri, graph_db=self)
+                rel = Relationship(uri)
                 rel._update_metadata(data)
                 return rel
             else:
-                node = Node(uri, graph_db=self)
+                node = Node(uri)
                 node._update_metadata(data)
                 return node
         elif isinstance(data, dict) and "length" in data and \
                 "nodes" in data and "relationships" in data and \
                 "start" in data and "end" in data:
             # is a path
-            nodes = map(Node, data["nodes"], [self] * len(data["nodes"]))
-            rels = map(Relationship, data["relationships"], [self] * len(data["relationships"]))
+            nodes = map(Node, data["nodes"])
+            rels = map(Relationship, data["relationships"])
             return Path(*round_robin(nodes, rels))
         elif isinstance(data, dict) and "columns" in data and "data" in data:
             # is a value contained within a Cypher response
@@ -306,7 +319,7 @@ class GraphDatabaseService(rest.Resource):
             rs = self._send(
                 rest.Request(self, "POST", self.__metadata__["node"], compact(abstracts[0]))
             )
-            return [Node(rs.body["self"], graph_db=self)]
+            return [Node(rs.body["self"])]
         batch = WriteBatch(self)
         for abstract in abstracts:
             if isinstance(abstract, dict):
@@ -344,7 +357,7 @@ class GraphDatabaseService(rest.Resource):
         .. deprecated:: 1.3.1
             use indexed nodes instead.
         """
-        return Node(self.__metadata__['reference_node'], graph_db=self)
+        return Node(self.__metadata__['reference_node'])
 
     @deprecated("GraphDatabaseService.get_or_create_relationships is "
                 "deprecated, please use either WriteBatch."
@@ -468,7 +481,7 @@ class GraphDatabaseService(rest.Resource):
     def node(self, id):
         """ Fetch a node by ID.
         """
-        return Node(self.__metadata__['node'] + "/" + str(id), graph_db=self)
+        return Node(self.__metadata__['node'] + "/" + str(id))
 
     def order(self):
         """ Fetch the number of nodes in this graph.
@@ -483,7 +496,7 @@ class GraphDatabaseService(rest.Resource):
         """ Fetch a relationship by ID.
         """
         uri = "{0}relationship/{1}".format(self.__uri__.base, id)
-        return Relationship(uri, graph_db=self)
+        return Relationship(uri)
 
     def size(self):
         """ Fetch the number of relationships in this graph.
@@ -510,7 +523,7 @@ class GraphDatabaseService(rest.Resource):
         rs = self._send(rq)
         indexes = rs.body or {}
         self._indexes[content_type] = dict(
-            (index, Index(content_type, indexes[index]['template'], graph_db=self))
+            (index, Index(content_type, indexes[index]['template']))
             for index in indexes
         )
         return self._indexes[content_type]
@@ -567,7 +580,7 @@ class GraphDatabaseService(rest.Resource):
             raise ValueError(content_type)
         config = config or {}
         rs = self._send(rest.Request(self, "POST", uri, {"name": index_name, "config": config}))
-        index = Index(content_type, rs.body["template"], graph_db=self)
+        index = Index(content_type, rs.body["template"])
         self._indexes[content_type].update({index_name: index})
         return index
 
@@ -664,18 +677,13 @@ class PropertyContainer(rest.Resource):
 
     """
 
-    def __init__(self, uri, graph_db=None):
+    def __init__(self, uri):
         """ Create container for properties with caching capabilities.
 
         :param uri: URI identifying this resource
-        :param graph_db: graph database to which this resource belongs
         """
         rest.Resource.__init__(self, uri)
-        if graph_db is not None:
-            self._must_belong_to(graph_db)
-            self._graph_db = graph_db
-        else:
-            self._graph_db = GraphDatabaseService(self.__uri__.base)
+        self._graph_db = GraphDatabaseService.get_instance(self.__uri__.base)
 
     def __contains__(self, key):
         return key in self.get_properties()
@@ -755,11 +763,10 @@ class Node(PropertyContainer):
     """ A node within a graph, identified by a URI.
     
     :param uri: URI identifying this node
-    :param graph_db: the graph database to which this node belongs
     """
 
-    def __init__(self, uri, graph_db=None):
-        PropertyContainer.__init__(self, uri, graph_db=graph_db)
+    def __init__(self, uri):
+        PropertyContainer.__init__(self, uri)
         self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
@@ -886,7 +893,7 @@ class Node(PropertyContainer):
         else:
             uri = self._relationships_uri(direction)
         return [
-            Node(rel['start'] if rel['end'] == self.__uri__ else rel['end'], graph_db=self._graph_db)
+            Node(rel['start'] if rel['end'] == self.__uri__ else rel['end'])
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
@@ -904,7 +911,7 @@ class Node(PropertyContainer):
         else:
             uri = self._relationships_uri(direction)
         return [
-            Relationship(rel['self'], graph_db=self._graph_db)
+            Relationship(rel['self'])
             for rel in self._send(rest.Request(self._graph_db, "GET", uri)).body
         ]
 
@@ -1090,11 +1097,10 @@ class Relationship(PropertyContainer):
     """ A relationship within a graph, identified by a URI.
     
     :param uri: URI identifying this relationship
-    :param graph_db: the graph database to which this relationship belongs
     """
 
-    def __init__(self, uri, graph_db=None):
-        PropertyContainer.__init__(self, uri, graph_db=graph_db)
+    def __init__(self, uri):
+        PropertyContainer.__init__(self, uri)
         self._type = None
         self._start_node = None
         self._end_node = None
@@ -1140,7 +1146,7 @@ class Relationship(PropertyContainer):
         """ Return the end node of this relationship.
         """
         if not self._end_node:
-            self._end_node = Node(self.__metadata__['end'], graph_db=self._graph_db)
+            self._end_node = Node(self.__metadata__['end'])
         return self._end_node
 
     def other_node(self, node):
@@ -1174,7 +1180,7 @@ class Relationship(PropertyContainer):
         """ Return the start node of this relationship.
         """
         if not self._start_node:
-            self._start_node = Node(self.__metadata__['start'], graph_db=self._graph_db)
+            self._start_node = Node(self.__metadata__['start'])
         return self._start_node
 
     @property
@@ -1366,21 +1372,14 @@ class Index(rest.Resource):
     .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
     """
 
-    def __init__(self, content_type, template_uri, graph_db=None):
+    def __init__(self, content_type, template_uri):
         rest.Resource.__init__(
             self, template_uri.rpartition("/{key}/{value}")[0]
         )
         self._name = str(self.__uri__).rpartition("/")[2]
         self._content_type = content_type
         self._template_uri = template_uri
-        if graph_db is not None:
-            if not isinstance(graph_db, GraphDatabaseService):
-                raise TypeError(graph_db)
-            if self.__uri__.base != graph_db.__uri__.base:
-                raise ValueError(graph_db)
-            self._graph_db = graph_db
-        else:
-            self._graph_db = GraphDatabaseService(self.__uri__.base)
+        self._graph_db = GraphDatabaseService.get_instance(self.__uri__.base)
 
     def __repr__(self):
         return "{0}({1},'{2}')".format(
@@ -1461,7 +1460,7 @@ class Index(rest.Resource):
             value=quote(value, "")
         )))
         return [
-            self._content_type(result['self'], self._graph_db)
+            self._content_type(result['self'])
             for result in results.body
         ]
 
@@ -1539,7 +1538,7 @@ class Index(rest.Resource):
         ..
         """
         rs = self._create_unique(key, value, abstract)
-        return self._content_type(rs.body["self"], self._graph_db)
+        return self._content_type(rs.body["self"])
 
     def create_if_none(self, key, value, abstract):
         """ Create a new entity with the specified details within the current
@@ -1559,7 +1558,7 @@ class Index(rest.Resource):
         """
         rs = self._create_unique(key, value, abstract)
         if rs.status == 201:
-            return self._content_type(rs.body["self"], self._graph_db)
+            return self._content_type(rs.body["self"])
         else:
             return None
 
@@ -1640,7 +1639,7 @@ class Index(rest.Resource):
         should be `Apache Lucene query syntax <http://lucene.apache.org/core/old_versioned_docs/versions/3_5_0/queryparsersyntax.html>`_.
         """
         return [
-            self._content_type(item['self'], self._graph_db)
+            self._content_type(item['self'])
             for item in self._send(rest.Request(self._graph_db, "GET", "{0}?query={1}".format(
                 self.__uri__, quote(query, "")
             ))).body
