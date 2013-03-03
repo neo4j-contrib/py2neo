@@ -20,3 +20,18 @@ __copyright__ = "2011-2013, Nigel Small"
 __license__   = "Apache License, Version 2.0"
 __package__   = "py2neo"
 __version__   = "1.5-alpha"
+
+
+def node(**properties):
+    """ Return a new abstract node.
+    """
+    return neo4j.Node.abstract(**properties)
+
+
+def rel(start_node, type, end_node, **properties):
+    """ Return a new abstract relationship.
+    """
+    return neo4j.Relationship.abstract(start_node, type, end_node, **properties)
+
+
+from . import neo4j

@@ -650,10 +650,123 @@ class GraphDatabaseService(rest.Resource):
         return None
 
 
-class Entity(rest.Resource):
+class _Entity(rest.Resource):
     """ Base class from which :py:class:`Node` and :py:class:`Relationship`
     classes inherit. Provides property management functionality by defining
-    standard Python container handler methods::
+    standard Python container handler methods.
+    """
+
+    def __init__(self, uri):
+        rest.Resource.__init__(self, uri)
+        self._labels = None
+        self._properties = None
+
+    def __contains__(self, key):
+        return key in self.get_properties()
+
+    def __delitem__(self, key):
+        self.update_properties({key: None})
+
+    def __getitem__(self, key):
+        return self.get_properties().get(key, None)
+
+    def __iter__(self):
+        return self.get_properties().__iter__()
+
+    def __len__(self):
+        return len(self.get_properties())
+
+    def __nonzero__(self):
+        return True
+
+    def __setitem__(self, key, value):
+        self.update_properties({key: value})
+
+    @property
+    def _graph_db(self):
+        try:
+            return GraphDatabaseService.get_instance(self.__uri__.base)
+        except AttributeError:
+            return None
+
+    def _must_belong_to(self, graph_db):
+        """ Raise a :py:error:`ValueError` if this entity does not belong to
+        the graph supplied.
+        """
+        if not isinstance(graph_db, GraphDatabaseService):
+            raise TypeError(graph_db)
+        if self.__uri__.base != graph_db.__uri__.base:
+            raise ValueError(
+                "Entity <{0}> does not belong to graph <{1}>".format(
+                    self.__uri__, graph_db.__uri__
+                )
+            )
+
+    def delete(self):
+        """ Delete this entity from the database.
+        """
+        self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
+
+    def exists(self):
+        """ Determine whether this entity still exists in the database.
+        """
+        try:
+            self._send(rest.Request(self._graph_db, "GET", self.__metadata__['self']))
+            return True
+        except rest.ResourceNotFound:
+            return False
+
+    def get_properties(self):
+        """ Fetch all properties.
+
+        :return: dictionary of properties
+        """
+        if self.__uri__:
+            uri = self.__metadata__['properties']
+            rs = self._send(rest.Request(self._graph_db, "GET", uri))
+            self._properties = rs.body or {}
+        return self._properties
+
+    def is_abstract(self):
+        """ Return :py:const:`True` if this entity is abstract (i.e. not bound
+        to a concrete entity within the database), :py:const:`False` otherwise.
+
+        :return: :py:const:`True` if this entity is abstract
+        """
+        return self.__uri__ is None
+
+    def set_properties(self, properties):
+        """ Replace all properties with those supplied.
+
+        :param properties: dictionary of new properties
+        """
+        self._properties = properties
+        if self.__uri__:
+            uri = self.__metadata__['properties']
+            if self._properties:
+                self._send(rest.Request(self._graph_db, "PUT", uri, compact(self._properties)))
+            else:
+                self._send(rest.Request(self._graph_db, "DELETE", uri))
+
+    def delete_properties(self):
+        """ Delete all properties.
+        """
+        self.set_properties({})
+
+    def update_properties(self, properties):
+        raise NotImplementedError("Entity.update_properties")
+
+
+class Node(_Entity):
+    """ A node within a graph, identified by a URI. For example:
+
+        >>> alice = neo4j.Node("http://localhost:7474/db/data/node/1")
+
+    Typically, concrete nodes will not be constructed directly in this way
+    by client applications. Instead, methods such as
+    :py:func:`GraphDatabaseService.create` build node objects indirectly as
+    required. Once created, however, nodes can be treated like any other
+    container types in order to manage properties::
 
         # get the `name` property of `node`
         name = node["name"]
@@ -675,99 +788,39 @@ class Entity(rest.Resource):
         for key in node:
             value = node[key]
 
-    """
-
-    def __init__(self, uri):
-        """ Create container for properties with caching capabilities.
-
-        :param uri: URI identifying this resource
-        """
-        rest.Resource.__init__(self, uri)
-        self._graph_db = GraphDatabaseService.get_instance(self.__uri__.base)
-
-    def __contains__(self, key):
-        return key in self.get_properties()
-
-    def __delitem__(self, key):
-        try:
-            self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['property'].format(key=quote(key, ""))))
-        except rest.ResourceNotFound:
-            pass
-
-    def __getitem__(self, key):
-        try:
-            return self._send(
-                rest.Request(self._graph_db, "GET", self.__metadata__['property'].format(key=quote(key, "")))
-            ).body
-        except rest.ResourceNotFound:
-            return None
-
-    def __iter__(self):
-        return self.get_properties().__iter__()
-
-    def __len__(self):
-        return len(self.get_properties())
-
-    def __nonzero__(self):
-        return True
-
-    def __setitem__(self, key, value):
-        if value is None:
-            self.__delitem__(key)
-        else:
-            self._send(
-                rest.Request(self._graph_db, "PUT", self.__metadata__['property'].format(key=quote(key, "")), value)
-            )
-
-    def _must_belong_to(self, graph_db):
-        """ Raise a :py:error:`ValueError` if this entity does not belong to
-        the graph supplied.
-        """
-        if not isinstance(graph_db, GraphDatabaseService):
-            raise TypeError(graph_db)
-        if self.__uri__.base != graph_db.__uri__.base:
-            raise ValueError(
-                "Entity <{0}> does not belong to graph <{1}>".format(
-                    self.__uri__, graph_db.__uri__
-                )
-            )
-
-    def get_properties(self):
-        """ Fetch all properties for this resource.
-        """
-        rs = self._send(
-            rest.Request(self._graph_db, "GET", self.__metadata__['properties'])
-        )
-        if rs.body:
-            return rs.body
-        else:
-            return {}
-
-    def set_properties(self, properties):
-        """ Replace all properties for this resource with the supplied
-        dictionary of values.
-        """
-        self._send(rest.Request(
-            self._graph_db, "PUT", self.__metadata__['properties'], compact(properties)
-        ))
-
-    def delete_properties(self):
-        """ Delete all properties for this resource.
-        """
-        self._send(rest.Request(
-            self._graph_db, "DELETE", self.__metadata__['properties']
-        ))
-
-
-class Node(Entity):
-    """ A node within a graph, identified by a URI.
-    
     :param uri: URI identifying this node
     """
 
+    @classmethod
+    def abstract(cls, **properties):
+        """ Create and return a new abstract node containing properties drawn
+        from the keyword arguments supplied. An abstract node is not bound to
+        a concrete node within a database but properties can be managed
+        similarly to those within bound nodes::
+
+            >>> alice = neo4j.Node.abstract(name="Alice")
+            >>> alice["name"]
+            'Alice'
+            >>> alice["age"] = 34
+            alice.get_properties()
+            {'age': 34, 'name': 'Alice'}
+
+        If more complex property keys are required, abstract nodes may be
+        instantiated with the ``**`` syntax::
+
+            >>> alice = neo4j.Node.abstract(**{"first name": "Alice"})
+            >>> alice["first name"]
+            'Alice'
+
+        :param properties: node properties
+        """
+        instance = cls(None)
+        instance._labels = None
+        instance._properties = properties
+        return instance
+
     def __init__(self, uri):
-        Entity.__init__(self, uri)
-        self._id = int('0' + uri.rpartition('/')[-1])
+        _Entity.__init__(self, uri)
 
     def __repr__(self):
         return "{0}('{1}')".format(
@@ -776,33 +829,25 @@ class Node(Entity):
         )
 
     def __str__(self):
+        """ Return Cypher/Geoff style representation of this node.
+        """
         return "({0})".format(self._id)
 
     @property
+    def _id(self):
+        """ Return the internal ID for this node.
+
+        :return: integer ID of this node within the database or
+            :py:const:`None` if abstract
+        """
+        if self.__uri__ is None:
+            return None
+        else:
+            return int('0' + str(self.__uri__).rpartition('/')[-1])
+
+    @property
     def id(self):
-        """ Return the unique id for this node.
-        """
         return self._id
-
-    def exists(self):
-        """ Determine whether this node still exists in the database.
-        """
-        try:
-            self._send(rest.Request(self._graph_db, "GET", self.__metadata__['self']))
-            return True
-        except rest.ResourceNotFound:
-            return False
-
-    def update_properties(self, properties):
-        """ Update the properties for this node with the values supplied.
-        """
-        batch = WriteBatch(self._graph_db)
-        for key, value in properties.items():
-            if value is None:
-                batch.delete_node_property(self, key)
-            else:
-                batch.set_node_property(self, key, value)
-        batch._submit()
 
     @deprecated("Node.create_relationship_from is deprecated, please use "
                 "Node.create_path instead.")
@@ -836,11 +881,6 @@ class Node(Entity):
             'data': compact(properties or {})
         }))
         return Relationship(rs.body["self"])
-
-    def delete(self):
-        """ Delete this node from the database.
-        """
-        self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
 
     def delete_related(self):
         """ Delete this node, plus all related nodes and relationships.
@@ -1020,9 +1060,13 @@ class Node(Entity):
         ), {"A": self._id})
 
     def match(self, rel_type=None, end_node=None, bidirectional=False, limit=None):
+        """ Match one or more relationships attached to this node.
+        """
         return self._graph_db.match(self, rel_type, end_node, bidirectional, limit)
 
     def match_one(self, rel_type=None, end_node=None, bidirectional=False):
+        """ Match a single relationship attached to this node.
+        """
         return self._graph_db.match(self, rel_type, end_node, bidirectional)
 
     def create_path(self, *items):
@@ -1092,19 +1136,48 @@ class Node(Entity):
         path = Path(self, *items)
         return path.get_or_create(self._graph_db)
 
+    def update_properties(self, properties):
+        """ Update properties with the values supplied.
 
-class Relationship(Entity):
+        :param properties: dictionary of properties to integrate with existing
+            properties
+        """
+        if self.__uri__:
+            query, params = ["START a=node({A})"], {"A": self._id}
+            for i, (key, value) in enumerate(properties.items()):
+                value_tag = "V" + str(i)
+                query.append("SET a.`" + key + "`={" + value_tag + "}")
+                params[value_tag] = value
+            query.append("RETURN a")
+            data, metadata = cypher.execute(self._graph_db, " ".join(query), params)
+            self._properties = data[0][0].__metadata__["data"]
+        else:
+            self._properties.update(properties)
+
+
+class Relationship(_Entity):
     """ A relationship within a graph, identified by a URI.
     
     :param uri: URI identifying this relationship
     """
 
+    @classmethod
+    def abstract(cls, start_node, type, end_node, **properties):
+        """ Create and return a new abstract relationship.
+        """
+        instance = cls(None)
+        instance._start_node = start_node
+        instance._type = type
+        instance._end_node = end_node
+        instance._labels = None
+        instance._properties = properties
+        return instance
+
     def __init__(self, uri):
-        Entity.__init__(self, uri)
-        self._type = None
+        _Entity.__init__(self, uri)
         self._start_node = None
+        self._type = None
         self._end_node = None
-        self._id = int('0' + uri.rpartition('/')[-1])
 
     def __repr__(self):
         return "{0}('{1}')".format(
@@ -1115,37 +1188,23 @@ class Relationship(Entity):
     def __str__(self):
         return "[{0}:{1}]".format(self.id, self.type)
 
-    def exists(self):
-        """ Determine whether this relationship still exists in the database.
-        """
-        try:
-            self._send(rest.Request(self._graph_db, "GET", self.__metadata__['self']))
-            return True
-        except rest.ResourceNotFound:
-            return False
+    @property
+    def _id(self):
+        """ Return the internal ID for this relationship.
 
-    def update_properties(self, properties):
-        """ Update the properties for this relationship with the values
-        supplied.
+        :return: integer ID of this relationship within the database or
+            :py:const:`None` if abstract
         """
-        batch = WriteBatch(self._graph_db)
-        for key, value in properties.items():
-            if value is None:
-                batch.delete_relationship_property(self, key)
-            else:
-                batch.set_relationship_property(self, key, value)
-        batch._submit()
-
-    def delete(self):
-        """ Delete this relationship from the database.
-        """
-        self._send(rest.Request(self._graph_db, "DELETE", self.__metadata__['self']))
+        if self.__uri__ is None:
+            return None
+        else:
+            return int('0' + str(self.__uri__).rpartition('/')[-1])
 
     @property
     def end_node(self):
         """ Return the end node of this relationship.
         """
-        if not self._end_node:
+        if self.__uri__ and not self._end_node:
             self._end_node = Node(self.__metadata__['end'])
         return self._end_node
 
@@ -1165,7 +1224,8 @@ class Relationship(Entity):
         return self._id
 
     def is_type(self, type):
-        """ Return :py:const:`True` if this relationship is of the given type.
+        """ Return :py:const:`True` if this relationship is of the given type,
+        :py:const:`False` otherwise.
         """
         return self.type == type
 
@@ -1179,17 +1239,33 @@ class Relationship(Entity):
     def start_node(self):
         """ Return the start node of this relationship.
         """
-        if not self._start_node:
+        if self.__uri__ and not self._start_node:
             self._start_node = Node(self.__metadata__['start'])
         return self._start_node
 
     @property
     def type(self):
-        """ Return the type of this relationship.
+        """ Return the type of this relationship as a string.
         """
-        if not self._type:
+        if self.__uri__ and not self._type:
             self._type = self.__metadata__['type']
         return self._type
+
+    def update_properties(self, properties):
+        """ Update the properties for this relationship with the values
+        supplied.
+        """
+        if self.__uri__:
+            query, params = ["START a=rel({A})"], {"A": self._id}
+            for i, (key, value) in enumerate(properties.items()):
+                value_tag = "V" + str(i)
+                query.append("SET a.`" + key + "`={" + value_tag + "}")
+                params[value_tag] = value
+            query.append("RETURN a")
+            data, metadata = cypher.execute(self._graph_db, " ".join(query), params)
+            self._properties = data[0][0].__metadata__["data"]
+        else:
+            self._properties.update(properties)
 
 
 class Path(object):

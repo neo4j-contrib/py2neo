@@ -389,6 +389,8 @@ class Resource(object):
 
     @property
     def __uri__(self):
+        """ The URI for this resource.
+        """
         return self.__uri
 
     @__uri__.setter

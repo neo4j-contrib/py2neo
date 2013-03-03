@@ -97,6 +97,31 @@ class RelationshipTestCase(unittest.TestCase):
         rel = self.graph_db.relationship(ab._id)
         assert rel == ab
 
+    def test_create_relationship_with_properties(self):
+        alice, bob = self.graph_db.create(
+            {"name": "Alice"}, {"name": "Bob"}
+        )
+        ab = alice.create_relationship_to(bob, "KNOWS", {"since": 1999})
+        self.assertIsNotNone(ab)
+        self.assertTrue(isinstance(ab, neo4j.Relationship))
+        self.assertEqual(alice, ab.start_node)
+        self.assertEqual("KNOWS", ab.type)
+        self.assertEqual(bob, ab.end_node)
+        self.assertEqual(len(ab), 1)
+        self.assertEqual(ab["since"], 1999)
+        self.assertEqual(ab.get_properties(), {"since": 1999})
+        ab["foo"] = "bar"
+        self.assertEqual(len(ab), 2)
+        self.assertEqual(ab["foo"], "bar")
+        self.assertEqual(ab.get_properties(), {"since": 1999, "foo": "bar"})
+        del ab["foo"]
+        self.assertEqual(len(ab), 1)
+        self.assertEqual(ab["since"], 1999)
+        self.assertEqual(ab.get_properties(), {"since": 1999})
+        ab.delete_properties()
+        self.assertEqual(len(ab), 0)
+        self.assertEqual(ab.get_properties(), {})
+
 
 class RelateTestCase(unittest.TestCase):
 

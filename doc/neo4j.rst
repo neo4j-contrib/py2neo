@@ -28,17 +28,17 @@ URI Rewriting
 Nodes and Relationships
 -----------------------
 
-.. autoclass:: py2neo.neo4j.PropertyContainer
-    :members:
-    :show-inheritance:
-
 .. autoclass:: py2neo.neo4j.Node
-    :members:
-    :show-inheritance:
+    :members: abstract, __metadata__, __str__, __uri__, _id,
+        create_path, delete, delete_properties, delete_related, exists,
+        get_or_create_path, get_properties, is_abstract, isolate, match,
+        match_one, set_properties, update_properties
 
 .. autoclass:: py2neo.neo4j.Relationship
-    :members:
-    :show-inheritance:
+    :members: abstract, __metadata__, __str__, __uri__, _id,
+        delete, delete_properties, end_node, exists,
+        get_properties, is_abstract, is_type, nodes, other_node,
+        set_properties, start_node, type, update_properties
 
 Paths
 -----
