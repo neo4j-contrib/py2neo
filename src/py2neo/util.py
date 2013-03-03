@@ -106,6 +106,9 @@ class PropertyCache(object):
         if properties:
             self.update(properties)
 
+    def __repr__(self):
+        return repr(self._properties)
+
     def __nonzero__(self):
         return bool(self._properties)
 
