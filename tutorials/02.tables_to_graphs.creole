@@ -117,7 +117,7 @@ Alice is now described as both a PERSON and a MOTHER whereas Bob is only a PERSO
 
 {{{
 START z1=node(100), z2=node(101)
-MATCH (z1)-[:PERSON]->(p)<-[:FEMALE]-(z2)
+MATCH (z1)-[:PERSON]->(p)<-[:MOTHER]-(z2)
 RETURN p
 }}}
 
