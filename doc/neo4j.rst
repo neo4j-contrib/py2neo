@@ -37,7 +37,7 @@ Nodes and Relationships
 .. autoclass:: py2neo.neo4j.Relationship
     :members: abstract, __metadata__, __str__, __uri__, _id,
         delete, delete_properties, end_node, exists,
-        get_properties, is_abstract, is_type, nodes, other_node,
+        get_properties, is_abstract,
         set_properties, start_node, type, update_properties
 
 Paths

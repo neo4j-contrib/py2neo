@@ -1208,6 +1208,9 @@ class Relationship(_Entity):
             self._end_node = Node(self.__metadata__['end'])
         return self._end_node
 
+    @deprecated("Relationship.other_node is deprecated, please compare "
+                "values with Relationship.start_node and "
+                "Relationship.end_node instead.")
     def other_node(self, node):
         """ Return a node object representing the node within this
         relationship which is not the one supplied.
@@ -1223,6 +1226,8 @@ class Relationship(_Entity):
         """
         return self._id
 
+    @deprecated("Relationship.is_type is deprecated, please compare values "
+                "with Relationship.type instead.")
     def is_type(self, type):
         """ Return :py:const:`True` if this relationship is of the given type,
         :py:const:`False` otherwise.
@@ -1230,6 +1235,8 @@ class Relationship(_Entity):
         return self.type == type
 
     @property
+    @deprecated("Relationship.nodes is deprecated, please use "
+                "Relationship.start_node and Relationship.end_node instead.")
     def nodes(self):
         """ Return a tuple of the two nodes attached to this relationship.
         """
