@@ -74,6 +74,7 @@ http_headers.add("User-Agent", "{0}/{1} ({2}; python/{3})".format(
     py2neo_package, py2neo_version,
     sys.platform, sys.version.partition(" ")[0],
 ))
+http_headers.add("X-Stream", "true;format=pretty")
 
 http_rewrites = {}
 

@@ -30,7 +30,6 @@ _thread_local = threading.local()
 
 
 DEFAULT_BLOCK_SIZE = 8192
-STREAMING = {"X-Stream": "true"}
 
 def local_client():
     if not hasattr(_thread_local, "client"):
@@ -167,7 +166,7 @@ class Query(object):
                 self.metadata_handler = metadata_handler
                 self.error_handler = error_handler
                 local_client().send(
-                    rest.Request(graph_db, "POST", graph_db._cypher_uri, _payload(query, params), headers=STREAMING),
+                    rest.Request(graph_db, "POST", graph_db._cypher_uri, _payload(query, params)),
                     handlers={
                         200: self.handle_block,
                         400: self.error_handler,
