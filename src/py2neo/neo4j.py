@@ -1000,7 +1000,7 @@ class Node(_Entity):
             type = "[r:" + "|".join("`" + type + "`" for type in types) + "]"
         else:
             type = "[r]"
-        query = query.format(self.id, other.id, type)
+        query = query.format(self._id, other._id, type)
         data, metadata = cypher.execute(self._graph_db, query)
         return [row[0] for row in data]
 
