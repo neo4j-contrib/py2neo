@@ -823,15 +823,37 @@ class Node(_Entity):
         _Entity.__init__(self, uri)
 
     def __repr__(self):
-        return "{0}('{1}')".format(
-            self.__class__.__name__,
-            repr(self.__uri__)
-        )
+        if self.__uri__:
+            return "{0}('{1}')".format(
+                self.__class__.__name__,
+                repr(str(self.__uri__))
+            )
+        elif self._properties:
+            return "{0}.abstract(**{1})".format(
+                self.__class__.__name__,
+                repr(self._properties)
+            )
+        else:
+            return "{0}.abstract()".format(
+                self.__class__.__name__
+            )
 
     def __str__(self):
         """ Return Cypher/Geoff style representation of this node.
         """
-        return "({0})".format(self._id)
+        if self._id is None and self._properties:
+            return "({0})".format(
+                json.dumps(self._properties, separators=(",", ":"))
+            )
+        elif self._properties:
+            return "({0} {1})".format(
+                self._id,
+                json.dumps(self._properties, separators=(",", ":"))
+            )
+        else:
+            return "({0})".format(
+                self._id or ""
+            )
 
     @property
     def _id(self):
@@ -1180,13 +1202,39 @@ class Relationship(_Entity):
         self._end_node = None
 
     def __repr__(self):
-        return "{0}('{1}')".format(
-            self.__class__.__name__,
-            repr(self.__uri__)
-        )
+        if self.__uri__:
+            return "{0}({1})".format(
+                self.__class__.__name__,
+                repr(str(self.__uri__))
+            )
+        elif self._properties:
+            return "{0}.abstract({1}, {2}, {3}, **{4})".format(
+                self.__class__.__name__,
+                repr(self.start_node),
+                repr(self.type),
+                repr(self.end_node),
+                repr(self._properties)
+            )
+        else:
+            return "{0}.abstract({1}, {2}, {3})".format(
+                self.__class__.__name__,
+                repr(self.start_node),
+                repr(self.type),
+                repr(self.end_node)
+            )
 
     def __str__(self):
-        return "[{0}:{1}]".format(self.id, self.type)
+        if self._properties:
+            return "[{0}:{1} {2}]".format(
+                self._id or "",
+                json.dumps(str(self.type)),
+                json.dumps(self._properties, separators=(",", ":"))
+            )
+        else:
+            return "[{0}:{1}]".format(
+                self._id or "",
+                json.dumps(str(self.type)),
+            )
 
     @property
     def _id(self):
