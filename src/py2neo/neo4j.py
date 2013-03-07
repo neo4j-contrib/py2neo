@@ -841,19 +841,9 @@ class Node(_Entity):
     def __str__(self):
         """ Return Cypher/Geoff style representation of this node.
         """
-        if self._id is None and self._properties:
-            return "({0})".format(
-                json.dumps(self._properties, separators=(",", ":"))
-            )
-        elif self._properties:
-            return "({0} {1})".format(
-                self._id,
-                json.dumps(self._properties, separators=(",", ":"))
-            )
-        else:
-            return "({0})".format(
-                self._id or ""
-            )
+        return "({0})".format(
+            self._id or ""
+        )
 
     @property
     def _id(self):
@@ -1224,17 +1214,10 @@ class Relationship(_Entity):
             )
 
     def __str__(self):
-        if self._properties:
-            return "[{0}:{1} {2}]".format(
-                self._id or "",
-                json.dumps(str(self.type)),
-                json.dumps(self._properties, separators=(",", ":"))
-            )
-        else:
-            return "[{0}:{1}]".format(
-                self._id or "",
-                json.dumps(str(self.type)),
-            )
+        return "[{0}:{1}]".format(
+            self._id or "",
+            json.dumps(str(self.type)),
+        )
 
     @property
     def _id(self):
