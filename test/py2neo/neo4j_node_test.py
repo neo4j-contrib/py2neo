@@ -166,6 +166,10 @@ class NodeTestCase(unittest.TestCase):
     def test_implicit_is_related_to(self):
         self.assertTrue(self.fred.is_related_to(self.wilma))
 
+    def test_is_not_related_to(self):
+        homer, = self.gdb.create({"name": "Homer"})
+        self.assertFalse(self.fred.is_related_to(homer))
+
     def test_get_relationships_with(self):
         rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES")
         self.assertEqual(1, len(rels))
