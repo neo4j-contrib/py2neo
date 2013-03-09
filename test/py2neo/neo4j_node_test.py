@@ -18,7 +18,7 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j
+from py2neo import neo4j, node
 
 import logging
 import unittest
@@ -43,7 +43,22 @@ def recycle(*entities):
             pass
 
 
-class SingleNodeTestCase(unittest.TestCase):
+class AbstractNodeTestCase(unittest.TestCase):
+
+    def test_can_create_abstract_node(self):
+        alice = node(name="Alice", age=34)
+        assert isinstance(alice, neo4j.Node)
+        assert alice.is_abstract()
+        assert alice["name"] == "Alice"
+        assert alice["age"] == 34
+
+    def test_can_equate_abstract_nodes(self):
+        alice_1 = node(name="Alice", age=34)
+        alice_2 = node(name="Alice", age=34)
+        assert alice_1 == alice_2
+
+
+class ConcreteNodeTestCase(unittest.TestCase):
 
     data = {
         "true": True,
@@ -59,38 +74,53 @@ class SingleNodeTestCase(unittest.TestCase):
     }
 
     def setUp(self):
-        self.graph_db = default_graph_db()
-        self.node, = self.graph_db.create(self.data)
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
 
-    def test_is_created(self):
-        self.assertIsNotNone(self.node)
+    def test_can_create_concrete_node(self):
+        alice, = self.graph_db.create({"name": "Alice", "age": 34})
+        assert isinstance(alice, neo4j.Node)
+        assert not alice.is_abstract()
+        assert alice["name"] == "Alice"
+        assert alice["age"] == 34
 
-    def test_has_correct_properties(self):
-        for key, value in self.data.items():
-            self.assertEqual(self.node[key], value)
-
-    @unittest.expectedFailure
-    def test_cannot_assign_none(self):
-        self.node["none"] = None
+    def test_all_property_types(self):
+        data = {
+            "nun": None,
+            "yes": True,
+            "no": False,
+            "int": 42,
+            "float": 3.141592653589,
+            "long": 9223372036854775807 if PY3K else long("9223372036854775807"),
+            "str": "This is a test",
+            "unicode": UNICODE_TEST_STR,
+            "boolean_list": [True, False, True, True, False],
+            "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
+            "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
+        }
+        foo, = self.graph_db.create(data)
+        for key, value in data.items():
+            self.assertEqual(foo[key], value)
 
     @unittest.expectedFailure
     def test_cannot_assign_oversized_long(self):
-        self.node["long"] = 9223372036854775808 if PY3K else long("9223372036854775808")
+        foo, = self.graph_db.create({})
+        foo["long"] = 9223372036854775808 if PY3K else long("9223372036854775808")
 
     @unittest.expectedFailure
     def test_cannot_assign_complex(self):
-        self.node["complex"] = complex(17, 30)
+        foo, = self.graph_db.create({})
+        foo["complex"] = complex(17, 30)
 
     @unittest.expectedFailure
     def test_cannot_assign_mixed_list(self):
-        self.node["mixed_list"] = [42, "life", "universe", "everything"]
+        foo, = self.graph_db.create({})
+        foo["mixed_list"] = [42, "life", "universe", "everything"]
 
     @unittest.expectedFailure
     def test_cannot_assign_dict(self):
-        self.node["dict"] = {"foo": 3, "bar": 4, "baz": 5}
-
-    def tearDown(self):
-        self.node.delete()
+        foo, = self.graph_db.create({})
+        foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
 
 
 class NodeTestCase(unittest.TestCase):

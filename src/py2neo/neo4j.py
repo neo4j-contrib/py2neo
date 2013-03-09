@@ -46,6 +46,7 @@ DEFAULT_URI = "http://localhost:7474/db/data/"
 
 logger = logging.getLogger(__name__)
 
+
 def authenticate(netloc, user_name, password):
     """ Set HTTP basic authentication values for specified `netloc`. The code
     below shows a simple example::
@@ -67,6 +68,7 @@ def authenticate(netloc, user_name, password):
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = "Basic " + base64.b64encode(credentials).decode("ASCII")
     rest.http_headers.add("Authorization", value, netloc=netloc)
+
 
 def rewrite(from_scheme_netloc, to_scheme_netloc):
     """ Automatically rewrite all URIs directed to the scheme and netloc
@@ -92,6 +94,7 @@ def rewrite(from_scheme_netloc, to_scheme_netloc):
             pass
     else:
         rest.http_rewrites[from_scheme_netloc] = to_scheme_netloc
+
 
 def set_timeout(netloc, timeout):
     """ Set a timeout for all HTTP blocking operations for specified `netloc`.
@@ -127,6 +130,92 @@ def _assert_expected_response(cls, uri, metadata):
             uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
         )
     )
+
+
+def _entity(arg):
+    """ Cast the argument provided to either a :py:class:`neo4j.Node` or
+    :py:class:`neo4j.Relationship` depending on type.
+
+    The following types will return nodes:
+
+    - _entity(<node_instance>)
+    - _entity(<property_dict>)
+
+    The following types will return nodes:
+
+    - _entity(<relationship_instance>)
+    - _entity((start_node, type, end_node))
+    - _entity((start_node, type, end_node, properties))
+    - _entity((start_node, type, end_node, labels, properties))
+
+    """
+    if isinstance(arg, Node) or isinstance(arg, dict):
+        return _node(arg)
+    elif isinstance(arg, Relationship) or isinstance(arg, tuple):
+        return _rel(arg)
+    else:
+        raise TypeError(arg)
+
+
+def _node(*args, **kwargs):
+    """ Cast the arguments provided to a :py:class:`neo4j.Node`. The following
+    general combinations are possible:
+
+    - _node(<node_instance>)
+    - _node(<property_dict>)
+    - _node(*<labels>, **<properties>)
+
+    Examples::
+
+        node(Node("http://localhost:7474/db/data/node/1"))
+        node()
+        node(name="Alice")
+        node({"name": "Alice"})
+        node("Person")
+        node("Person", name="Alice")
+
+    """
+    if len(args) == 1 and not kwargs:
+        arg = args[0]
+        if isinstance(arg, Node):
+            return arg
+        elif isinstance(arg, dict):
+            return Node.abstract(**arg)
+        else:
+            return Node.abstract(arg)
+    else:
+        return Node.abstract(*args, **kwargs)
+
+
+def _rel(*args, **kwargs):
+    """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
+    following general combinations are possible:
+
+    - _rel(<relationship_instance>)
+    - _rel((start_node, type, end_node))
+    - _rel((start_node, type, end_node, properties))
+    - _rel((start_node, type, end_node, labels, properties))
+    - _rel(start_node, type, end_node, *<labels>, **<properties>)
+    """
+    if len(args) == 1 and not kwargs:
+        arg = args[0]
+        if isinstance(arg, Relationship):
+            return arg
+        elif isinstance(arg, tuple):
+            if len(arg) == 3:
+                return Relationship.abstract(*arg)
+            elif len(arg) == 4:
+                return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
+            elif len(arg) == 5:
+                return Relationship.abstract(arg[0], arg[1], arg[2], *arg[3], **arg[4])
+            else:
+                raise TypeError(arg)
+        else:
+            raise TypeError(arg)
+    elif len(args) >= 3:
+        return Relationship.abstract(*args, **kwargs)
+    else:
+        raise TypeError((args, kwargs))
 
 
 class Direction(object):
@@ -792,7 +881,7 @@ class Node(_Entity):
     """
 
     @classmethod
-    def abstract(cls, **properties):
+    def abstract(cls, *labels, **properties):
         """ Create and return a new abstract node containing properties drawn
         from the keyword arguments supplied. An abstract node is not bound to
         a concrete node within a database but properties can be managed
@@ -815,16 +904,30 @@ class Node(_Entity):
         :param properties: node properties
         """
         instance = cls(None)
-        instance._labels = None
-        instance._properties = properties
+        instance._labels = set(labels)
+        instance._properties = dict(properties)
         return instance
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
 
+    def __eq__(self, other):
+        if self.__uri__:
+            return _Entity.__eq__(self, other)
+        else:
+            return self._labels == other._labels and \
+                   self._properties == other._properties
+
+    def __ne__(self, other):
+        if self.__uri__:
+            return _Entity.__ne__(self, other)
+        else:
+            return self._labels != other._labels or \
+                   self._properties != other._properties
+
     def __repr__(self):
         if self.__uri__:
-            return "{0}('{1}')".format(
+            return "{0}({1})".format(
                 self.__class__.__name__,
                 repr(str(self.__uri__))
             )
@@ -1174,15 +1277,15 @@ class Relationship(_Entity):
     """
 
     @classmethod
-    def abstract(cls, start_node, type, end_node, **properties):
+    def abstract(cls, start_node, type, end_node, *labels, **properties):
         """ Create and return a new abstract relationship.
         """
         instance = cls(None)
         instance._start_node = start_node
         instance._type = type
         instance._end_node = end_node
-        instance._labels = None
-        instance._properties = properties
+        instance._labels = set(labels)
+        instance._properties = dict(properties)
         return instance
 
     def __init__(self, uri):
@@ -1190,6 +1293,26 @@ class Relationship(_Entity):
         self._start_node = None
         self._type = None
         self._end_node = None
+
+    def __eq__(self, other):
+        if self.__uri__:
+            return _Entity.__eq__(self, other)
+        else:
+            return self._start_node == other._start_node and \
+                   self._type == other._type and \
+                   self._end_node == other._end_node and \
+                   self._labels == other._labels and \
+                   self._properties == other._properties
+
+    def __ne__(self, other):
+        if self.__uri__:
+            return _Entity.__ne__(self, other)
+        else:
+            return self._start_node != other._start_node or \
+                   self._type != other._type or \
+                   self._end_node != other._end_node or \
+                   self._labels != other._labels or \
+                   self._properties != other._properties
 
     def __repr__(self):
         if self.__uri__:
