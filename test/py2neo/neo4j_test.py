@@ -71,7 +71,7 @@ class BadDatabaseURITest(unittest.TestCase):
         try:
             neo4j.GraphDatabaseService("http://localhost:7474")
             assert False
-        except AssertionError as err:
+        except ValueError as err:
             sys.stderr.write(str(err) + "\n")
             assert True
 
@@ -80,7 +80,7 @@ class BadDatabaseURITest(unittest.TestCase):
         try:
             neo4j.GraphDatabaseService("http://localhost:7474/")
             assert False
-        except AssertionError as err:
+        except ValueError as err:
             sys.stderr.write(str(err) + "\n")
             assert True
 

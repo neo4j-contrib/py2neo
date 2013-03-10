@@ -18,7 +18,7 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, rest
+from py2neo import neo4j, rest, node, rel
 
 import unittest
 
@@ -163,6 +163,21 @@ class TestRelationshipCreation(unittest.TestCase):
         assert knows.end_node == bob
         assert knows["since"] == 2000
         self.recycling = [knows, alice, bob]
+
+    def test_create_function(self):
+        self.batch.create(node(name="Alice"))
+        self.batch.create(node(name="Bob"))
+        self.batch.create(rel(0, "KNOWS", 1))
+        alice, bob, ab = self.batch.submit()
+        assert isinstance(alice, neo4j.Node)
+        assert alice["name"] == "Alice"
+        assert isinstance(bob, neo4j.Node)
+        assert bob["name"] == "Bob"
+        assert isinstance(ab, neo4j.Relationship)
+        assert ab.start_node == alice
+        assert ab.type == "KNOWS"
+        assert ab.end_node == bob
+        self.recycling = [ab, alice, bob]
 
 
 class TestUniqueRelationshipCreation(unittest.TestCase):

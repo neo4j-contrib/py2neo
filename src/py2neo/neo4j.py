@@ -125,7 +125,7 @@ def _assert_expected_response(cls, uri, metadata):
             return
     else:
         raise TypeError("Cannot confirm metadata for class " + cls.__name__)
-    raise AssertionError(
+    raise ValueError(
         "URI <{0}> does not appear to identify a {1}: {2}".format(
             uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
         )
@@ -404,20 +404,9 @@ class GraphDatabaseService(rest.Resource):
         """
         if not abstracts:
             return []
-        if len(abstracts) == 1 and isinstance(abstracts[0], dict):
-            rs = self._send(
-                rest.Request(self, "POST", self.__metadata__["node"], compact(abstracts[0]))
-            )
-            return [Node(rs.body["self"])]
         batch = WriteBatch(self)
         for abstract in abstracts:
-            if isinstance(abstract, dict):
-                batch.create_node(abstract)
-            else:
-                if 3 <= len(abstract) <= 4:
-                    batch.create_relationship(*abstract)
-                else:
-                    raise TypeError(abstract)
+            batch.create(abstract)
         return batch.submit()
 
     def delete(self, *entities):
@@ -1883,6 +1872,20 @@ class Index(rest.Resource):
         ]
 
 
+def _assert_abstract(entity, type_=(Node, Relationship)):
+    if not isinstance(entity, type_):
+        raise TypeError("{0} is not a {1}".format(repr(entity), type_.__name__))
+    if not entity.is_abstract():
+        raise TypeError("{0} is not abstract".format(repr(entity)))
+
+
+def _assert_concrete(entity, type_=(Node, Relationship)):
+    if not isinstance(entity, type_):
+        raise TypeError("{0} is not a {1}".format(repr(entity), type_.__name__))
+    if entity.is_abstract():
+        raise TypeError("{0} is not concrete".format(repr(entity)))
+
+
 class _Batch(object):
 
     def __init__(self, graph_db):
@@ -1989,27 +1992,61 @@ class WriteBatch(_Batch):
     def _put(self, uri, body=None):
         self._append(rest.Request(self._graph_db, "PUT", uri, body))
 
+    def _relative_node_uri(self, node):
+        if isinstance(node, Node):
+            node._must_belong_to(self._graph_db)
+            _assert_concrete(node, Node)
+            return rest.URI(node).reference
+        else:
+            return "{" + str(node) + "}"
+
+    def create(self, abstract):
+        """ Create an entity based on the abstract entity provided. For
+        example::
+
+            batch = WriteBatch(graph_db)
+            batch.create(node(name="Alice"))
+            batch.create(node(name="Bob"))
+            batch.create(rel(0, "KNOWS", 1))
+            results = batch.submit()
+
+        """
+        entity = _entity(abstract)
+        _assert_abstract(entity)
+        if isinstance(entity, Node):
+            uri = self._create_node_uri
+            body = compact(entity._properties)
+        elif isinstance(entity, Relationship):
+            uri = self._relative_node_uri(entity._start_node) + "/relationships"
+            body = {
+                "type": entity._type,
+                "to": self._relative_node_uri(entity._end_node),
+            }
+            if entity._properties:
+                body["data"] = compact(entity._properties)
+        else:
+            raise TypeError(entity)
+        self._post(uri, body)
+
+    @deprecated("WriteBatch.create_node is deprecated, use "
+                "WriteBatch.create instead.")
     def create_node(self, properties=None):
         """ Create a new node with the properties supplied.
         """
         self._post(self._create_node_uri, compact(properties or {}))
 
+    @deprecated("WriteBatch.create_relationship is deprecated, use "
+                "WriteBatch.create instead.")
     def create_relationship(self, start_node, type_, end_node, properties=None):
         """ Create a new relationship with the values supplied.
         """
-        def node_uri(node):
-            if isinstance(node, Node):
-                node._must_belong_to(self._graph_db)
-                return rest.URI(node.__metadata__["self"]).reference
-            else:
-                return "{" + str(node) + "}"
         body = {
             "type": type_,
-            "to": node_uri(end_node),
+            "to": self._relative_node_uri(end_node),
         }
         if properties:
             body["data"] = compact(properties)
-        self._post(node_uri(start_node) + "/relationships", body)
+        self._post(self._relative_node_uri(start_node) + "/relationships", body)
 
     def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
         """ Create a new relationship with the values supplied if one does not
