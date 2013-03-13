@@ -188,13 +188,13 @@ class EntityCastingTestCase(unittest.TestCase):
     def test_can_cast_node(self):
         graph_db = neo4j.GraphDatabaseService()
         alice, = graph_db.create({"name": "Alice"})
-        casted = neo4j._entity(alice)
+        casted = neo4j._cast(alice)
         assert isinstance(casted, neo4j.Node)
         assert not casted.is_abstract()
         assert casted["name"] == "Alice"
 
     def test_can_cast_dict(self):
-        casted = neo4j._entity({"name": "Alice"})
+        casted = neo4j._cast({"name": "Alice"})
         assert isinstance(casted, neo4j.Node)
         assert casted.is_abstract()
         assert casted["name"] == "Alice"
@@ -202,7 +202,7 @@ class EntityCastingTestCase(unittest.TestCase):
     def test_can_cast_rel(self):
         graph_db = neo4j.GraphDatabaseService()
         a, b, ab = graph_db.create({}, {}, (0, "KNOWS", 1))
-        casted = neo4j._entity(ab)
+        casted = neo4j._cast(ab)
         assert isinstance(casted, neo4j.Relationship)
         assert not casted.is_abstract()
         assert casted.start_node == a
@@ -210,7 +210,7 @@ class EntityCastingTestCase(unittest.TestCase):
         assert casted.end_node == b
 
     def test_can_cast_3_tuple(self):
-        casted = neo4j._entity(("Alice", "KNOWS", "Bob"))
+        casted = neo4j._cast(("Alice", "KNOWS", "Bob"))
         assert isinstance(casted, neo4j.Relationship)
         assert casted.is_abstract()
         assert casted.start_node == "Alice"
@@ -218,7 +218,7 @@ class EntityCastingTestCase(unittest.TestCase):
         assert casted.end_node == "Bob"
 
     def test_can_cast_4_tuple(self):
-        casted = neo4j._entity(("Alice", "KNOWS", "Bob", {"since": 1999}))
+        casted = neo4j._cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
         assert isinstance(casted, neo4j.Relationship)
         assert casted.is_abstract()
         assert casted.start_node == "Alice"
@@ -227,7 +227,7 @@ class EntityCastingTestCase(unittest.TestCase):
         assert casted["since"] == 1999
 
     def test_can_cast_5_tuple(self):
-        casted = neo4j._entity(("Alice", "KNOWS", "Bob", {"Friendship"}, {"since": 1999}))
+        casted = neo4j._cast(("Alice", "KNOWS", "Bob", {"Friendship"}, {"since": 1999}))
         assert isinstance(casted, neo4j.Relationship)
         assert casted.is_abstract()
         assert casted.start_node == "Alice"

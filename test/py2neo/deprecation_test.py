@@ -63,5 +63,19 @@ class DeprecationTest(unittest.TestCase):
         self.assertWarns(DeprecationWarning, self.alice.is_related_to, self.bob)
 
 
+class BatchDeprecationTest(unittest.TestCase):
+
+    def setUp(self):
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.batch = neo4j.WriteBatch(self.graph_db)
+
+    def test_create_node(self):
+        self.assertWarns(DeprecationWarning, self.batch.create_node, {})
+
+    def test_create_relationship(self):
+        self.assertWarns(DeprecationWarning, self.batch.create_relationship, 0, "KNOWS", 1)
+
+
 if __name__ == '__main__':
     unittest.main()
