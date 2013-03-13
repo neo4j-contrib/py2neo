@@ -76,6 +76,18 @@ class BatchDeprecationTest(unittest.TestCase):
     def test_create_relationship(self):
         self.assertWarns(DeprecationWarning, self.batch.create_relationship, 0, "KNOWS", 1)
 
+    def test_delete_node(self):
+        self.batch.create({"name": "Alice"})
+        alice, = self.batch.submit()
+        self.assertWarns(DeprecationWarning, self.batch.delete_node, alice)
+
+    def test_delete_relationship(self):
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1))
+        alice, bob, ab = self.batch.submit()
+        self.assertWarns(DeprecationWarning, self.batch.delete_relationship, ab)
+
 
 if __name__ == '__main__':
     unittest.main()

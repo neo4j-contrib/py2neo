@@ -2052,11 +2052,21 @@ class WriteBatch(_Batch):
             params["b"] = end_node._id
         self._post(self._cypher_uri, {"query": query, "params": params})
 
+    def delete(self, entity):
+        """ Delete the specified entity from the graph.
+        """
+        entity = _cast(entity, abstract=False)
+        self._delete(rest.URI(entity).reference)
+
+    @deprecated("WriteBatch.delete_node is deprecated, use "
+                "WriteBatch.delete instead.")
     def delete_node(self, node):
         """ Delete the specified node from the graph.
         """
         self._delete(node.__uri__.reference)
 
+    @deprecated("WriteBatch.delete_relationship is deprecated, use "
+                "WriteBatch.delete instead.")
     def delete_relationship(self, relationship):
         """ Delete the specified relationship from the graph.
         """

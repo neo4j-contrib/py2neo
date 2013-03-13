@@ -37,28 +37,27 @@ def recycle(*entities):
 class TestNodeCreation(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.WriteBatch(default_graph_db())
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.batch = neo4j.WriteBatch(self.graph_db)
 
     def test_can_create_single_empty_node(self):
-        self.batch.create_node()
-        node, = self.batch.submit()
-        assert isinstance(node, neo4j.Node)
-        assert node.get_properties() == {}
-        self.recycling = [node]
+        self.batch.create(node())
+        a, = self.batch.submit()
+        assert isinstance(a, neo4j.Node)
+        assert a.get_properties() == {}
 
     def test_can_create_multiple_nodes(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        alice, bob = self.batch.submit()
+        self.batch.create({"name": "Alice"})
+        self.batch.create(node({"name": "Bob"}))
+        self.batch.create(node(name="Carol"))
+        alice, bob, carol = self.batch.submit()
         assert isinstance(alice, neo4j.Node)
         assert isinstance(bob, neo4j.Node)
+        assert isinstance(carol, neo4j.Node)
         assert alice["name"] == "Alice"
         assert bob["name"] == "Bob"
-        self.recycling = [alice, bob]
+        assert carol["name"] == "Carol"
 
 
 class TestRelationshipCreation(unittest.TestCase):
@@ -269,27 +268,25 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
 class TestDeletion(unittest.TestCase):
 
     def setUp(self):
-        self.batch = neo4j.WriteBatch(default_graph_db())
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
+        self.graph_db = neo4j.GraphDatabaseService()
+        self.graph_db.clear()
+        self.batch = neo4j.WriteBatch(self.graph_db)
 
     def test_can_delete_relationship_and_related_nodes(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(0, "KNOWS", 1)
-        alice, bob, knows = self.batch.submit()
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1))
+        alice, bob, ab = self.batch.submit()
         assert alice.exists()
         assert bob.exists()
-        assert knows.exists()
-        self.batch.delete_relationship(knows)
-        self.batch.delete_node(alice)
-        self.batch.delete_node(bob)
+        assert ab.exists()
+        self.batch.delete(ab)
+        self.batch.delete(alice)
+        self.batch.delete(bob)
         self.batch.submit()
         assert not alice.exists()
         assert not bob.exists()
-        assert not knows.exists()
+        assert not ab.exists()
 
 
 class TestPropertyManagement(unittest.TestCase):
