@@ -132,31 +132,6 @@ def _assert_expected_response(cls, uri, metadata):
     )
 
 
-def _entity(arg):
-    """ Cast the argument provided to either a :py:class:`neo4j.Node` or
-    :py:class:`neo4j.Relationship` depending on type.
-
-    The following types will return nodes:
-
-    - _entity(<node_instance>)
-    - _entity(<property_dict>)
-
-    The following types will return nodes:
-
-    - _entity(<relationship_instance>)
-    - _entity((start_node, type, end_node))
-    - _entity((start_node, type, end_node, properties))
-    - _entity((start_node, type, end_node, labels, properties))
-
-    """
-    if isinstance(arg, Node) or isinstance(arg, dict):
-        return _node(arg)
-    elif isinstance(arg, Relationship) or isinstance(arg, tuple):
-        return _rel(arg)
-    else:
-        raise TypeError(arg)
-
-
 def _node(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Node`. The following
     general combinations are possible:
@@ -1872,18 +1847,18 @@ class Index(rest.Resource):
         ]
 
 
-def _assert_abstract(entity, type_=(Node, Relationship)):
-    if not isinstance(entity, type_):
-        raise TypeError("{0} is not a {1}".format(repr(entity), type_.__name__))
-    if not entity.is_abstract():
-        raise TypeError("{0} is not abstract".format(repr(entity)))
-
-
-def _assert_concrete(entity, type_=(Node, Relationship)):
-    if not isinstance(entity, type_):
-        raise TypeError("{0} is not a {1}".format(repr(entity), type_.__name__))
-    if entity.is_abstract():
-        raise TypeError("{0} is not concrete".format(repr(entity)))
+def _cast(obj, cls=(Node, Relationship), abstract=None):
+    if isinstance(obj, Node) or isinstance(obj, dict):
+        entity = _node(obj)
+    elif isinstance(obj, Relationship) or isinstance(obj, tuple):
+        entity = _rel(obj)
+    else:
+        raise TypeError(obj)
+    if not isinstance(entity, cls):
+        raise TypeError(obj)
+    if abstract is not None and bool(abstract) != bool(entity.is_abstract()):
+        raise TypeError(obj)
+    return entity
 
 
 class _Batch(object):
@@ -1995,7 +1970,7 @@ class WriteBatch(_Batch):
     def _relative_node_uri(self, node):
         if isinstance(node, Node):
             node._must_belong_to(self._graph_db)
-            _assert_concrete(node, Node)
+            node = _cast(node, Node, abstract=False)
             return rest.URI(node).reference
         else:
             return "{" + str(node) + "}"
@@ -2011,8 +1986,7 @@ class WriteBatch(_Batch):
             results = batch.submit()
 
         """
-        entity = _entity(abstract)
-        _assert_abstract(entity)
+        entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
             uri = self._create_node_uri
             body = compact(entity._properties)
