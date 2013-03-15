@@ -15,5 +15,15 @@ you are using this then please help to improve support by providing feedback.
 Python Package Index (PyPI)
 ---------------------------
 
+The easiest way to install py2neo is from the Python Package Index (PyPI),
+using pip::
+
+    pip install py2neo
+
 Source Code
 -----------
+
+You may prefer to use the latest code directly from GitHub::
+
+    git clone git@github.com:nigelsmall/py2neo.git
+
