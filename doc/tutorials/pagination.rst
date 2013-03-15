@@ -1,4 +1,5 @@
-= Pagination
+Pagination
+==========
 
 Pagination is used to step through a set of items in blocks of a specific size. This is often used for data such as search results and can be seen in most search engines and online shopping sites. The concept is well supported in many relational databases, such as the {{{LIMIT}}} and {{{OFFSET}}} keywords in PostgreSQL and MySQL. Within Neo4j, the details differ slightly but the core principle remains the same. Fundamentally, the method described here exploits the order by, skip and limit features of Cypher in order to return only a segment of the total results from the overall result set.
 

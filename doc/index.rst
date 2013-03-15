@@ -1,4 +1,4 @@
-py2neo
+Py2neo
 ======
 
 Py2neo is a simple and pragmatic Python library that provides access to the
@@ -15,74 +15,34 @@ http://nigelsmall.com/geoff.
 tl;dr
 -----
 
-If you want to jump in and start coding, the following short programme
-illustrates a simple usage of the py2neo library::
+If you're not into reading instructions first and would prefer to just look at
+some sample code then try the `cookbook <cookbook.html>`_.
 
-    #!/usr/bin/env python
-
-    """
-    Simple example showing node and relationship creation plus
-    execution of Cypher queries
-    """
-
-    from __future__ import print_function
-
-    # Import Neo4j modules
-    from py2neo import neo4j, cypher
-
-    # Attach to the graph db instance
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-
-    # Create two nodes
-    node_a, node_b = graph_db.create(
-        {"name": "Alice"},
-        {"name": "Bob"}
-    )
-
-    # Join the nodes with a relationship
-    rel_ab = node_a.create_relationship_to(node_b, "KNOWS")
-
-    # Build a Cypher query
-    query = "START a=node({A}) MATCH a-[:KNOWS]->b RETURN a,b"
-
-    # Define a row handler...
-    def print_row(row):
-        a, b = row
-        print(a["name"] + " knows " + b["name"])
-
-    # ...and execute the query
-    cypher.execute(graph_db, query, {"A": node_a.id}, row_handler=print_row)
-
-Requirements
-------------
-
-You will need to be running version 1.8.1 or above of Neo4j (available from
-http://neo4j.org/) in order to use the full feature set of py2neo. Reduced
-capabilities will be available for server versions 1.6 and 1.7.
-
-Your Python version should be at least 2.6 although 2.7 is recommended. Py2neo
-is also fully compatible with Python 3. Partial support exists for Jython - if
-you are using this then please help to improve support by providing feedback.
-
-Package Contents
-----------------
+Contents
+--------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
-   neo4j
-   cypher
+   install
+   fundamentals
+   graphs_nodes_relationships
+   paths_trees
+   indexes
+   Batches <batches>
+   Cypher <cypher>
    ogm
-   geoff
-   gremlin
-   calendar
-   admin
-   rest
+   Geoff <geoff>
+   Gremlin <gremlin>
+   Calendars <calendar>
+   Administration <admin>
+   Cookbook <cookbook>
 
-Indices and tables
-==================
+Tutorials
+---------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. toctree::
+   :maxdepth: 1
 
+   tutorials/tables_to_graphs
+   tutorials/pagination

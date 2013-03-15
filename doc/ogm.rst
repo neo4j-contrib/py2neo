@@ -1,5 +1,5 @@
-:mod:`ogm` Module
-======================
+Object-Graph Mapping (OGM)
+==========================
 
 .. automodule:: py2neo.ogm
     :members:
