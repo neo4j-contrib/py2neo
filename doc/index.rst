@@ -36,6 +36,7 @@ Contents
    Gremlin <gremlin>
    Calendars <calendar>
    Administration <admin>
+   deprecated_features
    Cookbook <cookbook>
 
 Tutorials
