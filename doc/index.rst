@@ -29,8 +29,8 @@ Contents
    graphs_nodes_relationships
    paths_trees
    indexes
-   Batches <batches>
-   Cypher <cypher>
+   batches
+   cypher
    ogm
    Geoff <geoff>
    Gremlin <gremlin>
