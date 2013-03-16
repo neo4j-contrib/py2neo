@@ -15,9 +15,7 @@ forget the trailing slash!) and can be constructed as follows::
 
 A ``GraphDatabaseService`` object provides access to a number of core methods,
 such as those to create and delete nodes, match relationships and manage
-indexes.
-
-One of the most useful methods is simply named
+indexes. One of the most useful methods is simply named
 :py:func:`create <py2neo.neo4j.GraphDatabaseService.create>` and this can be
 used to easily build nodes and relationships within the graph. Imagine we
 wanted to model the following data::
@@ -60,17 +58,44 @@ value within their ``__uri__`` property whereas for abstract entities, this is
 :py:const:`None`. Both nodes and relationships provide an ``is_abstract``
 method to allow easy determination of this attribute.
 
-Many methods within py2neo require nodes and relationships to be described as
+Node & Relationship Literals
+----------------------------
+
+Many methods within py2neo require nodes and relationships to be provided as
 literals (as in the example above). There are a number of ways to do this but
-the recommendation for abstract entities is to use the
+the recommendation going forward is for abstract entities is to use the
 :py:func:`node <neo4j.node>` and :py:func:`rel <neo4j.rel>` functions
 whenever possible.
 
 .. autofunction:: py2neo.node
 .. autofunction:: py2neo.rel
 
+Other representations are supported although these are not considered
+future-proof. The following definitions show equivalent variations for modeling
+abstract nodes (with the preferred variation listed first)::
+
+    node(name="Alice", age=34)
+    node({"name": "Alice", "age": 34})
+    {"name": "Alice", "age": 34}
+
+Similarly, the definitions below apply to abstract relationships (also with the
+preferred variation listed first)::
+
+    rel(alice, "KNOWS", bob, since=1999)
+    rel(alice, "KNOWS", bob, {"since": 1999})
+    rel((alice, "KNOWS", bob, {"since": 1999}))
+    (alice, "KNOWS", bob, {"since": 1999})
+
+.. important::
+    Literals do not yet support *labels*. Formats including these are reserved
+    for an upcoming future Neo4j server release.
+
 Errors
 ------
+
+HTTP requests may occasionally trigger an error response. The exceptions which
+may be raised are below and correspond to the equivalently named HTTP
+response statuses.
 
 .. autoclass:: py2neo.rest.BadRequest
     :show-inheritance:

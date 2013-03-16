@@ -136,9 +136,10 @@ def _node(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Node`. The following
     general combinations are possible:
 
-    - _node(<node_instance>)
-    - _node(<property_dict>)
-    - _node(*<labels>, **<properties>)
+    - ``node(node_instance)``
+    - ``node(property_dict)``
+    - ``node(**properties)``
+    - ``node(*labels, **properties)``
 
     Examples::
 
@@ -166,11 +167,22 @@ def _rel(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
     following general combinations are possible:
 
-    - _rel(<relationship_instance>)
-    - _rel((start_node, type, end_node))
-    - _rel((start_node, type, end_node, properties))
-    - _rel((start_node, type, end_node, labels, properties))
-    - _rel(start_node, type, end_node, *<labels>, **<properties>)
+    - ``rel(relationship_instance)``
+    - ``rel((start_node, type, end_node))``
+    - ``rel((start_node, type, end_node, properties))``
+    - ``rel((start_node, type, end_node, labels, properties))``
+    - ``rel(start_node, type, end_node, **properties)``
+    - ``rel(start_node, type, end_node, *labels, **properties)``
+
+    Examples::
+
+        rel(Relationship("http://localhost:7474/db/data/relationship/1"))
+        rel((alice, "KNOWS", bob))
+        rel((alice, "KNOWS", bob, {"since": 1999}))
+        rel((alice, "KNOWS", bob, "Friendship", {"since": 1999}))
+        rel(alice, "KNOWS", bob, since=1999)
+        rel(alice, "KNOWS", bob, "Friendship", since=1999)
+
     """
     if len(args) == 1 and not kwargs:
         arg = args[0]
