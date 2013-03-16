@@ -455,12 +455,7 @@ class GraphDatabaseService(rest.Resource):
             return [entities[0].get_properties()]
         batch = ReadBatch(self)
         for entity in entities:
-            if isinstance(entity, Node):
-                batch.get_node_properties(entity)
-            elif isinstance(entity, Relationship):
-                batch.get_relationship_properties(entity)
-            else:
-                raise TypeError(entity.__class__)
+            batch.get_properties(entity)
         return [rs.body or {} for rs in batch._submit()]
 
     def get_relationship_types(self):
@@ -1935,22 +1930,18 @@ class ReadBatch(_Batch):
 
     def get_properties(self, entity):
         """ Fetch properties for the given entity.
+
+        :param entity: concrete entity from which to fetch properties
         """
         entity = _cast(entity, abstract=False)
         self._get(rest.URI(entity.__metadata__["properties"]).reference)
 
-    def get_node_properties(self, node):
-        """ Fetch properties for the given node.
-        """
-        self._get(rest.URI(node.__metadata__["properties"]).reference)
-
-    def get_relationship_properties(self, relationship):
-        """ Fetch properties for the given relationship.
-        """
-        self._get(rest.URI(relationship.__metadata__["properties"]).reference)
-
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under the given key-value pair.
+
+        :param index: index name or instance
+        :param key: key under which nodes are indexed
+        :param value: value under which nodes are indexed
         """
         index = self._index(Node, index)
         self._get(index._template_uri.format(
@@ -1982,8 +1973,10 @@ class WriteBatch(_Batch):
             return "{" + str(node) + "}"
 
     def create(self, abstract):
-        """ Create an entity based on the abstract entity provided. For
-        example::
+        """ Create a node or relationship based on the abstract entity
+        provided. For example:
+
+        ::
 
             batch = WriteBatch(graph_db)
             batch.create(node(name="Alice"))
@@ -1991,6 +1984,7 @@ class WriteBatch(_Batch):
             batch.create(rel(0, "KNOWS", 1))
             results = batch.submit()
 
+        :param abstract: abstract node or relationship
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
@@ -2011,15 +2005,11 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.create_node is deprecated, use "
                 "WriteBatch.create instead.")
     def create_node(self, properties=None):
-        """ Create a new node with the properties supplied.
-        """
         self._post(self._create_node_uri, compact(properties or {}))
 
     @deprecated("WriteBatch.create_relationship is deprecated, use "
                 "WriteBatch.create instead.")
     def create_relationship(self, start_node, type_, end_node, properties=None):
-        """ Create a new relationship with the values supplied.
-        """
         body = {
             "type": type_,
             "to": self._relative_node_uri(end_node),
@@ -2028,41 +2018,50 @@ class WriteBatch(_Batch):
             body["data"] = compact(properties)
         self._post(self._relative_node_uri(start_node) + "/relationships", body)
 
-    def get_or_create(self, relationship):
-        """ Create a new relationship with the values supplied if one does not
-        already exist.
+    def get_or_create(self, rel_abstract):
+        """ Use the abstract supplied to create a new relationship if one does
+        not already exist.
+
+        :param rel_abstract: relationship abstract to be fetched or created
         """
-        rel = _cast(relationship, Relationship, abstract=True)
-        if not (isinstance(start_node, Node) or start_node is None):
-            raise TypeError(start_node)
-        if not (isinstance(end_node, Node) or end_node is None):
-            raise TypeError(end_node)
-        if start_node and end_node:
-            query = "START a=node({a}), b=node({b}) " \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
-                    "RETURN ab"
-        elif start_node:
-            query = "START a=node({a}) " \
-                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->() " \
-                    "RETURN ab"
-        elif end_node:
-            query = "START b=node({b}) " \
-                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b) " \
-                    "RETURN ab"
+        rel = _cast(rel_abstract, Relationship, abstract=True)
+        if not (isinstance(rel._start_node, Node) or rel._start_node is None):
+            raise TypeError("Relationship start node must be a "
+                            "Node instance or None")
+        if not (isinstance(rel._end_node, Node) or rel._end_node is None):
+            raise TypeError("Relationship end node must be a "
+                            "Node instance or None")
+        if rel._start_node and rel._end_node:
+            query = (
+                "START a=node({A}), b=node({B}) "
+                "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->(b) "
+                "RETURN ab"
+            )
+        elif rel._start_node:
+            query = (
+                "START a=node({A}) "
+                "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->() "
+                "RETURN ab"
+            )
+        elif rel._end_node:
+            query = (
+                "START b=node({A}) "
+                "CREATE UNIQUE ()-[ab:`" + str(rel._type) + "` {P}]->(b) "
+                "RETURN ab"
+            )
         else:
             raise ValueError("Either start node or end node must be "
                              "specified for a unique relationship")
-        params = {"p": compact(properties or {})}
-        if start_node:
-            params["a"] = start_node._id
-        if end_node:
-            params["b"] = end_node._id
+        params = {"P": compact(rel._properties or {})}
+        if rel._start_node:
+            params["A"] = rel._start_node._id
+        if rel._end_node:
+            params["B"] = rel._end_node._id
         self._post(self._cypher_uri, {"query": query, "params": params})
 
+    @deprecated("WriteBatch.get_or_create_relationship is deprecated, use "
+                "WriteBatch.get_or_create instead.")
     def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
-        """ Create a new relationship with the values supplied if one does not
-        already exist.
-        """
         if not (isinstance(start_node, Node) or start_node is None):
             raise TypeError(start_node)
         if not (isinstance(end_node, Node) or end_node is None):
@@ -2091,6 +2090,8 @@ class WriteBatch(_Batch):
 
     def delete(self, entity):
         """ Delete the specified entity from the graph.
+
+        :param entity: concrete node or relationship to be deleted
         """
         entity = _cast(entity, abstract=False)
         self._delete(rest.URI(entity).reference)
@@ -2098,19 +2099,19 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.delete_node is deprecated, use "
                 "WriteBatch.delete instead.")
     def delete_node(self, node):
-        """ Delete the specified node from the graph.
-        """
         self._delete(node.__uri__.reference)
 
     @deprecated("WriteBatch.delete_relationship is deprecated, use "
                 "WriteBatch.delete instead.")
     def delete_relationship(self, relationship):
-        """ Delete the specified relationship from the graph.
-        """
         self._delete(relationship.__uri__.reference)
 
     def set_property(self, entity, key, value):
         """ Set a single property on an entity.
+
+        :param entity: concrete entity on which to set property
+        :param key: property key
+        :param value: property value
         """
         if value is None:
             self.delete_property(entity, key)
@@ -2122,8 +2123,6 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_node_property is deprecated, use "
                 "WriteBatch.set_property instead.")
     def set_node_property(self, node, key, value):
-        """ Set a single property on a node.
-        """
         if value is None:
             self.delete_node_property(node, key)
         else:
@@ -2132,6 +2131,9 @@ class WriteBatch(_Batch):
 
     def set_properties(self, entity, properties):
         """ Replace all properties on an entity.
+
+        :param entity: concrete entity on which to set properties
+        :param properties: dictionary of properties
         """
         entity = _cast(entity, abstract=False)
         uri = rest.URI(entity.__metadata__['properties'])
@@ -2140,13 +2142,14 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_node_properties is deprecated, use "
                 "WriteBatch.set_properties instead.")
     def set_node_properties(self, node, properties):
-        """ Replace all properties on a node.
-        """
         uri = rest.URI(node.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
     def delete_property(self, entity, key):
         """ Delete a single property from an entity.
+
+        :param entity: concrete entity from which to delete property
+        :param key: property key
         """
         entity = _cast(entity, abstract=False)
         uri = rest.URI(entity.__metadata__['property'].format(key=quote(key, "")))
@@ -2155,13 +2158,13 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.delete_node_property is deprecated, use "
                 "WriteBatch.delete_property instead.")
     def delete_node_property(self, node, key):
-        """ Delete a single property from a node.
-        """
         uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
     def delete_properties(self, entity):
         """ Delete all properties from an entity.
+
+        :param entity: concrete entity from which to delete properties
         """
         entity = _cast(entity, abstract=False)
         uri = rest.URI(entity.__metadata__['properties'])
@@ -2189,24 +2192,18 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_relationship_properties is deprecated, use "
                 "WriteBatch.set_properties instead.")
     def set_relationship_properties(self, relationship, properties):
-        """ Replace all properties on a relationship.
-        """
         uri = rest.URI(relationship.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
     @deprecated("WriteBatch.delete_relationship_property is deprecated, use "
                 "WriteBatch.delete_property instead.")
     def delete_relationship_property(self, relationship, key):
-        """ Delete a single property from a relationship.
-        """
         uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
     @deprecated("WriteBatch.delete_relationship_properties is deprecated, use "
                 "WriteBatch.delete_properties instead.")
     def delete_relationship_properties(self, relationship):
-        """ Delete all properties from a relationship.
-        """
         uri = rest.URI(relationship.__metadata__['properties'])
         self._delete(uri.reference)
 

@@ -31,6 +31,25 @@ illustrates a simple usage of the py2neo library::
     # execute the query
     cypher.execute(graph_db, query, params, row_handler=print_row)
 
+Batch Insertion using Index
+---------------------------
+
+::
+
+    # some example source data
+    records = [(101, "Alice"), (102, "Bob"), (103, "Carol")]
+
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+    batch = neo4j.WriteBatch(graph_db)  # batch is linked to graph database
+
+    for emp_no, name in records:
+        # get_or_create_indexes_node is one of many batch methods available
+        batch.get_or_create_indexed_node("Employees", "emp_no", emp_no, {
+            "emp_no": emp_no, "name": name
+        })
+
+    nodes = batch.submit()  # will return `Node` objects for the nodes created
+
 Default URI
 -----------
 
