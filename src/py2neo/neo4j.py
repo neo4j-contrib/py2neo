@@ -1933,6 +1933,12 @@ class ReadBatch(_Batch):
         else:
             return self._graph_db.get_or_create_index(content_type, str(index))
 
+    def get_properties(self, entity):
+        """ Fetch properties for the given entity.
+        """
+        entity = _cast(entity, abstract=False)
+        self._get(rest.URI(entity.__metadata__["properties"]).reference)
+
     def get_node_properties(self, node):
         """ Fetch properties for the given node.
         """
@@ -2022,6 +2028,37 @@ class WriteBatch(_Batch):
             body["data"] = compact(properties)
         self._post(self._relative_node_uri(start_node) + "/relationships", body)
 
+    def get_or_create(self, relationship):
+        """ Create a new relationship with the values supplied if one does not
+        already exist.
+        """
+        rel = _cast(relationship, Relationship, abstract=True)
+        if not (isinstance(start_node, Node) or start_node is None):
+            raise TypeError(start_node)
+        if not (isinstance(end_node, Node) or end_node is None):
+            raise TypeError(end_node)
+        if start_node and end_node:
+            query = "START a=node({a}), b=node({b}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->(b) " \
+                    "RETURN ab"
+        elif start_node:
+            query = "START a=node({a}) " \
+                    "CREATE UNIQUE (a)-[ab:`" + str(type_) + "` {p}]->() " \
+                    "RETURN ab"
+        elif end_node:
+            query = "START b=node({b}) " \
+                    "CREATE UNIQUE ()-[ab:`" + str(type_) + "` {p}]->(b) " \
+                    "RETURN ab"
+        else:
+            raise ValueError("Either start node or end node must be "
+                             "specified for a unique relationship")
+        params = {"p": compact(properties or {})}
+        if start_node:
+            params["a"] = start_node._id
+        if end_node:
+            params["b"] = end_node._id
+        self._post(self._cypher_uri, {"query": query, "params": params})
+
     def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
         """ Create a new relationship with the values supplied if one does not
         already exist.
@@ -2072,6 +2109,18 @@ class WriteBatch(_Batch):
         """
         self._delete(relationship.__uri__.reference)
 
+    def set_property(self, entity, key, value):
+        """ Set a single property on an entity.
+        """
+        if value is None:
+            self.delete_property(entity, key)
+        else:
+            entity = _cast(entity, abstract=False)
+            uri = rest.URI(entity.__metadata__['property'].format(key=quote(key, "")))
+            self._put(uri.reference, value)
+
+    @deprecated("WriteBatch.set_node_property is deprecated, use "
+                "WriteBatch.set_property instead.")
     def set_node_property(self, node, key, value):
         """ Set a single property on a node.
         """
@@ -2081,24 +2130,53 @@ class WriteBatch(_Batch):
             uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
             self._put(uri.reference, value)
 
+    def set_properties(self, entity, properties):
+        """ Replace all properties on an entity.
+        """
+        entity = _cast(entity, abstract=False)
+        uri = rest.URI(entity.__metadata__['properties'])
+        self._put(uri.reference, compact(properties))
+
+    @deprecated("WriteBatch.set_node_properties is deprecated, use "
+                "WriteBatch.set_properties instead.")
     def set_node_properties(self, node, properties):
         """ Replace all properties on a node.
         """
         uri = rest.URI(node.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
+    def delete_property(self, entity, key):
+        """ Delete a single property from an entity.
+        """
+        entity = _cast(entity, abstract=False)
+        uri = rest.URI(entity.__metadata__['property'].format(key=quote(key, "")))
+        self._delete(uri.reference)
+
+    @deprecated("WriteBatch.delete_node_property is deprecated, use "
+                "WriteBatch.delete_property instead.")
     def delete_node_property(self, node, key):
         """ Delete a single property from a node.
         """
         uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
+    def delete_properties(self, entity):
+        """ Delete all properties from an entity.
+        """
+        entity = _cast(entity, abstract=False)
+        uri = rest.URI(entity.__metadata__['properties'])
+        self._delete(uri.reference)
+
+    @deprecated("WriteBatch.delete_node_properties is deprecated, use "
+                "WriteBatch.delete_properties instead.")
     def delete_node_properties(self, node):
         """ Delete all properties from a node.
         """
         uri = rest.URI(node.__metadata__['properties'])
         self._delete(uri.reference)
 
+    @deprecated("WriteBatch.set_relationship_property is deprecated, use "
+                "WriteBatch.set_property instead.")
     def set_relationship_property(self, relationship, key, value):
         """ Set a single property on a relationship.
         """
@@ -2108,18 +2186,24 @@ class WriteBatch(_Batch):
             uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
             self._put(uri.reference, value)
 
+    @deprecated("WriteBatch.set_relationship_properties is deprecated, use "
+                "WriteBatch.set_properties instead.")
     def set_relationship_properties(self, relationship, properties):
         """ Replace all properties on a relationship.
         """
         uri = rest.URI(relationship.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
+    @deprecated("WriteBatch.delete_relationship_property is deprecated, use "
+                "WriteBatch.delete_property instead.")
     def delete_relationship_property(self, relationship, key):
         """ Delete a single property from a relationship.
         """
         uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
+    @deprecated("WriteBatch.delete_relationship_properties is deprecated, use "
+                "WriteBatch.delete_properties instead.")
     def delete_relationship_properties(self, relationship):
         """ Delete all properties from a relationship.
         """
