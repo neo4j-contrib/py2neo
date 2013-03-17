@@ -27,7 +27,7 @@ Contents
    install
    fundamentals
    graphs_nodes_relationships
-   paths_trees
+   paths
    indexes
    batches
    cypher
