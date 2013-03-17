@@ -45,7 +45,7 @@ nosetests.xml
 .idea
 
 # Sphinx
-doc/_build
+book/_build
 
 # Virtual environment
 venv
