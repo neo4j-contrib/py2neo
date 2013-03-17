@@ -5,8 +5,10 @@ GraphDatabaseService
 --------------------
 
 .. autoclass:: py2neo.neo4j.GraphDatabaseService
-    :members:
-    :show-inheritance:
+    :members: get_instance, clear, create, delete, get_properties, match,
+        match_one, neo4j_version, node, order, relationship, size,
+        get_indexes, get_index, get_or_create_index, delete_index,
+        get_indexed_node, get_or_create_indexed_node, get_indexed_relationship
 
 Nodes & Relationships
 ---------------------
