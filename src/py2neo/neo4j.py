@@ -478,27 +478,66 @@ class GraphDatabaseService(rest.Resource):
             rest.Request(self,"GET", self.__metadata__['relationship_types'])
         ).body
 
-    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
-        """ Fetch all relationships which match a specific set of criteria.
+    def match(self, start_node=None, rel_type=None, end_node=None,
+              bidirectional=False, limit=None):
+        """ Fetch all relationships which match a specific set of criteria. The
+        arguments provided are all optional and are used to filter the
+        relationships returned. Examples are as follows::
 
-        :param start_node: start :py:class:`Node` to match
-        :param rel_type: type of the relationships to match
-        :param end_node: end :py:class:`Node` to match
+            # all relationships from the graph database
+            # ()-[r]-()
+            rels = graph_db.match()
+
+            # all relationships outgoing from `alice`
+            # (alice)-[r]->()
+            rels = graph_db.match(start_node=alice)
+
+            # all relationships incoming to `alice`
+            # ()-[r]->(alice)
+            rels = graph_db.match(end_node=alice)
+
+            # all relationships attached to `alice`, regardless of direction
+            # (alice)-[r]-()
+            rels = graph_db.match(start_node=alice, bidirectional=True)
+
+            # all relationships from `alice` to `bob`
+            # (alice)-[r]->(bob)
+            rels = graph_db.match(start_node=alice, end_node=bob)
+
+            # all relationships outgoing from `alice` of type "FRIEND"
+            # (alice)-[r:FRIEND]->()
+            rels = graph_db.match(start_node=alice, rel_type="FRIEND")
+
+            # up to three relationships outgoing from `alice` of type "FRIEND"
+            # (alice)-[r:FRIEND]->()
+            rels = graph_db.match(start_node=alice, rel_type="FRIEND", limit=3)
+
+        :param start_node: concrete start :py:class:`Node` to match or
+            :py:const:`None` if any
+        :param rel_type: type of relationships to match or :py:const:`None` if
+            any
+        :param end_node: concrete end :py:class:`Node` to match or
+            :py:const:`None` if any
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
-        :param limit: maximum number of relationships to match
+        :param limit: maximum number of relationships to match or
+            :py:const:`None` if no limit
         """
         if start_node is None and end_node is None:
             query = "START a=node(*)"
             params = {}
         elif end_node is None:
             query = "START a=node({A})"
+            start_node = _cast(start_node, Node, abstract=False)
             params = {"A": start_node._id}
         elif start_node is None:
             query = "START b=node({B})"
+            end_node = _cast(end_node, Node, abstract=False)
             params = {"B": end_node._id}
         else:
             query = "START a=node({A}),b=node({B})"
+            start_node = _cast(start_node, Node, abstract=False)
+            end_node = _cast(end_node, Node, abstract=False)
             params = {"A": start_node._id, "B": end_node._id}
         if rel_type is None:
             if bidirectional:
@@ -515,15 +554,22 @@ class GraphDatabaseService(rest.Resource):
         data, metadata = cypher.execute(self, query, params)
         return [row[0] for row in data]
 
-    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
+    def match_one(self, start_node=None, rel_type=None, end_node=None,
+                  bidirectional=False):
         """ Fetch a single relationship which matches a specific set of
         criteria.
 
-        :param start_node: start :py:class:`Node` to match
-        :param rel_type: type of the relationships to match
-        :param end_node: end :py:class:`Node` to match
+        :param start_node: concrete start :py:class:`Node` to match or
+            :py:const:`None` if any
+        :param rel_type: type of relationships to match or :py:const:`None` if
+            any
+        :param end_node: concrete end :py:class:`Node` to match or
+            :py:const:`None` if any
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
+
+        .. seealso::
+           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
         rels = self.match(start_node, rel_type, end_node, bidirectional, 1)
         if rels:
@@ -1145,13 +1191,36 @@ class Node(_Entity):
             "DELETE r "
         ), {"A": self._id})
 
-    def match(self, rel_type=None, end_node=None, bidirectional=False, limit=None):
+    def match(self, rel_type=None, end_node=None, bidirectional=False,
+              limit=None):
         """ Match one or more relationships attached to this node.
+
+        :param rel_type: type of relationships to match or :py:const:`None` if
+            any
+        :param end_node: concrete end :py:class:`Node` to match or
+            :py:const:`None` if any
+        :param bidirectional: :py:const:`True` if reversed relationships should
+            also be included
+        :param limit: maximum number of relationships to match or
+            :py:const:`None` if no limit
+
+        .. seealso::
+           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
         return self._graph_db.match(self, rel_type, end_node, bidirectional, limit)
 
     def match_one(self, rel_type=None, end_node=None, bidirectional=False):
         """ Match a single relationship attached to this node.
+
+        :param rel_type: type of relationships to match or :py:const:`None` if
+            any
+        :param end_node: concrete end :py:class:`Node` to match or
+            :py:const:`None` if any
+        :param bidirectional: :py:const:`True` if reversed relationships should
+            also be included
+
+        .. seealso::
+           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
         return self._graph_db.match(self, rel_type, end_node, bidirectional)
 
