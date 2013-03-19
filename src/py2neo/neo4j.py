@@ -141,10 +141,14 @@ def _node(*args, **kwargs):
     - ``node(**properties)``
     - ``node(*labels, **properties)``
 
+    If :py:const:`None` is passed as the only argument, :py:const:`None` is
+    returned instead of a ``Node`` instance.
+
     Examples::
 
         node(Node("http://localhost:7474/db/data/node/1"))
         node()
+        node(None)
         node(name="Alice")
         node({"name": "Alice"})
         node("Person")
@@ -153,7 +157,9 @@ def _node(*args, **kwargs):
     """
     if len(args) == 1 and not kwargs:
         arg = args[0]
-        if isinstance(arg, Node):
+        if arg is None:
+            return None
+        elif isinstance(arg, Node):
             return arg
         elif isinstance(arg, dict):
             return Node.abstract(**arg)
@@ -171,6 +177,9 @@ def _rel(*args, **kwargs):
     - ``rel((start_node, type, end_node))``
     - ``rel((start_node, type, end_node, properties))``
     - ``rel((start_node, type, end_node, labels, properties))``
+    - ``rel((start_node, (type, labels), end_node))``
+    - ``rel((start_node, (type, properties), end_node))``
+    - ``rel((start_node, (type, labels, properties), end_node))``
     - ``rel(start_node, type, end_node, **properties)``
     - ``rel(start_node, type, end_node, *labels, **properties)``
 
@@ -180,6 +189,8 @@ def _rel(*args, **kwargs):
         rel((alice, "KNOWS", bob))
         rel((alice, "KNOWS", bob, {"since": 1999}))
         rel((alice, "KNOWS", bob, "Friendship", {"since": 1999}))
+        rel((alice, ("KNOWS", {"since": 1999}), bob))
+        rel((alice, ("KNOWS", ["Friendship"], {"since": 1999}), bob))
         rel(alice, "KNOWS", bob, since=1999)
         rel(alice, "KNOWS", bob, "Friendship", since=1999)
 
@@ -190,7 +201,20 @@ def _rel(*args, **kwargs):
             return arg
         elif isinstance(arg, tuple):
             if len(arg) == 3:
-                return Relationship.abstract(*arg)
+                if isinstance(arg[1], tuple):
+                    if len(arg[1]) == 1:
+                        return Relationship.abstract(arg[0], arg[1][0], arg[2])
+                    elif len(arg[1]) == 2:
+                        if isinstance(arg[1][1], dict):
+                            return Relationship.abstract(arg[0], arg[1][0], arg[2], **arg[1][1])
+                        else:
+                            return Relationship.abstract(arg[0], arg[1][0], arg[2], *arg[1][1])
+                    elif len(arg[1]) == 3:
+                        return Relationship.abstract(arg[0], arg[1][0], arg[2], *arg[1][1], **arg[1][2])
+                    else:
+                        raise TypeError(arg)
+                else:
+                    return Relationship.abstract(arg[0], arg[1], arg[2])
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
             elif len(arg) == 5:
@@ -929,6 +953,7 @@ class Node(_Entity):
         _Entity.__init__(self, uri)
 
     def __eq__(self, other):
+        other = _cast(other, Node)
         if self.__uri__:
             return _Entity.__eq__(self, other)
         else:
@@ -936,6 +961,7 @@ class Node(_Entity):
                    self._properties == other._properties
 
     def __ne__(self, other):
+        other = _cast(other, Node)
         if self.__uri__:
             return _Entity.__ne__(self, other)
         else:
@@ -949,12 +975,12 @@ class Node(_Entity):
                 repr(str(self.__uri__))
             )
         elif self._properties:
-            return "{0}.abstract(**{1})".format(
+            return "node(**{1})".format(
                 self.__class__.__name__,
                 repr(self._properties)
             )
         else:
-            return "{0}.abstract()".format(
+            return "node()".format(
                 self.__class__.__name__
             )
 
@@ -1335,6 +1361,7 @@ class Relationship(_Entity):
         self._end_node = None
 
     def __eq__(self, other):
+        other = _cast(other, Relationship)
         if self.__uri__:
             return _Entity.__eq__(self, other)
         else:
@@ -1345,6 +1372,7 @@ class Relationship(_Entity):
                    self._properties == other._properties
 
     def __ne__(self, other):
+        other = _cast(other, Relationship)
         if self.__uri__:
             return _Entity.__ne__(self, other)
         else:
@@ -1361,7 +1389,7 @@ class Relationship(_Entity):
                 repr(str(self.__uri__))
             )
         elif self._properties:
-            return "{0}.abstract({1}, {2}, {3}, **{4})".format(
+            return "rel({1}, {2}, {3}, **{4})".format(
                 self.__class__.__name__,
                 repr(self.start_node),
                 repr(self.type),
@@ -1369,7 +1397,7 @@ class Relationship(_Entity):
                 repr(self._properties)
             )
         else:
-            return "{0}.abstract({1}, {2}, {3})".format(
+            return "rel({1}, {2}, {3})".format(
                 self.__class__.__name__,
                 repr(self.start_node),
                 repr(self.type),
@@ -1924,7 +1952,9 @@ class Index(rest.Resource):
 
 
 def _cast(obj, cls=(Node, Relationship), abstract=None):
-    if isinstance(obj, Node) or isinstance(obj, dict):
+    if obj is None:
+        return None
+    elif isinstance(obj, Node) or isinstance(obj, dict):
         entity = _node(obj)
     elif isinstance(obj, Relationship) or isinstance(obj, tuple):
         entity = _rel(obj)
