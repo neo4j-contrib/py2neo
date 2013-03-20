@@ -1497,6 +1497,60 @@ class Relationship(_Entity):
             self._properties.update(properties)
 
 
+class _UnboundRelationship(object):
+    """ An abstract, partial relationship with no start or end nodes.
+    """
+
+    @classmethod
+    def cast(cls, arg):
+        if isinstance(arg, tuple):
+            if len(arg) == 1:
+                return cls(str(arg[0]))
+            elif len(arg) == 2:
+                if isinstance(arg[1], dict):
+                    return cls(str(arg[0]), **arg[1])
+                else:
+                    return cls(str(arg[0]), *arg[1])
+            elif len(arg) == 3:
+                return cls(str(arg[0]), *arg[1], **arg[2])
+            else:
+                raise TypeError(arg)
+        else:
+            return cls(str(arg))
+
+    def __init__(self, type, *labels, **properties):
+        self._type = type
+        self._labels = set(labels)
+        self._properties = dict(properties)
+
+    def __eq__(self, other):
+        return self._type == other._type and \
+               self._labels == other._labels and \
+               self._properties == other._properties
+
+    def __ne__(self, other):
+        return self._type != other._type or \
+               self._labels != other._labels or \
+               self._properties != other._properties
+
+    def __repr__(self):
+        return "{0}({1}, *{2}, **{3})".format(
+            self.__class__.__name__,
+            repr(str(self._type)),
+            repr(tuple(self._labels)),
+            repr(self._properties),
+        )
+
+    def __str__(self):
+        return "-[:{0}]->".format(
+            json.dumps(str(self._type)),
+        )
+
+    def bind(self, start_node, end_node):
+        return Relationship.abstract(start_node, self._type, end_node,
+                                     *self._labels, **self._properties)
+
+
 class Path(object):
     """ A representation of a sequence of nodes connected by relationships.
     """
