@@ -20,13 +20,13 @@ PY3K = sys.version_info[0] >= 3
 
 from py2neo import neo4j
 
-import logging
+#import logging
 import unittest
 
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    level=logging.DEBUG,
-)
+#logging.basicConfig(
+#    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+#    level=logging.DEBUG,
+#)
 
 
 class PathTestCase(unittest.TestCase):
@@ -35,19 +35,19 @@ class PathTestCase(unittest.TestCase):
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert len(path) == 1
         assert path.nodes[0]["name"] == "Alice"
-        assert path.relationships[0] == "KNOWS"
+        assert path._relationships[0]._type == "KNOWS"
         assert path.nodes[-1]["name"] == "Bob"
         path = neo4j.Path.join(path, "KNOWS", {"name": "Carol"})
         assert len(path) == 2
         assert path.nodes[0]["name"] == "Alice"
-        assert path.relationships[0] == "KNOWS"
+        assert path._relationships[0]._type == "KNOWS"
         assert path.nodes[1]["name"] == "Bob"
         path = neo4j.Path.join({"name": "Zach"}, "KNOWS", path)
         assert len(path) == 3
         assert path.nodes[0]["name"] == "Zach"
-        assert path.relationships[0] == "KNOWS"
+        assert path._relationships[0]._type == "KNOWS"
         assert path.nodes[1]["name"] == "Alice"
-        assert path.relationships[1] == "KNOWS"
+        assert path._relationships[1]._type == "KNOWS"
         assert path.nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
@@ -102,10 +102,14 @@ class PathTestCase(unittest.TestCase):
 
     def test_path_representation(self):
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        print(str(path))
-        assert str(path) == "{'name': 'Alice'}-KNOWS->{'name': 'Bob'}"
-        print(repr(path))
-        assert repr(path) == "Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})"
+        #print(str(path))
+        assert str(path) == '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})'
+        #print(repr(path))
+        assert repr(path) == (
+            "Path(node(**{'name': 'Alice'}), "
+            "('KNOWS', *(), **{}), "
+            "node(**{'name': 'Bob'}))"
+        )
 
 
 class CreatePathTestCase(unittest.TestCase):
@@ -114,13 +118,13 @@ class CreatePathTestCase(unittest.TestCase):
         graph_db = neo4j.GraphDatabaseService()
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
-        assert path.relationships[0] == "KNOWS"
+        assert path._relationships[0]._type == "KNOWS"
         assert path.nodes[1] == {"name": "Bob"}
         path = path.create(graph_db)
         assert isinstance(path.nodes[0], neo4j.Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
-        assert path.relationships[0].type == "KNOWS"
+        assert path._relationships[0]._type == "KNOWS"
         assert isinstance(path.nodes[1], neo4j.Node)
         assert path.nodes[1]["name"] == "Bob"
 
@@ -128,14 +132,15 @@ class CreatePathTestCase(unittest.TestCase):
         graph_db = neo4j.GraphDatabaseService()
         path = neo4j.Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
-        assert path.relationships[0] == ("KNOWS", {"since": 1999})
+        assert path._relationships[0]._type == "KNOWS"
+        assert path._relationships[0]._properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
         path = path.create(graph_db)
         assert isinstance(path.nodes[0], neo4j.Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
-        assert path.relationships[0].type == "KNOWS"
-        assert path.relationships[0]["since"] == 1999
+        assert path._relationships[0]._type == "KNOWS"
+        assert path._relationships[0]._properties == {"since": 1999}
         assert isinstance(path.nodes[1], neo4j.Node)
         assert path.nodes[1]["name"] == "Bob"
 
@@ -152,7 +157,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
         )
-        print(p1)
+        #print(p1)
         self.assertIsInstance(p1, neo4j.Path)
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])
@@ -167,7 +172,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertIsInstance(p1, neo4j.Path)
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])
-        print(p1)
+        #print(p1)
         p2 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
@@ -182,7 +187,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertEqual(p1.relationships[0], p2.relationships[0])
         self.assertEqual(p1.relationships[1], p2.relationships[1])
         self.assertNotEqual(p1.relationships[2], p2.relationships[2])
-        print(p2)
+        #print(p2)
         p3 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
@@ -197,7 +202,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertEqual(p2.relationships[0], p3.relationships[0])
         self.assertNotEqual(p2.relationships[1], p3.relationships[1])
         self.assertNotEqual(p2.relationships[2], p3.relationships[2])
-        print(p3)
+        #print(p3)
 
     def test_can_use_none_for_nodes(self):
         start_node, = self.graph_db.create({})

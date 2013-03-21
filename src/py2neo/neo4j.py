@@ -974,9 +974,10 @@ class Node(_Entity):
     def __str__(self):
         """ Return Cypher/Geoff style representation of this node.
         """
-        return "({0})".format(
-            self._id or ""
-        )
+        if self.is_abstract():
+            return "({0})".format(json.dumps(self._properties, separators=(",", ":")))
+        else:
+            return "({0})".format(self._id or "")
 
     @property
     def _id(self):
@@ -1493,7 +1494,8 @@ class _UnboundRelationship(object):
         if isinstance(arg, cls):
             return arg
         elif isinstance(arg, Relationship):
-            return cls(arg._type, *arg._labels, **arg._properties)
+            # LABELS: replace below with get_labels when it exists!
+            return cls(arg.type, *arg._labels, **arg.get_properties())
         elif isinstance(arg, tuple):
             if len(arg) == 1:
                 return cls(str(arg[0]))
@@ -1525,8 +1527,7 @@ class _UnboundRelationship(object):
                self._properties != other._properties
 
     def __repr__(self):
-        return "{0}({1}, *{2}, **{3})".format(
-            self.__class__.__name__,
+        return "({0}, *{1}, **{2})".format(
             repr(str(self._type)),
             repr(tuple(self._labels)),
             repr(self._properties),
@@ -1547,12 +1548,15 @@ class Path(object):
     """
 
     def __init__(self, node, *rels_and_nodes):
-        self._nodes = [node]
-        self._nodes.extend(rels_and_nodes[1::2])
+        self._nodes = [_node(node)]
+        self._nodes.extend(_node(n) for n in rels_and_nodes[1::2])
         if len(rels_and_nodes) % 2 != 0:
             # If a trailing relationship is supplied, add a dummy end node
-            self._nodes.append(None)
-        self._relationships = list(rels_and_nodes[0::2])
+            self._nodes.append(_node())
+        self._relationships = [
+            _UnboundRelationship.cast(r)
+            for r in rels_and_nodes[0::2]
+        ]
 
     def __repr__(self):
         out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
@@ -1562,9 +1566,7 @@ class Path(object):
         out = []
         for i, rel in enumerate(self._relationships):
             out.append(str(self._nodes[i]))
-            out.append("-")
             out.append(str(rel))
-            out.append("->")
         out.append(str(self._nodes[-1]))
         return "".join(out)
 
@@ -1607,10 +1609,10 @@ class Path(object):
             return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
 
     def __iter__(self):
-        def relationship_tuples():
-            for i, rel in enumerate(self._relationships):
-                yield self._nodes[i], rel, self._nodes[i + 1]
-        return iter(relationship_tuples())
+        return iter(
+            _rel((self._nodes[i], rel, self._nodes[i + 1]))
+            for i, rel in enumerate(self._relationships)
+        )
 
     def order(self):
         """ Return the number of nodes within this path.
@@ -1626,13 +1628,16 @@ class Path(object):
     def nodes(self):
         """ Return a list of all the nodes which make up this path.
         """
-        return self._nodes
+        return list(self._nodes)
 
     @property
     def relationships(self):
         """ Return a list of all the relationships which make up this path.
         """
-        return self._relationships
+        return [
+            _rel((self._nodes[i], rel, self._nodes[i + 1]))
+            for i, rel in enumerate(self._relationships)
+        ]
 
     @classmethod
     def join(cls, left, rel, right):
@@ -1646,7 +1651,7 @@ class Path(object):
             right = right[:]
         else:
             right = Path(right)
-        left._relationships.append(rel)
+        left._relationships.append(_UnboundRelationship.cast(rel))
         left._nodes.extend(right._nodes)
         left._relationships.extend(right._relationships)
         return left
@@ -1654,36 +1659,30 @@ class Path(object):
     def _create(self, graph_db, verb):
         nodes, path, values, params = [], [], [], {}
         def append_node(i, node):
-            if isinstance(node, dict):
+            if node is None:
+                path.append("(n{0})".format(i))
+                values.append("n{0}".format(i))
+            elif node.is_abstract():
                 path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = compact(node or {})
+                params["p{0}".format(i)] = compact(node._properties)
+                values.append("n{0}".format(i))
             else:
                 path.append("(n{0})".format(i))
-                if isinstance(node, Node):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node._id
-                elif isinstance(node, int):
-                    nodes.append("n{0}=node({{i{0}}})".format(i))
-                    params["i{0}".format(i)] = node
-                elif isinstance(node, tuple):
-                    nodes.append("n{0}=node:{1}(`{2}`={{i{0}}})".format(i, node[0], node[1]))
-                    params["i{0}".format(i)] = node[2]
-                elif node is not None:
-                    raise TypeError("Cannot infer node from {0}".format(type(node)))
-            values.append("n{0}".format(i))
+                nodes.append("n{0}=node({{i{0}}})".format(i))
+                params["i{0}".format(i)] = node._id
+                values.append("n{0}".format(i))
         def append_rel(i, rel):
-            if isinstance(rel, Relationship):
-                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
-            elif isinstance(rel, tuple):
-                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel[0]))
-                params["q{0}".format(i)] = compact(rel[1] or {})
+            if rel._properties:
+                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel._type))
+                params["q{0}".format(i)] = compact(rel._properties)
+                values.append("r{0}".format(i))
             else:
-                path.append("-[r{0}:`{1}`]->".format(i, rel))
-            values.append("r{0}".format(i))
-        append_node(0, self.nodes[0])
-        for i, (start, rel, end) in enumerate(self):
+                path.append("-[r{0}:`{1}`]->".format(i, rel._type))
+                values.append("r{0}".format(i))
+        append_node(0, self._nodes[0])
+        for i, rel in enumerate(self._relationships):
             append_rel(i, rel)
-            append_node(i + 1, end)
+            append_node(i + 1, self._nodes[i + 1])
         clauses = []
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
