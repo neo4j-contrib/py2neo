@@ -201,20 +201,7 @@ def _rel(*args, **kwargs):
             return arg
         elif isinstance(arg, tuple):
             if len(arg) == 3:
-                if isinstance(arg[1], tuple):
-                    if len(arg[1]) == 1:
-                        return Relationship.abstract(arg[0], arg[1][0], arg[2])
-                    elif len(arg[1]) == 2:
-                        if isinstance(arg[1][1], dict):
-                            return Relationship.abstract(arg[0], arg[1][0], arg[2], **arg[1][1])
-                        else:
-                            return Relationship.abstract(arg[0], arg[1][0], arg[2], *arg[1][1])
-                    elif len(arg[1]) == 3:
-                        return Relationship.abstract(arg[0], arg[1][0], arg[2], *arg[1][1], **arg[1][2])
-                    else:
-                        raise TypeError(arg)
-                else:
-                    return Relationship.abstract(arg[0], arg[1], arg[2])
+                return _UnboundRelationship.cast(arg[1]).bind(arg[0], arg[2])
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
             elif len(arg) == 5:
@@ -788,8 +775,8 @@ class _Entity(rest.Resource):
 
     def __init__(self, uri):
         rest.Resource.__init__(self, uri)
-        self._labels = None
-        self._properties = None
+        self._labels = set()
+        self._properties = {}
 
     def __contains__(self, key):
         return key in self.get_properties()
@@ -1503,7 +1490,11 @@ class _UnboundRelationship(object):
 
     @classmethod
     def cast(cls, arg):
-        if isinstance(arg, tuple):
+        if isinstance(arg, cls):
+            return arg
+        elif isinstance(arg, Relationship):
+            return cls(arg._type, *arg._labels, **arg._properties)
+        elif isinstance(arg, tuple):
             if len(arg) == 1:
                 return cls(str(arg[0]))
             elif len(arg) == 2:
