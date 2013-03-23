@@ -304,9 +304,9 @@ class InsertTestCase(unittest.TestCase):
         print(s.nodes)
         print(s.relationships)
         print(s.index_entries)
-        print(s.indexed_nodes)
-        print(s.related_nodes)
-        print(s.odd_nodes)
+        print(s._indexed_nodes)
+        print(s._related_nodes)
+        print(s._odd_nodes)
         for name, node in s.insert_into(self.graph_db).items():
             print(name, node)
 

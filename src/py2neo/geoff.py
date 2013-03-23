@@ -66,11 +66,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import json
 import logging
 import re
+from xml.etree import ElementTree
 
 from . import neo4j, rest
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
+
+SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 
 class ConstraintViolation(ValueError):
@@ -80,11 +83,41 @@ class ConstraintViolation(ValueError):
 class Subgraph(object):
 
     @classmethod
-    def from_xml(cls, xml):
+    def from_xml(cls, xml_file):
         """ Convert XML into a geoff subgraph a la conversion page.
         """
-        pass
-    
+        nodes, rels, buffer = [], [], []
+        def node_no(node):
+            if node not in nodes:
+                nodes.append(node)
+            return nodes.index(node)
+        def walk(parent, child):
+            if parent:
+                rels.append((node_no(parent), child.tag, node_no(child)))
+            for grandchild in child:
+                if len(grandchild) > 0:
+                    walk(child, grandchild)
+        walk(None, ElementTree.parse(xml_file).getroot())
+        for i, node in enumerate(nodes):
+            properties = node.attrib
+            for child in node:
+                text = child.text.strip()
+                if text:
+                    properties[child.tag] = text
+                    for key, value in child.attrib.items():
+                        properties[child.tag + " " + key] = value
+            if properties:
+                buffer.append("(N{0} {1})".format(i, json.dumps(properties, separators=(",", ":"))))
+            else:
+                buffer.append("(N{0})".format(i))
+        for rel in rels:
+            buffer.append("(N{0})-[:{1}]->(N{2})".format(
+                rel[0],
+                rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1]),
+                rel[2],
+            ))
+        return cls("\n".join(buffer))
+
     def __init__(self, source):
         """ Create a subgraph from Geoff source.
         """
@@ -109,9 +142,9 @@ class Subgraph(object):
         return dict(self._index_entries)
 
     @property
-    def indexed_nodes(self):
+    def _indexed_nodes(self):
         """ Return the set of nodes which have one or more index entries
-            pointing to them.
+        pointing to them.
         """
         return dict(
             (entry.node.name, entry.node)
@@ -119,9 +152,9 @@ class Subgraph(object):
         )
 
     @property
-    def related_nodes(self):
+    def _related_nodes(self):
         """ Return the set of nodes which are involved in at least one
-            relationship.
+        relationship.
         """
         nodes = dict(
             (rel.start_node.name, rel.start_node)
@@ -134,22 +167,22 @@ class Subgraph(object):
         return nodes
 
     @property
-    def odd_nodes(self):
+    def _odd_nodes(self):
         """ Return the set of nodes which have no index entries pointing to
-            them and are involved in no relationships.
+        them and are involved in no relationships.
         """
         return dict(
             (name, node)
             for name, node in self._nodes.items()
-            if name not in self.indexed_nodes
-            if name not in self.related_nodes
+            if name not in self._indexed_nodes
+            if name not in self._related_nodes
         )
 
     def _get_relationship_query(self, unique):
         # will only work in 1.8.1 and above
         start, create, set, output_names, params = [], [], [], [], {}
         # determine query inputs
-        input_names, input_entries = list(self.indexed_nodes.keys()), []
+        input_names, input_entries = list(self._indexed_nodes.keys()), []
         for name in input_names:
             entry = [
                 entry
@@ -186,9 +219,9 @@ class Subgraph(object):
             params["pa{0}".format(i)] = entry.node.properties
         for i, rel in enumerate(self._rels):
             # build and append pattern
-            create.append(node_pattern(i, rel.start_node.name) + \
+            create.append(node_pattern(2 * i, rel.start_node.name) + \
                           rel_pattern(i, rel.type, rel.properties) + \
-                          node_pattern(i, rel.end_node.name)
+                          node_pattern(2 * i + 1, rel.end_node.name)
             )
         if start:
             query = "START {0}\n{1} {2}".format(
@@ -224,7 +257,7 @@ class Subgraph(object):
         else:
             related_names = []
         # 3. odd nodes
-        odd_names = list(self.odd_nodes.keys())
+        odd_names = list(self._odd_nodes.keys())
         for name in odd_names:
             batch.create_node(self._nodes[name].properties)
         # submit batch unless empty (in which case bail out and return nothing)
@@ -284,7 +317,7 @@ class _Parser(object):
 
     def _unexpected_character(self):
         next_char = self.peek()
-        message = "Unexpected character '{0}' at position {1}.".format(next_char, self.n)
+        message = "Unexpected character {0} at position {1}".format(repr(next_char), self.n)
         return SyntaxError(message)
 
     def peek(self, length=1):
