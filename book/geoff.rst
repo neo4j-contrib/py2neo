@@ -41,8 +41,8 @@ Index Entries
 Comments
 --------
 
-:class:`Subgraph`
------------------
+Subgraphs
+---------
 
 .. autoclass:: py2neo.geoff.Subgraph
     :members: load, load_xml, save, source, insert_into, merge_into
