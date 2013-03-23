@@ -32,7 +32,7 @@ Contents
    batches
    cypher
    ogm
-   Geoff <geoff>
+   geoff
    Gremlin <gremlin>
    Calendars <calendar>
    deprecated_features
