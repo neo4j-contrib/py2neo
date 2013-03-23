@@ -15,61 +15,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Geoff is a textual interchange format for graph data, designed with Neo4j
-in mind.
-
-Note: This module requires server version 1.8.1 or above.
-
-Full Geoff Syntax
------------------
-
-::
-
-    geoff          := [element (_ element)*]
-    element        := path | index_entry | comment
-
-    path           := node (forward_path | reverse_path)*
-    forward_path   := "-" relationship "->" node
-    reverse_path   := "<-" relationship "-" node
-
-    index_entry    := forward_entry | reverse_entry
-    forward_entry  := "|" ~ index_name _ property_pair ~ "|" "=>" node
-    reverse_entry  := node "<=" "|" ~ index_name _ property_pair ~ "|"
-    index_name     := name | JSON_STRING
-
-    comment        := "/*" <<any text excluding sequence "*/">> "*/"
-
-    node           := named_node | anonymous_node
-    named_node     := "(" ~ node_name [_ property_map] ~ ")"
-    anonymous_node := "(" ~ [property_map ~] ")"
-    relationship   := "[" ~ ":" type [_ property_map] ~ "]"
-    property_pair  := "{" ~ key_value ~ "}"
-    property_map   := "{" ~ [key_value (~ "," ~ key_value)* ~] "}"
-    node_name      := name | JSON_STRING
-    name           := (ALPHA | DIGIT | "_")+
-    type           := name | JSON_STRING
-    key_value      := key ~ ":" ~ value
-    key            := name | JSON_STRING
-    value          := array | JSON_STRING | JSON_NUMBER | JSON_BOOLEAN | JSON_NULL
-
-    array          := empty_array | string_array | numeric_array | boolean_array
-    empty_array    := "[" ~ "]"
-    string_array   := "[" ~ JSON_STRING (~ "," ~ JSON_STRING)* ~ "]"
-    numeric_array  := "[" ~ JSON_NUMBER (~ "," ~ JSON_NUMBER)* ~ "]"
-    boolean_array  := "[" ~ JSON_BOOLEAN (~ "," ~ JSON_BOOLEAN)* ~ "]"
-
-    * Mandatory whitespace is represented by "_" and optional whitespace by "~"
-"""
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import json
 import logging
 import re
+from uuid import uuid4
 from xml.etree import ElementTree
 
 from . import neo4j, rest
-from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
@@ -77,14 +32,22 @@ SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 
 class ConstraintViolation(ValueError):
+    """ Raised on an attempt to merge a unique path onto a non-unique path.
+    """
     pass
 
 
 class Subgraph(object):
 
     @classmethod
-    def from_xml(cls, xml_file):
-        """ Convert XML into a geoff subgraph a la conversion page.
+    def load(cls, file):
+        """ Load Geoff data from a file into a Subgraph.
+        """
+        return cls(open(file).read())
+
+    @classmethod
+    def load_xml(cls, file):
+        """ Load and convert data within an XML file into a Subgraph.
         """
         nodes, rels, buffer = [], [], []
         def node_no(node):
@@ -97,17 +60,28 @@ class Subgraph(object):
             for grandchild in child:
                 if len(grandchild) > 0:
                     walk(child, grandchild)
-        walk(None, ElementTree.parse(xml_file).getroot())
+        def typed(value):
+            try:
+                return int(value)
+            except ValueError:
+                try:
+                    return float(value)
+                except ValueError:
+                    return value
+        walk(None, ElementTree.parse(file).getroot())
         for i, node in enumerate(nodes):
-            properties = node.attrib
+            properties = {}
+            for key, value in node.attrib:
+                properties[key] = typed(value)
             for child in node:
                 text = child.text.strip()
                 if text:
-                    properties[child.tag] = text
+                    properties[child.tag] = typed(text)
                     for key, value in child.attrib.items():
-                        properties[child.tag + " " + key] = value
+                        properties[child.tag + " " + key] = typed(value)
             if properties:
-                buffer.append("(N{0} {1})".format(i, json.dumps(properties, separators=(",", ":"))))
+                buffer.append("(N{0} {1})".format(i, json.dumps(
+                    properties, separators=(",", ":"), sort_keys=True)))
             else:
                 buffer.append("(N{0})".format(i))
         for rel in rels:
@@ -125,20 +99,33 @@ class Subgraph(object):
         parser = _Parser(self._source)
         self._nodes, self._rels, self._index_entries = parser.parse()
 
+    def save(self, file):
+        """ Save subgraph to a file in Geoff format.
+        """
+        pass
+
     @property
     def source(self):
+        """ Return the Geoff source for this Subgraph.
+        """
         return self._source
 
     @property
     def nodes(self):
+        """ Return all nodes within this Subgraph.
+        """
         return dict(self._nodes)
 
     @property
     def relationships(self):
+        """ Return all relationships within this Subgraph.
+        """
         return list(self._rels)
 
     @property
     def index_entries(self):
+        """ Return all index entries within this Subgraph.
+        """
         return dict(self._index_entries)
 
     @property
@@ -665,16 +652,26 @@ class AbstractIndexEntry(object):
 
 
 def dump(graph_db, query, params=None):
+    """ Dump the results of a Cypher query into a Subgraph.
+    """
     pass
 
-def insert(graph_db, source):
-    Subgraph(source).insert_into(graph_db)
+def insert(graph_db, file):
+    """ Insert Geoff data into a graph database.
+    """
+    Subgraph.load(file).insert_into(graph_db)
      
-def merge(graph_db, source):
-    Subgraph(source).merge_into(graph_db)
+def merge(graph_db, file):
+    """ Merge Geoff data into a graph database.
+    """
+    Subgraph.load(file).merge_into(graph_db)
 
-def insert_xml(graph_db, xml):
-    Subgraph.from_xml(xml).insert_into(graph_db)
+def insert_xml(graph_db, file):
+    """ Insert XML data into a graph database.
+    """
+    Subgraph.load_xml(file).insert_into(graph_db)
 
-def merge_xml(graph_db, xml):
-    Subgraph.from_xml(xml).merge_into(graph_db)
+def merge_xml(graph_db, file):
+    """ Merge XML data into a graph database.
+    """
+    Subgraph.load_xml(file).merge_into(graph_db)
