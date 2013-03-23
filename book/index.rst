@@ -33,10 +33,10 @@ Contents
    cypher
    ogm
    geoff
-   Gremlin <gremlin>
-   Calendars <calendar>
+   gremlin
+   calendar
    deprecated_features
-   Cookbook <cookbook>
+   cookbook
 
 Tutorials
 ---------

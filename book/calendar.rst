@@ -1,5 +1,5 @@
-:mod:`calendar` Module
-======================
+Date Modelling
+==============
 
 .. automodule:: py2neo.calendar
     :members:

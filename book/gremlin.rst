@@ -1,5 +1,5 @@
-:mod:`gremlin` Module
-=====================
+Gremlin
+=======
 
 .. automodule:: py2neo.gremlin
     :members:
