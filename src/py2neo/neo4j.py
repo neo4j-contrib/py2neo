@@ -977,7 +977,7 @@ class Node(_Entity):
         if self.is_abstract():
             return "({0})".format(json.dumps(self._properties, separators=(",", ":")))
         else:
-            return "({0})".format(self._id or "")
+            return "({0})".format("" if self._id is None else self._id)
 
     @property
     def _id(self):
@@ -1394,7 +1394,7 @@ class Relationship(_Entity):
 
     def __str__(self):
         return "[{0}:{1}]".format(
-            self._id or "",
+            "" if self._id is None else self._idnic,
             json.dumps(str(self.type)),
         )
 
