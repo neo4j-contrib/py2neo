@@ -157,9 +157,6 @@ class CypherTestCase(unittest.TestCase):
             self.assertEqual(a, row[0].nodes[0])
             self.assertEqual(b, row[0].nodes[1])
             self.assertEqual("KNOWS", row[0].relationships[0].type)
-            self.assertEqual(self.graph_db, row[0].nodes[0]._graph_db)
-            self.assertEqual(self.graph_db, row[0].nodes[1]._graph_db)
-            self.assertEqual(self.graph_db, row[0].relationships[0]._graph_db)
         self.assertEqual(1, len(metadata.columns))
         self.assertEqual("p", metadata.columns[0])
 
