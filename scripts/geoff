@@ -35,15 +35,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
     graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))
     if args.file == "-":
-        subgraph = geoff.Subgraph(sys.stdin)
+        file = sys.stdin
     else:
-        subgraph = geoff.Subgraph(open(args.file))
+        file = open(args.file)
     if args.operation == "insert":
-        params = subgraph.insert_into(graph_db)
+        params = geoff.Subgraph.load(file).insert_into(graph_db)
     elif args.operation == "merge":
-        params = subgraph.merge_into(graph_db)
+        params = geoff.Subgraph.load(file).merge_into(graph_db)
+    elif args.operation == "insert-xml":
+        params = geoff.Subgraph.load_xml(file).insert_into(graph_db)
+    elif args.operation == "merge-xml":
+        params = geoff.Subgraph.load_xml(file).merge_into(graph_db)
     else:
-        sys.stderr.write("Unknown operation: " + args.operation)
+        sys.stderr.write("Unknown operation: " + args.operation + "\n")
         sys.exit(1)
     for key, value in params.items():
-        print(key, value)
+        sys.stdout.write(key)
+        sys.stdout.write("\t")
+        sys.stdout.write(str(value))
+        sys.stdout.write("\n")

@@ -29,7 +29,7 @@ class XMLTestCase(unittest.TestCase):
     def test_can_create_subgraph_from_xml(self):
         xml_file = os.path.join(FIXTURES, "planets.xml")
         geoff_file = os.path.join(FIXTURES, "planets.geoff")
-        planets = geoff.Subgraph.load_xml(xml_file)
+        planets = geoff.Subgraph.load_xml(open(xml_file))
         assert planets.source == open(geoff_file).read().strip()
 
 if __name__ == '__main__':

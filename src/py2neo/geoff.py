@@ -23,8 +23,12 @@ import logging
 import re
 from uuid import uuid4
 from xml.etree import ElementTree
+try:
+    from StringIO import StringIO # python 2
+except ImportError:
+    from io import StringIO # python 3
 
-from . import neo4j, rest
+from . import neo4j, rest, cypher
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +47,7 @@ class Subgraph(object):
     def load(cls, file):
         """ Load Geoff data from a file into a Subgraph.
         """
-        return cls(open(file).read())
+        return cls(file.read())
 
     @classmethod
     def load_xml(cls, file):
@@ -55,7 +59,7 @@ class Subgraph(object):
                 nodes.append(node)
             return nodes.index(node)
         def walk(parent, child):
-            if parent:
+            if parent is not None:
                 rels.append((node_no(parent), child.tag, node_no(child)))
             for grandchild in child:
                 if len(grandchild) > 0:
@@ -533,6 +537,11 @@ class _Parser(object):
     def parse_relationship(self, start_node=None, end_node=None):
         self.parse_literal("[")
         self.parse_pattern(self.WHITESPACE)
+        next_char = self.peek()
+        if next_char != ":":
+            # read and ignore relationship name, if present
+            self.parse_name()
+            self.parse_pattern(self.WHITESPACE)
         self.parse_literal(":")
         type = self.parse_name()
         self.parse_pattern(self.WHITESPACE)
@@ -651,25 +660,23 @@ class AbstractIndexEntry(object):
         return "|{0} {1}|=>{2}".format(self.index_name, json.dumps({self.key: self.value}, separators=(",", ":")), self.node)
 
 
-def dump(graph_db, query, params=None):
-    """ Dump the results of a Cypher query into a Subgraph.
-    """
-    pass
-
 def insert(graph_db, file):
     """ Insert Geoff data into a graph database.
     """
     Subgraph.load(file).insert_into(graph_db)
-     
+
+
 def merge(graph_db, file):
     """ Merge Geoff data into a graph database.
     """
     Subgraph.load(file).merge_into(graph_db)
 
+
 def insert_xml(graph_db, file):
     """ Insert XML data into a graph database.
     """
     Subgraph.load_xml(file).insert_into(graph_db)
+
 
 def merge_xml(graph_db, file):
     """ Merge XML data into a graph database.

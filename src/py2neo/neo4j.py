@@ -1414,17 +1414,15 @@ class Relationship(_Entity):
         if not SIMPLE_NAME.match(type_str):
             type_str = json.dumps(type_str)
         if self._properties:
-            return "{0}-[{1}:{2} {3}]->{4}".format(
+            return "{0}-[:{1} {2}]->{3}".format(
                 str(self.start_node),
-                "" if self._id is None else self._id,
                 type_str,
                 json.dumps(self._properties, separators=(",", ":")),
                 str(self.end_node),
             )
         else:
-            return "{0}-[{1}:{2}]->{3}".format(
+            return "{0}-[:{1}]->{2}".format(
                 str(self.start_node),
-                "" if self._id is None else self._id,
                 type_str,
                 str(self.end_node),
             )
