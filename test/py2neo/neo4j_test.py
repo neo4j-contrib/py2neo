@@ -100,12 +100,12 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def test_neo4j_version_format(self):
         version = self.graph_db.neo4j_version
+        print version
         assert isinstance(version, tuple)
         assert len(version) == 4
         assert isinstance(version[0], int)
         assert isinstance(version[1], int)
         assert isinstance(version[2], int)
-        assert isinstance(version[3], str)
 
     def test_create_single_empty_node(self):
         a, = self.graph_db.create({})
