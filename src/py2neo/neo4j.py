@@ -35,14 +35,18 @@ classes provided are:
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
-from . import rest, cypher
-from .util import compact, quote, round_robin, deprecated, version_tuple
 
 import base64
 import json
 import logging
+import re
+
+from . import rest, cypher
+from .util import compact, quote, round_robin, deprecated, version_tuple
+
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
+SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 logger = logging.getLogger(__name__)
 
@@ -326,10 +330,12 @@ class GraphDatabaseService(rest.Resource):
             if "type" in data:
                 rel = Relationship(uri)
                 rel._update_metadata(data)
+                rel._properties = data["data"]
                 return rel
             else:
                 node = Node(uri)
                 node._update_metadata(data)
+                node._properties = data["data"]
                 return node
         elif isinstance(data, dict) and "length" in data and \
                 "nodes" in data and "relationships" in data and \
@@ -787,6 +793,12 @@ class _Entity(rest.Resource):
     def __getitem__(self, key):
         return self.get_properties().get(key, None)
 
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash((self._labels, self._properties))
+
     def __iter__(self):
         return self.get_properties().__iter__()
 
@@ -976,6 +988,11 @@ class Node(_Entity):
         """
         if self.is_abstract():
             return "({0})".format(json.dumps(self._properties, separators=(",", ":")))
+        elif self._properties:
+            return "({0} {1})".format(
+                "" if self._id is None else self._id,
+                json.dumps(self._properties, separators=(",", ":")),
+            )
         else:
             return "({0})".format("" if self._id is None else self._id)
 
@@ -1393,10 +1410,24 @@ class Relationship(_Entity):
             )
 
     def __str__(self):
-        return "[{0}:{1}]".format(
-            "" if self._id is None else self._idnic,
-            json.dumps(str(self.type)),
-        )
+        type_str = str(self.type)
+        if not SIMPLE_NAME.match(type_str):
+            type_str = json.dumps(type_str)
+        if self._properties:
+            return "{0}-[{1}:{2} {3}]->{4}".format(
+                str(self.start_node),
+                "" if self._id is None else self._id,
+                type_str,
+                json.dumps(self._properties, separators=(",", ":")),
+                str(self.end_node),
+            )
+        else:
+            return "{0}-[{1}:{2}]->{3}".format(
+                str(self.start_node),
+                "" if self._id is None else self._id,
+                type_str,
+                str(self.end_node),
+            )
 
     @property
     def _id(self):

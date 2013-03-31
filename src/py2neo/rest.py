@@ -219,6 +219,9 @@ class URI(object):
         else:
             self.base, self.reference = self.__uri__, ""
 
+    def __hash__(self):
+        return hash(self.__uri__)
+
     def __repr__(self):
         return self.__uri__
 

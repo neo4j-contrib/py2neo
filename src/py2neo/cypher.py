@@ -21,6 +21,7 @@
 import json
 import logging
 import threading
+import sys
 
 from . import rest
 
@@ -252,9 +253,166 @@ class Query(object):
                 self._depth += 1
             self._last_value = value
 
+
+class ResultWriter(object):
+
+    def __init__(self, out=None):
+        self.out = out or sys.stdout
+
+    @classmethod
+    def _stringify(cls, value, quoted=False):
+        if value is None:
+            if quoted:
+                return "null"
+            else:
+                return ""
+        elif isinstance(value, list):
+            out = " ".join(
+                cls._stringify(item, quoted=False)
+                for item in value
+            )
+            if quoted:
+                out = json.dumps(out, separators=(',',':'))
+        else:
+            if quoted:
+                try:
+                    out = json.dumps(value)
+                except TypeError:
+                    out = json.dumps(str(value))
+            else:
+                out = str(value)
+        return out
+
+    @classmethod
+    def _jsonify(cls, value):
+        if isinstance(value, list):
+            out = "[" + ", ".join(cls._jsonify(i) for i in value) + "]"
+        elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
+            metadata = {
+                "uri": str(value.__uri__),
+                #"labels": list(value._labels),
+                "properties": value._properties,
+            }
+            try:
+                metadata.update({
+                    "start": str(value.start_node.__uri__),
+                    "type": str(value.type),
+                    "end": str(value.end_node.__uri__),
+                })
+            except AttributeError:
+                pass
+            out = json.dumps(metadata)
+        else:
+            out = json.dumps(value)
+        return out
+
+    def write_delimited(self, data, metadata, **kwargs):
+        field_delimiter = kwargs.get("field_delimiter", "\t")
+        self.out.write(field_delimiter.join([
+            json.dumps(column)
+            for column in metadata.columns
+        ]))
+        self.out.write("\n")
+        for row in data:
+            self.out.write(field_delimiter.join([
+                ResultWriter._stringify(value, quoted=True)
+                for value in row
+            ]))
+            self.out.write("\n")
+
+    def write_geoff(self, data, metadata, **kwargs):
+        nodes = set()
+        rels = set()
+        def update_descriptors(value):
+            if isinstance(value, list):
+                for item in value:
+                    update_descriptors(item)
+            elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
+                if hasattr(value, "type"):
+                    rels.add(value)
+                else:
+                    nodes.add(value)
+        for row in data:
+            for i in range(len(row)):
+                update_descriptors(row[i])
+        for node in sorted(nodes):
+            self.out.write(str(node))
+            self.out.write("\n")
+        for rel in sorted(rels):
+            self.out.write(str(rel))
+            self.out.write("\n")
+
+    def write_json(self, data, metadata, **kwargs):
+        columns = [json.dumps(column) for column in metadata.columns]
+        row_count = 0
+        self.out.write("[")
+        for row in data:
+            row_count += 1
+            if row_count > 1:
+                self.out.write(", ")
+            self.out.write("{" + ", ".join([
+                columns[i] + ": " + ResultWriter._jsonify(row[i])
+                for i in range(len(row))
+            ]) + "}")
+        self.out.write("]")
+
+    def write_text(self, data, metadata, **kwargs):
+        columns = metadata.columns
+        column_widths = [len(column) for column in columns]
+        data = [
+            [
+                ResultWriter._stringify(value)
+                for value in row
+            ]
+            for row in data
+        ]
+        for row in data:
+            column_widths = [
+                max(column_widths[i], len(value))
+                for i, value in enumerate(row)
+            ]
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+        self.out.write("| " + " | ".join(
+            columns[i].ljust(column_widths[i])
+            for i, column in enumerate(columns)
+        ) + " |\n")
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+        for row in data:
+            self.out.write("| " + " | ".join([
+                value.ljust(column_widths[i])
+                for i, value in enumerate(row)
+            ]) + " |\n")
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+
+    formats = {
+        "csv": (write_delimited, {"field_delimiter": ","}),
+        "geoff": (write_geoff, {}),
+        "json": (write_json, {}),
+        "text": (write_text, {}),
+        "tsv": (write_delimited, {"field_delimiter": "\t"}),
+    }
+
+    def write(self, format, data, metadata):
+        try:
+            method, kwargs = self.formats[format]
+        except KeyError:
+            raise ValueError("Unknown format {0}".format(repr(format)))
+        if data or metadata:
+            method(self, data, metadata, **kwargs)
+
+
 def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None, error_handler=None):
-    """Execute a Cypher query against a database and return a tuple of rows and
-    metadata. If handlers are supplied, an empty list of rows is returned
+    """ Execute a Cypher query against a database and return a tuple of rows
+    and metadata. If handlers are supplied, an empty list of rows is returned
     instead, with each row being passed to the row_handler as it becomes
     available. Each row is passed as a list of values which may be either Nodes,
     Relationships or properties.
@@ -262,6 +420,7 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     :param graph_db: the graph database against which to execute this query
     :param query: the Cypher query to execute
     :param params: parameters to apply to the query provided
+    :param format:
     :param row_handler: a handler function for each row returned
     :param metadata_handler: a handler function for returned metadata
     :param error_handler: a handler function for error conditions
@@ -269,3 +428,12 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     return Query(graph_db, query).execute(
         params, row_handler=row_handler, metadata_handler=metadata_handler, error_handler=error_handler
     )
+
+
+def write(out, format, graph_db, query, params=None, error_handler=None):
+    try:
+        data, metadata = execute(graph_db, query, error_handler=error_handler)
+        ResultWriter(out).write(format, data, metadata)
+    except ValueError as err:
+        if error_handler:
+            error_handler(err.message)
