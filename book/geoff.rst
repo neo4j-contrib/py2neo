@@ -52,8 +52,6 @@ Subgraphs
 Module Functions
 ----------------
 
-.. autofunction:: py2neo.geoff.dump
-
 .. autofunction:: py2neo.geoff.insert
 
 .. autofunction:: py2neo.geoff.merge
