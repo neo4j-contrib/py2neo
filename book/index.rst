@@ -32,12 +32,3 @@ Contents
    neotool
    deprecated_features
    cookbook
-
-Tutorials
----------
-
-.. toctree::
-   :maxdepth: 1
-
-   tutorials/tables_to_graphs
-   tutorials/pagination
