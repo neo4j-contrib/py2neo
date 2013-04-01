@@ -1573,7 +1573,22 @@ class _UnboundRelationship(object):
 
 
 class Path(object):
-    """ A representation of a sequence of nodes connected by relationships.
+    """ A representation of a sequence of nodes connected by relationships. for
+    example::
+
+        >>> from py2neo import neo4j, node
+        >>> alice, bob, carol = node(name="Alice"), node(name="Bob"), node(name="Carol")
+        >>> abc = neo4j.Path(alice, "KNOWS", bob, "KNOWS", carol)
+        >>> abc.nodes
+        [node(**{'name': 'Alice'}), node(**{'name': 'Bob'}), node(**{'name': 'Carol'})]
+        >>> dave, eve = node(name="Dave"), node(name="Eve")
+        >>> de = neo4j.Path(dave, "KNOWS", eve)
+        >>> de.nodes
+        [node(**{'name': 'Dave'}), node(**{'name': 'Eve'})]
+        >>> abcde = neo4j.Path.join(abc, "KNOWS", de)
+        >>> str(abcde)
+        '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})-[:"KNOWS"]->({"name":"Carol"})-[:"KNOWS"]->({"name":"Dave"})-[:"KNOWS"]->({"name":"Eve"})'
+
     """
 
     def __init__(self, node, *rels_and_nodes):
