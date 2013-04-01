@@ -68,16 +68,33 @@ properties::
         "occupation"    : "Hacker"
     })
 
-As you may have noticed, nodes in Neo4j are typeless data structures. There is nothing specific which states that the entities we see above are people, cars, items of clothing or anything else; they are simply sets of properties. There is nothing to restrict you from adding a "type" property to every node created but there is nothing forcing you to do so either.
+As you may have noticed, nodes in Neo4j are typeless data structures. There is
+nothing specific which states that the entities we see above are people, cars,
+items of clothing or anything else; they are simply sets of properties. There
+is nothing to restrict you from adding a "type" property to every node created
+but there is nothing forcing you to do so either.
 
-Working with such free-form data can be quite unnerving at first, especially if one is used to modelling within a more rigid framework. The difference can also be very liberating, however, making use instead of notions such as [[http://en.wikipedia.org/wiki/Duck_typing|duck typing]]. The same contrast can be seen when switching between different programming languages such as Java and Python.
+Working with such free-form data can be quite unnerving at first, especially if
+one is used to modelling within a more rigid framework. The difference can also
+be very liberating, however, making use instead of notions such as
+`duck typing <http://en.wikipedia.org/wiki/Duck_typing>`_. The same contrast
+can be seen when switching between different programming languages such as Java
+and Python.
 
 Tables to Relationships
 -----------------------
 
-Clearly, individual records are little use on their own and, within a relational database, tables also serve to group similar items. When grouped, these may be queried and retrieved according to common properties. Neo4j can also model such groupings by using //relationships//.
+Clearly, individual records are little use on their own and, within a
+relational database, tables also serve to group similar items. When grouped,
+these may be queried and retrieved according to common properties. Neo4j can
+also model such groupings by using *relationships*.
 
-Alongside nodes, relationships are the other fundamental entity within Neo4j. Mathematically known as //edges//, one or more relationships can be laid between any two nodes within a graph to model a particular connection. Unlike nodes, relationships within Neo4j have a mandatory type and direction. This means that connecting A to B is different from connecting B to A. Doing so in py2neo is illustrated below:
+Alongside nodes, relationships are the other fundamental entity within Neo4j.
+Mathematically known as *edges*, one or more relationships can be laid
+between any two nodes within a graph to model a particular connection. Unlike
+nodes, relationships within Neo4j have a mandatory type and direction. This
+means that connecting A to B is different from connecting B to A. Doing so in
+py2neo is illustrated below::
 
     # create a relationship from Alice to Bob
     # (Alice)-[:KNOWS]->(Bob)
@@ -87,7 +104,12 @@ Alongside nodes, relationships are the other fundamental entity within Neo4j. Ma
     # (Alice)<-[:KNOWS]-(Bob)
     bob_alice = bob.create_relationship_to(alice, "KNOWS")
 
-Although nodes do not have a specific type attached to them, relationships can be used to achieve a kind of typing. To achieve this, a separate node (sometimes called a //category node//) is used as a common base point from which relationships extend to all its member nodes. To show that Alice and Bob are both people, we can link them both to a third node using relationships of type "PERSON". The code below illustrates this:
+Although nodes do not have a specific type attached to them, relationships can
+be used to achieve a kind of typing. To achieve this, a separate node
+(sometimes called a *category node*) is used as a common base point from
+which relationships extend to all its member nodes. To show that Alice and Bob
+are both people, we can link them both to a third node using relationships of
+type "PERSON". The code below illustrates this::
 
     # create a category node for "People" and
     # PERSON relationships to Alice and Bob
@@ -102,11 +124,23 @@ Although nodes do not have a specific type attached to them, relationships can b
     people.create_relationship_to(alice, "PERSON")
     people.create_relationship_to(bob, "PERSON")
 
-The number of relationships attached to category nodes such as this can clearly grow very large but Neo4j can happily cope and this is indeed a commonly used pattern.
+The number of relationships attached to category nodes such as this can clearly
+grow very large but Neo4j can happily cope and this is indeed a commonly used
+pattern.
 
-Using SQL, we could select all //people// with a statement like "{{{SELECT * FROM people}}}". The equivalent, using Neo4j's query language [[http://docs.neo4j.org/chunked/milestone/cypher-query-lang.html|Cypher]] (and assuming the "People" category node has an ID of 100), would be "{{{START z=node(100) MATCH (z)-[:PERSON]->(p) RETURN p}}}". This starts the query at the category node and locates all nodes connected by an outgoing "PERSON" relationship, returning them as query results.
+Using SQL, we could select all *people* with a statement like ``SELECT * FROM
+people``. The equivalent, using Neo4j's query language
+`Cypher <http://docs.neo4j.org/chunked/milestone/cypher-query-lang.html>`_ (and
+assuming the "People" category node has an ID of 100), would be ``START
+z=node(100) MATCH (z)-[:PERSON]->(p) RETURN p``. This starts the query at the
+category node and locates all nodes connected by an outgoing "PERSON"
+relationship, returning them as query results.
 
-Taking it a step further, this pattern can also allow nodes to be simultaneously assigned multiple "types". This is to some extent akin to how an object within an object oriented environment may implement multiple interfaces and can be easily achieved by linking from a second category node such as in the code below:
+Taking it a step further, this pattern can also allow nodes to be
+simultaneously assigned multiple "types". This is to some extent akin to how an
+object within an object oriented environment may implement multiple interfaces
+and can be easily achieved by linking from a second category node such as in
+the code below::
 
     # create category nodes for "People" and "Mothers" and
     # PERSON and MOTHER relationships to Alice and Bob
@@ -122,20 +156,37 @@ Taking it a step further, this pattern can also allow nodes to be simultaneously
     people.create_relationship_to(bob, "PERSON")
     mothers.create_relationship_to(alice, "MOTHER")
 
-Alice is now described as both a PERSON and a MOTHER whereas Bob is only a PERSON. Cypher allows us to select all nodes which are members of both sets as follows (once again assuming nodes 100 and 101 are the category nodes in question):
+Alice is now described as both a PERSON and a MOTHER whereas Bob is only a
+PERSON. Cypher allows us to select all nodes which are members of both sets as
+follows (once again assuming nodes 100 and 101 are the category nodes in
+question)::
 
     START z1=node(100), z2=node(101)
     MATCH (z1)-[:PERSON]->(p)<-[:MOTHER]-(z2)
     RETURN p
 
-Here, Cypher's MATCH clause is used to identify all nodes which have incoming relationships from the "People" and "Mothers" category nodes. The Cypher language is incredibly powerful and allows much more complex queries to be built up to work with more intricate graphs.
+Here, Cypher's MATCH clause is used to identify all nodes which have incoming
+relationships from the "People" and "Mothers" category nodes. The Cypher
+language is incredibly powerful and allows much more complex queries to be
+built up to work with more intricate graphs.
 
 Foreign Keys to More Relationships
 ----------------------------------
 
-There are many further reasons to build relationships between nodes besides those highlighted above. Very commonly, relationships are used in the way that foreign keys are used in a relational database. Associating people with the companies in which they work would traditionally be achieved by storing the the ID of the required company record within the person record. With Neo4j, that foreign key instead becomes a relationship which we may choose to implement as either {{{(company)-[:EMPLOYS]->(person)}}} or {{{(person)-[:IS_EMPLOYED_BY]->(company)}}}; we may even choose to model both relationships. Such relationships are in fact more analogous to a [[http://en.wikipedia.org/wiki/Junction_table|junction table]] in the relational model, removing the need for either record to directly store information about the other.
+There are many further reasons to build relationships between nodes besides
+those highlighted above. Very commonly, relationships are used in the way that
+foreign keys are used in a relational database. Associating people with the
+companies in which they work would traditionally be achieved by storing the the
+ID of the required company record within the person record. With Neo4j, that
+foreign key instead becomes a relationship which we may choose to implement as
+either ``(company)-[:EMPLOYS]->(person)`` or
+``(person)-[:IS_EMPLOYED_BY]->(company)``; we may even choose to model both
+relationships. Such relationships are in fact more analogous to a `junction
+table <http://en.wikipedia.org/wiki/Junction_table>`_ in the relational model,
+removing the need for either record to directly store information about the
+other.
 
-The code below shows another example of such a relationship:
+The code below shows another example of such a relationship::
 
     # create category node for "Companies" and Megacorp
     # attach Alice and Bob to their employer
@@ -159,4 +210,3 @@ Putting aside an established methodology is not always easy but the transition
 to graphical data modelling is well worth the effort. A graph allows a more
 multi-dimensional approach to data representation and can eventually end up
 feeling like a much more natural approach.
-
