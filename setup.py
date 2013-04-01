@@ -41,7 +41,7 @@ setup(
     author=py2neo_author,
     author_email="nasmall@gmail.com",
     url="http://py2neo.org/",
-    scripts=["scripts/cypher", "scripts/geoff"],
+    scripts=["scripts/cypher", "scripts/geoff", "scripts/neotool"],
     package_dir={"": "src"},
     packages=["py2neo"],
     license=py2neo_license,

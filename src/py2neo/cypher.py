@@ -83,7 +83,7 @@ class CypherClient(rest.Client):
             else:
                 handler(rs.read().decode("utf-8"))
         return rest.Response(
-            request.graph_db, rs.status, request.uri,
+            request._graph_db, rs.status, request.uri,
             rs.getheader("Location", None)
         )
 
@@ -430,7 +430,7 @@ def execute(graph_db, query, params=None, row_handler=None, metadata_handler=Non
     )
 
 
-def write(out, format, graph_db, query, params=None, error_handler=None):
+def write(format, out, graph_db, query, params=None, error_handler=None):
     try:
         data, metadata = execute(graph_db, query, error_handler=error_handler)
         ResultWriter(out).write(format, data, metadata)

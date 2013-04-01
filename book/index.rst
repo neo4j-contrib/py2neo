@@ -12,12 +12,6 @@ In addition, the library provides support for the Graph Export Object File
 Format (Geoff). For further information on Geoff, visit
 http://nigelsmall.com/geoff.
 
-tl;dr
------
-
-If you're not into reading instructions first and would prefer to just look at
-some sample code then try the `cookbook <cookbook.html>`_.
-
 Contents
 --------
 
@@ -35,6 +29,7 @@ Contents
    geoff
    gremlin
    calendar
+   neotool
    deprecated_features
    cookbook
 

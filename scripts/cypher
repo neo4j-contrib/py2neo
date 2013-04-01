@@ -42,4 +42,4 @@ if __name__ == "__main__":
             sys.stderr.write("{0}: {1}\n".format(exception, message))
         else:
             sys.stderr.write("{0}\n".format(message))
-    cypher.write(sys.stdout, args.format, graph_db, query, error_handler=report)
+    cypher.write(args.format, sys.stdout, graph_db, query, error_handler=report)
