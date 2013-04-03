@@ -19,27 +19,101 @@
 
 import argparse
 import sys
+from os.path import exists
+from functools import partial
 
 from py2neo import neo4j, cypher
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Execute Cypher queries against a Neo4j database server and output the results.")
-    parser.add_argument("-H", "--host", metavar="host", default='localhost', help="Neo4j server host name (default \"localhost\"')")
-    parser.add_argument("-P", "--port", metavar="port", default=7474, help="Neo4j server port (default 7474)")
-    parser.add_argument("-D", "--database-path", metavar="path", default='/db/data/', help="path of graph database (default \"/db/data/\")")
-    parser.add_argument("-f", "--format", metavar="format", default='text', help="output file format (default \"text\")")
-    #parser.add_argument("-n", "--no-header", metavar="no_header", default=False, help="header suppression flag")
-    parser.add_argument("query", nargs="?", default='-', help="the Cypher query to execute (if omitted, will read from standard input)")
-    args = parser.parse_args()
-    graph_db = neo4j.GraphDatabaseService("http://{host}:{port}{path}".format(host=args.host, port=args.port, path=args.database_path))
-    if args.query == "-":
-        query = sys.stdin.read()
-    else:
-        query = args.query
-    def report(message, exception=None, stacktrace=None):
-        if exception:
-            sys.stderr.write("{0}: {1}\n".format(exception, message))
+def extract_line_col(query, error_message):
+    '''
+    Tries to extract the line number and column from a query based
+    on an error message.
+
+    Args:
+        query: The Cypher query string the error_message relates to.
+        error_message: An error message returned from neo4j.
+
+    Returns:
+        A tuple(line number, column) or (1, 1) if no match was found.
+    '''
+
+    try:
+        _, match, col = error_message.rsplit('\n', 2)
+        col = col.index('^')
+        match = match.strip('"')
+        line_num = 0
+
+        for line_num, lne in enumerate(query.splitlines()):
+            if match in lne:
+                break
+        return (line_num + 1, col)
+
+    except:
+        return (1, 1)
+
+
+def report_error(file_name, query, message, exception=None, stacktrace=None):
+
+    if exception:
+        if exception == 'SyntaxException':
+            line, col = extract_line_col(query, message)
+            msg = 'File {0}{1}:{2}\n{3}: {4}\n'.format(
+                file_name, line, col, exception, message)
         else:
-            sys.stderr.write("{0}\n".format(message))
-    cypher.write(args.format, sys.stdout, graph_db, query, error_handler=report)
+            msg = "{0}: {1}\n".format(exception, message)
+    else:
+        msg = "{0}\n".format(message)
+
+    sys.stderr.write(msg)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Execute Cypher queries against a Neo4j"
+        " database server and output the results.")
+
+    parser.add_argument(
+        "-H", "--host", metavar="host", default='localhost',
+        help="Neo4j server host name (default \"localhost\"')")
+    parser.add_argument(
+        "-P", "--port", metavar="port", default=7474,
+        help="Neo4j server port (default 7474)")
+    parser.add_argument(
+        "-D", "--database-path", metavar="path", default='/db/data/',
+        help="path of graph database (default \"/db/data/\")")
+    parser.add_argument(
+        "-f", "--format", metavar="format", default='text',
+        help="output file format (default \"text\")")
+    #parser.add_argument(
+    #    "-n", "--no-header", metavar="no_header", default=False,
+    #    help="header suppression flag")
+    parser.add_argument(
+        "query", nargs="?", default='-',
+        help="the Cypher query or file to execute "
+        "(if omitted, will read from standard input)")
+
+    args = parser.parse_args()
+
+    neo4j_url = "http://{host}:{port}{path}".format(
+        host=args.host, port=args.port, path=args.database_path)
+
+    graph_db = neo4j.GraphDatabaseService(neo4j_url)
+
+    file_name = args.query
+    if file_name == "-":
+        query = sys.stdin.read()
+
+    elif exists(file_name):
+        with open(file_name) as query_file:
+            query = query_file.read()
+    else:
+        query = file_name
+
+    cypher.write(
+        args.format, sys.stdout, graph_db, query,
+        error_handler=partial(report_error, file_name, query))
+
+
+if __name__ == '__main__':
+    main()
