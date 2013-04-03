@@ -3,7 +3,7 @@ Geoff
 
 .. note::
 
-    This module requires server version 1.8.2 or above.
+    The geoff.py module requires server version 1.8.2 or above.
 
 Geoff is a textual interchange format for graph data, designed with Neo4j in
 mind. It can be seen as a graphical equivalent of CSV and is intended to be
@@ -33,13 +33,45 @@ example below shows all three of these element types within a single subgraph::
 
 Paths
 -----
-A Geoff path consists of one or more nodes connected by relationships.
+
+A Geoff path consists of one or more nodes connected by relationships. The
+simplest path is a single node which may or may not contain properties::
+
+    (alice)
+    (alice {"name":"Alice"})
+    
+Any number of nodes may be chained together with relationships, for example::
+
+    (alice)-[:KNOWS]->(bob {"name":"Bob"})
+    (bob)-[:KNOWS]->(carol {"name":"Carol"})-[:KNOWS]->(dave {"name":"Dave"})
+
+Path relationships do not all have to flow in the same direction::
+
+    (homer)<-[:FATHER]-(bart)-[:MOTHER]->(marge)
+    
+Relationships may also have properties::
+
+    (sun)-[:PLANET {"distance":149600000,"unit":"km"}]->(earth)
 
 Index Entries
 -------------
 
+Index entries denote entries within Neo4j node indexes bound to a single
+key-value pair. These elements use pipe symbols (``|``) and heavy arrows
+(``=>``)::
+
+    |People {"email":"alice@example.com"}|=>(alice {"name":"Alice"})
+    (bob {"name":"Bob"})<=|People {"email":"bob@example.net"}|
+
+.. note::
+
+    Relationship index entries are no longer supported within Geoff.
+
 Comments
 --------
+
+Comment elements may be included between other elements and have the same
+syntax as C/Java multiline comments, between ``/*`` and ``*/``.
 
 Subgraphs
 ---------
@@ -59,9 +91,6 @@ Module Functions
 .. autofunction:: py2neo.geoff.insert_xml
 
 .. autofunction:: py2neo.geoff.merge_xml
-
-XML Support
------------
 
 Full Geoff Syntax Specification (version 2)
 -------------------------------------------
