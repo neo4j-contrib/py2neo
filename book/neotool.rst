@@ -44,8 +44,11 @@ Cypher Execution
 Cypher queries passed will be executed and the results returned in an ASCII art
 table, such as the one below::
 
-    +---+
-    +---+
+    +----------------------+
+    | n                    |
+    +----------------------+
+    | (1 {"name":"Alice"}) |
+    +----------------------+
 
 Delimited Output
 ~~~~~~~~~~~~~~~~
@@ -61,6 +64,11 @@ quotes whereas numbers and booleans are not. Arrays may also be output.
 Although it is possible to output nodes and relationships, this format is most
 useful when returning individual properties.
 
+Comma delimited output looks similar to that below::
+
+    "n.name","n.age?"
+    "Alice",34
+
 JSON Output
 ~~~~~~~~~~~
 ::
@@ -69,18 +77,36 @@ JSON Output
 
 The ``cypher-json`` command outputs query results within a JSON object. Nodes
 and relationships within the results produce nested objects similar to, but
-notably different from, the raw REST API results returned by the server. The
-output below shows an example::
+different from, the raw REST API results returned by the server.
 
-    {
-        ...
-    }
+From the command line, output can be pretty printed by piping through the
+python ``json.tool`` module::
+
+    neotool cypher-json "start n=node(1) return n" | python -m json.tool
+
+Example output is below (not pretty printed by default)::
+
+    [
+        {
+            "n": {
+                "properties": {
+                    "age": 34, 
+                    "name": "Alice"
+                }, 
+                "uri": "http://localhost:7474/db/data/node/1"
+            }
+        }
+    ]
 
 Geoff Output
 ~~~~~~~~~~~~
 ::
 
     neotool cypher-geoff "start n=node(1) return n"
+
+Nodes and relationships can be output in Geoff format using the
+``cypher-geoff`` command. Individual properties cannot be output with this
+method.
 
 Inserting/Merging Geoff Data
 ----------------------------
