@@ -90,7 +90,11 @@ class Tool(object):
         self._script = args.pop(0)
         command = None
         while not command:
-            arg = args.pop(0)
+            try:
+                arg = args.pop(0)
+            except IndexError:
+                self._help()
+                sys.exit(0)
             if arg.startswith("-"):
                 if arg in ("-h", "--help"):
                     self._help()
