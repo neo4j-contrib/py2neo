@@ -75,8 +75,8 @@ class NodeIndexTestCase(unittest.TestCase):
 
     def test_add_existing_node_to_index_with_odd_chars_in_key_and_value(self):
         alice, = self.graph_db.create({"name": "Alice Smith"})
-        self.index.add("@!%#", "!\"£$%^&*()", alice)
-        entities = self.index.get("@!%#", "!\"£$%^&*()")
+        self.index.add("@!%#", "!\"$%^&*()", alice)
+        entities = self.index.get("@!%#", "!\"$%^&*()")
         self.assertIsNotNone(entities)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))

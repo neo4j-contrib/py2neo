@@ -83,7 +83,7 @@ class CypherClient(rest.Client):
             else:
                 handler(rs.read().decode("utf-8"))
         return rest.Response(
-            request._graph_db, rs.status, request.uri,
+            request.graph_db, rs.status, request.uri,
             rs.getheader("Location", None)
         )
 
