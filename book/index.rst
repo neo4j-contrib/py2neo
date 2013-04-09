@@ -32,3 +32,4 @@ Contents
    neotool
    deprecated_features
    cookbook
+   neomodel

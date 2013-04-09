@@ -100,7 +100,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def test_neo4j_version_format(self):
         version = self.graph_db.neo4j_version
-        print version
+        print(version)
         assert isinstance(version, tuple)
         assert len(version) == 4
         assert isinstance(version[0], int)
