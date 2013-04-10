@@ -1470,6 +1470,9 @@ class Relationship(_Entity):
     def is_type(self, type):
         """ Return :py:const:`True` if this relationship is of the given type,
         :py:const:`False` otherwise.
+
+        .. deprecated:: 1.5
+            compare values with :py:attr:`Relationship.type` instead.
         """
         return self.type == type
 
@@ -1478,6 +1481,10 @@ class Relationship(_Entity):
                 "Relationship.start_node and Relationship.end_node instead.")
     def nodes(self):
         """ Return a tuple of the two nodes attached to this relationship.
+
+        .. deprecated:: 1.5
+            use :py:attr:`Relationship.start_node` and
+            :py:attr:`Relationship.end_node` instead.
         """
         return self.start_node, self.end_node
 
@@ -2204,11 +2211,21 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.create_node is deprecated, use "
                 "WriteBatch.create instead.")
     def create_node(self, properties=None):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.create` instead.
+        """
         self._post(self._create_node_uri, compact(properties or {}))
 
     @deprecated("WriteBatch.create_relationship is deprecated, use "
                 "WriteBatch.create instead.")
     def create_relationship(self, start_node, type_, end_node, properties=None):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.create` instead.
+        """
         body = {
             "type": type_,
             "to": self._relative_node_uri(end_node),
@@ -2261,6 +2278,11 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.get_or_create_relationship is deprecated, use "
                 "WriteBatch.get_or_create instead.")
     def get_or_create_relationship(self, start_node, type_, end_node, properties=None):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.get_or_create` instead.
+        """
         if not (isinstance(start_node, Node) or start_node is None):
             raise TypeError(start_node)
         if not (isinstance(end_node, Node) or end_node is None):
@@ -2298,11 +2320,21 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.delete_node is deprecated, use "
                 "WriteBatch.delete instead.")
     def delete_node(self, node):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete` instead.
+        """
         self._delete(node.__uri__.reference)
 
     @deprecated("WriteBatch.delete_relationship is deprecated, use "
                 "WriteBatch.delete instead.")
     def delete_relationship(self, relationship):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete` instead.
+        """
         self._delete(relationship.__uri__.reference)
 
     def set_property(self, entity, key, value):
@@ -2322,6 +2354,11 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_node_property is deprecated, use "
                 "WriteBatch.set_property instead.")
     def set_node_property(self, node, key, value):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.set_property` instead.
+        """
         if value is None:
             self.delete_node_property(node, key)
         else:
@@ -2341,6 +2378,11 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_node_properties is deprecated, use "
                 "WriteBatch.set_properties instead.")
     def set_node_properties(self, node, properties):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.set_properties` instead.
+        """
         uri = rest.URI(node.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
@@ -2357,6 +2399,11 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.delete_node_property is deprecated, use "
                 "WriteBatch.delete_property instead.")
     def delete_node_property(self, node, key):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete_property` instead.
+        """
         uri = rest.URI(node.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
@@ -2373,6 +2420,9 @@ class WriteBatch(_Batch):
                 "WriteBatch.delete_properties instead.")
     def delete_node_properties(self, node):
         """ Delete all properties from a node.
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete_properties` instead.
         """
         uri = rest.URI(node.__metadata__['properties'])
         self._delete(uri.reference)
@@ -2381,6 +2431,9 @@ class WriteBatch(_Batch):
                 "WriteBatch.set_property instead.")
     def set_relationship_property(self, relationship, key, value):
         """ Set a single property on a relationship.
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.set_property` instead.
         """
         if value is None:
             self.delete_relationship_property(relationship, key)
@@ -2391,18 +2444,33 @@ class WriteBatch(_Batch):
     @deprecated("WriteBatch.set_relationship_properties is deprecated, use "
                 "WriteBatch.set_properties instead.")
     def set_relationship_properties(self, relationship, properties):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.set_properties` instead.
+        """
         uri = rest.URI(relationship.__metadata__['properties'])
         self._put(uri.reference, compact(properties))
 
     @deprecated("WriteBatch.delete_relationship_property is deprecated, use "
                 "WriteBatch.delete_property instead.")
     def delete_relationship_property(self, relationship, key):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete_property` instead.
+        """
         uri = rest.URI(relationship.__metadata__['property'].format(key=quote(key, "")))
         self._delete(uri.reference)
 
     @deprecated("WriteBatch.delete_relationship_properties is deprecated, use "
                 "WriteBatch.delete_properties instead.")
     def delete_relationship_properties(self, relationship):
+        """
+
+        .. deprecated:: 1.5
+            use :py:func:`WriteBatch.delete_properties` instead.
+        """
         uri = rest.URI(relationship.__metadata__['properties'])
         self._delete(uri.reference)
 

@@ -8,9 +8,9 @@ with coding is easy. The library is actively maintained on GitHub, regularly
 updated in the Python Package Index and is built uniquely for Neo4j in close
 association with its team and community.
 
-In addition, the library provides support for the Graph Export Object File
-Format (Geoff). For further information on Geoff, visit
-http://nigelsmall.com/geoff.
+.. warning::
+   A significant number of features have been deprecated in py2neo 1.5. See
+   `here <deprecated_features.html>`_ for details.
 
 Contents
 --------
