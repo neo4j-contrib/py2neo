@@ -17,6 +17,20 @@ association with its team and community.
    A significant number of features have been deprecated in py2neo 1.5. See
    `here <deprecated_features.html>`_ for details.
 
+Get in Touch
+------------
+
+Thanks for using py2neo! If you need to get in touch (or would like to leave a
+tip) my main points of contact are as follows:
+
+======== ===============================================
+GitHub:  `nigelsmall <https://github.com/nigelsmall>`_
+Twitter: `@technige <https://twitter.com/technige>`_
+Email:   `nasmall@gmail.com <mailto:nasmall@gmail.com>`_
+Skype:   technige
+Bitcoin: 13FoUCdhSjcqdnJyoi1QGmhnuBsmYzS6fj
+======== ===============================================
+
 Contents
 --------
 
