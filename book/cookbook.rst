@@ -68,11 +68,6 @@ Authentication
 
 .. autofunction:: py2neo.neo4j.authenticate
 
-Timeouts
---------
-
-foo
-
 URI Rewriting
 -------------
 

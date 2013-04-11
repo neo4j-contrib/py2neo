@@ -90,6 +90,26 @@ preferred variation listed first)::
     Literals do not yet support *labels*. Formats including these are reserved
     for an upcoming future Neo4j server release.
 
+Node & Relationship IDs
+-----------------------
+
+Py2neo provides limited facilities for managing node and relationship IDs.
+Generally speaking, these IDs should not carry any relevance within your
+application. There have been a number of discussions about this within the
+Neo4j mailing list and Stack Overflow as the ID is an internal artifact and
+should not be used like a primary key. It's purpose is more akin to an
+in-memory address.
+
+If you require unique identifiers, consider using
+`UUIDs <http://docs.python.org/2/library/uuid.html#uuid.uuid4>`_.
+
+Transactions
+------------
+
+While the core Neo4j engine supports transactions, the REST API used by py2neo
+does not yet do so explicitly. If you prefer to wrap your code into
+transactions, consider using a Cypher query or a batch request.
+
 Errors
 ------
 
