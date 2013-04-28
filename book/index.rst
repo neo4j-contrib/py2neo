@@ -26,7 +26,7 @@ tip) my main points of contact are as follows:
 ======== ===============================================
 GitHub:  `nigelsmall <https://github.com/nigelsmall>`_
 Twitter: `@technige <https://twitter.com/technige>`_
-Email:   `nasmall@gmail.com <mailto:nasmall@gmail.com>`_
+Email:   `nigel@nigelsmall.com <mailto:nigel@nigelsmall.com>`_
 Skype:   technige
 Bitcoin: 13FoUCdhSjcqdnJyoi1QGmhnuBsmYzS6fj
 ======== ===============================================
