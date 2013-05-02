@@ -341,7 +341,7 @@ class Client(object):
                 rs = http.getresponse()
                 logger.info("{0} {1} {2}".format(rs.status, rs.reason, dict(rs.getheaders())))
                 return rs
-            except httplib.HTTPException as err:
+            except (httplib.HTTPException, IOError) as err:
                 if tries < 3:
                     logger.warn("Request failed ({0}), retrying".format(err.__class__.__name__))
                     reconnect = True
