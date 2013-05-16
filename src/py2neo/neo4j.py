@@ -286,7 +286,7 @@ class GraphDatabaseService(rest.Resource):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri)
         rs = self._send(rest.Request(self, "GET", self.__uri__))
-        self.assert_expected_response(self.__class__, self.__uri__, rs.body)
+        self.assert_expected_response(self.__uri__, rs.body)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self.__uri__ = rest.URI(rs.uri)
