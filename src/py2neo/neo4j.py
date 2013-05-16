@@ -275,14 +275,12 @@ class GraphDatabaseService(rest.Resource):
         if has_all(metadata, ("extensions", "node", "node_index",
                               "relationship_index", "relationship_types")):
             return
-        raise TypeError("Cannot confirm metadata for class " + cls.__name__)
     
-    raise ValueError(
-        "URI <{0}> does not appear to identify a {1}: {2}".format(
-            uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
+        raise ValueError(
+            "URI <{0}> does not appear to identify a {1}: {2}".format(
+                uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
+                )
             )
-        )
-
 
     def __init__(self, uri=None):
         uri = uri or DEFAULT_URI
