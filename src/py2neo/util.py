@@ -43,7 +43,7 @@ def quote(string, safe='/'):
     """ Quote a string for use in URIs.
     """
     try:
-        return _quote(string, safe)
+        return _quote(string, safe.encode("utf-8"))
     except UnicodeEncodeError:
         return string
 

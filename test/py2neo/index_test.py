@@ -161,6 +161,16 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertTrue(green in colours_containing_R)
         self.assertFalse(blue in colours_containing_R)
 
+    def test_node_index_query_utf8(self):
+        red, green, blue = self.graph_db.create({}, {}, {})
+        self.index.add("colour", u"красный", red)
+        self.index.add("colour", u"зеленый", green)
+        self.index.add("colour", u"синий", blue)
+        colours_containing_R = self.index.query("colour:*ный*")
+        self.assertTrue(red in colours_containing_R)
+        self.assertTrue(green in colours_containing_R)
+        self.assertFalse(blue in colours_containing_R)
+
 
 class RemovalTests(unittest.TestCase):
 
