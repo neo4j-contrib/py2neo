@@ -407,9 +407,9 @@ class GraphDatabaseService(rest.Resource):
 
         .. warning::
             This method will *always* return a list, even when only creating
-            a single node or relationship. To automatically unpack this list,
-            add a trailing comma to the variable name on the left of the
-            assignment operation.
+            a single node or relationship. To automatically unpack a list
+            containing a single item, append a trailing comma to the variable
+            name on the left of the assignment operation.
 
         """
         if not abstracts:
