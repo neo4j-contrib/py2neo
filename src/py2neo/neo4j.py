@@ -876,6 +876,103 @@ class _Entity(rest.Resource):
         raise NotImplementedError("Entity.update_properties")
 
 
+class LabelSet(rest.Resource):
+
+    @classmethod
+    def abstract(cls, *labels):
+        """ Create and return a new abstract label set containing labels drawn
+        from the arguments supplied.
+        """
+        instance = cls(None)
+        instance._labels = set(labels)
+        return instance
+
+    def __init__(self, uri):
+        rest.Resource.__init__(self, uri)
+        self._labels = set()
+
+    def __eq__(self, other):
+        other = _cast(other, Node)
+        if self.__uri__:
+            return rest.Resource.__eq__(self, other)
+        else:
+            return self._labels == other._labels
+
+    def __ne__(self, other):
+        other = _cast(other, Node)
+        if self.__uri__:
+            return rest.Resource.__ne__(self, other)
+        else:
+            return self._labels != other._labels
+
+    def __repr__(self):
+        if self.__uri__:
+            return "{0}({1})".format(
+                self.__class__.__name__,
+                repr(str(self.__uri__)),
+            )
+        else:
+            return "{0}.abstract({1})".format(
+                self.__class__.__name__,
+                ", ".join(repr(label) for label in sorted(self._labels)),
+            )
+
+    def __str__(self):
+        return ":".join(sorted(self._labels))
+
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash(frozenset(self._labels))
+
+    def refresh(self):
+        if self.__uri__:
+            rs = self._send(rest.Request(self._graph_db, "GET", self.__uri__))
+            self._labels = set(rs.body)
+
+    def __contains__(self, item):
+        self.refresh()
+        return item in self._labels
+
+    def __iter__(self):
+        self.refresh()
+        return iter(self._labels)
+
+    def __len__(self):
+        self.refresh()
+        return len(self._labels)
+
+    @property
+    def _graph_db(self):
+        try:
+            return GraphDatabaseService.get_instance(self.__uri__.base)
+        except AttributeError:
+            return None
+
+    def is_abstract(self):
+        return self.__uri__ is None
+
+    def add(self, *labels):
+        if self.__uri__:
+            # TODO: batch
+            self._send(rest.Request(self._graph_db, "POST",
+                                    self.__uri__, list(labels)))
+            self.refresh()
+        else:
+            self._labels.update(labels)
+
+    def remove(self, *labels):
+        if self.__uri__:
+            # TODO: batch
+            for label in labels:
+                uri = "{0}/{1}".format(self.__uri__,  quote(label))
+                self._send(rest.Request(self._graph_db, "DELETE", uri))
+            self.refresh()
+        else:
+            return self._labels.remove(labels)
+
+
 class Node(_Entity):
     """ A node within a graph, identified by a URI. For example:
 
@@ -934,20 +1031,23 @@ class Node(_Entity):
         :param properties: node properties
         """
         instance = cls(None)
-        instance._labels = set(labels)
+        instance.labels = set(labels)
         instance._properties = dict(properties)
         return instance
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
-        self._labels = set()
+        try:
+            self.labels = LabelSet(self.__metadata__["labels"])
+        except KeyError:
+            self.labels = None
 
     def __eq__(self, other):
         other = _cast(other, Node)
         if self.__uri__:
             return _Entity.__eq__(self, other)
         else:
-            return self._labels == other._labels and \
+            return self.labels == other.labels and \
                    self._properties == other._properties
 
     def __ne__(self, other):
@@ -955,7 +1055,7 @@ class Node(_Entity):
         if self.__uri__:
             return _Entity.__ne__(self, other)
         else:
-            return self._labels != other._labels or \
+            return self.labels != other.labels or \
                    self._properties != other._properties
 
     def __repr__(self):
@@ -992,7 +1092,7 @@ class Node(_Entity):
             return hash(self.__uri__)
         else:
             return hash((
-                tuple(self._labels),
+                self.labels,
                 tuple(sorted(self._properties.items())),
             ))
 
