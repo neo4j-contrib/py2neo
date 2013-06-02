@@ -42,7 +42,7 @@ import logging
 import re
 
 from . import rest, cypher
-from .util import compact, quote, round_robin, deprecated, version_tuple
+from .util import compact, flatten, quote, round_robin, deprecated, version_tuple
 
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
@@ -428,6 +428,22 @@ class GraphDatabaseService(rest.Resource):
                 raise TypeError(entity)
         batch._submit()
 
+    def find(self, label, property_key=None, property_value=None):
+        if property_key:
+            uri = "{0}label/{1}/nodes?{2}={3}".format(
+                self.__uri__, str(label), quote(property_key),
+                quote(json.dumps(property_value))
+            )
+        else:
+            uri = "{0}label/{1}/nodes".format(self.__uri__, str(label))
+        try:
+            return [
+                Node(result["self"])
+                for result in self._send(rest.Request(self, "GET", uri)).body
+            ]
+        except rest.ResourceNotFound:
+            return None
+
     @deprecated("GraphDatabaseService.get_reference_node is deprecated, "
                 "please use indexed nodes instead.")
     def get_reference_node(self):
@@ -484,13 +500,10 @@ class GraphDatabaseService(rest.Resource):
             batch.get_properties(entity)
         return [rs.body or {} for rs in batch._submit()]
 
+    @deprecated("GraphDatabaseService.get_relationship_types is "
+                "deprecated, please use relationship_types property instead.")
     def get_relationship_types(self):
-        """ Fetch a list of relationship type names currently defined within
-        this database instance.
-        """
-        return self._send(
-            rest.Request(self,"GET", self.__metadata__['relationship_types'])
-        ).body
+        return list(self.relationship_types)
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -603,6 +616,17 @@ class GraphDatabaseService(rest.Resource):
         """
         return Node(self.__metadata__['node'] + "/" + str(id))
 
+    @property
+    def node_labels(self):
+        """ Return the set of node labels currently defined within this
+        database instance.
+        """
+        uri = "{0}labels".format(self.__uri__)
+        try:
+            return set(self._send(rest.Request(self, "GET", uri)).body)
+        except rest.ResourceNotFound:
+            return None
+
     def order(self):
         """ Fetch the number of nodes in this graph.
         """
@@ -617,6 +641,14 @@ class GraphDatabaseService(rest.Resource):
         """
         uri = "{0}relationship/{1}".format(self.__uri__.base, id)
         return Relationship(uri)
+
+    @property
+    def relationship_types(self):
+        """ Return the set of relationship types currently defined within this
+        database instance.
+        """
+        uri = self.__metadata__['relationship_types']
+        return set(self._send(rest.Request(self, "GET", uri)).body)
 
     def size(self):
         """ Fetch the number of relationships in this graph.
@@ -954,6 +986,7 @@ class LabelSet(rest.Resource):
         return self.__uri__ is None
 
     def add(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
         if self.__uri__:
             # TODO: batch
             self._send(rest.Request(self._graph_db, "POST",
@@ -963,6 +996,7 @@ class LabelSet(rest.Resource):
             self._labels.update(labels)
 
     def remove(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
         if self.__uri__:
             # TODO: batch
             for label in labels:
@@ -970,7 +1004,17 @@ class LabelSet(rest.Resource):
                 self._send(rest.Request(self._graph_db, "DELETE", uri))
             self.refresh()
         else:
-            return self._labels.remove(labels)
+            self._labels.remove(labels)
+
+    def replace(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
+        if self.__uri__:
+            # TODO: batch
+            self._send(rest.Request(self._graph_db, "PUT",
+                                    self.__uri__, list(labels)))
+            self.refresh()
+        else:
+            self._labels = set(labels)
 
 
 class Node(_Entity):
@@ -1031,16 +1075,15 @@ class Node(_Entity):
         :param properties: node properties
         """
         instance = cls(None)
-        instance.labels = set(labels)
+        instance._labels = set(labels)
+        instance._labels_supported = True
         instance._properties = dict(properties)
         return instance
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
-        try:
-            self.labels = LabelSet(self.__metadata__["labels"])
-        except KeyError:
-            self.labels = None
+        self._labels = None
+        self._labels_supported = None
 
     def __eq__(self, other):
         other = _cast(other, Node)
@@ -1111,6 +1154,17 @@ class Node(_Entity):
     @property
     def id(self):
         return self._id
+
+    @property
+    def labels(self):
+        if self._labels_supported is None:
+            try:
+                self._labels = LabelSet(self.__metadata__["labels"])
+                self._labels_supported = True
+            except KeyError:
+                self._labels = None
+                self._labels_supported = False
+        return self._labels
 
     @deprecated("Node.create_relationship_from is deprecated, please use "
                 "Node.create_path instead.")
