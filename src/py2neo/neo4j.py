@@ -180,23 +180,16 @@ def _rel(*args, **kwargs):
     - ``rel(relationship_instance)``
     - ``rel((start_node, type, end_node))``
     - ``rel((start_node, type, end_node, properties))``
-    - ``rel((start_node, type, end_node, labels, properties))``
-    - ``rel((start_node, (type, labels), end_node))``
     - ``rel((start_node, (type, properties), end_node))``
-    - ``rel((start_node, (type, labels, properties), end_node))``
     - ``rel(start_node, type, end_node, **properties)``
-    - ``rel(start_node, type, end_node, *labels, **properties)``
 
     Examples::
 
         rel(Relationship("http://localhost:7474/db/data/relationship/1"))
         rel((alice, "KNOWS", bob))
         rel((alice, "KNOWS", bob, {"since": 1999}))
-        rel((alice, "KNOWS", bob, "Friendship", {"since": 1999}))
         rel((alice, ("KNOWS", {"since": 1999}), bob))
-        rel((alice, ("KNOWS", ["Friendship"], {"since": 1999}), bob))
         rel(alice, "KNOWS", bob, since=1999)
-        rel(alice, "KNOWS", bob, "Friendship", since=1999)
 
     """
     if len(args) == 1 and not kwargs:
@@ -208,8 +201,6 @@ def _rel(*args, **kwargs):
                 return _UnboundRelationship.cast(arg[1]).bind(arg[0], arg[2])
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
-            elif len(arg) == 5:
-                return Relationship.abstract(arg[0], arg[1], arg[2], *arg[3], **arg[4])
             else:
                 raise TypeError(arg)
         else:
@@ -787,7 +778,6 @@ class _Entity(rest.Resource):
 
     def __init__(self, uri):
         rest.Resource.__init__(self, uri)
-        self._labels = set()
         self._properties = {}
 
     def __contains__(self, key):
@@ -798,12 +788,6 @@ class _Entity(rest.Resource):
 
     def __getitem__(self, key):
         return self.get_properties().get(key, None)
-
-    def __hash__(self):
-        if self.__uri__:
-            return hash(self.__uri__)
-        else:
-            return hash((self._labels, self._properties))
 
     def __iter__(self):
         return self.get_properties().__iter__()
@@ -956,6 +940,7 @@ class Node(_Entity):
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
+        self._labels = set()
 
     def __eq__(self, other):
         other = _cast(other, Node)
@@ -1001,6 +986,15 @@ class Node(_Entity):
             )
         else:
             return "({0})".format("" if self._id is None else self._id)
+
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash((
+                tuple(self._labels),
+                tuple(sorted(self._properties.items())),
+            ))
 
     @property
     def _id(self):
@@ -1354,14 +1348,13 @@ class Relationship(_Entity):
     """
 
     @classmethod
-    def abstract(cls, start_node, type, end_node, *labels, **properties):
+    def abstract(cls, start_node, type, end_node, **properties):
         """ Create and return a new abstract relationship.
         """
         instance = cls(None)
         instance._start_node = start_node
         instance._type = type
         instance._end_node = end_node
-        instance._labels = set(labels)
         instance._properties = dict(properties)
         return instance
 
@@ -1379,7 +1372,6 @@ class Relationship(_Entity):
             return self._start_node == other._start_node and \
                    self._type == other._type and \
                    self._end_node == other._end_node and \
-                   self._labels == other._labels and \
                    self._properties == other._properties
 
     def __ne__(self, other):
@@ -1390,7 +1382,6 @@ class Relationship(_Entity):
             return self._start_node != other._start_node or \
                    self._type != other._type or \
                    self._end_node != other._end_node or \
-                   self._labels != other._labels or \
                    self._properties != other._properties
 
     def __repr__(self):
@@ -1432,6 +1423,12 @@ class Relationship(_Entity):
                 type_str,
                 str(self.end_node),
             )
+
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash(tuple(sorted(self._properties.items())))
 
     @property
     def _id(self):
@@ -1536,42 +1533,32 @@ class _UnboundRelationship(object):
         if isinstance(arg, cls):
             return arg
         elif isinstance(arg, Relationship):
-            # LABELS: replace below with get_labels when it exists!
-            return cls(arg.type, *arg._labels, **arg.get_properties())
+            return cls(arg.type, **arg.get_properties())
         elif isinstance(arg, tuple):
             if len(arg) == 1:
                 return cls(str(arg[0]))
             elif len(arg) == 2:
-                if isinstance(arg[1], dict):
-                    return cls(str(arg[0]), **arg[1])
-                else:
-                    return cls(str(arg[0]), *arg[1])
-            elif len(arg) == 3:
-                return cls(str(arg[0]), *arg[1], **arg[2])
+                return cls(str(arg[0]), **arg[1])
             else:
                 raise TypeError(arg)
         else:
             return cls(str(arg))
 
-    def __init__(self, type, *labels, **properties):
+    def __init__(self, type, **properties):
         self._type = type
-        self._labels = set(labels)
         self._properties = dict(properties)
 
     def __eq__(self, other):
         return self._type == other._type and \
-               self._labels == other._labels and \
                self._properties == other._properties
 
     def __ne__(self, other):
         return self._type != other._type or \
-               self._labels != other._labels or \
                self._properties != other._properties
 
     def __repr__(self):
         return "({0}, *{1}, **{2})".format(
             repr(str(self._type)),
-            repr(tuple(self._labels)),
             repr(self._properties),
         )
 
@@ -1582,7 +1569,7 @@ class _UnboundRelationship(object):
 
     def bind(self, start_node, end_node):
         return Relationship.abstract(start_node, self._type, end_node,
-                                     *self._labels, **self._properties)
+                                     **self._properties)
 
 
 class Path(object):

@@ -109,13 +109,12 @@ class RelCastingTestCase(unittest.TestCase):
         assert casted.end_node == "Bob"
 
     def test_can_cast_3_tuple_with_unbound_rel(self):
-        casted = rel(("Alice", ("KNOWS", {"Friendship"}, {"since": 1999}), "Bob"))
+        casted = rel(("Alice", ("KNOWS", {"since": 1999}), "Bob"))
         assert isinstance(casted, neo4j.Relationship)
         assert casted.is_abstract()
         assert casted.start_node == "Alice"
         assert casted.type == "KNOWS"
         assert casted.end_node == "Bob"
-        assert casted._labels == {"Friendship"}
         assert casted["since"] == 1999
 
     def test_can_cast_4_tuple(self):
@@ -125,16 +124,6 @@ class RelCastingTestCase(unittest.TestCase):
         assert casted.start_node == "Alice"
         assert casted.type == "KNOWS"
         assert casted.end_node == "Bob"
-        assert casted["since"] == 1999
-
-    def test_can_cast_5_tuple(self):
-        casted = rel(("Alice", "KNOWS", "Bob", {"Friendship"}, {"since": 1999}))
-        assert isinstance(casted, neo4j.Relationship)
-        assert casted.is_abstract()
-        assert casted.start_node == "Alice"
-        assert casted.type == "KNOWS"
-        assert casted.end_node == "Bob"
-        assert "Friendship" in casted._labels
         assert casted["since"] == 1999
 
     def test_cannot_cast_6_tuple(self):
@@ -173,23 +162,13 @@ class RelCastingTestCase(unittest.TestCase):
         assert casted.type == "KNOWS"
         assert casted.end_node == "Bob"
 
-    def test_can_cast_4_args(self):
-        casted = rel("Alice", "KNOWS", "Bob", "Friendship")
+    def test_can_cast_kwargs(self):
+        casted = rel("Alice", "KNOWS", "Bob", since=1999)
         assert isinstance(casted, neo4j.Relationship)
         assert casted.is_abstract()
         assert casted.start_node == "Alice"
         assert casted.type == "KNOWS"
         assert casted.end_node == "Bob"
-        assert "Friendship" in casted._labels
-
-    def test_can_cast_args_and_kwargs(self):
-        casted = rel("Alice", "KNOWS", "Bob", "Friendship", since=1999)
-        assert isinstance(casted, neo4j.Relationship)
-        assert casted.is_abstract()
-        assert casted.start_node == "Alice"
-        assert casted.type == "KNOWS"
-        assert casted.end_node == "Bob"
-        assert "Friendship" in casted._labels
         assert casted["since"] == 1999
 
 
@@ -234,16 +213,6 @@ class EntityCastingTestCase(unittest.TestCase):
         assert casted.start_node == "Alice"
         assert casted.type == "KNOWS"
         assert casted.end_node == "Bob"
-        assert casted["since"] == 1999
-
-    def test_can_cast_5_tuple(self):
-        casted = neo4j._cast(("Alice", "KNOWS", "Bob", {"Friendship"}, {"since": 1999}))
-        assert isinstance(casted, neo4j.Relationship)
-        assert casted.is_abstract()
-        assert casted.start_node == "Alice"
-        assert casted.type == "KNOWS"
-        assert casted.end_node == "Bob"
-        assert "Friendship" in casted._labels
         assert casted["since"] == 1999
 
 
