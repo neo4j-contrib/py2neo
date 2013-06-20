@@ -546,6 +546,8 @@ class GraphDatabaseService(rest.Resource):
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
         """
+        if '|' in str(rel_type):
+			rel_type = str(rel_type).replace('|', '`:|`')
         if start_node is None and end_node is None:
             query = "START a=node(*)"
             params = {}
