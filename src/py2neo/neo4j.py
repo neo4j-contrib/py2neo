@@ -563,15 +563,15 @@ class GraphDatabaseService(rest.Resource):
             end_node = _cast(end_node, Node, abstract=False)
             params = {"A": start_node._id, "B": end_node._id}
         if rel_type is None:
-            if bidirectional:
-                query += " MATCH (a)-[r]-(b) RETURN r"
-            else:
-                query += " MATCH (a)-[r]->(b) RETURN r"
+            rel_clause = ""
+        elif isinstance(rel_type, (tuple, list)):
+            rel_clause = ":" + "|".join("`{0}`".format(_) for _ in rel_type)
         else:
-            if bidirectional:
-                query += " MATCH (a)-[r:`" + str(rel_type) + "`]-(b) RETURN r"
-            else:
-                query += " MATCH (a)-[r:`" + str(rel_type) + "`]->(b) RETURN r"
+            rel_clause = ":`{0}`".format(rel_type)
+        if bidirectional:
+            query += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+        else:
+            query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
         data, metadata = cypher.execute(self, query, params)
