@@ -139,7 +139,8 @@ class MatchTestCase(unittest.TestCase):
         assert len(rels) == 6
 
     def test_can_match_start_node_and_multiple_types(self):
-        rels = self.graph_db.match(start_node=self.alice, rel_type=("LOVES", "KNOWS"))
+        rels = self.graph_db.match(start_node=self.alice, rel_type=("LOVES",
+                                                                    "KNOWS"))
         assert len(rels) == 2
 
 

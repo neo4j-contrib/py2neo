@@ -34,7 +34,8 @@ classes provided are:
   a single transaction
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import base64
 import json
@@ -42,8 +43,8 @@ import logging
 import re
 
 from . import rest, cypher
-from .util import compact, quote, round_robin, deprecated, version_tuple
-
+from .util import (compact, quote, round_robin, deprecated, version_tuple,
+                   is_collection)
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
@@ -564,8 +565,14 @@ class GraphDatabaseService(rest.Resource):
             params = {"A": start_node._id, "B": end_node._id}
         if rel_type is None:
             rel_clause = ""
-        elif isinstance(rel_type, (tuple, list)):
-            rel_clause = ":" + "|".join("`{0}`".format(_) for _ in rel_type)
+        elif is_collection(rel_type):
+            if self.neo4j_version >= (2, 0, 0):
+                # yuk, version sniffing :-(
+                separator = "|:"
+            else:
+                separator = "|"
+            rel_clause = ":" + separator.join("`{0}`".format(_)
+                                              for _ in rel_type)
         else:
             rel_clause = ":`{0}`".format(rel_type)
         if bidirectional:

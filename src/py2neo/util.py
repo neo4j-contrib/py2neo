@@ -39,6 +39,7 @@ if __PY3K:
 else:
     is_string = lambda value: isinstance(value, (str, unicode))
 
+
 def quote(string, safe='/'):
     """ Quote a string for use in URIs.
     """
@@ -59,6 +60,7 @@ def numberise(n):
     except ValueError:
         return n
 
+
 def execution_time(func, *args, **kwargs):
     if sys.platform == "win32":
         timer = time.clock
@@ -70,6 +72,7 @@ def execution_time(func, *args, **kwargs):
     finally:
         return timer() - t0
 
+
 def compact(obj):
     """ Return a copy of an object with all :py:const:`None` values removed.
     """
@@ -77,6 +80,7 @@ def compact(obj):
         return dict((key, value) for key, value in obj.items() if value is not None)
     else:
         return obj.__class__(value for value in obj if value is not None)
+
 
 def round_robin(*iterables):
     """ Cycle through a number of iterables, returning
@@ -96,6 +100,7 @@ def round_robin(*iterables):
         except StopIteration:
             pending -= 1
             nexts = cycle(islice(nexts, pending))
+
 
 class PropertyCache(object):
 
@@ -180,6 +185,7 @@ def deprecated(message):
 
 VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
 
+
 def version_tuple(string):
     numbers = VERSION.match(string)
     if numbers:
@@ -194,3 +200,19 @@ def version_tuple(string):
         version += [0]
     version += [extra]
     return tuple(version)
+
+
+def is_collection(obj):
+    """ Returns true for any iterable which is not a string or byte sequence.
+    """
+    if isinstance(obj, bytes):
+        return False
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    try:
+        hasattr(None, obj)
+    except TypeError:
+        return True
+    return False
