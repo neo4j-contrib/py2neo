@@ -111,6 +111,7 @@ def round_robin(*iterables):
             nexts = cycle(islice(nexts, pending))
 
 
+
 class PropertyCache(object):
 
     def __init__(self, properties=None, max_age=None):
@@ -194,6 +195,7 @@ def deprecated(message):
 
 VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
 
+
 def version_tuple(string):
     numbers = VERSION.match(string)
     if numbers:
@@ -208,3 +210,19 @@ def version_tuple(string):
         version += [0]
     version += [extra]
     return tuple(version)
+
+
+def is_collection(obj):
+    """ Returns true for any iterable which is not a string or byte sequence.
+    """
+    if isinstance(obj, bytes):
+        return False
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    try:
+        hasattr(None, obj)
+    except TypeError:
+        return True
+    return False

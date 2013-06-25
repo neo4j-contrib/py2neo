@@ -34,7 +34,8 @@ classes provided are:
   a single transaction
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 
 import base64
 import json
@@ -42,8 +43,8 @@ import logging
 import re
 
 from . import rest, cypher
-from .util import compact, flatten, quote, round_robin, deprecated, version_tuple
-
+from .util import (compact, quote, flatten, round_robin, deprecated,
+                   version_tuple, is_collection)
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
@@ -567,15 +568,21 @@ class GraphDatabaseService(rest.Resource):
             end_node = _cast(end_node, Node, abstract=False)
             params = {"A": start_node._id, "B": end_node._id}
         if rel_type is None:
-            if bidirectional:
-                query += " MATCH (a)-[r]-(b) RETURN r"
+            rel_clause = ""
+        elif is_collection(rel_type):
+            if self.neo4j_version >= (2, 0, 0):
+                # yuk, version sniffing :-(
+                separator = "|:"
             else:
-                query += " MATCH (a)-[r]->(b) RETURN r"
+                separator = "|"
+            rel_clause = ":" + separator.join("`{0}`".format(_)
+                                              for _ in rel_type)
         else:
-            if bidirectional:
-                query += " MATCH (a)-[r:`" + str(rel_type) + "`]-(b) RETURN r"
-            else:
-                query += " MATCH (a)-[r:`" + str(rel_type) + "`]->(b) RETURN r"
+            rel_clause = ":`{0}`".format(rel_type)
+        if bidirectional:
+            query += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+        else:
+            query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
         data, metadata = cypher.execute(self, query, params)
