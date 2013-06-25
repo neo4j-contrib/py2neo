@@ -42,7 +42,7 @@ import logging
 import re
 
 from . import rest, cypher
-from .util import compact, quote, round_robin, deprecated, version_tuple
+from .util import compact, flatten, quote, round_robin, deprecated, version_tuple
 
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
@@ -180,23 +180,16 @@ def _rel(*args, **kwargs):
     - ``rel(relationship_instance)``
     - ``rel((start_node, type, end_node))``
     - ``rel((start_node, type, end_node, properties))``
-    - ``rel((start_node, type, end_node, labels, properties))``
-    - ``rel((start_node, (type, labels), end_node))``
     - ``rel((start_node, (type, properties), end_node))``
-    - ``rel((start_node, (type, labels, properties), end_node))``
     - ``rel(start_node, type, end_node, **properties)``
-    - ``rel(start_node, type, end_node, *labels, **properties)``
 
     Examples::
 
         rel(Relationship("http://localhost:7474/db/data/relationship/1"))
         rel((alice, "KNOWS", bob))
         rel((alice, "KNOWS", bob, {"since": 1999}))
-        rel((alice, "KNOWS", bob, "Friendship", {"since": 1999}))
         rel((alice, ("KNOWS", {"since": 1999}), bob))
-        rel((alice, ("KNOWS", ["Friendship"], {"since": 1999}), bob))
         rel(alice, "KNOWS", bob, since=1999)
-        rel(alice, "KNOWS", bob, "Friendship", since=1999)
 
     """
     if len(args) == 1 and not kwargs:
@@ -208,8 +201,6 @@ def _rel(*args, **kwargs):
                 return _UnboundRelationship.cast(arg[1]).bind(arg[0], arg[2])
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
-            elif len(arg) == 5:
-                return Relationship.abstract(arg[0], arg[1], arg[2], *arg[3], **arg[4])
             else:
                 raise TypeError(arg)
         else:
@@ -437,6 +428,22 @@ class GraphDatabaseService(rest.Resource):
                 raise TypeError(entity)
         batch._submit()
 
+    def find(self, label, property_key=None, property_value=None):
+        if property_key:
+            uri = "{0}label/{1}/nodes?{2}={3}".format(
+                self.__uri__, str(label), quote(property_key),
+                quote(json.dumps(property_value))
+            )
+        else:
+            uri = "{0}label/{1}/nodes".format(self.__uri__, str(label))
+        try:
+            return [
+                Node(result["self"])
+                for result in self._send(rest.Request(self, "GET", uri)).body
+            ]
+        except rest.ResourceNotFound:
+            return None
+
     @deprecated("GraphDatabaseService.get_reference_node is deprecated, "
                 "please use indexed nodes instead.")
     def get_reference_node(self):
@@ -493,13 +500,10 @@ class GraphDatabaseService(rest.Resource):
             batch.get_properties(entity)
         return [rs.body or {} for rs in batch._submit()]
 
+    @deprecated("GraphDatabaseService.get_relationship_types is "
+                "deprecated, please use relationship_types property instead.")
     def get_relationship_types(self):
-        """ Fetch a list of relationship type names currently defined within
-        this database instance.
-        """
-        return self._send(
-            rest.Request(self,"GET", self.__metadata__['relationship_types'])
-        ).body
+        return list(self.relationship_types)
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -612,6 +616,17 @@ class GraphDatabaseService(rest.Resource):
         """
         return Node(self.__metadata__['node'] + "/" + str(id))
 
+    @property
+    def node_labels(self):
+        """ Return the set of node labels currently defined within this
+        database instance.
+        """
+        uri = "{0}labels".format(self.__uri__)
+        try:
+            return set(self._send(rest.Request(self, "GET", uri)).body)
+        except rest.ResourceNotFound:
+            return None
+
     def order(self):
         """ Fetch the number of nodes in this graph.
         """
@@ -626,6 +641,14 @@ class GraphDatabaseService(rest.Resource):
         """
         uri = "{0}relationship/{1}".format(self.__uri__.base, id)
         return Relationship(uri)
+
+    @property
+    def relationship_types(self):
+        """ Return the set of relationship types currently defined within this
+        database instance.
+        """
+        uri = self.__metadata__['relationship_types']
+        return set(self._send(rest.Request(self, "GET", uri)).body)
 
     def size(self):
         """ Fetch the number of relationships in this graph.
@@ -787,7 +810,6 @@ class _Entity(rest.Resource):
 
     def __init__(self, uri):
         rest.Resource.__init__(self, uri)
-        self._labels = set()
         self._properties = {}
 
     def __contains__(self, key):
@@ -798,12 +820,6 @@ class _Entity(rest.Resource):
 
     def __getitem__(self, key):
         return self.get_properties().get(key, None)
-
-    def __hash__(self):
-        if self.__uri__:
-            return hash(self.__uri__)
-        else:
-            return hash((self._labels, self._properties))
 
     def __iter__(self):
         return self.get_properties().__iter__()
@@ -892,6 +908,115 @@ class _Entity(rest.Resource):
         raise NotImplementedError("Entity.update_properties")
 
 
+class LabelSet(rest.Resource):
+
+    @classmethod
+    def abstract(cls, *labels):
+        """ Create and return a new abstract label set containing labels drawn
+        from the arguments supplied.
+        """
+        instance = cls(None)
+        instance._labels = set(labels)
+        return instance
+
+    def __init__(self, uri):
+        rest.Resource.__init__(self, uri)
+        self._labels = set()
+
+    def __eq__(self, other):
+        other = _cast(other, Node)
+        if self.__uri__:
+            return rest.Resource.__eq__(self, other)
+        else:
+            return self._labels == other._labels
+
+    def __ne__(self, other):
+        other = _cast(other, Node)
+        if self.__uri__:
+            return rest.Resource.__ne__(self, other)
+        else:
+            return self._labels != other._labels
+
+    def __repr__(self):
+        if self.__uri__:
+            return "{0}({1})".format(
+                self.__class__.__name__,
+                repr(str(self.__uri__)),
+            )
+        else:
+            return "{0}.abstract({1})".format(
+                self.__class__.__name__,
+                ", ".join(repr(label) for label in sorted(self._labels)),
+            )
+
+    def __str__(self):
+        return ":".join(sorted(self._labels))
+
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash(frozenset(self._labels))
+
+    def refresh(self):
+        if self.__uri__:
+            rs = self._send(rest.Request(self._graph_db, "GET", self.__uri__))
+            self._labels = set(rs.body)
+
+    def __contains__(self, item):
+        self.refresh()
+        return item in self._labels
+
+    def __iter__(self):
+        self.refresh()
+        return iter(self._labels)
+
+    def __len__(self):
+        self.refresh()
+        return len(self._labels)
+
+    @property
+    def _graph_db(self):
+        try:
+            return GraphDatabaseService.get_instance(self.__uri__.base)
+        except AttributeError:
+            return None
+
+    def is_abstract(self):
+        return self.__uri__ is None
+
+    def add(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
+        if self.__uri__:
+            # TODO: batch
+            self._send(rest.Request(self._graph_db, "POST",
+                                    self.__uri__, list(labels)))
+            self.refresh()
+        else:
+            self._labels.update(labels)
+
+    def remove(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
+        if self.__uri__:
+            # TODO: batch
+            for label in labels:
+                uri = "{0}/{1}".format(self.__uri__,  quote(label))
+                self._send(rest.Request(self._graph_db, "DELETE", uri))
+            self.refresh()
+        else:
+            self._labels.remove(labels)
+
+    def replace(self, *labels):
+        labels = [str(label) for label in flatten(labels)]
+        if self.__uri__:
+            # TODO: batch
+            self._send(rest.Request(self._graph_db, "PUT",
+                                    self.__uri__, list(labels)))
+            self.refresh()
+        else:
+            self._labels = set(labels)
+
+
 class Node(_Entity):
     """ A node within a graph, identified by a URI. For example:
 
@@ -951,18 +1076,21 @@ class Node(_Entity):
         """
         instance = cls(None)
         instance._labels = set(labels)
+        instance._labels_supported = True
         instance._properties = dict(properties)
         return instance
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
+        self._labels = None
+        self._labels_supported = None
 
     def __eq__(self, other):
         other = _cast(other, Node)
         if self.__uri__:
             return _Entity.__eq__(self, other)
         else:
-            return self._labels == other._labels and \
+            return self.labels == other.labels and \
                    self._properties == other._properties
 
     def __ne__(self, other):
@@ -970,7 +1098,7 @@ class Node(_Entity):
         if self.__uri__:
             return _Entity.__ne__(self, other)
         else:
-            return self._labels != other._labels or \
+            return self.labels != other.labels or \
                    self._properties != other._properties
 
     def __repr__(self):
@@ -1002,6 +1130,15 @@ class Node(_Entity):
         else:
             return "({0})".format("" if self._id is None else self._id)
 
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash((
+                self.labels,
+                tuple(sorted(self._properties.items())),
+            ))
+
     @property
     def _id(self):
         """ Return the internal ID for this node.
@@ -1017,6 +1154,17 @@ class Node(_Entity):
     @property
     def id(self):
         return self._id
+
+    @property
+    def labels(self):
+        if self._labels_supported is None:
+            try:
+                self._labels = LabelSet(self.__metadata__["labels"])
+                self._labels_supported = True
+            except KeyError:
+                self._labels = None
+                self._labels_supported = False
+        return self._labels
 
     @deprecated("Node.create_relationship_from is deprecated, please use "
                 "Node.create_path instead.")
@@ -1354,14 +1502,13 @@ class Relationship(_Entity):
     """
 
     @classmethod
-    def abstract(cls, start_node, type, end_node, *labels, **properties):
+    def abstract(cls, start_node, type, end_node, **properties):
         """ Create and return a new abstract relationship.
         """
         instance = cls(None)
         instance._start_node = start_node
         instance._type = type
         instance._end_node = end_node
-        instance._labels = set(labels)
         instance._properties = dict(properties)
         return instance
 
@@ -1379,7 +1526,6 @@ class Relationship(_Entity):
             return self._start_node == other._start_node and \
                    self._type == other._type and \
                    self._end_node == other._end_node and \
-                   self._labels == other._labels and \
                    self._properties == other._properties
 
     def __ne__(self, other):
@@ -1390,7 +1536,6 @@ class Relationship(_Entity):
             return self._start_node != other._start_node or \
                    self._type != other._type or \
                    self._end_node != other._end_node or \
-                   self._labels != other._labels or \
                    self._properties != other._properties
 
     def __repr__(self):
@@ -1432,6 +1577,12 @@ class Relationship(_Entity):
                 type_str,
                 str(self.end_node),
             )
+
+    def __hash__(self):
+        if self.__uri__:
+            return hash(self.__uri__)
+        else:
+            return hash(tuple(sorted(self._properties.items())))
 
     @property
     def _id(self):
@@ -1536,42 +1687,32 @@ class _UnboundRelationship(object):
         if isinstance(arg, cls):
             return arg
         elif isinstance(arg, Relationship):
-            # LABELS: replace below with get_labels when it exists!
-            return cls(arg.type, *arg._labels, **arg.get_properties())
+            return cls(arg.type, **arg.get_properties())
         elif isinstance(arg, tuple):
             if len(arg) == 1:
                 return cls(str(arg[0]))
             elif len(arg) == 2:
-                if isinstance(arg[1], dict):
-                    return cls(str(arg[0]), **arg[1])
-                else:
-                    return cls(str(arg[0]), *arg[1])
-            elif len(arg) == 3:
-                return cls(str(arg[0]), *arg[1], **arg[2])
+                return cls(str(arg[0]), **arg[1])
             else:
                 raise TypeError(arg)
         else:
             return cls(str(arg))
 
-    def __init__(self, type, *labels, **properties):
+    def __init__(self, type, **properties):
         self._type = type
-        self._labels = set(labels)
         self._properties = dict(properties)
 
     def __eq__(self, other):
         return self._type == other._type and \
-               self._labels == other._labels and \
                self._properties == other._properties
 
     def __ne__(self, other):
         return self._type != other._type or \
-               self._labels != other._labels or \
                self._properties != other._properties
 
     def __repr__(self):
         return "({0}, *{1}, **{2})".format(
             repr(str(self._type)),
-            repr(tuple(self._labels)),
             repr(self._properties),
         )
 
@@ -1582,7 +1723,7 @@ class _UnboundRelationship(object):
 
     def bind(self, start_node, end_node):
         return Relationship.abstract(start_node, self._type, end_node,
-                                     *self._labels, **self._properties)
+                                     **self._properties)
 
 
 class Path(object):
