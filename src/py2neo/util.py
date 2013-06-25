@@ -82,6 +82,15 @@ def compact(obj):
         return obj.__class__(value for value in obj if value is not None)
 
 
+def flatten(*values):
+    for value in values:
+        if hasattr(value, "__iter__"):
+            for val in value:
+                yield val
+        else:
+            yield value
+
+
 def round_robin(*iterables):
     """ Cycle through a number of iterables, returning
         the next item from each in turn.
@@ -100,6 +109,7 @@ def round_robin(*iterables):
         except StopIteration:
             pending -= 1
             nexts = cycle(islice(nexts, pending))
+
 
 
 class PropertyCache(object):
