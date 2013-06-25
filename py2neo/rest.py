@@ -18,6 +18,7 @@
 """REST client based on httplib for use with Neo4j REST interface.
 """
 
+
 try:
     import http.client as httplib
 except ImportError:
@@ -35,8 +36,8 @@ except ImportError:
 
 from . import __package__ as py2neo_package
 from . import __version__ as py2neo_version
-
 from .util import PropertyCache
+
 
 logger = logging.getLogger(__name__)
 

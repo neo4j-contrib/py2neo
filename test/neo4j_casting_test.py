@@ -15,10 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import neo4j, node, rel
-
 import logging
 import unittest
+
+from py2neo import neo4j, node, rel
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",

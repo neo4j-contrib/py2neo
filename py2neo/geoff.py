@@ -23,12 +23,14 @@ import logging
 import re
 from uuid import uuid4
 from xml.etree import ElementTree
+
+from . import neo4j, rest
+
 try:
     from StringIO import StringIO # python 2
 except ImportError:
     from io import StringIO # python 3
 
-from . import neo4j, rest, cypher
 
 logger = logging.getLogger(__name__)
 

@@ -15,8 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import geoff, neo4j
 import unittest
+
+from py2neo import geoff, neo4j
 
 
 def parse(source):

@@ -107,7 +107,7 @@ class PathTestCase(unittest.TestCase):
         #print(repr(path))
         assert repr(path) == (
             "Path(node(**{'name': 'Alice'}), "
-            "('KNOWS', *(), **{}), "
+            "('KNOWS', **{}), "
             "node(**{'name': 'Bob'}))"
         )
 

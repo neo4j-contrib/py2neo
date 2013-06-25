@@ -18,12 +18,14 @@
 """ Cypher Query Language module.
 """
 
+
 import json
 import logging
 import threading
 import sys
 
 from . import rest
+
 
 logger = logging.getLogger(__name__)
 

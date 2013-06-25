@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2012-2013 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,10 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__author__    = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2013, Nigel Small"
-__license__   = "Apache License, Version 2.0"
-__package__   = "py2neo"
-__version__   = "1.5.1"
 
-from .neo4j import _node as node, _rel as rel
+import os
+import sys
+sys.path.insert(0, os.path.abspath(".."))
+
+import py2neo

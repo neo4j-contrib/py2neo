@@ -16,15 +16,13 @@
 # limitations under the License.
 
 
-import sys
-sys.path.insert(0, "src")
+from setuptools import setup
+
 from py2neo import __author__ as py2neo_author
 from py2neo import __license__ as py2neo_license
 from py2neo import __package__ as py2neo_package
 from py2neo import __version__ as py2neo_version
-sys.path.pop(0)
 
-from distutils.core import setup
 
 setup(
     name=py2neo_package,
@@ -41,9 +39,17 @@ setup(
     author=py2neo_author,
     author_email="nigel@nigelsmall.com",
     url="http://py2neo.org/",
-    scripts=["scripts/cypher", "scripts/geoff", "scripts/neotool"],
-    package_dir={"": "src"},
-    packages=["py2neo"],
+    scripts=[
+        "scripts/cypher",
+        "scripts/geoff",
+        "scripts/neotool",
+    ],
+    packages=[
+        "py2neo",
+    ],
+    install_requires=[
+        "distribute",
+    ],
     license=py2neo_license,
     classifiers=[
         "Development Status :: 5 - Production/Stable",

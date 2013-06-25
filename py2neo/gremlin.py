@@ -20,11 +20,14 @@
 against a graph database.
 """
 
-from . import rest
 
 import logging
 
+from . import rest
+
+
 logger = logging.getLogger(__name__)
+
 
 def execute(script, graph_db):
     """

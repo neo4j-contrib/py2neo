@@ -18,13 +18,14 @@
 """ High level tools for Neo4j.
 """
 
+
 import os
 import sys
 
-from . import neo4j, cypher, geoff, rest
-from . import __package__ as py2neo_package
-from . import __version__ as py2neo_version
-from . import __copyright__ as py2neo_copyright
+from . import (__package__ as py2neo_package,
+               __version__ as py2neo_version,
+               __copyright__ as py2neo_copyright,
+               cypher, neo4j, geoff, rest)
 
 
 SCRIPT_NAME = "neotool"

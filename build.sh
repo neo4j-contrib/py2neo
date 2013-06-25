@@ -15,7 +15,7 @@ THIS_VERSION=`python $PY2NEO/version.py`
 LAST_VERSION=`curl http://pypi.python.org/pypi/py2neo/json 2> /dev/null | grep '"version"' | awk -F\" '{print $4}'`
 
 # set python path
-export PYTHONPATH=$PY2NEO/src
+export PYTHONPATH=$PY2NEO
 
 # package software
 if [ "$THIS_VERSION" == "$LAST_VERSION" ]

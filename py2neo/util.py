@@ -18,6 +18,7 @@
 """ Utility module
 """
 
+
 import sys
 
 __PY3K = sys.version_info[0] >= 3

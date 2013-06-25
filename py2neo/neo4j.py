@@ -34,6 +34,7 @@ classes provided are:
   a single transaction
 """
 
+
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
 
@@ -42,9 +43,10 @@ import json
 import logging
 import re
 
-from . import rest, cypher
+from . import cypher, rest
 from .util import (compact, quote, flatten, round_robin, deprecated,
                    version_tuple, is_collection)
+
 
 DEFAULT_URI = "http://localhost:7474/db/data/"
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
@@ -1710,15 +1712,15 @@ class _UnboundRelationship(object):
         self._properties = dict(properties)
 
     def __eq__(self, other):
-        return self._type == other._type and \
-               self._properties == other._properties
+        return (self._type == other._type and
+                self._properties == other._properties)
 
     def __ne__(self, other):
-        return self._type != other._type or \
-               self._properties != other._properties
+        return (self._type != other._type or
+                self._properties != other._properties)
 
     def __repr__(self):
-        return "({0}, *{1}, **{2})".format(
+        return "({0}, **{1})".format(
             repr(str(self._type)),
             repr(self._properties),
         )

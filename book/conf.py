@@ -11,8 +11,9 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
-sys.path.insert(0, os.path.join("..", "src"))
+import sys
+
+sys.path.insert(0, "..")
 from py2neo import __author__ as py2neo_author
 from py2neo import __copyright__ as py2neo_copyright
 from py2neo import __package__ as py2neo_package

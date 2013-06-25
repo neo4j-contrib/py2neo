@@ -15,9 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import neo4j
-
 import unittest
+
+from py2neo import neo4j
 
 
 class GetIndexedNodeTestCase(unittest.TestCase):

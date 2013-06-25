@@ -86,9 +86,10 @@ The code below shows an example of usage::
 
 """
 
+
 from __future__ import absolute_import, unicode_literals
 
-from . import neo4j, cypher
+from . import cypher, neo4j
 
 
 class NotSaved(ValueError):

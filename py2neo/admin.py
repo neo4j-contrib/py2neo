@@ -18,8 +18,10 @@
 """ Server administration module
 """
 
+
 from datetime import datetime
-from . import rest, util
+
+from . import util, rest
 
 
 DEFAULT_URI = "http://localhost:7474/db/manage/"

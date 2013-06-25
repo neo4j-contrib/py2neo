@@ -16,10 +16,12 @@
 # limitations under the License.
 
 
-import sys
+__author__    = "Nigel Small <nigel@nigelsmall.com>"
+__copyright__ = "2011-2013, Nigel Small"
+__license__   = "Apache License, Version 2.0"
+__package__   = "py2neo"
+__version__   = "1.6.0"
 
-from py2neo import __version__ as py2neo_version
 
+from .neo4j import _node as node, _rel as rel
 
-if __name__ == "__main__":
-    sys.stdout.write(py2neo_version)
