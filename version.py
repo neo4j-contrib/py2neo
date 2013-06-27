@@ -18,8 +18,8 @@
 
 import sys
 
-from py2neo import __version__ as py2neo_version
+from py2neo import __version__
 
 
 if __name__ == "__main__":
-    sys.stdout.write(py2neo_version)
+    sys.stdout.write(__version__)

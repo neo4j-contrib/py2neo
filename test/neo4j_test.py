@@ -18,7 +18,8 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, cypher, rest
+from httpstream import NetworkAddressError, SocketError, ClientError
+from py2neo import neo4j, cypher
 
 import logging
 import unittest
@@ -40,28 +41,37 @@ def recycle(*entities):
             pass
 
 
-class FailureTest(unittest.TestCase):
+def test_wrong_host_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
+    try:
+        graph_db.refresh()
+    except NetworkAddressError:
+        assert True
+    else:
+        assert False
 
-    def test_no_response(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService,
-            "http://localhsot:4747/data/db"
-        )
+
+def test_wrong_port_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
+    try:
+        graph_db.refresh()
+    except SocketError:
+        assert True
+    else:
+        assert False
+
+
+def test_wrong_path_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
+    try:
+        graph_db.refresh()
+    except ClientError:
+        assert True
+    else:
+        assert False
 
 
 class BadDatabaseURITest(unittest.TestCase):
-
-    def test_wrong_host(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService, "http://localtoast:7474/db/data/")
-
-    def test_wrong_port(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService, "http://localhost:7575/db/data/")
-
-    def test_wrong_path(self):
-        self.assertRaises(rest.ResourceNotFound,
-            neo4j.GraphDatabaseService, "http://localhost:7474/foo/bar/")
 
     def test_no_trailing_slash(self):
         graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
