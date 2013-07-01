@@ -659,8 +659,10 @@ class GraphDatabaseService(Cacheable, Resource):
             query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
-        for result in self.cypher.execute(query, **params):
-            yield result[0]
+        # TODO: stream results
+        # for result in self.cypher.execute(query, **params):
+        #     yield result[0]
+        return [result[0] for result in self.cypher.execute(query, **params)]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None,
                   bidirectional=False):
@@ -679,9 +681,11 @@ class GraphDatabaseService(Cacheable, Resource):
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
-        for rel in self.match(start_node, rel_type, end_node, bidirectional, 1):
-            return rel
-        return None
+        rels = self.match(start_node, rel_type, end_node, bidirectional, 1)
+        if rels:
+            return rels[0]
+        else:
+            return None
 
     @property
     def neo4j_version(self):
@@ -1350,8 +1354,12 @@ class Node(_Entity):
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
-        return self.service_root.graph_db.match(self, rel_type, end_node,
-                                                bidirectional)
+        rels = self.service_root.graph_db.match(self, rel_type, end_node,
+                                                bidirectional, limit=1)
+        if rels:
+            return rels[0]
+        else:
+            return None
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
@@ -1428,6 +1436,7 @@ class Node(_Entity):
         """
         if self.is_abstract:
             self._properties.update(properties)
+            self._properties = compact(self._properties)
         else:
             query, params = ["START a=node({A})"], {"A": self._id}
             for i, (key, value) in enumerate(properties.items()):
@@ -1569,6 +1578,7 @@ class Relationship(_Entity):
         """
         if self.is_abstract:
             self._properties.update(properties)
+            self._properties = compact(self._properties)
         else:
             query, params = ["START a=rel({A})"], {"A": self._id}
             for i, (key, value) in enumerate(properties.items()):
@@ -2186,13 +2196,23 @@ class _Batch(Resource):
         """ Submit the current batch of requests, iterating through the
         results.
         """
+        # TODO: turn this into streaming output
+        # for i, result in grouped(self._submit()):
+        #     response = _Batch.Response(assembled(result))
+        #     body = response.body
+        #     if isinstance(body, dict) and has_all(body, Cypher.ResultSet.signature):
+        #         yield Cypher.ResultSet._hydrated(response.body)
+        #     else:
+        #         yield _hydrated(response.body)
+        out = []
         for i, result in grouped(self._submit()):
             response = _Batch.Response(assembled(result))
             body = response.body
             if isinstance(body, dict) and has_all(body, Cypher.ResultSet.signature):
-                yield Cypher.ResultSet._hydrated(response.body)
+                out.append(Cypher.ResultSet._hydrated(response.body))
             else:
-                yield _hydrated(response.body)
+                out.append(_hydrated(response.body))
+        return out
 
     def _index(self, content_type, index):
         """ Fetch an Index object.
