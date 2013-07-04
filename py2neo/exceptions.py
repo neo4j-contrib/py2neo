@@ -1,9 +1,22 @@
-from httpstream import (
-    ClientError as _ClientError,
-    ServerError as _ServerError,
-    Response as _Response,
-)
-from jsonstream import assembled
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright 2011-2013, Nigel Small
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from httpstream.jsonstream import assembled
 
 
 class IndexTypeError(TypeError):
@@ -43,71 +56,43 @@ class ServerException(object):
         return self._cause
 
 
-class ClientError(_ClientError):
+class ClientError(Exception):
 
-    def __init__(self, http, uri, request, response, **kwargs):
-        assert response.status // 100 == 4
-        _Response.__init__(self, http, uri, request, response, **kwargs)
-        if self.is_json:
-            self._server_exception = ServerException(assembled(self))
-            self._reason = self._server_exception.message
+    def __init__(self, response):
+        assert response.status_code // 100 == 4
+        self.__cause__ = response
+        if response.is_json:
+            self._server_exception = ServerException(assembled(response))
+            Exception.__init__(self, self._server_exception.message)
         else:
             self._server_exception = None
-        Exception.__init__(self, self.reason)
+            Exception.__init__(self, response.args[0])
 
-    @property
-    def message(self):
-        return self._server_exception.message
-
-    @property
-    def exception(self):
-        return self._server_exception.exception
-
-    @property
-    def full_name(self):
-        return self._server_exception.full_name
-
-    @property
-    def stack_trace(self):
-        return self._server_exception.stack_trace
-
-    @property
-    def cause(self):
-        return self._server_exception.cause
+    def __getattr__(self, item):
+        try:
+            return getattr(self._server_exception, item)
+        except AttributeError:
+            return getattr(self.__cause__, item)
 
 
-class ServerError(_ServerError):
+class ServerError(Exception):
 
-    def __init__(self, http, uri, request, response, **kwargs):
-        assert response.status // 100 == 5
-        _Response.__init__(self, http, uri, request, response, **kwargs)
+    def __init__(self, response):
+        assert response.status_code // 100 == 5
+        self.__cause__ = response
         # TODO: check for unhandled HTML errors (on 500)
-        if self.is_json:
-            self._server_exception = ServerException(assembled(self))
-            self._reason = self._server_exception.message
+        if response.is_json:
+            self._server_exception = ServerException(assembled(response))
+            Exception.__init__(self, self._server_exception.message)
         else:
             self._server_exception = None
-        Exception.__init__(self, self.reason)
+            Exception.__init__(self, response.args[0])
 
-    @property
-    def message(self):
-        return self._server_exception.message
-
-    @property
-    def exception(self):
-        return self._server_exception.exception
-
-    @property
-    def full_name(self):
-        return self._server_exception.full_name
-
-    @property
-    def stack_trace(self):
-        return self._server_exception.stack_trace
-
-    @property
-    def cause(self):
-        return self._server_exception.cause
+    def __getattr__(self, item):
+        try:
+            return getattr(self._server_exception, item)
+        except AttributeError:
+            return getattr(self.__cause__, item)
 
 
 class CypherError(Exception):

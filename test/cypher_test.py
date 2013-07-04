@@ -55,7 +55,7 @@ class CypherTestCase(unittest.TestCase):
             "start a=node({0}),b=node({1}) "
             "match a-[ab:KNOWS]->b "
             "return a,b,ab,a.name,b.name"
-        ).format(a.id, b.id))
+        ).format(a._id, b._id))
         self.assertEqual(1, len(data))
         for row in data:
             self.assertEqual(5, len(row))
@@ -96,7 +96,7 @@ class CypherTestCase(unittest.TestCase):
             "START a=node({0}), b=node({1}) "
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
-        ).format(a.id, b.id)
+        ).format(a._id, b._id)
         cypher.execute(self.graph_db, query,
             row_handler=check_row, metadata_handler=check_metadata
         )
@@ -127,7 +127,7 @@ class CypherTestCase(unittest.TestCase):
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
         )
-        cypher.execute(self.graph_db, query, {"A": a.id, "B": b.id},
+        cypher.execute(self.graph_db, query, {"A": a._id, "B": b._id},
             row_handler=check_row, metadata_handler=check_metadata
         )
 
@@ -148,7 +148,7 @@ class CypherTestCase(unittest.TestCase):
             "start a=node({0}),b=node({1}) "
             "match p=(a-[ab:KNOWS]->b) "
             "return p"
-        ).format(a.id, b.id))
+        ).format(a._id, b._id))
         self.assertEqual(1, len(data))
         for row in data:
             self.assertEqual(1, len(row))

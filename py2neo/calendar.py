@@ -126,7 +126,7 @@ class GregorianCalendar(object):
             index provided.
         """
         self._index = index
-        self._graph_db = self._index._graph_db
+        self._graph_db = self._index.service_root.graph_db
         self._calendar = self._index.get_or_create("calendar", "Gregorian", {})
 
     def calendar(self):
@@ -179,8 +179,8 @@ class GregorianCalendar(object):
         #                           |
         #                           v
         # (START)<-[:START_DATE]-(RANGE)-[:END_DATE]->(END)
-        range = GregorianCalendar.DateRange(start_date, end_date)
-        start, end = range.start_date, range.end_date
+        range_ = GregorianCalendar.DateRange(start_date, end_date)
+        start, end = range_.start_date, range_.end_date
         if start and end:
             # if start and end are equal, return the day node instead
             if (start.year, start.month, start.day) == (end.year, end.month, end.day):

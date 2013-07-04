@@ -37,7 +37,7 @@ class TestBigBatches(unittest.TestCase):
         print("creating batch of " + str(node_count))
         batch = neo4j.WriteBatch(graph_db)
         for i in range(node_count):
-            batch.create_node({"number": i})
+            batch.create({"number": i})
         print("submitting batch")
         nodes = batch.submit()
         print("checking batch")

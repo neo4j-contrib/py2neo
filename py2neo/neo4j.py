@@ -48,14 +48,13 @@ import sys
 from httpstream import (ClientError as _ClientError, Request as _Request,
                         Resource as _Resource, ServerError as _ServerError,
                         URI)
+from httpstream.jsonstream import assembled, grouped
 from httpstream.numbers import CREATED, NOT_FOUND
-from jsonstream import assembled, grouped
 
-from .exceptions import ClientError, ServerError, CypherError, BatchError, IndexTypeError
-from .mixins import Cacheable
 #from .. import cypher
-from py2neo import __package__, __version__
-from py2neo.util import compact, flatten, has_all, is_collection, quote, version_tuple, deprecated, round_robin
+from . import __version__
+from .exceptions import ClientError, ServerError, CypherError, BatchError, IndexTypeError
+from .util import compact, flatten, has_all, is_collection, quote, version_tuple, deprecated, round_robin
 
 
 DEFAULT_SCHEME = "http"
@@ -64,13 +63,13 @@ DEFAULT_PORT = 7474
 DEFAULT_NETLOC = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
 DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_NETLOC)
 
+HEADERS = {"X-Stream": "true;format=pretty"}
+
+PRODUCT = ("py2neo", __version__)
+
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
-logger = logging.getLogger(__name__)
-
-user_agent = "{0}/{1} ({2}; python/{3})".format(__package__, __version__,
-                                                sys.platform,
-                                                sys.version.partition(" ")[0])
+log = logging.getLogger(__name__)
 
 
 #TODO: httpstream
@@ -95,6 +94,17 @@ def authenticate(netloc, user_name, password):
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = "Basic " + base64.b64encode(credentials).decode("ASCII")
     rest.http_headers.add("Authorization", value, netloc=netloc)
+
+
+def familiar(*resources):
+    """ Return :py:const:`True` if all resources share a common service root.
+
+    :param resources:
+    :return:
+    """
+    if len(resources) < 2:
+        return True
+    return all(_.service_root == resources[0].service_root for _ in resources)
 
 
 #TODO: httpstream
@@ -274,10 +284,7 @@ class Resource(object):
             return iter(self._metadata.items())
 
     def __init__(self, uri):
-        self._resource = _Resource(uri, headers={
-            "User-Agent": user_agent,
-            "X-Stream": "true;format=pretty",
-        })
+        self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
         self.__cypher = None
@@ -341,27 +348,40 @@ class Resource(object):
         if not self.is_abstract:
             self._metadata = Resource.Metadata.load(self._resource)
 
-    def _request(self, method, *args, **kwargs):
+    def _get(self, query=None, fields=None):
         try:
-            return method(*args, **kwargs)
+            return self._resource.get(headers=HEADERS, query=query,
+                                      fields=fields, product=PRODUCT)
         except _ClientError as e:
-            raise ClientError(e._http, e._uri, e._request, e._response,
-                              **e._kwargs)
+            raise ClientError(e)
         except _ServerError as e:
-            raise ServerError(e._http, e._uri, e._request, e._response,
-                              **e._kwargs)
+            raise ServerError(e)
 
-    def _get(self, headers=None, **kwargs):
-        return self._request(self._resource.get, headers, **kwargs)
+    def _put(self, body=None):
+        try:
+            return self._resource.put(body=body, headers=HEADERS,
+                                      product=PRODUCT)
+        except _ClientError as e:
+            raise ClientError(e)
+        except _ServerError as e:
+            raise ServerError(e)
 
-    def _put(self, body=None, headers=None, **kwargs):
-        return self._request(self._resource.put, body, headers, **kwargs)
+    def _post(self, body=None, query=None):
+        try:
+            return self._resource.post(body=body, headers=HEADERS,
+                                       query=query, product=PRODUCT)
+        except _ClientError as e:
+            raise ClientError(e)
+        except _ServerError as e:
+            raise ServerError(e)
 
-    def _post(self, body=None, headers=None, **kwargs):
-        return self._request(self._resource.post, body, headers, **kwargs)
-
-    def _delete(self, headers=None, **kwargs):
-        return self._request(self._resource.delete, headers, **kwargs)
+    def _delete(self):
+        try:
+            return self._resource.delete(headers=HEADERS, product=PRODUCT)
+        except _ClientError as e:
+            raise ClientError(e)
+        except _ServerError as e:
+            raise ServerError(e)
 
     def _subresource(self, key, cls=None):
         if key not in self._subresources:
@@ -374,6 +394,17 @@ class Resource(object):
                 cls = Resource
             self._subresources[key] = cls(uri)
         return self._subresources[key]
+
+
+class Cacheable(object):
+
+    _instances = {}
+
+    @classmethod
+    def get_instance(cls, uri):
+        if uri not in cls._instances:
+            cls._instances[uri] = cls(uri)
+        return cls._instances[uri]
 
 
 class ServiceRoot(Cacheable, Resource):
@@ -489,7 +520,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = WriteBatch(self)
         batch._append_cypher("START r=rel(*) DELETE r")
         batch._append_cypher("START n=node(*) DELETE n")
-        batch._submit()
+        batch._submit().close()
 
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
@@ -549,7 +580,7 @@ class GraphDatabaseService(Cacheable, Resource):
         for entity in entities:
             if entity is not None:
                 batch.delete(entity)
-        batch._submit()
+        batch._submit().close()
 
     def find(self, label, property_key=None, property_value=None):
         """ Iterate through all nodes with the specified label, optionally
@@ -565,7 +596,6 @@ class GraphDatabaseService(Cacheable, Resource):
             if err.status_code != NOT_FOUND:
                 raise
 
-    #TODO: httpstream
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
@@ -578,7 +608,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = ReadBatch(self)
         for entity in entities:
             batch.get_properties(entity)
-        return [rs.body or {} for rs in batch._submit()]
+        return [rs.body or {} for rs in batch._stream()]
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -660,9 +690,9 @@ class GraphDatabaseService(Cacheable, Resource):
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
         # TODO: stream results
-        # for result in self.cypher.execute(query, **params):
+        # for result in self.cypher.execute(query, params):
         #     yield result[0]
-        return [result[0] for result in self.cypher.execute(query, **params)]
+        return [result[0] for result in self.cypher.execute(query, params)]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None,
                   bidirectional=False):
@@ -889,11 +919,11 @@ class Cypher(Cacheable, Resource):
             self._cypher = cypher
             self._query = query
 
-        def execute(self, **params):
+        def execute(self, params=None):
             try:
                 results = self._cypher._post({
                     "query": self._query,
-                    "params": params,
+                    "params": dict(params or {}),
                 })
             except ClientError as e:
                 if e.exception:
@@ -905,9 +935,9 @@ class Cypher(Cacheable, Resource):
                 else:
                     raise CypherError(e)
             else:
-                return Cypher.ResultSet(results)
+                return Cypher.RecordSet(results)
 
-    class ResultSet(object):
+    class RecordSet(object):
 
         signature = ("columns", "data")
 
@@ -926,18 +956,32 @@ class Cypher(Cacheable, Resource):
             else:
                 return key[0:2]
 
-        def __init__(self, results):
-            self._results = results
-            self._columns = None
-            self._record = None
+        def __init__(self, response):
+            self._response = response
+            self._redo_buffer = []
+            redo = []
+            section = []
+            self._buffered = self._buffered_results()
+            for key, value in self._buffered:
+                if key and key[0] == "columns":
+                    section.append((key, value))
+                else:
+                    redo.append((key, value))
+                    if key and key[0] == "data":
+                        break
+            self._redo_buffer.extend(redo)
+            self._columns = tuple(assembled(section)["columns"])
+            self._record = namedtuple("Record", self._columns, rename=True)
+
+        def _buffered_results(self):
+            for result in self._response:
+                while self._redo_buffer:
+                    yield self._redo_buffer.pop(0)
+                yield result
 
         def __iter__(self):
-            for key, section in grouped(self._results):
-                if key[0] == "columns":
-                    self._columns = tuple(_hydrated(assembled(section)))
-                    self._record = namedtuple("Record", self._columns,
-                                              rename=True)
-                elif key[0] == "data":
+            for key, section in grouped(self._buffered):
+                if key[0] == "data":
                     for i, row in grouped(section):
                         yield self._record(*_hydrated(assembled(row)))
 
@@ -948,11 +992,11 @@ class Cypher(Cacheable, Resource):
     def query(self, query):
         return Cypher.Query(self, query)
 
-    def execute(self, query, **params):
-        return Cypher.Query(self, query).execute(**params)
+    def execute(self, query, params=None):
+        return Cypher.Query(self, query).execute(params)
 
-    def execute_one(self, query, **params):
-        for row in Cypher.Query(self, query).execute(**params):
+    def execute_one(self, query, params=None):
+        for row in Cypher.Query(self, query).execute(params):
             return row[0]
 
 
@@ -1310,7 +1354,7 @@ class Node(_Entity):
             "MATCH (a)-[rels*0..]-(z) "
             "FOREACH(rel IN rels: DELETE rel) "
             "DELETE a, z"
-        ).execute(a=self._id)
+        ).execute({"a": self._id})
 
     def isolate(self):
         """ Delete all relationships connected to this node, both incoming and
@@ -1320,8 +1364,9 @@ class Node(_Entity):
             "START a=node({a}) "
             "MATCH a-[r]-b "
             "DELETE r "
-        ).execute(a=self._id)
+        ).execute({"a": self._id})
 
+    # TODO: deprecate/replace
     def match(self, rel_type=None, end_node=None, bidirectional=False,
               limit=None):
         """ Match one or more relationships attached to this node.
@@ -1341,6 +1386,7 @@ class Node(_Entity):
         return self.service_root.graph_db.match(self, rel_type, end_node,
                                                 bidirectional, limit)
 
+    # TODO: deprecate/replace
     def match_one(self, rel_type=None, end_node=None, bidirectional=False):
         """ Match a single relationship attached to this node.
 
@@ -1354,12 +1400,26 @@ class Node(_Entity):
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
-        rels = self.service_root.graph_db.match(self, rel_type, end_node,
-                                                bidirectional, limit=1)
-        if rels:
-            return rels[0]
-        else:
-            return None
+        return self.service_root.graph_db.match(self, rel_type, end_node,
+                                                bidirectional)
+
+    def match_incoming(self, rel_type=None, start_node=None, limit=None):
+        """ Match one or more incoming relationships attached to this node.
+        """
+        return self.service_root.graph_db.match(start_node, rel_type, self,
+                                                False, limit)
+
+    def match_outgoing(self, rel_type=None, end_node=None, limit=None):
+        """ Match one or more outgoing relationships attached to this node.
+        """
+        return self.service_root.graph_db.match(self, rel_type, end_node,
+                                                False, limit)
+
+    def match_any(self, rel_type=None, other_node=None, limit=None):
+        """ Match one or more relationships attached to this node.
+        """
+        return self.service_root.graph_db.match(self, rel_type, other_node,
+                                                True, limit)
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
@@ -1444,7 +1504,7 @@ class Node(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = self.cypher.execute_one(" ".join(query), **params)
+            rel = self.cypher.execute_one(" ".join(query), params)
             self._properties = rel.__metadata__["data"]
 
 
@@ -1586,7 +1646,7 @@ class Relationship(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = self.cypher.execute_one(" ".join(query), **params)
+            rel = self.cypher.execute_one(" ".join(query), params)
             self._properties = rel.__metadata__["data"]
 
 
@@ -1807,7 +1867,7 @@ class Path(object):
         clauses.append("RETURN {0}".format(",".join(values)))
         query = " ".join(clauses)
         try:
-            results = graph_db.cypher.execute(query, **params)
+            results = graph_db.cypher.execute(query, params)
         except CypherError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
@@ -2046,22 +2106,22 @@ class Index(Cacheable, Resource):
         """
         if key and value and entity:
             uri = URI.join(URI(self), key, value, entity._id)
-            self._delete(uri)
+            Resource(uri)._delete()
         elif key and value:
             uris = [
                 URI(entity.__metadata__["indexed"])
-                for entity in self._get(key, value)
+                for entity in self.get(key, value)
             ]
             batch = WriteBatch(self.service_root.graph_db)
             for uri in uris:
                 batch._append_delete(uri)
-            batch._submit()
+            batch._submit().close()
         elif key and entity:
             uri = URI.join(URI(self), key, entity._id)
-            self._delete(uri)
+            Resource(uri)._delete()
         elif entity:
             uri = URI.join(URI(self), entity._id)
-            self._delete(uri)
+            Resource(uri)._delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 
@@ -2142,6 +2202,8 @@ class _Batch(Resource):
     def _append(self, request, **kwargs):
         self.requests.append(request)
 
+    # TODO: allow application of "query" and "fields" on batch requests
+
     def _append_get(self, uri, **kwargs):
         self._append(_Batch.Request("GET", uri), **kwargs)
 
@@ -2175,10 +2237,10 @@ class _Batch(Resource):
 
     def _submit(self):
         """ Submit the current batch but do not parse the results. This is for
-        internal use where the results are discarded.
+        internal use where the results are discarded. Should be closed
         """
         try:
-            results = self._post(self._body)
+            response = self._post(self._body)
         except (ClientError, ServerError) as e:
             if e.exception:
                 # A CustomBatchError is a dynamically created subclass of
@@ -2190,29 +2252,32 @@ class _Batch(Resource):
                 raise BatchError(e)
         else:
             self.clear()
-            return results
+            return response
+
+    def _stream(self):
+        """ Submit the batch and iterate through the assembled but dehydrated
+        _Batch.Response objects.
+
+        :return:
+        """
+        for i, result in grouped(self._submit()):
+            yield _Batch.Response(assembled(result))
+
+    def stream(self):
+        """ Submit the current batch of requests, iterating through the results
+        as they are received. Hydrates responses received from _stream
+        """
+        for response in self._stream():
+            body = response.body
+            if isinstance(body, dict) and has_all(body, Cypher.RecordSet.signature):
+                yield Cypher.RecordSet._hydrated(response.body)
+            else:
+                yield _hydrated(response.body)
 
     def submit(self):
-        """ Submit the current batch of requests, iterating through the
-        results.
+        """ Submit the current batch of requests, returning a list of results.
         """
-        # TODO: turn this into streaming output
-        # for i, result in grouped(self._submit()):
-        #     response = _Batch.Response(assembled(result))
-        #     body = response.body
-        #     if isinstance(body, dict) and has_all(body, Cypher.ResultSet.signature):
-        #         yield Cypher.ResultSet._hydrated(response.body)
-        #     else:
-        #         yield _hydrated(response.body)
-        out = []
-        for i, result in grouped(self._submit()):
-            response = _Batch.Response(assembled(result))
-            body = response.body
-            if isinstance(body, dict) and has_all(body, Cypher.ResultSet.signature):
-                out.append(Cypher.ResultSet._hydrated(response.body))
-            else:
-                out.append(_hydrated(response.body))
-        return out
+        return list(self.stream())
 
     def _index(self, content_type, index):
         """ Fetch an Index object.
@@ -2248,8 +2313,7 @@ class ReadBatch(_Batch):
         :param value: value under which nodes are indexed
         """
         self._append_get(
-            URI(self._index(Node, index)._search_resource).format(key=key,
-                                                                  value=value)
+            URI(self._index(Node, index).searcher).format(key=key, value=value)
         )
 
 
