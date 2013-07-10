@@ -43,13 +43,13 @@ import base64
 import json
 import logging
 import re
-import sys
 
 from httpstream import (ClientError as _ClientError, Request as _Request,
                         Resource as _Resource, ServerError as _ServerError,
-                        URI)
+                        ResourceTemplate)
 from httpstream.jsonstream import assembled, grouped
 from httpstream.numbers import CREATED, NOT_FOUND
+from httpstream.uri import URI, URITemplate
 
 #from .. import cypher
 from . import __version__
@@ -330,7 +330,7 @@ class Resource(object):
 
     @property
     def service_root(self):
-        return ServiceRoot.get_instance(self._resource.__uri__.base)
+        return ServiceRoot.get_instance(URI(self._resource).resolve("/"))
 
     @property
     def graph_db(self):
@@ -348,10 +348,9 @@ class Resource(object):
         if not self.is_abstract:
             self._metadata = Resource.Metadata.load(self._resource)
 
-    def _get(self, query=None, fields=None):
+    def _get(self):
         try:
-            return self._resource.get(headers=HEADERS, query=query,
-                                      fields=fields, product=PRODUCT)
+            return self._resource.get(headers=HEADERS, product=PRODUCT)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -366,10 +365,10 @@ class Resource(object):
         except _ServerError as e:
             raise ServerError(e)
 
-    def _post(self, body=None, query=None):
+    def _post(self, body=None):
         try:
             return self._resource.post(body=body, headers=HEADERS,
-                                       query=query, product=PRODUCT)
+                                       product=PRODUCT)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -586,7 +585,8 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Iterate through all nodes with the specified label, optionally
         also with a property key and value.
         """
-        uri = URI.join(URI(self), "label", label, "nodes")
+        uri = URI(self).resolve("/".join(["label", label, "nodes"]))
+        #uri = URI.join(URI(self), "label", label, "nodes")
         if property_key:
             uri.query = {property_key: json.dumps(property_value)}
         try:
@@ -1045,7 +1045,7 @@ class _Entity(Resource):
         if self.is_abstract:
             return None
         else:
-            return int(URI(self).path.split("/")[-1])
+            return int(URI(self).path.segments[-1])
 
     def delete(self):
         """ Delete this entity from the database.
@@ -1902,28 +1902,25 @@ class Index(Cacheable, Resource):
 
     def __init__(self, content_type, uri, name=None):
         if "{" in uri:
-            self._searcher = Resource(uri)
+            self._searcher = ResourceTemplate(uri)
             self_uri = URI(uri)
-            self_uri.path = "/".join(self_uri.path.split("/")[:-2])
+            self_uri = self_uri.resolve("/".join(self_uri.path.segments[:-2]))
             Resource.__init__(self, self_uri)
         else:
             Resource.__init__(self, uri)
-            self._searcher = Resource(URI.join(uri, "{key}", "{value}",
-                                               safe="{}"))
+            self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
+        self._create_or_fail = Resource(URI(self).resolve("?uniqueness=create_or_fail"))
+        self._get_or_create = Resource(URI(self).resolve("?uniqueness=get_or_create"))
+        self._query = ResourceTemplate(URI(self).string + "?query={query}")
         self._content_type = content_type
-        self._name = name or URI(self).path.split("/")[-1] #TODO: unquote
+        self._name = name or URI(self).path.segments[-1]
 
-    #TODO: review
     def __repr__(self):
         return "{0}({1}, {2})".format(
             self.__class__.__name__,
             self._content_type.__name__,
-            repr(URI(self))
+            repr(URI(self).string)
         )
-
-    @property
-    def searcher(self):
-        return self._searcher
 
     def add(self, key, value, entity):
         """ Add an entity to this index under the `key`:`value` pair supplied::
@@ -1958,11 +1955,11 @@ class Index(Cacheable, Resource):
         If added, this method returns the entity, otherwise :py:const:`None`
         is returned.
         """
-        rs = self._post({
+        rs = self._get_or_create._post({
             "key": key,
             "value": value,
             "uri": str(URI(entity))
-        }, query="unique")
+        })
         if rs.status_code == CREATED:
             return entity
         else:
@@ -1994,10 +1991,7 @@ class Index(Cacheable, Resource):
         """
         return [
             _hydrated(assembled(result))
-            for i, result in grouped(self.searcher._get(fields={
-                "key": key,
-                "value": value
-            }))
+            for i, result in grouped(self._searcher.expand(key=key, value=value).get())
         ]
 
     def create(self, key, value, abstract):
@@ -2036,7 +2030,7 @@ class Index(Cacheable, Resource):
             }
         else:
             raise TypeError(self._content_type)
-        return self._post(body, query="unique")
+        return self._get_or_create._post(body)
 
     def get_or_create(self, key, value, abstract):
         """ Fetch a single entity from the index which is associated with the
@@ -2105,8 +2099,8 @@ class Index(Cacheable, Resource):
 
         """
         if key and value and entity:
-            uri = URI.join(URI(self), key, value, entity._id)
-            Resource(uri)._delete()
+            t = ResourceTemplate(URI(self).string + "/{key}/{value}/{entity}")
+            t.expand(key=key, value=value, entity=entity._id).delete()
         elif key and value:
             uris = [
                 URI(entity.__metadata__["indexed"])
@@ -2117,11 +2111,11 @@ class Index(Cacheable, Resource):
                 batch._append_delete(uri)
             batch._submit().close()
         elif key and entity:
-            uri = URI.join(URI(self), key, entity._id)
-            Resource(uri)._delete()
+            t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
+            t.expand(key=key, entity=entity._id).delete()
         elif entity:
-            uri = URI.join(URI(self), entity._id)
-            Resource(uri)._delete()
+            t = ResourceTemplate(URI(self).string + "/{entity}")
+            t.expand(entity=entity._id).delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 
@@ -2140,8 +2134,7 @@ class Index(Cacheable, Resource):
         """
         return [
             _hydrated(assembled(result))
-            for i, result in grouped(self._get(query="query={q}",
-                                               fields={"q": query}))
+            for i, result in grouped(self._query.expand(query=query).get())
         ]
 
 
@@ -2355,8 +2348,7 @@ class WriteBatch(_Batch):
             uri = self.graph_db._subresource("node").__relative_uri__
             body = compact(entity._properties)
         elif isinstance(entity, Relationship):
-            uri = URI.join(_Batch._uri_for(entity.start_node, abstract=False),
-                           "relationships")
+            uri = URI(_Batch._uri_for(entity.start_node, abstract=False) + "/relationships")
             body = {
                 "type": entity._type,
                 "to": str(_Batch._uri_for(entity.end_node, abstract=False))
