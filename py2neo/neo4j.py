@@ -2180,6 +2180,19 @@ class _Batch(Resource):
             self.status_code = result.get("status", 200)
             self.location = URI(result.get("location"))
 
+    class URI(object):
+
+        def __init__(self, entity, *segments):
+            """ Build a string URI using the relative URI from the base entity
+            plus the segments provided. The entity may be an integer which is
+            encoded within curly brackets.
+
+            :param entity:
+            :param segments:
+            :return: string URI
+            """
+            pass
+
     @staticmethod
     def _uri_for(entity, cls=(Node, Relationship), abstract=None):
         if isinstance(entity, int):
