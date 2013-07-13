@@ -26,6 +26,7 @@ import unittest
 def default_graph_db():
     return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
 
+
 def recycle(*entities):
     for entity in entities:
         try:
@@ -227,8 +228,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
             knows, = self.batch.submit()
             self.recycling = [knows, k1, k2, alice, bob]
             assert False
-        except Exception as err:
-            sys.stderr.write("{0}: {1}\n".format(err.args[0]["exception"], err.args[0]["message"]))
+        except neo4j.BatchError as err:
             self.recycling = [k1, k2, alice, bob]
             assert True
 
@@ -427,7 +427,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
                 self.batch.create_indexed_node_or_fail(self.people, "surname", "Smith", bob_props)
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
             # check entries
             smiths = self.people.get("surname", "Smith")
@@ -498,7 +498,7 @@ class TestIndexedNodeAddition(unittest.TestCase):
             try:
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
         except NotImplementedError:
             pass
@@ -549,7 +549,7 @@ class TestIndexedRelationshipCreation(unittest.TestCase):
             try:
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
         except NotImplementedError:
             pass
@@ -612,7 +612,7 @@ class TestIndexedRelationshipAddition(unittest.TestCase):
             try:
                 self.batch.submit()
                 assert False
-            except neo4j.ClientError:
+            except neo4j.BatchError:
                 assert True
         except NotImplementedError:
             pass
