@@ -727,7 +727,7 @@ class GraphDatabaseService(Cacheable, Resource):
     def node(self, id_):
         """ Fetch a node by ID.
         """
-        return Node(URI.join(URI(self), "node", id_))
+        return Node(URI(self).resolve("node/" + str(id_)))
 
     @property
     def node_labels(self):
@@ -752,7 +752,7 @@ class GraphDatabaseService(Cacheable, Resource):
     def relationship(self, id_):
         """ Fetch a relationship by ID.
         """
-        return Relationship(URI.join(URI(self), "relationship", id_))
+        return Relationship(URI(self).resolve("relationship/" + str(id_)))
 
     @property
     def relationship_types(self):
