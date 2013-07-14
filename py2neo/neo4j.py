@@ -44,14 +44,14 @@ import json
 import logging
 import re
 
-from httpstream import (ClientError as _ClientError, Request as _Request,
-                        Resource as _Resource, ServerError as _ServerError,
-                        ResourceTemplate)
+from httpstream import (http, Resource as _Resource,
+                        ResourceTemplate,
+                        ClientError as _ClientError,
+                        ServerError as _ServerError)
 from httpstream.jsonstream import assembled, grouped
 from httpstream.numbers import CREATED, NOT_FOUND
-from httpstream.uri import URI, URITemplate, percent_encode
+from httpstream.uri import URI, percent_encode
 
-#from .. import cypher
 from . import __version__
 from .exceptions import ClientError, ServerError, CypherError, BatchError, IndexTypeError
 from .util import compact, flatten, has_all, is_collection, quote, version_tuple, deprecated, round_robin
@@ -68,6 +68,8 @@ HEADERS = {"X-Stream": "true;format=pretty"}
 PRODUCT = ("py2neo", __version__)
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
+
+http.default_encoding = "UTF-8"
 
 log = logging.getLogger(__name__)
 
@@ -307,11 +309,6 @@ class Resource(object):
     @property
     def __uri__(self):
         return self._resource.__uri__
-
-    @property
-    def __relative_uri__(self):
-        offset = len(self.graph_db.__uri__)
-        return URI(str(self._resource.__uri__)[offset:])
 
     @property
     def __metadata__(self):
@@ -973,6 +970,13 @@ class Cypher(Cacheable, Resource):
             self._columns = tuple(assembled(section)["columns"])
             self._record = namedtuple("Record", self._columns, rename=True)
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.close()
+            return False
+
         def _buffered_results(self):
             for result in self._response:
                 while self._redo_buffer:
@@ -988,6 +992,9 @@ class Cypher(Cacheable, Resource):
         @property
         def columns(self):
             return self._columns
+
+        def close(self):
+            self._response.close()
 
     def query(self, query):
         return Cypher.Query(self, query)
@@ -1721,8 +1728,9 @@ class Path(object):
 
     @classmethod
     def _hydrated(cls, data):
-        # TODO: hydrate paths
-        return "PATH"
+        nodes = map(Node, data["nodes"])
+        rels = map(Relationship, data["relationships"])
+        return Path(*round_robin(nodes, rels))
 
     def __init__(self, node, *rels_and_nodes):
         self._nodes = [_node(node)]
@@ -2154,18 +2162,19 @@ def _cast(obj, cls=(Node, Relationship), abstract=None):
     return entity
 
 
-def _batch_uri(entity, *segments, **kwargs):
+def _batch_uri(resource, *segments, **kwargs):
     """ Return a relative URI in string format for the entity specified
     plus extra path segments.
 
-    :param entity:
+    :param resource:
     :param segments:
     :return:
     """
-    if isinstance(entity, int):
-        uri = "{{{0}}}".format(entity)
+    if isinstance(resource, int):
+        uri = "{{{0}}}".format(resource)
     else:
-        uri = entity.__relative_uri__.string
+        offset = len(resource.service_root.graph_db.__uri__)
+        uri = str(resource.__uri__)[offset:]
     if segments:
         if not uri.endswith("/"):
             uri += "/"
@@ -2281,7 +2290,16 @@ class _Batch(Resource):
         for response in self._stream():
             body = response.body
             if isinstance(body, dict) and has_all(body, Cypher.RecordSet.signature):
-                yield Cypher.RecordSet._hydrated(response.body)[0][0]
+                records = Cypher.RecordSet._hydrated(response.body)
+                if len(records) == 0:
+                    yield None
+                elif len(records) == 1:
+                    if len(records[0]) == 1:
+                        yield records[0][0]
+                    else:
+                        yield records[0]
+                else:
+                    yield records
             else:
                 yield _hydrated(response.body)
 
@@ -2323,9 +2341,10 @@ class ReadBatch(_Batch):
         :param key: key under which nodes are indexed
         :param value: value under which nodes are indexed
         """
-        self._append_get(
-            _batch_uri(self._index(Node, index).searcher).expand(key=key, value=value)
-        )
+        index = self._index(Node, index)
+        searcher = index._searcher.expand(key=key, value=value)
+        searcher.service_root = index.service_root
+        self._append_get(_batch_uri(searcher))
 
 
 class WriteBatch(_Batch):

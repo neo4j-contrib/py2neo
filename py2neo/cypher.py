@@ -24,7 +24,7 @@ import logging
 import threading
 import sys
 
-#from . import rest
+from .neo4j import CypherError
 
 
 logger = logging.getLogger(__name__)
@@ -442,17 +442,27 @@ class Metadata(object):
         self.columns = columns or []
 
 
-def execute(graph_db, query, params=None, row_handler=None, metadata_handler=None):
-    q = graph_db.cypher.query(query)
+def execute(graph_db, query, params=None, row_handler=None,
+            metadata_handler=None, error_handler=None):
+    query = graph_db.cypher.query(query)
     data, metadata = [], None
-    result_set = q.execute(params)
-    metadata = Metadata(result_set.columns)
-    for row in result_set:
-        if row_handler:
-            row_handler(list(row))
+    try:
+        record_set = query.execute(params)
+    except CypherError as err:
+        if error_handler:
+            error_handler(err.message, err.exception, err.stack_trace)
         else:
-            data.append(list(row))
-    return data, metadata
+            raise
+    else:
+        metadata = Metadata(record_set.columns)
+        if metadata_handler:
+            metadata_handler(metadata)
+        for record in record_set:
+            if row_handler:
+                row_handler(list(record))
+            else:
+                data.append(list(record))
+        return data, metadata
 
 
 # def write(format, out, graph_db, query, params=None, error_handler=None):

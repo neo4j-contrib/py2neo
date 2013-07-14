@@ -27,9 +27,9 @@ from xml.etree import ElementTree
 from . import neo4j, rest
 
 try:
-    from StringIO import StringIO # python 2
+    from StringIO import StringIO
 except ImportError:
-    from io import StringIO # python 3
+    from io import StringIO
 
 
 logger = logging.getLogger(__name__)
@@ -108,7 +108,7 @@ class Subgraph(object):
     def save(self, file):
         """ Save subgraph to a file in Geoff format.
         """
-        pass
+        pass  #TODO: actually write this bit
 
     @property
     def source(self):
@@ -193,7 +193,8 @@ class Subgraph(object):
                 try:
                     params["sp" + str(i)] = self._nodes[name].properties
                 except KeyError:
-                    raise SystemError("Broken internal reference - node '{0}' not found".format(name))
+                    raise SystemError("Broken internal reference - "
+                                      "node '{0}' not found".format(name))
                 output_names.append(name)
                 return "(out{0} {{{1}}})".format(output_names.index(name), "sp" + str(i))
             #
@@ -246,35 +247,32 @@ class Subgraph(object):
         # 2. related nodes
         if self._rels:
             query, params, related_names = self._get_relationship_query(unique)
-            batch._post(batch._cypher_uri, {"query": query, "params": params})
+            batch._append_cypher(query, **params)
         else:
             related_names = []
         # 3. odd nodes
         odd_names = list(self._odd_nodes.keys())
         for name in odd_names:
-            batch.create_node(self._nodes[name].properties)
+            batch.create(self._nodes[name].properties)
         # submit batch unless empty (in which case bail out and return nothing)
         if batch:
-            responses = batch._submit()   # TODO: change to stream method
+            responses = batch.submit()   # TODO: change to stream method
         else:
             return {}
         # parse response and build return value
         return_nodes = {}
         # 1. unique_nodes
         for i, entry in enumerate(index_entries):
-            response = responses.pop(0)
-            return_nodes[entry.node.name] = graph_db._resolve(response.body, response.status)
+            return_nodes[entry.node.name] = responses.pop(0)
         # 2. related nodes
         if self._rels:
-            data = responses.pop(0).body["data"]
-            if data:
-                for i, value in enumerate(data[0]):
-                    value = graph_db._resolve(value)
-                    return_nodes[related_names[i]] = graph_db._resolve(value)
+            r = responses.pop(0)
+            if r:
+                for i, value in enumerate(r):
+                    return_nodes[related_names[i]] = value
         # 3. odd nodes
         for i, name in enumerate(odd_names):
-            response = responses.pop(0)
-            return_nodes[name] = graph_db._resolve(response.body, response.status)
+            return_nodes[name] = responses.pop(0)
         return return_nodes
 
     def insert_into(self, graph_db):
@@ -287,12 +285,17 @@ class Subgraph(object):
         """
         try:
             return self._execute_load_batch(graph_db, True)
-        except rest.BadRequest as err:
-            if err.exception == "UniquePathNotUniqueException":
-                err = ConstraintViolation(
-                    "Unable to merge relationship onto multiple "
-                    "existing relationships."
-                )
+        except neo4j.BatchError as err:
+            try:
+                err2 = json.loads(err.message) # TODO: this is a bit of a bodge
+            except ValueError:
+                pass
+            else:
+                if err2["exception"] == "UniquePathNotUniqueException":
+                    err = ConstraintViolation(
+                        "Unable to merge relationship onto multiple "
+                        "existing relationships."
+                    )
             raise err
 
 

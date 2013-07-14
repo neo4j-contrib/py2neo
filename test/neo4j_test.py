@@ -19,7 +19,7 @@ import sys
 PY3K = sys.version_info[0] >= 3
 
 from httpstream import NetworkAddressError, SocketError, ClientError
-from py2neo import neo4j, cypher
+from py2neo import neo4j, cypher, node
 
 import logging
 import unittest
@@ -32,6 +32,7 @@ logging.basicConfig(
 
 def default_graph_db():
     return neo4j.GraphDatabaseService()
+
 
 def recycle(*entities):
     for entity in entities:
@@ -71,28 +72,11 @@ def test_wrong_path_will_fail():
         assert False
 
 
-class BadDatabaseURITest(unittest.TestCase):
-
-    def test_no_trailing_slash(self):
-        graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
-        self.assertEqual("http://localhost:7474/db/data/", graph_db.__uri__)
-
-    def test_no_path(self):
-        try:
-            neo4j.GraphDatabaseService("http://localhost:7474")
-            assert False
-        except ValueError as err:
-            sys.stderr.write(str(err) + "\n")
-            assert True
-
-
-    def test_root_path(self):
-        try:
-            neo4j.GraphDatabaseService("http://localhost:7474/")
-            assert False
-        except ValueError as err:
-            sys.stderr.write(str(err) + "\n")
-            assert True
+def test_can_use_graph_if_no_trailing_slash_supplied():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+    alice, = graph_db.create(node(name="Alice"))
+    assert isinstance(alice, neo4j.Node)
+    assert alice["name"] == "Alice"
 
 
 class GraphDatabaseServiceTest(unittest.TestCase):
@@ -272,7 +256,7 @@ class NewCreateTestCase(unittest.TestCase):
         )
 
     def test_can_create_big_graph(self):
-        size = 2000
+        size = 40
         nodes = [
             {"number": i}
             for i in range(size)
