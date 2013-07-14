@@ -196,7 +196,10 @@ def _node(*args, **kwargs):
         node({"name": "Alice"})
 
     """
-    if len(args) == 1 and not kwargs:
+    # TODO: add support for casting from (index, key, value) tuple
+    if len(args) == 0:
+        return Node.abstract(**kwargs)
+    elif len(args) == 1 and not kwargs:
         arg = args[0]
         if arg is None:
             return None
@@ -205,11 +208,9 @@ def _node(*args, **kwargs):
         elif isinstance(arg, dict):
             return Node.abstract(**arg)
         else:
-            return Node.abstract(arg)
-    elif len(args) == 0:
-        return Node.abstract(**kwargs)
+            raise TypeError("Cannot cast node from {0}".format(arg))
     else:
-        raise TypeError((args, kwargs))
+        raise TypeError("Cannot cast node from {0}".format((args, kwargs)))
 
 
 def _rel(*args, **kwargs):
@@ -241,13 +242,13 @@ def _rel(*args, **kwargs):
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
             else:
-                raise TypeError(arg)
+                raise TypeError("Cannot cast relationship from {0}".format(arg))
         else:
-            raise TypeError(arg)
+            raise TypeError("Cannot cast relationship from {0}".format(arg))
     elif len(args) >= 3:
         return Relationship.abstract(*args, **kwargs)
     else:
-        raise TypeError((args, kwargs))
+        raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
 
 class Resource(object):
