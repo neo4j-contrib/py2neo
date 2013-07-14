@@ -15,14 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from pprint import pprint
-from py2neo import admin
-
-if __name__ == "__main__":
-
-    sonar = admin.Sonar()
-    pprint(sonar.ping())
-
-    monitor = admin.Monitor()
-    pprint(monitor.fetch_latest_data())
+# TODO: rebuild when functionality moved
+# from pprint import pprint
+# from py2neo import admin
+#
+# if __name__ == "__main__":
+#
+#     sonar = admin.Sonar()
+#     pprint(sonar.ping())
+#
+#     monitor = admin.Monitor()
+#     pprint(monitor.fetch_latest_data())

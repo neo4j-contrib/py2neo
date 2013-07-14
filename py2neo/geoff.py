@@ -24,7 +24,7 @@ import re
 from uuid import uuid4
 from xml.etree import ElementTree
 
-from . import neo4j, rest
+from . import neo4j
 
 try:
     from StringIO import StringIO

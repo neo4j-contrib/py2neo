@@ -23,8 +23,6 @@ against a graph database.
 
 import logging
 
-from . import rest
-
 
 logger = logging.getLogger(__name__)
 
@@ -41,5 +39,5 @@ def execute(script, graph_db):
         uri = graph_db._extension_uri('GremlinPlugin', 'execute_script')
     except NotImplementedError:
         raise NotImplementedError("Gremlin functionality not available")
-    rs = graph_db._send(rest.Request(graph_db, "POST", uri, {'script': script}))
-    return rs.body
+    rs = graph_db._post(uri, {'script': script})
+    return rs.get().content
