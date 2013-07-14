@@ -127,9 +127,8 @@ class MatchTestCase(unittest.TestCase):
         assert len(rels) == 3
 
     def test_can_match_one(self):
-        rels = self.graph_db.match()
-        assert len(rels) == 1
-        assert isinstance(rels[0], neo4j.Relationship)
+        rel = self.graph_db.match_one()
+        assert isinstance(rel, neo4j.Relationship)
 
     def test_can_match_none(self):
         rels = self.graph_db.match(rel_type="HATES", limit=1)

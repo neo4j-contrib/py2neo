@@ -415,6 +415,9 @@ class ServiceRoot(Cacheable, Resource):
         return GraphDatabaseService.get_instance(self.__metadata__["data"])
 
 
+# TODO: add monitor service, etc
+
+
 class GraphDatabaseService(Cacheable, Resource):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
@@ -1373,7 +1376,7 @@ class Node(_Entity):
             "DELETE r "
         ).execute({"a": self._id})
 
-    # TODO: deprecate/replace
+    # TODO: deprecate/replace (no, match_any should come here and remove bidi)
     def match(self, rel_type=None, end_node=None, bidirectional=False,
               limit=None):
         """ Match one or more relationships attached to this node.
