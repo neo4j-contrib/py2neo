@@ -248,53 +248,6 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertEqual(p1.relationships[1], p2.relationships[1])
         self.assertEqual(p1.relationships[2], p2.relationships[2])
 
-    def test_can_use_int_for_nodes(self):
-        start_node, = self.graph_db.create({})
-        p1 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12, "name": "December"},
-            "DAY",   {"number": 25},
-        )
-        p2 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", p1.nodes[2]._id,
-            "DAY",   {"number": 25},
-        )
-        self.assertIsInstance(p2, neo4j.Path)
-        self.assertEqual(3, len(p2))
-        self.assertEqual(p1.nodes[0], p2.nodes[0])
-        self.assertEqual(p1.nodes[1], p2.nodes[1])
-        self.assertEqual(p1.nodes[2], p2.nodes[2])
-        self.assertEqual(p1.nodes[3], p2.nodes[3])
-        self.assertEqual(p1.relationships[0], p2.relationships[0])
-        self.assertEqual(p1.relationships[1], p2.relationships[1])
-        self.assertEqual(p1.relationships[2], p2.relationships[2])
-
-    def test_can_use_tuple_for_nodes(self):
-        start_node, = self.graph_db.create({})
-        p1 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12, "name": "December"},
-            "DAY",   {"number": 25},
-        )
-        events = self.graph_db.get_or_create_index(neo4j.Node, "EVENTS")
-        events.remove("name", "Christmas")
-        events.add("name", "Christmas", p1.nodes[3])
-        p2 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12, "name": "December"},
-            "DAY",   ("EVENTS", "name", "Christmas"),
-        )
-        self.assertIsInstance(p2, neo4j.Path)
-        self.assertEqual(3, len(p2))
-        self.assertEqual(p1.nodes[0], p2.nodes[0])
-        self.assertEqual(p1.nodes[1], p2.nodes[1])
-        self.assertEqual(p1.nodes[2], p2.nodes[2])
-        self.assertEqual(p1.nodes[3], p2.nodes[3])
-        self.assertEqual(p1.relationships[0], p2.relationships[0])
-        self.assertEqual(p1.relationships[1], p2.relationships[1])
-        self.assertEqual(p1.relationships[2], p2.relationships[2])
-
 
 if __name__ == '__main__':
     unittest.main()

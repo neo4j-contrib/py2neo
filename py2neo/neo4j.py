@@ -196,7 +196,6 @@ def _node(*args, **kwargs):
         node({"name": "Alice"})
 
     """
-    # TODO: add support for casting from (index, key, value) tuple
     if len(args) == 0:
         return Node.abstract(**kwargs)
     elif len(args) == 1 and not kwargs:
@@ -726,10 +725,14 @@ class GraphDatabaseService(Cacheable, Resource):
         :return: a list of :py:class:`Index` instances of the specified type
         """
         index_manager = self._index_manager(content_type)
-        self._indexes[content_type] = dict(
-            (key, Index(content_type, value["template"]))
-            for key, value in assembled(index_manager._get()).items()
-        )
+        index_index = index_manager._get().content
+        if index_index:
+            self._indexes[content_type] = dict(
+                (key, Index(content_type, value["template"]))
+                for key, value in index_index.items()
+            )
+        else:
+            self._indexes[content_type] = {}
         return self._indexes[content_type]
 
     def get_index(self, content_type, index_name):
@@ -1224,16 +1227,14 @@ class Node(_Entity):
         if self.__uri__:
             return _Entity.__eq__(self, other)
         else:
-            return (self.labels == other.labels and
-                    self._properties == other._properties)
+            return self._properties == other._properties
 
     def __ne__(self, other):
         other = _cast(other, Node)
         if self.__uri__:
             return _Entity.__ne__(self, other)
         else:
-            return (self.labels != other.labels or
-                    self._properties != other._properties)
+            return self._properties != other._properties
 
     #TODO: review
     def __repr__(self):

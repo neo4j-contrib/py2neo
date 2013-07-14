@@ -42,23 +42,10 @@ class NodeCastingTestCase(unittest.TestCase):
         assert casted.is_abstract
         assert casted["name"] == "Alice"
 
-    def test_can_cast_args(self):
-        casted = node("Person")
-        assert isinstance(casted, neo4j.Node)
-        assert casted.is_abstract
-        assert "Person" in casted._labels
-
     def test_can_cast_kwargs(self):
         casted = node(name="Alice")
         assert isinstance(casted, neo4j.Node)
         assert casted.is_abstract
-        assert casted["name"] == "Alice"
-
-    def test_can_cast_args_and_kwargs(self):
-        casted = node("Person", name="Alice")
-        assert isinstance(casted, neo4j.Node)
-        assert casted.is_abstract
-        assert "Person" in casted._labels
         assert casted["name"] == "Alice"
 
     def test_can_cast_nothing(self):
