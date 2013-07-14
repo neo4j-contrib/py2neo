@@ -18,7 +18,7 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, rest, node, rel
+from py2neo import neo4j, node, rel
 
 import unittest
 

@@ -146,34 +146,6 @@ def set_timeout(netloc, timeout):
     rest.http_timeouts[netloc] = timeout
 
 
-#TODO: remove? (only used in metadata_test)
-# def _assert_expected_response(cls, uri, metadata):
-#     """ Checks the metadata received against a specific class to confirm this
-#     is the type of response expected.
-#     """
-#     has_all = lambda iterable, items: all(item in iterable for item in items)
-#     if cls is GraphDatabaseService:
-#         if has_all(metadata, ("extensions", "node", "node_index",
-#                               "relationship_index", "relationship_types")):
-#            return
-#     elif cls is Node:
-#         if has_all(metadata, ("self", "property", "properties", "data",
-#                               "create_relationship", "incoming_relationships",
-#                               "outgoing_relationships", "all_relationships")):
-#             return
-#     elif cls is Relationship:
-#         if has_all(metadata, ("self", "property", "properties", "data",
-#                               "start", "type", "end")):
-#             return
-#     else:
-#         raise TypeError("Cannot confirm metadata for class " + cls.__name__)
-#     raise ValueError(
-#         "URI <{0}> does not appear to identify a {1}: {2}".format(
-#             uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
-#         )
-#     )
-
-
 def _hydrated(data):
     """ Takes input iterable, assembles and resolves any Resource objects,
     returning the result.
@@ -289,7 +261,6 @@ class Resource(object):
         self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
-        self.__cypher = None
 
     def __repr__(self):
         """ Return a valid Python representation of this object.
@@ -454,60 +425,6 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Return the size of this graph (i.e. the number of relationships).
         """
         return self.size()
-
-    #TODO: remove?
-    # def _resolve(self, data, status=200, id_=None):
-    #     """ Create `Node`, `Relationship` or `Path` object from dictionary of
-    #     key:value pairs.
-    #     """
-    #     if data is None:
-    #         return None
-    #     elif status == 400:
-    #         raise rest.BadRequest(data["message"], id_=id_)
-    #     elif status == 404:
-    #         raise rest.ResourceNotFound(data["message"], id_=id_)
-    #     elif status == 409:
-    #         raise rest.ResourceConflict(data["message"], id_=id_)
-    #     elif status // 100 == 5:
-    #         raise SystemError(data["message"])
-    #     elif isinstance(data, dict) and "self" in data:
-    #         # is a neo4j resolvable entity
-    #         uri = data["self"]
-    #         if "type" in data:
-    #             rel = Relationship(uri)
-    #             rel._update_metadata(data)
-    #             rel._properties = data["data"]
-    #             return rel
-    #         else:
-    #             node = Node(uri)
-    #             node._update_metadata(data)
-    #             node._properties = data["data"]
-    #             return node
-    #     elif isinstance(data, dict) and "length" in data and \
-    #             "nodes" in data and "relationships" in data and \
-    #             "start" in data and "end" in data:
-    #         # is a path
-    #         nodes = map(Node, data["nodes"])
-    #         rels = map(Relationship, data["relationships"])
-    #         return Path(*round_robin(nodes, rels))
-    #     elif isinstance(data, dict) and "columns" in data and "data" in data:
-    #         # is a value contained within a Cypher response
-    #         # (should only ever be single row, single value)
-    #         if len(data["columns"]) != 1:
-    #             raise ValueError("Expected single column")
-    #         rows = data["data"]
-    #         if len(rows) != 1:
-    #             raise ValueError("Expected single row")
-    #         values = rows[0]
-    #         if len(values) != 1:
-    #             raise ValueError("Expected single value")
-    #         value = values[0]
-    #         return self._resolve(value, status, id_=id_)
-    #     elif isinstance(data, list):
-    #         return [self._resolve(item, status, id_) for item in data]
-    #     else:
-    #         # is a plain value
-    #         return data
 
     def clear(self):
         """ Clear all nodes and relationships from the graph.
