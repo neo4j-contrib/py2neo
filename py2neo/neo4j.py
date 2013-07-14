@@ -53,8 +53,10 @@ from httpstream.numbers import CREATED, NOT_FOUND
 from httpstream.uri import URI, percent_encode
 
 from . import __version__
-from .exceptions import ClientError, ServerError, CypherError, BatchError, IndexTypeError
-from .util import compact, flatten, has_all, is_collection, quote, version_tuple, deprecated, round_robin
+from .exceptions import (ClientError, ServerError, CypherError, BatchError,
+                         IndexTypeError)
+from .util import (compact, flatten, has_all, is_collection, version_tuple,
+                   round_robin)
 
 
 DEFAULT_SCHEME = "http"
@@ -62,8 +64,6 @@ DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 7474
 DEFAULT_NETLOC = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
 DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_NETLOC)
-
-HEADERS = {"X-Stream": "true;format=pretty"}
 
 PRODUCT = ("py2neo", __version__)
 
@@ -73,11 +73,34 @@ http.default_encoding = "UTF-8"
 
 log = logging.getLogger(__name__)
 
+_headers = {
+    None: [("X-Stream", "true;format=pretty")]
+}
 
-#TODO: httpstream
-def authenticate(netloc, user_name, password):
-    """ Set HTTP basic authentication values for specified `netloc`. The code
-    below shows a simple example::
+
+def _add_header(key, value, host_port=None):
+    """ Add an HTTP header to be sent with all requests if no `host_port`
+    is provided or only to those matching the value supplied otherwise.
+    """
+    if host_port in _headers:
+        _headers[host_port].append((key, value))
+    else:
+        _headers[host_port] = [(key, value)]
+
+
+def _get_headers(host_port):
+    """Fetch all HTTP headers relevant to the `host_port` provided.
+    """
+    uri_headers = {}
+    for n, headers in _headers.items():
+        if n is None or n == host_port:
+            uri_headers.update(headers)
+    return uri_headers
+
+
+def authenticate(host_port, user_name, password):
+    """ Set HTTP basic authentication values for specified `host_port`. The
+    code below shows a simple example::
 
         # set up authentication parameters
         neo4j.authenticate("camelot:7474", "arthur", "excalibur")
@@ -89,13 +112,14 @@ def authenticate(netloc, user_name, password):
     number but must match exactly that used within the GraphDatabaseService
     URI.
 
-    :param netloc: the host and port requiring authentication (e.g. "camelot:7474")
+    :param host_port: the host and optional port requiring authentication
+        (e.g. "bigserver", "camelot:7474")
     :param user_name: the user name to authenticate as
     :param password: the password
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = "Basic " + base64.b64encode(credentials).decode("ASCII")
-    rest.http_headers.add("Authorization", value, netloc=netloc)
+    _add_header("Authorization", value, host_port=host_port)
 
 
 def familiar(*resources):
@@ -136,16 +160,6 @@ def rewrite(from_scheme_netloc, to_scheme_netloc):
         rest.http_rewrites[from_scheme_netloc] = to_scheme_netloc
 
 
-#TODO: httpstream
-def set_timeout(netloc, timeout):
-    """ Set a timeout for all HTTP blocking operations for specified `netloc`.
-
-    :param netloc: the host and port to set the timeout value for (e.g. "camelot:7474")
-    :param timeout: the timeout value in seconds
-    """
-    rest.http_timeouts[netloc] = timeout
-
-
 def _hydrated(data):
     """ Takes input iterable, assembles and resolves any Resource objects,
     returning the result.
@@ -169,7 +183,6 @@ def _node(*args, **kwargs):
     - ``node(node_instance)``
     - ``node(property_dict)``
     - ``node(**properties)``
-    - ``node(*labels, **properties)``
 
     If :py:const:`None` is passed as the only argument, :py:const:`None` is
     returned instead of a ``Node`` instance.
@@ -181,8 +194,6 @@ def _node(*args, **kwargs):
         node(None)
         node(name="Alice")
         node({"name": "Alice"})
-        node("Person")
-        node("Person", name="Alice")
 
     """
     if len(args) == 1 and not kwargs:
@@ -195,8 +206,10 @@ def _node(*args, **kwargs):
             return Node.abstract(**arg)
         else:
             return Node.abstract(arg)
+    elif len(args) == 0:
+        return Node.abstract(**kwargs)
     else:
-        return Node.abstract(*args, **kwargs)
+        raise TypeError((args, kwargs))
 
 
 def _rel(*args, **kwargs):
@@ -261,6 +274,8 @@ class Resource(object):
         self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
+        self._headers = _get_headers(self.__uri__.host_port)
+        self._product = PRODUCT
 
     def __repr__(self):
         """ Return a valid Python representation of this object.
@@ -318,7 +333,8 @@ class Resource(object):
 
     def _get(self):
         try:
-            return self._resource.get(headers=HEADERS, product=PRODUCT)
+            return self._resource.get(headers=self._headers,
+                                      product=self._product)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -326,8 +342,9 @@ class Resource(object):
 
     def _put(self, body=None):
         try:
-            return self._resource.put(body=body, headers=HEADERS,
-                                      product=PRODUCT)
+            return self._resource.put(body=body,
+                                      headers=self._headers,
+                                      product=self._product)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -335,8 +352,9 @@ class Resource(object):
 
     def _post(self, body=None):
         try:
-            return self._resource.post(body=body, headers=HEADERS,
-                                       product=PRODUCT)
+            return self._resource.post(body=body,
+                                       headers=self._headers,
+                                       product=self._product)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -344,7 +362,8 @@ class Resource(object):
 
     def _delete(self):
         try:
-            return self._resource.delete(headers=HEADERS, product=PRODUCT)
+            return self._resource.delete(headers=self._headers,
+                                         product=self._product)
         except _ClientError as e:
             raise ClientError(e)
         except _ServerError as e:
@@ -651,7 +670,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Return the set of node labels currently defined within this
         database instance.
         """
-        resource = Resource(URI.join(URI(self), "labels"))
+        resource = Resource(URI(self).resolve("labels"))
         try:
             return set(_hydrated(assembled(resource._get())))
         except ClientError as err:
@@ -1089,13 +1108,6 @@ class LabelSet(Resource):
         self.refresh()
         return len(self._labels)
 
-    @property
-    def _graph_db(self):
-        try:
-            return GraphDatabaseService.get_instance(self.__uri__.base)
-        except AttributeError:
-            return None
-
     def is_abstract(self):
         return self.__uri__ is None
 
@@ -1111,9 +1123,11 @@ class LabelSet(Resource):
     def remove(self, *labels):
         labels = [str(label) for label in flatten(labels)]
         if self.__uri__:
+            uri = self.__uri__
+            uri = uri.resolve(uri.path.with_trailing_slash())
             # TODO: batch
             for label in labels:
-                Resource(URI.join(self.__uri__, label))._delete()
+                Resource(uri.resolve(label))._delete()
             self.refresh()
         else:
             self._labels.remove(labels)
@@ -1173,13 +1187,13 @@ class Node(_Entity):
         return obj
 
     @classmethod
-    def abstract(cls, *labels, **properties):
+    def abstract(cls, **properties):
         """ Create and return a new abstract node containing properties drawn
         from the keyword arguments supplied. An abstract node is not bound to
         a concrete node within a database but properties can be managed
         similarly to those within bound nodes::
 
-            >>> alice = neo4j.Node.abstract(name="Alice")
+            >>> alice = Node.abstract(name="Alice")
             >>> alice["name"]
             'Alice'
             >>> alice["age"] = 34
@@ -1189,15 +1203,13 @@ class Node(_Entity):
         If more complex property keys are required, abstract nodes may be
         instantiated with the ``**`` syntax::
 
-            >>> alice = neo4j.Node.abstract(**{"first name": "Alice"})
+            >>> alice = Node.abstract(**{"first name": "Alice"})
             >>> alice["first name"]
             'Alice'
 
         :param properties: node properties
         """
         instance = cls(None)
-        instance._labels = set(labels)
-        instance._labels_supported = True
         instance._properties = dict(properties)
         return instance
 
@@ -1451,12 +1463,12 @@ class Relationship(_Entity):
         return obj
 
     @classmethod
-    def abstract(cls, start_node, type, end_node, **properties):
+    def abstract(cls, start_node, type_, end_node, **properties):
         """ Create and return a new abstract relationship.
         """
         instance = cls(None)
         instance._start_node = start_node
-        instance._type = type
+        instance._type = type_
         instance._end_node = end_node
         instance._properties = dict(properties)
         return instance
@@ -1624,7 +1636,7 @@ class _UnboundRelationship(object):
         return Relationship.abstract(start_node, self._type, end_node,
                                      **self._properties)
 
-#TODO: put TODOs in Path class
+
 class Path(object):
     """ A representation of a sequence of nodes connected by relationships. for
     example::
@@ -1664,7 +1676,8 @@ class Path(object):
         ]
 
     def __repr__(self):
-        out = ", ".join(repr(item) for item in round_robin(self._nodes, self._relationships))
+        out = ", ".join(repr(item) for item in round_robin(self._nodes,
+                                                           self._relationships))
         return "Path({0})".format(out)
 
     def __str__(self):
@@ -1711,7 +1724,8 @@ class Path(object):
             i = int(item)
             if i < 0:
                 i += len(self._relationships)
-            return Path(self._nodes[i], self._relationships[i], self._nodes[i + 1])
+            return Path(self._nodes[i], self._relationships[i],
+                        self._nodes[i + 1])
 
     def __iter__(self):
         return iter(
@@ -1763,6 +1777,7 @@ class Path(object):
 
     def _create(self, graph_db, verb):
         nodes, path, values, params = [], [], [], {}
+
         def append_node(i, node):
             if node is None:
                 path.append("(n{0})".format(i))
@@ -1776,6 +1791,7 @@ class Path(object):
                 nodes.append("n{0}=node({{i{0}}})".format(i))
                 params["i{0}".format(i)] = node._id
                 values.append("n{0}".format(i))
+
         def append_rel(i, rel):
             if rel._properties:
                 path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel._type))
@@ -1784,6 +1800,7 @@ class Path(object):
             else:
                 path.append("-[r{0}:`{1}`]->".format(i, rel._type))
                 values.append("r{0}".format(i))
+
         append_node(0, self._nodes[0])
         for i, rel in enumerate(self._relationships):
             append_rel(i, rel)
@@ -1804,7 +1821,7 @@ class Path(object):
             )
         else:
             for row in results:
-                return Path(*row)  # TODO: check this works :-/
+                return Path(*row)
 
     def create(self, graph_db):
         """ Construct a path within the specified `graph_db` from the nodes
@@ -1837,11 +1854,12 @@ class Index(Cacheable, Resource):
         else:
             Resource.__init__(self, uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
-        self._create_or_fail = Resource(URI(self).resolve("?uniqueness=create_or_fail"))
-        self._get_or_create = Resource(URI(self).resolve("?uniqueness=get_or_create"))
-        self._query = ResourceTemplate(URI(self).string + "?query={query}")
+        uri = URI(self)
+        self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
+        self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
+        self._query = ResourceTemplate(uri.string + "?query={query}")
         self._content_type = content_type
-        self._name = name or URI(self).path.segments[-1]
+        self._name = name or uri.path.segments[-1]
 
     def __repr__(self):
         return "{0}({1}, {2})".format(
@@ -2209,7 +2227,8 @@ class _Batch(Resource):
         """
         for response in self._stream():
             body = response.body
-            if isinstance(body, dict) and has_all(body, Cypher.RecordSet.signature):
+            if isinstance(body, dict) and has_all(body,
+                                                  Cypher.RecordSet.signature):
                 records = Cypher.RecordSet._hydrated(response.body)
                 if len(records) == 0:
                     yield None
