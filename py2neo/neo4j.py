@@ -1081,57 +1081,29 @@ class _Entity(Resource):
 
 class LabelSet(Resource):
 
-    @classmethod
-    def abstract(cls, *labels):
-        """ Create and return a new abstract label set containing labels drawn
-        from the arguments supplied.
-        """
-        instance = cls(None)
-        instance._labels = set(labels)
-        return instance
-
     def __init__(self, uri):
         Resource.__init__(self, uri)
         self._labels = set()
 
     def __eq__(self, other):
-        other = _cast(other, Node)
-        if self.__uri__:
-            return Resource.__eq__(self, other)
-        else:
-            return self._labels == other._labels
+        self.refresh()
+        return self._labels == set(other)
 
     def __ne__(self, other):
-        other = _cast(other, Node)
-        if self.__uri__:
-            return Resource.__ne__(self, other)
-        else:
-            return self._labels != other._labels
+        self.refresh()
+        return self._labels != set(other)
 
     def __repr__(self):
-        if self.__uri__:
-            return "{0}({1})".format(
-                self.__class__.__name__,
-                repr(str(self.__uri__)),
-            )
-        else:
-            return "{0}.abstract({1})".format(
-                self.__class__.__name__,
-                ", ".join(repr(label) for label in sorted(self._labels)),
-            )
+        return "{0}({1})".format(
+            self.__class__.__name__,
+            repr(str(self.__uri__)),
+        )
 
     def __str__(self):
         return ":".join(sorted(self._labels))
 
-    def __hash__(self):
-        if self.__uri__:
-            return hash(self.__uri__)
-        else:
-            return hash(frozenset(self._labels))
-
     def refresh(self):
-        if self.__uri__:
-            self._labels = set(assembled(self._get()))
+        self._labels = set(assembled(self._get()))
 
     def __contains__(self, item):
         self.refresh()
@@ -1145,38 +1117,26 @@ class LabelSet(Resource):
         self.refresh()
         return len(self._labels)
 
-    def is_abstract(self):
-        return self.__uri__ is None
-
     def add(self, *labels):
-        labels = [str(label) for label in flatten(labels)]
-        if self.__uri__:
-            # TODO: batch
-            self._post(labels)
-            self.refresh()
-        else:
-            self._labels.update(labels)
+        labels = [str(label) for label in set(flatten(labels))]
+        # TODO: batch
+        self._post(labels)
+        self.refresh()
 
     def remove(self, *labels):
         labels = [str(label) for label in flatten(labels)]
-        if self.__uri__:
-            uri = self.__uri__
-            uri = uri.resolve(uri.path.with_trailing_slash())
-            # TODO: batch
-            for label in labels:
-                Resource(uri.resolve(label))._delete()
-            self.refresh()
-        else:
-            self._labels.remove(labels)
+        uri = self.__uri__
+        uri = uri.resolve(uri.path.with_trailing_slash())
+        # TODO: batch
+        for label in labels:
+            Resource(uri.resolve(label))._delete()
+        self.refresh()
 
     def replace(self, *labels):
         labels = [str(label) for label in flatten(labels)]
-        if self.__uri__:
-            # TODO: batch
-            self._put(labels)
-            self.refresh()
-        else:
-            self._labels = set(labels)
+        # TODO: batch
+        self._put(labels)
+        self.refresh()
 
 
 class Node(_Entity):
@@ -2448,6 +2408,21 @@ class WriteBatch(_Batch):
         """
         uri = _batch_uri(entity, "properties")
         self._append_delete(uri)
+
+    def add_labels(self, node, *labels):
+        node = _cast(node, cls=Node, abstract=False)
+        uri = _batch_uri(node, "labels")
+        self._append_post(uri, list(labels))
+
+    def remove_label(self, node, label):
+        node = _cast(node, cls=Node, abstract=False)
+        uri = _batch_uri(node, "labels", label)
+        self._append_delete(uri)
+
+    def replace_labels(self, node, *labels):
+        node = _cast(node, cls=Node, abstract=False)
+        uri = _batch_uri(node, "labels")
+        self._append_put(uri, list(labels))
 
     def _create_indexed_node(self, index, key, value, properties, query=None):
         uri = _batch_uri(self._index(Node, index), query=query)

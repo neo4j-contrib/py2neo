@@ -72,7 +72,7 @@ class TestDays(unittest.TestCase):
 
     def test_will_always_get_same_day_node(self):
         first_christmas = self.calendar.day(2000, 12, 25)
-        for i in range(100):
+        for i in range(40):
             next_christmas = self.calendar.day(2000, 12, 25)
             assert next_christmas == first_christmas
 
@@ -95,7 +95,7 @@ class TestMonths(unittest.TestCase):
 
     def test_will_always_get_same_month_node(self):
         first_december = self.calendar.month(2000, 12)
-        for i in range(100):
+        for i in range(40):
             next_december = self.calendar.month(2000, 12)
             assert next_december == first_december
 
@@ -117,7 +117,7 @@ class TestYears(unittest.TestCase):
 
     def test_will_always_get_same_month_node(self):
         first_millennium = self.calendar.year(2000)
-        for i in range(100):
+        for i in range(40):
             next_millennium = self.calendar.year(2000)
             assert next_millennium == first_millennium
 
@@ -137,11 +137,11 @@ class TestDateRanges(unittest.TestCase):
         assert isinstance(xmas_year, neo4j.Node)
         assert xmas_year["start_date"] == "2000-12-25"
         assert xmas_year["end_date"] == "2001-12-25"
-        rels = xmas_year.match_outgoing("START_DATE")
+        rels = xmas_year.match("START_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 12, 25))
         assert rels[0].end_node == self.calendar.day(2000, 12, 25)
-        rels = xmas_year.match_outgoing("END_DATE")
+        rels = xmas_year.match("END_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2001, 12, 25))
         assert rels[0].end_node == self.calendar.day(2001, 12, 25)
@@ -165,11 +165,11 @@ class TestDateRanges(unittest.TestCase):
         rels = advent.match_incoming("DATE_RANGE")
         assert len(rels) == 1
         assert rels[0].start_node == self.calendar.month(2000, 12)
-        rels = advent.match_outgoing("START_DATE")
+        rels = advent.match("START_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 12, 1))
         assert rels[0].end_node == self.calendar.day(2000, 12, 1)
-        rels = advent.match_outgoing("END_DATE")
+        rels = advent.match("END_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 12, 24))
         assert rels[0].end_node == self.calendar.day(2000, 12, 24)
@@ -179,11 +179,11 @@ class TestDateRanges(unittest.TestCase):
         rels = range_.match_incoming("DATE_RANGE")
         assert len(rels) == 1
         assert rels[0].start_node == self.calendar.year(2000)
-        rels = range_.match_outgoing("START_DATE")
+        rels = range_.match("START_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 4, 10))
         assert rels[0].end_node == self.calendar.day(2000, 4, 10)
-        rels = range_.match_outgoing("END_DATE")
+        rels = range_.match("END_DATE")
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 12, 24))
         assert rels[0].end_node == self.calendar.day(2000, 12, 24)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2013, Nigel Small
@@ -15,14 +15,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO: rebuild when functionality moved
-# from pprint import pprint
-# from py2neo import admin
-#
-# if __name__ == "__main__":
-#
-#     sonar = admin.Sonar()
-#     pprint(sonar.ping())
-#
-#     monitor = admin.Monitor()
-#     pprint(monitor.fetch_latest_data())
+
+from py2neo import neo4j, node
+
+
+def test_can_remove_labels_from_node():
+    graph_db = neo4j.GraphDatabaseService()
+    alice, = graph_db.create(node(name="Alice"))
+    alice.labels.add("human", "female")
+    labels = alice.labels
+    assert len(labels) == 2
+    assert labels == {"human", "female"}
+    alice.labels.remove("human")
+    labels = alice.labels
+    assert labels == {"female"}
+    assert labels != {"human", "female"}
+    alice.labels.remove("female")
+    labels = alice.labels
+    assert labels == set()

@@ -42,8 +42,8 @@ def test_can_send_batch_of_100():
     _send_big_batch(100)
 
 
-def test_can_send_batch_of_1000():
-    _send_big_batch(1000)
+#def test_can_send_batch_of_1000():
+#    _send_big_batch(1000)
 
 
 #    def test_can_send_batch_of_10000():
