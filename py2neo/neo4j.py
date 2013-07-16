@@ -40,6 +40,7 @@ from __future__ import (division, print_function,
 
 from collections import namedtuple
 import base64
+from datetime import datetime
 import json
 import logging
 import re
@@ -56,7 +57,7 @@ from . import __version__
 from .exceptions import (ClientError, ServerError, CypherError, BatchError,
                          IndexTypeError)
 from .util import (compact, flatten, has_all, is_collection, version_tuple,
-                   round_robin)
+                   round_robin, numberise)
 
 
 DEFAULT_SCHEME = "http"
@@ -404,8 +405,40 @@ class ServiceRoot(Cacheable, Resource):
     def graph_db(self):
         return GraphDatabaseService.get_instance(self.__metadata__["data"])
 
+    @property
+    def monitor(self):
+        manager = Resource(self.__metadata__["management"])
+        return Monitor(manager.__metadata__["services"]["monitor"])
 
-# TODO: add monitor service, etc
+
+class Monitor(Cacheable, Resource):
+
+    def __init__(self, uri=None):
+        if uri is None:
+            uri = ServiceRoot().monitor.__uri__
+        Resource.__init__(self, uri)
+
+    def fetch_latest_stats(self):
+        """ Fetch the latest server statistics as a list of 2-tuples, each
+        holding a `datetime` object and a named tuple of node, relationship and
+        property counts.
+        """
+        counts = namedtuple("Stats", ("node_count",
+                                      "relationship_count",
+                                      "property_count"))
+        uri = self.__metadata__["resources"]["latest_data"]
+        latest_data = Resource(uri)._get().content
+        timestamps = latest_data["timestamps"]
+        data = latest_data["data"]
+        data = zip(
+            (datetime.fromtimestamp(t) for t in timestamps),
+            (counts(*x) for x in zip(
+                (numberise(n) for n in data["node_count"]),
+                (numberise(n) for n in data["relationship_count"]),
+                (numberise(n) for n in data["property_count"]),
+            )),
+        )
+        return data
 
 
 class GraphDatabaseService(Cacheable, Resource):
