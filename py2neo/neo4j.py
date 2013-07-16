@@ -1340,10 +1340,11 @@ class Node(_Entity):
             "DELETE r "
         ).execute({"a": self._id})
 
-    # TODO: deprecate/replace (no, match_any should come here and remove bidi)
     def match(self, rel_type=None, end_node=None, bidirectional=False,
               limit=None):
-        """ Match one or more relationships attached to this node.
+        """ Match one or more relationships attached to this node. By default,
+        only outgoing relationships will be matched; incoming relationships
+        will also be included if `bidirectional` is :py:const:`True`.
 
         :param rel_type: type of relationships to match or :py:const:`None` if
             any
@@ -1360,7 +1361,19 @@ class Node(_Entity):
         return self.service_root.graph_db.match(self, rel_type, end_node,
                                                 bidirectional, limit)
 
-    # TODO: deprecate/replace
+    def match_incoming(self, rel_type=None, start_node=None, limit=None):
+        """ Match one or more incoming relationships attached to this node.
+
+        :param rel_type: type of relationships to match or :py:const:`None` if
+            any
+        :param start_node: concrete end :py:class:`Node` to match or
+            :py:const:`None` if any
+        :param limit: maximum number of relationships to match or
+            :py:const:`None` if no limit
+        """
+        return self.service_root.graph_db.match(start_node, rel_type, self,
+                                                False, limit)
+
     def match_one(self, rel_type=None, end_node=None, bidirectional=False):
         """ Match a single relationship attached to this node.
 
@@ -1370,30 +1383,9 @@ class Node(_Entity):
             :py:const:`None` if any
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
-
-        .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
-        return self.service_root.graph_db.match(self, rel_type, end_node,
-                                                bidirectional)
-
-    def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        """ Match one or more incoming relationships attached to this node.
-        """
-        return self.service_root.graph_db.match(start_node, rel_type, self,
-                                                False, limit)
-
-    def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        """ Match one or more outgoing relationships attached to this node.
-        """
-        return self.service_root.graph_db.match(self, rel_type, end_node,
-                                                False, limit)
-
-    def match_any(self, rel_type=None, other_node=None, limit=None):
-        """ Match one or more relationships attached to this node.
-        """
-        return self.service_root.graph_db.match(self, rel_type, other_node,
-                                                True, limit)
+        return self.service_root.graph_db.match_one(self, rel_type, end_node,
+                                                    bidirectional)
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
