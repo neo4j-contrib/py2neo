@@ -18,13 +18,14 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, rest, node, rel
+from py2neo import neo4j, node, rel
 
 import unittest
 
 
 def default_graph_db():
     return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+
 
 def recycle(*entities):
     for entity in entities:
@@ -70,9 +71,9 @@ class TestRelationshipCreation(unittest.TestCase):
         recycle(*self.recycling)
 
     def test_can_create_relationship_with_new_nodes(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(0, "KNOWS", 1)
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1))
         alice, bob, knows = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -82,10 +83,10 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_nodes(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.create_relationship(alice, "KNOWS", bob)
+        self.batch.create((alice, "KNOWS", bob))
         knows, = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -95,10 +96,10 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_start_node(self):
-        self.batch.create_node({"name": "Alice"})
+        self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(alice, "KNOWS", 0)
+        self.batch.create({"name": "Bob"})
+        self.batch.create((alice, "KNOWS", 0))
         bob, knows = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -108,10 +109,10 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_end_node(self):
-        self.batch.create_node({"name": "Bob"})
+        self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_relationship(0, "KNOWS", bob)
+        self.batch.create({"name": "Alice"})
+        self.batch.create((0, "KNOWS", bob))
         alice, knows = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -121,12 +122,12 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_can_create_multiple_relationships(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_node({"name": "Carol"})
-        self.batch.create_relationship(0, "KNOWS", 1)
-        self.batch.create_relationship(1, "KNOWS", 2)
-        self.batch.create_relationship(2, "KNOWS", 0)
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create({"name": "Carol"})
+        self.batch.create((0, "KNOWS", 1))
+        self.batch.create((1, "KNOWS", 2))
+        self.batch.create((2, "KNOWS", 0))
         alice, bob, carol, ab, bc, ca = self.batch.submit()
         for rel in [ab, bc, ca]:
             assert isinstance(rel, neo4j.Relationship)
@@ -134,10 +135,10 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [ab, bc, ca, alice, bob, carol]
 
     def test_can_create_overlapping_relationships(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(0, "KNOWS", 1)
-        self.batch.create_relationship(0, "KNOWS", 1)
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1))
+        self.batch.create((0, "KNOWS", 1))
         alice, bob, knows1, knows2 = self.batch.submit()
         assert isinstance(knows1, neo4j.Relationship)
         assert knows1.start_node == alice
@@ -152,9 +153,9 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [knows1, knows2, alice, bob]
 
     def test_can_create_relationship_with_properties(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(0, "KNOWS", 1, {"since": 2000})
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1, {"since": 2000}))
         alice, bob, knows = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -189,10 +190,10 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         recycle(*self.recycling)
 
     def test_can_create_relationship_if_none_exists(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create_relationship(alice, "KNOWS", bob, {"since": 2000})
+        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
         knows, = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -202,11 +203,11 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_will_get_relationship_if_one_exists(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create_relationship(alice, "KNOWS", bob, {"since": 2000})
-        self.batch.get_or_create_relationship(alice, "KNOWS", bob, {"since": 2000})
+        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
+        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
         knows1, knows2 = self.batch.submit()
         assert isinstance(knows1, neo4j.Relationship)
         assert knows1.start_node == alice
@@ -217,25 +218,24 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.recycling = [knows1, knows2, alice, bob]
 
     def test_will_fail_batch_if_more_than_one_exists(self):
-        self.batch.create_node({"name": "Alice"})
-        self.batch.create_node({"name": "Bob"})
-        self.batch.create_relationship(0, "KNOWS", 1)
-        self.batch.create_relationship(0, "KNOWS", 1)
+        self.batch.create({"name": "Alice"})
+        self.batch.create({"name": "Bob"})
+        self.batch.create((0, "KNOWS", 1))
+        self.batch.create((0, "KNOWS", 1))
         alice, bob, k1, k2 = self.batch.submit()
-        self.batch.get_or_create_relationship(alice, "KNOWS", bob)
+        self.batch.get_or_create((alice, "KNOWS", bob))
         try:
             knows, = self.batch.submit()
             self.recycling = [knows, k1, k2, alice, bob]
             assert False
-        except Exception as err:
-            sys.stderr.write("{0}: {1}\n".format(err.args[0]["exception"], err.args[0]["message"]))
+        except neo4j.BatchError as err:
             self.recycling = [k1, k2, alice, bob]
             assert True
 
     def test_can_create_relationship_and_start_node(self):
-        self.batch.create_node({"name": "Bob"})
+        self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.get_or_create_relationship(None, "KNOWS", bob)
+        self.batch.get_or_create((None, "KNOWS", bob))
         knows, = self.batch.submit()
         alice = knows.start_node
         assert isinstance(knows, neo4j.Relationship)
@@ -245,9 +245,9 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_and_end_node(self):
-        self.batch.create_node({"name": "Alice"})
+        self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.get_or_create_relationship(alice, "KNOWS", None)
+        self.batch.get_or_create((alice, "KNOWS", None))
         knows, = self.batch.submit()
         bob = knows.end_node
         assert isinstance(knows, neo4j.Relationship)
@@ -258,7 +258,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
 
     def test_cannot_create_relationship_and_both_nodes(self):
         try:
-            self.batch.get_or_create_relationship(None, "KNOWS", None)
+            self.batch.get_or_create((None, "KNOWS", None))
             assert False
         except ValueError as err:
             sys.stderr.write(repr(err) + "\n")
@@ -313,33 +313,33 @@ class TestPropertyManagement(unittest.TestCase):
             assert str(actual_properties[key]) == str(value)
 
     def test_can_add_new_node_property(self):
-        self.batch.set_node_property(self.alice, "age", 33)
+        self.batch.set_property(self.alice, "age", 33)
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alice", "surname": "Allison", "age": 33})
 
     def test_can_overwrite_existing_node_property(self):
-        self.batch.set_node_property(self.alice, "name", "Alison")
+        self.batch.set_property(self.alice, "name", "Alison")
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alison", "surname": "Allison"})
 
     def test_can_replace_all_node_properties(self):
         props = {"full_name": "Alice Allison", "age": 33}
-        self.batch.set_node_properties(self.alice, props)
+        self.batch.set_properties(self.alice, props)
         self.batch.submit()
         self._check_properties(self.alice, props)
 
     def test_can_add_delete_node_property(self):
-        self.batch.delete_node_property(self.alice, "surname")
+        self.batch.delete_property(self.alice, "surname")
         self.batch.submit()
         self._check_properties(self.alice, {"name": "Alice"})
 
     def test_can_add_delete_all_node_properties(self):
-        self.batch.delete_node_properties(self.alice)
+        self.batch.delete_properties(self.alice)
         self.batch.submit()
         self._check_properties(self.alice, {})
 
     def test_can_add_new_relationship_property(self):
-        self.batch.set_relationship_property(self.friends, "foo", "bar")
+        self.batch.set_property(self.friends, "foo", "bar")
         self.batch.submit()
         self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
@@ -359,7 +359,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
         # need to execute a pair of commands as "create in index" not available
-        self.batch.create_node(properties)
+        self.batch.create(properties)
         self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
         alice, index_entry = self.batch.submit()
         assert isinstance(alice, neo4j.Node)
@@ -370,7 +370,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
         # create Alice
         alice_props = {"name": "Alice Smith"}
         # need to execute a pair of commands as "create in index" not available
-        self.batch.create_node(alice_props)
+        self.batch.create(alice_props)
         self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
         alice, alice_index_entry = self.batch.submit()
         assert isinstance(alice, neo4j.Node)
@@ -378,7 +378,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
         # create Bob
         bob_props = {"name": "Bob Smith"}
         # need to execute a pair of commands as "create in index" not available
-        self.batch.create_node(bob_props)
+        self.batch.create(bob_props)
         self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
         bob, bob_index_entry = self.batch.submit()
         assert isinstance(bob, neo4j.Node)
@@ -427,7 +427,7 @@ class TestIndexedNodeCreation(unittest.TestCase):
                 self.batch.create_indexed_node_or_fail(self.people, "surname", "Smith", bob_props)
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
             # check entries
             smiths = self.people.get("surname", "Smith")
@@ -498,7 +498,7 @@ class TestIndexedNodeAddition(unittest.TestCase):
             try:
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
         except NotImplementedError:
             pass
@@ -549,7 +549,7 @@ class TestIndexedRelationshipCreation(unittest.TestCase):
             try:
                 self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError as err:
                 assert True
         except NotImplementedError:
             pass
@@ -610,9 +610,9 @@ class TestIndexedRelationshipAddition(unittest.TestCase):
             self.batch.add_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", ab1)
             self.batch.add_indexed_relationship_or_fail(self.friendships, "friends", "alice_&_bob", ab2)
             try:
-                results = self.batch.submit()
+                self.batch.submit()
                 assert False
-            except rest.ResourceConflict:
+            except neo4j.BatchError:
                 assert True
         except NotImplementedError:
             pass

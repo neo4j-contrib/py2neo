@@ -15,9 +15,206 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import unittest
 
 from py2neo import geoff, neo4j
+
+
+PLANETS_GEOFF = StringIO("""\
+(N0)
+(N1 {"day":88,"day unit":"days","density":6.03,"density unit":"gm/cm","distance":57.91,"distance unit":"km","mass":0.054,"mass unit":"(Earth=1)","name":"Mercury","radius":2340,"radius unit":"km","year":0.24085})
+(N2 {"day":230,"day unit":"days","density":5.11,"density unit":"gm/cm","distance":108.21,"distance unit":"km","mass":0.814,"mass unit":"(Earth=1)","name":"Venus","radius":6100,"radius unit":"km","year":0.61521})
+(N3 {"day":24,"day unit":"hours","density":5.517,"density unit":"gm/cm","distance":149.6,"distance unit":"km","mass":1.0,"mass unit":"(Earth=1)","name":"Earth","radius":6371,"radius unit":"km","year":1.000039})
+(N4)
+(N5 {"name":"Moon","orbit":27.322,"orbit unit":"days"})
+(N6 {"day":24.5,"day unit":"hours","density":4.16,"density unit":"gm/cm","distance":227.9,"distance unit":"km","mass":0.107,"mass unit":"(Earth=1)","name":"Mars","radius":3324,"radius unit":"km","year":1.88089})
+(N7)
+(N8 {"name":"Phobos","orbit":0.319,"orbit unit":"days"})
+(N9 {"name":"Deimos","orbit":1.262,"orbit unit":"days"})
+(N10 {"day":9.8,"day unit":"hours","density":1.34,"density unit":"gm/cm","distance":778.3,"distance unit":"km","mass":317.4,"mass unit":"(Earth=1)","name":"Jupiter","radius":69750,"radius unit":"km","year":11.8653})
+(N11)
+(N12 {"name":"Ganymede","orbit":7.155,"orbit unit":"days"})
+(N13 {"name":"Callisto","orbit":16.689,"orbit unit":"days"})
+(N14 {"day":10.2,"day unit":"hours","density":0.68,"density unit":"gm/cm","distance":1428,"distance unit":"km","mass":95.0,"mass unit":"(Earth=1)","name":"Saturn","radius":58170,"radius unit":"km","year":29.6501})
+(N15)
+(N16 {"name":"Titan","orbit":15.945,"orbit unit":"days"})
+(N17 {"name":"Rhea","orbit":4.518,"orbit unit":"days"})
+(N18 {"day":10.7,"day unit":"hours","density":1.55,"density unit":"gm/cm","distance":2872,"distance unit":"km","mass":14.5,"mass unit":"(Earth=1)","name":"Uranus","radius":23750,"radius unit":"km","year":83.7445})
+(N19)
+(N20 {"name":"Ariel","orbit":2.52,"orbit unit":"days"})
+(N21 {"name":"Miranda","orbit":1.414,"orbit unit":"days"})
+(N22 {"day":12.7,"day unit":"hours","density":2.23,"density unit":"gm/cm","distance":4498,"distance unit":"km","mass":17.6,"mass unit":"(Earth=1)","name":"Neptune","radius":22400,"radius unit":"km","year":165.951})
+(N23)
+(N24 {"name":"Triton","orbit":5.877,"orbit unit":"days"})
+(N0)-[:planet]->(N1)
+(N0)-[:planet]->(N2)
+(N0)-[:planet]->(N3)
+(N3)-[:satellites]->(N4)
+(N4)-[:satellite]->(N5)
+(N0)-[:planet]->(N6)
+(N6)-[:satellites]->(N7)
+(N7)-[:satellite]->(N8)
+(N7)-[:satellite]->(N9)
+(N0)-[:planet]->(N10)
+(N10)-[:satellites]->(N11)
+(N11)-[:satellite]->(N12)
+(N11)-[:satellite]->(N13)
+(N0)-[:planet]->(N14)
+(N14)-[:satellites]->(N15)
+(N15)-[:satellite]->(N16)
+(N15)-[:satellite]->(N17)
+(N0)-[:planet]->(N18)
+(N18)-[:satellites]->(N19)
+(N19)-[:satellite]->(N20)
+(N19)-[:satellite]->(N21)
+(N0)-[:planet]->(N22)
+(N22)-[:satellites]->(N23)
+(N23)-[:satellite]->(N24)""")
+
+PLANETS_XML = StringIO("""\
+<?xml version="1.0" encoding="UTF-8"?>
+<planets>
+
+  <planet>
+    <name>Mercury</name>
+    <distance unit="km">57.91</distance>
+    <radius unit="km">2340</radius>
+    <year>0.24085</year>
+    <day unit="days">88</day>
+    <mass unit="(Earth=1)">0.054</mass>
+    <density unit="gm/cm">6.03</density>
+  </planet>
+
+  <planet>
+    <name>Venus</name>
+    <distance unit="km">108.21</distance>
+    <radius unit="km">6100</radius>
+    <year>0.61521</year>
+    <day unit="days">230</day>
+    <mass unit="(Earth=1)">0.814</mass>
+    <density unit="gm/cm">5.11</density>
+  </planet>
+
+  <planet>
+    <name>Earth</name>
+    <distance unit="km">149.60</distance>
+    <radius unit="km">6371</radius>
+    <year>1.000039</year>
+    <day unit="hours">24</day>
+    <mass unit="(Earth=1)">1.00</mass>
+    <density unit="gm/cm">5.517</density>
+    <satellites>
+      <satellite>
+        <name>Moon</name>
+        <orbit unit="days">27.322</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+  <planet>
+    <name>Mars</name>
+    <distance unit="km">227.9</distance>
+    <radius unit="km">3324</radius>
+    <year>1.88089</year>
+    <day unit="hours">24.5</day>
+    <mass unit="(Earth=1)">0.107</mass>
+    <density unit="gm/cm">4.16</density>
+    <satellites>
+      <satellite>
+        <name>Phobos</name>
+        <orbit unit="days">0.319</orbit>
+      </satellite>
+      <satellite>
+        <name>Deimos</name>
+        <orbit unit="days">1.262</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+
+  <planet>
+    <name>Jupiter</name>
+    <distance unit="km">778.3</distance>
+    <radius unit="km">69750</radius>
+    <year>11.8653</year>
+    <day unit="hours">9.8</day>
+    <mass unit="(Earth=1)">317.4</mass>
+    <density unit="gm/cm">1.34</density>
+    <satellites>
+      <satellite>
+        <name>Ganymede</name>
+        <orbit unit="days">7.155</orbit>
+      </satellite>
+      <satellite>
+        <name>Callisto</name>
+        <orbit unit="days">16.689</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+  <planet>
+    <name>Saturn</name>
+    <distance unit="km">1428</distance>
+    <radius unit="km">58170</radius>
+    <year>29.6501</year>
+    <day unit="hours">10.2</day>
+    <mass unit="(Earth=1)">95.0</mass>
+    <density unit="gm/cm">0.68</density>
+    <satellites>
+      <satellite>
+        <name>Titan</name>
+        <orbit unit="days">15.945</orbit>
+      </satellite>
+      <satellite>
+        <name>Rhea</name>
+        <orbit unit="days">4.518</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+  <planet>
+    <name>Uranus</name>
+    <distance unit="km">2872</distance>
+    <radius unit="km">23750</radius>
+    <year>83.7445</year>
+    <day unit="hours">10.7</day>
+    <mass unit="(Earth=1)">14.5</mass>
+    <density unit="gm/cm">1.55</density>
+    <satellites>
+      <satellite>
+        <name>Ariel</name>
+        <orbit unit="days">2.520</orbit>
+      </satellite>
+      <satellite>
+        <name>Miranda</name>
+        <orbit unit="days">1.414</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+  <planet>
+    <name>Neptune</name>
+    <distance unit="km">4498</distance>
+    <radius unit="km">22400</radius>
+    <year>165.951</year>
+    <day unit="hours">12.7</day>
+    <mass unit="(Earth=1)">17.6</mass>
+    <density unit="gm/cm">2.23</density>
+    <satellites>
+      <satellite>
+        <name>Triton</name>
+        <orbit unit="days">5.877</orbit>
+      </satellite>
+    </satellites>
+  </planet>
+
+</planets>
+""")
 
 
 def parse(source):
@@ -282,34 +479,125 @@ class MultiElementParseTest(unittest.TestCase):
         assert entries == {}
 
 
-class InsertTestCase(unittest.TestCase):
+def test_can_insert_empty_subgraph():
+    graph_db = neo4j.GraphDatabaseService()
+    source = ''
+    subgraph = geoff.Subgraph(source)
+    out = subgraph.insert_into(graph_db)
+    assert out == {}
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
 
-    def test_stuff(self):
-        source = r"""
-        |People {"email":"bob@example.com"}|=>(b)
-        |People {"email":"ernie@example.com"}|=>(e)
-        |People {"email":"ernie@example.com"}|=>(e)
-        (a {name:"Alice"})  (b) {"name":"Bob Robertson"}
-        (a {age:43})-[:KNOWS]->(b)-[:KNOWS]->(c)<-[:LOVES {amount:"lots"}]-(d)
-        (f {name:"Lonely Frank"})
+def test_can_insert_single_node():
+    graph_db = neo4j.GraphDatabaseService()
+    source = '(a {"name": "Alice"})'
+    subgraph = geoff.Subgraph(source)
+    out = subgraph.insert_into(graph_db)
+    assert isinstance(out["a"], neo4j.Node)
+    assert out["a"].get_properties() == {"name": "Alice"}
+    matches = out["a"].match()
+    assert len(matches) == 0
 
-        /* Alice and Bob got married twice */
-        (a)-[:MARRIED {date:"1970-01-01"}]->(b)
-        (a)-[:MARRIED {date:"2001-09-11"}]->(b)
-        """
-        s = geoff.Subgraph(source)
-        print(s.nodes)
-        print(s.relationships)
-        print(s.index_entries)
-        print(s._indexed_nodes)
-        print(s._related_nodes)
-        print(s._odd_nodes)
-        for name, node in s.insert_into(self.graph_db).items():
-            print(name, node)
+
+def test_can_insert_simple_graph():
+    graph_db = neo4j.GraphDatabaseService()
+    source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
+    subgraph = geoff.Subgraph(source)
+    out = subgraph.insert_into(graph_db)
+    assert isinstance(out["a"], neo4j.Node)
+    assert isinstance(out["b"], neo4j.Node)
+    assert out["a"].get_properties() == {"name": "Alice"}
+    assert out["b"].get_properties() == {"name": "Bob"}
+    matches = out["a"].match(end_node=out["b"])
+    assert len(matches) == 1
+    assert matches[0].type == "KNOWS"
+
+
+def test_can_insert_reasonably_complex_graph():
+    graph_db = neo4j.GraphDatabaseService()
+    source = r"""
+    |People {"email":"bob@example.com"}|=>(b)
+    |People {"email":"ernie@example.com"}|=>(e)
+    |People {"email":"ernie@example.com"}|=>(e)
+    (a {name:"Alice"})  (b) {"name":"Bob Robertson"}
+    (a {age:43})-[:KNOWS]->(b)-[:KNOWS]->(c)<-[:LOVES {amount:"lots"}]-(d)
+    (f {name:"Lonely Frank"})
+
+    /* Alice and Bob got married twice */
+    (a)-[:MARRIED {date:"1970-01-01"}]->(b)
+    (a)-[:MARRIED {date:"2001-09-11"}]->(b)
+    """
+    subgraph = geoff.Subgraph(source)
+    out = subgraph.insert_into(graph_db)
+    assert len(out) == 6
+    assert all(isinstance(node, neo4j.Node) for node in out.values())
+    assert out["a"].get_properties() == {"name": "Alice", "age": 43}
+    assert out["b"].get_properties() == {"name": "Bob Robertson"}
+    assert out["c"].get_properties() == {}
+    assert out["d"].get_properties() == {}
+    assert out["e"].get_properties() == {}
+    assert out["f"].get_properties() == {"name": "Lonely Frank"}
+
+
+def test_can_merge_simple_graph():
+    graph_db = neo4j.GraphDatabaseService()
+    source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
+    subgraph = geoff.Subgraph(source)
+    out = subgraph.merge_into(graph_db)
+    assert isinstance(out["a"], neo4j.Node)
+    assert isinstance(out["b"], neo4j.Node)
+    assert out["a"].get_properties() == {"name": "Alice"}
+    assert out["b"].get_properties() == {"name": "Bob"}
+    matches = out["a"].match(end_node=out["b"])
+    assert len(matches) == 1
+    assert matches[0].type == "KNOWS"
+
+
+def test_can_insert_subgraph_from_geoff_file():
+    graph_db = neo4j.GraphDatabaseService()
+    planets = geoff.Subgraph.load(PLANETS_GEOFF)
+    assert len(planets.nodes) == 25
+    assert len(planets.relationships) == 24
+    assert len(planets.index_entries) == 0
+    out = planets.insert_into(graph_db)
+    assert len(out) == 25
+    assert all(isinstance(node, neo4j.Node) for node in out.values())
+
+
+def test_can_insert_subgraph_from_xml_file():
+    graph_db = neo4j.GraphDatabaseService()
+    planets = geoff.Subgraph.load_xml(PLANETS_XML)
+    assert planets.source == PLANETS_GEOFF.getvalue()
+    assert len(planets.nodes) == 25
+    assert len(planets.relationships) == 24
+    assert len(planets.index_entries) == 0
+    out = planets.insert_into(graph_db)
+    assert len(out) == 25
+    assert all(isinstance(node, neo4j.Node) for node in out.values())
+
+
+def test_can_identify_non_unique_paths():
+    graph_db = neo4j.GraphDatabaseService()
+    graph_db.clear()
+    source = """\
+    |People {"email":"alice@example.com"}|=>(a)
+    |People {"email":"bob@example.com"}|=>(b)
+    (a {"name": "Alice"})
+    (b {"name": "Bob"})
+    (a)-[:KNOWS]->(b)
+    (a)-[:KNOWS]->(b)
+    """
+    geoff.Subgraph(source).insert_into(graph_db)
+    source = """\
+    |People {"email":"alice@example.com"}|=>(a)
+    |People {"email":"bob@example.com"}|=>(b)
+    (a)-[:KNOWS]->(b)
+    """
+    try:
+        geoff.Subgraph(source).merge_into(graph_db)
+    except geoff.ConstraintViolation:
+        assert True
+    else:
+        assert False
 
 
 if __name__ == '__main__':

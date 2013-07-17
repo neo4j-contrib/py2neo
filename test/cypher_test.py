@@ -19,6 +19,10 @@ import unittest
 
 from py2neo import cypher, neo4j
 
+
+graph_db = neo4j.GraphDatabaseService()
+
+
 def alice_and_bob(graph_db):
     return graph_db.create(
         {"name": "Alice", "age": 66},
@@ -27,17 +31,33 @@ def alice_and_bob(graph_db):
     )
 
 
+def test_nonsense_query():
+    query = "SELECT z=nude(0) RETURNS x"
+    try:
+        graph_db.cypher.execute(query)
+    except neo4j.CypherError:
+        assert True
+    else:
+        assert False
+
+
+def test_many_queries():
+    graph_db = neo4j.GraphDatabaseService()
+    node, = graph_db.create({})
+    query = "START z=node({0}) RETURN z".format(node._id)
+    for i in range(40):
+        with graph_db.cypher.execute(query) as record_set:
+            assert record_set.columns == ("z",)
+            for record in record_set:
+                assert record == (node,)
+    graph_db.delete(node)
+
+
 class CypherTestCase(unittest.TestCase):
 
     def setUp(self):
         self.graph_db = neo4j.GraphDatabaseService()
         self.graph_db.clear()
-
-    def test_nonsense_query(self):
-        self.assertRaises(cypher.CypherError, cypher.execute, self.graph_db, (
-            "SELECT z=nude(0) "
-            "RETURNS x"
-        ))
 
     def test_nonsense_query_with_error_handler(self):
         def print_error(message, exception, stacktrace):
@@ -55,7 +75,7 @@ class CypherTestCase(unittest.TestCase):
             "start a=node({0}),b=node({1}) "
             "match a-[ab:KNOWS]->b "
             "return a,b,ab,a.name,b.name"
-        ).format(a.id, b.id))
+        ).format(a._id, b._id))
         self.assertEqual(1, len(data))
         for row in data:
             self.assertEqual(5, len(row))
@@ -74,7 +94,6 @@ class CypherTestCase(unittest.TestCase):
     def test_query_with_handlers(self):
         a, b, ab = alice_and_bob(self.graph_db)
         def check_metadata(metadata):
-            self.assertTrue(isinstance(metadata.columns, list))
             self.assertEqual(5, len(metadata.columns))
             self.assertEqual("a", metadata.columns[0])
             self.assertEqual("b", metadata.columns[1])
@@ -96,7 +115,7 @@ class CypherTestCase(unittest.TestCase):
             "START a=node({0}), b=node({1}) "
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
-        ).format(a.id, b.id)
+        ).format(a._id, b._id)
         cypher.execute(self.graph_db, query,
             row_handler=check_row, metadata_handler=check_metadata
         )
@@ -104,7 +123,6 @@ class CypherTestCase(unittest.TestCase):
     def test_query_with_params(self):
         a, b, ab = alice_and_bob(self.graph_db)
         def check_metadata(metadata):
-            self.assertTrue(isinstance(metadata.columns, list))
             self.assertEqual(5, len(metadata.columns))
             self.assertEqual("a", metadata.columns[0])
             self.assertEqual("b", metadata.columns[1])
@@ -127,20 +145,9 @@ class CypherTestCase(unittest.TestCase):
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
         )
-        cypher.execute(self.graph_db, query, {"A": a.id, "B": b.id},
+        cypher.execute(self.graph_db, query, {"A": a._id, "B": b._id},
             row_handler=check_row, metadata_handler=check_metadata
         )
-
-    def test_many_queries(self):
-        node, = self.graph_db.create({})
-        query = (
-            "start z=node({0}) "
-            "return z"
-        ).format(node._id)
-        for i in range(2000):
-            data, metadata = cypher.execute(self.graph_db, query)
-            self.assertEqual(1, len(data))
-        self.graph_db.delete(node)
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph_db)
@@ -148,7 +155,7 @@ class CypherTestCase(unittest.TestCase):
             "start a=node({0}),b=node({1}) "
             "match p=(a-[ab:KNOWS]->b) "
             "return p"
-        ).format(a.id, b.id))
+        ).format(a._id, b._id))
         self.assertEqual(1, len(data))
         for row in data:
             self.assertEqual(1, len(row))

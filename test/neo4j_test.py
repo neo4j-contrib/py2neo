@@ -18,7 +18,8 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, cypher, rest
+from httpstream import NetworkAddressError, SocketError, ClientError
+from py2neo import neo4j, cypher, node
 
 import logging
 import unittest
@@ -32,6 +33,7 @@ logging.basicConfig(
 def default_graph_db():
     return neo4j.GraphDatabaseService()
 
+
 def recycle(*entities):
     for entity in entities:
         try:
@@ -40,49 +42,41 @@ def recycle(*entities):
             pass
 
 
-class FailureTest(unittest.TestCase):
-
-    def test_no_response(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService,
-            "http://localhsot:4747/data/db"
-        )
-
-
-class BadDatabaseURITest(unittest.TestCase):
-
-    def test_wrong_host(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService, "http://localtoast:7474/db/data/")
-
-    def test_wrong_port(self):
-        self.assertRaises(rest.SocketError,
-            neo4j.GraphDatabaseService, "http://localhost:7575/db/data/")
-
-    def test_wrong_path(self):
-        self.assertRaises(rest.ResourceNotFound,
-            neo4j.GraphDatabaseService, "http://localhost:7474/foo/bar/")
-
-    def test_no_trailing_slash(self):
-        graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
-        self.assertEqual("http://localhost:7474/db/data/", graph_db.__uri__)
-
-    def test_no_path(self):
-        try:
-            neo4j.GraphDatabaseService("http://localhost:7474")
-            assert False
-        except ValueError as err:
-            sys.stderr.write(str(err) + "\n")
-            assert True
+def test_wrong_host_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
+    try:
+        graph_db.refresh()
+    except NetworkAddressError:
+        assert True
+    else:
+        assert False
 
 
-    def test_root_path(self):
-        try:
-            neo4j.GraphDatabaseService("http://localhost:7474/")
-            assert False
-        except ValueError as err:
-            sys.stderr.write(str(err) + "\n")
-            assert True
+def test_wrong_port_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
+    try:
+        graph_db.refresh()
+    except SocketError:
+        assert True
+    else:
+        assert False
+
+
+def test_wrong_path_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
+    try:
+        graph_db.refresh()
+    except ClientError:
+        assert True
+    else:
+        assert False
+
+
+def test_can_use_graph_if_no_trailing_slash_supplied():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+    alice, = graph_db.create(node(name="Alice"))
+    assert isinstance(alice, neo4j.Node)
+    assert alice["name"] == "Alice"
 
 
 class GraphDatabaseServiceTest(unittest.TestCase):
@@ -112,7 +106,7 @@ class GraphDatabaseServiceTest(unittest.TestCase):
 
     def test_get_node_by_id(self):
         a1, = self.graph_db.create({"foo": "bar"})
-        a2 = self.graph_db.node(a1.id)
+        a2 = self.graph_db.node(a1._id)
         self.assertEqual(a1, a2)
 
     def test_create_node_with_property_dict(self):
@@ -262,7 +256,7 @@ class NewCreateTestCase(unittest.TestCase):
         )
 
     def test_can_create_big_graph(self):
-        size = 2000
+        size = 40
         nodes = [
             {"number": i}
             for i in range(size)

@@ -275,10 +275,10 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            cypher.execute(self.graph_db,
-                "START a=node({A}) "
-                "MATCH (a)-[r]->(b) "
-                "DELETE r", {"A": subj.__node__._id})
+            cypher.execute(self.graph_db, "START a=node({A}) "
+                                          "MATCH (a)-[r]->(b) "
+                                          "DELETE r",
+                           {"A": subj.__node__._id})
         else:
             subj.__node__, = self.graph_db.create(props)
         # write rels
@@ -287,9 +287,10 @@ class Store(object):
             for rel_type, rels in subj.__rel__.items():
                 for rel_props, endpoint in rels:
                     end_node = self._get_node(endpoint)
-                    end_node._must_belong_to(self.graph_db)
-                    batch.create_relationship(subj.__node__, rel_type, end_node, rel_props)
-            batch._submit()
+                    if not neo4j.familiar(end_node, self.graph_db):
+                        raise ValueError(end_node)
+                    batch.create((subj.__node__, rel_type, end_node, rel_props))
+            batch._submit().close()
         return subj
 
     def save_indexed(self, index_name, key, value, *subj):

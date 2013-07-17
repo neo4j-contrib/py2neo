@@ -227,3 +227,6 @@ def is_collection(obj):
     except TypeError:
         return True
     return False
+
+
+has_all = lambda iterable, items: all(item in iterable for item in items)

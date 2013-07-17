@@ -116,6 +116,13 @@ class SeparateTestCase(unittest.TestCase):
         self.store.separate(alice, "LIKES", bob)
         assert alice.__rel__["LIKES"] == []
 
+    def test_can_separate_without_previous_relate(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        bob = Person("bob@example.org", "Bob", 66)
+        assert not hasattr(alice, "__rel__")
+        self.store.separate(alice, "LIKES", bob)
+        assert not hasattr(alice, "__rel__")
+
     def test_nothing_happens_if_unknown_rel_type_supplied(self):
         alice = Person("alice@example.com", "Alice", 34)
         bob = Person("bob@example.org", "Bob", 66)
@@ -170,6 +177,11 @@ class LoadRelatedTestCase(unittest.TestCase):
         assert friends == [bob, carol]
         enemies = self.store.load_related(alice, "DISLIKES", Person)
         assert enemies == [dave]
+
+    def test_can_load_related_when_never_related(self):
+        alice = Person("alice@example.com", "Alice", 34)
+        friends = self.store.load_related(alice, "LIKES", Person)
+        assert friends == []
 
 
 class LoadTestCase(unittest.TestCase):
@@ -271,6 +283,10 @@ class LoadUniqueTestCase(unittest.TestCase):
         assert isinstance(enemies, list)
         assert len(enemies) == 0
 
+    def test_will_not_load_when_none_exists(self):
+        alice = self.store.load_unique("People", "email", "alice@example.com", Person)
+        assert alice is None
+
 
 class ReloadTestCase(unittest.TestCase):
 
@@ -300,7 +316,9 @@ class SaveTestCase(unittest.TestCase):
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
+        assert not self.store.is_saved(alice)
         self.store.save_unique("People", "email", "alice@example.com", alice)
+        assert self.store.is_saved(alice)
         assert alice.__node__["name"] == "Alice"
         assert alice.__node__["age"] == 34
         alice.name = "Alice Smith"
