@@ -221,6 +221,8 @@ def _rel(*args, **kwargs):
     - ``rel((start_node, type, end_node))``
     - ``rel((start_node, type, end_node, properties))``
     - ``rel((start_node, (type, properties), end_node))``
+    - ``rel(start_node, (type, properties), end_node)``
+    - ``rel(start_node, type, end_node, properties)``
     - ``rel(start_node, type, end_node, **properties)``
 
     Examples::
@@ -245,8 +247,14 @@ def _rel(*args, **kwargs):
                 raise TypeError("Cannot cast relationship from {0}".format(arg))
         else:
             raise TypeError("Cannot cast relationship from {0}".format(arg))
-    elif len(args) >= 3:
-        return Relationship.abstract(*args, **kwargs)
+    elif len(args) == 3:
+        rel = _UnboundRelationship.cast(args[1])
+        rel._properties.update(kwargs)
+        return rel.bind(args[0], args[2])
+    elif len(args) == 4:
+        props = args[3]
+        props.update(kwargs)
+        return Relationship.abstract(*args[0:3], **props)
     else:
         raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
@@ -829,10 +837,8 @@ class GraphDatabaseService(Cacheable, Resource):
             index = self._indexes[content_type][index_name]
             index._delete()
             del self._indexes[content_type][index_name]
-            return True
         else:
-            # TODO: change to raise LookupError?
-            return False
+            raise LookupError("Index not found")
 
     def get_indexed_node(self, index_name, key, value):
         """ Fetch the first node indexed with the specified details, returning
@@ -1035,7 +1041,6 @@ class _Entity(Resource):
     def exists(self):
         """ Determine whether this entity still exists in the database.
         """
-        # TODO: make this a property
         try:
             self._get()
         except ClientError as err:
@@ -1164,15 +1169,14 @@ class Node(_Entity):
         else:
             return self._properties != other._properties
 
-    #TODO: review
     def __repr__(self):
-        if self.__uri__:
+        if not self.is_abstract:
             return "{0}({1})".format(
                 self.__class__.__name__,
                 repr(str(self.__uri__))
             )
         elif self._properties:
-            return "node(**{1})".format(
+            return "node({1})".format(
                 self.__class__.__name__,
                 repr(self._properties)
             )
@@ -1181,7 +1185,6 @@ class Node(_Entity):
                 self.__class__.__name__
             )
 
-    #TODO: review
     def __str__(self):
         """ Return Cypher/Geoff style representation of this node.
         """
@@ -1196,13 +1199,10 @@ class Node(_Entity):
             return "({0})".format("" if self._id is None else self._id)
 
     def __hash__(self):
-        if self.__uri__:
-            return hash(self.__uri__)
+        if self.is_abstract:
+            return hash(tuple(sorted(self._properties.items())))
         else:
-            return hash((
-                self.labels,
-                tuple(sorted(self._properties.items())),
-            ))
+            return hash(self.__uri__)
 
     def delete_related(self):
         """ Delete this node, plus all related nodes and relationships.
@@ -1461,7 +1461,7 @@ class Relationship(_Entity):
                 repr(str(self.__uri__))
             )
         elif self._properties:
-            return "rel({1}, {2}, {3}, **{4})".format(
+            return "rel({1}, {2}, {3}, {4})".format(
                 self.__class__.__name__,
                 repr(self.start_node),
                 repr(self.type),

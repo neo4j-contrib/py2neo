@@ -33,7 +33,10 @@ class CreationAndDeletionTests(unittest.TestCase):
         self.graph_db = default_graph_db()
 
     def test_can_delete_create_and_delete_index(self):
-        self.graph_db.delete_index(neo4j.Node, "foo")
+        try:
+            self.graph_db.delete_index(neo4j.Node, "foo")
+        except LookupError:
+            pass
         foo = self.graph_db.get_index(neo4j.Node, "foo")
         self.assertTrue(foo is None)
         foo = self.graph_db.get_or_create_index(neo4j.Node, "foo")
