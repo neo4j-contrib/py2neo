@@ -1079,66 +1079,6 @@ class _Entity(Resource):
         raise NotImplementedError("_Entity.update_properties")
 
 
-class LabelSet(Resource):
-
-    def __init__(self, uri):
-        Resource.__init__(self, uri)
-        self._labels = set()
-
-    def __eq__(self, other):
-        self.refresh()
-        return self._labels == set(other)
-
-    def __ne__(self, other):
-        self.refresh()
-        return self._labels != set(other)
-
-    def __repr__(self):
-        return "{0}({1})".format(
-            self.__class__.__name__,
-            repr(str(self.__uri__)),
-        )
-
-    def __str__(self):
-        return ":".join(sorted(self._labels))
-
-    def refresh(self):
-        self._labels = set(assembled(self._get()))
-
-    def __contains__(self, item):
-        self.refresh()
-        return item in self._labels
-
-    def __iter__(self):
-        self.refresh()
-        return iter(self._labels)
-
-    def __len__(self):
-        self.refresh()
-        return len(self._labels)
-
-    def add(self, *labels):
-        labels = [str(label) for label in set(flatten(labels))]
-        # TODO: batch
-        self._post(labels)
-        self.refresh()
-
-    def remove(self, *labels):
-        labels = [str(label) for label in flatten(labels)]
-        uri = self.__uri__
-        uri = uri.resolve(uri.path.with_trailing_slash())
-        # TODO: batch
-        for label in labels:
-            Resource(uri.resolve(label))._delete()
-        self.refresh()
-
-    def replace(self, *labels):
-        labels = [str(label) for label in flatten(labels)]
-        # TODO: batch
-        self._put(labels)
-        self.refresh()
-
-
 class Node(_Entity):
     """ A node within a graph, identified by a URI. For example:
 
@@ -1212,8 +1152,6 @@ class Node(_Entity):
 
     def __init__(self, uri):
         _Entity.__init__(self, uri)
-        self._labels = None
-        self._labels_supported = None
 
     def __eq__(self, other):
         other = _cast(other, Node)
@@ -1268,17 +1206,6 @@ class Node(_Entity):
                 self.labels,
                 tuple(sorted(self._properties.items())),
             ))
-
-    @property
-    def labels(self):
-        if self._labels_supported is None:
-            try:
-                self._labels = self._subresource("labels", LabelSet)
-                self._labels_supported = True
-            except KeyError:
-                self._labels = None
-                self._labels_supported = False
-        return self._labels
 
     def delete_related(self):
         """ Delete this node, plus all related nodes and relationships.
@@ -1432,6 +1359,49 @@ class Node(_Entity):
             query.append("RETURN a")
             rel = self.cypher.execute_one(" ".join(query), params)
             self._properties = rel.__metadata__["data"]
+
+    def _label_resource(self):
+        if self.is_abstract:
+            raise TypeError("Abstract nodes cannot have labels")
+        try:
+            return self._subresource("labels")
+        except KeyError:
+            raise NotImplementedError("Labels are not supported in this "
+                                      "version of Neo4j")
+
+    def get_labels(self):
+        """ Fetch all labels associated with this node.
+
+        :return:
+        """
+        return set(assembled(self._label_resource()._get()))
+
+    def add_labels(self, *labels):
+        """ Add one or more labels to this node.
+
+        :param labels:
+        """
+        labels = [str(label) for label in set(flatten(labels))]
+        self._label_resource()._post(labels)
+
+    def remove_labels(self, *labels):
+        """ Remove one or more labels from this node.
+
+        :param labels:
+        """
+        labels = [str(label) for label in set(flatten(labels))]
+        batch = WriteBatch(self.graph_db)
+        for label in labels:
+            batch.remove_label(self, label)
+        batch._submit()
+
+    def replace_labels(self, *labels):
+        """ Replace all labels on this node.
+
+        :param labels:
+        """
+        labels = [str(label) for label in set(flatten(labels))]
+        self._label_resource()._put(labels)
 
 
 class Relationship(_Entity):
@@ -2411,16 +2381,19 @@ class WriteBatch(_Batch):
 
     def add_labels(self, node, *labels):
         node = _cast(node, cls=Node, abstract=False)
+        node._label_resource()
         uri = _batch_uri(node, "labels")
         self._append_post(uri, list(labels))
 
     def remove_label(self, node, label):
         node = _cast(node, cls=Node, abstract=False)
+        node._label_resource()
         uri = _batch_uri(node, "labels", label)
         self._append_delete(uri)
 
     def replace_labels(self, node, *labels):
         node = _cast(node, cls=Node, abstract=False)
+        node._label_resource()
         uri = _batch_uri(node, "labels")
         self._append_put(uri, list(labels))
 

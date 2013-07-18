@@ -86,10 +86,6 @@ preferred variation listed first)::
     rel((alice, "KNOWS", bob, {"since": 1999}))
     (alice, "KNOWS", bob, {"since": 1999})
 
-.. important::
-    Literals do not yet support *labels*. Formats including these are reserved
-    for an upcoming future Neo4j server release.
-
 Node & Relationship IDs
 -----------------------
 

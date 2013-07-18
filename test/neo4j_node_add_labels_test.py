@@ -22,16 +22,26 @@ from py2neo import neo4j, node
 def test_can_add_labels_to_node():
     graph_db = neo4j.GraphDatabaseService()
     alice, = graph_db.create(node(name="Alice"))
-    labels = alice.labels
+    labels = alice.get_labels()
     assert labels == set()
-    alice.labels.add("human")
-    labels = alice.labels
+    alice.add_labels("human")
+    labels = alice.get_labels()
     assert len(labels) == 1
     assert labels == {"human"}
-    alice.labels.add("female")
-    labels = alice.labels
+    alice.add_labels("female")
+    labels = alice.get_labels()
     assert labels == {"human", "female"}
     assert labels != {"female"}
-    alice.labels.add("human")
-    labels = alice.labels
+    alice.add_labels("human")
+    labels = alice.get_labels()
     assert labels == {"human", "female"}
+
+
+def test_cannot_add_labels_to_abstract_nodes():
+    alice = node(name="Alice")
+    try:
+        alice.add_labels("human", "female")
+    except TypeError:
+        assert True
+    else:
+        assert False

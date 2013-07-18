@@ -22,11 +22,14 @@ from py2neo import neo4j, node
 def test_can_remove_labels_from_node():
     graph_db = neo4j.GraphDatabaseService()
     alice, = graph_db.create(node(name="Alice"))
-    alice.labels.add("human", "female")
-    labels = alice.labels
+    alice.add_labels("human", "female")
+    labels = alice.get_labels()
     assert len(labels) == 2
     assert labels == {"human", "female"}
-    alice.labels.replace("mystery", "badger")
-    labels = alice.labels
-    assert labels == {"mystery", "badger"}
+    alice.remove_labels("human")
+    labels = alice.get_labels()
+    assert labels == {"female"}
     assert labels != {"human", "female"}
+    alice.remove_labels("female")
+    labels = alice.get_labels()
+    assert labels == set()
