@@ -266,11 +266,27 @@ class GraphDatabaseService(rest.Resource):
             cls._instances[uri] = cls(uri)
         return cls._instances[uri]
 
+    @classmethod
+    def assert_expected_response(cls, uri, metadata):
+        """ Checks the metadata received against a specific class to confirm 
+        this is the type of response expected.
+        """
+        has_all = lambda iterable, items: all(item in iterable for item in items)
+        if has_all(metadata, ("extensions", "node", "node_index",
+                              "relationship_index", "relationship_types")):
+            return
+    
+        raise ValueError(
+            "URI <{0}> does not appear to identify a {1}: {2}".format(
+                uri, cls.__name__, json.dumps(metadata, separators=(",", ":"))
+                )
+            )
+
     def __init__(self, uri=None):
         uri = uri or DEFAULT_URI
         rest.Resource.__init__(self, uri)
         rs = self._send(rest.Request(self, "GET", self.__uri__))
-        _assert_expected_response(self.__class__, self.__uri__, rs.body)
+        self.assert_expected_response(self.__uri__, rs.body)
         self._update_metadata(rs.body)
         # force URI adjustment (in case supplied without trailing slash)
         self.__uri__ = rest.URI(rs.uri)

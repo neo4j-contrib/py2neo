@@ -22,7 +22,21 @@ try:
     import http.client as httplib
 except ImportError:
     import httplib
-import json
+
+try:
+    import ujson as json
+except ImportError:
+    try:
+        import simplejson as json
+    except ImportError:
+        try:
+            import json
+        except ImportError:
+            raise ImportError("""simplejson isn't installed
+    Install it with the command:
+        pip install simplejson
+    """)
+
 import logging
 import socket
 import sys
