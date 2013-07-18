@@ -563,7 +563,6 @@ class GraphDatabaseService(Cacheable, Resource):
         also with a property key and value.
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
-        #uri = URI.join(URI(self), "label", label, "nodes")
         if property_key:
             uri.query = {property_key: json.dumps(property_value)}
         try:
