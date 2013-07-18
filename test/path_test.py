@@ -106,9 +106,9 @@ class PathTestCase(unittest.TestCase):
         assert str(path) == '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})'
         #print(repr(path))
         assert repr(path) == (
-            "Path(node(**{'name': 'Alice'}), "
-            "('KNOWS', **{}), "
-            "node(**{'name': 'Bob'}))"
+            "Path(node({'name': 'Alice'}), "
+            "('KNOWS', {}), "
+            "node({'name': 'Bob'}))"
         )
 
 

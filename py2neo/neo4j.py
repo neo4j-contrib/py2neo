@@ -1573,7 +1573,7 @@ class _UnboundRelationship(object):
                 self._properties != other._properties)
 
     def __repr__(self):
-        return "({0}, **{1})".format(
+        return "({0}, {1})".format(
             repr(str(self._type)),
             repr(self._properties),
         )
