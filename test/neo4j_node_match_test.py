@@ -40,20 +40,20 @@ def _create_graph():
 
 def test_can_match_zero_outgoing():
     a, b, c, d, e, rels = _create_graph()
-    matches = e.match()
+    matches = list(e.match_outgoing())
     assert len(matches) == 0
 
 
 def test_can_match_one_outgoing():
     a, b, c, d, e, rels = _create_graph()
-    matches = a.match()
+    matches = list(a.match_outgoing())
     assert len(matches) == 1
     assert rels[0] in matches
 
 
 def test_can_match_many_outgoing():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match()
+    matches = list(b.match_outgoing())
     assert len(matches) == 3
     assert rels[1] in matches
     assert rels[2] in matches
@@ -62,7 +62,7 @@ def test_can_match_many_outgoing():
 
 def test_can_match_many_outgoing_with_limit():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match(limit=2)
+    matches = list(b.match_outgoing(limit=2))
     assert len(matches) == 2
     for match in matches:
         assert match in (rels[1], rels[2], rels[3])
@@ -70,7 +70,7 @@ def test_can_match_many_outgoing_with_limit():
 
 def test_can_match_many_outgoing_by_type():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match("KNOWS")
+    matches = list(b.match_outgoing("KNOWS"))
     assert len(matches) == 2
     assert rels[2] in matches
     assert rels[3] in matches
@@ -78,7 +78,7 @@ def test_can_match_many_outgoing_by_type():
 
 def test_can_match_many_outgoing_by_multiple_types():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match(("KNOWS", "LOVES"))
+    matches = list(b.match_outgoing(("KNOWS", "LOVES")))
     assert len(matches) == 3
     assert rels[1] in matches
     assert rels[2] in matches
@@ -87,7 +87,7 @@ def test_can_match_many_outgoing_by_multiple_types():
 
 def test_can_match_many_in_both_directions():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match(bidirectional=True)
+    matches = list(b.match())
     assert len(matches) == 4
     assert rels[0] in matches
     assert rels[1] in matches
@@ -97,7 +97,7 @@ def test_can_match_many_in_both_directions():
 
 def test_can_match_many_in_both_directions_with_limit():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match(bidirectional=True, limit=2)
+    matches = list(b.match(limit=2))
     assert len(matches) == 2
     for match in matches:
         assert match in (rels[0], rels[1], rels[2], rels[3])
@@ -105,7 +105,7 @@ def test_can_match_many_in_both_directions_with_limit():
 
 def test_can_match_many_by_type_in_both_directions():
     a, b, c, d, e, rels = _create_graph()
-    matches = b.match("LOVES", bidirectional=True)
+    matches = list(b.match("LOVES"))
     assert len(matches) == 2
     assert rels[0] in matches
     assert rels[1] in matches

@@ -378,12 +378,12 @@ class SaveUniqueTestCase(unittest.TestCase):
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, neo4j.Node)
         assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
-        friend_rels = alice.__node__.match("KNOWS")
+        friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
         assert len(friend_rels) == 1
         assert bob_node in (rel.end_node for rel in friend_rels)
         alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
         self.store.save_unique("People", "email", "alice@example.com", alice)
-        friend_rels = alice.__node__.match("KNOWS")
+        friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
         assert len(friend_rels) == 2
         assert bob_node in (rel.end_node for rel in friend_rels)
         assert carol_node in (rel.end_node for rel in friend_rels)

@@ -132,7 +132,7 @@ class NodeTestCase(unittest.TestCase):
         )
 
     def test_get_all_relationships(self):
-        rels = self.fred.match(bidirectional=True)
+        rels = list(self.fred.match())
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
@@ -140,7 +140,7 @@ class NodeTestCase(unittest.TestCase):
         self.assertEqual(self.wilma, rels[0].end_node)
 
     def test_get_all_outgoing_relationships(self):
-        rels = self.fred.match()
+        rels = list(self.fred.match_outgoing())
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
@@ -149,7 +149,7 @@ class NodeTestCase(unittest.TestCase):
 
     def test_get_all_incoming_relationships(self):
         #rels = self.wilma.get_relationships(neo4j.Direction.INCOMING)
-        rels = self.gdb.match(end_node=self.wilma)
+        rels = list(self.wilma.match_incoming())
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
@@ -158,7 +158,7 @@ class NodeTestCase(unittest.TestCase):
 
     def test_get_all_relationships_of_type(self):
         #rels = self.fred.get_relationships(neo4j.Direction.EITHER, "REALLY LOVES")
-        rels = self.fred.match("REALLY LOVES", bidirectional=True)
+        rels = list(self.fred.match("REALLY LOVES"))
         self.assertEqual(1, len(rels))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
@@ -167,7 +167,7 @@ class NodeTestCase(unittest.TestCase):
 
     def test_get_single_relationship(self):
         #rel = self.fred.get_single_relationship(neo4j.Direction.EITHER, "REALLY LOVES")
-        rels = self.fred.match("REALLY LOVES", bidirectional=True, limit=1)
+        rels = list(self.fred.match("REALLY LOVES", limit=1))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
         self.assertEqual(self.fred, rels[0].start_node)
@@ -175,7 +175,7 @@ class NodeTestCase(unittest.TestCase):
 
     def test_get_single_outgoing_relationship(self):
         #rel = self.fred.get_single_relationship(neo4j.Direction.OUTGOING, "REALLY LOVES")
-        rels = self.fred.match("REALLY LOVES", limit=1)
+        rels = list(self.fred.match_outgoing("REALLY LOVES", limit=1))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
         self.assertEqual(self.fred, rels[0].start_node)
@@ -183,7 +183,8 @@ class NodeTestCase(unittest.TestCase):
 
     def test_get_single_incoming_relationship(self):
         #rel = self.wilma.get_single_relationship(neo4j.Direction.INCOMING, "REALLY LOVES")
-        rels = self.gdb.match(rel_type="REALLY LOVES", end_node=self.wilma, limit=1)
+        rels = list(self.wilma.match_incoming("REALLY LOVES",
+                                              start_node=self.fred, limit=1))
         self.assertTrue(isinstance(rels[0], neo4j.Relationship))
         self.assertEqual("REALLY LOVES", rels[0].type)
         self.assertEqual(self.fred, rels[0].start_node)
@@ -191,36 +192,36 @@ class NodeTestCase(unittest.TestCase):
 
     def test_explicit_is_related_to(self):
         #self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES"))
-        matched = self.fred.match(rel_type="REALLY LOVES",
-                                  end_node=self.wilma,
-                                  bidirectional=True, limit=1)
+        matched = list(self.fred.match("REALLY LOVES", other_node=self.wilma,
+                                       limit=1))
         assert matched
 
     def test_explicit_is_related_to_outgoing(self):
         #self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.OUTGOING, "REALLY LOVES"))
-        matched = self.fred.match(rel_type="REALLY LOVES",
-                                  end_node=self.wilma, limit=1)
+        matched = list(self.fred.match_outgoing("REALLY LOVES",
+                                                end_node=self.wilma, limit=1))
         assert matched
 
     def test_explicit_is_related_to_incoming(self):
         #self.assertFalse(self.fred.is_related_to(self.wilma, neo4j.Direction.INCOMING, "REALLY LOVES"))
-        matched = self.wilma.match(rel_type="REALLY LOVES",
-                                   end_node=self.fred, limit=1)
+        matched = list(self.fred.match_incoming("REALLY LOVES",
+                                                 start_node=self.wilma, limit=1))
         assert not matched
 
     def test_implicit_is_related_to(self):
         #self.assertTrue(self.fred.is_related_to(self.wilma))
-        assert self.fred.match(end_node=self.wilma, bidirectional=True)
+        matches = list(self.fred.match(other_node=self.wilma))
+        assert matches
 
     def test_is_not_related_to(self):
         homer, = self.gdb.create({"name": "Homer"})
         #self.assertFalse(self.fred.is_related_to(homer))
-        assert not self.fred.match(end_node=homer, bidirectional=True)
+        matches = list(self.fred.match(other_node=homer))
+        assert not matches
 
     def test_get_relationships_with(self):
         #rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES")
-        rels = self.fred.match(rel_type="REALLY LOVES", end_node=self.wilma,
-                               bidirectional=True)
+        rels = list(self.fred.match("REALLY LOVES", other_node=self.wilma))
         self.assertEqual(1, len(rels))
         self.assertEqual(self.fred, rels[0].start_node)
         self.assertEqual(self.wilma, rels[0].end_node)

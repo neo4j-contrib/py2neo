@@ -494,7 +494,7 @@ def test_can_insert_single_node():
     out = subgraph.insert_into(graph_db)
     assert isinstance(out["a"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
-    matches = out["a"].match()
+    matches = list(out["a"].match_outgoing())
     assert len(matches) == 0
 
 
@@ -507,7 +507,7 @@ def test_can_insert_simple_graph():
     assert isinstance(out["b"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
     assert out["b"].get_properties() == {"name": "Bob"}
-    matches = out["a"].match(end_node=out["b"])
+    matches = list(out["a"].match_outgoing(end_node=out["b"]))
     assert len(matches) == 1
     assert matches[0].type == "KNOWS"
 
@@ -547,7 +547,7 @@ def test_can_merge_simple_graph():
     assert isinstance(out["b"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
     assert out["b"].get_properties() == {"name": "Bob"}
-    matches = out["a"].match(end_node=out["b"])
+    matches = list(out["a"].match_outgoing(end_node=out["b"]))
     assert len(matches) == 1
     assert matches[0].type == "KNOWS"
 

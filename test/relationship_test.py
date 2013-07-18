@@ -51,10 +51,10 @@ class IsolateTestCase(unittest.TestCase):
             (5, "KNOWS", 0),
         )
         alice = posse[0]
-        friendships = alice.match(bidirectional=True)
+        friendships = list(alice.match())
         assert len(friendships) == 8
         alice.isolate()
-        friendships = alice.match(bidirectional=True)
+        friendships = list(alice.match())
         assert len(friendships) == 0
 
 
@@ -87,7 +87,7 @@ class RelationshipTestCase(unittest.TestCase):
 
     def test_getting_no_relationships(self):
         alice, = self.graph_db.create({"name": "Alice"})
-        rels = alice.match()
+        rels = list(alice.match())
         self.assertIsNotNone(rels)
         self.assertTrue(isinstance(rels, list))
         self.assertEqual(0, len(rels))

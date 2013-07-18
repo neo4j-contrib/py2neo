@@ -8,7 +8,12 @@ Version 1.6
 - GraphDatabaseService.find for iterating through labelled nodes
 - Rewritten HTTP layer to use HTTPStream
 - Removed all previously deprecated features
-- Added Node.match_incoming
 - Changed GraphDatabaseService.delete_index to throw LookupError if not found
 - Deprecated cypher module in favour of GraphDatabaseService.cypher resource
 - Monitor moved from admin module into neo4j module
+- Reconfigured match methods
+  - Changed all match methods to return iterators
+  - Removed bidirectional argument from Node.match (now default)
+  - Added Node.match_incoming
+  - Added Node.match_outgoing
+  - Removed Node.match_one
