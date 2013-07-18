@@ -1453,9 +1453,8 @@ class Relationship(_Entity):
                     self._end_node != other._end_node or
                     self._properties != other._properties)
 
-    #TODO: review
     def __repr__(self):
-        if self.__uri__:
+        if not self.is_abstract:
             return "{0}({1})".format(
                 self.__class__.__name__,
                 repr(str(self.__uri__))
@@ -1476,7 +1475,6 @@ class Relationship(_Entity):
                 repr(self.end_node)
             )
 
-    #TODO: review
     def __str__(self):
         type_str = str(self.type)
         if not SIMPLE_NAME.match(type_str):
