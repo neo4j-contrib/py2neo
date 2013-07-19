@@ -20,7 +20,11 @@ PY3K = sys.version_info[0] >= 3
 
 from py2neo import neo4j, node, rel
 
+import logging
 import unittest
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def default_graph_db():
@@ -64,6 +68,7 @@ class TestNodeCreation(unittest.TestCase):
 class TestRelationshipCreation(unittest.TestCase):
 
     def setUp(self):
+        default_graph_db().clear()
         self.batch = neo4j.WriteBatch(default_graph_db())
         self.recycling = []
 
@@ -81,6 +86,20 @@ class TestRelationshipCreation(unittest.TestCase):
         assert knows.end_node == bob
         assert knows.get_properties() == {}
         self.recycling = [knows, alice, bob]
+
+    def test_can_create_relationship_with_new_indexed_nodes(self):
+        self.batch.get_or_create_indexed_node("people", "name", "Alice", {"name": "Alice"})
+        self.batch.get_or_create_indexed_node("people", "name", "Bob", {"name": "Bob"})
+        self.batch.get_or_create_indexed_relationship("friendships", "names", "alice_bob", 0, "KNOWS", 1)
+        #self.batch.create((0, "KNOWS", 1))
+        alice, bob, knows = self.batch.submit()
+        assert isinstance(knows, neo4j.Relationship)
+        assert knows.start_node == alice
+        assert knows.type == "KNOWS"
+        assert knows.end_node == bob
+        assert knows.get_properties() == {}
+        self.recycling = [knows, alice, bob]
+        assert False
 
     def test_can_create_relationship_with_existing_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -193,7 +212,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
+        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
         knows, = self.batch.submit()
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
@@ -206,8 +225,8 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
-        self.batch.get_or_create((alice, "KNOWS", bob, {"since": 2000}))
+        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
+        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
         knows1, knows2 = self.batch.submit()
         assert isinstance(knows1, neo4j.Relationship)
         assert knows1.start_node == alice
@@ -223,7 +242,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((0, "KNOWS", 1))
         alice, bob, k1, k2 = self.batch.submit()
-        self.batch.get_or_create((alice, "KNOWS", bob))
+        self.batch.get_or_create_relationship((alice, "KNOWS", bob))
         try:
             knows, = self.batch.submit()
             self.recycling = [knows, k1, k2, alice, bob]
@@ -235,7 +254,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.get_or_create((None, "KNOWS", bob))
+        self.batch.get_or_create_relationship((None, "KNOWS", bob))
         knows, = self.batch.submit()
         alice = knows.start_node
         assert isinstance(knows, neo4j.Relationship)
@@ -247,7 +266,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
     def test_can_create_relationship_and_end_node(self):
         self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.get_or_create((alice, "KNOWS", None))
+        self.batch.get_or_create_relationship((alice, "KNOWS", None))
         knows, = self.batch.submit()
         bob = knows.end_node
         assert isinstance(knows, neo4j.Relationship)
@@ -258,7 +277,7 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
 
     def test_cannot_create_relationship_and_both_nodes(self):
         try:
-            self.batch.get_or_create((None, "KNOWS", None))
+            self.batch.get_or_create_relationship((None, "KNOWS", None))
             assert False
         except ValueError as err:
             sys.stderr.write(repr(err) + "\n")

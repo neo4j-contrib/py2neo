@@ -127,7 +127,7 @@ class GregorianCalendar(object):
         """
         self._index = index
         self._graph_db = self._index.service_root.graph_db
-        self._calendar = self._index.get_or_create("calendar", "Gregorian", {})
+        self._calendar = self._index.get_or_create_relationship("calendar", "Gregorian", {})
 
     def calendar(self):
         return self._calendar

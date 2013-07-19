@@ -316,7 +316,7 @@ class Store(object):
         :param subj: the object to save
         """
         index = self.graph_db.get_or_create_index(neo4j.Node, index_name)
-        node = index.get_or_create(key, value, {})
+        node = index.get_or_create_relationship(key, value, {})
         self.save(subj, node)
 
     def delete(self, subj):

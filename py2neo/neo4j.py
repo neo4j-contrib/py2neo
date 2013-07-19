@@ -869,7 +869,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :return: a :py:class:`Node` instance
         """
         index = self.get_or_create_index(Node, index_name)
-        return index.get_or_create(key, value, properties or {})
+        return index.get_or_create_relationship(key, value, properties or {})
 
     def get_indexed_relationship(self, index_name, key, value):
         """ Fetch the first relationship indexed with the specified details,
@@ -2147,6 +2147,12 @@ class _Batch(Resource):
         """ Submit the current batch but do not parse the results. This is for
         internal use where the results are discarded. Should be closed
         """
+        job_count = len(self)
+        jobs = "job" if job_count == 1 else "jobs"
+        log.info("Submitting batch with {0} {1}".format(job_count, jobs))
+        if __debug__:
+            for id_, request in enumerate(self.requests):
+                log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
         try:
             response = self._post(self._body)
         except (ClientError, ServerError) as e:
@@ -2169,7 +2175,10 @@ class _Batch(Resource):
         :return:
         """
         for i, result in grouped(self._submit()):
-            yield _Batch.Response(assembled(result))
+            response = _Batch.Response(assembled(result))
+            if __debug__:
+                log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
+            yield response
 
     def stream(self):
         """ Submit the current batch of requests, iterating through the results
@@ -2285,7 +2294,7 @@ class WriteBatch(_Batch):
             raise TypeError(entity)
         self._append_post(uri, body)
 
-    def get_or_create(self, rel_abstract):
+    def get_or_create_relationship(self, rel_abstract):
         """ Use the abstract supplied to create a new relationship if one does
         not already exist.
 
