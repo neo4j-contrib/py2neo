@@ -99,7 +99,6 @@ class TestRelationshipCreation(unittest.TestCase):
         assert knows.end_node == bob
         assert knows.get_properties() == {}
         self.recycling = [knows, alice, bob]
-        assert False
 
     def test_can_create_relationship_with_existing_nodes(self):
         self.batch.create({"name": "Alice"})
