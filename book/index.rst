@@ -46,7 +46,6 @@ Contents
    cypher
    ogm
    geoff
-   gremlin
    calendar
    neotool
    deprecated_features
