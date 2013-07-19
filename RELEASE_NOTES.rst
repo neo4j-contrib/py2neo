@@ -17,3 +17,4 @@ Version 1.6
   - Added Node.match_incoming
   - Added Node.match_outgoing
   - Removed Node.match_one
+- Removed Gremlin module
