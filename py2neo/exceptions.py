@@ -95,7 +95,7 @@ class ServerError(Exception):
             return getattr(self.__cause__, item)
 
 
-class CypherError(Exception):
+class _FeatureError(Exception):
 
     def __init__(self, response):
         self._response = response
@@ -130,36 +130,11 @@ class CypherError(Exception):
         return self._response
 
 
-class BatchError(Exception):
+class CypherError(_FeatureError):
 
-    def __init__(self, response):
-        self._response = response
-        Exception.__init__(self, self.message)
+    pass
 
-    @property
-    def message(self):
-        return self._response.message
 
-    @property
-    def exception(self):
-        return self._response.exception
+class BatchError(_FeatureError):
 
-    @property
-    def full_name(self):
-        return self._response.full_name
-
-    @property
-    def stack_trace(self):
-        return self._response.stack_trace
-
-    @property
-    def cause(self):
-        return self._response.cause
-
-    @property
-    def request(self):
-        return self._response.request
-
-    @property
-    def response(self):
-        return self._response
+    pass
