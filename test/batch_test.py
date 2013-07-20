@@ -688,5 +688,17 @@ class TestIndexedNodeRemoval(unittest.TestCase):
         self.check("flintstones", "%", self.wilma)
 
 
+def test_can_use_return_values_as_references():
+    batch = neo4j.WriteBatch(neo4j.GraphDatabaseService())
+    a = batch.create(node(name="Alice"))
+    b = batch.create(node(name="Bob"))
+    batch.create(rel(a, "KNOWS", b))
+    results = batch.submit()
+    ab = results[2]
+    assert isinstance(ab, neo4j.Relationship)
+    assert ab.start_node["name"] == "Alice"
+    assert ab.end_node["name"] == "Bob"
+
+
 if __name__ == "__main__":
     unittest.main()

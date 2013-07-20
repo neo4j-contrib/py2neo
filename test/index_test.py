@@ -110,14 +110,14 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertTrue(alice in smiths)
 
     def test_get_or_create_node(self):
-        alice = self.index.get_or_create_relationship("surname", "Smith", {"name": "Alice Smith"})
+        alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
         self.assertIsNotNone(alice)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         alice_id = alice._id
         for i in range(10):
             # subsequent calls return the same object as node already exists
-            alice = self.index.get_or_create_relationship("surname", "Smith", {"name": "Alice Smith"})
+            alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
             self.assertIsNotNone(alice)
             self.assertTrue(isinstance(alice, neo4j.Node))
             self.assertEqual("Alice Smith", alice["name"])

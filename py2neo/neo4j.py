@@ -494,8 +494,8 @@ class GraphDatabaseService(Cacheable, Resource):
             from the graph and cannot be undone.
         """
         batch = WriteBatch(self)
-        batch._append_cypher("START r=rel(*) DELETE r")
-        batch._append_cypher("START n=node(*) DELETE n")
+        batch.execute_cypher("START r=rel(*) DELETE r")
+        batch.execute_cypher("START n=node(*) DELETE n")
         batch._submit().close()
 
     def create(self, *abstracts):
@@ -869,7 +869,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :return: a :py:class:`Node` instance
         """
         index = self.get_or_create_index(Node, index_name)
-        return index.get_or_create_relationship(key, value, properties or {})
+        return index.get_or_create(key, value, properties or {})
 
     def get_indexed_relationship(self, index_name, key, value):
         """ Fetch the first relationship indexed with the specified details,
@@ -2104,54 +2104,62 @@ class _Batch(Resource):
         self.clear()
 
     def __len__(self):
-        return len(self.requests)
+        return len(self._requests)
 
     def __nonzero__(self):
-        return bool(self.requests)
+        return bool(self._requests)
 
     def _append(self, request):
-        self.requests.append(request)
+        self._requests.append(request)
+        return len(self._requests) - 1
 
     def _append_get(self, uri):
-        self._append(_Batch.Request("GET", uri))
+        return self._append(_Batch.Request("GET", uri))
 
     def _append_put(self, uri, body=None):
-        self._append(_Batch.Request("PUT", uri, body))
+        return self._append(_Batch.Request("PUT", uri, body))
 
     def _append_post(self, uri, body=None):
-        self._append(_Batch.Request("POST", uri, body))
+        return self._append(_Batch.Request("POST", uri, body))
 
     def _append_delete(self, uri):
-        self._append(_Batch.Request("DELETE", uri))
+        return self._append(_Batch.Request("DELETE", uri))
 
-    def _append_cypher(self, query, **params):
+    def execute_cypher(self, query, **params):
+        """ Append a Cypher query to this batch. Resources returned from Cypher
+        queries cannot be referenced as integers by other batch requests.
+
+        :param query:
+        :param params:
+        :return:
+        """
         if params:
             body = {"query": str(query), "params": dict(params)}
         else:
             body = {"query": str(query)}
-        self._append_post(_batch_uri(self.cypher), body)
+        return self._append_post(_batch_uri(self.cypher), body)
 
     @property
     def _body(self):
         return [
             request.to_dict(id_)
-            for id_, request in enumerate(self.requests)
+            for id_, request in enumerate(self._requests)
         ]
 
     def clear(self):
         """ Clear all requests from this batch.
         """
-        self.requests = []
+        self._requests = []
 
     def _submit(self):
         """ Submit the current batch but do not parse the results. This is for
         internal use where the results are discarded. Should be closed
         """
-        job_count = len(self)
-        jobs = "job" if job_count == 1 else "jobs"
-        log.info("Submitting batch with {0} {1}".format(job_count, jobs))
+        request_count = len(self)
+        request_text = "request" if request_count == 1 else "requests"
+        log.info("Submitting batch with {0} {1}".format(request_count, request_text))
         if __debug__:
-            for id_, request in enumerate(self.requests):
+            for id_, request in enumerate(self._requests):
                 log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
         try:
             response = self._post(self._body)
@@ -2230,7 +2238,7 @@ class ReadBatch(_Batch):
         :param entity: concrete entity from which to fetch properties
         """
         entity = _cast(entity, abstract=False)
-        self._append_get(_batch_uri(entity._properties_resource))
+        return self._append_get(_batch_uri(entity._properties_resource))
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under the given key-value pair.
@@ -2242,7 +2250,7 @@ class ReadBatch(_Batch):
         index = self._index(Node, index)
         searcher = index._searcher.expand(key=key, value=value)
         searcher.service_root = index.service_root
-        self._append_get(_batch_uri(searcher))
+        return self._append_get(_batch_uri(searcher))
 
 
 class WriteBatch(_Batch):
@@ -2292,7 +2300,7 @@ class WriteBatch(_Batch):
                 body["data"] = compact(entity._properties)
         else:
             raise TypeError(entity)
-        self._append_post(uri, body)
+        return self._append_post(uri, body)
 
     def get_or_create_relationship(self, rel_abstract):
         """ Use the abstract supplied to create a new relationship if one does
@@ -2333,14 +2341,14 @@ class WriteBatch(_Batch):
             params["A"] = rel._start_node._id
         if rel._end_node:
             params["B"] = rel._end_node._id
-        self._append_cypher(query, **params)
+        return self.execute_cypher(query, **params)
 
     def delete(self, entity):
         """ Delete the specified entity from the graph.
 
         :param entity: concrete node or relationship to be deleted
         """
-        self._append_delete(_batch_uri(entity))
+        return self._append_delete(_batch_uri(entity))
 
     def set_property(self, entity, key, value):
         """ Set a single property on an entity.
@@ -2353,7 +2361,7 @@ class WriteBatch(_Batch):
             self.delete_property(entity, key)
         else:
             uri = _batch_uri(entity, "properties", key)
-            self._append_put(uri, value)
+            return self._append_put(uri, value)
 
     def set_properties(self, entity, properties):
         """ Replace all properties on an entity.
@@ -2362,7 +2370,7 @@ class WriteBatch(_Batch):
         :param properties: dictionary of properties
         """
         uri = _batch_uri(entity, "properties")
-        self._append_put(uri, compact(properties))
+        return self._append_put(uri, compact(properties))
 
     def delete_property(self, entity, key):
         """ Delete a single property from an entity.
@@ -2371,7 +2379,7 @@ class WriteBatch(_Batch):
         :param key: property key
         """
         uri = _batch_uri(entity, "properties", key)
-        self._append_delete(uri)
+        return self._append_delete(uri)
 
     def delete_properties(self, entity):
         """ Delete all properties from an entity.
@@ -2379,29 +2387,29 @@ class WriteBatch(_Batch):
         :param entity: concrete entity from which to delete properties
         """
         uri = _batch_uri(entity, "properties")
-        self._append_delete(uri)
+        return self._append_delete(uri)
 
     def add_labels(self, node, *labels):
         node = _cast(node, cls=Node, abstract=False)
         node._label_resource()
         uri = _batch_uri(node, "labels")
-        self._append_post(uri, list(labels))
+        return self._append_post(uri, list(labels))
 
     def remove_label(self, node, label):
         node = _cast(node, cls=Node, abstract=False)
         node._label_resource()
         uri = _batch_uri(node, "labels", label)
-        self._append_delete(uri)
+        return self._append_delete(uri)
 
     def replace_labels(self, node, *labels):
         node = _cast(node, cls=Node, abstract=False)
         node._label_resource()
         uri = _batch_uri(node, "labels")
-        self._append_put(uri, list(labels))
+        return self._append_put(uri, list(labels))
 
     def _create_indexed_node(self, index, key, value, properties, query=None):
         uri = _batch_uri(self._index(Node, index), query=query)
-        self._append_post(uri, {
+        return self._append_post(uri, {
             "key": key,
             "value": value,
             "properties": compact(properties or {}),
@@ -2415,19 +2423,20 @@ class WriteBatch(_Batch):
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        self._create_indexed_node(index, key, value, compact(properties), query)
+        return self._create_indexed_node(index, key, value, compact(properties),
+                                         query)
 
     def create_indexed_node_or_fail(self, index, key, value, properties=None):
         """ Create and index a new node if one does not already exist,
             fail otherwise.
         """
         self._assert_can_create_or_fail()
-        self._create_indexed_node(index, key, value, compact(properties),
-                                  "uniqueness=create_or_fail")
+        return self._create_indexed_node(index, key, value, compact(properties),
+                                         "uniqueness=create_or_fail")
 
     def _add_indexed_node(self, index, key, value, node, query=None):
         uri = _batch_uri(self._index(Node, index), query=query)
-        self._append_post(uri, {
+        return self._append_post(uri, {
             "key": key,
             "value": value,
             "uri": _batch_uri(node),
@@ -2436,7 +2445,7 @@ class WriteBatch(_Batch):
     def add_indexed_node(self, index, key, value, node):
         """ Add an existing node to the index specified.
         """
-        self._add_indexed_node(index, key, value, node)
+        return self._add_indexed_node(index, key, value, node)
 
     def get_or_add_indexed_node(self, index, key, value, node):
         """ Add an existing node to the index specified if an entry does not
@@ -2447,15 +2456,15 @@ class WriteBatch(_Batch):
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        self._add_indexed_node(index, key, value, node, query)
+        return self._add_indexed_node(index, key, value, node, query)
 
     def add_indexed_node_or_fail(self, index, key, value, node):
         """ Add an existing node to the index specified if an entry does not
             already exist for the given key-value pair, fail otherwise.
         """
         self._assert_can_create_or_fail()
-        self._add_indexed_node(index, key, value, node,
-                               "uniqueness=create_or_fail")
+        return self._add_indexed_node(index, key, value, node,
+                                      "uniqueness=create_or_fail")
 
     def remove_indexed_node(self, index, key=None, value=None, node=None):
         """Remove any entries from the index which pertain to the parameters
@@ -2482,12 +2491,12 @@ class WriteBatch(_Batch):
             uri = _batch_uri(index, node._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
-        self._append_delete(uri)
+        return self._append_delete(uri)
 
     def _create_indexed_relationship(self, index, key, value, start_node,
                                      type_, end_node, properties, query):
         uri = _batch_uri(self._index(Relationship, index), query=query)
-        self._append_post(uri, {
+        return self._append_post(uri, {
             "key": key,
             "value": value,
             "start": _batch_uri(start_node),
@@ -2505,8 +2514,9 @@ class WriteBatch(_Batch):
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        self._create_indexed_relationship(index, key, value, start_node, type_,
-                                          end_node, properties, query)
+        return self._create_indexed_relationship(index, key, value, start_node,
+                                                 type_, end_node, properties,
+                                                 query)
 
     def create_indexed_relationship_or_fail(self, index, key, value,
                                             start_node, type_, end_node,
@@ -2515,14 +2525,14 @@ class WriteBatch(_Batch):
             fail otherwise.
         """
         self._assert_can_create_or_fail()
-        self._create_indexed_relationship(index, key, value, start_node, type_,
-                                          end_node, properties,
-                                          "uniqueness=create_or_fail")
+        return self._create_indexed_relationship(index, key, value, start_node,
+                                                 type_, end_node, properties,
+                                                 "uniqueness=create_or_fail")
 
     def _add_indexed_relationship(self, index, key, value, relationship,
                                   query=None):
         uri = _batch_uri(self._index(Relationship, index), query=query)
-        self._append_post(uri, {
+        return self._append_post(uri, {
             "key": key,
             "value": value,
             "uri": _batch_uri(relationship),
@@ -2531,7 +2541,7 @@ class WriteBatch(_Batch):
     def add_indexed_relationship(self, index, key, value, relationship):
         """ Add an existing relationship to the index specified.
         """
-        self._add_indexed_relationship(index, key, value, relationship)
+        return self._add_indexed_relationship(index, key, value, relationship)
 
     def get_or_add_indexed_relationship(self, index, key, value, relationship):
         """ Add an existing relationship to the index specified if an entry
@@ -2542,15 +2552,16 @@ class WriteBatch(_Batch):
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        self._add_indexed_relationship(index, key, value, relationship, query)
+        return self._add_indexed_relationship(index, key, value, relationship,
+                                              query)
 
     def add_indexed_relationship_or_fail(self, index, key, value, relationship):
         """ Add an existing relationship to the index specified if an entry
         does not already exist for the given key-value pair, fail otherwise.
         """
         self._assert_can_create_or_fail()
-        self._add_indexed_relationship(index, key, value, relationship,
-                                       "uniqueness=create_or_fail")
+        return self._add_indexed_relationship(index, key, value, relationship,
+                                              "uniqueness=create_or_fail")
 
     def remove_indexed_relationship(self, index, key=None, value=None,
                                     relationship=None):
@@ -2578,4 +2589,4 @@ class WriteBatch(_Batch):
             uri = _batch_uri(index, relationship._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
-        self._append_delete(uri)
+        return self._append_delete(uri)
