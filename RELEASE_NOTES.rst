@@ -18,3 +18,4 @@ Version 1.6
   - Added Node.match_outgoing
   - Removed Node.match_one
 - Removed Gremlin module
+- Batch methods return integer positions
