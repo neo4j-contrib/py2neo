@@ -4,6 +4,7 @@ Release Notes
 
 Version 1.6
 ===========
+- Increased minimum supported server version to 1.8
 - Label support in Node and WriteBatch classes
 - GraphDatabaseService.find for iterating through labelled nodes
 - Rewritten HTTP layer to use HTTPStream

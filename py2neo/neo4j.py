@@ -1725,7 +1725,7 @@ class Path(object):
         left._relationships.extend(right._relationships)
         return left
 
-    def _create(self, graph_db, verb):
+    def _create_query(self, unique):
         nodes, path, values, params = [], [], [], {}
 
         def append_node(i, node):
@@ -1758,9 +1758,16 @@ class Path(object):
         clauses = []
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
-        clauses.append("{0} {1}".format(verb, "".join(path)))
+        if unique:
+            clauses.append("CREATE UNIQUE {0}".format("".join(path)))
+        else:
+            clauses.append("CREATE {0}".format("".join(path)))
         clauses.append("RETURN {0}".format(",".join(values)))
         query = " ".join(clauses)
+        return query, params
+
+    def _create(self, graph_db, unique):
+        query, params = self._create_query(unique=unique)
         try:
             results = graph_db.cypher.execute(query, params)
         except CypherError:
@@ -1778,14 +1785,14 @@ class Path(object):
         and relationships within this :py:class:`Path` instance. This makes
         use of Cypher's ``CREATE`` clause.
         """
-        return self._create(graph_db, "CREATE")
+        return self._create(graph_db, unique=False)
 
     def get_or_create(self, graph_db):
         """ Construct a unique path within the specified `graph_db` from the
         nodes and relationships within this :py:class:`Path` instance. This
         makes use of Cypher's ``CREATE UNIQUE`` clause.
         """
-        return self._create(graph_db, "CREATE UNIQUE")
+        return self._create(graph_db, unique=True)
 
 
 class Index(Cacheable, Resource):
@@ -2375,9 +2382,10 @@ class WriteBatch(_Batch):
         return self._append_put(uri, compact(properties))
 
     def delete_property(self, entity, key):
-        """ Delete a single property from an entity.
+        """ Delete a single property from a node or relationship.
 
-        :param entity: concrete entity from which to delete property
+        :param entity: node or relationship from which to delete property (can
+            be a numeric reference to an entity within the same batch)
         :param key: property key
         """
         #TODO: update comments to match set_property for this and others, highlighting where ints may be used
@@ -2385,28 +2393,44 @@ class WriteBatch(_Batch):
         return self._append_delete(uri)
 
     def delete_properties(self, entity):
-        """ Delete all properties from an entity.
+        """ Delete all properties from a node or relationship.
 
-        :param entity: concrete entity from which to delete properties
+        :param entity: node or relationship from which to delete properties
+            (can be a numeric reference to an entity within the same batch)
         """
         uri = _batch_uri(entity, "properties")
         return self._append_delete(uri)
 
     def add_labels(self, node, *labels):
-        node = _cast(node, cls=Node, abstract=False)
-        node._label_resource()
+        """ Add labels to a node.
+
+        :param node: node to which to add labels (can be a numeric reference
+            to a node within the same batch)
+        :param labels:
+        :return:
+        """
         uri = _batch_uri(node, "labels")
         return self._append_post(uri, list(labels))
 
     def remove_label(self, node, label):
-        node = _cast(node, cls=Node, abstract=False)
-        node._label_resource()
+        """ Remove a label from a node.
+
+        :param node: node from which to remove labels (can be a numeric
+            reference to a node within the same batch)
+        :param label:
+        :return:
+        """
         uri = _batch_uri(node, "labels", label)
         return self._append_delete(uri)
 
     def set_labels(self, node, *labels):
-        node = _cast(node, cls=Node, abstract=False)
-        node._label_resource()
+        """ Replace all labels on a node.
+
+        :param node: node on which to replace labels (can be a numeric
+            reference to a node within the same batch)
+        :param labels:
+        :return:
+        """
         uri = _batch_uri(node, "labels")
         return self._append_put(uri, list(labels))
 
@@ -2420,7 +2444,7 @@ class WriteBatch(_Batch):
 
     def get_or_create_indexed_node(self, index, key, value, properties=None):
         """ Create and index a new node if one does not already exist,
-            returning either the new node or the existing one.
+        returning either the new node or the existing one.
         """
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
@@ -2431,7 +2455,7 @@ class WriteBatch(_Batch):
 
     def create_indexed_node_or_fail(self, index, key, value, properties=None):
         """ Create and index a new node if one does not already exist,
-            fail otherwise.
+        fail otherwise.
         """
         self._assert_can_create_or_fail()
         return self._create_indexed_node(index, key, value, compact(properties),
@@ -2452,8 +2476,8 @@ class WriteBatch(_Batch):
 
     def get_or_add_indexed_node(self, index, key, value, node):
         """ Add an existing node to the index specified if an entry does not
-            already exist for the given key-value pair, returning either the
-            added node or the one already in the index.
+        already exist for the given key-value pair, returning either the added
+        node or the one already in the index.
         """
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
@@ -2463,14 +2487,14 @@ class WriteBatch(_Batch):
 
     def add_indexed_node_or_fail(self, index, key, value, node):
         """ Add an existing node to the index specified if an entry does not
-            already exist for the given key-value pair, fail otherwise.
+        already exist for the given key-value pair, fail otherwise.
         """
         self._assert_can_create_or_fail()
         return self._add_indexed_node(index, key, value, node,
                                       "uniqueness=create_or_fail")
 
     def remove_indexed_node(self, index, key=None, value=None, node=None):
-        """Remove any entries from the index which pertain to the parameters
+        """ Remove any entries from the index which pertain to the parameters
         supplied. The allowed parameter combinations are:
 
         `key`, `value`, `node`
@@ -2511,7 +2535,7 @@ class WriteBatch(_Batch):
     def get_or_create_indexed_relationship(self, index, key, value, start_node,
                                            type_, end_node, properties=None):
         """ Create and index a new relationship if one does not already exist,
-            returning either the new relationship or the existing one.
+        returning either the new relationship or the existing one.
         """
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
@@ -2525,7 +2549,7 @@ class WriteBatch(_Batch):
                                             start_node, type_, end_node,
                                             properties=None):
         """ Create and index a new relationship if one does not already exist,
-            fail otherwise.
+        fail otherwise.
         """
         self._assert_can_create_or_fail()
         return self._create_indexed_relationship(index, key, value, start_node,
@@ -2568,7 +2592,7 @@ class WriteBatch(_Batch):
 
     def remove_indexed_relationship(self, index, key=None, value=None,
                                     relationship=None):
-        """Remove any entries from the index which pertain to the parameters
+        """ Remove any entries from the index which pertain to the parameters
         supplied. The allowed parameter combinations are:
 
         `key`, `value`, `relationship`
