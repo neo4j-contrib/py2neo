@@ -1390,7 +1390,7 @@ class Node(_Entity):
             batch.remove_label(self, label)
         batch._submit()
 
-    def replace_labels(self, *labels):
+    def set_labels(self, *labels):
         """ Replace all labels on this node.
 
         :param labels:
@@ -2351,9 +2351,10 @@ class WriteBatch(_Batch):
         return self._append_delete(_batch_uri(entity))
 
     def set_property(self, entity, key, value):
-        """ Set a single property on an entity.
+        """ Set a single property on a node or relationship.
 
-        :param entity: concrete entity on which to set property
+        :param entity: node or relationship on which to set property (can be
+            a numeric reference to an entity within the same batch)
         :param key: property key
         :param value: property value
         """
@@ -2364,9 +2365,10 @@ class WriteBatch(_Batch):
             return self._append_put(uri, value)
 
     def set_properties(self, entity, properties):
-        """ Replace all properties on an entity.
+        """ Replace all properties on a node or relationship.
 
-        :param entity: concrete entity on which to set properties
+        :param entity: node or relationship on which to set properties (can be
+            a numeric reference to an entity within the same batch)
         :param properties: dictionary of properties
         """
         uri = _batch_uri(entity, "properties")
@@ -2378,6 +2380,7 @@ class WriteBatch(_Batch):
         :param entity: concrete entity from which to delete property
         :param key: property key
         """
+        #TODO: update comments to match set_property for this and others, highlighting where ints may be used
         uri = _batch_uri(entity, "properties", key)
         return self._append_delete(uri)
 
@@ -2401,7 +2404,7 @@ class WriteBatch(_Batch):
         uri = _batch_uri(node, "labels", label)
         return self._append_delete(uri)
 
-    def replace_labels(self, node, *labels):
+    def set_labels(self, node, *labels):
         node = _cast(node, cls=Node, abstract=False)
         node._label_resource()
         uri = _batch_uri(node, "labels")
