@@ -15,29 +15,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The `calendar` module provides standardised date management functionality
-    based on a calendar subgraph::
+"""
+The `calendar` module provides standardised date management functionality
+based on a calendar subgraph::
 
-        from py2neo import neo4j
-        from py2neo.calendar import GregorianCalendar
+    from py2neo import neo4j
+    from py2neo.calendar import GregorianCalendar
 
-        graph_db = neo4j.GraphDatabaseService()
-        time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
-        calendar = GregorianCalendar(time_index)
+    graph_db = neo4j.GraphDatabaseService()
+    time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
+    calendar = GregorianCalendar(time_index)
 
-        graph_db.create(
-            {"name": "Alice"},
-            (0, "BORN", calendar.day(1800, 1, 1)),
-            (0, "DIED", calendar.day(1900, 12, 31)),
-        )
+    graph_db.create(
+        {"name": "Alice"},
+        (0, "BORN", calendar.day(1800, 1, 1)),
+        (0, "DIED", calendar.day(1900, 12, 31)),
+    )
 
-    The root calendar node is held within a dedicated node index which needs
-    to be supplied to the calendar constructor.
+The root calendar node is held within a dedicated node index which needs
+to be supplied to the calendar constructor.
 
-    All dates managed by the :py:class:`GregorianCalendar` class adhere to a
-    hierarchy such as::
+All dates managed by the :py:class:`GregorianCalendar` class adhere to a
+hierarchy such as::
 
-        (CALENDAR)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
+    (CALENDAR)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
 
 """
 
@@ -69,8 +70,6 @@ class GregorianCalendar(object):
                 self.year = year
                 self.month = None
                 self.day = None
-            else:
-                raise ValueError()
 
         def __str__(self):
             if self.year and self.month and self.day:
@@ -85,8 +84,6 @@ class GregorianCalendar(object):
                 return "{y:04d}".format(
                     y=self.year
                 )
-            else:
-                raise ValueError()
 
         def get_node(self, calendar):
             if self.year and self.month and self.day:
@@ -114,7 +111,7 @@ class GregorianCalendar(object):
             elif start_date:
                 self.start_date = GregorianCalendar.Date(*start_date)
                 self.end_date = None
-            elif start_date:
+            elif end_date:
                 self.start_date = None
                 self.end_date = GregorianCalendar.Date(*end_date)
             else:

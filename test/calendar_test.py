@@ -27,10 +27,46 @@ logging.basicConfig(
 )
 
 def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+    return neo4j.GraphDatabaseService()
+
+
+def clear():
+    neo4j.GraphDatabaseService().clear()
 
 # Grab a handle to an index for linking to time data
 TIME = neo4j.GraphDatabaseService().get_or_create_index(neo4j.Node, "TIME")
+
+
+def test_can_create_date():
+    date = GregorianCalendar.Date(2000, 12, 25)
+    assert date.year == 2000
+    assert date.month == 12
+    assert date.day == 25
+    assert str(date) == "2000-12-25"
+
+
+def test_can_create_date_with_short_numbers():
+    date = GregorianCalendar.Date(2000, 1, 2)
+    assert date.year == 2000
+    assert date.month == 1
+    assert date.day == 2
+    assert str(date) == "2000-01-02"
+
+
+def test_can_create_month_year():
+    month_year = GregorianCalendar.Date(2000, 12)
+    assert month_year.year == 2000
+    assert month_year.month == 12
+    assert month_year.day is None
+    assert str(month_year) == "2000-12"
+
+
+def test_can_create_year():
+    year = GregorianCalendar.Date(2000)
+    assert year.year == 2000
+    assert year.month is None
+    assert year.day is None
+    assert str(year) == "2000"
 
 
 class TestExampleCode(unittest.TestCase):
@@ -130,6 +166,7 @@ class TestYears(unittest.TestCase):
 class TestDateRanges(unittest.TestCase):
 
     def setUp(self):
+        clear()
         self.calendar = GregorianCalendar(TIME)
 
     def test_can_get_date_range(self):
@@ -187,6 +224,76 @@ class TestDateRanges(unittest.TestCase):
         assert len(rels) == 1
         assert rels[0].end_node == self.calendar.date((2000, 12, 24))
         assert rels[0].end_node == self.calendar.day(2000, 12, 24)
+
+    def test_open_start_range(self):
+        range_ = self.calendar.date_range(None, (2000, 12, 25))
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 0
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 25))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 25)
+
+    def test_open_end_range(self):
+        range_ = self.calendar.date_range((2000, 12, 25), None)
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.date((2000, 12, 25))
+        assert rels[0].end_node == self.calendar.day(2000, 12, 25)
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 0
+
+    def test_no_fully_open_date_range(self):
+        try:
+            self.calendar.date_range(None, None)
+        except ValueError:
+            return True
+        else:
+            return False
+
+    def test_first_quarter(self):
+        range_ = self.calendar.quarter(2000, 1)
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 1, 1)
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 3, 31)
+
+    def test_second_quarter(self):
+        range_ = self.calendar.quarter(2000, 2)
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 4, 1)
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 6, 30)
+
+    def test_third_quarter(self):
+        range_ = self.calendar.quarter(2000, 3)
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 7, 1)
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 9, 30)
+
+    def test_fourth_quarter(self):
+        range_ = self.calendar.quarter(2000, 4)
+        rels = list(range_.match_outgoing("START_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 10, 1)
+        rels = list(range_.match_outgoing("END_DATE"))
+        assert len(rels) == 1
+        assert rels[0].end_node == self.calendar.day(2000, 12, 31)
+
+    def test_no_fifth_quarter(self):
+        try:
+            self.calendar.quarter(2000, 5)
+        except ValueError:
+            return True
+        else:
+            return False
 
 
 if __name__ == "__main__":
