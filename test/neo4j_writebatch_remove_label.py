@@ -32,9 +32,9 @@ def test_can_remove_labels_from_preexisting_node():
 def test_can_add_labels_to_node_in_same_batch():
     graph_db = neo4j.GraphDatabaseService()
     batch = neo4j.WriteBatch(graph_db)
-    batch.create({"name": "Alice"})
-    batch.add_labels(0, "human", "female")
-    batch.remove_label(0, "female")
+    alice = batch.create({"name": "Alice"})
+    batch.add_labels(alice, "human", "female")
+    batch.remove_label(alice, "female")
     results = batch.submit()
-    alice = results[0]
+    alice = results[batch.find(alice)]
     assert alice.get_labels() == {"human"}
