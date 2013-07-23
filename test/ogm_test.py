@@ -400,9 +400,9 @@ class DeleteTestCase(unittest.TestCase):
         alice = Person("alice@example.com", "Alice", 34)
         self.store.save_unique("People", "email", "alice@example.com", alice)
         node = alice.__node__
-        assert node.exists()
+        assert node.exists
         self.store.delete(alice)
-        assert not node.exists()
+        assert not node.exists
 
 
 

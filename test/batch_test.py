@@ -290,17 +290,17 @@ class TestDeletion(unittest.TestCase):
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
         alice, bob, ab = self.batch.submit()
-        assert alice.exists()
-        assert bob.exists()
-        assert ab.exists()
+        assert alice.exists
+        assert bob.exists
+        assert ab.exists
         self.batch.clear()
         self.batch.delete(ab)
         self.batch.delete(alice)
         self.batch.delete(bob)
         self.batch.submit()
-        assert not alice.exists()
-        assert not bob.exists()
-        assert not ab.exists()
+        assert not alice.exists
+        assert not bob.exists
+        assert not ab.exists
 
 
 class TestPropertyManagement(unittest.TestCase):

@@ -361,11 +361,11 @@ class TestRelatedDelete(unittest.TestCase):
         data, metadata = cypher.execute(self.graph_db, query)
         entities = data[0]
         for entity in entities:
-            assert entity.exists()
+            assert entity.exists
         alice = entities[10]
         alice.delete_related()
         for entity in entities:
-            assert not entity.exists()
+            assert not entity.exists
 
 
 if __name__ == '__main__':

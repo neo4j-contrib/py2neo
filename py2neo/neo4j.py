@@ -901,9 +901,9 @@ class Cypher(Cacheable, Resource):
 
         def execute(self, params=None):
             if __debug__:
-                cypher_log.debug("Query: " + self._query)
+                cypher_log.debug("Query: " + repr(self._query))
                 if params:
-                    cypher_log.debug("Params: " + params)
+                    cypher_log.debug("Params: " + repr(params))
             try:
                 results = self._cypher._post({
                     "query": self._query,
@@ -1825,7 +1825,7 @@ class Index(Cacheable, Resource):
         uri = URI(self)
         self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
         self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
-        self._query = ResourceTemplate(uri.string + "?query={query}")
+        self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._content_type = content_type
         self._name = name or uri.path.segments[-1]
 
@@ -2046,10 +2046,24 @@ class Index(Cacheable, Resource):
         the index being queried. For indexes with default configuration, this
         should be Apache Lucene query syntax.
         """
-        return [
-            _hydrated(assembled(result))
-            for i, result in grouped(self._query.expand(query=query).get())
-        ]
+        uri = self._query_template.expand(query=query)
+        for i, result in grouped(uri.get()):
+            yield _hydrated(assembled(result))
+
+    def _query_with_score(self, query, order):
+        uri = self._query_template.expand(query=query, order=order)
+        for i, result in grouped(uri.get()):
+            meta = assembled(result)
+            yield _hydrated(meta), meta["score"]
+
+    def query_by_index(self, query):
+        return self._query_with_score(query, "index")
+
+    def query_by_relevance(self, query):
+        return self._query_with_score(query, "relevance")
+
+    def query_by_score(self, query):
+        return self._query_with_score(query, "score")
 
 
 def _cast(obj, cls=(Node, Relationship), abstract=None):
