@@ -20,3 +20,4 @@ Version 1.6
   - Removed Node.match_one
 - Removed Gremlin module
 - Batch methods return integer positions
+- Added create_path and get_or_create_path to WriteBatch

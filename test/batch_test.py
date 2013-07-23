@@ -211,8 +211,9 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
-        knows, = self.batch.submit()
+        self.batch.get_or_create_path(alice, ("KNOWS", {"since": 2000}), bob)
+        path, = self.batch.submit()
+        knows = path.relationships[0]
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
@@ -224,16 +225,10 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
-        self.batch.get_or_create_relationship((alice, "KNOWS", bob, {"since": 2000}))
-        knows1, knows2 = self.batch.submit()
-        assert isinstance(knows1, neo4j.Relationship)
-        assert knows1.start_node == alice
-        assert knows1.type == "KNOWS"
-        assert knows1.end_node == bob
-        assert knows1["since"] == 2000
-        assert knows2 == knows1
-        self.recycling = [knows1, knows2, alice, bob]
+        self.batch.get_or_create_path(alice, ("KNOWS", {"since": 2000}), bob)
+        self.batch.get_or_create_path(alice, ("KNOWS", {"since": 2000}), bob)
+        path1, path2 = self.batch.submit()
+        assert path1 == path2
 
     def test_will_fail_batch_if_more_than_one_exists(self):
         self.batch.create({"name": "Alice"})
@@ -241,20 +236,19 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((0, "KNOWS", 1))
         alice, bob, k1, k2 = self.batch.submit()
-        self.batch.get_or_create_relationship((alice, "KNOWS", bob))
+        self.batch.get_or_create_path(alice, "KNOWS", bob)
         try:
-            knows, = self.batch.submit()
-            self.recycling = [knows, k1, k2, alice, bob]
+            path, = self.batch.submit()
             assert False
-        except neo4j.BatchError as err:
-            self.recycling = [k1, k2, alice, bob]
+        except neo4j.BatchError:
             assert True
 
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.get_or_create_relationship((None, "KNOWS", bob))
-        knows, = self.batch.submit()
+        self.batch.get_or_create_path(None, "KNOWS", bob)
+        path, = self.batch.submit()
+        knows = path.relationships[0]
         alice = knows.start_node
         assert isinstance(knows, neo4j.Relationship)
         assert isinstance(alice, neo4j.Node)
@@ -265,22 +259,15 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
     def test_can_create_relationship_and_end_node(self):
         self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.get_or_create_relationship((alice, "KNOWS", None))
-        knows, = self.batch.submit()
+        self.batch.get_or_create_path(alice, "KNOWS", None)
+        path, = self.batch.submit()
+        knows = path.relationships[0]
         bob = knows.end_node
         assert isinstance(knows, neo4j.Relationship)
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert isinstance(bob, neo4j.Node)
         self.recycling = [knows, alice, bob]
-
-    def test_cannot_create_relationship_and_both_nodes(self):
-        try:
-            self.batch.get_or_create_relationship((None, "KNOWS", None))
-            assert False
-        except ValueError as err:
-            sys.stderr.write(repr(err) + "\n")
-            assert True
 
 
 class TestDeletion(unittest.TestCase):

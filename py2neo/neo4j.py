@@ -57,7 +57,7 @@ from . import __version__
 from .exceptions import (ClientError, ServerError, CypherError, BatchError,
                          IndexTypeError)
 from .util import (compact, flatten, has_all, is_collection, version_tuple,
-                   round_robin, numberise)
+                   round_robin, numberise, deprecated)
 
 
 DEFAULT_SCHEME = "http"
@@ -1759,11 +1759,14 @@ class Path(object):
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
         if unique:
-            clauses.append("CREATE UNIQUE {0}".format("".join(path)))
+            clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
         else:
-            clauses.append("CREATE {0}".format("".join(path)))
-        clauses.append("RETURN {0}".format(",".join(values)))
+            clauses.append("CREATE p={0}".format("".join(path)))
+        #clauses.append("RETURN {0}".format(",".join(values)))
+        clauses.append("RETURN p")
         query = " ".join(clauses)
+        print(query)
+        print(params)
         return query, params
 
     def _create(self, graph_db, unique):
@@ -1778,7 +1781,7 @@ class Path(object):
             )
         else:
             for row in results:
-                return Path(*row)
+                return row[0]
 
     def create(self, graph_db):
         """ Construct a path within the specified `graph_db` from the nodes
@@ -2132,7 +2135,7 @@ class _Batch(Resource):
     def _append_delete(self, uri):
         return self._append(_Batch.Request("DELETE", uri))
 
-    def execute_cypher(self, query, **params):
+    def execute_cypher(self, query, params=None):
         """ Append a Cypher query to this batch. Resources returned from Cypher
         queries cannot be referenced as integers by other batch requests.
 
@@ -2309,7 +2312,32 @@ class WriteBatch(_Batch):
             raise TypeError(entity)
         return self._append_post(uri, body)
 
-    def get_or_create_relationship(self, rel_abstract):
+    def create_path(self, node, *rels_and_nodes):
+        """ Construct a path across a specified set of nodes and relationships.
+        Nodes may be existing concrete node instances, abstract nodes or
+        :py:const:`None` but numeric references are not supported.
+
+        :param node: start node
+        :param rels_and_nodes: alternating relationships and nodes
+        """
+        query, params = Path(node, *rels_and_nodes)._create_query(unique=False)
+        self.execute_cypher(query, params)
+
+    def get_or_create_path(self, node, *rels_and_nodes):
+        """ Construct a unique path across a specified set of nodes and
+        relationships, adding only parts that are missing. Nodes may be
+        existing concrete node instances, abstract nodes or :py:const:`None`
+        but numeric references are not supported.
+
+        :param node: start node
+        :param rels_and_nodes: alternating relationships and nodes
+        """
+        query, params = Path(node, *rels_and_nodes)._create_query(unique=True)
+        self.execute_cypher(query, params)
+
+    @deprecated("WriteBatch.get_or_create is deprecated, please use "
+                "get_or_create_path instead")
+    def get_or_create(self, rel_abstract):
         """ Use the abstract supplied to create a new relationship if one does
         not already exist.
 
@@ -2348,7 +2376,7 @@ class WriteBatch(_Batch):
             params["A"] = rel._start_node._id
         if rel._end_node:
             params["B"] = rel._end_node._id
-        return self.execute_cypher(query, **params)
+        return self.execute_cypher(query, params)
 
     def delete(self, entity):
         """ Delete the specified entity from the graph.

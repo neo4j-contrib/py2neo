@@ -247,7 +247,7 @@ class Subgraph(object):
         # 2. related nodes
         if self._rels:
             query, params, related_names = self._get_relationship_query(unique)
-            batch.execute_cypher(query, **params)
+            batch.execute_cypher(query, params)
         else:
             related_names = []
         # 3. odd nodes
