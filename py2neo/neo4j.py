@@ -1041,6 +1041,7 @@ class _Entity(Resource):
         """
         self._delete()
 
+    @property
     def exists(self):
         """ Determine whether this entity still exists in the database.
         """

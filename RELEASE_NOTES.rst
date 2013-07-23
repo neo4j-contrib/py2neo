@@ -22,3 +22,4 @@ Version 1.6
 - Batch methods return integer positions
 - Added create_path and get_or_create_path to WriteBatch
 - Batches no longer auto-clear on submission
+- Changed Node.exists and Relationship.exists from function to property
