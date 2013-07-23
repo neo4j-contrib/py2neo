@@ -32,9 +32,9 @@ def test_can_delete_property_on_preexisting_node():
 def test_can_delete_property_on_node_in_same_batch():
     graph_db = neo4j.GraphDatabaseService()
     batch = neo4j.WriteBatch(graph_db)
-    batch.create({"name": "Alice", "age": 34})
-    batch.delete_property(0, "age")
+    alice = batch.create({"name": "Alice", "age": 34})
+    batch.delete_property(alice, "age")
     results = batch.submit()
-    alice = results[0]
+    alice = results[batch.find(alice)]
     assert alice["name"] == "Alice"
     assert alice["age"] is None

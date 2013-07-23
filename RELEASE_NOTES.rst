@@ -21,3 +21,4 @@ Version 1.6
 - Removed Gremlin module
 - Batch methods return integer positions
 - Added create_path and get_or_create_path to WriteBatch
+- Batches no longer auto-clear on submission

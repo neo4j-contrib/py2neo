@@ -31,8 +31,8 @@ def test_can_add_labels_to_preexisting_node():
 def test_can_add_labels_to_node_in_same_batch():
     graph_db = neo4j.GraphDatabaseService()
     batch = neo4j.WriteBatch(graph_db)
-    batch.create({"name": "Alice"})
-    batch.add_labels(0, "human", "female")
+    a = batch.create({"name": "Alice"})
+    batch.add_labels(a, "human", "female")
     results = batch.submit()
-    alice = results[0]
+    alice = results[batch.find(a)]
     assert alice.get_labels() == {"human", "female"}

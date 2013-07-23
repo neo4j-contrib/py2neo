@@ -31,8 +31,8 @@ def test_can_set_property_on_preexisting_node():
 def test_can_set_property_on_node_in_same_batch():
     graph_db = neo4j.GraphDatabaseService()
     batch = neo4j.WriteBatch(graph_db)
-    batch.create({"name": "Alice"})
-    batch.set_property(0, "age", 34)
+    alice = batch.create({"name": "Alice"})
+    batch.set_property(alice, "age", 34)
     results = batch.submit()
-    alice = results[0]
+    alice = results[batch.find(alice)]
     assert alice["age"] == 34

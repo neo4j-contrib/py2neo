@@ -39,8 +39,8 @@ from __future__ import (division, print_function,
                         unicode_literals)
 
 from collections import namedtuple
-import base64
 from datetime import datetime
+import base64
 import json
 import logging
 import re
@@ -572,6 +572,8 @@ class GraphDatabaseService(Cacheable, Resource):
             if err.status_code != NOT_FOUND:
                 raise
 
+    @deprecated("GraphDatabaseService.get_properties is deprecated, use "
+                "ReadBatch.get_properties instead")
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
@@ -2060,54 +2062,48 @@ def _cast(obj, cls=(Node, Relationship), abstract=None):
     return entity
 
 
-def _batch_uri(resource, *segments, **kwargs):
-    """ Return a relative URI in string format for the entity specified
-    plus extra path segments.
-
-    :param resource:
-    :param segments:
-    :return:
-    """
-    if isinstance(resource, int):
-        uri = "{{{0}}}".format(resource)
-    else:
-        offset = len(resource.service_root.graph_db.__uri__)
-        uri = str(resource.__uri__)[offset:]
-    if segments:
-        if not uri.endswith("/"):
-            uri += "/"
-        uri += "/".join(map(percent_encode, segments))
-    query = kwargs.get("query")
-    if query is not None:
-        uri += "?" + query
-    return uri
-
-
 class _Batch(Resource):
 
     class Request(object):
 
         def __init__(self, method, uri, body=None):
-            self.method = method
-            self.uri = uri
-            self.body = body
+            self._method = method
+            self._uri = uri
+            self._body = body
 
-        def to_dict(self, id_):
-            return {
-                "id": id_,
-                "method": self.method,
-                "to": str(self.uri),
-                "body": self.body,
-            }
+        def __eq__(self, other):
+            return id(self) == id(other)
+
+        def __ne__(self, other):
+            return id(self) != id(other)
+
+        def __hash__(self):
+            return hash(id(self))
+
+        @property
+        def method(self):
+            return self._method
+
+        @property
+        def uri(self):
+            return self._uri
+
+        @property
+        def body(self):
+            return self._body
 
     class Response(object):
 
         def __init__(self, result):
             self.id_ = result.get("id")
-            self.__uri__ = result.get("from")
+            self.uri = result.get("from")
             self.body = result.get("body")
             self.status_code = result.get("status", 200)
             self.location = URI(result.get("location"))
+
+        @property
+        def __uri__(self):
+            return self.uri
 
     def __init__(self, graph_db):
         Resource.__init__(self, graph_db._subresource("batch").__uri__)
@@ -2121,7 +2117,7 @@ class _Batch(Resource):
 
     def _append(self, request):
         self._requests.append(request)
-        return len(self._requests) - 1
+        return request
 
     def _append_get(self, uri):
         return self._append(_Batch.Request("GET", uri))
@@ -2137,7 +2133,7 @@ class _Batch(Resource):
 
     def execute_cypher(self, query, params=None):
         """ Append a Cypher query to this batch. Resources returned from Cypher
-        queries cannot be referenced as integers by other batch requests.
+        queries cannot be referenced by other batch requests.
 
         :param query:
         :param params:
@@ -2147,19 +2143,59 @@ class _Batch(Resource):
             body = {"query": str(query), "params": dict(params)}
         else:
             body = {"query": str(query)}
-        return self._append_post(_batch_uri(self.cypher), body)
+        return self._append_post(self._uri_for(self.cypher), body)
 
     @property
     def _body(self):
         return [
-            request.to_dict(id_)
-            for id_, request in enumerate(self._requests)
+            {
+                "id": i,
+                "method": request.method,
+                "to": str(request.uri),
+                "body": request.body,
+            }
+            for i, request in enumerate(self._requests)
         ]
 
     def clear(self):
         """ Clear all requests from this batch.
         """
         self._requests = []
+
+    def find(self, request):
+        """ Find the position of a request within this batch.
+
+        :param request:
+        :return:
+        """
+        for i, req in enumerate(self._requests):
+            if req == request:
+                return i
+        raise ValueError("Request not found")
+
+    def _uri_for(self, resource, *segments, **kwargs):
+        """ Return a relative URI in string format for the entity specified
+        plus extra path segments.
+
+        :param resource:
+        :param segments:
+        :return:
+        """
+        if isinstance(resource, int):
+            uri = "{{{0}}}".format(resource)
+        elif isinstance(resource, _Batch.Request):
+            uri = "{{{0}}}".format(self.find(resource))
+        else:
+            offset = len(resource.service_root.graph_db.__uri__)
+            uri = str(resource.__uri__)[offset:]
+        if segments:
+            if not uri.endswith("/"):
+                uri += "/"
+            uri += "/".join(map(percent_encode, segments))
+        query = kwargs.get("query")
+        if query is not None:
+            uri += "?" + query
+        return uri
 
     def _submit(self):
         """ Submit the current batch but do not parse the results. This is for
@@ -2183,7 +2219,6 @@ class _Batch(Resource):
             else:
                 raise BatchError(e)
         else:
-            self.clear()
             return response
 
     def _stream(self):
@@ -2247,8 +2282,9 @@ class ReadBatch(_Batch):
 
         :param entity: concrete entity from which to fetch properties
         """
-        entity = _cast(entity, abstract=False)
-        return self._append_get(_batch_uri(entity._properties_resource))
+        # TODO: update comment
+        uri = self._uri_for(entity, "properties")
+        return self._append_get(uri)
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under the given key-value pair.
@@ -2257,10 +2293,11 @@ class ReadBatch(_Batch):
         :param key: key under which nodes are indexed
         :param value: value under which nodes are indexed
         """
+        # TODO: update comment
         index = self._index(Node, index)
         searcher = index._searcher.expand(key=key, value=value)
         searcher.service_root = index.service_root
-        return self._append_get(_batch_uri(searcher))
+        return self._append_get(self._uri_for(searcher))
 
 
 class WriteBatch(_Batch):
@@ -2284,9 +2321,7 @@ class WriteBatch(_Batch):
 
     def create(self, abstract):
         """ Create a node or relationship based on the abstract entity
-        provided. For example:
-
-        ::
+        provided. For example::
 
             batch = WriteBatch(graph_db)
             batch.create(node(name="Alice"))
@@ -2298,13 +2333,13 @@ class WriteBatch(_Batch):
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
-            uri = _batch_uri(self.graph_db._subresource("node"))
+            uri = self._uri_for(self.graph_db._subresource("node"))
             body = compact(entity._properties)
         elif isinstance(entity, Relationship):
-            uri = _batch_uri(entity.start_node, "relationships")
+            uri = self._uri_for(entity.start_node, "relationships")
             body = {
                 "type": entity._type,
-                "to": _batch_uri(entity.end_node)
+                "to": self._uri_for(entity.end_node)
             }
             if entity._properties:
                 body["data"] = compact(entity._properties)
@@ -2315,7 +2350,7 @@ class WriteBatch(_Batch):
     def create_path(self, node, *rels_and_nodes):
         """ Construct a path across a specified set of nodes and relationships.
         Nodes may be existing concrete node instances, abstract nodes or
-        :py:const:`None` but numeric references are not supported.
+        :py:const:`None` but references to other requests are not supported.
 
         :param node: start node
         :param rels_and_nodes: alternating relationships and nodes
@@ -2327,7 +2362,7 @@ class WriteBatch(_Batch):
         """ Construct a unique path across a specified set of nodes and
         relationships, adding only parts that are missing. Nodes may be
         existing concrete node instances, abstract nodes or :py:const:`None`
-        but numeric references are not supported.
+        but references to other requests are not supported.
 
         :param node: start node
         :param rels_and_nodes: alternating relationships and nodes
@@ -2379,91 +2414,91 @@ class WriteBatch(_Batch):
         return self.execute_cypher(query, params)
 
     def delete(self, entity):
-        """ Delete the specified entity from the graph.
+        """ Delete a node or relationship from the graph.
 
-        :param entity: concrete node or relationship to be deleted
+        :param entity: node or relationship to delete (can be a reference to
+            another request within the same batch)
         """
-        return self._append_delete(_batch_uri(entity))
+        return self._append_delete(self._uri_for(entity))
 
     def set_property(self, entity, key, value):
         """ Set a single property on a node or relationship.
 
-        :param entity: node or relationship on which to set property (can be
-            a numeric reference to an entity within the same batch)
+        :param entity: node or relationship on which to set property (can be a
+            reference to another request within the same batch)
         :param key: property key
         :param value: property value
         """
         if value is None:
             self.delete_property(entity, key)
         else:
-            uri = _batch_uri(entity, "properties", key)
+            uri = self._uri_for(entity, "properties", key)
             return self._append_put(uri, value)
 
     def set_properties(self, entity, properties):
         """ Replace all properties on a node or relationship.
 
         :param entity: node or relationship on which to set properties (can be
-            a numeric reference to an entity within the same batch)
+            a reference to another request within the same batch)
         :param properties: dictionary of properties
         """
-        uri = _batch_uri(entity, "properties")
+        uri = self._uri_for(entity, "properties")
         return self._append_put(uri, compact(properties))
 
     def delete_property(self, entity, key):
         """ Delete a single property from a node or relationship.
 
         :param entity: node or relationship from which to delete property (can
-            be a numeric reference to an entity within the same batch)
+            be a reference to another request within the same batch)
         :param key: property key
         """
-        #TODO: update comments to match set_property for this and others, highlighting where ints may be used
-        uri = _batch_uri(entity, "properties", key)
+        uri = self._uri_for(entity, "properties", key)
         return self._append_delete(uri)
 
     def delete_properties(self, entity):
         """ Delete all properties from a node or relationship.
 
         :param entity: node or relationship from which to delete properties
-            (can be a numeric reference to an entity within the same batch)
+            (can be a reference to another request within the same batch)
         """
-        uri = _batch_uri(entity, "properties")
+        uri = self._uri_for(entity, "properties")
         return self._append_delete(uri)
 
     def add_labels(self, node, *labels):
         """ Add labels to a node.
 
-        :param node: node to which to add labels (can be a numeric reference
-            to a node within the same batch)
+        :param node: node to which to add labels (can be a reference to another
+            request within the same batch)
         :param labels:
         :return:
         """
-        uri = _batch_uri(node, "labels")
+        uri = self._uri_for(node, "labels")
         return self._append_post(uri, list(labels))
 
     def remove_label(self, node, label):
         """ Remove a label from a node.
 
-        :param node: node from which to remove labels (can be a numeric
-            reference to a node within the same batch)
+        :param node: node from which to remove labels (can be a reference to
+            another request within the same batch)
         :param label:
         :return:
         """
-        uri = _batch_uri(node, "labels", label)
+        uri = self._uri_for(node, "labels", label)
         return self._append_delete(uri)
 
     def set_labels(self, node, *labels):
         """ Replace all labels on a node.
 
-        :param node: node on which to replace labels (can be a numeric
-            reference to a node within the same batch)
+        :param node: node on which to replace labels (can be a reference to
+            another request within the same batch)
         :param labels:
         :return:
         """
-        uri = _batch_uri(node, "labels")
+        uri = self._uri_for(node, "labels")
         return self._append_put(uri, list(labels))
 
     def _create_indexed_node(self, index, key, value, properties, query=None):
-        uri = _batch_uri(self._index(Node, index), query=query)
+        uri = self._uri_for(self._index(Node, index), query=query)
         return self._append_post(uri, {
             "key": key,
             "value": value,
@@ -2474,6 +2509,7 @@ class WriteBatch(_Batch):
         """ Create and index a new node if one does not already exist,
         returning either the new node or the existing one.
         """
+        # TODO: update comment
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
@@ -2485,21 +2521,23 @@ class WriteBatch(_Batch):
         """ Create and index a new node if one does not already exist,
         fail otherwise.
         """
+        # TODO: update comment
         self._assert_can_create_or_fail()
         return self._create_indexed_node(index, key, value, compact(properties),
                                          "uniqueness=create_or_fail")
 
     def _add_indexed_node(self, index, key, value, node, query=None):
-        uri = _batch_uri(self._index(Node, index), query=query)
+        uri = self._uri_for(self._index(Node, index), query=query)
         return self._append_post(uri, {
             "key": key,
             "value": value,
-            "uri": _batch_uri(node),
+            "uri": self._uri_for(node),
         })
 
     def add_indexed_node(self, index, key, value, node):
         """ Add an existing node to the index specified.
         """
+        # TODO: update comment
         return self._add_indexed_node(index, key, value, node)
 
     def get_or_add_indexed_node(self, index, key, value, node):
@@ -2507,6 +2545,7 @@ class WriteBatch(_Batch):
         already exist for the given key-value pair, returning either the added
         node or the one already in the index.
         """
+        # TODO: update comment
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
@@ -2517,6 +2556,7 @@ class WriteBatch(_Batch):
         """ Add an existing node to the index specified if an entry does not
         already exist for the given key-value pair, fail otherwise.
         """
+        # TODO: update comment
         self._assert_can_create_or_fail()
         return self._add_indexed_node(index, key, value, node,
                                       "uniqueness=create_or_fail")
@@ -2537,26 +2577,27 @@ class WriteBatch(_Batch):
             key and value
 
         """
+        # TODO: update comment
         index = self._index(Node, index)
         if key and value and node:
-            uri = _batch_uri(index, key, value, node._id)
+            uri = self._uri_for(index, key, value, node._id)
         elif key and node:
-            uri = _batch_uri(index, key, node._id)
+            uri = self._uri_for(index, key, node._id)
         elif node:
-            uri = _batch_uri(index, node._id)
+            uri = self._uri_for(index, node._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self._append_delete(uri)
 
     def _create_indexed_relationship(self, index, key, value, start_node,
                                      type_, end_node, properties, query):
-        uri = _batch_uri(self._index(Relationship, index), query=query)
+        uri = self._uri_for(self._index(Relationship, index), query=query)
         return self._append_post(uri, {
             "key": key,
             "value": value,
-            "start": _batch_uri(start_node),
+            "start": self._uri_for(start_node),
             "type": str(type_),
-            "end": _batch_uri(end_node),
+            "end": self._uri_for(end_node),
             "properties": properties or {},
         })
 
@@ -2565,6 +2606,7 @@ class WriteBatch(_Batch):
         """ Create and index a new relationship if one does not already exist,
         returning either the new relationship or the existing one.
         """
+        # TODO: update comment
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
@@ -2576,6 +2618,7 @@ class WriteBatch(_Batch):
     def create_indexed_relationship_or_fail(self, index, key, value,
                                             start_node, type_, end_node,
                                             properties=None):
+        # TODO: update comment
         """ Create and index a new relationship if one does not already exist,
         fail otherwise.
         """
@@ -2586,16 +2629,17 @@ class WriteBatch(_Batch):
 
     def _add_indexed_relationship(self, index, key, value, relationship,
                                   query=None):
-        uri = _batch_uri(self._index(Relationship, index), query=query)
+        uri = self._uri_for(self._index(Relationship, index), query=query)
         return self._append_post(uri, {
             "key": key,
             "value": value,
-            "uri": _batch_uri(relationship),
+            "uri": self._uri_for(relationship),
         })
 
     def add_indexed_relationship(self, index, key, value, relationship):
         """ Add an existing relationship to the index specified.
         """
+        # TODO: update comment
         return self._add_indexed_relationship(index, key, value, relationship)
 
     def get_or_add_indexed_relationship(self, index, key, value, relationship):
@@ -2603,6 +2647,7 @@ class WriteBatch(_Batch):
         does not already exist for the given key-value pair, returning either
         the added relationship or the one already in the index.
         """
+        # TODO: update comment
         if self._new_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
@@ -2614,6 +2659,7 @@ class WriteBatch(_Batch):
         """ Add an existing relationship to the index specified if an entry
         does not already exist for the given key-value pair, fail otherwise.
         """
+        # TODO: update comment
         self._assert_can_create_or_fail()
         return self._add_indexed_relationship(index, key, value, relationship,
                                               "uniqueness=create_or_fail")
@@ -2635,13 +2681,14 @@ class WriteBatch(_Batch):
             key and value
 
         """
+        # TODO: update comment
         index = self._index(Relationship, index)
         if key and value and relationship:
-            uri = _batch_uri(index, key, value, relationship._id)
+            uri = self._uri_for(index, key, value, relationship._id)
         elif key and relationship:
-            uri = _batch_uri(index, key, relationship._id)
+            uri = self._uri_for(index, key, relationship._id)
         elif relationship:
-            uri = _batch_uri(index, relationship._id)
+            uri = self._uri_for(index, relationship._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self._append_delete(uri)
