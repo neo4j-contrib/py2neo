@@ -72,7 +72,8 @@ SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 http.default_encoding = "UTF-8"
 
-log = logging.getLogger(__name__)
+batch_log = logging.getLogger(__name__ + ".batch")
+cypher_log = logging.getLogger(__name__ + ".cypher")
 
 _headers = {
     None: [("X-Stream", "true;format=pretty")]
@@ -899,6 +900,10 @@ class Cypher(Cacheable, Resource):
             self._query = query
 
         def execute(self, params=None):
+            if __debug__:
+                cypher_log.debug("Query: " + self._query)
+                if params:
+                    cypher_log.debug("Params: " + params)
             try:
                 results = self._cypher._post({
                     "query": self._query,
@@ -2204,10 +2209,10 @@ class _Batch(Resource):
         """
         request_count = len(self)
         request_text = "request" if request_count == 1 else "requests"
-        log.info("Submitting batch with {0} {1}".format(request_count, request_text))
+        batch_log.info("Submitting batch with {0} {1}".format(request_count, request_text))
         if __debug__:
             for id_, request in enumerate(self._requests):
-                log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
+                batch_log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
         try:
             response = self._post(self._body)
         except (ClientError, ServerError) as e:
@@ -2231,7 +2236,7 @@ class _Batch(Resource):
         for i, result in grouped(self._submit()):
             response = _Batch.Response(assembled(result))
             if __debug__:
-                log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
+                batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
             yield response
 
     def stream(self):
