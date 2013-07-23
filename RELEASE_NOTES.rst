@@ -23,3 +23,4 @@ Version 1.6
 - Added create_path and get_or_create_path to WriteBatch
 - Batches no longer auto-clear on submission
 - Changed Node.exists and Relationship.exists from function to property
+- Index.query now returns iterator instead of list
