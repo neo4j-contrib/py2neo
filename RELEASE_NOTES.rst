@@ -24,3 +24,4 @@ Version 1.6
 - Batches no longer auto-clear on submission
 - Changed Node.exists and Relationship.exists from function to property
 - Index.query now returns iterator instead of list
+- cypher and geoff command line scripts removed (use neotool instead)
