@@ -26,6 +26,6 @@ try:
     Tool().do(sys.argv)
     sys.exit(0)
 except Exception as err:
-    sys.stderr.write(err.message)
+    sys.stderr.write(*err.args)
     sys.stderr.write("\n")
     sys.exit(1)

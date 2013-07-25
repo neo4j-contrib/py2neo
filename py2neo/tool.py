@@ -15,17 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" High level tools for Neo4j.
+""" Command line swiss army knife for Neo4j.
 """
 
 
+import json
 import os
 import sys
 
-from . import (__package__ as py2neo_package,
-               __version__ as py2neo_version,
-               __copyright__ as py2neo_copyright,
-               cypher, neo4j, geoff, rest)
+from . import __version__, __copyright__, neo4j, geoff
 
 
 SCRIPT_NAME = "neotool"
@@ -53,6 +51,165 @@ Commands:
 """
 
 
+class ResultWriter(object):
+
+    def __init__(self, out=None):
+        self.out = out or sys.stdout
+
+    @classmethod
+    def _stringify(cls, value, quoted=False):
+        if value is None:
+            if quoted:
+                return "null"
+            else:
+                return ""
+        elif isinstance(value, list):
+            out = " ".join(
+                cls._stringify(item, quoted=False)
+                for item in value
+            )
+            if quoted:
+                out = json.dumps(out, separators=(',', ':'))
+        else:
+            if quoted:
+                try:
+                    out = json.dumps(value)
+                except TypeError:
+                    out = json.dumps(str(value))
+            else:
+                out = str(value)
+        return out
+
+    @classmethod
+    def _jsonify(cls, value):
+        if isinstance(value, list):
+            out = "[" + ", ".join(cls._jsonify(i) for i in value) + "]"
+        elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
+            metadata = {
+                "uri": str(value.__uri__),
+                "properties": value._properties,
+            }
+            try:
+                metadata.update({
+                    "start": str(value.start_node.__uri__),
+                    "type": str(value.type),
+                    "end": str(value.end_node.__uri__),
+                })
+            except AttributeError:
+                pass
+            out = json.dumps(metadata)
+        else:
+            out = json.dumps(value)
+        return out
+
+    def write_delimited(self, record_set, **kwargs):
+        field_delimiter = kwargs.get("field_delimiter", "\t")
+        self.out.write(field_delimiter.join([
+            json.dumps(column)
+            for column in record_set.columns
+        ]))
+        self.out.write("\n")
+        for row in record_set:
+            self.out.write(field_delimiter.join([
+                ResultWriter._stringify(value, quoted=True)
+                for value in row
+            ]))
+            self.out.write("\n")
+
+    def write_geoff(self, record_set):
+        nodes = set()
+        rels = set()
+
+        def update_descriptors(value):
+            if isinstance(value, list):
+                for item in value:
+                    update_descriptors(item)
+            elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
+                if hasattr(value, "type"):
+                    rels.add(value)
+                else:
+                    nodes.add(value)
+
+        for row in record_set:
+            for i in range(len(row)):
+                update_descriptors(row[i])
+        for node in sorted(nodes):
+            self.out.write(str(node))
+            self.out.write("\n")
+        for rel in sorted(rels):
+            self.out.write(str(rel))
+            self.out.write("\n")
+
+    def write_json(self, record_set):
+        columns = [json.dumps(column) for column in record_set.columns]
+        row_count = 0
+        self.out.write("[")
+        for row in record_set:
+            row_count += 1
+            if row_count > 1:
+                self.out.write(", ")
+            self.out.write("{" + ", ".join([
+                columns[i] + ": " + ResultWriter._jsonify(row[i])
+                for i in range(len(row))
+            ]) + "}")
+        self.out.write("]")
+
+    def write_text(self, record_set):
+        columns = record_set.columns
+        column_widths = [len(column) for column in columns]
+        data = [
+            [
+                ResultWriter._stringify(value)
+                for value in row
+            ]
+            for row in record_set
+        ]
+        for row in data:
+            column_widths = [
+                max(column_widths[i], len(value))
+                for i, value in enumerate(row)
+            ]
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+        self.out.write("| " + " | ".join(
+            columns[i].ljust(column_widths[i])
+            for i, column in enumerate(columns)
+        ) + " |\n")
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+        for row in data:
+            self.out.write("| " + " | ".join([
+                value.ljust(column_widths[i])
+                for i, value in enumerate(row)
+            ]) + " |\n")
+        self.out.write("+-" + "---".join(
+            "".ljust(column_widths[i], "-")
+            for i, column in enumerate(columns)
+        ) + "-+\n")
+
+    formats = {
+        "csv": (write_delimited, {"field_delimiter": ","}),
+        "geoff": (write_geoff, {}),
+        "json": (write_json, {}),
+        "text": (write_text, {}),
+        "tsv": (write_delimited, {"field_delimiter": "\t"}),
+    }
+
+    def write(self, format_, record_set):
+        try:
+            method, kwargs = self.formats[format_]
+        except KeyError:
+            raise ValueError("Unknown format {0}".format(repr(format_)))
+        if kwargs:
+            method(self, record_set, **kwargs)
+        else:
+            method(self, record_set)
+
+
 class Tool(object):
 
     def __init__(self, in_=None, out=None, err=None):
@@ -66,18 +223,18 @@ class Tool(object):
 
     @property
     def _graph_db(self):
-        metadata = rest.ServiceRoot.get(self._scheme, self._host, self._port)
-        return neo4j.GraphDatabaseService.get_instance(metadata["data"])
+        uri = "{0}://{1}:{2}".format(self._scheme, self._host, self._port)
+        return neo4j.ServiceRoot(uri).graph_db
 
     def _version(self):
         """ Show tool version
         """
-        self._out.write("{0} ({1}/{2})\n".format(SCRIPT_NAME, py2neo_package, py2neo_version))
+        self._out.write("{0} (py2neo/{1})\n".format(SCRIPT_NAME, __version__))
 
     def _copyright(self):
         """ Show tool copyright
         """
-        self._out.write("(C) Copyright {0}\n".format(py2neo_copyright))
+        self._out.write("(C) Copyright {0}\n".format(__copyright__))
 
     def _help(self):
         """ Show tool usage
@@ -122,22 +279,17 @@ class Tool(object):
             raise ValueError("Unknown command {0}".format(repr(command)))
         method(*args)
 
-    def _error(self, message, exception=None, stacktrace=None):
-        if exception:
-            self._err.write("{0}: {1}\n".format(exception, message))
-        else:
-            self._err.write("{0}\n".format(message))
-
     def clear(self):
         """ Clear all nodes and relationships.
         """
         self._graph_db.clear()
 
-    def _cypher(self, format, query, params=None):
+    def _cypher(self, format_, query, params=None):
         if query == "-":
             query = self._in.read()
-        cypher.write(format, self._out, self._graph_db, query, params,
-                     error_handler=self._error)
+        record_set = self._graph_db.cypher.execute(query, params)
+        writer = ResultWriter(self._out)
+        writer.write(format_, record_set)
 
     def cypher(self, query, params=None):
         """ Execute Cypher query and output as text.
@@ -201,6 +353,6 @@ if __name__ == "__main__":
         Tool().do(sys.argv)
         sys.exit(0)
     except Exception as err:
-        sys.stderr.write(err.message)
+        sys.stderr.write(*err.args)
         sys.stderr.write("\n")
         sys.exit(1)
