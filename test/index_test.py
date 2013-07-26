@@ -20,7 +20,11 @@ PY3K = sys.version_info[0] >= 3
 
 from py2neo import neo4j
 
+import logging
 import unittest
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def default_graph_db():
@@ -169,7 +173,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.index.add("colour", u"красный", red)
         self.index.add("colour", u"зеленый", green)
         self.index.add("colour", u"синий", blue)
-        colours_containing_R = self.index.query("colour:*ный*")
+        colours_containing_R = self.index.query(u"colour:*ный*")
         self.assertTrue(red in colours_containing_R)
         self.assertTrue(green in colours_containing_R)
         self.assertFalse(blue in colours_containing_R)
