@@ -26,9 +26,9 @@ class IndexTypeError(TypeError):
 class ServerException(object):
 
     def __init__(self, data):
-        self._message = str(data.get("message"))
-        self._exception = str(data.get("exception"))
-        self._full_name = str(data.get("fullname"))
+        self._message = data.get("message")
+        self._exception = data.get("exception")
+        self._full_name = data.get("fullname")
         self._stack_trace = data.get("stacktrace")
         try:
             self._cause = ServerException(data["cause"])

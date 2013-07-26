@@ -46,11 +46,11 @@ import logging
 import re
 
 from httpstream import (http, Resource as _Resource,
-                        ResourceTemplate,
+                        ResourceTemplate, URITemplate,
                         ClientError as _ClientError,
                         ServerError as _ServerError)
 from httpstream.jsonstream import assembled, grouped
-from httpstream.numbers import CREATED, NOT_FOUND
+from httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
 from httpstream.uri import URI, percent_encode
 
 from . import __version__
@@ -740,6 +740,10 @@ class GraphDatabaseService(Cacheable, Resource):
         resource = self._subresource("relationship_types")
         return set(_hydrated(assembled(resource._get())))
 
+    @property
+    def schema(self):
+        return Schema.get_instance(URI(self).resolve("schema"))
+
     def size(self):
         """ Fetch the number of relationships in this graph.
         """
@@ -992,6 +996,74 @@ class Cypher(Cacheable, Resource):
     def execute_one(self, query, params=None):
         for row in Cypher.Query(self, query).execute(params):
             return row[0]
+
+
+class Schema(Cacheable, Resource):
+
+    def __init__(self, *args, **kwargs):
+        Resource.__init__(self, *args, **kwargs)
+        if self.service_root.graph_db.neo4j_version < (2, 0):
+            raise NotImplementedError("Schema support requires "
+                                      "version 2.0 or above")
+        self._index_template = \
+            URITemplate(str(URI(self)) + "/index/{label}")
+        self._index_key_template = \
+            URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
+
+    def get_index(self, label):
+        """ Fetch a list of indexed property keys for a label.
+
+        :param label:
+        :return:
+        """
+        resource = Resource(self._index_template.expand(label=label))
+        try:
+            response = resource._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return []
+            else:
+                raise
+        else:
+            return [
+                indexed["property-keys"][0]
+                for indexed in response.json
+            ]
+
+    def add_index(self, label, property_key):
+        """ Index a property key for a label.
+
+        :param label:
+        :param property_key:
+        :return:
+        """
+        resource = Resource(self._index_template.expand(label=label))
+        property_key = bytearray(property_key, "utf-8").decode("utf-8")
+        try:
+            resource._post({"property_keys": [property_key]})
+        except ClientError as err:
+            if err.status_code == CONFLICT:
+                raise ValueError("Property key already indexed")
+            else:
+                raise
+
+    def remove_index(self, label, property_key):
+        """ Remove a property key from a label index.
+
+        :param label:
+        :param property_key:
+        :return:
+        """
+        uri = self._index_key_template.expand(label=label,
+                                              property_key=property_key)
+        resource = Resource(uri)
+        try:
+            resource._delete()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                raise LookupError("Property key not found")
+            else:
+                raise
 
 
 class _Entity(Resource):
