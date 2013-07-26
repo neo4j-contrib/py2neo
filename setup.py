@@ -40,8 +40,6 @@ setup(
     author_email=__email__,
     url="http://py2neo.org/",
     scripts=[
-        "scripts/cypher",
-        "scripts/geoff",
         "scripts/neotool",
     ],
     packages=[
