@@ -10,7 +10,7 @@ Version 1.6
 - Rewritten HTTP layer to use HTTPStream
 - Removed all previously deprecated features
 - Changed GraphDatabaseService.delete_index to throw LookupError if not found
-- Deprecated cypher module in favour of GraphDatabaseService.cypher resource
+- Deprecated cypher.execute in favour of GraphDatabaseService.cypher resource
 - Monitor moved from admin module into neo4j module
 - Reconfigured match methods
   - Changed all match methods to return iterators
@@ -25,3 +25,5 @@ Version 1.6
 - Changed Node.exists and Relationship.exists from function to property
 - Index.query now returns iterator instead of list
 - cypher and geoff command line scripts removed (use neotool instead)
+- Added schema resource to GraphDatabaseService
+  - schema index management
