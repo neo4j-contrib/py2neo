@@ -763,6 +763,18 @@ class GraphDatabaseService(Cacheable, Resource):
         return self.neo4j_version >= (2, 0)
 
     @property
+    def supports_schema_constraints(self):
+        """ Indicates whether the server supports schema constraints.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
+    def supports_schema_indexes(self):
+        """ Indicates whether the server supports schema indexes.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
     def supports_transactions(self):
         """ Indicates whether the server supports Cypher transactions.
         """
@@ -1021,8 +1033,8 @@ class Schema(Cacheable, Resource):
 
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
-        if self.service_root.graph_db.neo4j_version < (2, 0):
-            raise NotImplementedError("Schema support requires "
+        if not self.service_root.graph_db.supports_schema_indexes:
+            raise NotImplementedError("Schema index support requires "
                                       "version 2.0 or above")
         self._index_template = \
             URITemplate(str(URI(self)) + "/index/{label}")
@@ -1049,7 +1061,7 @@ class Schema(Cacheable, Resource):
                 for indexed in response.json
             ]
 
-    def add_index(self, label, property_key):
+    def create_index(self, label, property_key):
         """ Index a property key for a label.
 
         :param label:
@@ -1066,8 +1078,8 @@ class Schema(Cacheable, Resource):
             else:
                 raise
 
-    def remove_index(self, label, property_key):
-        """ Remove a property key from a label index.
+    def drop_index(self, label, property_key):
+        """ Remove label index for a given property key.
 
         :param label:
         :param property_key:
