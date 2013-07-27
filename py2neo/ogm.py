@@ -87,9 +87,9 @@ The code below shows an example of usage::
 """
 
 
-from __future__ import absolute_import, unicode_literals
+from __future__ import unicode_literals
 
-from . import cypher, neo4j
+from . import neo4j
 
 
 class NotSaved(ValueError):
@@ -275,10 +275,10 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            cypher.execute(self.graph_db, "START a=node({A}) "
+            self.graph_db.cypher.execute("START a=node({A}) "
                                           "MATCH (a)-[r]->(b) "
                                           "DELETE r",
-                           {"A": subj.__node__._id})
+                                          {"A": subj.__node__._id})
         else:
             subj.__node__, = self.graph_db.create(props)
         # write rels
@@ -329,7 +329,7 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        cypher.execute(self.graph_db, (
+        self.graph_db.cypher.execute((
             "START a=node({A}) "
             "MATCH a-[r?]-b "
             "DELETE r, a"
