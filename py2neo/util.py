@@ -27,11 +27,6 @@ import re
 import time
 import warnings
 
-try:
-    from urllib.parse import quote as _quote
-except ImportError:
-    from urllib import quote as _quote
-
 from itertools import cycle, islice
 
 
@@ -39,15 +34,6 @@ if __PY3K:
     is_string = lambda value: isinstance(value, str)
 else:
     is_string = lambda value: isinstance(value, (str, unicode))
-
-
-def quote(string, safe='/'):
-    """ Quote a string for use in URIs.
-    """
-    try:
-        return _quote(string, safe.encode("utf-8"))
-    except UnicodeEncodeError:
-        return string
 
 
 def numberise(n):
