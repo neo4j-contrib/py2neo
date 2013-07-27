@@ -39,18 +39,6 @@ def numberise(n):
         return n
 
 
-def execution_time(func, *args, **kwargs):
-    if sys.platform == "win32":
-        timer = time.clock
-    else:
-        timer = time.time
-    t0 = timer()
-    try:
-        func(*args, **kwargs)
-    finally:
-        return timer() - t0
-
-
 def compact(obj):
     """ Return a copy of an object with all :py:const:`None` values removed.
     """
@@ -87,67 +75,6 @@ def round_robin(*iterables):
         except StopIteration:
             pending -= 1
             nexts = cycle(islice(nexts, pending))
-
-
-
-class PropertyCache(object):
-
-    def __init__(self, properties=None, max_age=None):
-        self._properties = {}
-        self.max_age = max_age
-        self._last_updated_time = None
-        if properties:
-            self.update(properties)
-
-    def __repr__(self):
-        return repr(self._properties)
-
-    def __nonzero__(self):
-        return bool(self._properties)
-
-    def __len__(self):
-        return len(self._properties)
-
-    def __getitem__(self, item):
-        return self._properties[item]
-
-    def __setitem__(self, item, value):
-        self._properties[item] = value
-
-    def __delitem__(self, item):
-        del self._properties[item]
-
-    def __iter__(self):
-        return self._properties.__iter__()
-
-    def __contains__(self, item):
-        return item in self._properties
-
-    @property
-    def expired(self):
-        if self._last_updated_time and self.max_age:
-            return time.time() - self._last_updated_time > self.max_age
-        else:
-            return None
-
-    @property
-    def needs_update(self):
-        return not self._properties or self.expired
-
-    def clear(self):
-        self.update(None)
-
-    def update(self, properties):
-        self._properties.clear()
-        if properties:
-            self._properties.update(properties)
-        self._last_updated_time = time.time()
-
-    def get(self, key, default=None):
-        return self._properties.get(key, default)
-
-    def get_all(self):
-        return self._properties
 
 
 def deprecated(message):
