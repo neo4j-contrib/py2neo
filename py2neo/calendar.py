@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 """
 The `calendar` module provides standardised date management functionality
 based on a calendar subgraph::
@@ -42,9 +43,8 @@ hierarchy such as::
 
 """
 
-from datetime import date as _date
 
-from . import cypher
+from datetime import date as _date
 
 
 class GregorianCalendar(object):
@@ -119,8 +119,7 @@ class GregorianCalendar(object):
                                  "be specified for a date range")
 
     def __init__(self, index):
-        """ Create a new calendar instance pointed to by the
-            index provided.
+        """ Create a new calendar instance pointed to by the index provided.
         """
         self._index = index
         self._graph_db = self._index.service_root.graph_db
@@ -131,7 +130,7 @@ class GregorianCalendar(object):
 
     def day(self, year, month, day):
         """ Fetch the calendar node representing the day specified by `year`,
-            `month` and `day`.
+        `month` and `day`.
         """
         d = GregorianCalendar.Date(year, month, day)
         date_path = self._calendar.get_or_create_path(
@@ -143,7 +142,7 @@ class GregorianCalendar(object):
 
     def month(self, year, month):
         """ Fetch the calendar node representing the month specified by `year`
-            and `month`.
+        and `month`.
         """
         d = GregorianCalendar.Date(year, month)
         date_path = self._calendar.get_or_create_path(
@@ -166,9 +165,8 @@ class GregorianCalendar(object):
 
     def date_range(self, start_date=None, end_date=None):
         """ Fetch the calendar node representing the date range defined by
-            `start_date` and `end_date`. If either are unspecified, this
-            defines an open-ended range. Either `start_date` or `end_date`
-            must be specified.
+        `start_date` and `end_date`. If either are unspecified, this defines an
+        open-ended range. Either `start_date` or `end_date` must be specified.
         """
         #                         (CAL)
         #                           |
@@ -234,8 +232,7 @@ class GregorianCalendar(object):
         else:
             raise ValueError("Either start or end date must be supplied "
                              "for a date range")
-        data, metadata = cypher.execute(self._graph_db, query, params)
-        return data[0][0]
+        return self._graph_db.cypher.execute_one(query, params)
 
     def quarter(self, year, quarter):
         if quarter == 1:

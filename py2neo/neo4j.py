@@ -1023,6 +1023,12 @@ class Cypher(Cacheable, Resource):
         return Cypher.Query(self, query).execute(params)
 
     def execute_one(self, query, params=None):
+        """ Execute query and return only first value from first row.
+
+        :param query:
+        :param params:
+        :return:
+        """
         for row in Cypher.Query(self, query).execute(params):
             return row[0]
 
