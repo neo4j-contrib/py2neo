@@ -35,8 +35,7 @@ classes provided are:
 """
 
 
-from __future__ import (division, print_function,
-                        unicode_literals)
+from __future__ import division, print_function, unicode_literals
 
 from collections import namedtuple
 from datetime import datetime
@@ -45,19 +44,18 @@ import json
 import logging
 import re
 
-from httpstream import (http, Resource as _Resource,
-                        ResourceTemplate, URITemplate,
-                        ClientError as _ClientError,
-                        ServerError as _ServerError)
-from httpstream.jsonstream import assembled, grouped
-from httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from httpstream.uri import URI, percent_encode
+from packages.httpstream import (http,
+                                 Resource as _Resource,
+                                 ResourceTemplate, URITemplate,
+                                 ClientError as _ClientError,
+                                 ServerError as _ServerError)
+from packages.httpstream.jsonstream import assembled, grouped
+from packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from packages.httpstream.uri import URI, percent_encode
 
 from . import __version__
-from .exceptions import (ClientError, ServerError, CypherError, BatchError,
-                         IndexTypeError)
-from .util import (compact, flatten, has_all, is_collection, version_tuple,
-                   round_robin, numberise, deprecated)
+from .exceptions import *
+from .util import *
 
 
 DEFAULT_SCHEME = "http"

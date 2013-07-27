@@ -15,16 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Utility module
+"""
+Utility module
 """
 
 
+from itertools import cycle, islice
 import re
-import sys
-import time
 import warnings
 
-from itertools import cycle, islice
+
+__all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
+           "version_tuple", "is_collection", "has_all"]
 
 
 def numberise(n):

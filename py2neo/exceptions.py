@@ -16,7 +16,11 @@
 # limitations under the License.
 
 
-from httpstream.jsonstream import assembled
+from packages.httpstream.jsonstream import assembled
+
+
+__all__ = ["IndexTypeError", "ServerException", "ClientError", "ServerError",
+           "CypherError", "BatchError"]
 
 
 class IndexTypeError(TypeError):

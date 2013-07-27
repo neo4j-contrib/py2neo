@@ -18,8 +18,9 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from httpstream import NetworkAddressError, SocketError, ClientError
 from py2neo import neo4j, cypher, node
+from py2neo.packages.httpstream import (NetworkAddressError,
+                                        SocketError, ClientError)
 
 import logging
 import unittest

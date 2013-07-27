@@ -44,9 +44,10 @@ setup(
     ],
     packages=[
         "py2neo",
+        "py2neo.packages",
+        "py2neo.packages.httpstream",
     ],
     install_requires=[
-        "httpstream",
     ],
     license=__license__,
     classifiers=[
