@@ -29,3 +29,4 @@ Version 1.6
   - schema index management
 - More lazy calls to server
 - Added "supports_*" methods for feature detection
+- Changed neotool text output format
