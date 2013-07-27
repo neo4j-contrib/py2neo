@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-__author__  = "Nigel Small <nigel@nigelsmall.com>"
+__author__ = "Nigel Small <nigel@nigelsmall.com>"
 __copyright__ = "2011-2013, Nigel Small"
 __email__ = "nigel@nigelsmall.com"
 __license__ = "Apache License, Version 2.0"
