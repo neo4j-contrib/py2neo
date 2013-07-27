@@ -749,6 +749,25 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
 
+    @property
+    def supports_index_uniqueness_modes(self):
+        """ Indicates whether the server supports get_or_create and
+        create_or_fail uniqueness modes on batched index methods.
+        """
+        return self.neo4j_version >= (1, 9)
+
+    @property
+    def supports_node_labels(self):
+        """ Indicates whether the server supports node labels.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
+    def supports_transactions(self):
+        """ Indicates whether the server supports Cypher transactions.
+        """
+        return "transaction" in self.__metadata__
+
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
 
@@ -918,7 +937,7 @@ class Cypher(Cacheable, Resource):
                     # A CustomCypherError is a dynamically created subclass of
                     # CypherError with the same name as the underlying server
                     # exception
-                    CustomCypherError = type(e.exception, (CypherError,), {})
+                    CustomCypherError = type(str(e.exception), (CypherError,), {})
                     raise CustomCypherError(e)
                 else:
                     raise CypherError(e)
@@ -1895,8 +1914,12 @@ class Index(Cacheable, Resource):
             Resource.__init__(self, uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
         uri = URI(self)
-        self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
-        self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
+        if self.graph_db.neo4j_version >= (1, 9):
+            self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
+            self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
+        else:
+            self._create_or_fail = None
+            self._get_or_create = Resource(uri.resolve("?unique"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._content_type = content_type
         self._name = name or uri.path.segments[-1]
@@ -2306,7 +2329,7 @@ class _Batch(Resource):
                 # A CustomBatchError is a dynamically created subclass of
                 # BatchError with the same name as the underlying server
                 # exception
-                CustomBatchError = type(e.exception, (BatchError,), {})
+                CustomBatchError = type(str(e.exception), (BatchError,), {})
                 raise CustomBatchError(e)
             else:
                 raise BatchError(e)
@@ -2399,15 +2422,11 @@ class WriteBatch(_Batch):
         self.__new_uniqueness_modes = None
 
     @property
-    def _new_uniqueness_modes(self):
-        if self.__new_uniqueness_modes is None:
-            self.__new_uniqueness_modes = (
-                self.service_root.graph_db.neo4j_version >= (1, 9)
-            )
-        return self.__new_uniqueness_modes
+    def supports_index_uniqueness_modes(self):
+        return self.service_root.graph_db.supports_index_uniqueness_modes
 
     def _assert_can_create_or_fail(self):
-        if not self._new_uniqueness_modes:
+        if not self.supports_index_uniqueness_modes:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
                                       "requires version 1.9 or above")
 
@@ -2602,7 +2621,7 @@ class WriteBatch(_Batch):
         returning either the new node or the existing one.
         """
         # TODO: update comment
-        if self._new_uniqueness_modes:
+        if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
@@ -2638,7 +2657,7 @@ class WriteBatch(_Batch):
         node or the one already in the index.
         """
         # TODO: update comment
-        if self._new_uniqueness_modes:
+        if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
@@ -2699,7 +2718,7 @@ class WriteBatch(_Batch):
         returning either the new relationship or the existing one.
         """
         # TODO: update comment
-        if self._new_uniqueness_modes:
+        if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
@@ -2740,7 +2759,7 @@ class WriteBatch(_Batch):
         the added relationship or the one already in the index.
         """
         # TODO: update comment
-        if self._new_uniqueness_modes:
+        if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"

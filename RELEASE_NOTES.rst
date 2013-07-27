@@ -27,3 +27,5 @@ Version 1.6
 - cypher and geoff command line scripts removed (use neotool instead)
 - Added schema resource to GraphDatabaseService
   - schema index management
+- More lazy calls to server
+- Added "supports_*" methods for feature detection

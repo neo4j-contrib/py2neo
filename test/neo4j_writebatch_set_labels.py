@@ -21,6 +21,8 @@ from py2neo import neo4j
 
 def test_can_set_labels_on_preexisting_node():
     graph_db = neo4j.GraphDatabaseService()
+    if not graph_db.supports_node_labels:
+        return
     alice, = graph_db.create({"name": "Alice"})
     alice.add_labels("human", "female")
     batch = neo4j.WriteBatch(graph_db)
@@ -31,6 +33,8 @@ def test_can_set_labels_on_preexisting_node():
 
 # def test_can_set_labels_on_node_in_same_batch():
 #     graph_db = neo4j.GraphDatabaseService()
+#     if not graph_db.supports_node_labels:
+#         return
 #     batch = neo4j.WriteBatch(graph_db)
 #     batch.create({"name": "Alice"})
 #     batch.add_labels(0, "human", "female")

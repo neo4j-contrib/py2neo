@@ -21,6 +21,8 @@ from py2neo import neo4j, node
 
 def test_can_set_labels_on_node():
     graph_db = neo4j.GraphDatabaseService()
+    if not graph_db.supports_node_labels:
+        return
     alice, = graph_db.create(node(name="Alice"))
     alice.add_labels("human", "female")
     labels = alice.get_labels()
