@@ -587,8 +587,6 @@ class GraphDatabaseService(Cacheable, Resource):
             if err.status_code != NOT_FOUND:
                 raise
 
-    @deprecated("GraphDatabaseService.get_properties is deprecated, use "
-                "ReadBatch.get_properties instead")
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
@@ -598,9 +596,9 @@ class GraphDatabaseService(Cacheable, Resource):
             return []
         if len(entities) == 1:
             return [entities[0].get_properties()]
-        batch = ReadBatch(self)
+        batch = _Batch(self)
         for entity in entities:
-            batch.get_properties(entity)
+            batch._append_get(batch._uri_for(entity, "properties"))
         return [rs.body or {} for rs in batch._stream()]
 
     def match(self, start_node=None, rel_type=None, end_node=None,
@@ -2430,26 +2428,15 @@ class ReadBatch(_Batch):
     def __init__(self, graph_db):
         _Batch.__init__(self, graph_db)
 
-    def get_properties(self, entity):
-        """ Fetch properties for the given entity.
-
-        :param entity: concrete entity from which to fetch properties
-        """
-        # TODO: update comment
-        uri = self._uri_for(entity, "properties")
-        return self._append_get(uri)
-
     def get_indexed_nodes(self, index, key, value):
-        """ Fetch all nodes indexed under the given key-value pair.
+        """ Fetch all nodes indexed under a given key-value pair.
 
         :param index: index name or instance
         :param key: key under which nodes are indexed
         :param value: value under which nodes are indexed
         """
-        # TODO: update comment
         index = self._index(Node, index)
         searcher = index._searcher.expand(key=key, value=value)
-        searcher.service_root = index.service_root
         return self._append_get(self._uri_for(searcher))
 
 
