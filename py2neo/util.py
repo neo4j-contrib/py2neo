@@ -19,21 +19,12 @@
 """
 
 
-import sys
-
-__PY3K = sys.version_info[0] >= 3
-
 import re
+import sys
 import time
 import warnings
 
 from itertools import cycle, islice
-
-
-if __PY3K:
-    is_string = lambda value: isinstance(value, str)
-else:
-    is_string = lambda value: isinstance(value, (str, unicode))
 
 
 def numberise(n):
