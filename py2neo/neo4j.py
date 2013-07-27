@@ -1047,6 +1047,8 @@ class Schema(Cacheable, Resource):
         :param label:
         :return:
         """
+        if not label:
+            raise ValueError("Label cannot be empty")
         resource = Resource(self._index_template.expand(label=label))
         try:
             response = resource._get()
@@ -1068,6 +1070,8 @@ class Schema(Cacheable, Resource):
         :param property_key:
         :return:
         """
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
         resource = Resource(self._index_template.expand(label=label))
         property_key = bytearray(property_key, "utf-8").decode("utf-8")
         try:
@@ -1085,6 +1089,8 @@ class Schema(Cacheable, Resource):
         :param property_key:
         :return:
         """
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
         uri = self._index_key_template.expand(label=label,
                                               property_key=property_key)
         resource = Resource(uri)
