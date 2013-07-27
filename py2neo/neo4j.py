@@ -46,7 +46,8 @@ import re
 
 from packages.httpstream import (http,
                                  Resource as _Resource,
-                                 ResourceTemplate, URITemplate,
+                                 ResourceTemplate as _ResourceTemplate,
+                                 URITemplate,
                                  ClientError as _ClientError,
                                  ServerError as _ServerError)
 from packages.httpstream.jsonstream import assembled, grouped
@@ -76,6 +77,8 @@ cypher_log = logging.getLogger(__name__ + ".cypher")
 _headers = {
     None: [("X-Stream", "true;format=pretty")]
 }
+
+_http_rewrites = {}
 
 
 def _add_header(key, value, host_port=None):
@@ -133,31 +136,31 @@ def familiar(*resources):
     return all(_.service_root == resources[0].service_root for _ in resources)
 
 
-#TODO: httpstream
-def rewrite(from_scheme_netloc, to_scheme_netloc):
-    """ Automatically rewrite all URIs directed to the scheme and netloc
-    specified in `from_scheme_netloc` to that specified in `to_scheme_netloc`.
-    This applies *before* any netloc-specific headers or timeouts are applied.
+def rewrite(from_scheme_host_port, to_scheme_host_port):
+    """ Automatically rewrite all URIs directed to the scheme, host and port
+    specified in `from_scheme_host_port` to that specified in
+    `to_scheme_host_port`.
 
     As an example::
 
         # implicitly convert all URIs beginning with <http://localhost:7474>
         # to instead use <https://dbserver:9999>
-        neo4j.rewrite(("http", "localhost:7474"), ("https", "dbserver:9999"))
+        neo4j.rewrite(("http", "localhost", 7474), ("https", "dbserver", 9999))
 
-    if `to_scheme_netloc` is :py:const:`None` then any rewrite rule for
-    `from_scheme_netloc` is removed.
+    If `to_scheme_host_port` is :py:const:`None` then any rewrite rule for
+    `from_scheme_host_port` is removed.
 
     This facility is primarily intended for use by database servers behind
     proxies which are unaware of their externally visible network address.
     """
-    if to_scheme_netloc is None:
+    global _http_rewrites
+    if to_scheme_host_port is None:
         try:
-            del rest.http_rewrites[from_scheme_netloc]
+            del _http_rewrites[from_scheme_host_port]
         except KeyError:
             pass
     else:
-        rest.http_rewrites[from_scheme_netloc] = to_scheme_netloc
+        _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
 def _hydrated(data):
@@ -279,6 +282,13 @@ class Resource(object):
             return iter(self._metadata.items())
 
     def __init__(self, uri):
+        uri = URI(uri)
+        scheme_host_port = (uri.scheme, uri.host, uri.port)
+        if scheme_host_port in _http_rewrites:
+            scheme_host_port = _http_rewrites[scheme_host_port]
+            uri._scheme = scheme_host_port[0]
+            uri._authority._host = scheme_host_port[1]
+            uri._authority._port = scheme_host_port[2]
         self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
@@ -388,6 +398,12 @@ class Resource(object):
                 cls = Resource
             self._subresources[key] = cls(uri)
         return self._subresources[key]
+
+
+class ResourceTemplate(_ResourceTemplate):
+
+    def expand(self, **values):
+        return Resource(_ResourceTemplate.expand(self, **values).uri)
 
 
 class Cacheable(object):
@@ -2131,7 +2147,7 @@ class Index(Cacheable, Resource):
         """
         if key and value and entity:
             t = ResourceTemplate(URI(self).string + "/{key}/{value}/{entity}")
-            t.expand(key=key, value=value, entity=entity._id).delete()
+            t.expand(key=key, value=value, entity=entity._id)._delete()
         elif key and value:
             uris = [
                 URI(entity.__metadata__["indexed"])
@@ -2143,10 +2159,10 @@ class Index(Cacheable, Resource):
             batch._submit().close()
         elif key and entity:
             t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
-            t.expand(key=key, entity=entity._id).delete()
+            t.expand(key=key, entity=entity._id)._delete()
         elif entity:
             t = ResourceTemplate(URI(self).string + "/{entity}")
-            t.expand(entity=entity._id).delete()
+            t.expand(entity=entity._id)._delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 
@@ -2163,13 +2179,13 @@ class Index(Cacheable, Resource):
         the index being queried. For indexes with default configuration, this
         should be Apache Lucene query syntax.
         """
-        uri = self._query_template.expand(query=query)
-        for i, result in grouped(uri.get()):
+        resource = self._query_template.expand(query=query)
+        for i, result in grouped(resource._get()):
             yield _hydrated(assembled(result))
 
     def _query_with_score(self, query, order):
-        uri = self._query_template.expand(query=query, order=order)
-        for i, result in grouped(uri.get()):
+        resource = self._query_template.expand(query=query, order=order)
+        for i, result in grouped(resource._get()):
             meta = assembled(result)
             yield _hydrated(meta), meta["score"]
 
