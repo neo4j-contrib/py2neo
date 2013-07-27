@@ -169,27 +169,23 @@ class ResultWriter(object):
                 max(column_widths[i], len(value))
                 for i, value in enumerate(row)
             ]
-        self.out.write("+-" + "---".join(
-            "".ljust(column_widths[i], "-")
-            for i, column in enumerate(columns)
-        ) + "-+\n")
-        self.out.write("| " + " | ".join(
+        self.out.write(" " + " | ".join(
             columns[i].ljust(column_widths[i])
             for i, column in enumerate(columns)
-        ) + " |\n")
-        self.out.write("+-" + "---".join(
+        ) + " \n")
+        self.out.write("-" + "-+-".join(
             "".ljust(column_widths[i], "-")
             for i, column in enumerate(columns)
-        ) + "-+\n")
+        ) + "-\n")
         for row in data:
-            self.out.write("| " + " | ".join([
+            self.out.write(" " + " | ".join([
                 value.ljust(column_widths[i])
                 for i, value in enumerate(row)
-            ]) + " |\n")
-        self.out.write("+-" + "---".join(
-            "".ljust(column_widths[i], "-")
-            for i, column in enumerate(columns)
-        ) + "-+\n")
+            ]) + " \n")
+        if len(data) == 1:
+            self.out.write("(1 row)\n\n")
+        else:
+            self.out.write("({0} rows)\n\n".format(len(data)))
 
     formats = {
         "csv": (write_delimited, {"field_delimiter": ","}),
