@@ -56,7 +56,7 @@ The same underlying classes are used to describe both abstract and concrete
 entities. The core difference is that concrete entities will always have a
 value within their ``__uri__`` property whereas for abstract entities, this is
 :py:const:`None`. Both nodes and relationships provide an ``is_abstract``
-method to allow easy determination of this attribute.
+property to allow easy determination of this attribute.
 
 Node & Relationship Literals
 ----------------------------
@@ -85,6 +85,9 @@ preferred variation listed first)::
     rel(alice, "KNOWS", bob, {"since": 1999})
     rel((alice, "KNOWS", bob, {"since": 1999}))
     (alice, "KNOWS", bob, {"since": 1999})
+    rel(alice, ("KNOWS", {"since": 1999}), bob)
+    rel((alice, ("KNOWS", {"since": 1999}), bob))
+    (alice, ("KNOWS", {"since": 1999}), bob)
 
 Node & Relationship IDs
 -----------------------
@@ -102,9 +105,8 @@ If you require unique identifiers, consider using
 Transactions
 ------------
 
-While the core Neo4j engine supports transactions, the REST API used by py2neo
-does not yet do so explicitly. If you prefer to wrap your code into
-transactions, consider using a Cypher query or a batch request.
+Py2neo does not yet provide explicit support for transactions. Instead,
+consider using a Cypher query or a batch request.
 
 Errors
 ------
@@ -113,11 +115,11 @@ HTTP requests may occasionally trigger an error response. The exceptions which
 may be raised are below and correspond to the equivalently named HTTP
 response statuses.
 
-.. autoclass:: py2neo.rest.BadRequest
-    :show-inheritance:
+.. autoclass:: py2neo.exceptions.ClientError
 
-.. autoclass:: py2neo.rest.ResourceNotFound
-    :show-inheritance:
+.. autoclass:: py2neo.exceptions.ServerError
 
-.. autoclass:: py2neo.rest.ResourceConflict
-    :show-inheritance:
+.. autoclass:: py2neo.exceptions.BatchError
+
+.. autoclass:: py2neo.exceptions.CypherError
+
