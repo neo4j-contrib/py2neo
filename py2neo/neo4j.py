@@ -2036,7 +2036,7 @@ class Index(Cacheable, Resource):
         """
         return [
             _hydrated(assembled(result))
-            for i, result in grouped(self._searcher.expand(key=key, value=value).get())
+            for i, result in grouped(self._searcher.expand(key=key, value=value)._get())
         ]
 
     def create(self, key, value, abstract):
