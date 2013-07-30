@@ -1845,13 +1845,15 @@ class Path(object):
             for i, rel in enumerate(self._relationships)
         )
 
+    @property
     def order(self):
-        """ Return the number of nodes within this path.
+        """ The number of nodes within this path.
         """
         return len(self._nodes)
 
+    @property
     def size(self):
-        """ Return the number of relationships within this path.
+        """ The number of relationships within this path.
         """
         return len(self._relationships)
 

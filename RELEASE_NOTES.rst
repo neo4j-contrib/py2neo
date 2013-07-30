@@ -34,3 +34,4 @@ Version 1.6
 - Removed ReadBatch.get_properties; use GraphDatabaseService.get_properties instead
 - Changed GDB.order and size to properties
 - Cypher queries now supported in batches
+- Changed Path.order and size to properties
