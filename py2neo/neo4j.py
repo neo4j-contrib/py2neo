@@ -594,8 +594,8 @@ class GraphDatabaseService(Cacheable, Resource):
         batch._submit().close()
 
     def find(self, label, property_key=None, property_value=None):
-        """ Iterate through all nodes with the specified label, optionally
-        also with a property key and value.
+        """ Iterate through a set of labelled nodes, optionally filtering
+        by property key and value
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
@@ -623,9 +623,9 @@ class GraphDatabaseService(Cacheable, Resource):
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
-        """ Iterates through all relationships which match a specific set of
-        criteria. The arguments provided are all optional and are used to
-        filter the relationships returned. Examples are as follows::
+        """ Iterate through all relationships matching specified criteria.
+
+        Examples are as follows::
 
             # all relationships from the graph database
             # ()-[r]-()
@@ -705,8 +705,7 @@ class GraphDatabaseService(Cacheable, Resource):
 
     def match_one(self, start_node=None, rel_type=None, end_node=None,
                   bidirectional=False):
-        """ Fetch a single relationship which matches a specific set of
-        criteria.
+        """ Fetch a single relationship matching specified criteria.
 
         :param start_node: concrete start :py:class:`Node` to match or
             :py:const:`None` if any
@@ -730,8 +729,8 @@ class GraphDatabaseService(Cacheable, Resource):
 
     @property
     def neo4j_version(self):
-        """ Return the database software version as a 4-tuple of (``int``,
-        ``int``, ``int``, ``str``).
+        """ The database software version as a 4-tuple of (``int``, ``int``,
+        ``int``, ``str``).
         """
         return version_tuple(self.__metadata__["neo4j_version"])
 
@@ -1240,8 +1239,8 @@ class Node(_Entity):
     Typically, concrete nodes will not be constructed directly in this way
     by client applications. Instead, methods such as
     :py:func:`GraphDatabaseService.create` build node objects indirectly as
-    required. Once created, however, nodes can be treated like any other
-    container types in order to manage properties::
+    required. Once created, nodes can be treated like any other container type
+    so as to manage properties::
 
         # get the `name` property of `node`
         name = node["name"]
@@ -1355,7 +1354,7 @@ class Node(_Entity):
             return hash(self.__uri__)
 
     def delete_related(self):
-        """ Delete this node, plus all related nodes and relationships.
+        """ Delete this node along with all related nodes and relationships.
         """
         self.cypher.query(
             "START a=node({a}) "
@@ -1375,9 +1374,8 @@ class Node(_Entity):
         ).execute({"a": self._id})
 
     def match(self, rel_type=None, other_node=None, limit=None):
-        """ Match one or more relationships attached to this node. By default,
-        only outgoing relationships will be matched; incoming relationships
-        will also be included if `bidirectional` is :py:const:`True`.
+        """ Iterate through matching relationships attached to this node,
+        regardless of direction.
 
         :param rel_type: type of relationships to match or :py:const:`None` if
             any
@@ -1393,7 +1391,8 @@ class Node(_Entity):
                                                 True, limit)
 
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        """ Match one or more incoming relationships attached to this node.
+        """ Iterate through matching relationships where this node is the end
+        node.
 
         :param rel_type: type of relationships to match or :py:const:`None` if
             any
@@ -1401,12 +1400,16 @@ class Node(_Entity):
             :py:const:`None` if any
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+
+        .. seealso::
+           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
         return self.service_root.graph_db.match(start_node, rel_type, self,
                                                 False, limit)
 
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        """ Match one or more outgoing relationships attached to this node.
+        """ Iterate through matching relationships where this node is the start
+        node.
 
         :param rel_type: type of relationships to match or :py:const:`None` if
             any
@@ -1414,6 +1417,9 @@ class Node(_Entity):
             :py:const:`None` if any
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+
+        .. seealso::
+           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
         """
         return self.service_root.graph_db.match(self, rel_type, end_node,
                                                 False, limit)
@@ -1516,14 +1522,21 @@ class Node(_Entity):
     def get_labels(self):
         """ Fetch all labels associated with this node.
 
-        :return:
+        :return: :py:class:`set` of text labels
         """
         return set(assembled(self._label_resource()._get()))
 
     def add_labels(self, *labels):
         """ Add one or more labels to this node.
 
-        :param labels:
+        For example::
+
+            >>> from py2neo import neo4j, node
+            >>> graph_db = neo4j.GraphDatabaseService()
+            >>> alice, = graph_db.create(node(name="Alice"))
+            >>> alice.add_labels("female", "human")
+
+        :param labels: one or more text labels
         """
         labels = [str(label) for label in set(flatten(labels))]
         self._label_resource()._post(labels)
@@ -1531,7 +1544,7 @@ class Node(_Entity):
     def remove_labels(self, *labels):
         """ Remove one or more labels from this node.
 
-        :param labels:
+        :param labels: one or more text labels
         """
         labels = [str(label) for label in set(flatten(labels))]
         batch = WriteBatch(self.graph_db)
@@ -1542,7 +1555,7 @@ class Node(_Entity):
     def set_labels(self, *labels):
         """ Replace all labels on this node.
 
-        :param labels:
+        :param labels: one or more text labels
         """
         labels = [str(label) for label in set(flatten(labels))]
         self._label_resource()._put(labels)
