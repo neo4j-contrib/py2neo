@@ -30,3 +30,5 @@ Version 1.6
 - More lazy calls to server
 - Added "supports_*" methods for feature detection
 - Changed neotool text output format
+- Changed Node.is_abstract and Relationship.is_abstract from function to property
+- Removed ReadBatch.get_properties; use GraphDatabaseService.get_properties instead
