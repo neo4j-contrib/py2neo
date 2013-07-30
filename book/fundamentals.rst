@@ -58,36 +58,36 @@ value within their ``__uri__`` property whereas for abstract entities, this is
 :py:const:`None`. Both nodes and relationships provide an ``is_abstract``
 property to allow easy determination of this attribute.
 
-Node & Relationship Literals
-----------------------------
+Node & Relationship Abstracts
+-----------------------------
 
-Many methods within py2neo require nodes and relationships to be provided as
-literals (as in the example above). There are a number of ways to do this but
-the recommendation going forward is for abstract entities is to use the
-:py:func:`node <neo4j.node>` and :py:func:`rel <neo4j.rel>` functions
-whenever possible.
+Many methods within py2neo require nodes and relationships to be provided in
+abstract form, as in the example above. There are several different notations
+for this but wherever possible, the :py:func:`node <neo4j.node>` and
+:py:func:`rel <neo4j.rel>` functions should be used.
 
 .. autofunction:: py2neo.node
 .. autofunction:: py2neo.rel
 
-Other representations are supported although these are not considered
-future-proof. The following definitions show equivalent variations for modeling
-abstract nodes (with the preferred variation listed first)::
 
-    node(name="Alice", age=34)
-    node({"name": "Alice", "age": 34})
-    {"name": "Alice", "age": 34}
+.. note::
+    The other representations shown are supported although may give less
+    readability and are not considered future-proof.
 
-Similarly, the definitions below apply to abstract relationships (also with the
-preferred variation listed first)::
+Referencing Nodes within the same Batch
+---------------------------------------
 
-    rel(alice, "KNOWS", bob, since=1999)
-    rel(alice, "KNOWS", bob, {"since": 1999})
-    rel((alice, "KNOWS", bob, {"since": 1999}))
-    (alice, "KNOWS", bob, {"since": 1999})
-    rel(alice, ("KNOWS", {"since": 1999}), bob)
-    rel((alice, ("KNOWS", {"since": 1999}), bob))
-    (alice, ("KNOWS", {"since": 1999}), bob)
+Within a batch context, it is often desirable to refer to a node within the
+same batch. In some circumstances, it is possible to use an integer reference
+to such a node and this makes it possible to carry out certain atomic
+operations, such as creating a relationship between two newly-created nodes::
+
+    graph_db.create(node({"name": "Alice"}), node({"name": "Bob"}), rel(0, "KNOWS", 1))
+
+Due to server limitations however, not all functions support this capability.
+In particular, functions that rely on implicit Cypher queries, such as
+:py:func:`WriteBatch.create_path` cannot
+support this notation.
 
 Node & Relationship IDs
 -----------------------

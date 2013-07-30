@@ -183,6 +183,7 @@ def _node(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Node`. The following
     general combinations are possible:
 
+    - ``node()``
     - ``node(node_instance)``
     - ``node(property_dict)``
     - ``node(**properties)``
@@ -192,11 +193,14 @@ def _node(*args, **kwargs):
 
     Examples::
 
-        node(Node("http://localhost:7474/db/data/node/1"))
         node()
-        node(None)
-        node(name="Alice")
+        node(Node("http://localhost:7474/db/data/node/1"))
         node({"name": "Alice"})
+        node(name="Alice")
+
+    Other representations::
+
+        {"name": "Alice"}
 
     """
     if len(args) == 0:
@@ -233,7 +237,15 @@ def _rel(*args, **kwargs):
         rel((alice, "KNOWS", bob))
         rel((alice, "KNOWS", bob, {"since": 1999}))
         rel((alice, ("KNOWS", {"since": 1999}), bob))
+        rel(alice, ("KNOWS", {"since": 1999}), bob)
+        rel(alice, "KNOWS", bob, {"since": 1999})
         rel(alice, "KNOWS", bob, since=1999)
+
+    Other representations::
+
+        (alice, "KNOWS", bob)
+        (alice, "KNOWS", bob, {"since": 1999})
+        (alice, ("KNOWS", {"since": 1999}), bob)
 
     """
     if len(args) == 1 and not kwargs:
@@ -322,10 +334,8 @@ class Resource(object):
 
     @property
     def is_abstract(self):
-        """ Return :py:const:`True` if this entity is abstract (i.e. not bound
-        to a concrete entity within the database), :py:const:`False` otherwise.
-
-        :return: :py:const:`True` if this entity is abstract
+        """ Indicates whether this entity is abstract (i.e. not bound
+        to a concrete entity within the database)
         """
         return not bool(self.__uri__)
 
@@ -412,6 +422,12 @@ class Cacheable(object):
 
     @classmethod
     def get_instance(cls, uri):
+        """ Fetch a cached instance if one is available, otherwise create,
+        cache and return a new instance.
+
+        :param uri: URI of the cached resource
+        :return: a resource instance
+        """
         if uri not in cls._instances:
             cls._instances[uri] = cls(uri)
         return cls._instances[uri]
@@ -490,12 +506,6 @@ class GraphDatabaseService(Cacheable, Resource):
         Resource.__init__(self, uri)
         self._indexes = {Node: {}, Relationship: {}}
 
-    def __nonzero__(self):
-        """ Return :py:const:`True` is this graph contains at least one
-        relationship.
-        """
-        return bool(self.cypher.execute_one("START r=rel(*) RETURN r LIMIT 1"))
-
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
         """
@@ -515,9 +525,11 @@ class GraphDatabaseService(Cacheable, Resource):
 
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
-        batch, returning a list of :py:class:`Node` and
-        :py:class:`Relationship` instances. For a node, simply pass a
-        dictionary of properties; for a relationship, pass a tuple of
+        batch.
+
+        The abstracts provided may use any accepted notation, as described in
+        the section on py2neo fundamentals.
+        For a node, simply pass a dictionary of properties; for a relationship, pass a tuple of
         (start, type, end) or (start, type, end, data) where start and end
         may be :py:class:`Node` instances or zero-based integral references
         to other node entities within this batch::
@@ -543,6 +555,9 @@ class GraphDatabaseService(Cacheable, Resource):
                 {"name": "Alice"}, (ref_node, "PERSON", 0)
             )
 
+        :return: list of :py:class:`Node` and/or :py:class:`Relationship`
+            instances
+
         .. warning::
             This method will *always* return a list, even when only creating
             a single node or relationship. To automatically unpack a list
@@ -559,6 +574,11 @@ class GraphDatabaseService(Cacheable, Resource):
 
     @property
     def cypher(self):
+        """ The Cypher resource for this graph.
+
+        .. seealso::
+            :py:func:`Cypher <py2neo.neo4j.Cypher>`
+        """
         return Cypher.get_instance(self.__metadata__["cypher"])
 
     def delete(self, *entities):
@@ -696,6 +716,7 @@ class GraphDatabaseService(Cacheable, Resource):
             :py:const:`None` if any
         :param bidirectional: :py:const:`True` if reversed relationships should
             also be included
+        :return: a matching :py:class:`Relationship` or :py:const:`None`
 
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
@@ -721,8 +742,7 @@ class GraphDatabaseService(Cacheable, Resource):
 
     @property
     def node_labels(self):
-        """ Return the set of node labels currently defined within this
-        database instance.
+        """ The set of node labels currently defined within the graph.
         """
         resource = Resource(URI(self).resolve("labels"))
         try:
@@ -734,8 +754,9 @@ class GraphDatabaseService(Cacheable, Resource):
             else:
                 raise
 
+    @property
     def order(self):
-        """ Fetch the number of nodes in this graph.
+        """ The number of nodes in this graph.
         """
         return self.cypher.execute_one("START n=node(*) RETURN count(n)")
 
@@ -746,25 +767,30 @@ class GraphDatabaseService(Cacheable, Resource):
 
     @property
     def relationship_types(self):
-        """ Return the set of relationship types currently defined within this
-        database instance.
+        """ The set of relationship types currently defined within the graph.
         """
         resource = self._subresource("relationship_types")
         return set(_hydrated(assembled(resource._get())))
 
     @property
     def schema(self):
+        """ The Schema resource for this graph.
+
+        .. seealso::
+            :py:func:`Schema <py2neo.neo4j.Schema>`
+        """
         return Schema.get_instance(URI(self).resolve("schema"))
 
+    @property
     def size(self):
-        """ Fetch the number of relationships in this graph.
+        """ The number of relationships in this graph.
         """
         return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
 
     @property
     def supports_index_uniqueness_modes(self):
-        """ Indicates whether the server supports get_or_create and
-        create_or_fail uniqueness modes on batched index methods.
+        """ Indicates whether the server supports `get_or_create` and
+        `create_or_fail` uniqueness modes on batched index methods.
         """
         return self.neo4j_version >= (1, 9)
 
@@ -775,22 +801,10 @@ class GraphDatabaseService(Cacheable, Resource):
         return self.neo4j_version >= (2, 0)
 
     @property
-    def supports_schema_constraints(self):
-        """ Indicates whether the server supports schema constraints.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
     def supports_schema_indexes(self):
         """ Indicates whether the server supports schema indexes.
         """
         return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_transactions(self):
-        """ Indicates whether the server supports Cypher transactions.
-        """
-        return "transaction" in self.__metadata__
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
@@ -1175,7 +1189,7 @@ class _Entity(Resource):
 
     @property
     def exists(self):
-        """ Determine whether this entity still exists in the database.
+        """ Detects whether this entity still exists in the database.
         """
         try:
             self._get()
