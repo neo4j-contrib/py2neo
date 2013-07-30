@@ -7,9 +7,17 @@ removed. The list below shows all features deprecated in version 1.6.
 Cypher
 --------------------
 
-.. automethod:: py2neo.neo4j.Cypher.execute
+.. autofunc:: py2neo.cypher.execute
 
 WriteBatch
 ----------
 
 .. automethod:: py2neo.neo4j.WriteBatch.get_or_create
+
+.. automethod:: py2neo.neo4j.WriteBatch.get_or_add_indexed_node
+
+.. automethod:: py2neo.neo4j.WriteBatch.get_or_add_indexed_relationship
+
+.. automethod:: py2neo.neo4j.WriteBatch.remove_indexed_node
+
+.. automethod:: py2neo.neo4j.WriteBatch.remove_indexed_relationship

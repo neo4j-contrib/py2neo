@@ -43,7 +43,7 @@ def execute(graph_db, query, params=None, row_handler=None,
     query = graph_db.cypher.query(query)
     data, metadata = [], None
     try:
-        record_set = query.execute(params)
+        record_set = query.execute(**params)
     except CypherError as err:
         if error_handler:
             error_handler(err.message, err.exception, err.stack_trace)
