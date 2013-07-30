@@ -33,3 +33,4 @@ Version 1.6
 - Changed Node.is_abstract and Relationship.is_abstract from function to property
 - Removed ReadBatch.get_properties; use GraphDatabaseService.get_properties instead
 - Changed GDB.order and size to properties
+- Cypher queries now supported in batches
