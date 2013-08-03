@@ -2895,16 +2895,17 @@ class WriteBatch(_Batch):
         """ Remove any nodes or relationships from an index that match a
         particular set of criteria. Allowed parameter combinations are:
 
-        `key`, `value`, `node`
-            remove a specific node indexed under a given key-value pair
+        `key`, `value`, `entity`
+            remove a specific node or relationship indexed under a given
+            key-value pair
 
-        `key`, `node`
-            remove a specific node indexed against a given key but with
-            any value
+        `key`, `entity`
+            remove a specific node or relationship indexed against a given key
+            and with any value
 
-        `node`
-            remove all occurrences of a specific node regardless of
-            key and value
+        `entity`
+            remove all occurrences of a specific node or relationship
+            regardless of key or value
 
         :param cls: the type of indexed entity
         :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
