@@ -1094,7 +1094,7 @@ class Cypher(Cacheable, Resource):
         :param params:
         :return:
         """
-        return Cypher.Query(self, query).execute(**params)
+        return Cypher.Query(self, query).execute(**params or {})
 
     def execute_one(self, query, params=None):
         """ Execute query and return only first value from first row.
@@ -1103,7 +1103,7 @@ class Cypher(Cacheable, Resource):
         :param params:
         :return:
         """
-        for row in Cypher.Query(self, query).execute(**params):
+        for row in Cypher.Query(self, query).execute(**params or {}):
             return row[0]
 
 
@@ -2351,16 +2351,16 @@ class _Batch(Resource):
         return request
 
     def _append_get(self, uri):
-        return self._append(_Batch.Request("GET", uri))
+        return self._append(self.Request("GET", uri))
 
     def _append_put(self, uri, body=None):
-        return self._append(_Batch.Request("PUT", uri, body))
+        return self._append(self.Request("PUT", uri, body))
 
     def _append_post(self, uri, body=None):
-        return self._append(_Batch.Request("POST", uri, body))
+        return self._append(self.Request("POST", uri, body))
 
     def _append_delete(self, uri):
-        return self._append(_Batch.Request("DELETE", uri))
+        return self._append(self.Request("DELETE", uri))
 
     def execute_cypher(self, query, params=None):
         """ Append a Cypher query to this batch. Resources returned from Cypher
@@ -2521,7 +2521,6 @@ class ReadBatch(_Batch):
         :type key: :py:class:`str`
         :param value: value under which nodes are indexed
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         index = self._index(Node, index)
         searcher = index._searcher.expand(key=key, value=value)
@@ -2558,7 +2557,6 @@ class WriteBatch(_Batch):
         :param abstract: node or relationship
         :type abstract: abstract
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
@@ -2586,7 +2584,6 @@ class WriteBatch(_Batch):
         :param rels_and_nodes: alternating relationships and nodes
         :type rels_and_nodes: concrete, abstract or :py:const:`None`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         query, params = Path(node, *rels_and_nodes)._create_query(unique=False)
         self.execute_cypher(query, params)
@@ -2602,7 +2599,6 @@ class WriteBatch(_Batch):
         :param rels_and_nodes: alternating relationships and nodes
         :type rels_and_nodes: concrete, abstract or :py:const:`None`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         query, params = Path(node, *rels_and_nodes)._create_query(unique=True)
         self.execute_cypher(query, params)
@@ -2656,7 +2652,6 @@ class WriteBatch(_Batch):
         :param entity: node or relationship to delete
         :type entity: concrete or reference
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         return self._append_delete(self._uri_for(entity))
 
@@ -2669,7 +2664,6 @@ class WriteBatch(_Batch):
         :type key: :py:class:`str`
         :param value: property value
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         if value is None:
             self.delete_property(entity, key)
@@ -2685,7 +2679,6 @@ class WriteBatch(_Batch):
         :param properties: properties
         :type properties: :py:class:`dict`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(entity, "properties")
         return self._append_put(uri, compact(properties))
@@ -2698,7 +2691,6 @@ class WriteBatch(_Batch):
         :param key: property key
         :type key: :py:class:`str`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(entity, "properties", key)
         return self._append_delete(uri)
@@ -2709,7 +2701,6 @@ class WriteBatch(_Batch):
         :param entity: node or relationship from which to delete properties
         :type entity: concrete or reference
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(entity, "properties")
         return self._append_delete(uri)
@@ -2722,7 +2713,6 @@ class WriteBatch(_Batch):
         :param labels: text labels
         :type labels: :py:class:`str`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(node, "labels")
         return self._append_post(uri, list(labels))
@@ -2735,7 +2725,6 @@ class WriteBatch(_Batch):
         :param label: text label
         :type label: :py:class:`str`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(node, "labels", label)
         return self._append_delete(uri)
@@ -2748,12 +2737,13 @@ class WriteBatch(_Batch):
         :param labels: text labels
         :type labels: :py:class:`str`
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         uri = self._uri_for(node, "labels")
         return self._append_put(uri, list(labels))
 
-    def _add_indexed(self, cls, index, key, value, entity, query=None):
+    ### ADD TO INDEX ###
+
+    def _add_to_index(self, cls, index, key, value, entity, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
         return self._append_post(uri, {
             "key": key,
@@ -2761,153 +2751,149 @@ class WriteBatch(_Batch):
             "uri": self._uri_for(entity),
         })
 
-    def _create_indexed_node(self, index, key, value, properties, query=None):
-        uri = self._uri_for(self._index(Node, index), query=query)
-        return self._append_post(uri, {
-            "key": key,
-            "value": value,
-            "properties": compact(properties or {}),
-        })
+    def add_to_index(self, cls, index, key, value, entity):
+        """ Add an existing node or relationship to an index.
 
-    def _create_indexed_relationship(self, index, key, value, start_node,
-                                     type_, end_node, properties, query):
-        uri = self._uri_for(self._index(Relationship, index), query=query)
-        return self._append_post(uri, {
-            "key": key,
-            "value": value,
-            "start": self._uri_for(start_node),
-            "type": str(type_),
-            "end": self._uri_for(end_node),
-            "properties": properties or {},
-        })
-
-    def add_indexed_node(self, index, key, value, node):
-        """ Index an existing node.
-
-        :param index: index name or instance
-        :type index: :py:class:`str` or :py:class:`Index`
-        :param key: key under which nodes are indexed
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
         :type key: :py:class:`str`
-        :param value: value under which nodes are indexed
-        :param node: node object
-        :type node: concrete :py:class:`Node` or reference
+        :param value: index entry value
+        :param entity: node or relationship to add to the index
+        :type entity: concrete or reference
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
-        return self._add_indexed(Node, index, key, value, node)
+        return self._add_to_index(cls, index, key, value, entity)
 
-    def add_indexed_node_or_fail(self, index, key, value, node):
-        """ Add an existing node to the index specified if an entry does not
-        already exist for the given key-value pair, fail otherwise.
-        """
-        # TODO: update comment
-        self._assert_can_create_or_fail()
-        return self._add_indexed(Node, index, key, value, node,
-                                      "uniqueness=create_or_fail")
+    def add_to_index_or_fail(self, cls, index, key, value, entity):
+        """ Add an existing node or relationship uniquely to an index, failing
+        the entire batch if such an entry already exists.
 
-    def add_indexed_relationship(self, index, key, value, relationship):
-        """ Add an existing relationship to the index specified.
-        """
-        # TODO: update comment
-        return self._add_indexed(Relationship, index, key, value, relationship)
-
-    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
-        """ Add an existing relationship to the index specified if an entry
-        does not already exist for the given key-value pair, fail otherwise.
-        """
-        # TODO: update comment
-        self._assert_can_create_or_fail()
-        return self._add_indexed(Relationship, index, key, value, relationship,
-                                              "uniqueness=create_or_fail")
-
-    def create_indexed_node_or_fail(self, index, key, value, properties=None):
-        """ Create an indexed node if none exists, otherwise fail the batch.
-
-        :param index: index name or instance
-        :type index: :py:class:`str` or :py:class:`Index`
-        :param key: key under which nodes are indexed
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
         :type key: :py:class:`str`
-        :param value: value under which nodes are indexed
-        :param properties: properties for a new node, if one is created
-        :type properties: :py:class:`dict`
+        :param value: index entry value
+        :param entity: node or relationship to add to the index
+        :type entity: concrete or reference
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         self._assert_can_create_or_fail()
-        return self._create_indexed_node(index, key, value, compact(properties),
-                                         "uniqueness=create_or_fail")
+        query = "uniqueness=create_or_fail"
+        return self._add_to_index(cls, index, key, value, entity, query)
 
-    def create_indexed_relationship_or_fail(self, index, key, value,
-                                            start_node, type_, end_node,
-                                            properties=None):
-        # TODO: update comment
-        """ Create and index a new relationship if one does not already exist,
-        fail otherwise.
-        """
-        self._assert_can_create_or_fail()
-        return self._create_indexed_relationship(index, key, value, start_node,
-                                                 type_, end_node, properties,
-                                                 "uniqueness=create_or_fail")
+    def get_or_add_to_index(self, cls, index, key, value, entity):
+        """ Fetch a uniquely indexed node or relationship if one exists,
+        otherwise add an existing entity to the index.
 
-    def get_or_add_indexed(self, cls, index, key, value, entity):
-        """ Add an existing node to the index specified if an entry does not
-        already exist for the given key-value pair, returning either the added
-        node or the one already in the index.
-        """
-        # TODO: update comment
-        if self.supports_index_uniqueness_modes:
-            query = "uniqueness=get_or_create"
-        else:
-            query = "unique"
-        return self._add_indexed(cls, index, key, value, entity, query)
-
-    @deprecated("WriteBatch.get_or_add_indexed_node is deprecated, "
-                "use get_or_add_indexed instead")
-    def get_or_add_indexed_node(self, index, key, value, node):
-        self.get_or_add_indexed(Node, index, key, value, node)
-
-    @deprecated("WriteBatch.get_or_add_indexed_relationship is deprecated, "
-                "use get_or_add_indexed instead")
-    def get_or_add_indexed_relationship(self, index, key, value, relationship):
-        self.get_or_add_indexed(Relationship, index, key, value, relationship)
-
-    def get_or_create_indexed_node(self, index, key, value, properties=None):
-        """ Fetch or create an indexed node.
-
-        :param index: index name or instance
-        :type index: :py:class:`str` or :py:class:`Index`
-        :param key: key under which nodes are indexed
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
         :type key: :py:class:`str`
-        :param value: value under which nodes are indexed
-        :param properties: properties for a new node, if one is created
-        :type properties: :py:class:`dict`
+        :param value: index entry value
+        :param entity: node or relationship to add to the index
+        :type entity: concrete or reference
         :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
         """
         if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        return self._create_indexed_node(index, key, value, compact(properties),
-                                         query)
+        return self._add_to_index(cls, index, key, value, entity, query)
 
-    def get_or_create_indexed_relationship(self, index, key, value, start_node,
-                                           type_, end_node, properties=None):
-        """ Create and index a new relationship if one does not already exist,
-        returning either the new relationship or the existing one.
+    ### CREATE IN INDEX ###
+
+    def _create_in_index(self, cls, index, key, value, abstract, query=None):
+        uri = self._uri_for(self._index(cls, index), query=query)
+        abstract = _cast(abstract, cls=cls, abstract=True)
+        if cls is Node:
+            return self._append_post(uri, {
+                "key": key,
+                "value": value,
+                "properties": compact(abstract._properties or {}),
+            })
+        elif cls is Relationship:
+            return self._append_post(uri, {
+                "key": key,
+                "value": value,
+                "start": self._uri_for(abstract._start_node),
+                "type": str(abstract._type),
+                "end": self._uri_for(abstract._end_node),
+                "properties": abstract._properties or {},
+            })
+        else:
+            raise TypeError(cls)
+
+    def create_in_index(self, cls, index, key, value, abstract=None):
+        """ Create a new node or relationship and add it to an index.
+
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
+        :type key: :py:class:`str`
+        :param value: index entry value
+        :param abstract: abstract of node or relationship to create
+        :return: batch request object
         """
-        # TODO: update comment
+        return self._create_in_index(cls, index, key, value, abstract)
+
+    def create_in_index_or_fail(self, cls, index, key, value, abstract=None):
+        """ Create a new node or relationship and add it uniquely to an index,
+        failing the entire batch if such an entry already exists.
+
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
+        :type key: :py:class:`str`
+        :param value: index entry value
+        :param abstract: abstract of node or relationship to create
+        :return: batch request object
+        """
+        self._assert_can_create_or_fail()
+        query = "uniqueness=create_or_fail"
+        return self._create_in_index(cls, index, key, value, abstract, query)
+
+    def get_or_create_in_index(self, cls, index, key, value, abstract=None):
+        """ Fetch a uniquely indexed node or relationship if one exists,
+        otherwise create a new entity and add that to the index.
+
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
+        :type key: :py:class:`str`
+        :param value: index entry value
+        :param abstract: abstract of node or relationship to create
+        :return: batch request object
+        """
         if self.supports_index_uniqueness_modes:
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        return self._create_indexed_relationship(index, key, value, start_node,
-                                                 type_, end_node, properties,
-                                                 query)
+        return self._create_in_index(cls, index, key, value, abstract, query)
 
-    def remove_indexed(self, cls, index, key=None, value=None, entity=None):
-        """ Remove any entries from the index which pertain to the parameters
-        supplied. The allowed parameter combinations are:
+    ### REMOVE FROM INDEX ###
+
+    def remove_from_index(self, cls, index, key=None, value=None, entity=None):
+        """ Remove any nodes or relationships from an index that match a
+        particular set of criteria. Allowed parameter combinations are:
 
         `key`, `value`, `node`
             remove a specific node indexed under a given key-value pair
@@ -2920,8 +2906,18 @@ class WriteBatch(_Batch):
             remove all occurrences of a specific node regardless of
             key and value
 
+        :param cls: the type of indexed entity
+        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
+                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
+        :param index: index or index name
+        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
+        :param key: index entry key
+        :type key: :py:class:`str`
+        :param value: index entry value
+        :param entity: node or relationship to remove from the index
+        :type entity: concrete or reference
+        :return: batch request object
         """
-        # TODO: update comment
         index = self._index(cls, index)
         if key and value and entity:
             uri = self._uri_for(index, key, value, entity._id)
@@ -2933,13 +2929,86 @@ class WriteBatch(_Batch):
             raise TypeError("Illegal parameter combination for index removal")
         return self._append_delete(uri)
 
+    ### START OF DEPRECATED METHODS ###
+
+    @deprecated("WriteBatch.add_indexed_node is deprecated, "
+                "use add_to_index instead")
+    def add_indexed_node(self, index, key, value, node):
+        return self.add_to_index(Node, index, key, value, node)
+
+    @deprecated("WriteBatch.add_indexed_relationship is deprecated, "
+                "use add_to_index instead")
+    def add_indexed_relationship(self, index, key, value, relationship):
+        return self.add_to_index(Relationship, index, key, value, relationship)
+
+    @deprecated("WriteBatch.add_indexed_node_or_fail is deprecated, "
+                "use add_to_index_or_fail instead")
+    def add_indexed_node_or_fail(self, index, key, value, node):
+        return self.add_to_index_or_fail(Node, index, key, value, node)
+
+    @deprecated("WriteBatch.add_indexed_relationship_or_fail is deprecated, "
+                "use add_to_index_or_fail instead")
+    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
+        return self.add_to_index_or_fail(Relationship, index, key, value,
+                                         relationship)
+
+    @deprecated("WriteBatch.create_indexed_node_or_fail is deprecated, "
+                "use create_in_index_or_fail instead")
+    def create_indexed_node_or_fail(self, index, key, value, properties=None):
+        self._assert_can_create_or_fail()
+        abstract = properties or {}
+        return self.create_in_index_or_fail(Node, index, key, value, abstract)
+
+    @deprecated("WriteBatch.create_indexed_relationship_or_fail is deprecated, "
+                "use create_in_index_or_fail instead")
+    def create_indexed_relationship_or_fail(self, index, key, value,
+                                            start_node, type_, end_node,
+                                            properties=None):
+        self._assert_can_create_or_fail()
+        if properties:
+            abstract = _rel(start_node, (type_, properties), end_node)
+        else:
+            abstract = _rel(start_node, type_, end_node)
+        return self.create_in_index_or_fail(Relationship, index, key, value,
+                                            abstract)
+
+    @deprecated("WriteBatch.get_or_add_indexed_node is deprecated, "
+                "use get_or_add_to_index instead")
+    def get_or_add_indexed_node(self, index, key, value, node):
+        self.get_or_add_to_index(Node, index, key, value, node)
+
+    @deprecated("WriteBatch.get_or_add_indexed_relationship is deprecated, "
+                "use get_or_add_to_index instead")
+    def get_or_add_indexed_relationship(self, index, key, value, relationship):
+        self.get_or_add_to_index(Relationship, index, key, value, relationship)
+
+    @deprecated("WriteBatch.get_or_create_indexed_node is deprecated, "
+                "use get_or_create_in_index instead")
+    def get_or_create_indexed_node(self, index, key, value, properties=None):
+        abstract = properties or {}
+        return self.get_or_create_in_index(Node, index, key, value, abstract)
+
+    @deprecated("WriteBatch.get_or_create_indexed_relationship is deprecated, "
+                "use get_or_create_indexed instead")
+    def get_or_create_indexed_relationship(self, index, key, value, start_node,
+                                           type_, end_node, properties=None):
+        if properties:
+            abstract = _rel(start_node, (type_, properties), end_node)
+        else:
+            abstract = _rel(start_node, type_, end_node)
+        return self.get_or_create_in_index(Relationship, index, key, value,
+                                           abstract)
+
     @deprecated("WriteBatch.remove_indexed_node is deprecated, "
                 "use remove_indexed instead")
     def remove_indexed_node(self, index, key=None, value=None, node=None):
-        return self.remove_indexed(Node, index, key, value, node)
+        return self.remove_from_index(Node, index, key, value, node)
 
     @deprecated("WriteBatch.remove_indexed_relationship is deprecated, "
                 "use remove_indexed instead")
     def remove_indexed_relationship(self, index, key=None, value=None,
                                     relationship=None):
-        return self.remove_indexed(Relationship, index, key, value, relationship)
+        return self.remove_from_index(Relationship, index, key, value,
+                                      relationship)
+
+    ### END OF DEPRECATED METHODS ###
