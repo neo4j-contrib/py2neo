@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from __future__ import absolute_import, division, print_function, unicode_literals
+from __future__ import division, unicode_literals
 
 import json
 import logging
@@ -233,8 +233,6 @@ class Subgraph(object):
             query += "\nRETURN {0}".format(
                 ",\n       ".join("out{0}".format(i) for i in range(len(output_names))),
             )
-        #print(query)
-        #print(params)
         return query, params, output_names
 
     def _execute_load_batch(self, graph_db, unique):

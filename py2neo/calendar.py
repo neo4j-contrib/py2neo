@@ -44,6 +44,8 @@ hierarchy such as::
 """
 
 
+from __future__ import unicode_literals
+
 from datetime import date as _date
 
 

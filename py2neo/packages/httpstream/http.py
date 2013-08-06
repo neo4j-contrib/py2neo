@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import unicode_literals
+
 try:
     from http.client import (BadStatusLine, CannotSendRequest, HTTPConnection,
                              HTTPSConnection, HTTPException, ResponseNotReady,
@@ -232,7 +234,7 @@ def submit(method, uri, body, headers):
         try:
             response = send()
         except BadStatusLine as err:
-            if err.line == repr(""):
+            if err.line == "''":
                 response = send("peer closed connection")
             else:
                 raise

@@ -20,26 +20,40 @@ from py2neo import neo4j
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+
+graph_db = neo4j.GraphDatabaseService()
 
 
-def _send_big_batch( node_count):
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    print("creating batch of " + str(node_count))
+def _run_batch(node_count):
     batch = neo4j.WriteBatch(graph_db)
     for i in range(node_count):
         batch.create({"number": i})
-    print("submitting batch")
-    nodes = batch.submit()
-    print("checking batch")
-    for node in nodes:
-        assert isinstance(node, neo4j.Node)
-    print("done")
+    batch.run()
 
 
-def test_can_send_batch_of_100():
-    _send_big_batch(100)
+def _submit_batch(node_count):
+    batch = neo4j.WriteBatch(graph_db)
+    for i in range(node_count):
+        batch.create({"number": i})
+    return batch.submit()
+
+
+#def test_can_send_batch_of_100():
+#    _send_big_batch(100)
+
+
+def test_can_run_4_batches_of_300():
+    graph_db.clear()
+    for i in range(4):
+        _run_batch(300)
+
+
+def test_can_submit_4_batches_of_300():
+    graph_db.clear()
+    for i in range(4):
+        _submit_batch(300)
 
 
 #def test_can_send_batch_of_1000():

@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import unicode_literals
+
 from datetime import date, time, datetime
 from decimal import Decimal
 import json

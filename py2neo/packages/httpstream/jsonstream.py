@@ -19,16 +19,15 @@
 """
 
 
+from __future__ import unicode_literals
+
 try:
     from builtins import chr as _chr
 except ImportError:
     from __builtin__ import unichr as _chr
+from io import StringIO
 from itertools import groupby
 from string import whitespace
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
 
 
 __all__ = ["JSONStream", "assembled", "grouped"]
@@ -257,7 +256,8 @@ COLON = 0x40
 
 
 class JSONStream(object):
-    """ Streaming JSON decoder.
+    """ Streaming JSON decoder. This class both expects Unicode input and will
+    produce Unicode output.
     """
 
     def __init__(self, source):

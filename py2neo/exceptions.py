@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from packages.httpstream.jsonstream import assembled
+from __future__ import unicode_literals
+
+from .packages.httpstream.jsonstream import assembled
 
 
 __all__ = ["IndexTypeError", "ServerException", "ClientError", "ServerError",

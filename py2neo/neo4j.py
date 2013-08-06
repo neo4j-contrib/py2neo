@@ -35,7 +35,7 @@ classes provided are:
 """
 
 
-from __future__ import division, print_function, unicode_literals
+from __future__ import division, unicode_literals
 
 from collections import namedtuple
 from datetime import datetime
@@ -44,15 +44,15 @@ import json
 import logging
 import re
 
-from packages.httpstream import (http,
-                                 Resource as _Resource,
-                                 ResourceTemplate as _ResourceTemplate,
-                                 URITemplate,
-                                 ClientError as _ClientError,
-                                 ServerError as _ServerError)
-from packages.httpstream.jsonstream import assembled, grouped
-from packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from packages.httpstream.uri import URI, percent_encode
+from .packages.httpstream import (http,
+                                  Resource as _Resource,
+                                  ResourceTemplate as _ResourceTemplate,
+                                  URITemplate,
+                                  ClientError as _ClientError,
+                                  ServerError as _ServerError)
+from .packages.httpstream.jsonstream import assembled, grouped
+from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from .packages.httpstream.uri import URI, percent_encode
 
 from . import __version__
 from .exceptions import *
@@ -1976,8 +1976,6 @@ class Path(object):
         #clauses.append("RETURN {0}".format(",".join(values)))
         clauses.append("RETURN p")
         query = " ".join(clauses)
-        print(query)
-        print(params)
         return query, params
 
     def _create(self, graph_db, unique):
@@ -2448,17 +2446,24 @@ class _Batch(Resource):
         else:
             return response
 
+    def run(self):
+        """
+        """
+        self._submit().close()
+
     def _stream(self):
         """ Submit the batch and iterate through the assembled but dehydrated
         _Batch.Response objects.
 
         :return:
         """
-        for i, result in grouped(self._submit()):
+        results = self._submit()
+        for i, result in grouped(results):
             response = _Batch.Response(assembled(result))
             if __debug__:
                 batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
             yield response
+        results.close()
 
     def stream(self):
         """ Submit the batch and iterate through the results as they are

@@ -19,6 +19,8 @@
 """
 
 
+from __future__ import unicode_literals
+
 from .neo4j import CypherError
 from .util import deprecated
 

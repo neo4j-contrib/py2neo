@@ -22,6 +22,8 @@ and RFC 6570 (URI Template) respectively.
 """
 
 
+from __future__ import unicode_literals
+
 from collections import OrderedDict
 import re
 

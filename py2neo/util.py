@@ -20,6 +20,8 @@ Utility module
 """
 
 
+from __future__ import unicode_literals
+
 from itertools import cycle, islice
 import re
 import warnings
