@@ -21,7 +21,7 @@ The latter is the more comprehensive, as can be seen below.
     :members: clear, stream, submit, execute_cypher, get_indexed_nodes
 
 .. autoclass:: py2neo.neo4j.WriteBatch
-    :members: clear, stream, submit, create, create_path, delete,
+    :members: clear, run, stream, submit, create, create_path, delete,
         execute_cypher, delete_properties, delete_property, get_or_create_path,
         set_properties, set_property,
         add_labels, remove_label, set_labels,

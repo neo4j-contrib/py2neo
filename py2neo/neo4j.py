@@ -2423,8 +2423,8 @@ class _Batch(Resource):
         return uri
 
     def _submit(self):
-        """ Submit the current batch but do not parse the results. This is for
-        internal use where the results are discarded. Should be closed
+        """ Execute the batch on the server but do not parse the results. For
+        internal use only.
         """
         request_count = len(self)
         request_text = "request" if request_count == 1 else "requests"
@@ -2447,13 +2447,15 @@ class _Batch(Resource):
             return response
 
     def run(self):
-        """
+        """ Execute the batch on the server and discard the response. If the
+        results are unimportant, this method will probably be quicker than
+        :py:method:`submit`.
         """
         self._submit().close()
 
     def _stream(self):
-        """ Submit the batch and iterate through the assembled but dehydrated
-        _Batch.Response objects.
+        """ Execute the batch on the server and iterate through assembled but
+        dehydrated _Batch.Response objects.
 
         :return:
         """
@@ -2466,8 +2468,8 @@ class _Batch(Resource):
         results.close()
 
     def stream(self):
-        """ Submit the batch and iterate through the results as they are
-        received.
+        """ Execute the batch on the server and iterate through the results as
+        they are received.
 
         :return: result records
         :rtype: iterator
@@ -2490,7 +2492,7 @@ class _Batch(Resource):
                 yield _hydrated(response.body)
 
     def submit(self):
-        """ Submit the batch and return a list of results.
+        """ Execute the batch on the server and return the results.
 
         :return: result records
         :rtype: :py:class:`list`
