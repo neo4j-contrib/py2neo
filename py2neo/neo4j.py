@@ -2448,8 +2448,8 @@ class _Batch(Resource):
 
     def run(self):
         """ Execute the batch on the server and discard the response. If the
-        results are unimportant, this method will probably be quicker than
-        :py:method:`submit`.
+        results are unimportant, this method will generally be faster than
+        :py:meth:`.submit` as no result parsing will occur.
         """
         self._submit().close()
 
