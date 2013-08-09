@@ -43,7 +43,7 @@ class GetIndexedNodeTestCase(unittest.TestCase):
         batch = neo4j.ReadBatch(self.graph_db)
         batch.get_indexed_nodes("People", "family_name", "Smith")
         batch.get_indexed_nodes("People", "family_name", "Jones")
-        data = batch.submit()
+        data = list(batch.execute())
         smiths = data[0]
         joneses = data[1]
         assert smiths == [alice, bob, carol]

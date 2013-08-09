@@ -27,7 +27,7 @@ def test_can_set_labels_on_preexisting_node():
     alice.add_labels("human", "female")
     batch = neo4j.WriteBatch(graph_db)
     batch.set_labels(alice, "mystery", "badger")
-    batch.submit()
+    batch.execute().close()
     assert alice.get_labels() == {"mystery", "badger"}
 
 
@@ -39,6 +39,6 @@ def test_can_set_labels_on_preexisting_node():
 #     batch.create({"name": "Alice"})
 #     batch.add_labels(0, "human", "female")
 #     batch.set_labels(0, "mystery", "badger")
-#     results = batch.submit()
+#     results = list(batch.execute())
 #     alice = results[0]
 #     assert alice.get_labels() == {"mystery", "badger"}

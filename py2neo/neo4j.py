@@ -521,7 +521,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = WriteBatch(self)
         batch.execute_cypher("START r=rel(*) DELETE r")
         batch.execute_cypher("START n=node(*) DELETE n")
-        batch._submit().close()
+        batch.execute().close()
 
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
@@ -570,7 +570,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = WriteBatch(self)
         for abstract in abstracts:
             batch.create(abstract)
-        return list(batch.submit())
+        return list(batch.execute())
 
     @property
     def cypher(self):
@@ -591,7 +591,7 @@ class GraphDatabaseService(Cacheable, Resource):
         for entity in entities:
             if entity is not None:
                 batch.delete(entity)
-        batch._submit().close()
+        batch.execute().close()
 
     def find(self, label, property_key=None, property_value=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -619,7 +619,9 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = _Batch(self)
         for entity in entities:
             batch._append_get(batch._uri_for(entity, "properties"))
-        return [rs.body or {} for rs in batch._stream()]
+        responses = batch.execute()
+        responses._raw = True
+        return [rs or {} for rs in responses]
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -1597,7 +1599,7 @@ class Node(_Entity):
         batch = WriteBatch(self.graph_db)
         for label in labels:
             batch.remove_label(self, label)
-        batch._submit()
+        batch.execute().close()
 
     def set_labels(self, *labels):
         """ Replace all labels on this node.
@@ -2126,7 +2128,7 @@ class Index(Cacheable, Resource):
             batch.add_indexed_relationship(self, key, value, 0)
         else:
             raise TypeError(self._content_type)
-        entity, index_entry = batch.submit()
+        entity, index_entry = list(batch.execute())
         return entity
 
     def _create_unique(self, key, value, abstract):
@@ -2228,7 +2230,7 @@ class Index(Cacheable, Resource):
             batch = WriteBatch(self.service_root.graph_db)
             for uri in uris:
                 batch._append_delete(uri)
-            batch._submit().close()
+            batch.execute().close()
         elif key and entity:
             t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
             t.expand(key=key, entity=entity._id)._delete()
@@ -2334,6 +2336,43 @@ class _Batch(Resource):
         def __uri__(self):
             return self.uri
 
+    class ResponseList(object):
+
+        def __init__(self, response):
+            self._response = response
+            self._raw = False
+
+        def __iter__(self):
+            for i, result in grouped(self._response):
+                response = _Batch.Response(assembled(result))
+                if __debug__:
+                    batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
+                body = response.body
+                if self._raw:
+                    yield response.body
+                elif (isinstance(body, dict) and
+                      has_all(body, Cypher.RecordSet.signature)):
+                    records = Cypher.RecordSet._hydrated(response.body)
+                    if len(records) == 0:
+                        yield None
+                    elif len(records) == 1:
+                        if len(records[0]) == 1:
+                            yield records[0][0]
+                        else:
+                            yield records[0]
+                    else:
+                        yield records
+                else:
+                    yield _hydrated(response.body)
+            self.close()
+
+        @property
+        def closed(self):
+            return self._response.closed
+
+        def close(self):
+            self._response.close()
+
     def __init__(self, graph_db):
         Resource.__init__(self, graph_db._subresource("batch").__uri__)
         self.clear()
@@ -2422,13 +2461,14 @@ class _Batch(Resource):
             uri += "?" + query
         return uri
 
-    def _submit(self):
-        """ Execute the batch on the server but do not parse the results. For
-        internal use only.
+    def execute(self):
+        """ Execute the batch on the server and return iterable results. If
+        the batch results are not required, the response should be closed
+        immediately using the ``close`` method.
         """
         request_count = len(self)
         request_text = "request" if request_count == 1 else "requests"
-        batch_log.info("Submitting batch with {0} {1}".format(request_count, request_text))
+        batch_log.info("Executing batch with {0} {1}".format(request_count, request_text))
         if __debug__:
             for id_, request in enumerate(self._requests):
                 batch_log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
@@ -2444,60 +2484,16 @@ class _Batch(Resource):
             else:
                 raise BatchError(e)
         else:
-            return response
+            return _Batch.ResponseList(response)
 
-    def run(self):
-        """ Execute the batch on the server and discard the response. If the
-        results are unimportant, this method will generally be faster than
-        :py:meth:`.submit` as no result parsing will occur.
-        """
-        self._submit().close()
-
-    def _stream(self):
-        """ Execute the batch on the server and iterate through assembled but
-        dehydrated _Batch.Response objects.
-
-        :return:
-        """
-        results = self._submit()
-        for i, result in grouped(results):
-            response = _Batch.Response(assembled(result))
-            if __debug__:
-                batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
-            yield response
-        results.close()
-
-    def stream(self):
-        """ Execute the batch on the server and iterate through the results as
-        they are received.
-
-        :return: result records
-        :rtype: iterator
-        """
-        for response in self._stream():
-            body = response.body
-            if isinstance(body, dict) and has_all(body,
-                                                  Cypher.RecordSet.signature):
-                records = Cypher.RecordSet._hydrated(response.body)
-                if len(records) == 0:
-                    yield None
-                elif len(records) == 1:
-                    if len(records[0]) == 1:
-                        yield records[0][0]
-                    else:
-                        yield records[0]
-                else:
-                    yield records
-            else:
-                yield _hydrated(response.body)
-
+    @deprecated("WriteBatch.submit is deprecated, use execute instead")
     def submit(self):
         """ Execute the batch on the server and return the results.
 
         :return: result records
         :rtype: :py:class:`list`
         """
-        return list(self.stream())
+        return list(self.execute())
 
     def _index(self, content_type, index):
         """ Fetch an Index object.

@@ -48,7 +48,7 @@ Batch Insertion using Index
             "emp_no": emp_no, "name": name
         })
 
-    nodes = batch.submit()  # will return `Node` objects for the nodes created
+    nodes = list(batch.execute())  # will return `Node` objects for the nodes created
 
 Default URI
 -----------

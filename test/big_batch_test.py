@@ -26,34 +26,21 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 graph_db = neo4j.GraphDatabaseService()
 
 
-def _run_batch(node_count):
+def _execute_batch(node_count):
     batch = neo4j.WriteBatch(graph_db)
     for i in range(node_count):
         batch.create({"number": i})
-    batch.run()
-
-
-def _submit_batch(node_count):
-    batch = neo4j.WriteBatch(graph_db)
-    for i in range(node_count):
-        batch.create({"number": i})
-    return batch.submit()
+    return batch.execute()
 
 
 #def test_can_send_batch_of_100():
 #    _send_big_batch(100)
 
 
-def test_can_run_4_batches_of_300():
-    graph_db.clear()
-    for i in range(4):
-        _run_batch(300)
-
-
 def test_can_submit_4_batches_of_300():
     graph_db.clear()
     for i in range(4):
-        _submit_batch(300)
+        _execute_batch(300).close()
 
 
 #def test_can_send_batch_of_1000():
