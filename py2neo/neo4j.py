@@ -519,8 +519,8 @@ class GraphDatabaseService(Cacheable, Resource):
             from the graph and cannot be undone.
         """
         batch = WriteBatch(self)
-        batch.execute_cypher("START r=rel(*) DELETE r")
-        batch.execute_cypher("START n=node(*) DELETE n")
+        batch.append_cypher("START r=rel(*) DELETE r")
+        batch.append_cypher("START n=node(*) DELETE n")
         batch.execute().close()
 
     def create(self, *abstracts):
@@ -616,9 +616,9 @@ class GraphDatabaseService(Cacheable, Resource):
             return []
         if len(entities) == 1:
             return [entities[0].get_properties()]
-        batch = _Batch(self)
+        batch = BatchRequestList(self)
         for entity in entities:
-            batch._append_get(batch._uri_for(entity, "properties"))
+            batch.append_get(batch._uri_for(entity, "properties"))
         responses = batch.execute()
         responses._raw = True
         return [rs or {} for rs in responses]
@@ -2229,7 +2229,7 @@ class Index(Cacheable, Resource):
             ]
             batch = WriteBatch(self.service_root.graph_db)
             for uri in uris:
-                batch._append_delete(uri)
+                batch.append_delete(uri)
             batch.execute().close()
         elif key and entity:
             t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
@@ -2289,92 +2289,59 @@ def _cast(obj, cls=(Node, Relationship), abstract=None):
     return entity
 
 
-class _Batch(Resource):
+class BatchRequest(object):
+    """ Individual batch request.
+    """
 
-    class Request(object):
-        """ Individual batch request.
-        """
+    def __init__(self, method, uri, body=None):
+        self._method = method
+        self._uri = uri
+        self._body = body
 
-        def __init__(self, method, uri, body=None):
-            self._method = method
-            self._uri = uri
-            self._body = body
+    def __eq__(self, other):
+        return id(self) == id(other)
 
-        def __eq__(self, other):
-            return id(self) == id(other)
+    def __ne__(self, other):
+        return id(self) != id(other)
 
-        def __ne__(self, other):
-            return id(self) != id(other)
+    def __hash__(self):
+        return hash(id(self))
 
-        def __hash__(self):
-            return hash(id(self))
+    @property
+    def method(self):
+        return self._method
 
-        @property
-        def method(self):
-            return self._method
+    @property
+    def uri(self):
+        return self._uri
 
-        @property
-        def uri(self):
-            return self._uri
+    @property
+    def body(self):
+        return self._body
 
-        @property
-        def body(self):
-            return self._body
 
-    class Response(object):
-        """ Individual batch response.
-        """
+class BatchResponse(object):
+    """ Individual batch response.
+    """
 
-        def __init__(self, result):
-            self.id_ = result.get("id")
-            self.uri = result.get("from")
-            self.body = result.get("body")
-            self.status_code = result.get("status", 200)
-            self.location = URI(result.get("location"))
+    def __init__(self, result):
+        self.id_ = result.get("id")
+        self.uri = result.get("from")
+        self.body = result.get("body")
+        self.status_code = result.get("status", 200)
+        self.location = URI(result.get("location"))
 
-        @property
-        def __uri__(self):
-            return self.uri
+    @property
+    def __uri__(self):
+        return self.uri
 
-    class ResponseList(object):
 
-        def __init__(self, response):
-            self._response = response
-            self._raw = False
-
-        def __iter__(self):
-            for i, result in grouped(self._response):
-                response = _Batch.Response(assembled(result))
-                if __debug__:
-                    batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
-                body = response.body
-                if self._raw:
-                    yield response.body
-                elif (isinstance(body, dict) and
-                      has_all(body, Cypher.RecordSet.signature)):
-                    records = Cypher.RecordSet._hydrated(response.body)
-                    if len(records) == 0:
-                        yield None
-                    elif len(records) == 1:
-                        if len(records[0]) == 1:
-                            yield records[0][0]
-                        else:
-                            yield records[0]
-                    else:
-                        yield records
-                else:
-                    yield _hydrated(response.body)
-            self.close()
-
-        @property
-        def closed(self):
-            return self._response.closed
-
-        def close(self):
-            self._response.close()
+class BatchRequestList(object):
 
     def __init__(self, graph_db):
-        Resource.__init__(self, graph_db._subresource("batch").__uri__)
+        self._graph_db = graph_db
+        self._batch = graph_db._subresource("batch")
+        self._cypher = graph_db.cypher
         self.clear()
 
     def __len__(self):
@@ -2383,23 +2350,23 @@ class _Batch(Resource):
     def __nonzero__(self):
         return bool(self._requests)
 
-    def _append(self, request):
+    def append(self, request):
         self._requests.append(request)
         return request
 
-    def _append_get(self, uri):
-        return self._append(self.Request("GET", uri))
+    def append_get(self, uri):
+        return self.append(BatchRequest("GET", uri))
 
-    def _append_put(self, uri, body=None):
-        return self._append(self.Request("PUT", uri, body))
+    def append_put(self, uri, body=None):
+        return self.append(BatchRequest("PUT", uri, body))
 
-    def _append_post(self, uri, body=None):
-        return self._append(self.Request("POST", uri, body))
+    def append_post(self, uri, body=None):
+        return self.append(BatchRequest("POST", uri, body))
 
-    def _append_delete(self, uri):
-        return self._append(self.Request("DELETE", uri))
+    def append_delete(self, uri):
+        return self.append(BatchRequest("DELETE", uri))
 
-    def execute_cypher(self, query, params=None):
+    def append_cypher(self, query, params=None):
         """ Append a Cypher query to this batch. Resources returned from Cypher
         queries cannot be referenced by other batch requests.
 
@@ -2414,7 +2381,7 @@ class _Batch(Resource):
             body = {"query": str(query), "params": dict(params)}
         else:
             body = {"query": str(query)}
-        return self._append_post(self._uri_for(self.cypher), body)
+        return self.append_post(self._uri_for(self._cypher), body)
 
     @property
     def _body(self):
@@ -2447,7 +2414,7 @@ class _Batch(Resource):
         """
         if isinstance(resource, int):
             uri = "{{{0}}}".format(resource)
-        elif isinstance(resource, _Batch.Request):
+        elif isinstance(resource, BatchRequest):
             uri = "{{{0}}}".format(self.find(resource))
         else:
             offset = len(resource.service_root.graph_db.__uri__)
@@ -2473,7 +2440,7 @@ class _Batch(Resource):
             for id_, request in enumerate(self._requests):
                 batch_log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
         try:
-            response = self._post(self._body)
+            response = self._batch._post(self._body)
         except (ClientError, ServerError) as e:
             if e.exception:
                 # A CustomBatchError is a dynamically created subclass of
@@ -2484,7 +2451,7 @@ class _Batch(Resource):
             else:
                 raise BatchError(e)
         else:
-            return _Batch.ResponseList(response)
+            return BatchResponseList(response)
 
     @deprecated("WriteBatch.submit is deprecated, use execute instead")
     def submit(self):
@@ -2504,16 +2471,53 @@ class _Batch(Resource):
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self.service_root.graph_db.get_or_create_index(content_type,
-                                                                  str(index))
+            return self._graph_db.get_or_create_index(content_type, str(index))
 
 
-class ReadBatch(_Batch):
+class BatchResponseList(object):
+
+    def __init__(self, response):
+        self._response = response
+        self._raw = False
+
+    def __iter__(self):
+        for i, result in grouped(self._response):
+            response = BatchResponse(assembled(result))
+            if __debug__:
+                batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
+            body = response.body
+            if self._raw:
+                yield response.body
+            elif (isinstance(body, dict) and
+                  has_all(body, Cypher.RecordSet.signature)):
+                records = Cypher.RecordSet._hydrated(response.body)
+                if len(records) == 0:
+                    yield None
+                elif len(records) == 1:
+                    if len(records[0]) == 1:
+                        yield records[0][0]
+                    else:
+                        yield records[0]
+                else:
+                    yield records
+            else:
+                yield _hydrated(response.body)
+        self.close()
+
+    @property
+    def closed(self):
+        return self._response.closed
+
+    def close(self):
+        self._response.close()
+
+
+class ReadBatch(BatchRequestList):
     """ Generic batch execution facility for data read requests,
     """
 
     def __init__(self, graph_db):
-        _Batch.__init__(self, graph_db)
+        BatchRequestList.__init__(self, graph_db)
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under a given key-value pair.
@@ -2527,20 +2531,20 @@ class ReadBatch(_Batch):
         """
         index = self._index(Node, index)
         searcher = index._searcher.expand(key=key, value=value)
-        return self._append_get(self._uri_for(searcher))
+        return self.append_get(self._uri_for(searcher))
 
 
-class WriteBatch(_Batch):
+class WriteBatch(BatchRequestList):
     """ Generic batch execution facility for data write requests,
     """
 
     def __init__(self, graph_db):
-        _Batch.__init__(self, graph_db)
+        BatchRequestList.__init__(self, graph_db)
         self.__new_uniqueness_modes = None
 
     @property
     def supports_index_uniqueness_modes(self):
-        return self.service_root.graph_db.supports_index_uniqueness_modes
+        return self._graph_db.supports_index_uniqueness_modes
 
     def _assert_can_create_or_fail(self):
         if not self.supports_index_uniqueness_modes:
@@ -2563,7 +2567,7 @@ class WriteBatch(_Batch):
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
-            uri = self._uri_for(self.graph_db._subresource("node"))
+            uri = self._uri_for(self._graph_db._subresource("node"))
             body = compact(entity._properties)
         elif isinstance(entity, Relationship):
             uri = self._uri_for(entity.start_node, "relationships")
@@ -2575,7 +2579,7 @@ class WriteBatch(_Batch):
                 body["data"] = compact(entity._properties)
         else:
             raise TypeError(entity)
-        return self._append_post(uri, body)
+        return self.append_post(uri, body)
 
     def create_path(self, node, *rels_and_nodes):
         """ Construct a path across a specified set of nodes and relationships.
@@ -2589,7 +2593,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         query, params = Path(node, *rels_and_nodes)._create_query(unique=False)
-        self.execute_cypher(query, params)
+        self.append_cypher(query, params)
 
     def get_or_create_path(self, node, *rels_and_nodes):
         """ Construct a unique path across a specified set of nodes and
@@ -2604,7 +2608,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         query, params = Path(node, *rels_and_nodes)._create_query(unique=True)
-        self.execute_cypher(query, params)
+        self.append_cypher(query, params)
 
     @deprecated("WriteBatch.get_or_create is deprecated, please use "
                 "get_or_create_path instead")
@@ -2647,7 +2651,7 @@ class WriteBatch(_Batch):
             params["A"] = rel._start_node._id
         if rel._end_node:
             params["B"] = rel._end_node._id
-        return self.execute_cypher(query, params)
+        return self.append_cypher(query, params)
 
     def delete(self, entity):
         """ Delete a node or relationship from the graph.
@@ -2656,7 +2660,7 @@ class WriteBatch(_Batch):
         :type entity: concrete or reference
         :return: batch request object
         """
-        return self._append_delete(self._uri_for(entity))
+        return self.append_delete(self._uri_for(entity))
 
     def set_property(self, entity, key, value):
         """ Set a single property on a node or relationship.
@@ -2672,7 +2676,7 @@ class WriteBatch(_Batch):
             self.delete_property(entity, key)
         else:
             uri = self._uri_for(entity, "properties", key)
-            return self._append_put(uri, value)
+            return self.append_put(uri, value)
 
     def set_properties(self, entity, properties):
         """ Replace all properties on a node or relationship.
@@ -2684,7 +2688,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(entity, "properties")
-        return self._append_put(uri, compact(properties))
+        return self.append_put(uri, compact(properties))
 
     def delete_property(self, entity, key):
         """ Delete a single property from a node or relationship.
@@ -2696,7 +2700,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(entity, "properties", key)
-        return self._append_delete(uri)
+        return self.append_delete(uri)
 
     def delete_properties(self, entity):
         """ Delete all properties from a node or relationship.
@@ -2706,7 +2710,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(entity, "properties")
-        return self._append_delete(uri)
+        return self.append_delete(uri)
 
     def add_labels(self, node, *labels):
         """ Add labels to a node.
@@ -2718,7 +2722,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(node, "labels")
-        return self._append_post(uri, list(labels))
+        return self.append_post(uri, list(labels))
 
     def remove_label(self, node, label):
         """ Remove a label from a node.
@@ -2730,7 +2734,7 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(node, "labels", label)
-        return self._append_delete(uri)
+        return self.append_delete(uri)
 
     def set_labels(self, node, *labels):
         """ Replace all labels on a node.
@@ -2742,13 +2746,13 @@ class WriteBatch(_Batch):
         :return: batch request object
         """
         uri = self._uri_for(node, "labels")
-        return self._append_put(uri, list(labels))
+        return self.append_put(uri, list(labels))
 
     ### ADD TO INDEX ###
 
     def _add_to_index(self, cls, index, key, value, entity, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
-        return self._append_post(uri, {
+        return self.append_post(uri, {
             "key": key,
             "value": value,
             "uri": self._uri_for(entity),
@@ -2819,13 +2823,13 @@ class WriteBatch(_Batch):
         uri = self._uri_for(self._index(cls, index), query=query)
         abstract = _cast(abstract, cls=cls, abstract=True)
         if cls is Node:
-            return self._append_post(uri, {
+            return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "properties": compact(abstract._properties or {}),
             })
         elif cls is Relationship:
-            return self._append_post(uri, {
+            return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "start": self._uri_for(abstract._start_node),
@@ -2931,7 +2935,7 @@ class WriteBatch(_Batch):
             uri = self._uri_for(index, entity._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
-        return self._append_delete(uri)
+        return self.append_delete(uri)
 
     ### START OF DEPRECATED METHODS ###
 
