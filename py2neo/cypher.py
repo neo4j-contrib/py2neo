@@ -21,12 +21,12 @@
 
 from __future__ import unicode_literals
 
-from .neo4j import CypherError
+from .neo4j import CypherQuery, CypherError
 from .util import deprecated
 
 
 @deprecated("The cypher module is deprecated, use "
-            "neo4j.GraphDatabaseService.cypher instead")
+            "neo4j.CypherQuery instead")
 class Metadata(object):
     """Metadata for query results.
     """
@@ -39,10 +39,10 @@ class Metadata(object):
 
 
 @deprecated("The cypher module is deprecated, use "
-            "neo4j.GraphDatabaseService.cypher instead")
+            "neo4j.CypherQuery instead")
 def execute(graph_db, query, params=None, row_handler=None,
             metadata_handler=None, error_handler=None):
-    query = graph_db.cypher.query(query)
+    query = CypherQuery(graph_db, query)
     data, metadata = [], None
     try:
         record_set = query.execute(**params or {})

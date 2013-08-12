@@ -359,7 +359,7 @@ class TestRelatedDelete(unittest.TestCase):
         RETURN en, sc, cy, fr, de, es, eng, fre, deu, esp,
                A, B, C, D, E, F, G, H
         '''
-        data = list(self.graph_db.cypher.execute(query))
+        data = list(neo4j.CypherQuery(self.graph_db, query).execute())
         entities = data[0]
         for entity in entities:
             assert entity.exists

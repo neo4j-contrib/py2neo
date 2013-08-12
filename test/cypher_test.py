@@ -34,7 +34,7 @@ def alice_and_bob(graph_db):
 def test_nonsense_query():
     query = "SELECT z=nude(0) RETURNS x"
     try:
-        graph_db.cypher.execute(query)
+        neo4j.CypherQuery(graph_db, query).execute()
     except neo4j.CypherError:
         assert True
     else:
@@ -46,7 +46,7 @@ def test_many_queries():
     node, = graph_db.create({})
     query = "START z=node({0}) RETURN z".format(node._id)
     for i in range(40):
-        with graph_db.cypher.execute(query) as record_set:
+        with neo4j.CypherQuery(graph_db, query).execute() as record_set:
             assert record_set.columns == ("z",)
             for record in record_set:
                 assert record == (node,)

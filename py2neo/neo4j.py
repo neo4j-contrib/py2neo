@@ -347,12 +347,6 @@ class Resource(object):
     def graph_db(self):
         return self.service_root.graph_db
 
-    @property
-    def cypher(self):
-        """ Cypher resource for this resource.
-        """
-        return self.graph_db.cypher
-
     def refresh(self):
         """ Refresh resource metadata.
         """
@@ -572,15 +566,6 @@ class GraphDatabaseService(Cacheable, Resource):
             batch.create(abstract)
         return list(batch.execute())
 
-    @property
-    def cypher(self):
-        """ The Cypher resource for this graph.
-
-        .. seealso::
-            :py:func:`Cypher <py2neo.neo4j.Cypher>`
-        """
-        return Cypher.get_instance(self.__metadata__["cypher"])
-
     def delete(self, *entities):
         """ Delete multiple nodes and/or relationships as part of a single
         batch.
@@ -702,7 +687,7 @@ class GraphDatabaseService(Cacheable, Resource):
             query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
-        for result in self.cypher.execute(query, params):
+        for result in CypherQuery(self, query).execute(**params):
             yield result[0]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None,
@@ -759,7 +744,8 @@ class GraphDatabaseService(Cacheable, Resource):
     def order(self):
         """ The number of nodes in this graph.
         """
-        return self.cypher.execute_one("START n=node(*) RETURN count(n)")
+        return CypherQuery(self, "START n=node(*) "
+                                 "RETURN count(n)").execute_one()
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -786,7 +772,8 @@ class GraphDatabaseService(Cacheable, Resource):
     def size(self):
         """ The number of relationships in this graph.
         """
-        return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
+        return CypherQuery(self, "START r=rel(*) "
+                                 "RETURN count(r)").execute_one()
 
     @property
     def supports_index_uniqueness_modes(self):
@@ -953,160 +940,135 @@ class GraphDatabaseService(Cacheable, Resource):
         return None
 
 
-class Cypher(Cacheable, Resource):
-    """ Cypher execution resource.
+class CypherQuery(object):
+    """ A reusable Cypher query.
 
     .. seealso ::
-        :py:func:`GraphDatabaseService.cypher`
+        :py:func:`Cypher.query`
     """
 
-    class Query(object):
-        """ A reusable Cypher query.
+    def __init__(self, graph_db, query):
+        self._cypher = Resource(graph_db.__metadata__["cypher"])
+        self._query = query
 
-        .. seealso ::
-            :py:func:`Cypher.query`
-        """
+    def execute(self, **params):
+        """ Execute this query with the parameters supplied.
 
-        def __init__(self, cypher, query):
-            self._cypher = cypher
-            self._query = query
-
-        def execute(self, **params):
-            """ Execute this query with the parameters supplied.
-
-            :param params:
-            :return:
-            """
-            if __debug__:
-                cypher_log.debug("Query: " + repr(self._query))
-                if params:
-                    cypher_log.debug("Params: " + repr(params))
-            try:
-                results = self._cypher._post({
-                    "query": self._query,
-                    "params": dict(params or {}),
-                })
-            except ClientError as e:
-                if e.exception:
-                    # A CustomCypherError is a dynamically created subclass of
-                    # CypherError with the same name as the underlying server
-                    # exception
-                    CustomCypherError = type(str(e.exception), (CypherError,), {})
-                    raise CustomCypherError(e)
-                else:
-                    raise CypherError(e)
-            else:
-                return Cypher.RecordSet(results)
-
-    class RecordSet(object):
-        """ Iterable Cypher query execution results.
-
-        ::
-
-            query = graph_db.cypher.query("START n=node(*) RETURN n LIMIT 10")
-            for record in query.execute():
-                print record[0]
-
-        Each record returned is cast into a :py:class:`namedtuple` with names
-        derived from the resulting column names.
-
-        .. note ::
-            Results are available as returned from the server and are decoded
-            incrementally. This means that there is no need to wait for the
-            entire response to be received before processing can occur.
-        """
-
-        signature = ("columns", "data")
-
-        @classmethod
-        def _hydrated(cls, data):
-            """ Takes assembled data...
-            """
-            record = namedtuple("Record", data["columns"], rename=True)
-            return [record(*_hydrated(row)) for row in data["data"]]
-
-        @staticmethod
-        def _row_id(result):
-            key, value = result
-            if key[0] == "columns":
-                return key[0:1]
-            else:
-                return key[0:2]
-
-        def __init__(self, response):
-            self._response = response
-            self._redo_buffer = []
-            redo = []
-            section = []
-            self._buffered = self._buffered_results()
-            for key, value in self._buffered:
-                if key and key[0] == "columns":
-                    section.append((key, value))
-                else:
-                    redo.append((key, value))
-                    if key and key[0] == "data":
-                        break
-            self._redo_buffer.extend(redo)
-            self._columns = tuple(assembled(section)["columns"])
-            self._record = namedtuple("Record", self._columns, rename=True)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            self.close()
-            return False
-
-        def _buffered_results(self):
-            for result in self._response:
-                while self._redo_buffer:
-                    yield self._redo_buffer.pop(0)
-                yield result
-
-        def __iter__(self):
-            for key, section in grouped(self._buffered):
-                if key[0] == "data":
-                    for i, row in grouped(section):
-                        yield self._record(*_hydrated(assembled(row)))
-
-        @property
-        def columns(self):
-            """ Column names.
-            """
-            return self._columns
-
-        def close(self):
-            """ Close results and free resources.
-            """
-            self._response.close()
-
-    def query(self, query):
-        """ Build a template Cypher query that can be executed multiple times
-        with different parameters.
-
-        :param query: the query text
-        :return: :py:class:`Cypher.Query` object
-        """
-        return Cypher.Query(self, query)
-
-    def execute(self, query, params=None):
-        """ Execute query.
-
-        :param query:
         :param params:
         :return:
         """
-        return Cypher.Query(self, query).execute(**params or {})
+        if __debug__:
+            cypher_log.debug("Query: " + repr(self._query))
+            if params:
+                cypher_log.debug("Params: " + repr(params))
+        try:
+            results = self._cypher._post({
+                "query": self._query,
+                "params": dict(params or {}),
+            })
+        except ClientError as e:
+            if e.exception:
+                # A CustomCypherError is a dynamically created subclass of
+                # CypherError with the same name as the underlying server
+                # exception
+                CustomCypherError = type(str(e.exception), (CypherError,), {})
+                raise CustomCypherError(e)
+            else:
+                raise CypherError(e)
+        else:
+            return CypherRecordSet(results)
 
-    def execute_one(self, query, params=None):
+    def execute_one(self, **params):
         """ Execute query and return only first value from first row.
 
-        :param query:
         :param params:
         :return:
         """
-        for row in Cypher.Query(self, query).execute(**params or {}):
+        for row in self.execute(**params):
             return row[0]
+
+
+class CypherRecordSet(object):
+    """ Iterable Cypher query execution results.
+
+    ::
+
+        query = graph_db.cypher.query("START n=node(*) RETURN n LIMIT 10")
+        for record in query.execute():
+            print record[0]
+
+    Each record returned is cast into a :py:class:`namedtuple` with names
+    derived from the resulting column names.
+
+    .. note ::
+        Results are available as returned from the server and are decoded
+        incrementally. This means that there is no need to wait for the
+        entire response to be received before processing can occur.
+    """
+
+    signature = ("columns", "data")
+
+    @classmethod
+    def _hydrated(cls, data):
+        """ Takes assembled data...
+        """
+        record = namedtuple("Record", data["columns"], rename=True)
+        return [record(*_hydrated(row)) for row in data["data"]]
+
+    @staticmethod
+    def _row_id(result):
+        key, value = result
+        if key[0] == "columns":
+            return key[0:1]
+        else:
+            return key[0:2]
+
+    def __init__(self, response):
+        self._response = response
+        self._redo_buffer = []
+        redo = []
+        section = []
+        self._buffered = self._buffered_results()
+        for key, value in self._buffered:
+            if key and key[0] == "columns":
+                section.append((key, value))
+            else:
+                redo.append((key, value))
+                if key and key[0] == "data":
+                    break
+        self._redo_buffer.extend(redo)
+        self._columns = tuple(assembled(section)["columns"])
+        self._record = namedtuple("Record", self._columns, rename=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def _buffered_results(self):
+        for result in self._response:
+            while self._redo_buffer:
+                yield self._redo_buffer.pop(0)
+            yield result
+
+    def __iter__(self):
+        for key, section in grouped(self._buffered):
+            if key[0] == "data":
+                for i, row in grouped(section):
+                    yield self._record(*_hydrated(assembled(row)))
+
+    @property
+    def columns(self):
+        """ Column names.
+        """
+        return self._columns
+
+    def close(self):
+        """ Close results and free resources.
+        """
+        self._response.close()
 
 
 class Schema(Cacheable, Resource):
@@ -1405,22 +1367,18 @@ class Node(_Entity):
     def delete_related(self):
         """ Delete this node along with all related nodes and relationships.
         """
-        self.cypher.query(
-            "START a=node({a}) "
-            "MATCH (a)-[rels*0..]-(z) "
-            "FOREACH(rel IN rels: DELETE rel) "
-            "DELETE a, z"
-        ).execute(a=self._id)
+        CypherQuery(self.graph_db, "START a=node({a}) "
+                                   "MATCH (a)-[rels*0..]-(z) "
+                                   "FOREACH(rel IN rels: DELETE rel) "
+                                   "DELETE a, z").execute(a=self._id)
 
     def isolate(self):
         """ Delete all relationships connected to this node, both incoming and
         outgoing.
         """
-        self.cypher.query(
-            "START a=node({a}) "
-            "MATCH a-[r]-b "
-            "DELETE r "
-        ).execute(a=self._id)
+        CypherQuery(self.graph_db, "START a=node({a}) "
+                                   "MATCH a-[r]-b "
+                                   "DELETE r").execute(a=self._id)
 
     def match(self, rel_type=None, other_node=None, limit=None):
         """ Iterate through matching relationships attached to this node,
@@ -1556,7 +1514,7 @@ class Node(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = self.cypher.execute_one(" ".join(query), params)
+            rel = CypherQuery(self.graph_db, " ".join(query)).execute_one(**params)
             self._properties = rel.__metadata__["data"]
 
     def _label_resource(self):
@@ -1746,7 +1704,7 @@ class Relationship(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = self.cypher.execute_one(" ".join(query), params)
+            rel = CypherQuery(self.graph_db, " ".join(query)).execute_one(**params)
             self._properties = rel.__metadata__["data"]
 
 
@@ -1983,7 +1941,7 @@ class Path(object):
     def _create(self, graph_db, unique):
         query, params = self._create_query(unique=unique)
         try:
-            results = graph_db.cypher.execute(query, params)
+            results = CypherQuery(graph_db, query).execute(**params)
         except CypherError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
@@ -2341,7 +2299,7 @@ class BatchRequestList(object):
     def __init__(self, graph_db):
         self._graph_db = graph_db
         self._batch = graph_db._subresource("batch")
-        self._cypher = graph_db.cypher
+        self._cypher = graph_db._subresource("cypher")
         self.clear()
 
     def __len__(self):
@@ -2495,8 +2453,8 @@ class BatchResponseList(object):
             if self._raw:
                 yield response.body
             elif (isinstance(body, dict) and
-                  has_all(body, Cypher.RecordSet.signature)):
-                records = Cypher.RecordSet._hydrated(response.body)
+                  has_all(body, CypherRecordSet.signature)):
+                records = CypherRecordSet._hydrated(response.body)
                 if len(records) == 0:
                     yield None
                 elif len(records) == 1:

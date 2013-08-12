@@ -275,10 +275,10 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            self.graph_db.cypher.execute("START a=node({A}) "
-                                          "MATCH (a)-[r]->(b) "
-                                          "DELETE r",
-                                          {"A": subj.__node__._id})
+            query = neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
+                                                     "MATCH (a)-[r]->(b) "
+                                                     "DELETE r")
+            query.execute(A=subj.__node__._id)
         else:
             subj.__node__, = self.graph_db.create(props)
         # write rels
@@ -329,8 +329,6 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        self.graph_db.cypher.execute((
-            "START a=node({A}) "
-            "MATCH a-[r?]-b "
-            "DELETE r, a"
-        ), {"A": node._id})
+        neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
+                                         "MATCH a-[r?]-b "
+                                         "DELETE r, a").execute(A=node._id)
