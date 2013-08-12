@@ -489,7 +489,7 @@ class Response(object):
         """
         if not self.is_json:
             raise TypeError("Content is not JSON")
-        return assembled(self.iter_json())
+        return json.loads(self.read().decode(self.encoding))
 
     @property
     def is_text(self):

@@ -2428,11 +2428,7 @@ class BatchRequestList(object):
             uri += "?" + query
         return uri
 
-    def execute(self):
-        """ Execute the batch on the server and return iterable results. If
-        the batch results are not required, the response should be closed
-        immediately using the ``close`` method.
-        """
+    def _execute(self):
         request_count = len(self)
         request_text = "request" if request_count == 1 else "requests"
         batch_log.info("Executing batch with {0} {1}".format(request_count, request_text))
@@ -2451,16 +2447,26 @@ class BatchRequestList(object):
             else:
                 raise BatchError(e)
         else:
-            return BatchResponseList(response)
+            return response
 
-    @deprecated("WriteBatch.submit is deprecated, use execute instead")
+    def execute(self):
+        """ Execute the batch on the server and return iterable results. If
+        the batch results are not required, the response should be closed
+        immediately using the ``close`` method.
+        """
+        return BatchResponseList(self._execute())
+
     def submit(self):
         """ Execute the batch on the server and return the results.
 
         :return: result records
         :rtype: :py:class:`list`
         """
-        return list(self.execute())
+        response = self._execute()
+        try:
+            return [_hydrated(_["body"]) for _ in response.json]
+        finally:
+            response.close()
 
     def _index(self, content_type, index):
         """ Fetch an Index object.
