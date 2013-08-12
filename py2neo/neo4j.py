@@ -2851,7 +2851,7 @@ class WriteBatch(BatchRequestList):
         :param key: index entry key
         :type key: :py:class:`str`
         :param value: index entry value
-        :param abstract: abstract of node or relationship to create
+        :param abstract: abstract node or relationship to create
         :return: batch request object
         """
         return self._create_in_index(cls, index, key, value, abstract)
@@ -2868,7 +2868,7 @@ class WriteBatch(BatchRequestList):
         :param key: index entry key
         :type key: :py:class:`str`
         :param value: index entry value
-        :param abstract: abstract of node or relationship to create
+        :param abstract: abstract node or relationship to create
         :return: batch request object
         """
         self._assert_can_create_or_fail()
@@ -2887,7 +2887,7 @@ class WriteBatch(BatchRequestList):
         :param key: index entry key
         :type key: :py:class:`str`
         :param value: index entry value
-        :param abstract: abstract of node or relationship to create
+        :param abstract: abstract node or relationship to create
         :return: batch request object
         """
         if self.supports_index_uniqueness_modes:
