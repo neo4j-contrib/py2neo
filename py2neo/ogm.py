@@ -290,7 +290,7 @@ class Store(object):
                     if not neo4j.familiar(end_node, self.graph_db):
                         raise ValueError(end_node)
                     batch.create((subj.__node__, rel_type, end_node, rel_props))
-            batch.execute().close()
+            batch.run()
         return subj
 
     def save_indexed(self, index_name, key, value, *subj):

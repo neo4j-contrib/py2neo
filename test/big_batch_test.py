@@ -30,17 +30,17 @@ def _execute_batch(node_count):
     batch = neo4j.WriteBatch(graph_db)
     for i in range(node_count):
         batch.create({"number": i})
-    return batch.execute()
+    batch.run()
 
 
 #def test_can_send_batch_of_100():
 #    _send_big_batch(100)
 
 
-def test_can_submit_4_batches_of_300():
+def test_can_execute_4_batches_of_300():
     graph_db.clear()
     for i in range(4):
-        _execute_batch(300).close()
+        _execute_batch(300)
 
 
 #def test_can_send_batch_of_1000():

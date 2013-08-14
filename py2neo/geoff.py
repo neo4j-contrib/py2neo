@@ -254,7 +254,7 @@ class Subgraph(object):
             batch.create(self._nodes[name].properties)
         # submit batch unless empty (in which case bail out and return nothing)
         if batch:
-            responses = list(batch.execute())
+            responses = batch.submit()
         else:
             return {}
         # parse response and build return value

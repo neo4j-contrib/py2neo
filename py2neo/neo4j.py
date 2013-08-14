@@ -515,7 +515,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = WriteBatch(self)
         batch.append_cypher("START r=rel(*) DELETE r")
         batch.append_cypher("START n=node(*) DELETE n")
-        batch.execute().close()
+        batch.run()
 
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
@@ -564,7 +564,7 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = WriteBatch(self)
         for abstract in abstracts:
             batch.create(abstract)
-        return list(batch.execute())
+        return batch.submit()
 
     def delete(self, *entities):
         """ Delete multiple nodes and/or relationships as part of a single
@@ -576,7 +576,7 @@ class GraphDatabaseService(Cacheable, Resource):
         for entity in entities:
             if entity is not None:
                 batch.delete(entity)
-        batch.execute().close()
+        batch.run()
 
     def find(self, label, property_key=None, property_value=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -604,9 +604,11 @@ class GraphDatabaseService(Cacheable, Resource):
         batch = BatchRequestList(self)
         for entity in entities:
             batch.append_get(batch._uri_for(entity, "properties"))
-        responses = batch.execute()
-        responses._raw = True
-        return [rs or {} for rs in responses]
+        responses = batch._execute()
+        try:
+            return [BatchResponse(rs).body or {} for rs in responses.json]
+        finally:
+            responses.close()
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -997,6 +999,12 @@ class CypherResults(object):
         self._columns = tuple(content["columns"])
         record = namedtuple("Record", self._columns, rename=True)
         self._data = [record(*_hydrated(row)) for row in content["data"]]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
 
     @property
     def columns(self):
@@ -1567,7 +1575,7 @@ class Node(_Entity):
         batch = WriteBatch(self.graph_db)
         for label in labels:
             batch.remove_label(self, label)
-        batch.execute().close()
+        batch.run()
 
     def set_labels(self, *labels):
         """ Replace all labels on this node.
@@ -2096,7 +2104,7 @@ class Index(Cacheable, Resource):
             batch.add_indexed_relationship(self, key, value, 0)
         else:
             raise TypeError(self._content_type)
-        entity, index_entry = list(batch.execute())
+        entity, index_entry = batch.submit()
         return entity
 
     def _create_unique(self, key, value, abstract):
@@ -2198,7 +2206,7 @@ class Index(Cacheable, Resource):
             batch = WriteBatch(self.service_root.graph_db)
             for uri in uris:
                 batch.append_delete(uri)
-            batch.execute().close()
+            batch.run()
         elif key and entity:
             t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
             t.expand(key=key, entity=entity._id)._delete()
@@ -2298,10 +2306,29 @@ class BatchResponse(object):
         self.body = result.get("body")
         self.status_code = result.get("status", 200)
         self.location = URI(result.get("location"))
+        if __debug__:
+            batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(self.id_, self.status_code, self.location, self.body))
 
     @property
     def __uri__(self):
         return self.uri
+
+    @property
+    def hydrated(self):
+        body = self.body
+        if isinstance(body, dict) and has_all(body, CypherResults.signature):
+            records = CypherResults._hydrated(body)
+            if len(records) == 0:
+                return None
+            elif len(records) == 1:
+                if len(records[0]) == 1:
+                    return records[0][0]
+                else:
+                    return records[0]
+            else:
+                return records
+        else:
+            return _hydrated(body)
 
 
 class BatchRequestList(object):
@@ -2417,24 +2444,34 @@ class BatchRequestList(object):
         else:
             return response
 
-    def execute(self):
-        """ Execute the batch on the server and return iterable results. If
-        the batch results are not required, the response should be closed
-        immediately using the ``close`` method.
+    def run(self):
+        """ Execute the batch on the server and discard the results. If the
+        batch results are not required, this will generally be the fastest
+        execution method.
+        """
+        return self._execute().close()
+
+    def stream(self):
+        """ Execute the batch on the server and return iterable results. This
+        method allows handling of results as they are received from the server.
+
+        :return: iterable results
+        :rtype: :py:class:`BatchResponseList`
         """
         return BatchResponseList(self._execute())
 
     def submit(self):
-        """ Execute the batch on the server and return the results.
+        """ Execute the batch on the server and return a list of results. This
+        method blocks until all results are received.
 
         :return: result records
         :rtype: :py:class:`list`
         """
-        response = self._execute()
+        responses = self._execute()
         try:
-            return [_hydrated(_["body"]) for _ in response.json]
+            return [BatchResponse(rs).hydrated for rs in responses.json]
         finally:
-            response.close()
+            responses.close()
 
     def _index(self, content_type, index):
         """ Fetch an Index object.
@@ -2452,30 +2489,10 @@ class BatchResponseList(object):
 
     def __init__(self, response):
         self._response = response
-        self._raw = False
 
     def __iter__(self):
         for i, result in grouped(self._response):
-            response = BatchResponse(assembled(result))
-            if __debug__:
-                batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(response.id_, response.status_code, response.location, response.body))
-            body = response.body
-            if self._raw:
-                yield response.body
-            elif (isinstance(body, dict) and
-                  has_all(body, CypherResults.signature)):
-                records = CypherResults._hydrated(response.body)
-                if len(records) == 0:
-                    yield None
-                elif len(records) == 1:
-                    if len(records[0]) == 1:
-                        yield records[0][0]
-                    else:
-                        yield records[0]
-                else:
-                    yield records
-            else:
-                yield _hydrated(response.body)
+            yield BatchResponse(assembled(result)).hydrated
         self.close()
 
     @property

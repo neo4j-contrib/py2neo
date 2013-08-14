@@ -21,7 +21,7 @@ illustrates a simple usage of the py2neo library::
         "MATCH (a)-[:KNOWS]->(b) "
         "RETURN a, b"
     )
-    params = {"A": node_a.id}
+    params = {"A": alice.id_}
 
     # define a row handler
     def print_row(row):
@@ -48,7 +48,7 @@ Batch Insertion using Index
             "emp_no": emp_no, "name": name
         })
 
-    nodes = list(batch.execute())  # will return `Node` objects for the nodes created
+    nodes = batch.submit()  # will return `Node` objects for the nodes created
 
 Default URI
 -----------

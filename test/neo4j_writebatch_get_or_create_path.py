@@ -24,7 +24,7 @@ def test_can_get_or_create_path_with_existing_nodes():
     alice, bob = graph_db.create({"name": "Alice"}, {"name": "Bob"})
     batch = neo4j.WriteBatch(graph_db)
     batch.get_or_create_path(alice, "KNOWS", bob)
-    results = list(batch.execute())
+    results = batch.submit()
     path = results[0]
     assert len(path) == 1
     assert path.nodes[0] == alice
@@ -37,14 +37,14 @@ def test_is_idempotent():
     alice, = graph_db.create({"name": "Alice"})
     batch = neo4j.WriteBatch(graph_db)
     batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
-    results = list(batch.execute())
+    results = batch.submit()
     path = results[0]
     bob = path.nodes[1]
     assert path.nodes[0] == alice
     assert bob["name"] == "Bob"
     batch = neo4j.WriteBatch(graph_db)
     batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
-    results = list(batch.execute())
+    results = batch.submit()
     path = results[0]
     assert path.nodes[0] == alice
     assert path.nodes[1] == bob
