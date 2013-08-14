@@ -951,18 +951,13 @@ class CypherQuery(object):
         self._cypher = Resource(graph_db.__metadata__["cypher"])
         self._query = query
 
-    def execute(self, **params):
-        """ Execute this query with the parameters supplied.
-
-        :param params:
-        :return:
-        """
+    def _execute(self, **params):
         if __debug__:
             cypher_log.debug("Query: " + repr(self._query))
             if params:
                 cypher_log.debug("Params: " + repr(params))
         try:
-            results = self._cypher._post({
+            return self._cypher._post({
                 "query": self._query,
                 "params": dict(params or {}),
             })
@@ -975,20 +970,47 @@ class CypherQuery(object):
                 raise CustomCypherError(e)
             else:
                 raise CypherError(e)
-        else:
-            return CypherRecordSet(results)
+
+    def execute(self, **params):
+        return CypherResults(self._execute(**params))
 
     def execute_one(self, **params):
-        """ Execute query and return only first value from first row.
+        return self.execute(**params).data[0][0]
 
-        :param params:
-        :return:
+    def stream(self, **params):
+        return IterableCypherResults(self._execute(**params))
+
+
+class CypherResults(object):
+
+    signature = ("columns", "data")
+
+    @classmethod
+    def _hydrated(cls, data):
+        """ Takes assembled data...
         """
-        for row in self.execute(**params):
-            return row[0]
+        record = namedtuple("Record", data["columns"], rename=True)
+        return [record(*_hydrated(row)) for row in data["data"]]
+
+    def __init__(self, response):
+        content = response.json
+        self._columns = tuple(content["columns"])
+        record = namedtuple("Record", self._columns, rename=True)
+        self._data = [record(*_hydrated(row)) for row in content["data"]]
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def data(self):
+        return self._data
+
+    def __iter__(self):
+        return iter(self._data)
 
 
-class CypherRecordSet(object):
+class IterableCypherResults(object):
     """ Iterable Cypher query execution results.
 
     ::
@@ -1006,29 +1028,17 @@ class CypherRecordSet(object):
         entire response to be received before processing can occur.
     """
 
-    signature = ("columns", "data")
-
-    @classmethod
-    def _hydrated(cls, data):
-        """ Takes assembled data...
-        """
-        record = namedtuple("Record", data["columns"], rename=True)
-        return [record(*_hydrated(row)) for row in data["data"]]
-
-    @staticmethod
-    def _row_id(result):
-        key, value = result
-        if key[0] == "columns":
-            return key[0:1]
-        else:
-            return key[0:2]
-
     def __init__(self, response):
         self._response = response
         self._redo_buffer = []
+        self._buffered = self._buffered_results()
+        self._columns = None
+        self._record = None
+        self._fetch_columns()
+
+    def _fetch_columns(self):
         redo = []
         section = []
-        self._buffered = self._buffered_results()
         for key, value in self._buffered:
             if key and key[0] == "columns":
                 section.append((key, value))
@@ -2453,8 +2463,8 @@ class BatchResponseList(object):
             if self._raw:
                 yield response.body
             elif (isinstance(body, dict) and
-                  has_all(body, CypherRecordSet.signature)):
-                records = CypherRecordSet._hydrated(response.body)
+                  has_all(body, CypherResults.signature)):
+                records = CypherResults._hydrated(response.body)
                 if len(records) == 0:
                     yield None
                 elif len(records) == 1:

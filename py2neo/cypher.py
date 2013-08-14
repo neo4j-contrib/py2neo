@@ -45,17 +45,17 @@ def execute(graph_db, query, params=None, row_handler=None,
     query = CypherQuery(graph_db, query)
     data, metadata = [], None
     try:
-        record_set = query.execute(**params or {})
+        results = query.execute(**params or {})
     except CypherError as err:
         if error_handler:
             error_handler(err.message, err.exception, err.stack_trace)
         else:
             raise
     else:
-        metadata = Metadata(record_set.columns)
+        metadata = Metadata(results.columns)
         if metadata_handler:
             metadata_handler(metadata)
-        for record in record_set:
+        for record in results:
             if row_handler:
                 row_handler(list(record))
             else:
