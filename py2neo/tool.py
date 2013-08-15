@@ -285,7 +285,7 @@ class Tool(object):
     def _cypher(self, format_, query, params=None):
         if query == "-":
             query = self._in.read()
-        record_set = neo4j.CypherQuery(self._graph_db, query).execute(**params)
+        record_set = neo4j.CypherQuery(self._graph_db, query).execute(**params or {})
         writer = ResultWriter(self._out)
         writer.write(format_, record_set)
 
