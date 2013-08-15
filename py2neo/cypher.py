@@ -55,9 +55,9 @@ def execute(graph_db, query, params=None, row_handler=None,
         metadata = Metadata(results.columns)
         if metadata_handler:
             metadata_handler(metadata)
-        for record in results:
-            if row_handler:
+        if row_handler:
+            for record in results:
                 row_handler(list(record))
-            else:
-                data.append(list(record))
-        return data, metadata
+            return data, metadata
+        else:
+            return [list(record) for record in results], metadata
