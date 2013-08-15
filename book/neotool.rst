@@ -39,16 +39,14 @@ Cypher Execution
 ----------------
 ::
 
-    neotool cypher "start n=node(1) return n"
+    neotool cypher "start n=node(1) return n, n.name?"
 
 Cypher queries passed will be executed and the results returned in an ASCII art
 table, such as the one below::
 
-    +----------------------+
-    | n                    |
-    +----------------------+
-    | (1 {"name":"Alice"}) |
-    +----------------------+
+     n                    | n.name?
+    ----------------------+---------
+     (1 {"name":"Alice"}) | Alice
 
 Delimited Output
 ~~~~~~~~~~~~~~~~
