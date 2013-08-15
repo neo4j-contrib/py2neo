@@ -321,28 +321,44 @@ class Tool(object):
             sys.stdout.write(str(value))
             sys.stdout.write("\n")
 
-    def geoff_insert(self, file):
+    def geoff_insert(self, file_name=None):
         """ Insert Geoff data
         """
-        params = geoff.Subgraph.load(open(file)).insert_into(self._graph_db)
+        if file_name:
+            file = open(file_name)
+        else:
+            file = sys.stdin
+        params = geoff.Subgraph.load(file).insert_into(self._graph_db)
         self._geoff_write(params)
 
-    def geoff_merge(self, file):
+    def geoff_merge(self, file_name=None):
         """ Merge Geoff data
         """
-        params = geoff.Subgraph.load(open(file)).merge_into(self._graph_db)
+        if file_name:
+            file = open(file_name)
+        else:
+            file = sys.stdin
+        params = geoff.Subgraph.load(file).merge_into(self._graph_db)
         self._geoff_write(params)
 
-    def xml_insert(self, file):
+    def xml_insert(self, file_name=None):
         """ Insert XML data
         """
-        params = geoff.Subgraph.load_xml(open(file)).insert_into(self._graph_db)
+        if file_name:
+            file = open(file_name)
+        else:
+            file = sys.stdin
+        params = geoff.Subgraph.load_xml(file).insert_into(self._graph_db)
         self._geoff_write(params)
 
-    def xml_merge(self, file):
+    def xml_merge(self, file_name=None):
         """ Merge XML data
         """
-        params = geoff.Subgraph.load_xml(open(file)).merge_into(self._graph_db)
+        if file_name:
+            file = open(file_name)
+        else:
+            file = sys.stdin
+        params = geoff.Subgraph.load_xml(file).merge_into(self._graph_db)
         self._geoff_write(params)
 
 
