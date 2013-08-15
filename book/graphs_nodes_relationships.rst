@@ -5,7 +5,7 @@ GraphDatabaseService
 --------------------
 
 .. autoclass:: py2neo.neo4j.GraphDatabaseService
-    :members: get_instance, clear, create, cypher, delete, find,
+    :members: get_instance, clear, create, delete, find,
         get_properties, match, match_one, neo4j_version, node, node_labels,
         order, relationship, relationship_types, schema, size,
         supports_index_uniqueness_modes, supports_node_labels, supports_schema_indexes,
