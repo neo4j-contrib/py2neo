@@ -943,15 +943,27 @@ class GraphDatabaseService(Cacheable, Resource):
 
 
 class CypherQuery(object):
-    """ A reusable Cypher query.
+    """ A reusable Cypher query. To create a new query object, a graph and the
+    query text need to be supplied::
 
-    .. seealso ::
-        :py:func:`Cypher.query`
+        >>> from py2neo import neo4j
+        >>> graph_db = neo4j.GraphDatabaseService()
+        >>> query = neo4j.CypherQuery(graph_db, "CREATE (a) RETURN a")
+
     """
 
     def __init__(self, graph_db, query):
         self._cypher = Resource(graph_db.__metadata__["cypher"])
         self._query = query
+
+    def __str__(self):
+        return self._query
+
+    @property
+    def string(self):
+        """ The text of the query.
+        """
+        return self._query
 
     def _execute(self, **params):
         if __debug__:
@@ -974,19 +986,45 @@ class CypherQuery(object):
                 raise CypherError(e)
 
     def run(self, **params):
+        """ Execute the query and discard any results.
+
+        :param params:
+        """
         self._execute(**params).close()
 
     def execute(self, **params):
+        """ Execute the query and return the results.
+
+        :param params:
+        :return:
+        :rtype: :py:class:`CypherResults <py2neo.neo4j.CypherResults>`
+        """
         return CypherResults(self._execute(**params))
 
     def execute_one(self, **params):
-        return self.execute(**params).data[0][0]
+        """ Execute the query and return the first value from the first row.
+
+        :param params:
+        :return:
+        """
+        try:
+            return self.execute(**params).data[0][0]
+        except IndexError:
+            return None
 
     def stream(self, **params):
+        """ Execute the query and return a result iterator.
+
+        :param params:
+        :return:
+        :rtype: :py:class:`IterableCypherResults <py2neo.neo4j.IterableCypherResults>`
+        """
         return IterableCypherResults(self._execute(**params))
 
 
 class CypherResults(object):
+    """ A static set of results from a Cypher query.
+    """
 
     signature = ("columns", "data")
 
@@ -1017,10 +1055,14 @@ class CypherResults(object):
 
     @property
     def columns(self):
+        """ Column names.
+        """
         return self._columns
 
     @property
     def data(self):
+        """ List of result records.
+        """
         return self._data
 
     def __iter__(self):
@@ -1028,12 +1070,12 @@ class CypherResults(object):
 
 
 class IterableCypherResults(object):
-    """ Iterable Cypher query execution results.
+    """ An iterable set of results from a Cypher query.
 
     ::
 
         query = graph_db.cypher.query("START n=node(*) RETURN n LIMIT 10")
-        for record in query.execute():
+        for record in query.stream():
             print record[0]
 
     Each record returned is cast into a :py:class:`namedtuple` with names
