@@ -973,6 +973,9 @@ class CypherQuery(object):
             else:
                 raise CypherError(e)
 
+    def run(self, **params):
+        self._execute(**params).close()
+
     def execute(self, **params):
         return CypherResults(self._execute(**params))
 
@@ -1005,6 +1008,12 @@ class CypherResults(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         return False
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, item):
+        return self._data[item]
 
     @property
     def columns(self):

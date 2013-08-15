@@ -41,6 +41,39 @@ def test_nonsense_query():
         assert False
 
 
+def test_can_run():
+    query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
+                                        "RETURN a.name")
+    query.run()
+    assert True
+
+
+def test_can_execute():
+    query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
+                                        "RETURN a.name")
+    results = query.execute()
+    assert len(results) == 1
+    assert len(results[0]) == 1
+    assert results[0][0] == "Alice"
+
+
+def test_can_execute_one():
+    query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
+                                        "RETURN a.name")
+    result = query.execute_one()
+    assert result == "Alice"
+
+
+def test_can_stream():
+    query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
+                                        "RETURN a.name")
+    stream = query.stream()
+    results = list(stream)
+    assert len(results) == 1
+    assert len(results[0]) == 1
+    assert results[0][0] == "Alice"
+
+
 def test_many_queries():
     graph_db = neo4j.GraphDatabaseService()
     node, = graph_db.create({})
