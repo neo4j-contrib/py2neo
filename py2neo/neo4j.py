@@ -584,7 +584,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
-            uri.query = {property_key: json.dumps(property_value)}
+            uri.query = {property_key: json.dumps(property_value, ensure_ascii=False)}
         try:
             for i, result in grouped(Resource(uri)._get()):
                 yield _hydrated(assembled(result))
@@ -1418,11 +1418,11 @@ class Node(_Entity):
         """ Return Cypher/Geoff style representation of this node.
         """
         if self.is_abstract:
-            return "({0})".format(json.dumps(self._properties, separators=(",", ":")))
+            return "({0})".format(json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False))
         elif self._properties:
             return "({0} {1})".format(
                 "" if self._id is None else self._id,
-                json.dumps(self._properties, separators=(",", ":")),
+                json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
             )
         else:
             return "({0})".format("" if self._id is None else self._id)
@@ -1714,12 +1714,12 @@ class Relationship(_Entity):
     def __str__(self):
         type_str = str(self.type)
         if not SIMPLE_NAME.match(type_str):
-            type_str = json.dumps(type_str)
+            type_str = json.dumps(type_str, ensure_ascii=False)
         if self._properties:
             return "{0}-[:{1} {2}]->{3}".format(
                 str(self.start_node),
                 type_str,
-                json.dumps(self._properties, separators=(",", ":")),
+                json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
                 str(self.end_node),
             )
         else:
@@ -1817,7 +1817,7 @@ class _UnboundRelationship(object):
 
     def __str__(self):
         return "-[:{0}]->".format(
-            json.dumps(str(self._type)),
+            json.dumps(str(self._type), ensure_ascii=False),
         )
 
     def bind(self, start_node, end_node):

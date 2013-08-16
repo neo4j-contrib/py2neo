@@ -26,6 +26,7 @@ import os
 import sys
 
 from . import __version__, __copyright__, neo4j, geoff
+from .util import ustr
 
 
 SCRIPT_NAME = "neotool"
@@ -71,15 +72,15 @@ class ResultWriter(object):
                 for item in value
             )
             if quoted:
-                out = json.dumps(out, separators=(',', ':'))
+                out = json.dumps(out, separators=(',', ':'), ensure_ascii=False)
         else:
             if quoted:
                 try:
-                    out = json.dumps(value)
+                    out = json.dumps(value, ensure_ascii=False)
                 except TypeError:
-                    out = json.dumps(str(value))
+                    out = json.dumps(ustr(value), ensure_ascii=False)
             else:
-                out = str(value)
+                out = ustr(value)
         return out
 
     @classmethod
@@ -88,26 +89,26 @@ class ResultWriter(object):
             out = "[" + ", ".join(cls._jsonify(i) for i in value) + "]"
         elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
             metadata = {
-                "uri": str(value.__uri__),
+                "uri": ustr(value.__uri__),
                 "properties": value._properties,
             }
             try:
                 metadata.update({
-                    "start": str(value.start_node.__uri__),
-                    "type": str(value.type),
-                    "end": str(value.end_node.__uri__),
+                    "start": ustr(value.start_node.__uri__),
+                    "type": ustr(value.type),
+                    "end": ustr(value.end_node.__uri__),
                 })
             except AttributeError:
                 pass
-            out = json.dumps(metadata)
+            out = json.dumps(metadata, ensure_ascii=False)
         else:
-            out = json.dumps(value)
+            out = json.dumps(value, ensure_ascii=False)
         return out
 
     def write_delimited(self, record_set, **kwargs):
         field_delimiter = kwargs.get("field_delimiter", "\t")
         self.out.write(field_delimiter.join([
-            json.dumps(column)
+            json.dumps(column, ensure_ascii=False)
             for column in record_set.columns
         ]))
         self.out.write("\n")
@@ -136,14 +137,14 @@ class ResultWriter(object):
             for i in range(len(row)):
                 update_descriptors(row[i])
         for node in sorted(nodes):
-            self.out.write(str(node))
+            self.out.write(ustr(node))
             self.out.write("\n")
         for rel in sorted(rels):
-            self.out.write(str(rel))
+            self.out.write(ustr(rel))
             self.out.write("\n")
 
     def write_json(self, record_set):
-        columns = [json.dumps(column) for column in record_set.columns]
+        columns = [json.dumps(column, ensure_ascii=False) for column in record_set.columns]
         row_count = 0
         self.out.write("[")
         for row in record_set:
@@ -318,7 +319,7 @@ class Tool(object):
         for key, value in params.items():
             sys.stdout.write(key)
             sys.stdout.write("\t")
-            sys.stdout.write(str(value))
+            sys.stdout.write(ustr(value))
             sys.stdout.write("\n")
 
     def geoff_insert(self, file_name=None):
@@ -367,6 +368,6 @@ if __name__ == "__main__":
         Tool().do(sys.argv)
         sys.exit(0)
     except Exception as err:
-        sys.stderr.write(*err.args)
+        sys.stderr.write(ustr(err))
         sys.stderr.write("\n")
         sys.exit(1)

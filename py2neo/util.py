@@ -28,7 +28,7 @@ import warnings
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all"]
+           "version_tuple", "is_collection", "has_all", "ustr"]
 
 
 def numberise(n):
@@ -138,3 +138,8 @@ def is_collection(obj):
 
 
 has_all = lambda iterable, items: all(item in iterable for item in items)
+
+try:
+    ustr = unicode
+except NameError:
+    ustr = str

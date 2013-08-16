@@ -21,7 +21,7 @@ import unittest
 from py2neo import geoff
 
 
-FIXTURES = os.path.join(os.path.dirname(__file__), "_fix")
+FIXTURES = os.path.join(os.path.dirname(__file__), "files")
 
 
 class XMLTestCase(unittest.TestCase):

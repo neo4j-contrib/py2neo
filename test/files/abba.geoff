@@ -1,0 +1,6 @@
+(AF {"name": "Agnetha"})
+(BA {"name": "Benny"})
+(BU {"name": "Björn"})
+(AL {"name": "Anni-Frid"})
+(AF)-[:MARRIED]->(BU)
+(AL)-[:MARRIED]->(BA)
