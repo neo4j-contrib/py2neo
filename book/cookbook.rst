@@ -1,38 +1,31 @@
+========
 Cookbook
 ========
 
-If you want to jump in and start coding, the following short programme
-illustrates a simple usage of the py2neo library::
+Creating a Simple Graph
+=======================
 
-    from py2neo import neo4j, cypher
+Listed below are a couple of short examples on how to create a simple graph.
 
-    # attach to a local graph database service
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+Using the Regular REST API
+--------------------------
 
-    # create two nodes and a relationship between them
-    #   (Alice)-[:KNOWS]->(Bob)
-    alice, bob, ab = graph_db.create(
-        node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1)
-    )
+    from py2neo import neo4j
 
-    # build a Cypher query and related parameters
-    query = (
-        "START a = node({A}) "
-        "MATCH (a)-[:KNOWS]->(b) "
-        "RETURN a, b"
-    )
-    params = {"A": alice.id_}
+    graph_db = neo4j.GraphDatabaseService()
+    a, b, ab = graph_db.create(node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1))
 
-    # define a row handler
-    def print_row(row):
-        a, b = row
-        print(a["name"] + " knows " + b["name"])
+Using Cypher
+------------
 
-    # execute the query
-    cypher.execute(graph_db, query, params, row_handler=print_row)
+    from py2neo import neo4j
+
+    graph_db = neo4j.GraphDatabaseService()
+    query = neo4j.CypherQuery(db, "create (a {name:{name_a}})-[ab:KNOWS]->(b {name:{name_b}}) return a, b, ab")
+    a, b, ab = query.execute(name_a="Alice", name_b="Bob").data[0]
 
 Batch Insertion using Index
----------------------------
+===========================
 
 ::
 
