@@ -60,14 +60,14 @@ class UnexpectedCharacter(ValueError):
 class Tokeniser(object):
 
     ESCAPE_SEQUENCES = {
-        '"': u'"',
-        '\\': u'\\',
-        '/': u'/',
-        'b': u'\b',
-        'f': u'\f',
-        'n': u'\n',
-        'r': u'\r',
-        't': u'\t',
+        '"': '"',
+        '\\': '\\',
+        '/': '/',
+        'b': '\b',
+        'f': '\f',
+        'n': '\n',
+        'r': '\r',
+        't': '\t',
     }
 
     def __init__(self):
@@ -182,7 +182,7 @@ class Tokeniser(object):
         except AwaitingData:
             self.data.seek(pos)
             raise AwaitingData()
-        return "".join(src), u"".join(value)
+        return "".join(src), "".join(value)
 
     def _read_number(self):
         pos = self.data.tell()
