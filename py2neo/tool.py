@@ -21,7 +21,9 @@
 
 from __future__ import unicode_literals
 
+import codecs
 import json
+import locale
 import os
 import sys
 
@@ -29,6 +31,7 @@ from . import __version__, __copyright__, neo4j, geoff
 from .util import ustr
 
 
+PY3 = sys.version > '3'
 SCRIPT_NAME = "neotool"
 HELP = """\
 Usage:
@@ -49,9 +52,13 @@ Commands:
   cypher-tsv <query>    Execute Cypher query and output as tab separated values
   geoff-insert <file>   Insert Geoff data
   geoff-merge <file>    Merge Geoff data
-  xml-insert <file>     Insert XML data
-  xml-merge <file>      Merge XML data
+  xml-geoff <file>      Convert XML data to Geoff data
 """
+
+if not PY3:
+    sys.stdin = codecs.getreader(locale.getpreferredencoding())(sys.stdin)
+    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
+    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
 
 
 class ResultWriter(object):
@@ -317,16 +324,16 @@ class Tool(object):
 
     def _geoff_write(self, params):
         for key, value in params.items():
-            sys.stdout.write(key)
-            sys.stdout.write("\t")
-            sys.stdout.write(ustr(value))
-            sys.stdout.write("\n")
+            self._out.write(key)
+            self._out.write("\t")
+            self._out.write(ustr(value))
+            self._out.write("\n")
 
     def geoff_insert(self, file_name=None):
         """ Insert Geoff data
         """
         if file_name:
-            file = open(file_name)
+            file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
         params = geoff.Subgraph.load(file).insert_into(self._graph_db)
@@ -336,31 +343,22 @@ class Tool(object):
         """ Merge Geoff data
         """
         if file_name:
-            file = open(file_name)
+            file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
         params = geoff.Subgraph.load(file).merge_into(self._graph_db)
         self._geoff_write(params)
 
-    def xml_insert(self, file_name=None):
-        """ Insert XML data
+    def xml_geoff(self, file_name=None):
+        """ Convert XML data to Geoff.
         """
         if file_name:
-            file = open(file_name)
+            file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
-        params = geoff.Subgraph.load_xml(file).insert_into(self._graph_db)
-        self._geoff_write(params)
-
-    def xml_merge(self, file_name=None):
-        """ Merge XML data
-        """
-        if file_name:
-            file = open(file_name)
-        else:
-            file = sys.stdin
-        params = geoff.Subgraph.load_xml(file).merge_into(self._graph_db)
-        self._geoff_write(params)
+        subgraph = geoff.Subgraph.load_xml(file)
+        self._out.write(subgraph._source)
+        self._out.write("\n")
 
 
 if __name__ == "__main__":

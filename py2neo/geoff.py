@@ -55,17 +55,26 @@ class Subgraph(object):
     def load_xml(cls, file):
         """ Load and convert data within an XML file into a Subgraph.
         """
-        nodes, rels, buffer = [], [], []
+        nodes, rels, buffer, node_ids = [], [], [], []
+
         def node_no(node):
             if node not in nodes:
+                n = len(nodes) + 1
                 nodes.append(node)
+                node_ids.append(node.attrib.get("id", "node_{0}".format(n)))
             return nodes.index(node)
+
         def walk(parent, child):
             if parent is not None:
-                rels.append((node_no(parent), child.tag, node_no(child)))
+                rels.append((node_no(parent), child.tag, node_no(child),
+                             dict((key, value)
+                                  for key, value in child.attrib.items()
+                                  if key != "id")
+                ))
             for grandchild in child:
                 if len(grandchild) > 0:
                     walk(child, grandchild)
+
         def typed(value):
             try:
                 return int(value)
@@ -74,28 +83,46 @@ class Subgraph(object):
                     return float(value)
                 except ValueError:
                     return value
-        walk(None, ElementTree.parse(file).getroot())
+
+        src = file.read()
+        file.close()
+        walk(None, ElementTree.fromstring(src.encode("utf-8")))
         for i, node in enumerate(nodes):
             properties = {}
-            for key, value in node.attrib.items():
-                properties[key] = typed(value)
             for child in node:
-                text = child.text.strip()
-                if text:
-                    properties[child.tag] = typed(text)
+                is_leaf = len(child) == 0
+                if child.text:
+                    inner_value = typed(child.text.strip())
+                else:
+                    inner_value = None
+                if is_leaf:
+                    if inner_value is not None:
+                        properties[child.tag] = inner_value
                     for key, value in child.attrib.items():
-                        properties[child.tag + " " + key] = typed(value)
+                        if key != "id":
+                            properties[child.tag + " " + key] = typed(value)
             if properties:
-                buffer.append("(N{0} {1})".format(i, json.dumps(
-                    properties, separators=(",", ":"), sort_keys=True)))
+                buffer.append("({0} {1})".format(node_ids[i], json.dumps(
+                    properties, separators=(",", ":"), ensure_ascii=False,
+                    sort_keys=True)))
             else:
-                buffer.append("(N{0})".format(i))
+                buffer.append("({0})".format(node_ids[i]))
         for rel in rels:
-            buffer.append("(N{0})-[:{1}]->(N{2})".format(
-                rel[0],
-                rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1]),
-                rel[2],
-            ))
+            properties = rel[3]
+            if properties:
+                buffer.append("({0})-[:{1} {3}]->({2})".format(
+                    node_ids[rel[0]],
+                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1]),
+                    node_ids[rel[2]],
+                    json.dumps(properties, separators=(",", ":"),
+                               ensure_ascii=False, sort_keys=True),
+                ))
+            else:
+                buffer.append("({0})-[:{1}]->({2})".format(
+                    node_ids[rel[0]],
+                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1], ensure_ascii=False),
+                    node_ids[rel[2]],
+                ))
         return cls("\n".join(buffer))
 
     def __init__(self, source):
@@ -191,17 +218,17 @@ class Subgraph(object):
                 return "(out{0})".format(output_names.index(name))
             else:
                 try:
-                    params["sp" + str(i)] = self._nodes[name].properties
+                    params["sp{0}".format(i)] = self._nodes[name].properties
                 except KeyError:
                     raise SystemError("Broken internal reference - "
                                       "node '{0}' not found".format(name))
                 output_names.append(name)
-                return "(out{0} {{{1}}})".format(output_names.index(name), "sp" + str(i))
+                return "(out{0} {{{1}}})".format(output_names.index(name), "sp{0}".format(i))
             #
         def rel_pattern(i, type_, properties):
             if properties:
-                params["rp" + str(i)] = properties
-                return "-[:`{0}` {{{1}}}]->".format(type_, "rp" + str(i))
+                params["rp{0}".format(i)] = properties
+                return "-[:`{0}` {{{1}}}]->".format(type_, "rp{0}".format(i))
             else:
                 return "-[:`{0}`]->".format(type_)
             #
@@ -302,7 +329,7 @@ class _Parser(object):
     JSON_BOOLEAN = re.compile(r'(true|false)', re.IGNORECASE)
     JSON_NUMBER  = re.compile(r'(-?(0|[1-9]\d*)(\.\d+)?(e[+-]?\d+)?)', re.IGNORECASE)
     JSON_STRING  = re.compile(r'''(".*?(?<!\\)")''')
-    NAME         = re.compile(r'(\w+)', re.LOCALE | re.UNICODE)
+    NAME         = re.compile(r'(\w+)', re.UNICODE)
     WHITESPACE   = re.compile(r'(\s*)')
 
     def __init__(self, source):
