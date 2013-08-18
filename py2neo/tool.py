@@ -56,9 +56,10 @@ Commands:
 """
 
 if not PY3:
-    sys.stdin = codecs.getreader(locale.getpreferredencoding())(sys.stdin)
-    sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
-    sys.stderr = codecs.getwriter(locale.getpreferredencoding())(sys.stderr)
+    preferred_encoding = locale.getpreferredencoding()
+    sys.stdin = codecs.getreader(preferred_encoding)(sys.stdin)
+    sys.stdout = codecs.getwriter(preferred_encoding)(sys.stdout)
+    sys.stderr = codecs.getwriter(preferred_encoding)(sys.stderr)
 
 
 class ResultWriter(object):
