@@ -77,7 +77,7 @@ class Subgraph(object):
         walk(None, ElementTree.parse(file).getroot())
         for i, node in enumerate(nodes):
             properties = {}
-            for key, value in node.attrib:
+            for key, value in node.attrib.items():
                 properties[key] = typed(value)
             for child in node:
                 text = child.text.strip()
