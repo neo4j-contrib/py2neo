@@ -2,8 +2,8 @@ Command Line Tool
 =================
 
 Py2neo provides a generic command line tool which taps into some of the
-functionality available within the library. This tool can be used by direct
-access to the Python module::
+functionality available within the library. This tool can be used directly from
+the Python module::
 
     python -m py2neo.tool --help
 
@@ -113,10 +113,9 @@ Inserting/Merging Geoff Data
     neotool geoff-insert example.geoff
     neotool geoff-merge example.geoff
 
-Inserting/Merging XML Data
---------------------------
+Converting XML Data into Geoff
+------------------------------
 ::
 
-    neotool geoff-insert example.xml
-    neotool geoff-merge example.xml
+    neotool xml-geoff example.xml
 
