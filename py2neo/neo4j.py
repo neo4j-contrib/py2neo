@@ -2577,7 +2577,11 @@ class ReadBatch(BatchRequestList):
 
 
 class WriteBatch(BatchRequestList):
-    """ Generic batch execution facility for data write requests,
+    """ Generic batch execution facility for data write requests. Most methods
+    return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
+    can be used as a reference in other methods. See the
+    :py:meth:`create <py2neo.neo4j.WriteBatch.create>` method for an example
+    of this.
     """
 
     def __init__(self, graph_db):
@@ -2598,9 +2602,9 @@ class WriteBatch(BatchRequestList):
         provided. For example::
 
             batch = WriteBatch(graph_db)
-            batch.create(node(name="Alice"))
-            batch.create(node(name="Bob"))
-            batch.create(rel(0, "KNOWS", 1))
+            a = batch.create(node(name="Alice"))
+            b = batch.create(node(name="Bob"))
+            batch.create(rel(a, "KNOWS", b))
             results = batch.submit()
 
         :param abstract: node or relationship
