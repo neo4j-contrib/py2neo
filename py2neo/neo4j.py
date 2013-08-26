@@ -820,6 +820,9 @@ class GraphDatabaseService(Cacheable, Resource):
         index_manager = self._index_manager(content_type)
         index_index = index_manager._get().content
         if index_index:
+            for key, value in index_index.items():
+                print(key, content_type, value["template"])
+                Index(content_type, value["template"])
             self._indexes[content_type] = dict(
                 (key, Index(content_type, value["template"]))
                 for key, value in index_index.items()
@@ -2044,11 +2047,11 @@ class Index(Cacheable, Resource):
     """
 
     def __init__(self, content_type, uri, name=None):
-        if "{" in uri:
+        self._content_type = content_type
+        key_value_pos = uri.find("/{key}/{value}")
+        if key_value_pos >= 0:
             self._searcher = ResourceTemplate(uri)
-            self_uri = URI(uri)
-            self_uri = self_uri.resolve("/".join(self_uri.path.segments[:-2]))
-            Resource.__init__(self, self_uri)
+            Resource.__init__(self, URI(uri[:key_value_pos]))
         else:
             Resource.__init__(self, uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
@@ -2060,7 +2063,6 @@ class Index(Cacheable, Resource):
             self._create_or_fail = None
             self._get_or_create = Resource(uri.resolve("?unique"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
-        self._content_type = content_type
         self._name = name or uri.path.segments[-1]
 
     def __repr__(self):

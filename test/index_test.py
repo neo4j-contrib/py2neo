@@ -36,6 +36,10 @@ class CreationAndDeletionTests(unittest.TestCase):
     def setUp(self):
         self.graph_db = default_graph_db()
 
+    def test_can_create_index_object_with_colon_in_name(self):
+        uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
+        index = neo4j.Index(neo4j.Node, uri)
+
     def test_can_delete_create_and_delete_index(self):
         try:
             self.graph_db.delete_index(neo4j.Node, "foo")
@@ -50,6 +54,22 @@ class CreationAndDeletionTests(unittest.TestCase):
         self.assertEqual(neo4j.Node, foo.content_type)
         self.graph_db.delete_index(neo4j.Node, "foo")
         foo = self.graph_db.get_index(neo4j.Node, "foo")
+        self.assertTrue(foo is None)
+
+    def test_can_delete_create_and_delete_index_with_colon_in_name(self):
+        try:
+            self.graph_db.delete_index(neo4j.Node, "foo:bar")
+        except LookupError:
+            pass
+        foo = self.graph_db.get_index(neo4j.Node, "foo:bar")
+        self.assertTrue(foo is None)
+        foo = self.graph_db.get_or_create_index(neo4j.Node, "foo:bar")
+        self.assertIsNotNone(foo)
+        self.assertIsInstance(foo, neo4j.Index)
+        self.assertEqual("foo:bar", foo.name)
+        self.assertEqual(neo4j.Node, foo.content_type)
+        self.graph_db.delete_index(neo4j.Node, "foo:bar")
+        foo = self.graph_db.get_index(neo4j.Node, "foo:bar")
         self.assertTrue(foo is None)
 
 
