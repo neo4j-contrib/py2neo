@@ -109,6 +109,28 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
 
+    def test_add_existing_node_to_index_with_slash_in_key(self):
+        node, = self.graph_db.create({"foo": "bar"})
+        key = "foo/bar"
+        value = "bar"
+        self.index.add(key, value, node)
+        entities = self.index.get(key, value)
+        self.assertIsNotNone(entities)
+        self.assertTrue(isinstance(entities, list))
+        self.assertEqual(1, len(entities))
+        self.assertEqual(node, entities[0])
+
+    def test_add_existing_node_to_index_with_slash_in_value(self):
+        node, = self.graph_db.create({"foo": "bar"})
+        key = "foo"
+        value = "foo/bar"
+        self.index.add(key, value, node)
+        entities = self.index.get(key, value)
+        self.assertIsNotNone(entities)
+        self.assertTrue(isinstance(entities, list))
+        self.assertEqual(1, len(entities))
+        self.assertEqual(node, entities[0])
+
     def test_add_multiple_existing_nodes_to_index_under_same_key_and_value(self):
         alice, bob, carol = self.graph_db.create(
             {"name": "Alice Smith"},

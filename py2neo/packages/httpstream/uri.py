@@ -313,36 +313,36 @@ class Path(_Part):
     def __init__(self, string):
         super(Path, self).__init__()
         if string is None:
-            self._path = None
+            self._segments = None
         else:
-            self._path = percent_decode(string)
+            self._segments = list(map(percent_decode, string.split("/")))
 
     def __eq__(self, other):
         other = self._cast(other)
-        return self._path == other._path
+        return self._segments == other._segments
 
     def __ne__(self, other):
         other = self._cast(other)
-        return self._path != other._path
+        return self._segments != other._segments
 
     def __hash__(self):
         return hash(self.string)
 
     @property
     def string(self):
-        if self._path is None:
+        if self._segments is None:
             return None
-        return percent_encode(self._path, "/")
+        return "/".join(map(percent_encode, self._segments))
 
     @property
     def segments(self):
-        if self._path is None:
+        if self._segments is None:
             return []
         else:
-            return self._path.split("/")
+            return list(self._segments)
 
     def __iter__(self):
-        return iter(self.segments)
+        return iter(self._segments)
 
     def remove_dot_segments(self):
         """ Implementation of RFC3986, section 5.2.4
@@ -376,18 +376,20 @@ class Path(_Part):
         return Path(out)
 
     def with_trailing_slash(self):
-        if self._path is None:
+        if self._segments is None:
             return self
-        elif self._path.endswith("/"):
+        s = self.string
+        if s.endswith("/"):
             return self
         else:
-            return Path(self._path + "/")
+            return Path(s + "/")
 
     def without_trailing_slash(self):
-        if self._path is None:
+        if self._segments is None:
             return self
-        elif self._path.endswith("/"):
-            return Path(self._path[:-1])
+        s = self.string
+        if s.endswith("/"):
+            return Path(s[:-1])
         else:
             return self
 
