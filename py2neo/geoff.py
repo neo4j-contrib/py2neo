@@ -52,10 +52,20 @@ class Subgraph(object):
         return cls(file.read())
 
     @classmethod
-    def load_xml(cls, file):
+    def load_xml(cls, file, prefixes=None):
         """ Load and convert data within an XML file into a Subgraph.
         """
+        TAG_PATTERN = re.compile(r"^(\{(.*)\})?(.*)$")
+        if prefixes:
+            prefixes = dict((b,a) for a,b in prefixes.items())
         nodes, rels, buffer, node_ids = [], [], [], []
+
+        def local(tag):
+            groups = TAG_PATTERN.match(tag).groups()
+            if prefixes and groups[1] and groups[1] in prefixes:
+                return prefixes[groups[1]] + "_" + groups[2]
+            else:
+                return groups[2]
 
         def node_no(node):
             if node not in nodes:
@@ -66,7 +76,7 @@ class Subgraph(object):
 
         def walk(parent, child):
             if parent is not None:
-                rels.append((node_no(parent), child.tag, node_no(child),
+                rels.append((node_no(parent), local(child.tag), node_no(child),
                              dict((key, value)
                                   for key, value in child.attrib.items()
                                   if key != "id")
@@ -97,10 +107,10 @@ class Subgraph(object):
                     inner_value = None
                 if is_leaf:
                     if inner_value is not None:
-                        properties[child.tag] = inner_value
+                        properties[local(child.tag)] = inner_value
                     for key, value in child.attrib.items():
                         if key != "id":
-                            properties[child.tag + " " + key] = typed(value)
+                            properties[local(child.tag) + " " + local(key)] = typed(value)
             if properties:
                 buffer.append("({0} {1})".format(node_ids[i], json.dumps(
                     properties, separators=(",", ":"), ensure_ascii=False,
@@ -112,7 +122,7 @@ class Subgraph(object):
             if properties:
                 buffer.append("({0})-[:{1} {3}]->({2})".format(
                     node_ids[rel[0]],
-                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1]),
+                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1], ensure_ascii=False),
                     node_ids[rel[2]],
                     json.dumps(properties, separators=(",", ":"),
                                ensure_ascii=False, sort_keys=True),
