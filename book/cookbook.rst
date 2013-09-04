@@ -10,6 +10,8 @@ Listed below are a couple of short examples on how to create a simple graph.
 Using the Regular REST API
 --------------------------
 
+::
+
     from py2neo import neo4j
 
     graph_db = neo4j.GraphDatabaseService()
@@ -17,6 +19,8 @@ Using the Regular REST API
 
 Using Cypher
 ------------
+
+::
 
     from py2neo import neo4j
 
