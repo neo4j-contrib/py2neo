@@ -885,9 +885,8 @@ class GraphDatabaseService(Cacheable, Resource):
 
         :param content_type: either :py:class:`neo4j.Node` or
             :py:class:`neo4j.Relationship`
-        :param index_name: the name of the required index
-        :return: :py:const:`True` if the index was deleted, :py:const:`False`
-            otherwise
+        :param index_name: the name of the index to delete
+        :raise LookupError: if the specified index does not exist
         """
         if index_name not in self._indexes[content_type]:
             self.get_indexes(content_type)
