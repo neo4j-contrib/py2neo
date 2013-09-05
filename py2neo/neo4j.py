@@ -820,9 +820,6 @@ class GraphDatabaseService(Cacheable, Resource):
         index_manager = self._index_manager(content_type)
         index_index = index_manager._get().content
         if index_index:
-            for key, value in index_index.items():
-                print(key, content_type, value["template"])
-                Index(content_type, value["template"])
             self._indexes[content_type] = dict(
                 (key, Index(content_type, value["template"]))
                 for key, value in index_index.items()
