@@ -119,3 +119,55 @@ Converting XML Data into Geoff
 
     neotool xml-geoff example.xml
 
+Namespaces in more complex XML files are suppressed by default. The example
+below shows the output from conversion of an XBRL file that is included as a
+test file within the project source code::
+
+    $ python -m py2neo.tool xml-geoff test/files/statement.xbrl
+    (node_1 {"OtherAdministrativeExpenses":35996000000,"OtherAdministrativeExpenses contextRef":"J2004","OtherAdministrativeExpenses decimals":0,"OtherAdministrativeExpenses unitRef":"EUR","OtherOperatingExpenses":870000000,"OtherOperatingExpenses contextRef":"J2004","OtherOperatingExpenses decimals":0,"OtherOperatingExpenses unitRef":"EUR","OtherOperatingIncomeTotalByNature":10430000000,"OtherOperatingIncomeTotalByNature contextRef":"J2004","OtherOperatingIncomeTotalByNature decimals":0,"OtherOperatingIncomeTotalByNature unitRef":"EUR","OtherOperatingIncomeTotalFinancialInstitutions":38679000000,"OtherOperatingIncomeTotalFinancialInstitutions contextRef":"J2004","OtherOperatingIncomeTotalFinancialInstitutions decimals":0,"OtherOperatingIncomeTotalFinancialInstitutions unitRef":"EUR","schemaRef href":"http://www.org.com/xbrl/taxonomy","schemaRef type":"simple"})
+    (BJ2004)
+    (node_3 {"identifier":"ACME","identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_4 {"instant":"2004-01-01"})
+    (EJ2004)
+    (node_6 {"identifier":"ACME","identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_7 {"instant":"2004-12-31"})
+    (J2004)
+    (node_9 {"identifier":"ACME","identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_10 {"endDate":"2004-12-31","startDate":"2004-01-01"})
+    (EUR {"measure":"iso4217:EUR"})
+    (node_1)-[:context]->(BJ2004)
+    (BJ2004)-[:entity]->(node_3)
+    (BJ2004)-[:period]->(node_4)
+    (node_1)-[:context]->(EJ2004)
+    (EJ2004)-[:entity]->(node_6)
+    (EJ2004)-[:period]->(node_7)
+    (node_1)-[:context]->(J2004)
+    (J2004)-[:entity]->(node_9)
+    (J2004)-[:period]->(node_10)
+    (node_1)-[:unit]->(EUR)
+
+Namespace prefixes can however be supplied on the command line. These are
+prefixed to relationship type names in the output::
+
+    $ python -m py2neo.tool xml-geoff test/files/statement.xbrl xbrli="http://www.xbrl.org/2003/instance"
+    (node_1 {"OtherAdministrativeExpenses":35996000000,"OtherAdministrativeExpenses contextRef":"J2004","OtherAdministrativeExpenses decimals":0,"OtherAdministrativeExpenses unitRef":"EUR","OtherOperatingExpenses":870000000,"OtherOperatingExpenses contextRef":"J2004","OtherOperatingExpenses decimals":0,"OtherOperatingExpenses unitRef":"EUR","OtherOperatingIncomeTotalByNature":10430000000,"OtherOperatingIncomeTotalByNature contextRef":"J2004","OtherOperatingIncomeTotalByNature decimals":0,"OtherOperatingIncomeTotalByNature unitRef":"EUR","OtherOperatingIncomeTotalFinancialInstitutions":38679000000,"OtherOperatingIncomeTotalFinancialInstitutions contextRef":"J2004","OtherOperatingIncomeTotalFinancialInstitutions decimals":0,"OtherOperatingIncomeTotalFinancialInstitutions unitRef":"EUR","schemaRef href":"http://www.org.com/xbrl/taxonomy","schemaRef type":"simple"})
+    (BJ2004)
+    (node_3 {"xbrli_identifier":"ACME","xbrli_identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_4 {"xbrli_instant":"2004-01-01"})
+    (EJ2004)
+    (node_6 {"xbrli_identifier":"ACME","xbrli_identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_7 {"xbrli_instant":"2004-12-31"})
+    (J2004)
+    (node_9 {"xbrli_identifier":"ACME","xbrli_identifier scheme":"www.iqinfo.com/xbrl"})
+    (node_10 {"xbrli_endDate":"2004-12-31","xbrli_startDate":"2004-01-01"})
+    (EUR {"xbrli_measure":"iso4217:EUR"})
+    (node_1)-[:xbrli_context]->(BJ2004)
+    (BJ2004)-[:xbrli_entity]->(node_3)
+    (BJ2004)-[:xbrli_period]->(node_4)
+    (node_1)-[:xbrli_context]->(EJ2004)
+    (EJ2004)-[:xbrli_entity]->(node_6)
+    (EJ2004)-[:xbrli_period]->(node_7)
+    (node_1)-[:xbrli_context]->(J2004)
+    (J2004)-[:xbrli_entity]->(node_9)
+    (J2004)-[:xbrli_period]->(node_10)
+    (node_1)-[:xbrli_unit]->(EUR)

@@ -37,22 +37,22 @@ HELP = """\
 Usage:
   {script} <options> <command> <args>
 Options:
-  -h/--help [<command>]  Show tool usage
-  -v/--version           Show tool version
-  -c/--copyright         Show tool copyright
-  -S/--scheme <scheme>   Set database scheme
-  -H/--host <host>       Set database host
-  -P/--port <port>       Set database port
+  -h/--help [<command>]          Show tool usage
+  -v/--version                   Show tool version
+  -c/--copyright                 Show tool copyright
+  -S/--scheme <scheme>           Set database scheme
+  -H/--host <host>               Set database host
+  -P/--port <port>               Set database port
 Commands:
-  clear                 Clear all nodes and relationships
-  cypher <query>        Execute Cypher query and output as text
-  cypher-csv <query>    Execute Cypher query and output as CSV
-  cypher-geoff <query>  Execute Cypher query and output as Geoff
-  cypher-json <query>   Execute Cypher query and output as JSON
-  cypher-tsv <query>    Execute Cypher query and output as tab separated values
-  geoff-insert <file>   Insert Geoff data
-  geoff-merge <file>    Merge Geoff data
-  xml-geoff <file>      Convert XML data to Geoff data
+  clear                          Clear all nodes and relationships
+  cypher <query>                 Execute Cypher and output as text
+  cypher-csv <query>             Execute Cypher and output as CSV
+  cypher-geoff <query>           Execute Cypher and output as Geoff
+  cypher-json <query>            Execute Cypher and output as JSON
+  cypher-tsv <query>             Execute Cypher and output as TSV
+  geoff-insert <file>            Insert Geoff data
+  geoff-merge <file>             Merge Geoff data
+  xml-geoff <file> [<xmlns>...]  Convert XML data to Geoff data
 """
 
 if not PY3:
@@ -251,12 +251,12 @@ class Tool(object):
         self._out.write(HELP.format(script=script))
         self._copyright()
 
-    def do(self, args):
-        self._script = args.pop(0)
+    def do(self, argv):
+        self._script = argv.pop(0)
         command = None
         while not command:
             try:
-                arg = args.pop(0)
+                arg = argv.pop(0)
             except IndexError:
                 self._help()
                 sys.exit(0)
@@ -271,11 +271,11 @@ class Tool(object):
                     self._copyright()
                     sys.exit(0)
                 elif arg in ("-S", "--scheme"):
-                    self._scheme = args.pop(0)
+                    self._scheme = argv.pop(0)
                 elif arg in ("-H", "--host"):
-                    self._host = args.pop(0)
+                    self._host = argv.pop(0)
                 elif arg in ("-P", "--port"):
-                    self._port = int(args.pop(0))
+                    self._port = int(argv.pop(0))
                 else:
                     raise ValueError("Unknown option {0}".format(repr(arg)))
             else:
@@ -284,7 +284,17 @@ class Tool(object):
             method = getattr(self, command.replace("-", "_"))
         except AttributeError:
             raise ValueError("Unknown command {0}".format(repr(command)))
-        method(*args)
+        args, kwargs = [], {}
+        for arg in argv:
+            if "=" in arg:
+                key, value = arg.partition("=")[0::2]
+                kwargs[key] = value
+            else:
+                args.append(arg)
+        try:
+            method(*args, **kwargs)
+        except TypeError as e:
+            raise ValueError("Incorrect usage: {0}".format(e))
 
     def clear(self):
         """ Clear all nodes and relationships.
@@ -298,27 +308,27 @@ class Tool(object):
         writer = ResultWriter(self._out)
         writer.write(format_, record_set)
 
-    def cypher(self, query, params=None):
+    def cypher(self, query, **params):
         """ Execute Cypher query and output as text.
         """
         self._cypher("text", query, params)
 
-    def cypher_csv(self, query, params=None):
+    def cypher_csv(self, query, **params):
         """ Execute Cypher query and output as comma separated values
         """
         self._cypher("csv", query, params)
 
-    def cypher_geoff(self, query, params=None):
+    def cypher_geoff(self, query, **params):
         """ Execute Cypher query and output as Geoff
         """
         self._cypher("geoff", query, params)
 
-    def cypher_json(self, query, params=None):
+    def cypher_json(self, query, **params):
         """ Execute Cypher query and output as JSON
         """
         self._cypher("json", query, params)
 
-    def cypher_tsv(self, query, params=None):
+    def cypher_tsv(self, query, **params):
         """ Execute Cypher query and output as tab separated values
         """
         self._cypher("tsv", query, params)
@@ -350,14 +360,14 @@ class Tool(object):
         params = geoff.Subgraph.load(file).merge_into(self._graph_db)
         self._geoff_write(params)
 
-    def xml_geoff(self, file_name=None):
+    def xml_geoff(self, file_name=None, **prefixes):
         """ Convert XML data to Geoff.
         """
         if file_name:
             file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
-        subgraph = geoff.Subgraph.load_xml(file)
+        subgraph = geoff.Subgraph.load_xml(file, prefixes=prefixes)
         self._out.write(subgraph._source)
         self._out.write("\n")
 

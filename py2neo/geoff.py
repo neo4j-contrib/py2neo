@@ -34,7 +34,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
+SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")
 
 
 class ConstraintViolation(ValueError):
