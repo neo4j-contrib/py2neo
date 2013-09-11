@@ -278,21 +278,6 @@ class Resource(object):
     `httpstream.Resource`.
     """
 
-    class Metadata(object):
-
-        @classmethod
-        def load(cls, resource):
-            return cls(assembled(resource.get()))
-
-        def __init__(self, metadata):
-            self._metadata = dict(metadata)
-
-        def __getitem__(self, key):
-            return self._metadata[key]
-
-        def __iter__(self):
-            return iter(self._metadata.items())
-
     def __init__(self, uri):
         uri = URI(uri)
         scheme_host_port = (uri.scheme, uri.host, uri.port)
@@ -351,7 +336,7 @@ class Resource(object):
         """ Refresh resource metadata.
         """
         if not self.is_abstract:
-            self._metadata = Resource.Metadata.load(self._resource)
+            self._metadata = ResourceMetadata.load(self._resource)
 
     def _get(self):
         try:
@@ -402,6 +387,22 @@ class Resource(object):
                 cls = Resource
             self._subresources[key] = cls(uri)
         return self._subresources[key]
+
+
+class ResourceMetadata(object):
+
+    @classmethod
+    def load(cls, resource):
+        return cls(assembled(resource.get()))
+
+    def __init__(self, metadata):
+        self._metadata = dict(metadata)
+
+    def __getitem__(self, key):
+        return self._metadata[key]
+
+    def __iter__(self):
+        return iter(self._metadata.items())
 
 
 class ResourceTemplate(_ResourceTemplate):
@@ -1349,7 +1350,7 @@ class Node(_Entity):
     @classmethod
     def _hydrated(cls, data):
         obj = cls(data["self"])
-        obj._metadata = Resource.Metadata(data)
+        obj._metadata = ResourceMetadata(data)
         obj._properties = data.get("data", {})
         return obj
 
@@ -1647,7 +1648,7 @@ class Relationship(_Entity):
     @classmethod
     def _hydrated(cls, data):
         obj = cls(data["self"])
-        obj._metadata = Resource.Metadata(data)
+        obj._metadata = ResourceMetadata(data)
         obj._properties = data.get("data", {})
         return obj
 
