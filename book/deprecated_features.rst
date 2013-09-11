@@ -7,7 +7,7 @@ removed. The list below shows all features deprecated in version 1.6.
 Cypher
 --------------------
 
-.. autofunc:: py2neo.cypher.execute
+.. autofunction:: py2neo.cypher.execute
 
 WriteBatch
 ----------
