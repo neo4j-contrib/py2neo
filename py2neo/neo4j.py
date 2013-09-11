@@ -655,6 +655,8 @@ class GraphDatabaseService(Cacheable, Resource):
             also be included
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+        :return: matching relationships
+        :rtype: generator
         """
         if start_node is None and end_node is None:
             query = "START a=node(*)"
@@ -1459,6 +1461,8 @@ class Node(_Entity):
             relationship or :py:const:`None` if any
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+        :return: matching relationships
+        :rtype: generator
 
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
@@ -1476,6 +1480,8 @@ class Node(_Entity):
             :py:const:`None` if any
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+        :return: matching relationships
+        :rtype: generator
 
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
@@ -1493,6 +1499,8 @@ class Node(_Entity):
             :py:const:`None` if any
         :param limit: maximum number of relationships to match or
             :py:const:`None` if no limit
+        :return: matching relationships
+        :rtype: generator
 
         .. seealso::
            :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
