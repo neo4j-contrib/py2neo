@@ -75,7 +75,7 @@ batch_log = logging.getLogger(__name__ + ".batch")
 cypher_log = logging.getLogger(__name__ + ".cypher")
 
 _headers = {
-    None: [("X-Stream", "true;format=pretty")]
+    None: [("X-Stream", "true")]
 }
 
 _http_rewrites = {}
@@ -336,7 +336,7 @@ class Resource(object):
         """ Refresh resource metadata.
         """
         if not self.is_abstract:
-            self._metadata = ResourceMetadata.load(self._resource)
+            self._metadata = ResourceMetadata(self._get().content)
 
     def _get(self):
         try:
@@ -390,10 +390,6 @@ class Resource(object):
 
 
 class ResourceMetadata(object):
-
-    @classmethod
-    def load(cls, resource):
-        return cls(assembled(resource.get()))
 
     def __init__(self, metadata):
         self._metadata = dict(metadata)
