@@ -688,8 +688,12 @@ class GraphDatabaseService(Cacheable, Resource):
             query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             query += " LIMIT {0}".format(int(limit))
-        for result in CypherQuery(self, query).execute(**params):
-            yield result[0]
+        results = CypherQuery(self, query).stream(**params)
+        try:
+            for result in results:
+                yield result[0]
+        finally:
+            results.close()
 
     def match_one(self, start_node=None, rel_type=None, end_node=None,
                   bidirectional=False):
