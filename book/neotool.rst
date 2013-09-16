@@ -18,9 +18,11 @@ The general form for commands is::
 General options are available to change the database connection used. These
 are::
 
-    -S/--scheme <scheme>  Set the URI scheme, e.g. (http, https)
-    -H/--host <host>      Set the URI host
-    -P/--port <port>      Set the URI port
+    -S/--scheme <scheme>           Set the URI scheme, e.g. (http, https)
+    -H/--host <host>               Set database host
+    -P/--port <port>               Set database port
+    -U/--user <user>               Set HTTP basic auth user
+    -W/--password <password>       Set HTTP basic auth password
 
 The set of commands available via Neotool are outlined below:
 

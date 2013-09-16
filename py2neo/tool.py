@@ -24,6 +24,7 @@ from __future__ import unicode_literals
 import codecs
 import json
 import locale
+import logging
 import os
 import sys
 
@@ -43,6 +44,8 @@ Options:
   -S/--scheme <scheme>           Set database scheme
   -H/--host <host>               Set database host
   -P/--port <port>               Set database port
+  -U/--user <user>               Set HTTP basic auth user
+  -W/--password <password>       Set HTTP basic auth password
 Commands:
   clear                          Clear all nodes and relationships
   cypher <query>                 Execute Cypher and output as text
@@ -223,6 +226,8 @@ class Tool(object):
         self._scheme = "http"
         self._host = "localhost"
         self._port = 7474
+        self._user = None
+        self._password = None
         self._in = in_ or sys.stdin
         self._out = out or sys.stdout
         self._err = err or sys.stderr
@@ -230,7 +235,10 @@ class Tool(object):
 
     @property
     def _graph_db(self):
-        uri = "{0}://{1}:{2}".format(self._scheme, self._host, self._port)
+        host_port = "{0}:{1}".format(self._host, self._port)
+        uri = "{0}://{1}".format(self._scheme, host_port)
+        if self._user and self._password:
+            neo4j.authenticate(host_port, self._user, self._password)
         return neo4j.ServiceRoot(uri).graph_db
 
     def _version(self):
@@ -276,6 +284,14 @@ class Tool(object):
                     self._host = argv.pop(0)
                 elif arg in ("-P", "--port"):
                     self._port = int(argv.pop(0))
+                elif arg in ("-U", "--user"):
+                    self._user = argv.pop(0)
+                elif arg in ("-W", "--password"):
+                    self._password = argv.pop(0)
+                elif arg in ("-d", "--debug"):
+                    logging.basicConfig(level=logging.DEBUG)
+                elif arg in ("-i", "--info"):
+                    logging.basicConfig(level=logging.INFO)
                 else:
                     raise ValueError("Unknown option {0}".format(repr(arg)))
             else:
@@ -286,7 +302,7 @@ class Tool(object):
             raise ValueError("Unknown command {0}".format(repr(command)))
         args, kwargs = [], {}
         for arg in argv:
-            if "=" in arg:
+            if " " not in arg and "=" in arg:
                 key, value = arg.partition("=")[0::2]
                 kwargs[key] = value
             else:
