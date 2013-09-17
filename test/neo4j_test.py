@@ -18,9 +18,8 @@
 import sys
 PY3K = sys.version_info[0] >= 3
 
-from py2neo import neo4j, cypher, node
-from py2neo.packages.httpstream import (NetworkAddressError,
-                                        SocketError, ClientError)
+from py2neo import neo4j, node
+from py2neo.packages.httpstream import (NetworkAddressError, SocketError)
 
 import logging
 import unittest
@@ -67,7 +66,7 @@ def test_wrong_path_will_fail():
     graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
     try:
         graph_db.refresh()
-    except ClientError:
+    except neo4j.ClientError:
         assert True
     else:
         assert False
