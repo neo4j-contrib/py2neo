@@ -75,7 +75,7 @@ batch_log = logging.getLogger(__name__ + ".batch")
 cypher_log = logging.getLogger(__name__ + ".cypher")
 
 _headers = {
-    None: [("X-Stream", "true")]
+    None: [("X-Stream", "true;format=pretty")]
 }
 
 _http_rewrites = {}
