@@ -163,7 +163,7 @@ class ConnectionPuddle(local):
             connection.close()
 
 
-class ConnectionPool(object):
+class ConnectionPool(local):
     """ A collection of :py:class:`ConnectionPuddle` objects for various
     network locations.
     """
@@ -242,6 +242,16 @@ def submit(method, uri, body, headers):
             response = send("response not ready")
         except timeout:
             response = send("timeout")
+        except error as err:
+            if isinstance(err.args[0], tuple):
+                code = err.args[0][0]
+            else:
+                code = err.args[0]
+            if code == 32:
+                # EPIPE: Broken pipe
+                response = send("broken pipe")
+            else:
+                raise
     except (gaierror, herror) as err:
         raise NetworkAddressError(err.args[1], host_port=uri.host_port)
     except error as err:
