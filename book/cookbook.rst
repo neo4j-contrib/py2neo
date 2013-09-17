@@ -49,7 +49,7 @@ Batch Insertion using Index
     nodes = batch.submit()  # will return `Node` objects for the nodes created
 
 Default URI
------------
+===========
 
 A default Neo4j instance will listen on port 7474. Therefore, for such a
 default installation, the ``DEFAULT_URI`` can be used:
@@ -62,11 +62,20 @@ This default will be used if the URI is omitted from construction of a new
     graph_db = neo4j.GraphDatabaseService()
 
 Authentication
---------------
+==============
 
 .. autofunction:: py2neo.neo4j.authenticate
 
 URI Rewriting
--------------
+=============
 
 .. autofunction:: py2neo.neo4j.rewrite
+
+Logging
+=======
+
+To enable logging, simply import the ``logging`` module and provide a
+configuration, e.g.::
+
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
