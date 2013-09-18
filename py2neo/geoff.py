@@ -22,9 +22,9 @@ import json
 import logging
 import re
 from uuid import uuid4
-from xml.etree import ElementTree
 
 from . import neo4j
+from .xmlutil import xml_to_geoff
 
 try:
     from StringIO import StringIO
@@ -55,85 +55,9 @@ class Subgraph(object):
     def load_xml(cls, file, prefixes=None):
         """ Load and convert data within an XML file into a Subgraph.
         """
-        TAG_PATTERN = re.compile(r"^(\{(.*)\})?(.*)$")
-        if prefixes:
-            prefixes = dict((b,a) for a,b in prefixes.items())
-        nodes, rels, buffer, node_ids = [], [], [], []
-
-        def local(tag):
-            groups = TAG_PATTERN.match(tag).groups()
-            if prefixes and groups[1] and groups[1] in prefixes:
-                return prefixes[groups[1]] + "_" + groups[2]
-            else:
-                return groups[2]
-
-        def node_no(node):
-            if node not in nodes:
-                n = len(nodes) + 1
-                nodes.append(node)
-                node_ids.append(node.attrib.get("id", "node_{0}".format(n)))
-            return nodes.index(node)
-
-        def walk(parent, child):
-            if parent is not None:
-                rels.append((node_no(parent), local(child.tag), node_no(child),
-                             dict((key, value)
-                                  for key, value in child.attrib.items()
-                                  if key != "id")
-                ))
-            for grandchild in child:
-                if len(grandchild) > 0:
-                    walk(child, grandchild)
-
-        def typed(value):
-            try:
-                return int(value)
-            except ValueError:
-                try:
-                    return float(value)
-                except ValueError:
-                    return value
-
-        src = file.read()
+        src = file.read().encode("utf-8")
         file.close()
-        walk(None, ElementTree.fromstring(src.encode("utf-8")))
-        for i, node in enumerate(nodes):
-            properties = {}
-            for child in node:
-                is_leaf = len(child) == 0
-                if child.text:
-                    inner_value = typed(child.text.strip())
-                else:
-                    inner_value = None
-                if is_leaf:
-                    if inner_value is not None:
-                        properties[local(child.tag)] = inner_value
-                    for key, value in child.attrib.items():
-                        if key != "id":
-                            properties[local(child.tag) + " " + local(key)] = typed(value)
-            if properties:
-                buffer.append("({0} {1})".format(node_ids[i], json.dumps(
-                    properties, separators=(",", ":"), ensure_ascii=False,
-                    sort_keys=True)))
-            else:
-                buffer.append("({0})".format(node_ids[i]))
-        for rel in rels:
-            properties = rel[3]
-            if properties:
-                buffer.append("({0})-[:{1} {3}]->({2})".format(
-                    node_ids[rel[0]],
-                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1], ensure_ascii=False),
-                    node_ids[rel[2]],
-                    json.dumps(properties, separators=(",", ":"),
-                               ensure_ascii=False, sort_keys=True),
-                ))
-            else:
-                buffer.append("({0})-[:{1}]->({2})".format(
-                    node_ids[rel[0]],
-                    rel[1] if SIMPLE_NAME.match(rel[1]) else json.dumps(rel[1], ensure_ascii=False),
-                    node_ids[rel[2]],
-                ))
-        return cls("\n".join(buffer))
+        return cls(xml_to_geoff(src, prefixes=prefixes))
 
     def __init__(self, source):
         """ Create a subgraph from Geoff source.

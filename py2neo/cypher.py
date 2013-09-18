@@ -65,11 +65,11 @@ def execute(graph_db, query, params=None, row_handler=None,
             return [list(record) for record in results], metadata
 
 
-def dumps(obj, sep=(", ", ": ")):
+def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
     """ Dumps an object as a Cypher expression string.
 
     :param obj:
-    :param sep:
+    :param separators:
     :return:
     """
     if isinstance(obj, dict):
@@ -83,9 +83,10 @@ def dumps(obj, sep=(", ", ": ")):
                 buffer.append("`")
             else:
                 buffer.append(key)
-            buffer.append(sep[1])
-            buffer.append(dumps(value, sep=sep))
-            link = sep[0]
+            buffer.append(separators[1])
+            buffer.append(dumps(value, separators=separators,
+                                ensure_ascii=ensure_ascii))
+            link = separators[0]
         buffer.append("}")
         return "".join(buffer)
     elif isinstance(obj, (tuple, set, list)):
@@ -93,9 +94,10 @@ def dumps(obj, sep=(", ", ": ")):
         link = ""
         for value in obj:
             buffer.append(link)
-            buffer.append(dumps(value, sep=sep))
-            link = sep[0]
+            buffer.append(dumps(value, separators=separators,
+                                ensure_ascii=ensure_ascii))
+            link = separators[0]
         buffer.append("]")
         return "".join(buffer)
     else:
-        return json.dumps(obj)
+        return json.dumps(obj, ensure_ascii=ensure_ascii)

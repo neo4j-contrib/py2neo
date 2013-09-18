@@ -30,6 +30,7 @@ import sys
 
 from . import __version__, __copyright__, neo4j, geoff
 from .util import ustr
+from .xmlutil import xml_to_cypher, xml_to_geoff
 
 
 PY3 = sys.version > '3'
@@ -55,6 +56,7 @@ Commands:
   cypher-tsv <query>             Execute Cypher and output as TSV
   geoff-insert <file>            Insert Geoff data
   geoff-merge <file>             Merge Geoff data
+  xml-geoff <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
   xml-geoff <file> [<xmlns>...]  Convert XML data to Geoff data
 """
 
@@ -324,29 +326,44 @@ class Tool(object):
         writer = ResultWriter(self._out)
         writer.write(format_, record_set)
 
-    def cypher(self, query, **params):
+    def cypher(self, query=None, **params):
         """ Execute Cypher query and output as text.
         """
+        if not query:
+            query = sys.stdin.read()
+            sys.stdin.close()
         self._cypher("text", query, params)
 
-    def cypher_csv(self, query, **params):
+    def cypher_csv(self, query=None, **params):
         """ Execute Cypher query and output as comma separated values
         """
+        if not query:
+            query = sys.stdin.read()
+            sys.stdin.close()
         self._cypher("csv", query, params)
 
-    def cypher_geoff(self, query, **params):
+    def cypher_geoff(self, query=None, **params):
         """ Execute Cypher query and output as Geoff
         """
+        if not query:
+            query = sys.stdin.read()
+            sys.stdin.close()
         self._cypher("geoff", query, params)
 
-    def cypher_json(self, query, **params):
+    def cypher_json(self, query=None, **params):
         """ Execute Cypher query and output as JSON
         """
+        if not query:
+            query = sys.stdin.read()
+            sys.stdin.close()
         self._cypher("json", query, params)
 
-    def cypher_tsv(self, query, **params):
+    def cypher_tsv(self, query=None, **params):
         """ Execute Cypher query and output as tab separated values
         """
+        if not query:
+            query = sys.stdin.read()
+            sys.stdin.close()
         self._cypher("tsv", query, params)
 
     def _geoff_write(self, params):
@@ -376,6 +393,18 @@ class Tool(object):
         params = geoff.Subgraph.load(file).merge_into(self._graph_db)
         self._geoff_write(params)
 
+    def xml_cypher(self, file_name=None, **prefixes):
+        """ Convert XML data to Cypher CREATE statement.
+        """
+        if file_name:
+            file = codecs.open(file_name, encoding="utf-8")
+        else:
+            file = sys.stdin
+        src = file.read().encode("utf-8")
+        file.close()
+        self._out.write(xml_to_cypher(src, prefixes=prefixes))
+        self._out.write("\n")
+
     def xml_geoff(self, file_name=None, **prefixes):
         """ Convert XML data to Geoff.
         """
@@ -383,8 +412,9 @@ class Tool(object):
             file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
-        subgraph = geoff.Subgraph.load_xml(file, prefixes=prefixes)
-        self._out.write(subgraph._source)
+        src = file.read().encode("utf-8")
+        file.close()
+        self._out.write(xml_to_geoff(src, prefixes=prefixes))
         self._out.write("\n")
 
 
