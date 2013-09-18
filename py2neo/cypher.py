@@ -21,6 +21,8 @@
 
 from __future__ import unicode_literals
 
+import json
+
 from .neo4j import CypherQuery, CypherError
 from .util import deprecated
 
@@ -61,3 +63,39 @@ def execute(graph_db, query, params=None, row_handler=None,
             return data, metadata
         else:
             return [list(record) for record in results], metadata
+
+
+def dumps(obj, sep=(", ", ": ")):
+    """ Dumps an object as a Cypher expression string.
+
+    :param obj:
+    :param sep:
+    :return:
+    """
+    if isinstance(obj, dict):
+        buffer = ["{"]
+        link = ""
+        for key, value in obj.items():
+            buffer.append(link)
+            if " " in key:
+                buffer.append("`")
+                buffer.append(key)
+                buffer.append("`")
+            else:
+                buffer.append(key)
+            buffer.append(sep[1])
+            buffer.append(dumps(value, sep=sep))
+            link = sep[0]
+        buffer.append("}")
+        return "".join(buffer)
+    elif isinstance(obj, (tuple, set, list)):
+        buffer = ["["]
+        link = ""
+        for value in obj:
+            buffer.append(link)
+            buffer.append(dumps(value, sep=sep))
+            link = sep[0]
+        buffer.append("]")
+        return "".join(buffer)
+    else:
+        return json.dumps(obj)
