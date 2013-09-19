@@ -39,25 +39,25 @@ HELP = """\
 Usage:
   {script} <options> <command> <args>
 Options:
-  -h/--help [<command>]          Show tool usage
-  -v/--version                   Show tool version
-  -c/--copyright                 Show tool copyright
-  -S/--scheme <scheme>           Set database scheme
-  -H/--host <host>               Set database host
-  -P/--port <port>               Set database port
-  -U/--user <user>               Set HTTP basic auth user
-  -W/--password <password>       Set HTTP basic auth password
+  -h/--help [<command>]           Show tool usage
+  -v/--version                    Show tool version
+  -c/--copyright                  Show tool copyright
+  -S/--scheme <scheme>            Set database scheme
+  -H/--host <host>                Set database host
+  -P/--port <port>                Set database port
+  -U/--user <user>                Set HTTP basic auth user
+  -W/--password <password>        Set HTTP basic auth password
 Commands:
-  clear                          Clear all nodes and relationships
-  cypher <query>                 Execute Cypher and output as text
-  cypher-csv <query>             Execute Cypher and output as CSV
-  cypher-geoff <query>           Execute Cypher and output as Geoff
-  cypher-json <query>            Execute Cypher and output as JSON
-  cypher-tsv <query>             Execute Cypher and output as TSV
-  geoff-insert <file>            Insert Geoff data
-  geoff-merge <file>             Merge Geoff data
-  xml-geoff <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
-  xml-geoff <file> [<xmlns>...]  Convert XML data to Geoff data
+  clear                           Clear all nodes and relationships
+  cypher <query>                  Execute Cypher and output as text
+  cypher-csv <query>              Execute Cypher and output as CSV
+  cypher-geoff <query>            Execute Cypher and output as Geoff
+  cypher-json <query>             Execute Cypher and output as JSON
+  cypher-tsv <query>              Execute Cypher and output as TSV
+  geoff-insert <file>             Insert Geoff data
+  geoff-merge <file>              Merge Geoff data
+  xml-cypher <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
+  xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
 """
 
 if not PY3:
