@@ -29,14 +29,14 @@ def test_can_add_labels_to_node():
     alice.add_labels("human")
     labels = alice.get_labels()
     assert len(labels) == 1
-    assert labels == {"human"}
+    assert labels == set(["human"])
     alice.add_labels("female")
     labels = alice.get_labels()
-    assert labels == {"human", "female"}
-    assert labels != {"female"}
+    assert labels == set(["human", "female"])
+    assert labels != set(["female"])
     alice.add_labels("human")
     labels = alice.get_labels()
-    assert labels == {"human", "female"}
+    assert labels == set(["human", "female"])
 
 
 def test_cannot_add_labels_to_abstract_nodes():

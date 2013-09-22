@@ -27,11 +27,11 @@ def test_can_remove_labels_from_node():
     alice.add_labels("human", "female")
     labels = alice.get_labels()
     assert len(labels) == 2
-    assert labels == {"human", "female"}
+    assert labels == set(["human", "female"])
     alice.remove_labels("human")
     labels = alice.get_labels()
-    assert labels == {"female"}
-    assert labels != {"human", "female"}
+    assert labels == set(["female"])
+    assert labels != set(["human", "female"])
     alice.remove_labels("female")
     labels = alice.get_labels()
     assert labels == set()

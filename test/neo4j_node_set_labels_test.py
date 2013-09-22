@@ -27,8 +27,8 @@ def test_can_set_labels_on_node():
     alice.add_labels("human", "female")
     labels = alice.get_labels()
     assert len(labels) == 2
-    assert labels == {"human", "female"}
+    assert labels == set(["human", "female"])
     alice.set_labels("mystery", "badger")
     labels = alice.get_labels()
-    assert labels == {"mystery", "badger"}
-    assert labels != {"human", "female"}
+    assert labels == set(["mystery", "badger"])
+    assert labels != set(["human", "female"])
