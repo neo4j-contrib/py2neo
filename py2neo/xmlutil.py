@@ -18,10 +18,11 @@
 
 from __future__ import unicode_literals
 
-import cypher
 import json
 import re
 from xml.etree import ElementTree
+
+from . import cypher
 
 
 SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")
