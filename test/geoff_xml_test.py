@@ -16,6 +16,7 @@
 # limitations under the License.
 
 import os
+import sys
 import unittest
 
 from py2neo import geoff
@@ -30,7 +31,8 @@ class XMLTestCase(unittest.TestCase):
         xml_file = os.path.join(FIXTURES, "planets.xml")
         geoff_file = os.path.join(FIXTURES, "planets.geoff")
         planets = geoff.Subgraph.load_xml(open(xml_file))
-        assert planets.source == open(geoff_file).read().strip()
+        if sys.version_info >= (2, 7):
+            assert planets.source == open(geoff_file).read().strip()
 
 if __name__ == '__main__':
     unittest.main()

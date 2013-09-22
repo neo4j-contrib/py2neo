@@ -16,10 +16,13 @@
 # limitations under the License.
 
 
+from __future__ import unicode_literals
+
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
+import sys
 import unittest
 
 from py2neo import geoff, neo4j
@@ -566,7 +569,8 @@ def test_can_insert_subgraph_from_geoff_file():
 def test_can_insert_subgraph_from_xml_file():
     graph_db = neo4j.GraphDatabaseService()
     planets = geoff.Subgraph.load_xml(PLANETS_XML)
-    assert planets.source == PLANETS_GEOFF.getvalue()
+    if sys.version_info >= (2, 7):
+        assert planets.source == PLANETS_GEOFF.getvalue()
     assert len(planets.nodes) == 25
     assert len(planets.relationships) == 24
     assert len(planets.index_entries) == 0

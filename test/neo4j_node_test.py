@@ -102,25 +102,35 @@ class ConcreteNodeTestCase(unittest.TestCase):
         for key, value in data.items():
             self.assertEqual(foo[key], value)
 
-    @unittest.expectedFailure
     def test_cannot_assign_oversized_long(self):
         foo, = self.graph_db.create({})
-        foo["long"] = 9223372036854775808 if PY3K else long("9223372036854775808")
+        try:
+            if PY3K:
+                foo["long"] = 9223372036854775808
+            else:
+                foo["long"] = long("9223372036854775808")
+        except:
+            assert True
+        else:
+            assert False
 
-    @unittest.expectedFailure
-    def test_cannot_assign_complex(self):
-        foo, = self.graph_db.create({})
-        foo["complex"] = complex(17, 30)
-
-    @unittest.expectedFailure
     def test_cannot_assign_mixed_list(self):
         foo, = self.graph_db.create({})
-        foo["mixed_list"] = [42, "life", "universe", "everything"]
+        try:
+            foo["mixed_list"] = [42, "life", "universe", "everything"]
+        except:
+            assert True
+        else:
+            assert False
 
-    @unittest.expectedFailure
     def test_cannot_assign_dict(self):
         foo, = self.graph_db.create({})
-        foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
+        try:
+            foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
+        except:
+            assert True
+        else:
+            assert False
 
 
 class NodeTestCase(unittest.TestCase):

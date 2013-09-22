@@ -68,7 +68,7 @@ class RelationshipTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         ab = alice.create_path("KNOWS", bob).relationships[0]
-        self.assertIsNotNone(ab)
+        self.assertTrue(ab is not None)
         self.assertTrue(isinstance(ab, neo4j.Relationship))
         self.assertEqual(alice, ab.start_node)
         self.assertEqual("KNOWS", ab.type)
@@ -79,7 +79,7 @@ class RelationshipTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         ba = bob.create_path("LIKES", alice).relationships[0]
-        self.assertIsNotNone(ba)
+        self.assertTrue(ba is not None)
         self.assertTrue(isinstance(ba, neo4j.Relationship))
         self.assertEqual(bob, ba.start_node)
         self.assertEqual("LIKES", ba.type)
@@ -88,7 +88,7 @@ class RelationshipTestCase(unittest.TestCase):
     def test_getting_no_relationships(self):
         alice, = self.graph_db.create({"name": "Alice"})
         rels = list(alice.match())
-        self.assertIsNotNone(rels)
+        self.assertTrue(rels is not None)
         self.assertTrue(isinstance(rels, list))
         self.assertEqual(0, len(rels))
 
@@ -102,7 +102,7 @@ class RelationshipTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         ab = alice.create_path(("KNOWS", {"since": 1999}), bob).relationships[0]
-        self.assertIsNotNone(ab)
+        self.assertTrue(ab is not None)
         self.assertTrue(isinstance(ab, neo4j.Relationship))
         self.assertEqual(alice, ab.start_node)
         self.assertEqual("KNOWS", ab.type)
@@ -133,7 +133,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertIsNotNone(rel)
+        self.assertTrue(rel is not None)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
         self.assertEqual("KNOWS", rel.type)
@@ -144,7 +144,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel1 = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertIsNotNone(rel1)
+        self.assertTrue(rel1 is not None)
         self.assertTrue(isinstance(rel1, neo4j.Relationship))
         self.assertEqual(alice, rel1.start_node)
         self.assertEqual("KNOWS", rel1.type)
@@ -159,7 +159,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}
         )
         rel = alice.get_or_create_path("KNOWS", None).relationships[0]
-        self.assertIsNotNone(rel)
+        self.assertTrue(rel is not None)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
         self.assertEqual("KNOWS", rel.type)
@@ -169,7 +169,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertIsNotNone(rel)
+        self.assertTrue(rel is not None)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
         self.assertEqual("KNOWS", rel.type)
@@ -182,7 +182,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006, "dummy": None}), bob).relationships[0]
-        self.assertIsNotNone(rel)
+        self.assertTrue(rel is not None)
         self.assertTrue(isinstance(rel, neo4j.Relationship))
         self.assertEqual(alice, rel.start_node)
         self.assertEqual("KNOWS", rel.type)
@@ -196,7 +196,7 @@ class RelateTestCase(unittest.TestCase):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel1 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertIsNotNone(rel1)
+        self.assertTrue(rel1 is not None)
         self.assertTrue(isinstance(rel1, neo4j.Relationship))
         self.assertEqual(alice, rel1.start_node)
         self.assertEqual("KNOWS", rel1.type)
@@ -213,7 +213,7 @@ class RelateTestCase(unittest.TestCase):
     #        {"name": "Alice"}, {"name": "Bob"}
     #    )
     #    rel, = self.graph_db.get_or_create_relationships((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
-    #    self.assertIsNotNone(rel)
+    #    self.assertTrue(rel is not None)
     #    self.assertTrue(isinstance(rel, neo4j.Relationship))
     #    self.assertEqual(alice, rel.start_node)
     #    self.assertEqual("LIKES", rel.type)
@@ -232,7 +232,7 @@ class RelateTestCase(unittest.TestCase):
         #batch.get_or_create((alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}))
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)
         rels1 = batch.submit()
-        self.assertIsNotNone(rels1)
+        self.assertTrue(rels1 is not None)
         self.assertEqual(2, len(rels1))
         batch = neo4j.WriteBatch(self.graph_db)
         batch.get_or_create_path(bob, ("WORKS WITH", {"since": 2004, "company": "Megacorp"}), carol)
@@ -240,7 +240,7 @@ class RelateTestCase(unittest.TestCase):
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)
         batch.get_or_create_path(bob, ("WORKS WITH", {"since": 2009, "company": "Megacorp"}), dave)
         rels2 = batch.submit()
-        self.assertIsNotNone(rels2)
+        self.assertTrue(rels2 is not None)
         self.assertEqual(3, len(rels2))
         self.assertEqual(rels1[1], rels2[1])
 

@@ -48,8 +48,8 @@ class CreationAndDeletionTests(unittest.TestCase):
         foo = self.graph_db.get_index(neo4j.Node, "foo")
         self.assertTrue(foo is None)
         foo = self.graph_db.get_or_create_index(neo4j.Node, "foo")
-        self.assertIsNotNone(foo)
-        self.assertIsInstance(foo, neo4j.Index)
+        self.assertTrue(foo is not None)
+        self.assertTrue(isinstance(foo, neo4j.Index))
         self.assertEqual("foo", foo.name)
         self.assertEqual(neo4j.Node, foo.content_type)
         self.graph_db.delete_index(neo4j.Node, "foo")
@@ -64,8 +64,8 @@ class CreationAndDeletionTests(unittest.TestCase):
         foo = self.graph_db.get_index(neo4j.Node, "foo:bar")
         self.assertTrue(foo is None)
         foo = self.graph_db.get_or_create_index(neo4j.Node, "foo:bar")
-        self.assertIsNotNone(foo)
-        self.assertIsInstance(foo, neo4j.Index)
+        self.assertTrue(foo is not None)
+        self.assertTrue(isinstance(foo, neo4j.Index))
         self.assertEqual("foo:bar", foo.name)
         self.assertEqual(neo4j.Node, foo.content_type)
         self.graph_db.delete_index(neo4j.Node, "foo:bar")
@@ -86,7 +86,7 @@ class NodeIndexTestCase(unittest.TestCase):
         alice, = self.graph_db.create({"name": "Alice Smith"})
         self.index.add("surname", "Smith", alice)
         entities = self.index.get("surname", "Smith")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
@@ -95,7 +95,7 @@ class NodeIndexTestCase(unittest.TestCase):
         alice, = self.graph_db.create({"name": "Alice von Schmidt"})
         self.index.add("family name", "von Schmidt", alice)
         entities = self.index.get("family name", "von Schmidt")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
@@ -104,7 +104,7 @@ class NodeIndexTestCase(unittest.TestCase):
         alice, = self.graph_db.create({"name": "Alice Smith"})
         self.index.add("@!%#", "!\"$%^&*()", alice)
         entities = self.index.get("@!%#", "!\"$%^&*()")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
@@ -115,7 +115,7 @@ class NodeIndexTestCase(unittest.TestCase):
         value = "bar"
         self.index.add(key, value, node)
         entities = self.index.get(key, value)
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(node, entities[0])
@@ -126,7 +126,7 @@ class NodeIndexTestCase(unittest.TestCase):
         value = "foo/bar"
         self.index.add(key, value, node)
         entities = self.index.get(key, value)
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(node, entities[0])
@@ -141,7 +141,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.index.add("surname", "Smith", bob)
         self.index.add("surname", "Smith", carol)
         entities = self.index.get("surname", "Smith")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(3, len(entities))
         for entity in entities:
@@ -149,7 +149,7 @@ class NodeIndexTestCase(unittest.TestCase):
 
     def test_create_node(self):
         alice = self.index.create("surname", "Smith", {"name": "Alice Smith"})
-        self.assertIsNotNone(alice)
+        self.assertTrue(alice is not None)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         smiths = self.index.get("surname", "Smith")
@@ -157,27 +157,27 @@ class NodeIndexTestCase(unittest.TestCase):
 
     def test_get_or_create_node(self):
         alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
-        self.assertIsNotNone(alice)
+        self.assertTrue(alice is not None)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         alice_id = alice._id
         for i in range(10):
             # subsequent calls return the same object as node already exists
             alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
-            self.assertIsNotNone(alice)
+            self.assertTrue(alice is not None)
             self.assertTrue(isinstance(alice, neo4j.Node))
             self.assertEqual("Alice Smith", alice["name"])
             self.assertEqual(alice_id, alice._id)
 
     def test_create_if_none(self):
         alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
-        self.assertIsNotNone(alice)
+        self.assertTrue(alice is not None)
         self.assertTrue(isinstance(alice, neo4j.Node))
         self.assertEqual("Alice Smith", alice["name"])
         for i in range(10):
             # subsequent calls fail as node already exists
             alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
-            self.assertIsNone(alice)
+            self.assertTrue(alice is None)
 
     def test_add_node_if_none(self):
         alice, bob = self.graph_db.create(
@@ -187,15 +187,15 @@ class NodeIndexTestCase(unittest.TestCase):
         result = self.index.add_if_none("surname", "Smith", alice)
         self.assertEqual(alice, result)
         entities = self.index.get("surname", "Smith")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])
         # add Bob to the index - this should fail as Alice is already there
         result = self.index.add_if_none("surname", "Smith", bob)
-        self.assertIsNone(result)
+        self.assertTrue(result is None)
         entities = self.index.get("surname", "Smith")
-        self.assertIsNotNone(entities)
+        self.assertTrue(entities is not None)
         self.assertTrue(isinstance(entities, list))
         self.assertEqual(1, len(entities))
         self.assertEqual(alice, entities[0])

@@ -158,7 +158,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "DAY",   {"number": 25},
         )
         #print(p1)
-        self.assertIsInstance(p1, neo4j.Path)
+        self.assertTrue(isinstance(p1, neo4j.Path))
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])
 
@@ -169,7 +169,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
         )
-        self.assertIsInstance(p1, neo4j.Path)
+        self.assertTrue(isinstance(p1, neo4j.Path))
         self.assertEqual(3, len(p1))
         self.assertEqual(start_node, p1.nodes[0])
         #print(p1)
@@ -178,7 +178,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
         )
-        self.assertIsInstance(p2, neo4j.Path)
+        self.assertTrue(isinstance(p2, neo4j.Path))
         self.assertEqual(3, len(p2))
         self.assertEqual(p1.nodes[0], p2.nodes[0])
         self.assertEqual(p1.nodes[1], p2.nodes[1])
@@ -193,7 +193,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
         )
-        self.assertIsInstance(p3, neo4j.Path)
+        self.assertTrue(isinstance(p3, neo4j.Path))
         self.assertEqual(3, len(p3))
         self.assertEqual(p2.nodes[0], p3.nodes[0])
         self.assertEqual(p2.nodes[1], p3.nodes[1])
@@ -216,7 +216,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", None,
             "DAY",   {"number": 25},
         )
-        self.assertIsInstance(p2, neo4j.Path)
+        self.assertTrue(isinstance(p2, neo4j.Path))
         self.assertEqual(3, len(p2))
         self.assertEqual(p1.nodes[0], p2.nodes[0])
         self.assertEqual(p1.nodes[1], p2.nodes[1])
@@ -238,7 +238,7 @@ class GetOrCreatePathTestCase(unittest.TestCase):
             "MONTH", p1.nodes[2],
             "DAY",   {"number": 25},
         )
-        self.assertIsInstance(p2, neo4j.Path)
+        self.assertTrue(isinstance(p2, neo4j.Path))
         self.assertEqual(3, len(p2))
         self.assertEqual(p1.nodes[0], p2.nodes[0])
         self.assertEqual(p1.nodes[1], p2.nodes[1])

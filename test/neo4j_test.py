@@ -181,10 +181,10 @@ class NewCreateTestCase(unittest.TestCase):
         results = self.graph_db.create(
             {"name": "Alice"}
         )
-        self.assertIsNotNone(results)
-        self.assertIsInstance(results, list)
+        self.assertTrue(results is not None)
+        self.assertTrue(isinstance(results, list))
         self.assertEqual(1, len(results))
-        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue(isinstance(results[0], neo4j.Node))
         self.assertTrue("name" in results[0])
         self.assertEqual("Alice", results[0]["name"])
 
@@ -194,16 +194,16 @@ class NewCreateTestCase(unittest.TestCase):
             {"name": "Bob"},
             (0, "KNOWS", 1)
         )
-        self.assertIsNotNone(results)
-        self.assertIsInstance(results, list)
+        self.assertTrue(results is not None)
+        self.assertTrue(isinstance(results, list))
         self.assertEqual(3, len(results))
-        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue(isinstance(results[0], neo4j.Node))
         self.assertTrue("name" in results[0])
         self.assertEqual("Alice", results[0]["name"])
-        self.assertIsInstance(results[1], neo4j.Node)
+        self.assertTrue(isinstance(results[1], neo4j.Node))
         self.assertTrue("name" in results[1])
         self.assertEqual("Bob", results[1]["name"])
-        self.assertIsInstance(results[2], neo4j.Relationship)
+        self.assertTrue(isinstance(results[2], neo4j.Relationship))
         self.assertEqual("KNOWS", results[2].type)
         self.assertEqual(results[0], results[2].start_node)
         self.assertEqual(results[1], results[2].end_node)
@@ -214,16 +214,16 @@ class NewCreateTestCase(unittest.TestCase):
             {"name": "Bob"},
             (0, "KNOWS", 1, {"since": 1996})
         )
-        self.assertIsNotNone(results)
-        self.assertIsInstance(results, list)
+        self.assertTrue(results is not None)
+        self.assertTrue(isinstance(results, list))
         self.assertEqual(3, len(results))
-        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue(isinstance(results[0], neo4j.Node))
         self.assertTrue("name" in results[0])
         self.assertEqual("Alice", results[0]["name"])
-        self.assertIsInstance(results[1], neo4j.Node)
+        self.assertTrue(isinstance(results[1], neo4j.Node))
         self.assertTrue("name" in results[1])
         self.assertEqual("Bob", results[1]["name"])
-        self.assertIsInstance(results[2], neo4j.Relationship)
+        self.assertTrue(isinstance(results[2], neo4j.Relationship))
         self.assertEqual("KNOWS", results[2].type)
         self.assertEqual(results[0], results[2].start_node)
         self.assertEqual(results[1], results[2].end_node)
@@ -236,13 +236,13 @@ class NewCreateTestCase(unittest.TestCase):
             {"name": "Alice"},
             (ref_node, "PERSON", 0)
         )
-        self.assertIsNotNone(results)
-        self.assertIsInstance(results, list)
+        self.assertTrue(results is not None)
+        self.assertTrue(isinstance(results, list))
         self.assertEqual(2, len(results))
-        self.assertIsInstance(results[0], neo4j.Node)
+        self.assertTrue(isinstance(results[0], neo4j.Node))
         self.assertTrue("name" in results[0])
         self.assertEqual("Alice", results[0]["name"])
-        self.assertIsInstance(results[1], neo4j.Relationship)
+        self.assertTrue(isinstance(results[1], neo4j.Relationship))
         self.assertEqual("PERSON", results[1].type)
         self.assertEqual(ref_node, results[1].start_node)
         self.assertEqual(results[0], results[1].end_node)
@@ -262,11 +262,11 @@ class NewCreateTestCase(unittest.TestCase):
             for i in range(size)
         ]
         results = self.graph_db.create(*nodes)
-        self.assertIsNotNone(results)
-        self.assertIsInstance(results, list)
+        self.assertTrue(results is not None)
+        self.assertTrue(isinstance(results, list))
         self.assertEqual(size, len(results))
         for i in range(size):
-            self.assertIsInstance(results[i], neo4j.Node)
+            self.assertTrue(isinstance(results[i], neo4j.Node))
 
 class MultipleNodeTestCase(unittest.TestCase):
 
@@ -283,7 +283,7 @@ class MultipleNodeTestCase(unittest.TestCase):
         self.nodes = self.gdb.create(*self.flintstones)
 
     def test_is_created(self):
-        self.assertIsNotNone(self.nodes)
+        self.assertTrue(self.nodes is not None)
         self.assertEqual(len(self.nodes), len(self.flintstones))
 
     def test_has_correct_properties(self):

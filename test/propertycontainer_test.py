@@ -96,18 +96,18 @@ class PropertyContainerTestCase(unittest.TestCase):
     def test_del_property(self):
         alice, = self.graph_db.create({"name": "Alice"})
         del alice["name"]
-        self.assertIsNone(alice["name"])
+        self.assertTrue(alice["name"] is None)
 
     def test_del_non_existent_property(self):
         alice, = self.graph_db.create({"name": "Alice"})
         del alice["foo"]
         self.assertEqual("Alice", alice["name"])
-        self.assertIsNone(alice["foo"])
+        self.assertTrue(alice["foo"] is None)
 
     def test_del_property_with_odd_name(self):
         foo, = self.graph_db.create({""" !"#$%&'()*+,-./?""": "foo"})
         del foo[""" !"#$%&'()*+,-./?"""]
-        self.assertIsNone(foo[""" !"#$%&'()*+,-./?"""])
+        self.assertTrue(foo[""" !"#$%&'()*+,-./?"""] is None)
 
     def test_property_existence(self):
         alice, = self.graph_db.create({"name": "Alice"})

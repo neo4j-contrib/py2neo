@@ -67,6 +67,7 @@ DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_NETLOC)
 
 PRODUCT = ("py2neo", __version__)
 
+NON_ALPHA_NUM = re.compile("[^0-9A-Za-z_]")
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 http.default_encoding = "UTF-8"
@@ -1040,13 +1041,15 @@ class CypherResults(object):
     def _hydrated(cls, data):
         """ Takes assembled data...
         """
-        record = namedtuple("Record", data["columns"], rename=True)
+        columns = [NON_ALPHA_NUM.sub("_", col) for col in data["columns"]]
+        record = namedtuple("Record", columns)
         return [record(*_hydrated(row)) for row in data["data"]]
 
     def __init__(self, response):
         content = response.json
         self._columns = tuple(content["columns"])
-        record = namedtuple("Record", self._columns, rename=True)
+        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
+        record = namedtuple("Record", columns)
         self._data = [record(*_hydrated(row)) for row in content["data"]]
 
     def __enter__(self):
@@ -1115,7 +1118,8 @@ class IterableCypherResults(object):
                     break
         self._redo_buffer.extend(redo)
         self._columns = tuple(assembled(section)["columns"])
-        self._record = namedtuple("Record", self._columns, rename=True)
+        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
+        self._record = namedtuple("Record", columns)
 
     def __enter__(self):
         return self
