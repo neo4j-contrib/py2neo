@@ -246,7 +246,7 @@ class NewCreateTestCase(unittest.TestCase):
         self.assertEqual("PERSON", results[1].type)
         self.assertEqual(ref_node, results[1].start_node)
         self.assertEqual(results[0], results[1].end_node)
-        self.graph_db.delete(*results)
+        self.graph_db.delete(results[1], results[0])
         ref_node.delete()
 
     def test_fails_on_bad_reference(self):

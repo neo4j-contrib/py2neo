@@ -799,6 +799,12 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         return self.neo4j_version >= (2, 0)
 
+    @property
+    def supports_foreach_pipe(self):
+        """ Indicates whether the server supports pipe syntax for FOREACH.
+        """
+        return self.neo4j_version >= (2, 0)
+
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
 
@@ -1438,10 +1444,17 @@ class Node(_Entity):
     def delete_related(self):
         """ Delete this node along with all related nodes and relationships.
         """
-        CypherQuery(self.graph_db, "START a=node({a}) "
-                                   "MATCH (a)-[rels*0..]-(z) "
-                                   "FOREACH(rel IN rels: DELETE rel) "
-                                   "DELETE a, z").execute(a=self._id)
+        if self.graph_db.supports_foreach_pipe:
+            query = ("START a=node({a}) "
+                     "MATCH (a)-[rels*0..]-(z) "
+                     "FOREACH(r IN rels| DELETE r) "
+                     "DELETE a, z")
+        else:
+            query = ("START a=node({a}) "
+                     "MATCH (a)-[rels*0..]-(z) "
+                     "FOREACH(r IN rels: DELETE r) "
+                     "DELETE a, z")
+        CypherQuery(self.graph_db, query).execute(a=self._id)
 
     def isolate(self):
         """ Delete all relationships connected to this node, both incoming and
