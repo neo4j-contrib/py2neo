@@ -24,7 +24,6 @@ and RFC 6570 (URI Template) respectively.
 
 from __future__ import unicode_literals
 
-from collections import OrderedDict
 import re
 
 
@@ -418,14 +417,21 @@ class Query(_Part):
                     bits.append(percent_encode(key) + "=" + percent_encode(value))
         else:
             for item in iterable:
-                bits.append(percent_encode(item))
+                if isinstance(item, tuple) and len(item) == 2:
+                    key, value = item
+                    if value is None:
+                        bits.append(percent_encode(key))
+                    else:
+                        bits.append(percent_encode(key) + "=" + percent_encode(value))
+                else:
+                    bits.append(percent_encode(item))
         return "&".join(bits)
 
     @classmethod
     def decode(cls, string):
         if string is None:
             return None
-        data = OrderedDict()
+        data = []
         if string:
             bits = string.split("&")
             for bit in bits:
@@ -433,12 +439,16 @@ class Query(_Part):
                     key, value = map(percent_decode, bit.partition("=")[0::2])
                 else:
                     key, value = percent_decode(bit), None
-                data[key] = value
+                data.append((key, value))
         return data
 
     def __init__(self, string):
         super(Query, self).__init__()
         self._query = Query.decode(string)
+        if self._query is None:
+            self._query_dict = None
+        else:
+            self._query_dict = dict(self._query)
 
     def __eq__(self, other):
         other = self._cast(other)
@@ -459,13 +469,13 @@ class Query(_Part):
         if self._query is None:
             return iter(())
         else:
-            return iter(self._query.items())
+            return iter(self._query)
 
     def __getitem__(self, key):
-        if self._query is None:
+        if self._query_dict is None:
             raise KeyError(key)
         else:
-            return self._query[key]
+            return self._query_dict[key]
 
 
 class URI(_Part):
