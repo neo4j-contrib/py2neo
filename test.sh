@@ -1,7 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env bash
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2012-2013 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +15,6 @@
 # limitations under the License.
 
 
-import sys
+BASE=`dirname $0`
 
-from py2neo import __version__
-
-
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+py.test --cov-report term-missing --cov py2neo $BASE/test/

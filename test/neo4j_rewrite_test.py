@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2013, Nigel Small
@@ -16,10 +16,15 @@
 # limitations under the License.
 
 
-import sys
+import logging
 
-from py2neo import __version__
+from py2neo import neo4j
 
 
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+logging.basicConfig(level=logging.DEBUG)
+
+
+def test_can_rewrite_uri():
+    neo4j.rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
+    graph_db = neo4j.GraphDatabaseService("https://localtoast:4747/db/data/")
+    assert graph_db.neo4j_version

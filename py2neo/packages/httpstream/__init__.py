@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2013, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,18 @@
 # limitations under the License.
 
 
-import sys
+"""
+HTTPStream
+"""
 
-from py2neo import __version__
+
+__author__ = "Nigel Small"
+__copyright__ = "2013, Nigel Small"
+__email__ = "nigel@nigelsmall.com"
+__license__ = "Apache License, Version 2.0"
+__version__ = "1.0.9"
 
 
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+from .http import *
+from .jsonstream import *
+from .uri import *

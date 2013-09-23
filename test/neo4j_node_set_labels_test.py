@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2013, Nigel Small
@@ -16,10 +16,19 @@
 # limitations under the License.
 
 
-import sys
-
-from py2neo import __version__
+from py2neo import neo4j, node
 
 
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+def test_can_set_labels_on_node():
+    graph_db = neo4j.GraphDatabaseService()
+    if not graph_db.supports_node_labels:
+        return
+    alice, = graph_db.create(node(name="Alice"))
+    alice.add_labels("human", "female")
+    labels = alice.get_labels()
+    assert len(labels) == 2
+    assert labels == set(["human", "female"])
+    alice.set_labels("mystery", "badger")
+    labels = alice.get_labels()
+    assert labels == set(["mystery", "badger"])
+    assert labels != set(["human", "female"])

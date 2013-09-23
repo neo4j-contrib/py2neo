@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2013, Nigel Small
@@ -15,11 +15,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import os
 import sys
+import unittest
 
-from py2neo import __version__
+from py2neo import geoff
 
 
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+FIXTURES = os.path.join(os.path.dirname(__file__), "files")
+
+
+class XMLTestCase(unittest.TestCase):
+
+    def test_can_create_subgraph_from_xml(self):
+        xml_file = os.path.join(FIXTURES, "planets.xml")
+        geoff_file = os.path.join(FIXTURES, "planets.geoff")
+        planets = geoff.Subgraph.load_xml(open(xml_file))
+        if sys.version_info >= (2, 7):
+            assert planets.source == open(geoff_file).read().strip()
+
+if __name__ == '__main__':
+    unittest.main()

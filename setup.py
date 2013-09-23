@@ -16,19 +16,17 @@
 # limitations under the License.
 
 
-import sys
-sys.path.insert(0, "src")
-from py2neo import __author__ as py2neo_author
-from py2neo import __license__ as py2neo_license
-from py2neo import __package__ as py2neo_package
-from py2neo import __version__ as py2neo_version
-sys.path.pop(0)
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
-from distutils.core import setup
+from py2neo import __author__, __email__, __license__, __package__, __version__
+
 
 setup(
-    name=py2neo_package,
-    version=py2neo_version,
+    name=__package__,
+    version=__version__,
     description="Python client library for the Neo4j REST server",
     long_description="Py2neo is a simple and pragmatic Python library that "
                      "provides access to the popular graph database Neo4j via "
@@ -38,13 +36,20 @@ setup(
                      "actively maintained on GitHub, regularly updated in the "
                      "Python Package Index and is built uniquely for Neo4j in "
                      "close association with its team and community.",
-    author=py2neo_author,
-    author_email="nigel@nigelsmall.com",
+    author=__author__,
+    author_email=__email__,
     url="http://py2neo.org/",
-    scripts=["scripts/cypher", "scripts/geoff", "scripts/neotool"],
-    package_dir={"": "src"},
-    packages=["py2neo"],
-    license=py2neo_license,
+    scripts=[
+        "scripts/neotool",
+    ],
+    packages=[
+        "py2neo",
+        "py2neo.packages",
+        "py2neo.packages.httpstream",
+    ],
+    install_requires=[
+    ],
+    license=__license__,
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

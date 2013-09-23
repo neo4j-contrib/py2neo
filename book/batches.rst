@@ -18,14 +18,13 @@ this reason, py2neo provides two separate batch classes:
 The latter is the more comprehensive, as can be seen below.
 
 .. autoclass:: py2neo.neo4j.ReadBatch
-    :members: clear, submit, get_properties, get_indexed_nodes
+    :members: clear, stream, submit, append_cypher, get_indexed_nodes
 
 .. autoclass:: py2neo.neo4j.WriteBatch
-    :members: clear, submit, create, delete, delete_properties,
-        delete_property, get_or_create, set_properties, set_property,
-        add_indexed_node, add_indexed_node_or_fail, add_indexed_relationship,
-        add_indexed_relationship_or_fail, create_indexed_node_or_fail,
-        create_indexed_relationship_or_fail, get_or_add_indexed_node,
-        get_or_add_indexed_relationship, get_or_create_indexed_node,
-        get_or_create_indexed_relationship, remove_indexed_node,
-        remove_indexed_relationship
+    :members: clear, run, stream, submit, append_cypher, create, create_path,
+        delete, delete_properties, delete_property, get_or_create_path,
+        set_properties, set_property,
+        add_labels, remove_label, set_labels,
+        add_to_index, add_to_index_or_fail, get_or_add_to_index,
+        create_in_index, create_in_index_or_fail, get_or_create_in_index,
+        remove_from_index
