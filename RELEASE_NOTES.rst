@@ -13,6 +13,7 @@ General
 - Added feature detection methods (GraphDatabaseService.supports_*)
 - Changed Node.exists and Relationship.exists from function to property
 - Changed Node.is_abstract and Relationship.is_abstract from function to property
+- Changed Node.id and Relationship.id to '_id'
 - Changed GDB.order and size from function to property
 - Changed Path.order and size from function to property
 - Removed all previously deprecated features
