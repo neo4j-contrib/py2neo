@@ -18,6 +18,8 @@
 """ Generic command line tool for Neo4j.
 """
 
+from __future__ import print_function
+
 import sys
 
 from py2neo.tool import Tool
@@ -26,6 +28,5 @@ try:
     Tool().do(sys.argv)
     sys.exit(0)
 except Exception as err:
-    sys.stderr.write(err.message)
-    sys.stderr.write("\n")
+    print(*err.args)
     sys.exit(1)

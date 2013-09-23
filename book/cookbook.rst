@@ -1,38 +1,36 @@
+========
 Cookbook
 ========
 
-If you want to jump in and start coding, the following short programme
-illustrates a simple usage of the py2neo library::
+Creating a Simple Graph
+=======================
 
-    from py2neo import neo4j, cypher
+Listed below are a couple of short examples on how to create a simple graph.
 
-    # attach to a local graph database service
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+Using the Regular REST API
+--------------------------
 
-    # create two nodes and a relationship between them
-    #   (Alice)-[:KNOWS]->(Bob)
-    alice, bob, ab = graph_db.create(
-        node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1)
-    )
+::
 
-    # build a Cypher query and related parameters
-    query = (
-        "START a = node({A}) "
-        "MATCH (a)-[:KNOWS]->(b) "
-        "RETURN a, b"
-    )
-    params = {"A": node_a.id}
+    from py2neo import neo4j
 
-    # define a row handler
-    def print_row(row):
-        a, b = row
-        print(a["name"] + " knows " + b["name"])
+    graph_db = neo4j.GraphDatabaseService()
+    a, b, ab = graph_db.create(node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1))
 
-    # execute the query
-    cypher.execute(graph_db, query, params, row_handler=print_row)
+Using Cypher
+------------
+
+::
+
+    from py2neo import neo4j
+
+    graph_db = neo4j.GraphDatabaseService()
+    query = neo4j.CypherQuery(db, "CREATE (a {name:{name_a}})-[ab:KNOWS]->(b {name:{name_b}})"
+                                  "RETURN a, b, ab")
+    a, b, ab = query.execute(name_a="Alice", name_b="Bob").data[0]
 
 Batch Insertion using Index
----------------------------
+===========================
 
 ::
 
@@ -51,7 +49,7 @@ Batch Insertion using Index
     nodes = batch.submit()  # will return `Node` objects for the nodes created
 
 Default URI
------------
+===========
 
 A default Neo4j instance will listen on port 7474. Therefore, for such a
 default installation, the ``DEFAULT_URI`` can be used:
@@ -64,11 +62,21 @@ This default will be used if the URI is omitted from construction of a new
     graph_db = neo4j.GraphDatabaseService()
 
 Authentication
---------------
+==============
 
 .. autofunction:: py2neo.neo4j.authenticate
 
 URI Rewriting
--------------
+=============
 
 .. autofunction:: py2neo.neo4j.rewrite
+
+Logging
+=======
+
+To enable logging, simply import the ``logging`` module and provide a
+configuration, e.g.::
+
+    import logging
+    logging.basicConfig(level=logging.DEBUG)
+

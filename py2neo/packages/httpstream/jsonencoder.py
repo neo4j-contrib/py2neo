@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2012-2013 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,22 @@
 # limitations under the License.
 
 
-import sys
+from __future__ import unicode_literals
 
-from py2neo import __version__
+from datetime import date, time, datetime
+from decimal import Decimal
+import json
 
 
-if __name__ == "__main__":
-    sys.stdout.write(__version__)
+class JSONEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, (datetime, date, time)):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return str(obj)
+        if isinstance(obj, (set, frozenset)):
+            return list(obj)
+        if isinstance(obj, complex):
+            return [obj.real, obj.imag]
+        return json.JSONEncoder.default(self, obj)

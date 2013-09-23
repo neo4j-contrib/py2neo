@@ -7,9 +7,8 @@ Requirements
 Neo4j
 ~~~~~
 
-You will need to be running version 1.8.2 or above of Neo4j (available from
-http://neo4j.org/) in order to use the full feature set of py2neo. Reduced
-capabilities will be available for server versions 1.6 and 1.7.
+Neo4j version 1.8 or above is required. Older versions may partially work but
+are no longer supported.
 
 Python
 ~~~~~~
@@ -31,9 +30,10 @@ Python Package Index (PyPI)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The easiest way to install py2neo is from the Python Package Index (PyPI),
-using pip::
+using ``pip`` or ``easy_install``::
 
     pip install py2neo
+    easy_install py2neo
 
 Source Code
 -----------
