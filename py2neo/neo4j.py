@@ -501,7 +501,7 @@ class GraphDatabaseService(Cacheable, Resource):
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
         """
-        return self.size()
+        return self.size
 
     def clear(self):
         """ Clear all nodes and relationships from the graph.
