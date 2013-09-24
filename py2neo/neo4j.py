@@ -2910,21 +2910,7 @@ class WriteBatch(BatchRequestList):
         else:
             raise TypeError(cls)
 
-    def create_in_index(self, cls, index, key, value, abstract=None):
-        """ Create a new node or relationship and add it to an index.
-
-        :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
-        :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
-        :param key: index entry key
-        :type key: :py:class:`str`
-        :param value: index entry value
-        :param abstract: abstract node or relationship to create
-        :return: batch request object
-        """
-        return self._create_in_index(cls, index, key, value, abstract)
+    # Removed create_in_index as parameter combination not supported by server
 
     def create_in_index_or_fail(self, cls, index, key, value, abstract=None):
         """ Create a new node or relationship and add it uniquely to an index,
