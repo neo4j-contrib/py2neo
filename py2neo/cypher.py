@@ -105,13 +105,6 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
         return json.dumps(obj, ensure_ascii=ensure_ascii)
         
         
-def _results(r):
-    columns, data = r["columns"], r["data"]
-    #return columns, data
-    record = namedtuple("Record", columns)
-    return [record(*_hydrated(result["rest"])) for result in data]
-
-        
 class Session(object):
 
     def __init__(self, uri):
@@ -156,7 +149,7 @@ class Transaction(object):
         self.clear()
         if "commit" in j:
             self._commit = Resource(j["commit"])
-        return [_results(r) for r in j["results"]]
+        return Record.from_results(j["results"])
         
     def execute(self):
         return self._post(self._execute or self._begin)
@@ -164,3 +157,33 @@ class Transaction(object):
     def commit(self):
         return self._post(self._commit or self._begin_commit)
 
+
+class Record(object):
+            
+    @classmethod
+    def from_results(cls, results):
+        return [
+            [
+                Record(result["columns"], _hydrated(r["rest"]))
+                for r in result["data"]
+            ]
+            for result in results
+        ]
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self._values = tuple(values)
+    
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        
+    def __getattr__(self, attr):
+        return self._values[self._column_indexes[item]]
+        
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._values[item]
+        else:
+            return self._values[self._column_indexes[item]]
+    
