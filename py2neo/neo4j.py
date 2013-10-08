@@ -913,7 +913,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :param value: the index value
         :return: a :py:class:`Node` instance
         """
-        index = self.get_index(Node, index_name)
+        index = self.get_index(neo4j.Node, index_name)
         if index:
             nodes = index.get(key, value)
             if nodes:
@@ -943,7 +943,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :param value: the index value
         :return: a :py:class:`Relationship` instance
         """
-        index = self.get_index(Relationship, index_name)
+        index = self.get_index(neo4j.Relationship, index_name)
         if index:
             relationships = index.get(key, value)
             if relationships:
