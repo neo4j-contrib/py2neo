@@ -21,10 +21,12 @@
 
 from __future__ import unicode_literals
 
+from collections import namedtuple
 import json
 
-from .neo4j import CypherQuery, CypherError
-from .util import deprecated
+from .neo4j import CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
+from .util import deprecated, ustr
+from .packages.httpstream import URI
 
 
 @deprecated("The cypher module is deprecated, use "
@@ -101,3 +103,87 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
         return "".join(buffer)
     else:
         return json.dumps(obj, ensure_ascii=ensure_ascii)
+        
+        
+class Session(object):
+
+    def __init__(self, uri):
+        # TODO: detect version >= 2.0
+        self._uri = URI(uri)
+        self._user_info = self._uri.user_info #TODO: something with this in the headers
+        self._service_root = ServiceRoot.get_instance("{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port))
+        self._graph_db = self._service_root.graph_db
+        self._transaction_uri = self._graph_db.__metadata__["transaction"]
+        
+    def begin_transaction(self):
+        return Transaction(self._transaction_uri)
+
+        
+class Transaction(object):
+
+    def __init__(self, uri):
+        # TODO: detect version >= 2.0
+        self._begin = Resource(uri)
+        self._begin_commit = Resource(uri + "/commit")
+        self._execute = None
+        self._commit = None
+        self.clear()
+
+    def clear(self):
+        self._statements = []
+    
+    def append(self, statement, parameters=None):
+        self._statements.append({
+            "statement": ustr(statement),
+            "parameters": dict(parameters or {}),
+            "resultDataContents": ["REST"],
+        })
+
+    def _post(self, resource):
+        rs = resource._post({"statements": self._statements})
+        location = dict(rs.headers).get("Location")
+        if location:
+            self._execute = Resource(location)
+        j = rs.json
+        rs.close()
+        self.clear()
+        if "commit" in j:
+            self._commit = Resource(j["commit"])
+        return Record.from_results(j["results"])
+        
+    def execute(self):
+        return self._post(self._execute or self._begin)
+
+    def commit(self):
+        return self._post(self._commit or self._begin_commit)
+
+
+class Record(object):
+            
+    @classmethod
+    def from_results(cls, results):
+        return [
+            [
+                Record(result["columns"], _hydrated(r["rest"]))
+                for r in result["data"]
+            ]
+            for result in results
+        ]
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self._values = tuple(values)
+    
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        
+    def __getattr__(self, attr):
+        return self._values[self._column_indexes[item]]
+        
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._values[item]
+        else:
+            return self._values[self._column_indexes[item]]
+    
