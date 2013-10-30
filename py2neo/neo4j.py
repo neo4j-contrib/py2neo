@@ -52,7 +52,7 @@ from .packages.httpstream import (http,
                                   ServerError as _ServerError)
 from .packages.httpstream.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.httpstream.uri import URI, percent_encode
+from .packages.httpstream.uri import URI, Query, percent_encode
 
 from . import __version__
 from .exceptions import *
@@ -582,7 +582,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
-            uri.query = {property_key: json.dumps(property_value, ensure_ascii=False)}
+            uri = uri.resolve("?" + Query.encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Resource(uri)._get()):
                 yield _hydrated(assembled(result))
