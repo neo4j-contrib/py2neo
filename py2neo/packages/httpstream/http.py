@@ -18,6 +18,7 @@
 
 from __future__ import unicode_literals
 
+from base64 import b64encode
 try:
     from http.client import (BadStatusLine, CannotSendRequest, HTTPConnection,
                              HTTPSConnection, HTTPException, ResponseNotReady,
@@ -208,6 +209,10 @@ def submit(method, uri, body, headers):
     """
     uri = URI(uri)
     headers["Host"] = uri.host_port
+    if uri.user_info:
+        credentials = uri.user_info.encode("UTF-8")
+        value = "Basic " + b64encode(credentials).decode("ASCII")
+        headers["Authorization"] = value
     try:
         http = ConnectionPool.acquire(uri.scheme, uri.host_port)
     except KeyError:
@@ -770,12 +775,12 @@ def put(uri, body=None, headers=None, **kwargs):
     return Resource(uri).put(body, headers, **kwargs)
 
 
-def post(uri, body=None, headers=None, redirect_limit=0, **kwargs):
-    return Resource(uri).post(body, headers, redirect_limit, **kwargs)
+def post(uri, body=None, headers=None, **kwargs):
+    return Resource(uri).post(body, headers, **kwargs)
 
 
-def delete(uri, headers=None, redirect_limit=0, **kwargs):
-    return Resource(uri).delete(headers, redirect_limit, **kwargs)
+def delete(uri, headers=None, **kwargs):
+    return Resource(uri).delete(headers, **kwargs)
 
 
 def head(uri, headers=None, redirect_limit=5, **kwargs):

@@ -49,6 +49,16 @@ def percent_encode(data, safe=None):
     """
     if data is None:
         return None
+    if isinstance(data, (tuple, list, set)):
+        return "&".join(
+            percent_encode(value, safe)
+            for value in data
+        )
+    if isinstance(data, dict):
+        return "&".join(
+            key + "=" + percent_encode(value, safe)
+            for key, value in data.items()
+        )
     if not safe:
         safe = ""
     try:
@@ -140,16 +150,17 @@ class Authority(_Part):
             self._host = None
             self._port = None
         else:
+            if "@" in string:
+                self._user_info, string = string.rpartition("@")[0::2]
+                self._user_info = percent_decode(self._user_info)
+            else:
+                self._user_info = None
             if ":" in string:
-                string, self._port = string.rpartition(":")[0::2]
+                self._host, self._port = string.rpartition(":")[0::2]
                 self._port = int(self._port)
             else:
+                self._host = string
                 self._port = None
-            if "@" in string:
-                self._user_info, self._host = map(percent_decode,
-                                                  string.rpartition("@")[0::2])
-            else:
-                self._user_info, self._host = None, percent_decode(string)
 
     def __eq__(self, other):
         other = self._cast(other)
