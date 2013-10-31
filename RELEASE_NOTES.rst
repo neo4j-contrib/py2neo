@@ -17,6 +17,7 @@ General
 - Changed GDB.order and size from function to property
 - Changed Path.order and size from function to property
 - Removed all previously deprecated features
+- DEFAULT_URI now points to service root, not graph database (i.e. without trailing /db/data/)
 
 Cypher
 ------
