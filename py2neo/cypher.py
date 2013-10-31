@@ -21,11 +21,11 @@
 
 from __future__ import unicode_literals
 
-from collections import namedtuple
+from collections import OrderedDict
 import json
 
-from .neo4j import CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, ustr
+from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
+from .util import deprecated
 from .packages.httpstream import URI
 
 
@@ -107,22 +107,24 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
         
 class Session(object):
 
-    def __init__(self, uri):
-        # TODO: detect version >= 2.0
-        self._uri = URI(uri)
-        self._user_info = self._uri.user_info #TODO: something with this in the headers
+    def __init__(self, uri=None):
+        self._uri = URI(uri or DEFAULT_URI)
+        #self._user_info = self._uri.user_info #TODO: something with this in the headers
         self._service_root = ServiceRoot.get_instance("{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port))
         self._graph_db = self._service_root.graph_db
-        self._transaction_uri = self._graph_db.__metadata__["transaction"]
+        try:
+            self._transaction_uri = self._graph_db.__metadata__["transaction"]
+        except KeyError:
+            raise NotImplementedError("Cypher transactions are not supported "
+                                      "by this server version")
         
-    def begin_transaction(self):
+    def create_transaction(self):
         return Transaction(self._transaction_uri)
 
         
 class Transaction(object):
 
     def __init__(self, uri):
-        # TODO: detect version >= 2.0
         self._begin = Resource(uri)
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
@@ -133,11 +135,12 @@ class Transaction(object):
         self._statements = []
     
     def append(self, statement, parameters=None):
-        self._statements.append({
-            "statement": ustr(statement),
-            "parameters": dict(parameters or {}),
-            "resultDataContents": ["REST"],
-        })
+        # OrderedDict is used here to avoid statement/parameters ordering bug
+        self._statements.append(OrderedDict([
+            ("statement", statement),
+            ("parameters", dict(parameters or {})),
+            ("resultDataContents", ["REST"]),
+        ]))
 
     def _post(self, resource):
         rs = resource._post({"statements": self._statements})
@@ -149,6 +152,11 @@ class Transaction(object):
         self.clear()
         if "commit" in j:
             self._commit = Resource(j["commit"])
+        if "errors" in j:
+            errors = j["errors"]
+            if len(errors) >= 1:
+                error = errors[0]
+                raise TransactionError(error["code"], error["status"], error["message"])
         return Record.from_results(j["results"])
         
     def execute(self):
@@ -156,6 +164,20 @@ class Transaction(object):
 
     def commit(self):
         return self._post(self._commit or self._begin_commit)
+
+
+class TransactionError(Exception):
+
+    def __init__(self, code, status, message):
+        self.code = code
+        self.status = status
+        self.message = message
+
+    def __repr__(self):
+        return self.message
+
+    def __str__(self):
+        return self.message
 
 
 class Record(object):
@@ -179,7 +201,7 @@ class Record(object):
         return "Record(columns={0}, values={1})".format(self._columns, self._values)
         
     def __getattr__(self, attr):
-        return self._values[self._column_indexes[item]]
+        return self._values[self._column_indexes[attr]]
         
     def __getitem__(self, item):
         if isinstance(item, int):

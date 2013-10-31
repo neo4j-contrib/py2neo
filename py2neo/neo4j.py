@@ -395,6 +395,9 @@ class ResourceMetadata(object):
     def __init__(self, metadata):
         self._metadata = dict(metadata)
 
+    def __contains__(self, key):
+        return key in self._metadata
+
     def __getitem__(self, key):
         return self._metadata[key]
 
@@ -782,6 +785,12 @@ class GraphDatabaseService(Cacheable, Resource):
                                  "RETURN count(r)").execute_one()
 
     @property
+    def supports_foreach_pipe(self):
+        """ Indicates whether the server supports pipe syntax for FOREACH.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
     def supports_index_uniqueness_modes(self):
         """ Indicates whether the server supports `get_or_create` and
         `create_or_fail` uniqueness modes on batched index methods.
@@ -801,10 +810,10 @@ class GraphDatabaseService(Cacheable, Resource):
         return self.neo4j_version >= (2, 0)
 
     @property
-    def supports_foreach_pipe(self):
-        """ Indicates whether the server supports pipe syntax for FOREACH.
+    def supports_cypher_transactions(self):
+        """ Indicates whether the server supports explicit Cypher transactions.
         """
-        return self.neo4j_version >= (2, 0)
+        return "transaction" in self.__metadata__
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
