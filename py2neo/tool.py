@@ -26,9 +26,11 @@ import json
 import locale
 import logging
 import os
+import readline
 import sys
 
 from . import __version__, __copyright__, neo4j, geoff
+from .exceptions import CypherError
 from .util import ustr
 from .xmlutil import xml_to_cypher, xml_to_geoff
 
@@ -61,6 +63,7 @@ Commands:
 """
 
 if not PY3:
+    _stdin = sys.stdin
     preferred_encoding = locale.getpreferredencoding()
     sys.stdin = codecs.getreader(preferred_encoding)(sys.stdin)
     sys.stdout = codecs.getwriter(preferred_encoding)(sys.stdout)
@@ -416,6 +419,52 @@ class Tool(object):
         file.close()
         self._out.write(xml_to_geoff(src, prefixes=prefixes))
         self._out.write("\n")
+        
+    def shell(self):
+        Shell(self._graph_db).repl()
+
+
+class Shell(object):
+
+    def __init__(self, graph_db):
+        self.graph_db = graph_db
+        self.prompt = "{0}> ".format(self.graph_db.service_root.__uri__.host_port)
+        self.format = "text"
+
+    def repl(self):
+        print("Neotool Shell (py2neo 1.6.1)")
+        print("(C) Nigel Small 2013")
+        if PY3:
+            self._repl3()
+        else:
+            sys.stdin = _stdin
+            self._repl2()
+
+    def _repl2(self):
+        try:
+            while True:
+                line = raw_input(self.prompt).decode(sys.stdin.encoding)
+                self.execute(line)
+        except EOFError:
+            print("⌁")
+
+    def _repl3(self):
+        try:
+            while True:
+                line = input(self.prompt)
+                self.execute(line)
+        except EOFError:
+            print("⌁")
+
+    def execute(self, line):
+        try:
+            record_set = neo4j.CypherQuery(self.graph_db, line).execute()
+        except CypherError as err:
+            sys.stderr.write(str(err))
+            sys.stderr.write("\n")
+        else:
+            writer = ResultWriter(sys.stdout)
+            writer.write(self.format, record_set)
 
 
 if __name__ == "__main__":
