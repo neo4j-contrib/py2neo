@@ -109,8 +109,11 @@ class Session(object):
 
     def __init__(self, uri=None):
         self._uri = URI(uri or DEFAULT_URI)
-        #self._user_info = self._uri.user_info #TODO: something with this in the headers
-        self._service_root = ServiceRoot.get_instance("{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port))
+        if self._uri.user_info:
+            service_root_uri = "{0}://{1}@{2}:{3}/".format(self._uri.scheme, self._uri.user_info, self._uri.host, self._uri.port)
+        else:
+            service_root_uri = "{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port)
+        self._service_root = ServiceRoot.get_instance(service_root_uri)
         self._graph_db = self._service_root.graph_db
         try:
             self._transaction_uri = self._graph_db.__metadata__["transaction"]

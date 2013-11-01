@@ -74,6 +74,16 @@ Authentication
 
 .. autofunction:: py2neo.neo4j.authenticate
 
+As of py2neo 1.6.1, authentication can also be supplied through any resource
+URI, e.g.::
+
+    from py2neo import neo4j
+    graph_db = neo4j.GraphDatabaseService("http://arthur:excalibur@localhost:7474/db/data/")
+    
+.. warning:: Implicit authentication such as this applies not just to the
+    resource specified but instead applies globally to any resources with the
+    same host and port used thereafter.
+
 URI Rewriting
 =============
 

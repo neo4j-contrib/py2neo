@@ -287,6 +287,8 @@ class Resource(object):
             uri._scheme = scheme_host_port[0]
             uri._authority._host = scheme_host_port[1]
             uri._authority._port = scheme_host_port[2]
+        if uri.user_info:
+            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
