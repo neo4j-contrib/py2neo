@@ -1052,16 +1052,18 @@ class CypherResults(object):
     def _hydrated(cls, data):
         """ Takes assembled data...
         """
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in data["columns"]]
-        record = namedtuple("Record", columns)
-        return [record(*_hydrated(row)) for row in data["data"]]
+        return [
+            Record(data["columns"], _hydrated(row))
+            for row in data["data"]
+        ]
 
     def __init__(self, response):
         content = response.json
         self._columns = tuple(content["columns"])
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
-        record = namedtuple("Record", columns)
-        self._data = [record(*_hydrated(row)) for row in content["data"]]
+        self._data = [
+            Record(self._columns, _hydrated(row))
+            for row in content["data"]
+        ]
 
     def __enter__(self):
         return self
@@ -1114,7 +1116,6 @@ class IterableCypherResults(object):
         self._redo_buffer = []
         self._buffered = self._buffered_results()
         self._columns = None
-        self._record = None
         self._fetch_columns()
 
     def _fetch_columns(self):
@@ -1129,8 +1130,6 @@ class IterableCypherResults(object):
                     break
         self._redo_buffer.extend(redo)
         self._columns = tuple(assembled(section)["columns"])
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
-        self._record = namedtuple("Record", columns)
 
     def __enter__(self):
         return self
@@ -1149,7 +1148,7 @@ class IterableCypherResults(object):
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield self._record(*_hydrated(assembled(row)))
+                    yield Record(self._columns, _hydrated(assembled(row)))
 
     @property
     def columns(self):

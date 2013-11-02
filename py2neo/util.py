@@ -28,7 +28,8 @@ import warnings
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all", "ustr", "pendulate"]
+           "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
+           "Record"]
 
 
 def numberise(n):
@@ -152,4 +153,24 @@ def pendulate(collection):
         else:
             index = count - ((i + 1) / 2)
         yield index, collection[index]
+
+
+class Record(object):
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self._values = tuple(values)
+    
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        
+    def __getattr__(self, attr):
+        return self._values[self._column_indexes[attr]]
+        
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self._values[item]
+        else:
+            return self._values[self._column_indexes[item]]
 

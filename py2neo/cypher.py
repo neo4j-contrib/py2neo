@@ -25,7 +25,7 @@ from collections import OrderedDict
 import json
 
 from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated
+from .util import deprecated, Record
 from .packages.httpstream import URI
 
 
@@ -160,7 +160,13 @@ class Transaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise TransactionError(error["code"], error["status"], error["message"])
-        return Record.from_results(j["results"])
+        return [
+            [
+                Record(result["columns"], _hydrated(r["rest"]))
+                for r in result["data"]
+            ]
+            for result in j["results"]
+        ]
         
     def execute(self):
         return self._post(self._execute or self._begin)
@@ -182,33 +188,3 @@ class TransactionError(Exception):
     def __str__(self):
         return self.message
 
-
-class Record(object):
-            
-    @classmethod
-    def from_results(cls, results):
-        return [
-            [
-                Record(result["columns"], _hydrated(r["rest"]))
-                for r in result["data"]
-            ]
-            for result in results
-        ]
-
-    def __init__(self, columns, values):
-        self._columns = tuple(columns)
-        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
-        self._values = tuple(values)
-    
-    def __repr__(self):
-        return "Record(columns={0}, values={1})".format(self._columns, self._values)
-        
-    def __getattr__(self, attr):
-        return self._values[self._column_indexes[attr]]
-        
-    def __getitem__(self, item):
-        if isinstance(item, int):
-            return self._values[item]
-        else:
-            return self._values[self._column_indexes[item]]
-    
