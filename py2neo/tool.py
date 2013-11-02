@@ -58,6 +58,7 @@ Commands:
   cypher-tsv <query>              Execute Cypher and output as TSV
   geoff-insert <file>             Insert Geoff data
   geoff-merge <file>              Merge Geoff data
+  shell                           Start an interactive shell
   xml-cypher <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
   xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
 """

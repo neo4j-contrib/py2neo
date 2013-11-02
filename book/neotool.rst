@@ -174,3 +174,10 @@ prefixed to relationship type names in the output::
     (J2004)-[:xbrli_period]->(node_10)
     (node_1)-[:xbrli_unit]->(EUR)
 
+Interactive Shell
+-----------------
+
+To start an interactive shell, use::
+
+    neotool shell
+
