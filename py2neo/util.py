@@ -28,7 +28,7 @@ import warnings
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all", "ustr"]
+           "version_tuple", "is_collection", "has_all", "ustr", "pendulate"]
 
 
 def numberise(n):
@@ -143,3 +143,13 @@ try:
     ustr = unicode
 except NameError:
     ustr = str
+    
+def pendulate(collection):
+    count = len(collection)
+    for i in range(count):
+        if i % 2 == 0:
+            index = i / 2
+        else:
+            index = count - ((i + 1) / 2)
+        yield index, collection[index]
+

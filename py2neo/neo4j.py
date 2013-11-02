@@ -2484,7 +2484,7 @@ class BatchRequestList(object):
     def find(self, request):
         """ Find the position of a request within this batch.
         """
-        for i, req in enumerate(self._requests):
+        for i, req in pendulate(self._requests):
             if req == request:
                 return i
         raise ValueError("Request not found")
