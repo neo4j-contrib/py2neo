@@ -430,10 +430,12 @@ class Shell(object):
         self.graph_db = graph_db
         self.prompt = "{0}> ".format(self.graph_db.service_root.__uri__.host_port)
         self.format = "text"
+        self.params = {}
 
     def repl(self):
-        print("Neotool Shell (py2neo 1.6.1)")
-        print("(C) Nigel Small 2013")
+        print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
+        print("Copyright 2013, Nigel Small")
+        print("")
         if PY3:
             self._repl3()
         else:
@@ -447,6 +449,8 @@ class Shell(object):
                 self.execute(line)
         except EOFError:
             print("⌁")
+        except StopIteration:
+            pass
 
     def _repl3(self):
         try:
@@ -455,16 +459,33 @@ class Shell(object):
                 self.execute(line)
         except EOFError:
             print("⌁")
+        except StopIteration:
+            pass
 
     def execute(self, line):
-        try:
-            record_set = neo4j.CypherQuery(self.graph_db, line).execute()
-        except CypherError as err:
-            sys.stderr.write(str(err))
-            sys.stderr.write("\n")
+        if not line:
+            return
+        args = line.strip().split()
+        if args[0] == "help":
+            print("Enter Cypher or one of the following commands:\n"
+                  "----\n"
+                  "exit - exit the shell\n"
+                  "help - display this help message\n"
+                  "version - show the current Neo4j version\n"
+                  "----")
+        elif args[0] == "exit":
+            raise StopIteration()
+        elif args[0] == "version":
+            print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
         else:
-            writer = ResultWriter(sys.stdout)
-            writer.write(self.format, record_set)
+            try:
+                record_set = neo4j.CypherQuery(self.graph_db, line).execute(**self.params)
+            except CypherError as err:
+                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+                sys.stderr.write("\n")
+            else:
+                writer = ResultWriter(sys.stdout)
+                writer.write(self.format, record_set)
 
 
 if __name__ == "__main__":
