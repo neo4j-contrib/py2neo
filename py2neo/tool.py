@@ -514,10 +514,12 @@ class Shell(object):
             self.execute_cypher_from_file(line)
         elif command == "EXIT":
             raise StopIteration()
-        elif command == "ADDPARAMETERS":
-            self.add_parameters_from_file(line)
-        elif command == "SHOWPARAMETERS":
-            self.show_parameters(line)
+        elif command == "ADD":
+            self.add_something(line)
+        elif command == "CLEAR":
+            self.clear_something(line)
+        elif command == "SHOW":
+            self.show_something(line)
         elif command == "VERSION":
             self.show_neo4j_version(line)
         else:
@@ -557,8 +559,31 @@ class Shell(object):
     def show_neo4j_version(self, line):
         print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
 
-    def add_parameters_from_file(self, line):
+    def add_something(self, line):
         command = line.pop()
+        subject = line.pop().upper()
+        if subject == "PARAMETERS":
+            self.add_parameters_from_file(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def clear_something(self, line):
+        command = line.pop()
+        subject = line.pop().upper()
+        if subject == "PARAMETERS":
+            self.clear_parameters(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def show_something(self, line):
+        command = line.pop()
+        subject = line.pop().upper()
+        if subject == "PARAMETERS":
+            self.show_parameters(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def add_parameters_from_file(self, line):
         file_name = os.path.expanduser(line.pop())
         try:
             params = json.load(codecs.open(file_name, encoding="utf-8"))
@@ -578,6 +603,9 @@ class Shell(object):
                 print("1 parameter set added")
             else:
                 print("{0} parameter sets added".format(count))
+
+    def clear_parameters(self, line):
+        self.param_sets = []
 
     def show_parameters(self, line):
         print(json.dumps(self.param_sets, sort_keys=True, indent=4))
