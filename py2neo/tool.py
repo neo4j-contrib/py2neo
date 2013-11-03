@@ -433,13 +433,45 @@ class Tool(object):
         Shell(self._graph_db).repl()
 
 
+class CommandLine(object):
+
+    def __init__(self, text):
+        self.text = text.strip()
+    
+    def __bool__(self):
+        return bool(self.text)
+    
+    def __nonzero__(self):
+        return bool(self.text)
+    
+    def peek(self):
+        bits = self.text.split(None, 1)
+        if not bits:
+            return None
+        return bits[0]
+    
+    def pop(self):
+        bits = self.text.split(None, 1)
+        if not bits:
+            return None
+        try:
+            self.text = bits[1]
+        except IndexError:
+            self.text = ""
+        return bits[0]
+
+
 class Shell(object):
 
     def __init__(self, graph_db):
         self.graph_db = graph_db
-        self.prompt = "{0}> ".format(self.graph_db.service_root.__uri__.host_port)
+        self.lang = "cypher"
         self.format = "text"
-        self.params = {}
+        self.param_sets = []
+
+    @property
+    def prompt(self):
+        return "{0}/{1}[{2}]> ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
 
     def repl(self):
         print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
@@ -472,48 +504,27 @@ class Shell(object):
             pass
 
     def execute(self, line):
-        line = line.strip()
+        line = CommandLine(line)
         if not line:
             return
-        args = line.split()
-        if args[0].lower() == "help":
-            sys.stdout.write(SHELL_HELP)
-        elif args[0].lower() == "execute":
-            try:
-                file_name = os.path.expanduser(args[1])
-                with codecs.open(file_name, encoding="utf-8") as f:
-                    query = f.read()
-                self.execute_cypher(query, self.params)
-            except IOError as err:
-                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
-                sys.stderr.write("\n")
-        elif args[0].lower() == "exit":
+        command = line.peek().upper()
+        if command == "HELP":
+            self.help(line)
+        elif command == "EXECUTE":
+            self.execute_cypher_from_file(line)
+        elif command == "EXIT":
             raise StopIteration()
-        elif args[0].lower() == "parameters":
-            if len(args) == 1:
-                self.params = None
-                print("Parameters cleared")
-                return
-            try:
-                file_name = os.path.expanduser(args[1])
-                self.params = json.load(codecs.open(file_name, encoding="utf-8"))
-                if isinstance(self.params, list):
-                    count = len(self.params)
-                elif isinstance(self.params, dict):
-                    count = 1
-                else:
-                    count = 0
-                if count == 1:
-                    print("1 parameter set loaded")
-                else:
-                    print("{0} parameter sets loaded".format(count))
-            except IOError as err:
-                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
-                sys.stderr.write("\n")
-        elif args[0].lower() == "version":
-            print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
+        elif command == "ADDPARAMETERS":
+            self.add_parameters_from_file(line)
+        elif command == "SHOWPARAMETERS":
+            self.show_parameters(line)
+        elif command == "VERSION":
+            self.show_neo4j_version(line)
         else:
-            self.execute_cypher(line, self.params)
+            self.execute_cypher(line.text, self.param_sets)
+
+    def help(self, line):
+        sys.stdout.write(SHELL_HELP)
 
     def execute_cypher(self, query, params):
         if isinstance(params, list):
@@ -530,6 +541,46 @@ class Shell(object):
             else:
                 writer = ResultWriter(sys.stdout)
                 writer.write(self.format, record_set)
+
+    def execute_cypher_from_file(self, line):
+        command = line.pop()
+        file_name = os.path.expanduser(line.pop())
+        try:
+            with codecs.open(file_name, encoding="utf-8") as f:
+                query = f.read()
+        except IOError as err:
+            sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+            sys.stderr.write("\n")
+        else:
+            self.execute_cypher(query, self.params)
+            
+    def show_neo4j_version(self, line):
+        print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
+
+    def add_parameters_from_file(self, line):
+        command = line.pop()
+        file_name = os.path.expanduser(line.pop())
+        try:
+            params = json.load(codecs.open(file_name, encoding="utf-8"))
+        except IOError as err:
+            sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+            sys.stderr.write("\n")
+        else:
+            if isinstance(params, list):
+                count = len(params)
+                self.param_sets.extend(params)
+            elif isinstance(self.params, dict):
+                count = 1
+                self.param_sets.append(params)
+            else:
+                count = 0
+            if count == 1:
+                print("1 parameter set added")
+            else:
+                print("{0} parameter sets added".format(count))
+
+    def show_parameters(self, line):
+        print(json.dumps(self.param_sets, sort_keys=True, indent=4))
 
 
 if __name__ == "__main__":
