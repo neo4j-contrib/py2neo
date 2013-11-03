@@ -37,7 +37,7 @@ from .xmlutil import xml_to_cypher, xml_to_geoff
 
 PY3 = sys.version > '3'
 SCRIPT_NAME = "neotool"
-HELP = """\
+NEOTOOL_HELP = """\
 Usage:
   {script} <options> <command> <args>
 Options:
@@ -61,6 +61,14 @@ Commands:
   shell                           Start an interactive shell
   xml-cypher <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
   xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
+"""
+SHELL_HELP = """\
+Enter Cypher or one of the following commands:
+----
+exit - exit the shell
+help - display this help message
+version - show the current Neo4j version
+----
 """
 
 if not PY3:
@@ -262,7 +270,7 @@ class Tool(object):
         """
         script = self._script.split(os.sep)[-1].rstrip(".py")
         self._version()
-        self._out.write(HELP.format(script=script))
+        self._out.write(NEOTOOL_HELP.format(script=script))
         self._copyright()
 
     def do(self, argv):
@@ -464,23 +472,58 @@ class Shell(object):
             pass
 
     def execute(self, line):
+        line = line.strip()
         if not line:
             return
-        args = line.strip().split()
-        if args[0] == "help":
-            print("Enter Cypher or one of the following commands:\n"
-                  "----\n"
-                  "exit - exit the shell\n"
-                  "help - display this help message\n"
-                  "version - show the current Neo4j version\n"
-                  "----")
-        elif args[0] == "exit":
+        args = line.split()
+        if args[0].lower() == "help":
+            sys.stdout.write(SHELL_HELP)
+        elif args[0].lower() == "execute":
+            try:
+                file_name = os.path.expanduser(args[1])
+                with codecs.open(file_name, encoding="utf-8") as f:
+                    query = f.read()
+                self.execute_cypher(query, self.params)
+            except IOError as err:
+                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+                sys.stderr.write("\n")
+        elif args[0].lower() == "exit":
             raise StopIteration()
-        elif args[0] == "version":
+        elif args[0].lower() == "parameters":
+            if len(args) == 1:
+                self.params = None
+                print("Parameters cleared")
+                return
+            try:
+                file_name = os.path.expanduser(args[1])
+                self.params = json.load(codecs.open(file_name, encoding="utf-8"))
+                if isinstance(self.params, list):
+                    count = len(self.params)
+                elif isinstance(self.params, dict):
+                    count = 1
+                else:
+                    count = 0
+                if count == 1:
+                    print("1 parameter set loaded")
+                else:
+                    print("{0} parameter sets loaded".format(count))
+            except IOError as err:
+                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+                sys.stderr.write("\n")
+        elif args[0].lower() == "version":
             print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
         else:
+            self.execute_cypher(line, self.params)
+
+    def execute_cypher(self, query, params):
+        if isinstance(params, list):
+            for p in params:
+                self.execute_cypher(query, p)
+        else:
+            if not isinstance(params, dict):
+                params = {}
             try:
-                record_set = neo4j.CypherQuery(self.graph_db, line).execute(**self.params)
+                record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
             except CypherError as err:
                 sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
                 sys.stderr.write("\n")
@@ -497,3 +540,4 @@ if __name__ == "__main__":
         sys.stderr.write(ustr(err))
         sys.stderr.write("\n")
         sys.exit(1)
+
