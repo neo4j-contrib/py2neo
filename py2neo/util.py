@@ -169,7 +169,7 @@ class Record(object):
         return self._values[self._column_indexes[attr]]
         
     def __getitem__(self, item):
-        if isinstance(item, int):
+        if isinstance(item, (int, slice)):
             return self._values[item]
         else:
             return self._values[self._column_indexes[item]]
