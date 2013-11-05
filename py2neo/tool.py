@@ -63,12 +63,9 @@ Commands:
   xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
 """
 SHELL_HELP = """\
-Enter Cypher or one of the following commands:
-----
-exit - exit the shell
-help - display this help message
-version - show the current Neo4j version
-----
+The Neotool Shell allows you to run Cypher queries from an interactive prompt.
+Queries may be entered directly or run from files using the EXECUTE command. To
+quit the shell, press Ctrl+D or use the EXIT command.
 """
 
 if not PY3:
@@ -471,7 +468,10 @@ class Shell(object):
 
     @property
     def prompt(self):
-        return "{0}/{1}[{2}]> ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+        if self.param_sets:
+            return "{0}/{1}[{2}]> ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+        else:
+            return "{0}/{1}> ".format(self.graph_db.service_root.__uri__.host_port, self.lang)
 
     def repl(self):
         print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
@@ -522,8 +522,10 @@ class Shell(object):
             self.show_something(line)
         elif command == "VERSION":
             self.show_neo4j_version(line)
-        else:
+        elif self.param_sets:
             self.execute_cypher(line.text, self.param_sets)
+        else:
+            self.execute_cypher(line.text, {})
 
     def help(self, line):
         sys.stdout.write(SHELL_HELP)
@@ -554,7 +556,10 @@ class Shell(object):
             sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
             sys.stderr.write("\n")
         else:
-            self.execute_cypher(query, self.params)
+            if self.params:
+                self.execute_cypher(query, self.params)
+            else:
+                self.execute_cypher(query, {})
             
     def show_neo4j_version(self, line):
         print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
@@ -562,7 +567,7 @@ class Shell(object):
     def add_something(self, line):
         command = line.pop()
         subject = line.pop().upper()
-        if subject == "PARAMETERS":
+        if subject in ("PARAMS", "PARAMETERS"):
             self.add_parameters_from_file(line)
         else:
             sys.stderr.write("Bad command")
@@ -570,7 +575,7 @@ class Shell(object):
     def clear_something(self, line):
         command = line.pop()
         subject = line.pop().upper()
-        if subject == "PARAMETERS":
+        if subject in ("PARAMS", "PARAMETERS"):
             self.clear_parameters(line)
         else:
             sys.stderr.write("Bad command")
@@ -578,7 +583,7 @@ class Shell(object):
     def show_something(self, line):
         command = line.pop()
         subject = line.pop().upper()
-        if subject == "PARAMETERS":
+        if subject in ("PARAMS", "PARAMETERS"):
             self.show_parameters(line)
         else:
             sys.stderr.write("Bad command")
