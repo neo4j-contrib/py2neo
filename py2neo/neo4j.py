@@ -436,10 +436,27 @@ class ServiceRoot(Cacheable, Resource):
 
     def __init__(self, uri=None):
         Resource.__init__(self, uri or DEFAULT_URI)
+        self._load2neo = None
+        self._load2neo_checked = False
 
     @property
     def graph_db(self):
         return GraphDatabaseService.get_instance(self.__metadata__["data"])
+
+    @property
+    def load2neo(self):
+        if not self._load2neo_checked:
+            self._load2neo = Resource(URI(self).resolve("/load2neo"))
+            try:
+                self._load2neo.refresh()
+            except ClientError:
+                self._load2neo = None
+            finally:
+                self._load2neo_checked = True
+        if self._load2neo is None:
+            raise NotImplementedError("Load2neo extension not available")
+        else:
+            return self._load2neo
 
     @property
     def monitor(self):
@@ -507,6 +524,10 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Return the size of this graph (i.e. the number of relationships).
         """
         return self.size
+
+    @property
+    def _load2neo(self):
+        return self.service_root.load2neo
 
     def clear(self):
         """ Clear all nodes and relationships from the graph.
@@ -612,6 +633,24 @@ class GraphDatabaseService(Cacheable, Resource):
             return [BatchResponse(rs).body or {} for rs in responses.json]
         finally:
             responses.close()
+
+    def load_geoff(self, geoff):
+        """ Load Geoff data via the load2neo extension.
+
+        :param geoff:
+        :return:
+        """
+        loader = Resource(self._load2neo.__metadata__["geoff_loader"])
+        return [
+            dict((key, self.node(value)) for key, value in line[0].items())
+            for line in loader._post(geoff).tsj
+        ]
+
+    @property
+    def load2neo_version(self):
+        """ The load2neo extension version, if available.
+        """
+        return version_tuple(self._load2neo.__metadata__["load2neo_version"])
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
