@@ -38,7 +38,7 @@ using ``pip`` or ``easy_install``::
 Source Code
 -----------
 
-You may prefer to use the latest code directly from GitHub::
+You may prefer to use the latest code directly from `GitHub <https://github.com/nigelsmall/py2neo/>`_::
 
-    git clone git@github.com:nigelsmall/py2neo.git
+    git clone git://github.com/nigelsmall/py2neo.git
 
