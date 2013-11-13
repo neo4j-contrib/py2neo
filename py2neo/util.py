@@ -144,7 +144,8 @@ try:
     ustr = unicode
 except NameError:
     ustr = str
-    
+
+
 def pendulate(collection):
     count = len(collection)
     for i in range(count):
@@ -174,3 +175,13 @@ class Record(object):
         else:
             return self._values[self._column_indexes[item]]
 
+    def __len__(self):
+        return len(self._columns)
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def values(self):
+        return self._values
