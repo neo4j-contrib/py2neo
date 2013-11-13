@@ -125,6 +125,11 @@ def version_tuple(string):
 def is_collection(obj):
     """ Returns true for any iterable which is not a string or byte sequence.
     """
+    try:
+        if isinstance(obj, unicode):
+            return False
+    except NameError:
+        pass
     if isinstance(obj, bytes):
         return False
     try:
