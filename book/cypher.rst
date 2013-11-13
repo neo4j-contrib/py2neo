@@ -7,11 +7,38 @@ to query and manipulate data within a graph database using a syntax which is
 both quick to learn and easy to read.
 
 .. note::
-   As of py2neo 1.6, the `cypher` module has been deprecated. This module will
-   likely be reintroduced at a later time in order to provide support for
-   client transactions but in the meantime the new facilities provided by the
-   `neo4j` module are recommended for individual and batch query use.
+   In py2neo 1.6.0, execution functions in the `cypher` module were deprecated
+   and replaced by the :py:class:`CypherQuery <py2neo.neo4j.CypherQuery>`
+   class from the `neo4j` module. From version 1.6.1 onwards, the entire
+   `cypher` module has been repurposed and now contains new support for
+   `Cypher transactions <http://docs.neo4j.org/chunked/milestone/rest-api-transactional.html>`_,
+   as introduced in Neo4j 2.0.
 
+
+Cypher Transactions
+-------------------
+
+Cypher transactions were introduced in Neo4j 2.0 and allow multiple statements
+to be executed within a single server transaction.
+
+.. autoclass:: py2neo.cypher.Session
+    :members:
+
+.. autoclass:: py2neo.cypher.Transaction
+    :members:
+
+.. autoclass:: py2neo.cypher.Record
+    :members:
+
+.. autoexception:: py2neo.cypher.TransactionError
+    :members:
+
+.. autoexception:: py2neo.cypher.TransactionFinished
+    :members:
+
+
+Classic Cypher Execution
+------------------------
 
 .. autoclass:: py2neo.neo4j.CypherQuery
     :members:

@@ -162,6 +162,9 @@ def pendulate(collection):
 
 
 class Record(object):
+    """ A single row of a Cypher execution result, holding a sequence of named
+    values.
+    """
 
     def __init__(self, columns, values):
         self._columns = tuple(columns)

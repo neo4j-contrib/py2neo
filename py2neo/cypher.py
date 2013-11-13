@@ -132,12 +132,22 @@ class Transaction(object):
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
         self._commit = None
-        self.clear()
+        self._clear()
+        self._finished = False
 
-    def clear(self):
+    def _clear(self):
         self._statements = []
-    
+
+    def _assert_unfinished(self):
+        if self._finished:
+            raise TransactionFinished()
+
+    @property
+    def finished(self):
+        return self._finished
+
     def append(self, statement, parameters=None):
+        self._assert_unfinished()
         # OrderedDict is used here to avoid statement/parameters ordering bug
         self._statements.append(OrderedDict([
             ("statement", statement),
@@ -146,13 +156,14 @@ class Transaction(object):
         ]))
 
     def _post(self, resource):
+        self._assert_unfinished()
         rs = resource._post({"statements": self._statements})
-        location = dict(rs.headers).get("Location")
+        location = dict(rs.headers).get("location")
         if location:
             self._execute = Resource(location)
         j = rs.json
         rs.close()
-        self.clear()
+        self._clear()
         if "commit" in j:
             self._commit = Resource(j["commit"])
         if "errors" in j:
@@ -172,7 +183,18 @@ class Transaction(object):
         return self._post(self._execute or self._begin)
 
     def commit(self):
-        return self._post(self._commit or self._begin_commit)
+        try:
+            return self._post(self._commit or self._begin_commit)
+        finally:
+            self._finished = True
+
+    def rollback(self):
+        self._assert_unfinished()
+        try:
+            if self._execute:
+                self._execute._delete()
+        finally:
+            self._finished = True
 
 
 class TransactionError(Exception):
@@ -185,6 +207,11 @@ class TransactionError(Exception):
     def __repr__(self):
         return self.message
 
-    def __str__(self):
-        return self.message
 
+class TransactionFinished(Exception):
+
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return "Transaction finished"
