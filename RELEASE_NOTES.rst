@@ -2,6 +2,12 @@
 Release Notes
 =============
 
+Version 1.6.1
+=============
+- Many bug fixes
+- Renamed schema.get_index to 'get_indexed_property_keys'
+- Introduced Cypher transactions
+
 Version 1.6
 ===========
 
