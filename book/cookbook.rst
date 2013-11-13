@@ -51,15 +51,23 @@ Batch Insertion using Index
 Default URI
 ===========
 
+.. warning:: The value of the `DEFAULT_URI` has changed in version 1.6. This now
+    points to the default service root (http://localhost:7474) *not* the default
+    graph database service (http://localhost:7474/db/data/).
+
 A default Neo4j instance will listen on port 7474. Therefore, for such a
 default installation, the ``DEFAULT_URI`` can be used:
 
 .. autoattribute:: py2neo.neo4j.DEFAULT_URI
 
 This default will be used if the URI is omitted from construction of a new
-``GraphDatabaseService`` instance::
+``ServiceRoot`` instance::
 
-    graph_db = neo4j.GraphDatabaseService()
+    service_root = neo4j.ServiceRoot()
+
+If the URI is omitted from a ``GraphDatabaseService`` constructor, the default
+will be discovered via the default service root. Therefore this only uses the
+`DEFAULT_URI` indirectly.
 
 Authentication
 ==============
