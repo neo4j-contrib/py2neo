@@ -1174,7 +1174,7 @@ class Schema(Cacheable, Resource):
         self._index_key_template = \
             URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
 
-    def get_index(self, label):
+    def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
 
         :param label:
