@@ -18,6 +18,8 @@
 
 from __future__ import unicode_literals
 
+from base64 import b64encode
+import errno
 try:
     from http.client import (BadStatusLine, CannotSendRequest, HTTPConnection,
                              HTTPSConnection, HTTPException, ResponseNotReady,
@@ -50,6 +52,20 @@ default_chunk_size = 4096
 log = logging.getLogger(__name__)
 
 redirects = {}
+
+# Since the Python docs state that "symbols that are not used on the current
+# platform are not defined by the module" we have to import error codes
+# cautiously. Error numbers also vary across platforms so we cannot rely on
+# raw numeric values either.
+retry_codes = {}
+if hasattr(errno, "EPIPE"):
+    retry_codes[errno.EPIPE] = "broken pipe"
+if hasattr(errno, "ENETRESET"):
+    retry_codes[errno.ENETRESET] = "network reset"
+if hasattr(errno, "ECONNABORTED"):
+    retry_codes[errno.ECONNABORTED] = "connection aborted"
+if hasattr(errno, "ECONNRESET"):
+    retry_codes[errno.ECONNRESET] = "connection reset"
 
 
 def user_agent(product=None):
@@ -208,6 +224,10 @@ def submit(method, uri, body, headers):
     """
     uri = URI(uri)
     headers["Host"] = uri.host_port
+    if uri.user_info:
+        credentials = uri.user_info.encode("UTF-8")
+        value = "Basic " + b64encode(credentials).decode("ASCII")
+        headers["Authorization"] = value
     try:
         http = ConnectionPool.acquire(uri.scheme, uri.host_port)
     except KeyError:
@@ -247,9 +267,8 @@ def submit(method, uri, body, headers):
                 code = err.args[0][0]
             else:
                 code = err.args[0]
-            if code == 32:
-                # EPIPE: Broken pipe
-                response = send("broken pipe")
+            if code in retry_codes:
+                response = send(retry_codes[code])
             else:
                 raise
     except (gaierror, herror) as err:
@@ -516,6 +535,24 @@ class Response(object):
         return self.read().decode(self.encoding)
 
     @property
+    def is_tsj(self):
+        """ Indicates whether or not the content is tab-separated JSON.
+        """
+        return self.content_type == "text/x-tab-separated-json"
+
+    @property
+    def tsj(self):
+        """ Fetches all content, decoding from tab-separated JSON and returning
+        the decoded values.
+        """
+        if not self.is_tsj:
+            raise TypeError("Content is not tab-separated JSON")
+        return [
+            [json.loads(value) for value in line.split("\t")]
+            for line in self.read().decode(self.encoding).splitlines()
+        ]
+
+    @property
     def content(self):
         """ Fetch all content, returning a value appropriate for the content
         type.
@@ -524,6 +561,8 @@ class Response(object):
             return None
         elif self.is_json:
             return self.json
+        elif self.is_tsj:
+            return self.tsj
         elif self.is_text:
             return self.text
         else:
@@ -601,11 +640,19 @@ class Response(object):
         if data:
             yield data
 
+    def iter_tsj(self):
+        """ Iterate through the content as lines of tab-separated JSON.
+        """
+        for line in self.iter_lines():
+            yield [json.loads(value) for value in line.split("\t")]
+
     def __iter__(self):
         if self.status_code == NO_CONTENT:
             return iter([])
         elif self.is_json:
             return self.iter_json()
+        elif self.is_tsj:
+            return self.iter_tsj()
         elif self.is_text:
             return self.iter_lines()
         else:
@@ -770,12 +817,12 @@ def put(uri, body=None, headers=None, **kwargs):
     return Resource(uri).put(body, headers, **kwargs)
 
 
-def post(uri, body=None, headers=None, redirect_limit=0, **kwargs):
-    return Resource(uri).post(body, headers, redirect_limit, **kwargs)
+def post(uri, body=None, headers=None, **kwargs):
+    return Resource(uri).post(body, headers, **kwargs)
 
 
-def delete(uri, headers=None, redirect_limit=0, **kwargs):
-    return Resource(uri).delete(headers, redirect_limit, **kwargs)
+def delete(uri, headers=None, **kwargs):
+    return Resource(uri).delete(headers, **kwargs)
 
 
 def head(uri, headers=None, redirect_limit=5, **kwargs):

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2013, Nigel Small
@@ -16,13 +16,23 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2013, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "1.6.1"
+from py2neo import neo4j
 
 
-from .neo4j import _node as node, _rel as rel
+def test_can_find_nodes_with_label():
+    graph_db = neo4j.GraphDatabaseService()
+    graph_db.clear()
+    alice, = graph_db.create({"name": "Alice"})
+    alice.add_labels("Person")
+    nodes = list(graph_db.find("Person"))
+    assert nodes == [alice]
+
+
+def test_can_find_nodes_with_label_and_property():
+    graph_db = neo4j.GraphDatabaseService()
+    graph_db.clear()
+    alice, = graph_db.create({"name": "Alice"})
+    alice.add_labels("Person")
+    nodes = list(graph_db.find("Person", "name", "Alice"))
+    assert nodes == [alice]
 

@@ -174,3 +174,30 @@ prefixed to relationship type names in the output::
     (J2004)-[:xbrli_period]->(node_10)
     (node_1)-[:xbrli_unit]->(EUR)
 
+Interactive Shell
+-----------------
+
+To start an interactive shell, use::
+
+    neotool shell
+
+The Neotool Shell allows you to run Cypher queries from an interactive prompt.
+Queries may be entered directly or run from files using the EXECUTE command. To
+quit the shell, press Ctrl+D or use the EXIT command.
+
+Examples::
+
+    localhost:7474/cypher> CREATE (a) RETURN a
+     a      
+    --------
+     (123) 
+    (1 row)
+
+::
+
+    localhost:7474/cypher> EXECUTE foo.cypher
+     a      
+    --------
+     (124) 
+    (1 row)
+
