@@ -21,6 +21,26 @@ Cypher Transactions
 Cypher transactions were introduced in Neo4j 2.0 and allow multiple statements
 to be executed within a single server transaction.
 
+::
+
+    from py2neo import cypher
+
+    session = cypher.Session("http://localhost:7474")
+    tx = session.create_transaction()
+
+    # send three statements to for execution but leave the transaction open
+    tx.append("MERGE (a:Person {name:'Alice'})")
+    tx.append("MERGE (b:Person {name:'Bob'})")
+    tx.append("CREATE UNIQUE (a)-[:KNOWS]->(b)")
+    tx.execute()
+
+    # send another three statements and commit the transaction
+    tx.append("MERGE (c:Person {name:'Carol'})")
+    tx.append("MERGE (d:Person {name:'Dave'})")
+    tx.append("CREATE UNIQUE (c)-[:KNOWS]->(d)")
+    tx.commit()
+
+
 .. autoclass:: py2neo.cypher.Session
     :members:
 

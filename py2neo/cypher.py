@@ -106,6 +106,16 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
         
         
 class Session(object):
+    """ A Session is the base object from which Cypher transactions are
+    created and is instantiated using a root service URI. If unspecified, this
+    defaults to the `DEFAULT_URI`.
+
+    ::
+
+        >>> from py2neo import cypher
+        >>> session = cypher.Session("http://arthur:excalibur@camelot:9999")
+
+    """
 
     def __init__(self, uri=None):
         self._uri = URI(uri or DEFAULT_URI)
@@ -122,10 +132,24 @@ class Session(object):
                                       "by this server version")
         
     def create_transaction(self):
+        """ Create a new transaction object.
+
+        ::
+
+            >>> from py2neo import cypher
+            >>> session = cypher.Session()
+            >>> tx = session.create_transaction()
+
+        :return: new transaction object
+        :rtype: Transaction
+        """
         return Transaction(self._transaction_uri)
 
         
 class Transaction(object):
+    """ A transaction is a transient resource that allows multiple Cypher
+    statements to be executed within a single server transaction.
+    """
 
     def __init__(self, uri):
         self._begin = Resource(uri)
@@ -144,9 +168,21 @@ class Transaction(object):
 
     @property
     def finished(self):
+        """ Indicates whether or not this transaction has been completed or is
+        still open.
+
+        :return: :py:const:`True` if this transaction has finished,
+                 :py:const:`False` otherwise
+        """
         return self._finished
 
     def append(self, statement, parameters=None):
+        """ Append a statement to the current queue of statements to be
+        executed.
+
+        :param statement: the statement to execute
+        :param parameters: a dictionary of execution parameters
+        """
         self._assert_unfinished()
         # OrderedDict is used here to avoid statement/parameters ordering bug
         self._statements.append(OrderedDict([
@@ -180,15 +216,27 @@ class Transaction(object):
         ]
         
     def execute(self):
+        """ Send all pending statements to the server for execution, leaving
+        the transaction open for further statements.
+
+        :return: list of results from pending statements
+        """
         return self._post(self._execute or self._begin)
 
     def commit(self):
+        """ Send all pending statements to the server for execution and commit
+        the transaction.
+
+        :return: list of results from pending statements
+        """
         try:
             return self._post(self._commit or self._begin_commit)
         finally:
             self._finished = True
 
     def rollback(self):
+        """ Rollback the current transaction.
+        """
         self._assert_unfinished()
         try:
             if self._execute:
@@ -198,6 +246,8 @@ class Transaction(object):
 
 
 class TransactionError(Exception):
+    """ Raised when an error occurs while processing a Cypher transaction.
+    """
 
     def __init__(self, code, status, message):
         self.code = code
@@ -209,6 +259,8 @@ class TransactionError(Exception):
 
 
 class TransactionFinished(Exception):
+    """ Raised when actions are attempted against a finished Transaction.
+    """
 
     def __init__(self):
         pass

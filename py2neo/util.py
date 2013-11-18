@@ -188,8 +188,16 @@ class Record(object):
 
     @property
     def columns(self):
+        """ The column names defined for this record.
+
+        :return: tuple of column names
+        """
         return self._columns
 
     @property
     def values(self):
+        """ The values stored in this record.
+
+        :return: tuple of values
+        """
         return self._values

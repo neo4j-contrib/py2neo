@@ -4,9 +4,11 @@ Release Notes
 
 Version 1.6.1
 =============
-- Many bug fixes
+- Cypher transactions
+- Implicit authentication when user info passed in URI
+- Improved reconnection handling on MacOS
 - Renamed schema.get_index to 'get_indexed_property_keys'
-- Introduced Cypher transactions
+- Miscellaneous bug fixes (see issue list for further details)
 
 Version 1.6
 ===========
