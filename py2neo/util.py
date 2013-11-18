@@ -28,7 +28,8 @@ import warnings
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all", "ustr"]
+           "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
+           "Record"]
 
 
 def numberise(n):
@@ -124,6 +125,11 @@ def version_tuple(string):
 def is_collection(obj):
     """ Returns true for any iterable which is not a string or byte sequence.
     """
+    try:
+        if isinstance(obj, unicode):
+            return False
+    except NameError:
+        pass
     if isinstance(obj, bytes):
         return False
     try:
@@ -143,3 +149,55 @@ try:
     ustr = unicode
 except NameError:
     ustr = str
+
+
+def pendulate(collection):
+    count = len(collection)
+    for i in range(count):
+        if i % 2 == 0:
+            index = i / 2
+        else:
+            index = count - ((i + 1) / 2)
+        yield index, collection[index]
+
+
+class Record(object):
+    """ A single row of a Cypher execution result, holding a sequence of named
+    values.
+    """
+
+    def __init__(self, columns, values):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self._values = tuple(values)
+    
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        
+    def __getattr__(self, attr):
+        return self._values[self._column_indexes[attr]]
+        
+    def __getitem__(self, item):
+        if isinstance(item, (int, slice)):
+            return self._values[item]
+        else:
+            return self._values[self._column_indexes[item]]
+
+    def __len__(self):
+        return len(self._columns)
+
+    @property
+    def columns(self):
+        """ The column names defined for this record.
+
+        :return: tuple of column names
+        """
+        return self._columns
+
+    @property
+    def values(self):
+        """ The values stored in this record.
+
+        :return: tuple of values
+        """
+        return self._values

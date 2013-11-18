@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import unicode_literals
+
 import sys
 PY3K = sys.version_info[0] >= 3
 
@@ -212,10 +214,10 @@ class NodeIndexTestCase(unittest.TestCase):
 
     def test_node_index_query_utf8(self):
         red, green, blue = self.graph_db.create({}, {}, {})
-        self.index.add("colour", u"красный", red)
-        self.index.add("colour", u"зеленый", green)
-        self.index.add("colour", u"синий", blue)
-        colours_containing_R = self.index.query(u"colour:*ный*")
+        self.index.add("colour", "красный", red)
+        self.index.add("colour", "зеленый", green)
+        self.index.add("colour", "синий", blue)
+        colours_containing_R = self.index.query("colour:*ный*")
         self.assertTrue(red in colours_containing_R)
         self.assertTrue(green in colours_containing_R)
         self.assertFalse(blue in colours_containing_R)

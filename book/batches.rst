@@ -23,8 +23,6 @@ The latter is the more comprehensive, as can be seen below.
 .. autoclass:: py2neo.neo4j.WriteBatch
     :members: clear, run, stream, submit, append_cypher, create, create_path,
         delete, delete_properties, delete_property, get_or_create_path,
-        set_properties, set_property,
-        add_labels, remove_label, set_labels,
+        set_properties, set_property, add_labels, remove_label, set_labels,
         add_to_index, add_to_index_or_fail, get_or_add_to_index,
-        create_in_index, create_in_index_or_fail, get_or_create_in_index,
-        remove_from_index
+        create_in_index_or_fail, get_or_create_in_index, remove_from_index

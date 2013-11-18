@@ -52,7 +52,7 @@ from .packages.httpstream import (http,
                                   ServerError as _ServerError)
 from .packages.httpstream.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.httpstream.uri import URI, percent_encode
+from .packages.httpstream.uri import URI, Query, percent_encode
 
 from . import __version__
 from .exceptions import *
@@ -287,6 +287,8 @@ class Resource(object):
             uri._scheme = scheme_host_port[0]
             uri._authority._host = scheme_host_port[1]
             uri._authority._port = scheme_host_port[2]
+        if uri.user_info:
+            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource(uri)
         self._metadata = None
         self._subresources = {}
@@ -395,6 +397,9 @@ class ResourceMetadata(object):
     def __init__(self, metadata):
         self._metadata = dict(metadata)
 
+    def __contains__(self, key):
+        return key in self._metadata
+
     def __getitem__(self, key):
         return self._metadata[key]
 
@@ -431,10 +436,27 @@ class ServiceRoot(Cacheable, Resource):
 
     def __init__(self, uri=None):
         Resource.__init__(self, uri or DEFAULT_URI)
+        self._load2neo = None
+        self._load2neo_checked = False
 
     @property
     def graph_db(self):
         return GraphDatabaseService.get_instance(self.__metadata__["data"])
+
+    @property
+    def load2neo(self):
+        if not self._load2neo_checked:
+            self._load2neo = Resource(URI(self).resolve("/load2neo"))
+            try:
+                self._load2neo.refresh()
+            except ClientError:
+                self._load2neo = None
+            finally:
+                self._load2neo_checked = True
+        if self._load2neo is None:
+            raise NotImplementedError("Load2neo extension not available")
+        else:
+            return self._load2neo
 
     @property
     def monitor(self):
@@ -501,7 +523,11 @@ class GraphDatabaseService(Cacheable, Resource):
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
         """
-        return self.size()
+        return self.size
+
+    @property
+    def _load2neo(self):
+        return self.service_root.load2neo
 
     def clear(self):
         """ Clear all nodes and relationships from the graph.
@@ -582,7 +608,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
-            uri.query = {property_key: json.dumps(property_value, ensure_ascii=False)}
+            uri = uri.resolve("?" + Query.encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Resource(uri)._get()):
                 yield _hydrated(assembled(result))
@@ -607,6 +633,24 @@ class GraphDatabaseService(Cacheable, Resource):
             return [BatchResponse(rs).body or {} for rs in responses.json]
         finally:
             responses.close()
+
+    def load_geoff(self, geoff):
+        """ Load Geoff data via the load2neo extension.
+
+        :param geoff:
+        :return:
+        """
+        loader = Resource(self._load2neo.__metadata__["geoff_loader"])
+        return [
+            dict((key, self.node(value)) for key, value in line[0].items())
+            for line in loader._post(geoff).tsj
+        ]
+
+    @property
+    def load2neo_version(self):
+        """ The load2neo extension version, if available.
+        """
+        return version_tuple(self._load2neo.__metadata__["load2neo_version"])
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -782,6 +826,12 @@ class GraphDatabaseService(Cacheable, Resource):
                                  "RETURN count(r)").execute_one()
 
     @property
+    def supports_foreach_pipe(self):
+        """ Indicates whether the server supports pipe syntax for FOREACH.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
     def supports_index_uniqueness_modes(self):
         """ Indicates whether the server supports `get_or_create` and
         `create_or_fail` uniqueness modes on batched index methods.
@@ -801,10 +851,10 @@ class GraphDatabaseService(Cacheable, Resource):
         return self.neo4j_version >= (2, 0)
 
     @property
-    def supports_foreach_pipe(self):
-        """ Indicates whether the server supports pipe syntax for FOREACH.
+    def supports_cypher_transactions(self):
+        """ Indicates whether the server supports explicit Cypher transactions.
         """
-        return self.neo4j_version >= (2, 0)
+        return "transaction" in self.__metadata__
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
@@ -1041,16 +1091,18 @@ class CypherResults(object):
     def _hydrated(cls, data):
         """ Takes assembled data...
         """
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in data["columns"]]
-        record = namedtuple("Record", columns)
-        return [record(*_hydrated(row)) for row in data["data"]]
+        return [
+            Record(data["columns"], _hydrated(row))
+            for row in data["data"]
+        ]
 
     def __init__(self, response):
         content = response.json
         self._columns = tuple(content["columns"])
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
-        record = namedtuple("Record", columns)
-        self._data = [record(*_hydrated(row)) for row in content["data"]]
+        self._data = [
+            Record(self._columns, _hydrated(row))
+            for row in content["data"]
+        ]
 
     def __enter__(self):
         return self
@@ -1103,7 +1155,6 @@ class IterableCypherResults(object):
         self._redo_buffer = []
         self._buffered = self._buffered_results()
         self._columns = None
-        self._record = None
         self._fetch_columns()
 
     def _fetch_columns(self):
@@ -1118,8 +1169,6 @@ class IterableCypherResults(object):
                     break
         self._redo_buffer.extend(redo)
         self._columns = tuple(assembled(section)["columns"])
-        columns = [NON_ALPHA_NUM.sub("_", col) for col in self._columns]
-        self._record = namedtuple("Record", columns)
 
     def __enter__(self):
         return self
@@ -1138,7 +1187,7 @@ class IterableCypherResults(object):
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield self._record(*_hydrated(assembled(row)))
+                    yield Record(self._columns, _hydrated(assembled(row)))
 
     @property
     def columns(self):
@@ -1164,7 +1213,7 @@ class Schema(Cacheable, Resource):
         self._index_key_template = \
             URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
 
-    def get_index(self, label):
+    def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
 
         :param label:
@@ -2473,7 +2522,7 @@ class BatchRequestList(object):
     def find(self, request):
         """ Find the position of a request within this batch.
         """
-        for i, req in enumerate(self._requests):
+        for i, req in pendulate(self._requests):
             if req == request:
                 return i
         raise ValueError("Request not found")
@@ -2910,21 +2959,7 @@ class WriteBatch(BatchRequestList):
         else:
             raise TypeError(cls)
 
-    def create_in_index(self, cls, index, key, value, abstract=None):
-        """ Create a new node or relationship and add it to an index.
-
-        :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
-        :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
-        :param key: index entry key
-        :type key: :py:class:`str`
-        :param value: index entry value
-        :param abstract: abstract node or relationship to create
-        :return: batch request object
-        """
-        return self._create_in_index(cls, index, key, value, abstract)
+    # Removed create_in_index as parameter combination not supported by server
 
     def create_in_index_or_fail(self, cls, index, key, value, abstract=None):
         """ Create a new node or relationship and add it uniquely to an index,

@@ -79,10 +79,10 @@ def test_many_queries():
     node, = graph_db.create({})
     query = "START z=node({0}) RETURN z".format(node._id)
     for i in range(40):
-        with neo4j.CypherQuery(graph_db, query).execute() as record_set:
-            assert record_set.columns == ("z",)
-            for record in record_set:
-                assert record == (node,)
+        with neo4j.CypherQuery(graph_db, query).execute() as records:
+            for record in records:
+                assert record.columns == ("z",)
+                assert record.values == (node,)
     graph_db.delete(node)
 
 

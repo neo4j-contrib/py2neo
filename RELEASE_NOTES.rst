@@ -2,6 +2,14 @@
 Release Notes
 =============
 
+Version 1.6.1
+=============
+- Cypher transactions
+- Implicit authentication when user info passed in URI
+- Improved reconnection handling on MacOS
+- Renamed schema.get_index to 'get_indexed_property_keys'
+- Miscellaneous bug fixes (see issue list for further details)
+
 Version 1.6
 ===========
 
@@ -17,6 +25,7 @@ General
 - Changed GDB.order and size from function to property
 - Changed Path.order and size from function to property
 - Removed all previously deprecated features
+- DEFAULT_URI now points to service root, not graph database (i.e. without trailing /db/data/)
 
 Cypher
 ------

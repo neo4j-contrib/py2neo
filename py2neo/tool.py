@@ -26,16 +26,18 @@ import json
 import locale
 import logging
 import os
+import readline
 import sys
 
 from . import __version__, __copyright__, neo4j, geoff
+from .exceptions import CypherError
 from .util import ustr
 from .xmlutil import xml_to_cypher, xml_to_geoff
 
 
 PY3 = sys.version > '3'
 SCRIPT_NAME = "neotool"
-HELP = """\
+NEOTOOL_HELP = """\
 Usage:
   {script} <options> <command> <args>
 Options:
@@ -56,11 +58,18 @@ Commands:
   cypher-tsv <query>              Execute Cypher and output as TSV
   geoff-insert <file>             Insert Geoff data
   geoff-merge <file>              Merge Geoff data
+  shell                           Start an interactive shell
   xml-cypher <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
   xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
 """
+SHELL_HELP = """\
+The Neotool Shell allows you to run Cypher queries from an interactive prompt.
+Queries may be entered directly or run from files using the EXECUTE command. To
+quit the shell, press Ctrl+D or use the EXIT command.
+"""
 
 if not PY3:
+    _stdin = sys.stdin
     preferred_encoding = locale.getpreferredencoding()
     sys.stdin = codecs.getreader(preferred_encoding)(sys.stdin)
     sys.stdout = codecs.getwriter(preferred_encoding)(sys.stdout)
@@ -258,7 +267,7 @@ class Tool(object):
         """
         script = self._script.split(os.sep)[-1].rstrip(".py")
         self._version()
-        self._out.write(HELP.format(script=script))
+        self._out.write(NEOTOOL_HELP.format(script=script))
         self._copyright()
 
     def do(self, argv):
@@ -416,6 +425,195 @@ class Tool(object):
         file.close()
         self._out.write(xml_to_geoff(src, prefixes=prefixes))
         self._out.write("\n")
+        
+    def shell(self):
+        Shell(self._graph_db).repl()
+
+
+class CommandLine(object):
+
+    def __init__(self, text):
+        self.text = text.strip()
+    
+    def __bool__(self):
+        return bool(self.text)
+    
+    def __nonzero__(self):
+        return bool(self.text)
+    
+    def peek(self):
+        bits = self.text.split(None, 1)
+        if not bits:
+            return None
+        return bits[0]
+    
+    def pop(self):
+        bits = self.text.split(None, 1)
+        if not bits:
+            return None
+        try:
+            self.text = bits[1]
+        except IndexError:
+            self.text = ""
+        return bits[0]
+
+
+class Shell(object):
+
+    def __init__(self, graph_db):
+        self.graph_db = graph_db
+        self.lang = "cypher"
+        self.format = "text"
+        self.param_sets = []
+
+    @property
+    def prompt(self):
+        if self.param_sets:
+            return "{0}/{1}[{2}]> ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+        else:
+            return "{0}/{1}> ".format(self.graph_db.service_root.__uri__.host_port, self.lang)
+
+    def repl(self):
+        print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
+        print("Copyright 2013, Nigel Small")
+        print("")
+        if PY3:
+            self._repl3()
+        else:
+            sys.stdin = _stdin
+            self._repl2()
+
+    def _repl2(self):
+        try:
+            while True:
+                line = raw_input(self.prompt).decode(sys.stdin.encoding)
+                self.execute(line)
+        except EOFError:
+            print("⌁")
+        except StopIteration:
+            pass
+
+    def _repl3(self):
+        try:
+            while True:
+                line = input(self.prompt)
+                self.execute(line)
+        except EOFError:
+            print("⌁")
+        except StopIteration:
+            pass
+
+    def execute(self, line):
+        line = CommandLine(line)
+        if not line:
+            return
+        command = line.peek().upper()
+        if command == "HELP":
+            self.help(line)
+        elif command == "EXECUTE":
+            self.execute_cypher_from_file(line)
+        elif command == "EXIT":
+            raise StopIteration()
+        elif command == "ADD":
+            self.add_something(line)
+        elif command == "CLEAR":
+            self.clear_something(line)
+        elif command == "SHOW":
+            self.show_something(line)
+        elif command == "VERSION":
+            self.show_neo4j_version(line)
+        elif self.param_sets:
+            self.execute_cypher(line.text, self.param_sets)
+        else:
+            self.execute_cypher(line.text, {})
+
+    def help(self, line):
+        sys.stdout.write(SHELL_HELP)
+
+    def execute_cypher(self, query, params):
+        if isinstance(params, list):
+            for p in params:
+                self.execute_cypher(query, p)
+        else:
+            if not isinstance(params, dict):
+                params = {}
+            try:
+                record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
+            except CypherError as err:
+                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+                sys.stderr.write("\n")
+            else:
+                writer = ResultWriter(sys.stdout)
+                writer.write(self.format, record_set)
+
+    def execute_cypher_from_file(self, line):
+        command = line.pop()
+        file_name = os.path.expanduser(line.pop())
+        try:
+            with codecs.open(file_name, encoding="utf-8") as f:
+                query = f.read()
+        except IOError as err:
+            sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+            sys.stderr.write("\n")
+        else:
+            if self.params:
+                self.execute_cypher(query, self.params)
+            else:
+                self.execute_cypher(query, {})
+            
+    def show_neo4j_version(self, line):
+        print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
+
+    def add_something(self, line):
+        command = line.pop()
+        subject = line.pop().upper()
+        if subject in ("PARAMS", "PARAMETERS"):
+            self.add_parameters_from_file(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def clear_something(self, line):
+        command = line.pop()
+        subject = line.pop().upper()
+        if subject in ("PARAMS", "PARAMETERS"):
+            self.clear_parameters(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def show_something(self, line):
+        command = line.pop()
+        subject = line.pop().upper()
+        if subject in ("PARAMS", "PARAMETERS"):
+            self.show_parameters(line)
+        else:
+            sys.stderr.write("Bad command")
+
+    def add_parameters_from_file(self, line):
+        file_name = os.path.expanduser(line.pop())
+        try:
+            params = json.load(codecs.open(file_name, encoding="utf-8"))
+        except IOError as err:
+            sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
+            sys.stderr.write("\n")
+        else:
+            if isinstance(params, list):
+                count = len(params)
+                self.param_sets.extend(params)
+            elif isinstance(self.params, dict):
+                count = 1
+                self.param_sets.append(params)
+            else:
+                count = 0
+            if count == 1:
+                print("1 parameter set added")
+            else:
+                print("{0} parameter sets added".format(count))
+
+    def clear_parameters(self, line):
+        self.param_sets = []
+
+    def show_parameters(self, line):
+        print(json.dumps(self.param_sets, sort_keys=True, indent=4))
 
 
 if __name__ == "__main__":
@@ -426,3 +624,4 @@ if __name__ == "__main__":
         sys.stderr.write(ustr(err))
         sys.stderr.write("\n")
         sys.exit(1)
+
