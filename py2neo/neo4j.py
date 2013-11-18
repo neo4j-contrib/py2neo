@@ -637,8 +637,16 @@ class GraphDatabaseService(Cacheable, Resource):
     def load_geoff(self, geoff):
         """ Load Geoff data via the load2neo extension.
 
-        :param geoff:
-        :return:
+        ::
+
+            >>> from py2neo import neo4j
+            >>> graph_db = neo4j.GraphDatabaseService()
+            >>> graph_db.load_geoff("(alice)<-[:KNOWS]->(bob)")
+            [{u'alice': Node('http://localhost:7474/db/data/node/1'),
+              u'bob': Node('http://localhost:7474/db/data/node/2')}]
+
+        :param geoff: geoff data to load
+        :return: list of node mappings
         """
         loader = Resource(self._load2neo.__metadata__["geoff_loader"])
         return [
