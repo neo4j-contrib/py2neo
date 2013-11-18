@@ -14,6 +14,16 @@ both quick to learn and easy to read.
    `Cypher transactions <http://docs.neo4j.org/chunked/milestone/rest-api-transactional.html>`_,
    as introduced in Neo4j 2.0.
 
+.. warning::
+   Cypher transactions may not work correctly in all cases due to an
+   outstanding `server bug <https://github.com/neo4j/neo4j/issues/1406>`_.
+   Until this bug has been fixed, all Node and Relationship objects returned
+   from queries will be created with incorrect URIs, e.g.
+   ``http://localhost:7474/node/1`` instead of
+   ``http://localhost:7474/db/data/node/1``. Please **do not** raise
+   GitHub issues against py2neo regarding this bug; when the server behaviour
+   has been fixed, py2neo should work correctly.
+
 
 Cypher Transactions
 -------------------
