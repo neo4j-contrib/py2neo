@@ -21,7 +21,7 @@ __copyright__ = "2011-2013, Nigel Small"
 __email__ = "nigel@nigelsmall.com"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "1.6.0"
+__version__ = "1.6.1"
 
 
 from .neo4j import _node as node, _rel as rel
