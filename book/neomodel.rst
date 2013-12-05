@@ -1,23 +1,20 @@
-Working with Django: Neomodel
+Working with Django: neomodel
 =============================
 
 .. image:: _static/neomodel-300.png
    :align: right
    :alt: neomodel
 
-`Neomodel <https://github.com/robinedwards/neomodel>`_ is an object mapper for
+`neomodel <https://github.com/robinedwards/neomodel>`_ is an object mapper for
 the Neo4j graph database written in the style of the
 `Django <https://www.djangoproject.com/>`_ ORM. It is does not strictly require
 Django as a dependency but is recommended when using Django with Neo4j.
 
-Neo4j 1.8 is supported but 1.9 is recommended. Python 2.6 and 2.7 and supported
-but there is currently no support for Python 3.
+For neo4j versions 1.8 - 1.9 (recommended). Python 2.7, 3.3 is supported.
 
 Neomodel is built on top of py2neo but is a separate project written by
 `Robin Edwards <https://github.com/robinedwards>`_. As such it is not bundled
 within a py2neo distribution and requires separate installation::
-
-    pip install neomodel
 
 The basics
 ----------
@@ -44,7 +41,9 @@ one accessible via Person objects and one via Country objects::
         age = IntegerProperty(index=True, default=0)
 
         # traverse outgoing IS_FROM relations, inflate to Country objects
-        country = RelationshipTo('Country', 'IS_FROM')
+        country = RelationshipTo(Country, 'IS_FROM')
+
+We can use the `Relationship` class if we don't want to specify a direction.
 
 Create, save delete etc::
 
@@ -53,14 +52,6 @@ Create, save delete etc::
     jim.save() # validation happens here
     jim.delete()
     jim.refresh() # reload properties from neo
-
-Batch create (atomic) which also validates and indexes::
-
-    people = Person.create(
-        {'name': 'Tim', 'age': 83},
-        {'name': 'Bob', 'age': 23},
-        {'name': 'Jill', 'age': 34},
-    )
 
 Using relationships::
 
@@ -75,38 +66,106 @@ Using relationships::
 
     len(germany.inhabitant) # 1
 
-    jim.country.disconnect(germany)
-
-You can also add properties when creating relationships, for example the
-previous code could be::
-
-    jim.country.connect(germany, {'arrived': '10/12/2012'})
-
-Search related nodes. This example starts at the germany node
-and traverses incoming 'IS_FROM' relations and returns the nodes with the property name
-that is equal to 'Jim'::
-
+    # Find people called 'Jim' in germany
     germany.inhabitant.search(name='Jim')
 
-If you don't care about the direction of the relationship::
+    jim.country.disconnect(germany)
+
+Relationship models, define your relationship properties::
+
+    class FriendRel(StructuredRel):
+        since = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+        met = StringProperty()
 
     class Person(StructuredNode):
-        friends = Relationship('Friend', 'FRIEND')
+        name = StringProperty()
+        friends = RelationshipTo('Person', 'FRIEND', model=FriendRel)
 
-You may also reference classes from another module::
+    rel = jim.friend.connect(bob)
+    rel.since # datetime object
+
+You can optional specify the properties during connect::
+
+    rel = jim.friend.connect(bob, {'since': yesterday, 'met': 'Paris'})
+
+    print(rel.start_node().name) # jim
+    print(rel.end_node().name) # bob
+
+    rel.met = "Amsterdam"
+    rel.save()
+
+You can retrieve relationships between to nodes using the 'relationship' method.
+This is only available for relationships with a defined structure::
+
+    rel = jim.friend.relationship(bob)
+
+Directionless relationships::
 
     class Person(StructuredNode):
-        car = RelationshipTo('transport.models.Car', 'CAR')
+        friends = Relationship('Person', 'FRIEND')
+
+When defining relationships, you may refer to classes in other modules.
+This helps avoid cyclic imports::
+
+    class Garage(StructuredNode):
+        cars = RelationshipTo('transport.models.Car', 'CAR')
+        vans = RelationshipTo('.models.Van', 'VAN')
+
+When defining models that have custom `__init__(self, ...)` function, don't
+forget to call `super()`. Otherwise things start to fail::
+
+    class Person(StructuredNode):
+        name = StringProperty(unique_index=True)
+
+        def __init__(self, name, **args):
+            self.name = name
+
+            super(Person, self).__init__(self, **args)
+
+Traversals - EXPERIMENTAL
+-------------------------
+The first argument for the traverse method is the name of the relationship manager,
+in this example we traverse the friends relationship skipping the first node and limit to 10 nodes::
+
+    # query executes on iteration
+    for friend in jim.traverse('friends').order_by_desc('age').skip(1).limit(10).run():
+        print friend.name
+
+You can traverse as many levels as you like, run() executes the query::
+
+    # order by country name
+    results = jim.traverse('friends').traverse('country').order_by('name').run()
+
+    # or friends name
+    jim.traverse('friends').traverse('country').order_by('friends.name')
+
+Filtering by node propertes is achieved using the where method, values are deflated accordingly so datetimes
+for example work as expected::
+
+    results = jim.traverse('friends').where('age', '>', 18).run()
+
+length and bool operations::
+
+    print "Jim has " + len(jim.traverse('friends') + " friends"
+
+You may also filter on relationship properties whilst traversing. In order to do this a relationship model
+must be specified on the start nodes relationship definition::
+
+    recent_friends = jim.traverse('friends', ('since', '>', last_week), ('since', '<', today)).run()
 
 Category nodes
 --------------
 Access all your instances of a class via the category node::
 
     country_category = Country.category()
-    for c in country_category.instance.all()
+    for c in country_category.instance.all():
+        print c.name
+
+Ordering and pagination is possible via `.traverse('instance')`::
+
+    country_category.traverse('instance').limit(10).run()
 
 Note that `connect` and `disconnect` are not available through the `instance` relation.
-
 
 Cardinality
 -----------
@@ -139,10 +198,11 @@ this inflates py2neo nodes to neomodel node objects::
 The self query parameter is prepopulated with the current node id. It's possible to pass in your
 own query parameters to the cypher method.
 
+You may log queries by setting the environment variable `NEOMODEL_CYPHER_DEBUG` to true.
 
-Relating to different node types
+Relating to many node types
 --------------------------------
-You can define relations of a single relation type to different `StructuredNode` classes.::
+You can define relations of a single type to different `StructuredNode` classes.::
 
     class Humanbeing(StructuredNode):
         name = StringProperty()
@@ -155,6 +215,20 @@ You can define relations of a single relation type to different `StructuredNode`
         name = StringProperty()
 
 Remember that when traversing the `has_a` relation you will retrieve objects of different types.
+
+Batch create
+------------
+Atomically create multiple nodes in a single operation::
+
+    people = Person.create(
+        {'name': 'Tim', 'age': 83},
+        {'name': 'Bob', 'age': 23},
+        {'name': 'Jill', 'age': 34},
+    )
+
+This is useful for creating large sets of data. It's worth experimenting with the size of batches
+to find the optimum performance suggestions on size around 300 - 500.
+
 
 Hooks and Signals
 -----------------
@@ -192,16 +266,29 @@ Use advanced Lucene queries with the `lucene-querybuilder` module::
 
     # prints: sarah, jim, bob
 
+Or use lucene query syntax directly::
+
+    Human.index.search("age:4")
+
+Specify a custom index name for a class (inherited). Be very careful when sharing indexes
+between classes as this means nodes will inflated to any class sharing the index.
+Properties of the same name on different classes may conflict.::
+
+    class Badger(StructuredNode):
+        __index__ = 'MyBadgers'
+        name = StringProperty(unique_index=True)
+
 Properties
 ----------
 The following properties are available::
 
     StringProperty, IntegerProperty, FloatProperty, BooleanProperty
 
-    DateProperty, DateTimeProperty, AliasProperty
+    DateProperty, DateTimeProperty, JSONProperty, AliasProperty
 
 The *DateTimeProperty* accepts datetime.datetime objects of any timezone and stores them as a UTC epoch value.
-These epoch values are inflated to datetime.datetime objects with the UTC timezone set.
+These epoch values are inflated to datetime.datetime objects with the UTC timezone set. If you want neomodel
+to raise an exception on receiving a datetime without a timezone you set the env var NEOMODEL_FORCE_TIMEZONE=1.
 
 The *DateProperty* accepts datetime.date objects which are stored as a string property 'YYYY-MM-DD'.
 
@@ -210,11 +297,14 @@ The *DateProperty* accepts datetime.date objects which are stored as a string pr
         from uuid import uuid4
         my_id = StringProperty(unique_index=True, default=uuid4)
 
+You may provide arguments using a wrapper function or lambda::
+
+        my_datetime = DateTimeProperty(default=lambda: datetime.now(pytz.utc))
+
 The *AliasProperty* a special property for aliasing other properties and providing 'magic' behaviour::
 
     class Person(StructuredNode):
         full_name = StringProperty(index=True)
         name = AliasProperty(to='full_name')
 
-    Person.index.search(name='Jim') # just works
-
+    Person.index.search(name='Jim') 
