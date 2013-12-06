@@ -17,4 +17,7 @@
 
 BASE=`dirname $0`
 
+#Make sure to install pytest (pytest.org)
+#pip install -U pytest
+
 py.test --cov-report term-missing --cov py2neo $BASE/test/
