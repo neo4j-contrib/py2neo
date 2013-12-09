@@ -553,7 +553,7 @@ class GraphDatabaseService(Cacheable, Resource):
         to other node entities within this batch::
 
             # create a single node
-            alice, = graph_db.create({"name": "Alice"})
+            alice = graph_db.create({"name": "Alice"})
 
             # create multiple nodes
             people = graph_db.create(
