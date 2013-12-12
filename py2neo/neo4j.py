@@ -1696,7 +1696,7 @@ class Node(_Entity):
 
         :param labels: one or more text labels
         """
-        labels = [str(label) for label in set(flatten(labels))]
+        labels = [unicode(label) for label in set(flatten(labels))]
         self._label_resource()._post(labels)
 
     def remove_labels(self, *labels):
@@ -1704,7 +1704,7 @@ class Node(_Entity):
 
         :param labels: one or more text labels
         """
-        labels = [str(label) for label in set(flatten(labels))]
+        labels = [unicode(label) for label in set(flatten(labels))]
         batch = WriteBatch(self.graph_db)
         for label in labels:
             batch.remove_label(self, label)
@@ -1715,7 +1715,7 @@ class Node(_Entity):
 
         :param labels: one or more text labels
         """
-        labels = [str(label) for label in set(flatten(labels))]
+        labels = [unicode(label) for label in set(flatten(labels))]
         self._label_resource()._put(labels)
 
 
