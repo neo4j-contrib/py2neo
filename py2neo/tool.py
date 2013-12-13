@@ -547,8 +547,12 @@ class Shell(object):
                 writer.write(self.format, record_set)
 
     def execute_cypher_from_file(self, line):
+        #import pdb; pdb.set_trace()
         command = line.pop()
-        file_name = os.path.expanduser(line.pop())
+        f = line.pop()
+        if not f:
+            return
+        file_name = os.path.expanduser(f)
         try:
             with codecs.open(file_name, encoding="utf-8") as f:
                 query = f.read()
