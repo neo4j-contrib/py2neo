@@ -547,7 +547,6 @@ class Shell(object):
                 writer.write(self.format, record_set)
 
     def execute_cypher_from_file(self, line):
-        #import pdb; pdb.set_trace()
         command, file_name = self._pop_command_and_filename(line)
         
         if not file_name:
