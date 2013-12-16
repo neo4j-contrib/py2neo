@@ -206,7 +206,7 @@ class Transaction(object):
             errors = j["errors"]
             if len(errors) >= 1:
                 error = errors[0]
-                raise TransactionError(error["code"], error["status"], error["message"])
+                raise TransactionError.new(error["code"], error["message"])
         return [
             [
                 Record(result["columns"], _hydrated(r["rest"]))
@@ -249,13 +249,13 @@ class TransactionError(Exception):
     """ Raised when an error occurs while processing a Cypher transaction.
     """
 
-    def __init__(self, code, status, message):
-        self.code = code
-        self.status = status
-        self.message = message
+    @classmethod
+    def new(cls, code, message):
+        CustomError = type(str(code), (cls,), {})
+        return CustomError(message)
 
-    def __repr__(self):
-        return self.message
+    def __init__(self, message):
+        Exception.__init__(self, message)
 
 
 class TransactionFinished(Exception):
