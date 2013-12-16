@@ -15,6 +15,9 @@
 # limitations under the License.
 
 
+# This script requires both pytest and pytest-cov to be installed:
+# pip install pytest pytest-cov
+
 BASE=`dirname $0`
 
 py.test --cov-report term-missing --cov py2neo $BASE/test/
