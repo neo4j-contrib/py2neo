@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from __future__ import unicode_literals
+
 import unittest
 
 from py2neo import cypher, neo4j
@@ -273,6 +276,27 @@ class CypherTestCase(unittest.TestCase):
         params = {"A": a._id, "min_age": 50}
         data, metadata = cypher.execute(self.graph_db, query, params)
         assert data[0] == [c]
+
+
+class CypherDumpTestCase(unittest.TestCase):
+
+    def test_can_dump_string(self):
+        assert cypher.dumps('hello') == '"hello"'
+
+    def test_can_dump_number(self):
+        assert cypher.dumps(42) == '42'
+
+    def test_can_dump_map(self):
+        assert cypher.dumps({"one": 1}) == '{one: 1}'
+
+    def test_can_dump_map_with_space_in_key(self):
+        assert cypher.dumps({"number one": 1}) == '{`number one`: 1}'
+
+    def test_can_dump_map_with_backticks_in_key(self):
+        assert cypher.dumps({"number `one`": 1}) == '{`number ``one```: 1}'
+
+    def test_can_dump_list(self):
+        assert cypher.dumps([4, 5, 6]) == '[4, 5, 6]'
 
 
 if __name__ == '__main__':

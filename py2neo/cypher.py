@@ -81,7 +81,7 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
             buffer.append(link)
             if " " in key:
                 buffer.append("`")
-                buffer.append(key)
+                buffer.append(key.replace("`", "``"))
                 buffer.append("`")
             else:
                 buffer.append(key)
@@ -144,6 +144,14 @@ class Session(object):
         :rtype: Transaction
         """
         return Transaction(self._transaction_uri)
+
+    def execute(self, statement, parameters=None):
+        """ Execute a single statement and return the results.
+        """
+        tx = self.create_transaction()
+        tx.append(statement, parameters)
+        results = tx.execute()
+        return results[0]
 
         
 class Transaction(object):

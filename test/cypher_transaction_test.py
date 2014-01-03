@@ -101,8 +101,15 @@ def test_cannot_append_after_transaction_finished():
     tx = session.create_transaction()
     tx.rollback()
     try:
-        tx.append("CRAETE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
     except cypher.TransactionFinished as err:
         assert repr(err) == "Transaction finished"
     else:
         assert False
+
+
+def test_single_execute():
+    result = session.execute("CREATE (a) RETURN a")
+    assert len(result) == 1
+    for record in result:
+        assert record.columns == ("a",)
