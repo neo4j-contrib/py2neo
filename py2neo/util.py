@@ -164,9 +164,9 @@ def pendulate(collection):
     count = len(collection)
     for i in range(count):
         if i % 2 == 0:
-            index = i / 2
+            index = i // 2
         else:
-            index = count - ((i + 1) / 2)
+            index = count - ((i + 1) // 2)
         yield index, collection[index]
 
 
