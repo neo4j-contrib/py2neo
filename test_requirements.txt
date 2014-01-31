@@ -1,4 +1,7 @@
 datadiff
+pep8
+pyflakes
 pytest
 pytest-cov
 pytest-cache
+tox
