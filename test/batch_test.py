@@ -14,17 +14,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import sys
-PY3K = sys.version_info[0] >= 3
+import pytest
 
 from py2neo import neo4j, node, rel
-
-import logging
-import unittest
-
-
-logging.basicConfig(level=logging.DEBUG)
 
 
 def default_graph_db():
@@ -39,12 +31,12 @@ def recycle(*entities):
             pass
 
 
-class TestNodeCreation(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
-        self.batch = neo4j.WriteBatch(self.graph_db)
+class TestNodeCreation(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_create_single_empty_node(self):
         self.batch.create(node())
@@ -65,12 +57,11 @@ class TestNodeCreation(unittest.TestCase):
         assert carol["name"] == "Carol"
 
 
-class TestRelationshipCreation(unittest.TestCase):
-
-    def setUp(self):
-        default_graph_db().clear()
-        self.batch = neo4j.WriteBatch(default_graph_db())
-        self.recycling = []
+class TestRelationshipCreation(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.batch = neo4j.WriteBatch(graph_db)
 
     def tearDown(self):
         recycle(*self.recycling)
@@ -201,11 +192,11 @@ class TestRelationshipCreation(unittest.TestCase):
         self.recycling = [ab, alice, bob]
 
 
-class TestUniqueRelationshipCreation(unittest.TestCase):
-
-    def setUp(self):
-        self.batch = neo4j.WriteBatch(default_graph_db())
-        self.recycling = []
+class TestUniqueRelationshipCreation(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.batch = neo4j.WriteBatch(graph_db)
 
     def tearDown(self):
         recycle(*self.recycling)
@@ -278,12 +269,12 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.recycling = [knows, alice, bob]
 
 
-class TestDeletion(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
-        self.batch = neo4j.WriteBatch(self.graph_db)
+class TestDeletion(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_delete_relationship_and_related_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -303,21 +294,17 @@ class TestDeletion(unittest.TestCase):
         assert not ab.exists
 
 
-class TestPropertyManagement(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.alice, self.bob, self.friends = self.graph_db.create(
+class TestPropertyManagement(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.alice, self.bob, self.friends = graph_db.create(
             {"name": "Alice", "surname": "Allison"},
             {"name": "Bob", "surname": "Robertson"},
             (0, "KNOWS", 1, {"since": 2000}),
         )
-        self.batch = neo4j.WriteBatch(self.graph_db)
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
-        self.alice.delete_related()
+        self.graph_db = graph_db
 
     def _check_properties(self, entity, expected_properties):
         actual_properties = entity.get_properties()
@@ -358,17 +345,13 @@ class TestPropertyManagement(unittest.TestCase):
         self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
 
-class TestIndexedNodeCreation(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.people = self.graph_db.get_or_create_index(neo4j.Node, "People")
-        self.batch = neo4j.WriteBatch(self.graph_db)
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
-        self.graph_db.delete_index(neo4j.Node, "People")
+class TestIndexedNodeCreation(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.people = graph_db.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
@@ -457,17 +440,13 @@ class TestIndexedNodeCreation(unittest.TestCase):
             assert True
 
 
-class TestIndexedNodeAddition(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.people = self.graph_db.get_or_create_index(neo4j.Node, "People")
-        self.batch = neo4j.WriteBatch(self.graph_db)
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
-        self.graph_db.delete_index(neo4j.Node, "People")
+class TestIndexedNodeAddition(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.people = graph_db.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_add_single_node(self):
         alice, = self.graph_db.create({"name": "Alice Smith"})
@@ -522,21 +501,18 @@ class TestIndexedNodeAddition(unittest.TestCase):
         self.recycling = [alice, bob]
 
 
-class TestIndexedRelationshipCreation(unittest.TestCase):
+class TestIndexedRelationshipCreation(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.friendships = graph_db.get_or_create_index(
+            neo4j.Relationship, "Friendships")
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.friendships = self.graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
-        self.alice, self.bob = self.graph_db.create(
+        self.alice, self.bob = graph_db.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        self.batch = neo4j.WriteBatch(self.graph_db)
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
-        recycle(self.alice, self.bob)
-        self.graph_db.delete_index(neo4j.Relationship, "Friendships")
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_create_single_indexed_relationship(self):
         self.batch.get_or_create_indexed_relationship(self.friendships, "friends", "alice_&_bob", self.alice, "KNOWS", self.bob)
@@ -572,17 +548,14 @@ class TestIndexedRelationshipCreation(unittest.TestCase):
             pass
 
 
-class TestIndexedRelationshipAddition(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.friendships = self.graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
-        self.batch = neo4j.WriteBatch(self.graph_db)
-        self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
-        self.graph_db.delete_index(neo4j.Relationship, "Friendships")
+class TestIndexedRelationshipAddition(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.friendships = graph_db.get_or_create_index(
+            neo4j.Relationship, "Friendships")
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def test_can_add_single_relationship(self):
         alice, bob, ab = self.graph_db.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
@@ -636,12 +609,13 @@ class TestIndexedRelationshipAddition(unittest.TestCase):
         self.recycling = [ab1, ab2, alice, bob]
 
 
-class TestIndexedNodeRemoval(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_removal_test_index")
-        self.fred, self.wilma, = self.graph_db.create(
+class TestIndexedNodeRemoval(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        graph_db.clear()
+        self.index = graph_db.get_or_create_index(
+            neo4j.Node, "node_removal_test_index")
+        self.fred, self.wilma, = graph_db.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
         self.index.add("name", "Fred", self.fred)
@@ -650,17 +624,14 @@ class TestIndexedNodeRemoval(unittest.TestCase):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-        self.batch = neo4j.WriteBatch(self.graph_db)
-
-    def tearDown(self):
-        self.graph_db.delete(self.fred, self.wilma)
-        self.graph_db.delete_index(self.index.content_type, self.index.name)
+        self.batch = neo4j.WriteBatch(graph_db)
+        self.graph_db = graph_db
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)
-        self.assertEqual(len(entities), len(e))
+        assert len(entities) == len(e)
         for entity in entities:
-            self.assertTrue(entity in e)
+            assert entity in e
 
     def test_remove_key_value_entity(self):
         self.batch.remove_indexed_node(self.index, key="name", value="Flintstone", node=self.fred)
@@ -697,7 +668,3 @@ def test_can_use_return_values_as_references():
     assert isinstance(ab, neo4j.Relationship)
     assert ab.start_node["name"] == "Alice"
     assert ab.end_node["name"] == "Bob"
-
-
-if __name__ == "__main__":
-    unittest.main()
