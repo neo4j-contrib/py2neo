@@ -51,9 +51,6 @@ class TestRelationshipCreation(object):
         graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
 
-    def tearDown(self):
-        recycle(*self.recycling)
-
     def test_can_create_relationship_with_new_nodes(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
@@ -132,10 +129,9 @@ class TestRelationshipCreation(object):
         self.batch.create((1, "KNOWS", 2))
         self.batch.create((2, "KNOWS", 0))
         alice, bob, carol, ab, bc, ca = self.batch.submit()
-        for rel in [ab, bc, ca]:
-            assert isinstance(rel, neo4j.Relationship)
-            assert rel.type == "KNOWS"
-        self.recycling = [ab, bc, ca, alice, bob, carol]
+        for relationship in [ab, bc, ca]:
+            assert isinstance(relationship, neo4j.Relationship)
+            assert relationship.type == "KNOWS"
 
     def test_can_create_overlapping_relationships(self):
         self.batch.create({"name": "Alice"})
@@ -188,9 +184,6 @@ class TestUniqueRelationshipCreation(object):
     def setup(self, graph_db):
         graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
-
-    def tearDown(self):
-        recycle(*self.recycling)
 
     def test_can_create_relationship_if_none_exists(self):
         self.batch.create({"name": "Alice"})
@@ -427,7 +420,7 @@ class TestIndexedNodeCreation(object):
                     self.people, "surname", "Smith", bob_props)
                 self.batch.run()
                 assert False
-            except neo4j.BatchError as err:
+            except neo4j.BatchError:
                 assert True
             # check entries
             smiths = self.people.get("surname", "Smith")
@@ -501,7 +494,7 @@ class TestIndexedNodeAddition(object):
             try:
                 self.batch.run()
                 assert False
-            except neo4j.BatchError as err:
+            except neo4j.BatchError:
                 assert True
         except NotImplementedError:
             pass
@@ -559,7 +552,7 @@ class TestIndexedRelationshipCreation(object):
             try:
                 self.batch.run()
                 assert False
-            except neo4j.BatchError as err:
+            except neo4j.BatchError:
                 assert True
         except NotImplementedError:
             pass
