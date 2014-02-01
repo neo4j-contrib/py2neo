@@ -14,16 +14,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from __future__ import unicode_literals
 
-import unittest
+import pytest
 
 from py2neo import cypher, neo4j
-
-
-graph_db = neo4j.GraphDatabaseService()
 
 
 def alice_and_bob(graph_db):
@@ -34,7 +29,7 @@ def alice_and_bob(graph_db):
     )
 
 
-def test_nonsense_query():
+def test_nonsense_query(graph_db):
     query = "SELECT z=nude(0) RETURNS x"
     try:
         neo4j.CypherQuery(graph_db, query).execute()
@@ -44,14 +39,14 @@ def test_nonsense_query():
         assert False
 
 
-def test_can_run():
+def test_can_run(graph_db):
     query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     query.run()
     assert True
 
 
-def test_can_execute():
+def test_can_execute(graph_db):
     query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     results = query.execute()
@@ -60,14 +55,14 @@ def test_can_execute():
     assert results[0][0] == "Alice"
 
 
-def test_can_execute_one():
+def test_can_execute_one(graph_db):
     query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     result = query.execute_one()
     assert result == "Alice"
 
 
-def test_can_stream():
+def test_can_stream(graph_db):
     query = neo4j.CypherQuery(graph_db, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     stream = query.stream()
@@ -77,8 +72,7 @@ def test_can_stream():
     assert results[0][0] == "Alice"
 
 
-def test_many_queries():
-    graph_db = neo4j.GraphDatabaseService()
+def test_many_queries(graph_db):
     node, = graph_db.create({})
     query = "START z=node({0}) RETURN z".format(node._id)
     for i in range(40):
@@ -89,11 +83,10 @@ def test_many_queries():
     graph_db.delete(node)
 
 
-class CypherTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+class CypherTestCase(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_nonsense_query_with_error_handler(self):
         def print_error(message, exception, stacktrace):
@@ -278,8 +271,7 @@ class CypherTestCase(unittest.TestCase):
         assert data[0] == [c]
 
 
-class CypherDumpTestCase(unittest.TestCase):
-
+class CypherDumpTestCase(object):
     def test_can_dump_string(self):
         assert cypher.dumps('hello') == '"hello"'
 
@@ -297,7 +289,3 @@ class CypherDumpTestCase(unittest.TestCase):
 
     def test_can_dump_list(self):
         assert cypher.dumps([4, 5, 6]) == '[4, 5, 6]'
-
-
-if __name__ == '__main__':
-    unittest.main()

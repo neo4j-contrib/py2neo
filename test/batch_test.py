@@ -14,9 +14,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import logging
+import sys
+
 import pytest
 
 from py2neo import neo4j, node, rel
+
+PY3K = sys.version_info[0] >= 3
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class TestNodeCreation(object):

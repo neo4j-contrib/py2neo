@@ -515,8 +515,8 @@ def test_can_insert_simple_graph():
     assert matches[0].type == "KNOWS"
 
 
-def test_can_insert_reasonably_complex_graph():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_reasonably_complex_graph(graph_db):
+    #graph_db = neo4j.GraphDatabaseService()
     source = r"""
     |People {"email":"bob@example.com"}|=>(b)
     |People {"email":"ernie@example.com"}|=>(e)

@@ -14,19 +14,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 
 from py2neo import neo4j
-
-import logging
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
-graph_db = neo4j.GraphDatabaseService()
 
-
-def _execute_batch(node_count):
+def _execute_batch(node_count, graph_db):
     batch = neo4j.WriteBatch(graph_db)
     for i in range(node_count):
         batch.create({"number": i})
@@ -37,10 +33,10 @@ def _execute_batch(node_count):
 #    _send_big_batch(100)
 
 
-def test_can_execute_4_batches_of_300():
+def test_can_execute_4_batches_of_300(graph_db):
     graph_db.clear()
     for i in range(4):
-        _execute_batch(300)
+        _execute_batch(300, graph_db)
 
 
 #def test_can_send_batch_of_1000():
