@@ -14,17 +14,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 from __future__ import unicode_literals
 
-from py2neo import cypher
+from py2neo import cypher, neo4j
 
 
-session = cypher.Session()
-
-
-def test_can_execute_single_statement_transaction():
+def test_can_execute_single_statement_transaction(session):
     tx = session.create_transaction()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -37,7 +32,7 @@ def test_can_execute_single_statement_transaction():
     assert tx.finished
 
 
-def test_can_execute_multi_statement_transaction():
+def test_can_execute_multi_statement_transaction(session):
     tx = session.create_transaction()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -52,7 +47,7 @@ def test_can_execute_multi_statement_transaction():
     assert tx.finished
 
 
-def test_can_execute_multi_execute_transaction():
+def test_can_execute_multi_execute_transaction(session):
     tx = session.create_transaction()
     for i in range(10):
         assert not tx.finished
@@ -69,7 +64,7 @@ def test_can_execute_multi_execute_transaction():
     assert tx.finished
 
 
-def test_can_rollback_transaction():
+def test_can_rollback_transaction(session):
     tx = session.create_transaction()
     for i in range(10):
         assert not tx.finished
@@ -86,7 +81,7 @@ def test_can_rollback_transaction():
     assert tx.finished
 
 
-def test_can_generate_transaction_error():
+def test_can_generate_transaction_error(session):
     tx = session.create_transaction()
     try:
         tx.append("CRAETE (a) RETURN a")
@@ -97,7 +92,7 @@ def test_can_generate_transaction_error():
         assert False
 
 
-def test_cannot_append_after_transaction_finished():
+def test_cannot_append_after_transaction_finished(session):
     tx = session.create_transaction()
     tx.rollback()
     try:
@@ -108,8 +103,11 @@ def test_cannot_append_after_transaction_finished():
         assert False
 
 
-def test_single_execute():
-    result = session.execute("CREATE (a) RETURN a")
+def test_single_execute(graph_db):
+    query= neo4j.CypherQuery(graph_db, "CREATE (a) RETURN a")
+    result = query.execute()
+
     assert len(result) == 1
+
     for record in result:
         assert record.columns == ("a",)
