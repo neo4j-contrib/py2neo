@@ -1,6 +1,6 @@
 import pytest
 
-from py2neo import neo4j
+from py2neo import cypher, neo4j
 
 
 @pytest.fixture(scope="session")
@@ -12,3 +12,9 @@ def graph_db(request):
 
     request.addfinalizer(clear)
     return db
+
+
+@pytest.fixture
+def session(request, graph_db):
+    session = cypher.Session()
+    return session
