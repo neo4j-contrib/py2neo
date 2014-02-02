@@ -43,11 +43,7 @@ def pytest_configure(config):
 @pytest.fixture
 def graph_db(request):
     db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-
-    def clear():
-       db.clear()
-
-    request.addfinalizer(clear)
+    db.clear()
     return db
 
 

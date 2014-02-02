@@ -1,7 +1,9 @@
 datadiff
+logutils
 pep8
 pyflakes
 pytest
 pytest-cov
 pytest-cache
+pytest-capturelog
 tox
