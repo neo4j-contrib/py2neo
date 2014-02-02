@@ -14,8 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import logging
 import sys
 
 import pytest
@@ -24,13 +22,10 @@ from py2neo import neo4j, node, rel
 
 PY3K = sys.version_info[0] >= 3
 
-logging.basicConfig(level=logging.DEBUG)
-
 
 class TestNodeCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
         self.graph_db = graph_db
 
@@ -56,7 +51,6 @@ class TestNodeCreation(object):
 class TestRelationshipCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
 
     def test_can_create_relationship_with_new_nodes(self):
@@ -190,7 +184,6 @@ class TestRelationshipCreation(object):
 class TestUniqueRelationshipCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
 
     def test_can_create_relationship_if_none_exists(self):
@@ -267,7 +260,6 @@ class TestUniqueRelationshipCreation(object):
 class TestDeletion(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
         self.graph_db = graph_db
 
@@ -292,7 +284,6 @@ class TestDeletion(object):
 class TestPropertyManagement(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.batch = neo4j.WriteBatch(graph_db)
         self.alice, self.bob, self.friends = graph_db.create(
             {"name": "Alice", "surname": "Allison"},
@@ -345,7 +336,7 @@ class TestPropertyManagement(object):
 class TestIndexedNodeCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
+        #graph_db.clear()
         self.people = graph_db.get_or_create_index(neo4j.Node, "People")
         self.batch = neo4j.WriteBatch(graph_db)
         self.graph_db = graph_db
