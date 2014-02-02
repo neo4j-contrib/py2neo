@@ -336,7 +336,6 @@ class TestPropertyManagement(object):
 class TestIndexedNodeCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        #graph_db.clear()
         self.people = graph_db.get_or_create_index(neo4j.Node, "People")
         self.batch = neo4j.WriteBatch(graph_db)
         self.graph_db = graph_db
@@ -435,7 +434,6 @@ class TestIndexedNodeCreation(object):
 class TestIndexedNodeAddition(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.people = graph_db.get_or_create_index(neo4j.Node, "People")
         self.batch = neo4j.WriteBatch(graph_db)
         self.graph_db = graph_db
@@ -503,7 +501,6 @@ class TestIndexedNodeAddition(object):
 class TestIndexedRelationshipCreation(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.friendships = graph_db.get_or_create_index(
             neo4j.Relationship, "Friendships")
 
@@ -560,7 +557,6 @@ class TestIndexedRelationshipCreation(object):
 class TestIndexedRelationshipAddition(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.friendships = graph_db.get_or_create_index(
             neo4j.Relationship, "Friendships")
         self.batch = neo4j.WriteBatch(graph_db)
@@ -635,7 +631,6 @@ class TestIndexedRelationshipAddition(object):
 class TestIndexedNodeRemoval(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        graph_db.clear()
         self.index = graph_db.get_or_create_index(
             neo4j.Node, "node_removal_test_index")
         self.fred, self.wilma, = graph_db.create(
