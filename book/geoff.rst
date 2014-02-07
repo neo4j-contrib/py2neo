@@ -1,6 +1,16 @@
 Geoff
 =====
 
+.. important::
+
+    The entire geoff.py module is now deprecated in favour of the `load2neo
+    <http://nigelsmall.com/load2neo>`_ extension that provides more efficient
+    and more consistent behaviour. This can be accessed via the `load_geoff
+    <graphs_nodes_relationships/#py2neo.neo4j.GraphDatabaseService.load_geoff>`_
+    method when the extension has been installed on the server.
+
+    This module will be removed completely in py2neo 1.7.0.
+
 .. note::
 
     The geoff.py module requires server version 1.8.2 or above.
