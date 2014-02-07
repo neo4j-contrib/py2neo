@@ -330,5 +330,5 @@ class Store(object):
         node = subj.__node__
         del subj.__node__
         neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
-                                         "MATCH a-[r?]-b "
+                                         "OPTIONAL MATCH a-[r]-b "
                                          "DELETE r, a").execute(A=node._id)
