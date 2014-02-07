@@ -20,4 +20,5 @@
 
 BASE=`dirname $0`
 
-py.test --cov-report term-missing --cov py2neo $BASE/test/
+cd $BASE
+py.test --cov py2neo --cov-report term-missing $*

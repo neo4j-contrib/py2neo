@@ -102,6 +102,14 @@ class Store(object):
 
     def __init__(self, graph_db):
         self.graph_db = graph_db
+        if self.graph_db.supports_optional_match:
+            self.__delete_query = ("START a=node({A}) "
+                                   "OPTIONAL MATCH a-[r]-b "
+                                   "DELETE r, a")
+        else:
+            self.__delete_query = ("START a=node({A}) "
+                                   "MATCH a-[r?]-b "
+                                   "DELETE r, a")
 
     def _assert_saved(self, subj):
         try:
@@ -329,6 +337,5 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
-                                         "MATCH a-[r?]-b "
-                                         "DELETE r, a").execute(A=node._id)
+        neo4j.CypherQuery(self.graph_db,
+                          self.__delete_query).execute(A=node._id)
