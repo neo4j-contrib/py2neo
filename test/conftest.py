@@ -46,8 +46,5 @@ def graph_db(request):
     db.clear()
     return db
 
+# ToDo: varsion marker
 
-@pytest.fixture
-def session(request, graph_db):
-    session = cypher.Session()
-    return session
