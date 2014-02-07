@@ -146,18 +146,24 @@ def is_collection(obj):
 has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
-def ustr(s, encoding="utf-8"):
-    """ Python 2 and 3 compatible helper for casting
-    Unicode strings.
-    """
-    try:
-        unicode
-    except NameError:
-        return str(s)
-    if isinstance(s, str):
-        return s.decode(encoding)
-    else:
-        return unicode(s)
+try:
+    unicode
+except NameError:
+    # Python 3
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s
+        try:
+            return s.decode(encoding)
+        except AttributeError:
+            return str(s)
+else:
+    # Python 2
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s.decode(encoding)
+        else:
+            return unicode(s)
 
 
 def pendulate(collection):
