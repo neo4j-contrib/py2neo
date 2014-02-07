@@ -329,6 +329,12 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
+        if self.graph_db.neo4j_version >= (2, 0, 0):
+            # bummer version sniffing
+            neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
+                                             "OPTIONAL MATCH a-[r]-b "
+                                             "DELETE r, a").execute(A=node._id)
+        else:
+            neo4j.CypherQuery(self.graph_db, "START a=node({A}) "
                                          "MATCH a-[r?]-b "
                                          "DELETE r, a").execute(A=node._id)
