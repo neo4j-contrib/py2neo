@@ -24,6 +24,7 @@ import re
 from uuid import uuid4
 
 from . import neo4j
+from .util import deprecated
 from .xmlutil import xml_to_geoff
 
 try:
@@ -234,11 +235,15 @@ class Subgraph(object):
             return_nodes[name] = responses.pop(0)
         return return_nodes
 
+    @deprecated("The geoff module is deprecated, "
+                "use the load2neo server extension instead")
     def insert_into(self, graph_db):
         """ Insert subgraph into graph database using Cypher CREATE.
         """
         return self._execute_load_batch(graph_db, False)
 
+    @deprecated("The geoff module is deprecated, "
+                "use the load2neo server extension instead")
     def merge_into(self, graph_db):
         """ Merge subgraph into graph database using Cypher CREATE UNIQUE.
         """
