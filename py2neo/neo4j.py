@@ -629,7 +629,8 @@ class GraphDatabaseService(Cacheable, Resource):
             batch.append_get(batch._uri_for(entity, "properties"))
         responses = batch._execute()
         try:
-            return [BatchResponse(rs).body or {} for rs in responses.json]
+            return [BatchResponse(rs, raw=True).body or {}
+                    for rs in responses.json]
         finally:
             responses.close()
 
@@ -2438,7 +2439,31 @@ class BatchResponse(object):
     """ Individual batch response.
     """
 
-    def __init__(self, result):
+    @classmethod
+    def __hydrate(cls, result):
+        body = result.get("body")
+        if isinstance(body, dict):
+            if has_all(body, CypherResults.signature):
+                records = CypherResults._hydrated(body)
+                if len(records) == 0:
+                    return None
+                elif len(records) == 1:
+                    if len(records[0]) == 1:
+                        return records[0][0]
+                    else:
+                        return records[0]
+                else:
+                    return records
+            elif has_all(body, ("exception", "stacktrace")):
+                err = ServerException(body)
+                CustomBatchError = type(err.exception, (BatchError,), {})
+                raise CustomBatchError(err)
+            else:
+                return _hydrated(body)
+        else:
+            return _hydrated(body)
+
+    def __init__(self, result, raw=False):
         self.id_ = result.get("id")
         self.uri = result.get("from")
         self.body = result.get("body")
@@ -2446,27 +2471,12 @@ class BatchResponse(object):
         self.location = URI(result.get("location"))
         if __debug__:
             batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(self.id_, self.status_code, self.location, self.body))
-        # derive hydrated content
-        if isinstance(self.body, dict):
-            if has_all(self.body, CypherResults.signature):
-                records = CypherResults._hydrated(self.body)
-                if len(records) == 0:
-                    self.__hydrated = None
-                elif len(records) == 1:
-                    if len(records[0]) == 1:
-                        self.__hydrated = records[0][0]
-                    else:
-                        self.__hydrated = records[0]
-                else:
-                    self.__hydrated = records
-            elif has_all(self.body, ("exception", "stacktrace")):
-                err = ServerException(result["body"])
-                CustomBatchError = type(err.exception, (BatchError,), {})
-                raise CustomBatchError(err)
-            else:
-                self.__hydrated = _hydrated(self.body)
+        # We need to hydrate on construction to catch any errors in the batch
+        # responses contained in the body
+        if raw:
+            self.__hydrated = None
         else:
-            self.__hydrated = _hydrated(self.body)
+            self.__hydrated = self.__hydrate(result)
 
     @property
     def __uri__(self):
