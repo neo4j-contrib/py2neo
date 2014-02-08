@@ -507,11 +507,11 @@ class GraphDatabaseService(Cacheable, Resource):
 
         from py2neo import neo4j
         
-        graph_db = neo4j.GraphDatabaseService(neo4j.DEFAULT_URI)
+        graph_db = neo4j.GraphDatabaseService()
         print(graph_db.neo4j_version)
 
-    :param uri: the base URI of the database (defaults to the value of
-        :py:data:`DEFAULT_URI`)
+    :param uri: the base URI of the database (defaults to
+    <http://localhost:7474/db/data/>)
     """
 
     def __init__(self, uri=None):
