@@ -76,7 +76,7 @@ batch_log = logging.getLogger(__name__ + ".batch")
 cypher_log = logging.getLogger(__name__ + ".cypher")
 
 _headers = {
-    None: [("X-Stream", "true;format=pretty")]
+    None: [("X-Stream", "true")]
 }
 
 _http_rewrites = {}
@@ -2446,6 +2446,27 @@ class BatchResponse(object):
         self.location = URI(result.get("location"))
         if __debug__:
             batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(self.id_, self.status_code, self.location, self.body))
+        # derive hydrated content
+        if isinstance(self.body, dict):
+            if has_all(self.body, CypherResults.signature):
+                records = CypherResults._hydrated(self.body)
+                if len(records) == 0:
+                    self.__hydrated = None
+                elif len(records) == 1:
+                    if len(records[0]) == 1:
+                        self.__hydrated = records[0][0]
+                    else:
+                        self.__hydrated = records[0]
+                else:
+                    self.__hydrated = records
+            elif has_all(self.body, ("exception", "stacktrace")):
+                err = ServerException(result["body"])
+                CustomBatchError = type(err.exception, (BatchError,), {})
+                raise CustomBatchError(err)
+            else:
+                self.__hydrated = _hydrated(self.body)
+        else:
+            self.__hydrated = _hydrated(self.body)
 
     @property
     def __uri__(self):
@@ -2453,20 +2474,7 @@ class BatchResponse(object):
 
     @property
     def hydrated(self):
-        body = self.body
-        if isinstance(body, dict) and has_all(body, CypherResults.signature):
-            records = CypherResults._hydrated(body)
-            if len(records) == 0:
-                return None
-            elif len(records) == 1:
-                if len(records[0]) == 1:
-                    return records[0][0]
-                else:
-                    return records[0]
-            else:
-                return records
-        else:
-            return _hydrated(body)
+        return self.__hydrated
 
 
 class BatchRequestList(object):

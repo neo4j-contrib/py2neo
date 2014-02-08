@@ -244,10 +244,11 @@ class TestUniqueRelationshipCreation(unittest.TestCase):
         self.batch.clear()
         self.batch.get_or_create_path(alice, "KNOWS", bob)
         try:
-            path, = self.batch.submit()
+            self.batch.submit()
+        except neo4j.BatchError as err:
+            assert err.__class__.__name__ == "UniquePathNotUniqueException"
+        else:
             assert False
-        except neo4j.BatchError:
-            assert True
 
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})

@@ -66,7 +66,10 @@ class ClientError(Exception):
 
     def __init__(self, response):
         assert response.status_code // 100 == 4
-        self.__cause__ = response
+        try:
+            self.__cause__ = response
+        except TypeError:
+            pass
         if response.is_json:
             self._server_exception = ServerException(assembled(response))
             Exception.__init__(self, self._server_exception.message)
@@ -85,7 +88,10 @@ class ServerError(Exception):
 
     def __init__(self, response):
         assert response.status_code // 100 == 5
-        self.__cause__ = response
+        try:
+            self.__cause__ = response
+        except TypeError:
+            pass
         # TODO: check for unhandled HTML errors (on 500)
         if response.is_json:
             self._server_exception = ServerException(assembled(response))
