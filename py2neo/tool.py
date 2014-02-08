@@ -547,8 +547,10 @@ class Shell(object):
                 writer.write(self.format, record_set)
 
     def execute_cypher_from_file(self, line):
-        command = line.pop()
-        file_name = os.path.expanduser(line.pop())
+        command, file_name = self._pop_command_and_filename(line)
+        
+        if not file_name:
+            return
         try:
             with codecs.open(file_name, encoding="utf-8") as f:
                 query = f.read()
@@ -564,31 +566,45 @@ class Shell(object):
     def show_neo4j_version(self, line):
         print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
 
-    def add_something(self, line):
+    def _pop_command_and_filename(self, line):
         command = line.pop()
-        subject = line.pop().upper()
-        if subject in ("PARAMS", "PARAMETERS"):
+        f = line.pop()
+        if f:
+            return command, os.path.expanduser(f)
+        return command, f
+
+    def _pop_command_and_argument(self, line):
+        return line.pop(), line.pop()
+        
+    def add_something(self, line):
+        command, subject = self._pop_command_and_argument(line)
+        if not subject:
+            return
+        if subject.upper() in ("PARAMS", "PARAMETERS"):
             self.add_parameters_from_file(line)
         else:
             sys.stderr.write("Bad command\n")
 
     def clear_something(self, line):
-        command = line.pop()
-        subject = line.pop().upper()
-        if subject in ("PARAMS", "PARAMETERS"):
+        command, subject = self._pop_command_and_argument(line)
+        if not subject:
+            return
+        if subject.upper() in ("PARAMS", "PARAMETERS"):
             self.clear_parameters(line)
         else:
             sys.stderr.write("Bad command\n")
 
     def show_something(self, line):
-        command = line.pop()
-        subject = line.pop().upper()
-        if subject in ("PARAMS", "PARAMETERS"):
+        command, subject = self._pop_command_and_argument(line)
+        if not subject:
+            return
+        if subject.upper() in ("PARAMS", "PARAMETERS"):
             self.show_parameters(line)
         else:
             sys.stderr.write("Bad command\n")
 
     def add_parameters_from_file(self, line):
+        
         file_name = os.path.expanduser(line.pop())
         try:
             params = json.load(codecs.open(file_name, encoding="utf-8"))
