@@ -2920,6 +2920,10 @@ class WriteBatch(BatchRequestList):
         """ Add an existing node or relationship uniquely to an index, failing
         the entire batch if such an entry already exists.
 
+        .. warning::
+            Uniqueness modes for legacy indexes have been broken in recent
+            server versions and therefore this method may not work as expected.
+
         :param cls: the type of indexed entity
         :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
                    :py:class:`Relationship <py2neo.neo4j.Relationship>`
@@ -2986,6 +2990,10 @@ class WriteBatch(BatchRequestList):
     def create_in_index_or_fail(self, cls, index, key, value, abstract=None):
         """ Create a new node or relationship and add it uniquely to an index,
         failing the entire batch if such an entry already exists.
+
+        .. warning::
+            Uniqueness modes for legacy indexes have been broken in recent
+            server versions and therefore this method may not work as expected.
 
         :param cls: the type of indexed entity
         :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
