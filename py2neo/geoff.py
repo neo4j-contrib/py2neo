@@ -250,16 +250,11 @@ class Subgraph(object):
         try:
             return self._execute_load_batch(graph_db, True)
         except neo4j.BatchError as err:
-            try:
-                err2 = json.loads(err.message) # TODO: this is a bit of a bodge
-            except ValueError:
-                pass
-            else:
-                if err2["exception"] == "UniquePathNotUniqueException":
-                    err = ConstraintViolation(
-                        "Unable to merge relationship onto multiple "
-                        "existing relationships."
-                    )
+            if err.__class__.__name__ == "UniquePathNotUniqueException":
+                err = ConstraintViolation(
+                    "Unable to merge relationship onto multiple "
+                    "existing relationships."
+                )
             raise err
 
 
