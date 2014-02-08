@@ -2456,7 +2456,11 @@ class BatchResponse(object):
                     return records
             elif has_all(body, ("exception", "stacktrace")):
                 err = ServerException(body)
-                CustomBatchError = type(err.exception, (BatchError,), {})
+                try:
+                    CustomBatchError = type(err.exception, (BatchError,), {})
+                except TypeError:
+                    # for Python 2.x
+                    CustomBatchError = type(str(err.exception), (BatchError,), {})
                 raise CustomBatchError(err)
             else:
                 return _hydrated(body)
