@@ -19,8 +19,7 @@
 from py2neo import neo4j
 
 
-def test_can_cast_node():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_cast_node(graph_db):
     alice, = graph_db.create({"name": "Alice"})
     casted = neo4j._cast(alice)
     assert isinstance(casted, neo4j.Node)
@@ -35,8 +34,7 @@ def test_can_cast_dict():
     assert casted["name"] == "Alice"
 
 
-def test_can_cast_rel():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_cast_rel(graph_db):
     a, b, ab = graph_db.create({}, {}, (0, "KNOWS", 1))
     casted = neo4j._cast(ab)
     assert isinstance(casted, neo4j.Relationship)

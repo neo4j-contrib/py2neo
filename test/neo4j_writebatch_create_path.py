@@ -19,8 +19,7 @@
 from py2neo import neo4j
 
 
-def test_can_create_path_with_new_nodes():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_create_path_with_new_nodes(graph_db):
     batch = neo4j.WriteBatch(graph_db)
     batch.create_path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
     results = batch.submit()
@@ -31,8 +30,7 @@ def test_can_create_path_with_new_nodes():
     assert path.nodes[1]["name"] == "Bob"
 
 
-def test_can_create_path_with_existing_nodes():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_create_path_with_existing_nodes(graph_db):
     alice, bob = graph_db.create({"name": "Alice"}, {"name": "Bob"})
     batch = neo4j.WriteBatch(graph_db)
     batch.create_path(alice, "KNOWS", bob)

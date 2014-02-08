@@ -19,18 +19,14 @@
 from py2neo import neo4j
 
 
-def test_can_find_nodes_with_label():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
+def test_can_find_nodes_with_label(graph_db):
     alice, = graph_db.create({"name": "Alice"})
     alice.add_labels("Person")
     nodes = list(graph_db.find("Person"))
     assert nodes == [alice]
 
 
-def test_can_find_nodes_with_label_and_property():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
+def test_can_find_nodes_with_label_and_property(graph_db):
     alice, = graph_db.create({"name": "Alice"})
     alice.add_labels("Person")
     nodes = list(graph_db.find("Person", "name", "Alice"))

@@ -19,8 +19,7 @@
 from py2neo import neo4j
 
 
-def test_can_delete_property_on_preexisting_node():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_delete_property_on_preexisting_node(graph_db):
     alice, = graph_db.create({"name": "Alice", "age": 34})
     batch = neo4j.WriteBatch(graph_db)
     batch.delete_property(alice, "age")
@@ -29,8 +28,7 @@ def test_can_delete_property_on_preexisting_node():
     assert alice["age"] is None
 
 
-def test_can_delete_property_on_node_in_same_batch():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_delete_property_on_node_in_same_batch(graph_db):
     batch = neo4j.WriteBatch(graph_db)
     alice = batch.create({"name": "Alice", "age": 34})
     batch.delete_property(alice, "age")

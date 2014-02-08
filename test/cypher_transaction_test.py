@@ -18,8 +18,9 @@
 
 from __future__ import unicode_literals
 
-from py2neo import cypher
+import pytest
 
+from py2neo import cypher
 
 session = cypher.Session()
 

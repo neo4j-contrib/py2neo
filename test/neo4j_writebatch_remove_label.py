@@ -19,8 +19,7 @@
 from py2neo import neo4j
 
 
-def test_can_remove_labels_from_preexisting_node():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_remove_labels_from_preexisting_node(graph_db):
     alice, = graph_db.create({"name": "Alice"})
     alice.add_labels("human", "female")
     batch = neo4j.WriteBatch(graph_db)
@@ -29,8 +28,7 @@ def test_can_remove_labels_from_preexisting_node():
     assert alice.get_labels() == {"female"}
 
 
-def test_can_add_labels_to_node_in_same_batch():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_add_labels_to_node_in_same_batch(graph_db):
     batch = neo4j.WriteBatch(graph_db)
     alice = batch.create({"name": "Alice"})
     batch.add_labels(alice, "human", "female")

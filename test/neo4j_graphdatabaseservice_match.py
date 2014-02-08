@@ -20,11 +20,11 @@ import unittest
 from py2neo import neo4j
 
 
-class MatchTestCase(unittest.TestCase):
+class MatchTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         stuff = self.graph_db.create(
             {"name": "Alice"},
             {"name": "Bob"},
@@ -142,8 +142,3 @@ class MatchTestCase(unittest.TestCase):
         rels = self.graph_db.match(start_node=self.alice, rel_type=("LOVES",
                                                                     "KNOWS"))
         assert len(rels) == 2
-
-
-if __name__ == '__main__':
-    unittest.main()
-

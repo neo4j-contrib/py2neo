@@ -14,13 +14,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import pytest
 
 from py2neo import neo4j
 
 
-def _create_graph():
-    graph_db = neo4j.GraphDatabaseService()
+@pytest.fixture
+def create_graph(graph_db):
     a, b, c, d, e = graph_db.create(
         {"name": "Alice"},
         {"name": "Bob"},
@@ -38,21 +38,21 @@ def _create_graph():
     return a, b, c, d, e, rels
 
 
-def test_can_match_zero_outgoing():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_zero_outgoing(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(e.match_outgoing())
     assert len(matches) == 0
 
 
-def test_can_match_one_outgoing():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_one_outgoing(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(a.match_outgoing())
     assert len(matches) == 1
     assert rels[0] in matches
 
 
-def test_can_match_many_outgoing():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_outgoing(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match_outgoing())
     assert len(matches) == 3
     assert rels[1] in matches
@@ -60,24 +60,24 @@ def test_can_match_many_outgoing():
     assert rels[3] in matches
 
 
-def test_can_match_many_outgoing_with_limit():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_outgoing_with_limit(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match_outgoing(limit=2))
     assert len(matches) == 2
     for match in matches:
         assert match in (rels[1], rels[2], rels[3])
 
 
-def test_can_match_many_outgoing_by_type():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_outgoing_by_type(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match_outgoing("KNOWS"))
     assert len(matches) == 2
     assert rels[2] in matches
     assert rels[3] in matches
 
 
-def test_can_match_many_outgoing_by_multiple_types():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_outgoing_by_multiple_types(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match_outgoing(("KNOWS", "LOVES")))
     assert len(matches) == 3
     assert rels[1] in matches
@@ -85,8 +85,8 @@ def test_can_match_many_outgoing_by_multiple_types():
     assert rels[3] in matches
 
 
-def test_can_match_many_in_both_directions():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_in_both_directions(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match())
     assert len(matches) == 4
     assert rels[0] in matches
@@ -95,16 +95,16 @@ def test_can_match_many_in_both_directions():
     assert rels[3] in matches
 
 
-def test_can_match_many_in_both_directions_with_limit():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_in_both_directions_with_limit(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match(limit=2))
     assert len(matches) == 2
     for match in matches:
         assert match in (rels[0], rels[1], rels[2], rels[3])
 
 
-def test_can_match_many_by_type_in_both_directions():
-    a, b, c, d, e, rels = _create_graph()
+def test_can_match_many_by_type_in_both_directions(create_graph):
+    a, b, c, d, e, rels = create_graph
     matches = list(b.match("LOVES"))
     assert len(matches) == 2
     assert rels[0] in matches

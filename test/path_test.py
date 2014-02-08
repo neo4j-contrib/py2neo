@@ -16,20 +16,15 @@
 # limitations under the License.
 
 import sys
-PY3K = sys.version_info[0] >= 3
+
+import pytest
 
 from py2neo import neo4j
 
-#import logging
-import unittest
-
-#logging.basicConfig(
-#    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-#    level=logging.DEBUG,
-#)
+PY3K = sys.version_info[0] >= 3
 
 
-class PathTestCase(unittest.TestCase):
+class PathTestCase(object):
 
     def test_can_create_path(self):
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
@@ -112,10 +107,13 @@ class PathTestCase(unittest.TestCase):
         )
 
 
-class CreatePathTestCase(unittest.TestCase):
+class CreatePathTestCase(object):
+
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_create_path(self):
-        graph_db = neo4j.GraphDatabaseService()
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
         assert path._relationships[0]._type == "KNOWS"
@@ -129,13 +127,12 @@ class CreatePathTestCase(unittest.TestCase):
         assert path.nodes[1]["name"] == "Bob"
 
     def test_can_create_path_with_rel_properties(self):
-        graph_db = neo4j.GraphDatabaseService()
         path = neo4j.Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
         assert path._relationships[0]._type == "KNOWS"
         assert path._relationships[0]._properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(graph_db)
+        path = path.create(self.graph_db)
         assert isinstance(path.nodes[0], neo4j.Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
@@ -145,10 +142,11 @@ class CreatePathTestCase(unittest.TestCase):
         assert path.nodes[1]["name"] == "Bob"
 
 
-class GetOrCreatePathTestCase(unittest.TestCase):
+class GetOrCreatePathTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_create_single_path(self):
         start_node, = self.graph_db.create({})
@@ -247,7 +245,3 @@ class GetOrCreatePathTestCase(unittest.TestCase):
         self.assertEqual(p1.relationships[0], p2.relationships[0])
         self.assertEqual(p1.relationships[1], p2.relationships[1])
         self.assertEqual(p1.relationships[2], p2.relationships[2])
-
-
-if __name__ == '__main__':
-    unittest.main()

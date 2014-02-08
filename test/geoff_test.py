@@ -224,7 +224,7 @@ def parse(source):
     return geoff._Parser(source).parse()
 
 
-class ParseTest(unittest.TestCase):
+class ParseTest(object):
 
     def test_can_parse_empty_string(self):
         nodes, rels, entries = parse('')
@@ -415,7 +415,7 @@ class ParseTest(unittest.TestCase):
         }
 
 
-class LegacyParseTest(unittest.TestCase):
+class LegacyParseTest(object):
 
     def test_can_parse_node(self):
         nodes, rels, entries = parse('(A) {"name": "Alice"}')
@@ -448,7 +448,7 @@ class LegacyParseTest(unittest.TestCase):
         }
 
 
-class MultiElementParseTest(unittest.TestCase):
+class MultiElementParseTest(object):
 
     def test_can_parse_graph(self):
         nodes, rels, entries = parse('(A {"name": "Alice"}) '
@@ -482,16 +482,14 @@ class MultiElementParseTest(unittest.TestCase):
         assert entries == {}
 
 
-def test_can_insert_empty_subgraph():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_empty_subgraph(graph_db):
     source = ''
     subgraph = geoff.Subgraph(source)
     out = subgraph.insert_into(graph_db)
     assert out == {}
 
 
-def test_can_insert_single_node():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_single_node(graph_db):
     source = '(a {"name": "Alice"})'
     subgraph = geoff.Subgraph(source)
     out = subgraph.insert_into(graph_db)
@@ -501,8 +499,7 @@ def test_can_insert_single_node():
     assert len(matches) == 0
 
 
-def test_can_insert_simple_graph():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_simple_graph(graph_db):
     source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
     subgraph = geoff.Subgraph(source)
     out = subgraph.insert_into(graph_db)
@@ -516,7 +513,6 @@ def test_can_insert_simple_graph():
 
 
 def test_can_insert_reasonably_complex_graph(graph_db):
-    #graph_db = neo4j.GraphDatabaseService()
     source = r"""
     |People {"email":"bob@example.com"}|=>(b)
     |People {"email":"ernie@example.com"}|=>(e)
@@ -541,8 +537,7 @@ def test_can_insert_reasonably_complex_graph(graph_db):
     assert out["f"].get_properties() == {"name": "Lonely Frank"}
 
 
-def test_can_merge_simple_graph():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_merge_simple_graph(graph_db):
     source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
     subgraph = geoff.Subgraph(source)
     out = subgraph.merge_into(graph_db)
@@ -555,8 +550,7 @@ def test_can_merge_simple_graph():
     assert matches[0].type == "KNOWS"
 
 
-def test_can_insert_subgraph_from_geoff_file():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_subgraph_from_geoff_file(graph_db):
     planets = geoff.Subgraph.load(PLANETS_GEOFF)
     assert len(planets.nodes) == 25
     assert len(planets.relationships) == 24
@@ -566,8 +560,7 @@ def test_can_insert_subgraph_from_geoff_file():
     assert all(isinstance(node, neo4j.Node) for node in out.values())
 
 
-def test_can_insert_subgraph_from_xml_file():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_insert_subgraph_from_xml_file(graph_db):
     planets = geoff.Subgraph.load_xml(PLANETS_XML)
     if sys.version_info >= (2, 7):
         assert planets.source == PLANETS_GEOFF.getvalue()
@@ -579,9 +572,7 @@ def test_can_insert_subgraph_from_xml_file():
     assert all(isinstance(node, neo4j.Node) for node in out.values())
 
 
-def test_can_identify_non_unique_paths():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
+def test_can_identify_non_unique_paths(graph_db):
     source = """\
     |People {"email":"alice@example.com"}|=>(a)
     |People {"email":"bob@example.com"}|=>(b)
@@ -602,7 +593,3 @@ def test_can_identify_non_unique_paths():
         assert True
     else:
         assert False
-
-
-if __name__ == '__main__':
-    unittest.main()

@@ -16,27 +16,23 @@
 # limitations under the License.
 
 from __future__ import unicode_literals
-
+import logging
 import sys
-PY3K = sys.version_info[0] >= 3
+import unittest
+
+import pytest
 
 from py2neo import neo4j
 
-import logging
-import unittest
-
+PY3K = sys.version_info[0] >= 3
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-
-
-class CreationAndDeletionTests(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
+class CreationAndDeletionTests(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_create_index_object_with_colon_in_name(self):
         uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
@@ -75,14 +71,10 @@ class CreationAndDeletionTests(unittest.TestCase):
         self.assertTrue(foo is None)
 
 
-class NodeIndexTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_test_index")
-
-    def tearDown(self):
-        self.graph_db.delete_index(self.index.content_type, self.index.name)
+class NodeIndexTestCase(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_add_existing_node_to_index(self):
         alice, = self.graph_db.create({"name": "Alice Smith"})
@@ -223,10 +215,10 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertFalse(blue in colours_containing_R)
 
 
-class RemovalTests(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
+class RemovalTests(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_removal_test_index")
         self.fred, self.wilma, = self.graph_db.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
@@ -237,10 +229,6 @@ class RemovalTests(unittest.TestCase):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-
-    def tearDown(self):
-        self.graph_db.delete(self.fred, self.wilma)
-        self.graph_db.delete_index(self.index.content_type, self.index.name)
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)
@@ -277,16 +265,10 @@ class RemovalTests(unittest.TestCase):
         self.check("flintstones", "%", self.wilma)
 
 
-class IndexedNodeTests(unittest.TestCase):
+class IndexedNodeTests(object):
 
-    def test_get_or_create_indexed_node_with_int_property(self):
-        graph_db = neo4j.GraphDatabaseService()
+    def test_get_or_create_indexed_node_with_int_property(self, graph_db):
         fred = graph_db.get_or_create_indexed_node(index_name="person", key="name", value="Fred", properties={"level" : 1})
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
         graph_db.delete(fred)
-
-
-if __name__ == '__main__':
-    unittest.main()
-

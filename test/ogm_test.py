@@ -14,8 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import unittest
+import pytest
 
 from py2neo import neo4j, ogm
 
@@ -37,10 +36,11 @@ class Person(object):
         return "{0} <{1}>".format(self.name, self.email)
 
 
-class ExampleCodeTestCase(unittest.TestCase):
+class ExampleCodeTestCase(object):
 
-    def setUp(self):
-        neo4j.GraphDatabaseService().clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_execute_example_code(self):
 
@@ -72,11 +72,11 @@ class ExampleCodeTestCase(unittest.TestCase):
         print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 
-class RelateTestCase(unittest.TestCase):
+class RelateTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_relate_to_other_object(self):
@@ -98,11 +98,11 @@ class RelateTestCase(unittest.TestCase):
         assert alice.__rel__["LIKES"] == [({"since": 1999}, bob)]
 
 
-class SeparateTestCase(unittest.TestCase):
+class SeparateTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_separate_from_other_objects(self):
@@ -139,11 +139,11 @@ class SeparateTestCase(unittest.TestCase):
         assert alice.__rel__["LIKES"] == [({}, bob)]
 
 
-class LoadRelatedTestCase(unittest.TestCase):
+class LoadRelatedTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_load_single_related_object(self):
@@ -184,11 +184,11 @@ class LoadRelatedTestCase(unittest.TestCase):
         assert friends == []
 
 
-class LoadTestCase(unittest.TestCase):
+class LoadTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_load(self):
@@ -203,11 +203,11 @@ class LoadTestCase(unittest.TestCase):
         assert alice.age == 34
 
 
-class LoadIndexedTestCase(unittest.TestCase):
+class LoadIndexedTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_load(self):
@@ -231,11 +231,11 @@ class LoadIndexedTestCase(unittest.TestCase):
             assert smiths[i].age in (34, 66)
 
 
-class LoadUniqueTestCase(unittest.TestCase):
+class LoadUniqueTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_load_simple_object(self):
@@ -288,11 +288,11 @@ class LoadUniqueTestCase(unittest.TestCase):
         assert alice is None
 
 
-class ReloadTestCase(unittest.TestCase):
+class ReloadTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_reload(self):
@@ -307,11 +307,11 @@ class ReloadTestCase(unittest.TestCase):
         assert alice.age == 35
 
 
-class SaveTestCase(unittest.TestCase):
+class SaveTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_save_simple_object(self):
@@ -328,11 +328,11 @@ class SaveTestCase(unittest.TestCase):
         assert alice.__node__["age"] == 35
 
 
-class SaveIndexedTestCase(unittest.TestCase):
+class SaveIndexedTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_save(self):
@@ -353,11 +353,11 @@ class SaveIndexedTestCase(unittest.TestCase):
         assert carol.__node__ in smiths
 
 
-class SaveUniqueTestCase(unittest.TestCase):
+class SaveUniqueTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_save_simple_object(self):
@@ -389,11 +389,11 @@ class SaveUniqueTestCase(unittest.TestCase):
         assert carol_node in (rel.end_node for rel in friend_rels)
 
 
-class DeleteTestCase(unittest.TestCase):
+class DeleteTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.store = ogm.Store(self.graph_db)
 
     def test_can_delete_object(self):
@@ -404,7 +404,3 @@ class DeleteTestCase(unittest.TestCase):
         self.store.delete(alice)
         assert not node.exists
 
-
-
-if __name__ == '__main__':
-    unittest.main()

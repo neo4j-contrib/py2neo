@@ -19,8 +19,7 @@
 from py2neo import neo4j
 
 
-def test_can_set_labels_on_preexisting_node():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_set_labels_on_preexisting_node(graph_db):
     if not graph_db.supports_node_labels:
         return
     alice, = graph_db.create({"name": "Alice"})

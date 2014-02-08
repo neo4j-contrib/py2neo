@@ -18,8 +18,7 @@
 from py2neo import neo4j, rel
 
 
-def test_can_cast_rel():
-    graph_db = neo4j.GraphDatabaseService()
+def test_can_cast_rel(graph_db):
     a, b, ab = graph_db.create({}, {}, (0, "KNOWS", 1))
     casted = rel(ab)
     assert isinstance(casted, neo4j.Relationship)

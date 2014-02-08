@@ -16,17 +16,19 @@
 # limitations under the License.
 
 import sys
-PY3K = sys.version_info[0] >= 3
+
+import pytest
 
 from py2neo import neo4j
 
-import unittest
+PY3K = sys.version_info[0] >= 3
 
 
-class MetadataPropertiesTestCase(unittest.TestCase):
+class MetadataPropertiesTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_get_properties_from_metadata(self):
         # create node
@@ -44,10 +46,11 @@ class MetadataPropertiesTestCase(unittest.TestCase):
         assert alice.__metadata__["data"]["age"] == 34
 
 
-class PropertyContainerTestCase(unittest.TestCase):
+class PropertyContainerTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_property_count(self):
         alice, = self.graph_db.create({"name": "Alice", "age": 33})
@@ -149,8 +152,3 @@ class PropertyContainerTestCase(unittest.TestCase):
         self.assertEqual(None, alice["surname"])
         self.assertEqual("Alice Smith", alice["full_name"])
         self.assertEqual(33, alice["age"])
-
-
-if __name__ == '__main__':
-    unittest.main()
-

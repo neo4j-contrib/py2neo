@@ -16,22 +16,19 @@
 # limitations under the License.
 
 import sys
-PY3K = sys.version_info[0] >= 3
+
+import pytest
 
 from py2neo import neo4j
 
-import unittest
+PY3K = sys.version_info[0] >= 3
 
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+class IsolateTestCase(object):
 
-
-class IsolateTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_isolate_node(self):
         posse = self.graph_db.create(
@@ -58,10 +55,11 @@ class IsolateTestCase(unittest.TestCase):
         assert len(friendships) == 0
 
 
-class RelationshipTestCase(unittest.TestCase):
+class RelationshipTestCase(object):
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_create_relationship_to(self):
         alice, bob = self.graph_db.create(
@@ -123,10 +121,11 @@ class RelationshipTestCase(unittest.TestCase):
         self.assertEqual(ab.get_properties(), {})
 
 
-class RelateTestCase(unittest.TestCase):
+class RelateTestCase(object):
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_relate(self):
         alice, bob = self.graph_db.create(
@@ -243,8 +242,3 @@ class RelateTestCase(unittest.TestCase):
         self.assertTrue(rels2 is not None)
         self.assertEqual(3, len(rels2))
         self.assertEqual(rels1[1], rels2[1])
-
-
-if __name__ == '__main__':
-    unittest.main()
-

@@ -15,14 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
-PY3K = sys.version_info[0] >= 3
+
+import pytest
 
 from py2neo import neo4j, node
 from py2neo.packages.httpstream import (NetworkAddressError, SocketError)
 
-import logging
-import unittest
+PY3K = sys.version_info[0] >= 3
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -30,20 +31,7 @@ logging.basicConfig(
 )
 
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService()
-
-
-def recycle(*entities):
-    for entity in entities:
-        try:
-            entity.delete()
-        except Exception:
-            pass
-
-
-def test_wrong_host_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
+def test_wrong_host_will_fail(graph_db):
     try:
         graph_db.refresh()
     except NetworkAddressError:
@@ -52,8 +40,7 @@ def test_wrong_host_will_fail():
         assert False
 
 
-def test_wrong_port_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
+def test_wrong_port_will_fail(graph_db):
     try:
         graph_db.refresh()
     except SocketError:
@@ -62,8 +49,7 @@ def test_wrong_port_will_fail():
         assert False
 
 
-def test_wrong_path_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
+def test_wrong_path_will_fail(graph_db):
     try:
         graph_db.refresh()
     except neo4j.ClientError:
@@ -72,20 +58,17 @@ def test_wrong_path_will_fail():
         assert False
 
 
-def test_can_use_graph_if_no_trailing_slash_supplied():
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data")
+def test_can_use_graph_if_no_trailing_slash_supplied(graph_db):
     alice, = graph_db.create(node(name="Alice"))
     assert isinstance(alice, neo4j.Node)
     assert alice["name"] == "Alice"
 
 
-class GraphDatabaseServiceTest(unittest.TestCase):
+class GraphDatabaseServiceTest(object):
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        #print("Neo4j Version: {0}".format(repr(self.graph_db.neo4j_version)))
-        #print("Node count: {0}".format(self.graph_db.order()))
-        #print("Relationship count: {0}".format(self.graph_db.size()))
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_get_same_instance(self):
         graph_db_1 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
@@ -172,10 +155,11 @@ class GraphDatabaseServiceTest(unittest.TestCase):
         self.assertEqual(109, props[3]["number"])
 
 
-class NewCreateTestCase(unittest.TestCase):
+class NewCreateTestCase(object):
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_create_single_node(self):
         results = self.graph_db.create(
@@ -268,7 +252,7 @@ class NewCreateTestCase(unittest.TestCase):
         for i in range(size):
             self.assertTrue(isinstance(results[i], neo4j.Node))
 
-class MultipleNodeTestCase(unittest.TestCase):
+class MultipleNodeTestCase(object):
 
     flintstones = [
         {"name": "Fred"},
@@ -277,7 +261,8 @@ class MultipleNodeTestCase(unittest.TestCase):
         {"name": "Betty"}
     ]
 
-    def setUp(self):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
         self.gdb = default_graph_db()
         self.ref_node, = self.gdb.create({})
         self.nodes = self.gdb.create(*self.flintstones)
@@ -305,14 +290,12 @@ class MultipleNodeTestCase(unittest.TestCase):
         self.ref_node.delete()
 
 
-class TestRelatedDelete(unittest.TestCase):
+class TestRelatedDelete(object):
 
-    def setUp(self):
-        self.graph_db = default_graph_db()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
         self.recycling = []
-
-    def tearDown(self):
-        recycle(*self.recycling)
 
     def test_can_delete_entire_subgraph(self):
         query = '''\
@@ -366,7 +349,3 @@ class TestRelatedDelete(unittest.TestCase):
         alice.delete_related()
         for entity in entities:
             assert not entity.exists
-
-
-if __name__ == '__main__':
-    unittest.main()

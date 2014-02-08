@@ -17,22 +17,16 @@
 
 import os
 import sys
-import unittest
 
 from py2neo import geoff
-
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "files")
 
 
-class XMLTestCase(unittest.TestCase):
-
+class XMLTestCase(object):
     def test_can_create_subgraph_from_xml(self):
         xml_file = os.path.join(FIXTURES, "planets.xml")
         geoff_file = os.path.join(FIXTURES, "planets.geoff")
         planets = geoff.Subgraph.load_xml(open(xml_file))
         if sys.version_info >= (2, 7):
             assert planets.source == open(geoff_file).read().strip()
-
-if __name__ == '__main__':
-    unittest.main()

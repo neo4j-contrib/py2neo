@@ -14,17 +14,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import unittest
+import pytest
 
 from py2neo import neo4j
 
 
-class GetIndexedNodeTestCase(unittest.TestCase):
+class GetIndexedNodeTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph_db):
+        self.graph_db = graph_db
 
     def test_can_retrieve_multiple_indexed_nodes(self):
         people = self.graph_db.get_or_create_index(neo4j.Node, "People")
@@ -48,7 +47,3 @@ class GetIndexedNodeTestCase(unittest.TestCase):
         joneses = data[1]
         assert smiths == [alice, bob, carol]
         assert joneses == [dave, eve]
-
-
-if __name__ == "__main__":
-    unittest.main()
