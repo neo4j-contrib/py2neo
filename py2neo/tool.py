@@ -556,8 +556,8 @@ class Shell(object):
             sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
             sys.stderr.write("\n")
         else:
-            if self.params:
-                self.execute_cypher(query, self.params)
+            if self.param_sets:
+                self.execute_cypher(query, self.param_sets)
             else:
                 self.execute_cypher(query, {})
             
@@ -570,7 +570,7 @@ class Shell(object):
         if subject in ("PARAMS", "PARAMETERS"):
             self.add_parameters_from_file(line)
         else:
-            sys.stderr.write("Bad command")
+            sys.stderr.write("Bad command\n")
 
     def clear_something(self, line):
         command = line.pop()
@@ -578,7 +578,7 @@ class Shell(object):
         if subject in ("PARAMS", "PARAMETERS"):
             self.clear_parameters(line)
         else:
-            sys.stderr.write("Bad command")
+            sys.stderr.write("Bad command\n")
 
     def show_something(self, line):
         command = line.pop()
@@ -586,7 +586,7 @@ class Shell(object):
         if subject in ("PARAMS", "PARAMETERS"):
             self.show_parameters(line)
         else:
-            sys.stderr.write("Bad command")
+            sys.stderr.write("Bad command\n")
 
     def add_parameters_from_file(self, line):
         file_name = os.path.expanduser(line.pop())
@@ -599,7 +599,7 @@ class Shell(object):
             if isinstance(params, list):
                 count = len(params)
                 self.param_sets.extend(params)
-            elif isinstance(self.params, dict):
+            elif isinstance(params, dict):
                 count = 1
                 self.param_sets.append(params)
             else:
