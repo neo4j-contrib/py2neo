@@ -510,8 +510,7 @@ class GraphDatabaseService(Cacheable, Resource):
         graph_db = neo4j.GraphDatabaseService()
         print(graph_db.neo4j_version)
 
-    :param uri: the base URI of the database (defaults to
-    <http://localhost:7474/db/data/>)
+    :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
     """
 
     def __init__(self, uri=None):
