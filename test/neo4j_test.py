@@ -31,6 +31,7 @@ logging.basicConfig(
 )
 
 
+@pytest.mark.neoversion("2")
 def test_wrong_host_will_fail(graph_db):
     try:
         graph_db.refresh()
@@ -40,6 +41,7 @@ def test_wrong_host_will_fail(graph_db):
         assert False
 
 
+@pytest.mark.neoversion("2")
 def test_wrong_port_will_fail(graph_db):
     try:
         graph_db.refresh()
@@ -49,6 +51,7 @@ def test_wrong_port_will_fail(graph_db):
         assert False
 
 
+@pytest.mark.neoversion("2")
 def test_wrong_path_will_fail(graph_db):
     try:
         graph_db.refresh()

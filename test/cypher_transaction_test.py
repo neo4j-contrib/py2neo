@@ -20,12 +20,9 @@ from __future__ import unicode_literals
 
 import pytest
 
-from py2neo import cypher
 
-session = cypher.Session()
-
-
-def test_can_execute_single_statement_transaction():
+@pytest.mark.neoversion("2")
+def test_can_execute_single_statement_transaction(session):
     tx = session.create_transaction()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -38,7 +35,8 @@ def test_can_execute_single_statement_transaction():
     assert tx.finished
 
 
-def test_can_execute_multi_statement_transaction():
+@pytest.mark.neoversion("2")
+def test_can_execute_multi_statement_transaction(session):
     tx = session.create_transaction()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -53,7 +51,8 @@ def test_can_execute_multi_statement_transaction():
     assert tx.finished
 
 
-def test_can_execute_multi_execute_transaction():
+@pytest.mark.neoversion("2")
+def test_can_execute_multi_execute_transaction(session):
     tx = session.create_transaction()
     for i in range(10):
         assert not tx.finished
@@ -70,7 +69,8 @@ def test_can_execute_multi_execute_transaction():
     assert tx.finished
 
 
-def test_can_rollback_transaction():
+@pytest.mark.neoversion("2")
+def test_can_rollback_transaction(session):
     tx = session.create_transaction()
     for i in range(10):
         assert not tx.finished
@@ -87,7 +87,8 @@ def test_can_rollback_transaction():
     assert tx.finished
 
 
-def test_can_generate_transaction_error():
+@pytest.mark.neoversion("2")
+def test_can_generate_transaction_error(session):
     tx = session.create_transaction()
     try:
         tx.append("CRAETE (a) RETURN a")
@@ -98,7 +99,8 @@ def test_can_generate_transaction_error():
         assert False
 
 
-def test_cannot_append_after_transaction_finished():
+@pytest.mark.neoversion("2")
+def test_cannot_append_after_transaction_finished(session):
     tx = session.create_transaction()
     tx.rollback()
     try:
@@ -109,7 +111,8 @@ def test_cannot_append_after_transaction_finished():
         assert False
 
 
-def test_single_execute():
+@pytest.mark.neoversion("2")
+def test_single_execute(session):
     result = session.execute("CREATE (a) RETURN a")
     assert len(result) == 1
     for record in result:

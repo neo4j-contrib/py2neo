@@ -7,6 +7,7 @@ from logutils.colorize import ColorizingStreamHandler
 
 from py2neo import cypher, neo4j
 
+
 DEFAULT_DB = "http://localhost:7474/db/data/"
 PY2NEO_LOGGING_LEVEL_COLOUR_MAP = {
     10: (None, 'blue', True),
@@ -50,6 +51,7 @@ def pytest_runtest_setup(item):
     # looking for markers like '@pytest.mark.neoversion("X.XX")'
     version_markers = item.get_marker("neoversion")
     if version_markers:
+        logger.info('minimum neo version required')
         db = neo4j.GraphDatabaseService(DEFAULT_DB)
 
         required_version = Decimal(version_markers.args[0])
@@ -76,3 +78,9 @@ def graph_db(request):
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
     db.clear()
     return db
+
+
+@pytest.fixture
+def session(request):
+    session = cypher.Session()
+    return session
