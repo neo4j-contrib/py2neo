@@ -1356,6 +1356,16 @@ class _Entity(Resource):
         else:
             return True
 
+    def get_cached_properties(self):
+        """ Fetch last known properties without calling the server.
+
+        :return: dictionary of properties
+        """
+        if self.is_abstract:
+            return self._properties
+        else:
+            return self.__metadata__["data"]
+
     def get_properties(self):
         """ Fetch all properties.
 

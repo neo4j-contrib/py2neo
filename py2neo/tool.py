@@ -37,6 +37,7 @@ from .xmlutil import xml_to_cypher, xml_to_geoff
 
 PY3 = sys.version > '3'
 SCRIPT_NAME = "neotool"
+
 NEOTOOL_HELP = """\
 Usage:
   {script} <options> <command> <args>
@@ -62,10 +63,25 @@ Commands:
   xml-cypher <file> [<xmlns>...]  Convert XML data to Cypher CREATE statement
   xml-geoff <file> [<xmlns>...]   Convert XML data to Geoff data
 """
+
 SHELL_HELP = """\
 The Neotool Shell allows you to run Cypher queries from an interactive prompt.
 Queries may be entered directly or run from files using the EXECUTE command. To
 quit the shell, press Ctrl+D or use the EXIT command.
+
+Commands available:
+
+    ADD PARAM[ETER]S <json-file>
+    CLEAR
+    EXECUTE <cypher-file>
+    EXIT
+    HELP
+    REMOVE PARAM[ETER]S
+    SHOW PARAM[ETER]S
+    VERSION
+
+If a numeric value is entered, details of the node with that ID are displayed.
+Any other statements are executed as Cypher.
 """
 
 if not PY3:
@@ -458,6 +474,15 @@ class CommandLine(object):
         return bits[0]
 
 
+if PY3:
+    def get_input(prompt):
+        return input(prompt)
+else:
+    def get_input(prompt):
+        sys.stdin = _stdin
+        return raw_input(prompt).decode(sys.stdin.encoding)
+
+
 class Shell(object):
 
     def __init__(self, graph_db):
@@ -469,46 +494,34 @@ class Shell(object):
     @property
     def prompt(self):
         if self.param_sets:
-            return "{0}/{1}[{2}]> ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+            return "\x1b[32;1m{0}/{1}\x1b[36;1m[{2}]\x1b[32;1m>\x1b[0m ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
         else:
-            return "{0}/{1}> ".format(self.graph_db.service_root.__uri__.host_port, self.lang)
+            return "\x1b[32;1m{0}/{1}>\x1b[0m ".format(self.graph_db.service_root.__uri__.host_port, self.lang)
 
     def repl(self):
         print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
         print("Copyright 2013-2014, Nigel Small")
         print("")
-        if PY3:
-            self._repl3()
-        else:
-            sys.stdin = _stdin
-            self._repl2()
-
-    def _repl2(self):
         try:
             while True:
-                line = raw_input(self.prompt).decode(sys.stdin.encoding)
+                line = get_input(self.prompt)
                 self.execute(line)
         except EOFError:
             print("⌁")
         except StopIteration:
             pass
 
-    def _repl3(self):
-        try:
-            while True:
-                line = input(self.prompt)
-                self.execute(line)
-        except EOFError:
-            print("⌁")
-        except StopIteration:
-            pass
+    def _pop_command_and_argument(self, line):
+        return line.pop(), line.pop()
 
     def execute(self, line):
         line = CommandLine(line)
         if not line:
             return
         command = line.peek().upper()
-        if command == "HELP":
+        if all(ch.isdigit() for ch in command):
+            self.display_node(int(command))
+        elif command == "HELP":
             self.help(line)
         elif command == "EXECUTE":
             self.execute_cypher_from_file(line)
@@ -517,7 +530,14 @@ class Shell(object):
         elif command == "ADD":
             self.add_something(line)
         elif command == "CLEAR":
-            self.clear_something(line)
+            if get_input("Are you sure you want to clear everything "
+                         "from the database [y/N]? ").upper().startswith("Y"):
+                print("Clearing all nodes and relationships")
+                self.graph_db.clear()
+            else:
+                print("Clear aborted")
+        elif command == "REMOVE":
+            self.remove_something(line)
         elif command == "SHOW":
             self.show_something(line)
         elif command == "VERSION":
@@ -540,16 +560,40 @@ class Shell(object):
             try:
                 record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
             except CypherError as err:
-                sys.stderr.write("{0}: {1}".format(err.__class__.__name__, err))
-                sys.stderr.write("\n")
+                print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
+                print("")
             else:
                 writer = ResultWriter(sys.stdout)
                 writer.write(self.format, record_set)
 
+    def display_node(self, node_id):
+        query = "START n=node({i}) RETURN n"
+        params = {"i": node_id}
+        try:
+            record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
+        except CypherError as err:
+            print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
+            print("")
+        else:
+            n = record_set[0][0]
+            title = "Node {0}".format(n._id)
+            if self.graph_db.supports_node_labels:
+                labels = n.get_labels()
+                title += " ({0})".format(", ".join(labels))
+            print(title)
+            print("-" * len(title))
+            properties = n.get_cached_properties()
+            max_key_len = max(len(key) for key in properties.keys())
+            for key, value in sorted(properties.items()):
+                print("{0} : {1}".format(key.ljust(max_key_len),
+                                         json.dumps(value)))
+
     def execute_cypher_from_file(self, line):
-        command, file_name = self._pop_command_and_filename(line)
-        
-        if not file_name:
+        command, file_name = self._pop_command_and_argument(line)
+        if file_name:
+            file_name = os.path.expanduser(file_name)
+        else:
+            print("Usage: EXECUTE <cypher-file>")
             return
         try:
             with codecs.open(file_name, encoding="utf-8") as f:
@@ -566,37 +610,33 @@ class Shell(object):
     def show_neo4j_version(self, line):
         print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
 
-    def _pop_command_and_filename(self, line):
-        command = line.pop()
-        f = line.pop()
-        if f:
-            return command, os.path.expanduser(f)
-        return command, f
-
-    def _pop_command_and_argument(self, line):
-        return line.pop(), line.pop()
-        
     def add_something(self, line):
         command, subject = self._pop_command_and_argument(line)
         if not subject:
+            print("Usage: ADD PARAMS <json-file>\n"
+                  "       ADD PARAMETERS <json-file>")
             return
         if subject.upper() in ("PARAMS", "PARAMETERS"):
             self.add_parameters_from_file(line)
         else:
             sys.stderr.write("Bad command\n")
 
-    def clear_something(self, line):
+    def remove_something(self, line):
         command, subject = self._pop_command_and_argument(line)
         if not subject:
+            print("Usage: REMOVE PARAMS\n"
+                  "       REMOVE PARAMETERS")
             return
         if subject.upper() in ("PARAMS", "PARAMETERS"):
-            self.clear_parameters(line)
+            self.remove_parameters(line)
         else:
             sys.stderr.write("Bad command\n")
 
     def show_something(self, line):
         command, subject = self._pop_command_and_argument(line)
         if not subject:
+            print("Usage: SHOW PARAMS\n"
+                  "       SHOW PARAMETERS")
             return
         if subject.upper() in ("PARAMS", "PARAMETERS"):
             self.show_parameters(line)
@@ -625,7 +665,7 @@ class Shell(object):
             else:
                 print("{0} parameter sets added".format(count))
 
-    def clear_parameters(self, line):
+    def remove_parameters(self, line):
         self.param_sets = []
 
     def show_parameters(self, line):
