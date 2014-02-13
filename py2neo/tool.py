@@ -76,6 +76,7 @@ Commands available:
     EXECUTE <cypher-file>
     EXIT
     HELP
+    LOOKUP
     REMOVE PARAM[ETER]S
     SHOW PARAM[ETER]S
     VERSION
@@ -520,7 +521,18 @@ class Shell(object):
             return
         command = line.peek().upper()
         if all(ch.isdigit() for ch in command):
-            self.display_node(int(command))
+            done = False
+            while not done:
+                word = line.pop()
+                if word:
+                    try:
+                        node_id = int(word)
+                    except ValueError:
+                        pass
+                    else:
+                        self.display_node_by_id(node_id)
+                else:
+                    done = True
         elif command == "HELP":
             self.help(line)
         elif command == "EXECUTE":
@@ -542,6 +554,8 @@ class Shell(object):
             self.show_something(line)
         elif command == "VERSION":
             self.show_neo4j_version(line)
+        elif command == "LOOKUP":
+            self.lookup(line)
         elif self.param_sets:
             self.execute_cypher(line.text, self.param_sets)
         else:
@@ -566,7 +580,7 @@ class Shell(object):
                 writer = ResultWriter(sys.stdout)
                 writer.write(self.format, record_set)
 
-    def display_node(self, node_id):
+    def display_node_by_id(self, node_id):
         query = "START n=node({i}) RETURN n"
         params = {"i": node_id}
         try:
@@ -575,18 +589,46 @@ class Shell(object):
             print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
             print("")
         else:
-            n = record_set[0][0]
-            title = "Node {0}".format(n._id)
-            if self.graph_db.supports_node_labels:
-                labels = n.get_labels()
-                title += " ({0})".format(", ".join(labels))
-            print(title)
-            print("-" * len(title))
-            properties = n.get_cached_properties()
-            max_key_len = max(len(key) for key in properties.keys())
-            for key, value in sorted(properties.items()):
-                print("{0} : {1}".format(key.ljust(max_key_len),
-                                         json.dumps(value)))
+            self.display_node(record_set[0][0])
+
+    def display_node(self, n):
+        title = "Node {0}".format(n._id)
+        print(title)
+        print("=" * len(title))
+        if self.graph_db.supports_node_labels:
+            labels = n.get_labels()
+            print("Labels: " + ", ".join(labels))
+        print("Properties:")
+        properties = n.get_cached_properties()
+        max_key_len = max(len(key) for key in properties.keys())
+        for key, value in sorted(properties.items()):
+            print("  {0} : {1}".format(key.ljust(max_key_len),
+                                     json.dumps(value)))
+        print("Relationships:")
+        for r in n.match():
+            print("  {0}".format(r))
+        print("")
+
+    def lookup(self, line):
+        command = line.pop()
+        index_name = line.pop()
+        if index_name:
+            index = self.graph_db.get_index(neo4j.Node, index_name)
+            if not index:
+                print("\x1b[31;1mNode index {0} not found\x1b[0m".format(repr(index_name)))
+                print("")
+                return
+        else:
+            print("Usage: LOOKUP <index-name> <key> <value>")
+            return
+        key = line.pop()
+        value = line.pop()
+        nodes = index.get(key, value)
+        if nodes:
+            for n in nodes:
+                self.display_node(n)
+        else:
+            print("No nodes found\n")
 
     def execute_cypher_from_file(self, line):
         command, file_name = self._pop_command_and_argument(line)
