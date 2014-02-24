@@ -175,10 +175,10 @@ class ResultWriter(object):
         for row in record_set:
             for i in range(len(row)):
                 update_descriptors(row[i])
-        for node in sorted(nodes):
+        for node in sorted(nodes, key=lambda x: x._id):
             self.out.write(ustr(node))
             self.out.write("\n")
-        for rel in sorted(rels):
+        for rel in sorted(rels, key=lambda x: x._id):
             self.out.write(ustr(rel))
             self.out.write("\n")
 
@@ -391,6 +391,14 @@ class Tool(object):
             query = sys.stdin.read()
             sys.stdin.close()
         self._cypher("tsv", query, params)
+
+    def dump_geoff(self, **params):
+        """ Dump all entities from the database and output as Geoff
+        """
+        query = "START n=node(*) RETURN n"
+        self._cypher("geoff", query, params)
+        query = "START r=rel(*) RETURN r"
+        self._cypher("geoff", query, params)
 
     def _geoff_write(self, params):
         for key, value in params.items():
