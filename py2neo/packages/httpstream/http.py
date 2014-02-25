@@ -21,23 +21,27 @@ from __future__ import unicode_literals
 from base64 import b64encode
 import errno
 try:
-    from http.client import (BadStatusLine, CannotSendRequest, HTTPConnection,
-                             HTTPSConnection, HTTPException, ResponseNotReady,
+    from http.client import (BadStatusLine, CannotSendRequest,
+                             HTTPConnection as _HTTPConnection,
+                             HTTPSConnection as _HTTPSConnection,
+                             HTTPException, ResponseNotReady,
                              responses)
 except ImportError:
-    from httplib import (BadStatusLine, CannotSendRequest, HTTPConnection,
-                         HTTPSConnection, HTTPException, ResponseNotReady,
+    from httplib import (BadStatusLine, CannotSendRequest,
+                         HTTPConnection as _HTTPConnection,
+                         HTTPSConnection as _HTTPSConnection,
+                         HTTPException, ResponseNotReady,
                          responses)
 import json
 import logging
 import os
-from socket import error, gaierror, herror, timeout
+from socket import error, gaierror, herror, timeout, IPPROTO_TCP, TCP_NODELAY
 from threading import local
 import sys
 
 from . import __version__
 from .jsonencoder import JSONEncoder
-from .jsonstream import JSONStream, assembled
+from .jsonstream import JSONStream
 from .numbers import *
 from .uri import URI, URITemplate
 
@@ -122,6 +126,26 @@ class RedirectionError(Loggable, HTTPException):
     def __init__(self, *args, **kwargs):
         HTTPException.__init__(self, *args, **kwargs)
         Loggable.__init__(self, self.__class__, args[0])
+
+
+class HTTPConnection(_HTTPConnection):
+    """ Patched class to avoid Nagle's algorithm:
+    https://en.wikipedia.org/wiki/Nagle%27s_algorithm
+    """
+
+    def connect(self):
+        _HTTPConnection.connect(self)
+        self.sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+
+
+class HTTPSConnection(_HTTPSConnection):
+    """ Patched class to avoid Nagle's algorithm:
+    https://en.wikipedia.org/wiki/Nagle%27s_algorithm
+    """
+
+    def connect(self):
+        _HTTPSConnection.connect(self)
+        self.sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
 
 
 class ConnectionPuddle(local):
