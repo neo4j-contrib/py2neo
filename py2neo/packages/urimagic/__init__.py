@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2013-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,21 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2014, Nigel Small"
+"""
+An implementation of URIs and URI Templates from RFC 3986 (URI Generic Syntax)
+and RFC 6570 (URI Template) respectively.
+"""
+
+
+from __future__ import unicode_literals
+
+
+__author__ = "Nigel Small"
+__copyright__ = "2013-2014, Nigel Small"
 __email__ = "nigel@nigelsmall.com"
 __license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "1.6.3"
+__version__ = "1.1.0"
 
 
-from .neo4j import _node as node, _rel as rel
-
+from .rfc3986 import *
+from .rfc6570 import *

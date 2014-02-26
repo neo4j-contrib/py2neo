@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2013, Nigel Small
+# Copyright 2013-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,12 +22,10 @@ HTTPStream
 
 
 __author__ = "Nigel Small"
-__copyright__ = "2013, Nigel Small"
+__copyright__ = "2013-2014, Nigel Small"
 __email__ = "nigel@nigelsmall.com"
 __license__ = "Apache License, Version 2.0"
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 from .http import *
-from .jsonstream import *
-from .uri import *

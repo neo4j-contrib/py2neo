@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2013-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,21 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2014, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "1.6.3"
-
-
-from .neo4j import _node as node, _rel as rel
-
+try:
+    unicode
+except NameError:
+    # Python 3
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s
+        try:
+            return s.decode(encoding)
+        except AttributeError:
+            return str(s)
+else:
+    # Python 2
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s.decode(encoding)
+        else:
+            return unicode(s)

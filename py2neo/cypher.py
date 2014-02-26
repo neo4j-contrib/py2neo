@@ -26,7 +26,7 @@ import json
 
 from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
 from .util import deprecated, Record
-from .packages.httpstream import URI
+from .packages.urimagic import URI
 
 
 @deprecated("The cypher module is deprecated, use "

@@ -47,12 +47,12 @@ import re
 from .packages.httpstream import (http,
                                   Resource as _Resource,
                                   ResourceTemplate as _ResourceTemplate,
-                                  URITemplate,
                                   ClientError as _ClientError,
                                   ServerError as _ServerError)
-from .packages.httpstream.jsonstream import assembled, grouped
+from .packages.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.httpstream.uri import URI, Query, percent_encode
+from .packages.urimagic import (Authority, URI, URITemplate,
+                                Query, percent_encode)
 
 from . import __version__
 from .exceptions import *
@@ -284,9 +284,10 @@ class Resource(object):
         scheme_host_port = (uri.scheme, uri.host, uri.port)
         if scheme_host_port in _http_rewrites:
             scheme_host_port = _http_rewrites[scheme_host_port]
-            uri._scheme = scheme_host_port[0]
-            uri._authority._host = scheme_host_port[1]
-            uri._authority._port = scheme_host_port[2]
+            # This is fine - it's all my code anyway...
+            uri._URI__set_scheme(scheme_host_port[0])
+            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
+                                                     scheme_host_port[2]))
         if uri.user_info:
             authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource(uri)

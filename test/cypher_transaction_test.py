@@ -18,12 +18,21 @@
 
 from __future__ import unicode_literals
 
+import pytest
+
 from py2neo import cypher
 
 
-session = cypher.Session()
+try:
+    session = cypher.Session()
+except NotImplementedError:
+    supports_transactions = False
+else:
+    supports_transactions = True
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_can_execute_single_statement_transaction():
     tx = session.create_transaction()
     assert not tx.finished
@@ -37,6 +46,8 @@ def test_can_execute_single_statement_transaction():
     assert tx.finished
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_can_execute_multi_statement_transaction():
     tx = session.create_transaction()
     assert not tx.finished
@@ -52,6 +63,8 @@ def test_can_execute_multi_statement_transaction():
     assert tx.finished
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_can_execute_multi_execute_transaction():
     tx = session.create_transaction()
     for i in range(10):
@@ -69,6 +82,8 @@ def test_can_execute_multi_execute_transaction():
     assert tx.finished
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_can_rollback_transaction():
     tx = session.create_transaction()
     for i in range(10):
@@ -86,6 +101,8 @@ def test_can_rollback_transaction():
     assert tx.finished
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_can_generate_transaction_error():
     tx = session.create_transaction()
     try:
@@ -97,6 +114,8 @@ def test_can_generate_transaction_error():
         assert False
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_cannot_append_after_transaction_finished():
     tx = session.create_transaction()
     tx.rollback()
@@ -108,6 +127,8 @@ def test_cannot_append_after_transaction_finished():
         assert False
 
 
+@pytest.mark.skipif(not supports_transactions,
+                    reason="Transactions not supported by this server version")
 def test_single_execute():
     result = session.execute("CREATE (a) RETURN a")
     assert len(result) == 1
