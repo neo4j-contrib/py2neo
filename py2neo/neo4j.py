@@ -1247,7 +1247,7 @@ class Schema(Cacheable, Resource):
                 raise
         else:
             return [
-                indexed["property-keys"][0]
+                indexed["property_keys"][0]
                 for indexed in response.json
             ]
 
