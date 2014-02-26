@@ -8,19 +8,6 @@ with coding is easy. The library is actively maintained on GitHub, regularly
 updated in the Python Package Index and is built uniquely for Neo4j in close
 association with its team and community.
 
-Get in Touch
-------------
-
-Thanks for using py2neo! If you need to get in touch (or would like to leave a
-tip) my main points of contact are as follows:
-
-======== ===============================================
-GitHub:  `nigelsmall <https://github.com/nigelsmall>`_
-Twitter: `@technige <https://twitter.com/technige>`_
-Email:   `nigel@nigelsmall.com <mailto:nigel@nigelsmall.com>`_
-Bitcoin: 13FoUCdhSjcqdnJyoi1QGmhnuBsmYzS6fj
-======== ===============================================
-
 Contents
 --------
 
