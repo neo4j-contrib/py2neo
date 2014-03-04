@@ -568,33 +568,41 @@ class URI(Part):
 
     def __init__(self, value):
         super(URI, self).__init__()
-        self.__scheme = None
-        self.__authority = None
-        self.__path = None
-        self.__query = None
-        self.__fragment = None
-        try:
-            if value.__uri__ is None:
-                return
-        except AttributeError:
-            pass
-        if value is not None:
+        if isinstance(value, URI):
+            self.__scheme = value.__scheme
+            self.__authority = value.__authority
+            self.__path = value.__path
+            self.__query = value.__query
+            self.__fragment = value.__fragment
+        else:
+            self.__scheme = None
+            self.__authority = None
+            self.__path = None
+            self.__query = None
+            self.__fragment = None
             try:
-                value = ustr(value.__uri__)
+                if value.__uri__ is None:
+                    return
             except AttributeError:
-                value = ustr(value)
-            # scheme
-            if ":" in value:
-                self.__scheme, value = value.partition(":")[0::2]
-                self.__scheme = percent_decode(self.__scheme)
-            else:
-                self.__scheme = None
-            # fragment
-            value, self.__fragment = self._partition_fragment(value)
-            # query
-            value, self.__query = self._partition_query(value)
-            # hierarchical part
-            self.__authority, self.__path = self._parse_hierarchical_part(value)
+                pass
+            if value is not None:
+                try:
+                    value = ustr(value.__uri__)
+                except AttributeError:
+                    value = ustr(value)
+                # scheme
+                if ":" in value:
+                    self.__scheme, value = value.partition(":")[0::2]
+                    self.__scheme = percent_decode(self.__scheme)
+                else:
+                    self.__scheme = None
+                # fragment
+                value, self.__fragment = self._partition_fragment(value)
+                # query
+                value, self.__query = self._partition_query(value)
+                # hierarchical part
+                self.__authority, self.__path = self._parse_hierarchical_part(
+                    value)
 
     def __hash__(self):
         return hash(self.string)
