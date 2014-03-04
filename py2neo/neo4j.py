@@ -1107,16 +1107,18 @@ class CypherResults(object):
     def _hydrated(cls, data):
         """ Takes assembled data...
         """
+        producer = RecordProducer(data["columns"])
         return [
-            Record(data["columns"], _hydrated(row))
+            producer.produce(_hydrated(row))
             for row in data["data"]
         ]
 
     def __init__(self, response):
         content = response.json
         self._columns = tuple(content["columns"])
+        self._producer = RecordProducer(self._columns)
         self._data = [
-            Record(self._columns, _hydrated(row))
+            self._producer.produce(_hydrated(row))
             for row in content["data"]
         ]
 
@@ -1172,6 +1174,7 @@ class IterableCypherResults(object):
         self._buffered = self._buffered_results()
         self._columns = None
         self._fetch_columns()
+        self._producer = RecordProducer(self._columns)
 
     def _fetch_columns(self):
         redo = []
@@ -1203,7 +1206,7 @@ class IterableCypherResults(object):
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield Record(self._columns, _hydrated(assembled(row)))
+                    yield self._producer.produce(_hydrated(assembled(row)))
 
     @property
     def columns(self):
