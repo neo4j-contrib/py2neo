@@ -2161,6 +2161,7 @@ class Index(Cacheable, Resource):
             self._get_or_create = Resource(uri.resolve("?unique"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._name = name or uri.path.segments[-1]
+        self.__searcher_stem_cache = {}
 
     def __repr__(self):
         return "{0}({1}, {2})".format(
@@ -2168,6 +2169,12 @@ class Index(Cacheable, Resource):
             self._content_type.__name__,
             repr(URI(self).string)
         )
+
+    def _searcher_stem_for_key(self, key):
+        if key not in self.__searcher_stem_cache:
+            stem = self._searcher.uri_template.string.partition("{key}")[0]
+            self.__searcher_stem_cache[key] = stem + percent_encode(key) + "/"
+        return self.__searcher_stem_cache[key]
 
     def add(self, key, value, entity):
         """ Add an entity to this index under the `key`:`value` pair supplied::
@@ -2692,8 +2699,8 @@ class ReadBatch(BatchRequestList):
         :return: batch request object
         """
         index = self._index(Node, index)
-        searcher = index._searcher.expand(key=key, value=value)
-        return self.append_get(self._uri_for(searcher))
+        uri = index._searcher_stem_for_key(key) + percent_encode(value)
+        return self.append_get(uri)
 
 
 class WriteBatch(BatchRequestList):
