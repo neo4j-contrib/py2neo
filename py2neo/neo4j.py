@@ -2173,7 +2173,7 @@ class Index(Cacheable, Resource):
     def _searcher_stem_for_key(self, key):
         if key not in self.__searcher_stem_cache:
             stem = self._searcher.uri_template.string.partition("{key}")[0]
-            self.__searcher_stem_cache = stem + percent_encode(key) + "/"
+            self.__searcher_stem_cache[key] = stem + percent_encode(key) + "/"
         return self.__searcher_stem_cache[key]
 
     def add(self, key, value, entity):
