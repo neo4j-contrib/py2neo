@@ -216,3 +216,17 @@ class Record(object):
         :return: tuple of values
         """
         return self._values
+        
+    def __getstate__(self):
+        """ Method for pickle
+
+        :return: The internal __dict__
+        """
+        return self.__dict__
+
+    def __setstate__(self, data):
+        """ Method for unpickle
+
+        :param: The dict to be restored.
+        """
+        self.__dict__ = data
