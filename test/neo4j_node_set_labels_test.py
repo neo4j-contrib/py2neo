@@ -23,6 +23,7 @@ def test_can_set_labels_on_node():
     graph_db = neo4j.GraphDatabaseService()
     if not graph_db.supports_node_labels:
         return
+    graph_db.clear()
     alice, = graph_db.create(node(name="Alice"))
     alice.add_labels("human", "female")
     labels = alice.get_labels()
@@ -32,3 +33,7 @@ def test_can_set_labels_on_node():
     labels = alice.get_labels()
     assert labels == set(["mystery", "badger"])
     assert labels != set(["human", "female"])
+    found = graph_db.find("badger")
+    assert list(found) == [alice]
+    found = graph_db.find("badger", "name", "Alice")
+    assert list(found) == [alice]

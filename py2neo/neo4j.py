@@ -608,7 +608,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
-            uri = uri.resolve("?" + Query.encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
+            uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Resource(uri)._get()):
                 yield _hydrated(assembled(result))
