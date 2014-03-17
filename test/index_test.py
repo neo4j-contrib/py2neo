@@ -23,7 +23,9 @@ PY3K = sys.version_info[0] >= 3
 from py2neo import neo4j
 
 import logging
+from time import time
 import unittest
+from uuid import uuid4
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -285,6 +287,24 @@ class IndexedNodeTests(unittest.TestCase):
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
         graph_db.delete(fred)
+
+
+class IndexConstructionTimingTests(unittest.TestCase):
+
+    def test_time_of_creating_many_indexes(self):
+        INDEX_COUNT = 1
+        graph_db = neo4j.GraphDatabaseService()
+        indexes = dict.fromkeys(uuid4().hex for _ in range(INDEX_COUNT))
+        try:
+            t0 = time()
+            for index_name in indexes:
+                indexes[index_name] = graph_db.get_or_create_index(neo4j.Node, index_name)
+            t = time() - t0
+            print(t / INDEX_COUNT)
+        finally:
+            for index_name, index in indexes.items():
+                if index:
+                    graph_db.delete_index(neo4j.Node, index_name)
 
 
 if __name__ == '__main__':
