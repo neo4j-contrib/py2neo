@@ -601,8 +601,7 @@ class URI(Part):
                 # query
                 value, self.__query = self._partition_query(value)
                 # hierarchical part
-                self.__authority, self.__path = self._parse_hierarchical_part(
-                    value)
+                self.__authority, self.__path = self._parse_hierarchical_part(value)
 
     def __hash__(self):
         return hash(self.string)
