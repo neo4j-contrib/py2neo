@@ -72,13 +72,18 @@ def do_setup(extensions=None):
         zip_safe=False,
     )
 
+py3k = sys.version_info >= (3,)
+sdist = "sdist" in sys.argv
+
+extensions = []
+if sdist or py3k:
+    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream",
+                                ["py2neo/packages/jsonstream/cjsonstream.c"]))
+elif sdist or not py3k:
+    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream_2x",
+                                ["py2neo/packages/jsonstream/cjsonstream_2x.c"]))
 
 try:
-    if sys.version_info >= (3,):
-        do_setup([Extension("py2neo.packages.jsonstream.cjsonstream",
-                            ["py2neo/packages/jsonstream/cjsonstream.c"])])
-    else:
-        do_setup([Extension("py2neo.packages.jsonstream.cjsonstream_2x",
-                            ["py2neo/packages/jsonstream/cjsonstream_2x.c"])])
+    do_setup(extensions)
 except:
     do_setup()
