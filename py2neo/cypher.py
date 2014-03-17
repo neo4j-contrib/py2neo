@@ -25,7 +25,7 @@ from collections import OrderedDict
 import json
 
 from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, Record
+from .util import deprecated, Record, RecordProducer
 from .packages.urimagic import URI
 
 
@@ -215,13 +215,14 @@ class Transaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise TransactionError.new(error["code"], error["message"])
-        return [
-            [
-                Record(result["columns"], _hydrated(r["rest"]))
+        out = []
+        for result in j["results"]:
+            producer = RecordProducer(result["columns"])
+            out.append([
+                producer.produce(_hydrated(r["rest"]))
                 for r in result["data"]
-            ]
-            for result in j["results"]
-        ]
+            ])
+        return out
         
     def execute(self):
         """ Send all pending statements to the server for execution, leaving

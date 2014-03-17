@@ -29,7 +29,7 @@ import warnings
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "Record"]
+           "Record", "RecordProducer"]
 
 
 def numberise(n):
@@ -181,25 +181,24 @@ class Record(object):
     values.
     """
 
-    def __init__(self, columns, values):
-        self._columns = tuple(columns)
-        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+    def __init__(self, producer, values):
+        self._producer = producer
         self._values = tuple(values)
     
     def __repr__(self):
-        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
         
     def __getattr__(self, attr):
-        return self._values[self._column_indexes[attr]]
+        return self._values[self._producer.column_indexes[attr]]
         
     def __getitem__(self, item):
         if isinstance(item, (int, slice)):
             return self._values[item]
         else:
-            return self._values[self._column_indexes[item]]
+            return self._values[self._producer.column_indexes[item]]
 
     def __len__(self):
-        return len(self._columns)
+        return len(self._producer.columns)
 
     @property
     def columns(self):
@@ -207,7 +206,7 @@ class Record(object):
 
         :return: tuple of column names
         """
-        return self._columns
+        return self._producer.columns
 
     @property
     def values(self):
@@ -216,3 +215,26 @@ class Record(object):
         :return: tuple of values
         """
         return self._values
+
+
+class RecordProducer(object):
+
+    def __init__(self, columns):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+
+    def __repr__(self):
+        return "RecordProducer(columns={0})".format(self._columns)
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def column_indexes(self):
+        return self._column_indexes
+
+    def produce(self, values):
+        """ Produce a record from a set of values.
+        """
+        return Record(self, values)
