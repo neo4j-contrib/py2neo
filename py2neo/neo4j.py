@@ -164,18 +164,35 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
-def _hydrated(data):
+def _hydrated(data, hydration_cache=None):
     """ Takes input iterable, assembles and resolves any Resource objects,
     returning the result.
     """
+    if hydration_cache is None:
+        hydration_cache = {}
     if isinstance(data, dict):
-        for cls in (Relationship, Node, Path):
-            if has_all(data, cls.signature):
-                return cls._hydrated(data)
+        if has_all(data, Relationship.signature):
+            self_uri = data["self"]
+            try:
+                return hydration_cache[self_uri]
+            except KeyError:
+                hydrated = Relationship._hydrated(data)
+                hydration_cache[self_uri] = hydrated
+                return hydrated
+        elif has_all(data, Node.signature):
+            self_uri = data["self"]
+            try:
+                return hydration_cache[self_uri]
+            except KeyError:
+                hydrated = Node._hydrated(data)
+                hydration_cache[self_uri] = hydrated
+                return hydrated
+        elif has_all(data, Path.signature):
+            return Path._hydrated(data)
         else:
             raise ValueError("Cannot determine object type", data)
     elif is_collection(data):
-        return type(data)([_hydrated(datum) for datum in data])
+        return type(data)([_hydrated(datum, hydration_cache) for datum in data])
     else:
         return data
 
@@ -1104,12 +1121,12 @@ class CypherResults(object):
     signature = ("columns", "data")
 
     @classmethod
-    def _hydrated(cls, data):
+    def _hydrated(cls, data, hydration_cache=None):
         """ Takes assembled data...
         """
         producer = RecordProducer(data["columns"])
         return [
-            producer.produce(_hydrated(row))
+            producer.produce(_hydrated(row, hydration_cache))
             for row in data["data"]
         ]
 
@@ -1203,10 +1220,12 @@ class IterableCypherResults(object):
             yield result
 
     def __iter__(self):
+        hydration_cache = {}
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield self._producer.produce(_hydrated(assembled(row)))
+                    yield self._producer.produce(_hydrated(assembled(row),
+                                                           hydration_cache))
 
     @property
     def columns(self):
@@ -2461,11 +2480,11 @@ class BatchResponse(object):
     """
 
     @classmethod
-    def __hydrate(cls, result):
+    def __hydrate(cls, result, hydration_cache=None):
         body = result.get("body")
         if isinstance(body, dict):
             if has_all(body, CypherResults.signature):
-                records = CypherResults._hydrated(body)
+                records = CypherResults._hydrated(body, hydration_cache)
                 if len(records) == 0:
                     return None
                 elif len(records) == 1:
@@ -2484,11 +2503,11 @@ class BatchResponse(object):
                     CustomBatchError = type(str(err.exception), (BatchError,), {})
                 raise CustomBatchError(err)
             else:
-                return _hydrated(body)
+                return _hydrated(body, hydration_cache)
         else:
-            return _hydrated(body)
+            return _hydrated(body, hydration_cache)
 
-    def __init__(self, result, raw=False):
+    def __init__(self, result, raw=False, hydration_cache=None):
         self.id_ = result.get("id")
         self.uri = result.get("from")
         self.body = result.get("body")
@@ -2501,7 +2520,7 @@ class BatchResponse(object):
         if raw:
             self.__hydrated = None
         else:
-            self.__hydrated = self.__hydrate(result)
+            self.__hydrated = self.__hydrate(result, hydration_cache)
 
     @property
     def __uri__(self):
@@ -2649,8 +2668,10 @@ class BatchRequestList(object):
         :rtype: :py:class:`list`
         """
         responses = self._execute()
+        hydration_cache = {}
         try:
-            return [BatchResponse(rs).hydrated for rs in responses.json]
+            return [BatchResponse(rs, hydration_cache=hydration_cache).hydrated
+                    for rs in responses.json]
         finally:
             responses.close()
 
@@ -2672,8 +2693,10 @@ class BatchResponseList(object):
         self._response = response
 
     def __iter__(self):
+        hydration_cache = {}
         for i, result in grouped(self._response):
-            yield BatchResponse(assembled(result)).hydrated
+            yield BatchResponse(assembled(result),
+                                hydration_cache=hydration_cache).hydrated
         self.close()
 
     @property
