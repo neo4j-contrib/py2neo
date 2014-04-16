@@ -1250,6 +1250,10 @@ class Schema(Cacheable, Resource):
             URITemplate(str(URI(self)) + "/index/{label}")
         self._index_key_template = \
             URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
+        self._uniqueness_constraint_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness")
+        self._uniqueness_constraint_key_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness/{property_key}")
 
     def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
@@ -1273,6 +1277,28 @@ class Schema(Cacheable, Resource):
                 for indexed in response.json
             ]
 
+    def get_uniqueness_constraints(self, label):
+        """ Fetch a list of uniqueness constraints for a label.
+
+        :param label:
+        :return:
+        """
+        if not label:
+            raise ValueError("Label cannot be empy")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        try:
+            response = resource._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return []
+            else:
+                raise
+        else:
+            return [
+                unique["property_keys"][0]
+                for unique in response.json
+            ]
+
     def create_index(self, label, property_key):
         """ Index a property key for a label.
 
@@ -1292,6 +1318,26 @@ class Schema(Cacheable, Resource):
             else:
                 raise
 
+    def create_uniqueness_constraint(self, label, property_key):
+        """ Create an uniqueness constraint for a label.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        property_key = bytearray(property_key, "utf-8").decode("utf-8")
+        try:
+            resource._post({"property_keys": [property_key]})
+        except ClientError as err:
+            if err.status_code == CONFLICT:
+                raise ValueError("Uniqueness constraint already created")
+            else:
+                raise
+
     def drop_index(self, label, property_key):
         """ Remove label index for a given property key.
 
@@ -1303,6 +1349,26 @@ class Schema(Cacheable, Resource):
             raise ValueError("Neither label nor property key can be empty")
         uri = self._index_key_template.expand(label=label,
                                               property_key=property_key)
+        resource = Resource(uri)
+        try:
+            resource._delete()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                raise LookupError("Property key not found")
+            else:
+                raise
+
+    def drop_uniqueness_constraint(self, label, property_key):
+        """ Remove uniqueness constraint for a given property key.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        uri = self._uniqueness_constraint_key_template.expand(label=label,
+                                                              property_key=property_key)
         resource = Resource(uri)
         try:
             resource._delete()
