@@ -50,7 +50,7 @@ from .packages.httpstream import (http,
                                   ClientError as _ClientError,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
-from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
 from .packages.urimagic import (Authority, URI, URITemplate,
                                 Query, percent_encode)
 
@@ -1803,7 +1803,13 @@ class Node(_Entity):
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._post(labels)
+        try:
+            self._label_resource()._post(labels)
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == u'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
 
     def remove_labels(self, *labels):
         """ Remove one or more labels from this node.
@@ -1822,7 +1828,13 @@ class Node(_Entity):
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._put(labels)
+        try:
+            self._label_resource()._put(labels)
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == u'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
 
 
 class Relationship(_Entity):

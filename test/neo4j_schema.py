@@ -48,7 +48,7 @@ def test_schema_index():
     constraints = graph_db.schema.get_uniqueness_constraints("Gemeinde")
     assert "name" in constraints
     taufkirchen2, = graph_db.create(node(name=u"Taufkirchen"))
-    with pytest.raises(ClientError):
+    with pytest.raises(ValueError):
         taufkirchen2.add_labels("Gemeinde")
 
 
