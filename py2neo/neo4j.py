@@ -845,6 +845,15 @@ class GraphDatabaseService(Cacheable, Resource):
         return Schema.get_instance(URI(self).resolve("schema"))
 
     @property
+    def spatial(self):
+        """ The Spatial resource for this graph.
+
+         .. seealso::
+            :py:func:`Spatial <py2neo.spatial.SpatialExtension>`
+        """
+        return SpatialExtension.get_instance(URI(self).resolve("ext/SpatialPlugin"))
+
+    @property
     def size(self):
         """ The number of relationships in this graph.
         """
@@ -888,6 +897,12 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Indicates whether the server supports explicit Cypher transactions.
         """
         return "transaction" in self.__metadata__
+
+    @property
+    def has_spatial_extension(self):
+        """ Indicates whether the Neo4j Spatial-plugin is available.
+        """
+        return "SpatialPlugin" in self.__metadata__[u'extensions']
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
@@ -1311,6 +1326,43 @@ class Schema(Cacheable, Resource):
                 raise LookupError("Property key not found")
             else:
                 raise
+
+
+class SpatialExtension(Cacheable, Resource):
+
+    def __init__(self, *args, **kwargs):
+        Resource.__init__(self, *args, **kwargs)
+        if not self.service_root.graph_db.has_spatial_extension:
+            raise NotImplementedError("Neo4j Spatial-Plugin is not available")
+
+    def add_simple_point_layer(self, layer, lat=None, lon=None):
+        """ Add a simple point layer.
+
+        :param layer:
+        :param lat:
+        :param lon:
+        :return:
+        """
+        if not layer:
+            raise ValueError("The layer name can not be empty")
+        resource = Resource(ustr(URI(self)) + u"/graphdb/addSimplePointLayer")
+        resource._post(compact({"layer": layer, "lat": lat, "lon": lon}))
+
+    def add_editable_layer(self, layer, format, property_name):
+        """ Add a new editable Layer.
+
+         :param layer:
+         :param format:
+         :param property_name:
+         :return:
+        """
+
+        if not layer or not format or not property_name:
+            raise ValueError("Neither layer, format or property_name can be empty.")
+        if not format.upper() in ["WKB", "WKT"]:
+            raise ValueError("format must be WKB or WKT")
+        resource = Resource(ustr(URI(self)) + u"/graphdb/addEditableLayer")
+        resource._post(compact({"layer": layer, "format": format, "nodePropertyName": property_name}))
 
 
 class _Entity(Resource):
