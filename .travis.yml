@@ -1,0 +1,24 @@
+language: python
+
+python:
+  - "2.6"
+  - "2.7"
+
+env:
+  - NEO4J_VERSION="1.8.2"
+  - NEO4J_VERSION="1.9.4"
+  - NEO4J_VERSION="2.0.0"
+
+before_script:
+  - export NEO4J_PORT="7474"
+
+before_install:
+  - . ./test/neo.sh
+  - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
+  - curl http://localhost:$NEO4J_PORT/db/data/
+
+install:
+  - pip install -r test_requirements.txt
+
+script:
+  - tox
