@@ -6,9 +6,7 @@ python:
 
 env:
   - NEO4J_VERSION="1.9.4"
-
-before_script:
-  - export NEO4J_PORT="7474"
+  - NEO4J_PORT="7474"
 
 before_install:
   - . ./test/neo.sh
