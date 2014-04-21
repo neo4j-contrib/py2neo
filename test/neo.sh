@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DEFAULT_VERSION="1.8.2"
-VERSION=${1-$DEFAULT_VERSION}
+#DEFAULT_VERSION="1.8.2"
+VERSION=${1-$NEO4J_VERSION}
 DIR="neo4j-community-$VERSION"
 FILE="$DIR-unix.tar.gz"
 

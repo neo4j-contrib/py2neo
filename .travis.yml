@@ -10,7 +10,6 @@ env:
 before_install:
   - . ./test/neo.sh
   - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
-  - curl http://localhost:$NEO4J_PORT/db/data/
 
 install:
   - pip install -r test_requirements.txt
