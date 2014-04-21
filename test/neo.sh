@@ -1,8 +1,6 @@
 #!/bin/bash
 
-#DEFAULT_VERSION="1.8.2"
-VERSION=${1-$NEO4J_VERSION}
-DIR="neo4j-community-$VERSION"
+DIR="neo4j-community-$NEO4J_VERSION"
 FILE="$DIR-unix.tar.gz"
 
 # only download if the version directory does not exist
@@ -17,7 +15,8 @@ if [[ ! -d lib/$DIR ]]; then
     [[ ! -d lib ]] && mkdir lib
     mv $DIR lib/
 
-    # sym-link our version to the default path
-    [[ -h lib/neo4j ]] && unlink lib/neo4j
-    ln -fs $DIR lib/neo4j
 fi
+
+# sym-link our version to the default path
+[[ -h lib/neo4j ]] && unlink lib/neo4j
+ln -fs $DIR lib/neo4j

@@ -5,7 +5,8 @@ python:
   - "3.3"
 
 env:
-  - NEO4J_VERSION="1.9.4" NEO4J_PORT="7474"
+  - NEO4J_VERSION="1.9.4"
+  - NEO4J_VERSION="2.0.2"
 
 before_install:
   - . ./test/neo.sh
