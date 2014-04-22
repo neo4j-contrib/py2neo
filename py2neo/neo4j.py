@@ -34,7 +34,6 @@ classes provided are:
   a single transaction
 """
 
-
 from __future__ import division, unicode_literals
 
 from collections import namedtuple
@@ -51,9 +50,8 @@ from .packages.httpstream import (http,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.urimagic import (Authority, URI, URITemplate,
-                                Query, percent_encode)
-
+from .packages.urimagic import (URI, URITemplate,
+                                percent_encode)
 from . import __version__
 from .exceptions import *
 from .util import *
@@ -411,7 +409,6 @@ class Resource(object):
 
 
 class ResourceMetadata(object):
-
     def __init__(self, metadata):
         self._metadata = dict(metadata)
 
@@ -426,13 +423,11 @@ class ResourceMetadata(object):
 
 
 class ResourceTemplate(_ResourceTemplate):
-
     def expand(self, **values):
         return Resource(_ResourceTemplate.expand(self, **values).uri)
 
 
 class Cacheable(object):
-
     _instances = {}
 
     @classmethod
@@ -483,7 +478,6 @@ class ServiceRoot(Cacheable, Resource):
 
 
 class Monitor(Cacheable, Resource):
-
     def __init__(self, uri=None):
         if uri is None:
             uri = ServiceRoot().monitor.__uri__
@@ -1255,7 +1249,6 @@ class IterableCypherResults(object):
 
 
 class Schema(Cacheable, Resource):
-
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
         if not self.service_root.graph_db.supports_schema_indexes:
@@ -1329,7 +1322,6 @@ class Schema(Cacheable, Resource):
 
 
 class SpatialExtension(Cacheable, Resource):
-
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
         if not self.service_root.graph_db.has_spatial_extension:
@@ -1345,10 +1337,14 @@ class SpatialExtension(Cacheable, Resource):
         """
         if not layer:
             raise ValueError("The layer name can not be empty")
+        if not lat:
+            lat = "lat"
+        if not lon:
+            lon = "lon"
         resource = Resource(ustr(URI(self)) + u"/graphdb/addSimplePointLayer")
         resource._post(compact({"layer": layer, "lat": lat, "lon": lon}))
 
-    def add_editable_layer(self, layer, format, property_name):
+    def add_editable_layer(self, layer, property_name):
         """ Add a new editable Layer.
 
          :param layer:
@@ -1358,11 +1354,50 @@ class SpatialExtension(Cacheable, Resource):
         """
 
         if not layer or not format or not property_name:
-            raise ValueError("Neither layer, format or property_name can be empty.")
-        if not format.upper() in ["WKB", "WKT"]:
-            raise ValueError("format must be WKB or WKT")
+            raise ValueError("Neither layer or property_name can be empty.")
         resource = Resource(ustr(URI(self)) + u"/graphdb/addEditableLayer")
-        resource._post(compact({"layer": layer, "format": format, "nodePropertyName": property_name}))
+        resource._post(compact({"layer": layer, "format": "WKT", "nodePropertyName": property_name}))
+
+    def add_node_to_layer(self, layer=None, node=None):
+        """ Add a existing Node to a Layer.
+
+        :param layer:
+        :param Node:
+        :return:
+        """
+
+        if not layer or not node:
+            raise ValueError("Neither layer or node can be empty.")
+        uri = ustr(URI(node))
+        resource = Resource(ustr(URI(self)) + u"/graphdb/addNodeToLayer")
+        resource._post(compact({"layer": layer, "node": uri}))
+
+    def get_layer(self, name=None):
+        if not name:
+            raise ValueError("The layer name can not be empty.")
+        resource = Resource(ustr(URI(self)) + u"/graphdb/getLayer")
+        layer_nodes = [
+            _hydrated(assembled(result))
+            for i, result in grouped(resource._post(compact({"layer": name})))
+        ]
+        layer_node = None
+        if layer_nodes:
+            layer_node = layer_nodes[0]
+        return layer_node
+
+    def update_geometry_from_wkt(self, layer=None, geometry=None, node=None):
+        """ Update a wkt-encoded geometry.
+
+         :param layer:
+         :param geometry:
+         :param node:
+         :return:
+        """
+
+        if not layer or not geometry or not node:
+            raise ValueError("Neither layer, geometry or node can be empty.")
+        resource = Resource(ustr(URI(self)) + u"/graphdb/updateGeometryFromWKT")
+        resource._post(compact({"layer": layer, "geometry": geometry, "geometryNodeId": node._id}))
 
 
 class _Entity(Resource):
@@ -2066,6 +2101,7 @@ class Path(object):
 
     def __getitem__(self, item):
         size = len(self._relationships)
+
         def adjust(value, default=None):
             if value is None:
                 return default
@@ -2073,6 +2109,7 @@ class Path(object):
                 return value + size
             else:
                 return value
+
         if isinstance(item, slice):
             if item.step is not None:
                 raise ValueError("Steps not supported in path slicing")
@@ -2584,7 +2621,6 @@ class BatchResponse(object):
 
 
 class BatchRequestList(object):
-
     def __init__(self, graph_db):
         self._graph_db = graph_db
         self._batch = graph_db._subresource("batch")
@@ -2740,7 +2776,6 @@ class BatchRequestList(object):
 
 
 class BatchResponseList(object):
-
     def __init__(self, response):
         self._response = response
 
@@ -2880,19 +2915,19 @@ class WriteBatch(BatchRequestList):
             query = (
                 "START a=node({A}), b=node({B}) "
                 "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->(b) "
-                "RETURN ab"
+                                                             "RETURN ab"
             )
         elif rel._start_node:
             query = (
                 "START a=node({A}) "
                 "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->() "
-                "RETURN ab"
+                                                             "RETURN ab"
             )
         elif rel._end_node:
             query = (
                 "START b=node({B}) "
                 "CREATE UNIQUE ()-[ab:`" + str(rel._type) + "` {P}]->(b) "
-                "RETURN ab"
+                                                            "RETURN ab"
             )
         else:
             raise ValueError("Either start node or end node must be "
@@ -3264,4 +3299,4 @@ class WriteBatch(BatchRequestList):
         return self.remove_from_index(Relationship, index, key, value,
                                       relationship)
 
-    ### END OF DEPRECATED METHODS ###
+        ### END OF DEPRECATED METHODS ###
