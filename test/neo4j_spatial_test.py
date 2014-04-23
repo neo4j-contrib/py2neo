@@ -1,45 +1,49 @@
-from xxsubtype import spamdict
-from shapely.geometry import Point
-from py2neo.neo4j import Node
-from py2neo.packages.urimagic import URI
-from py2neo.util import ustr
-
 __author__ = 'meier_ul'
 
-from py2neo import neo4j
+from py2neo import neo4j_spatial
 
 
 def test_spatial_base():
-    graph_db = neo4j.GraphDatabaseService()
-    if not graph_db.has_spatial_extension:
+    try:
+        graph_db = neo4j_spatial.SpatialGraphDatabaseService()
+    except NotImplementedError:
+        return
+    graph_db.clear()
+    assert graph_db.layers is None
+
+
+def test_spatial_layers():
+    try:
+        graph_db = neo4j_spatial.SpatialGraphDatabaseService()
+    except NotImplementedError:
         return
     graph_db.clear()
 
-    spatial = graph_db.spatial
-    spatial.add_simple_point_layer("test")
-    spatial.add_simple_point_layer("test2", "y", "x")
-    spatial.add_editable_layer("layer1", "wkt")
+    point_layer = graph_db.add_layer('test_point', 'point')
+    wkt_layer = graph_db.add_layer('test_wkt', 'wkt', property_name='wkt')
+    override_layer_1 = graph_db.add_layer('test_override', 'point', lat='y', lon='x')
+    override_layer_2 = graph_db.add_layer('test_override', 'wkt', property_name='wkt')
 
-    test1 = spatial.get_layer('test')
-    test2 = spatial.get_layer('test2')
-    test3 = spatial.get_layer('layer1')
+    assert point_layer.name == 'test_point'
+    assert point_layer.type == 'POINT'
+    assert point_layer.config == 'lon:lat'
+    assert wkt_layer.name == 'test_wkt'
+    assert wkt_layer.type == 'WKT'
+    assert wkt_layer.config == 'wkt'
 
+    assert override_layer_1 == override_layer_2
+    assert override_layer_1.type == 'POINT'
+    assert override_layer_2.type == 'POINT'
+    assert override_layer_1.config == 'x:y'
 
-    point = Point(15.2, 60.1)
-    point2 = Point(16.2, 61.1)
-    circle = point2.buffer(0.5)
-    point_node, = graph_db.create({'name': 'point', 'lat': point.y, 'lon': point.x})
-    point_node_2, = graph_db.create({'name': 'point2', 'x': point.x, 'y': point.y})
-    wkt_node, = graph_db.create({'name': 'wkt-point', 'wkt': point.wkt})
-    spatial.add_node_to_layer('test', point_node)
-    spatial.add_node_to_layer('test2', point_node_2)
-    spatial.add_node_to_layer('layer1', wkt_node)
-    spatial.update_geometry_from_wkt('test', point2.wkt, point_node)
-    spatial.update_geometry_from_wkt('test2', point2.wkt, point_node_2)
-    spatial.update_geometry_from_wkt('layer1', point2.wkt, wkt_node)
-    spatial.update_geometry_from_wkt('test', circle.wkt, point_node)
-    spatial.update_geometry_from_wkt('test2', circle.wkt, point_node_2)
-    spatial.update_geometry_from_wkt('layer1', circle.wkt, wkt_node)
+    layers = graph_db.layers
+    assert len(layers) == 3
+
+    found_layer = graph_db.find_layer('test_point')
+    assert found_layer == point_layer
+    testnode = graph_db.create({'bla': 'blubb'})
+    point_layer.add_node(testnode)
+
 
 
 

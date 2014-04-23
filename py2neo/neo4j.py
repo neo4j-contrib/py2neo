@@ -839,15 +839,6 @@ class GraphDatabaseService(Cacheable, Resource):
         return Schema.get_instance(URI(self).resolve("schema"))
 
     @property
-    def spatial(self):
-        """ The Spatial resource for this graph.
-
-         .. seealso::
-            :py:func:`Spatial <py2neo.spatial.SpatialExtension>`
-        """
-        return SpatialExtension.get_instance(URI(self).resolve("ext/SpatialPlugin"))
-
-    @property
     def size(self):
         """ The number of relationships in this graph.
         """
@@ -891,12 +882,6 @@ class GraphDatabaseService(Cacheable, Resource):
         """ Indicates whether the server supports explicit Cypher transactions.
         """
         return "transaction" in self.__metadata__
-
-    @property
-    def has_spatial_extension(self):
-        """ Indicates whether the Neo4j Spatial-plugin is available.
-        """
-        return "SpatialPlugin" in self.__metadata__[u'extensions']
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
@@ -1319,85 +1304,6 @@ class Schema(Cacheable, Resource):
                 raise LookupError("Property key not found")
             else:
                 raise
-
-
-class SpatialExtension(Cacheable, Resource):
-    def __init__(self, *args, **kwargs):
-        Resource.__init__(self, *args, **kwargs)
-        if not self.service_root.graph_db.has_spatial_extension:
-            raise NotImplementedError("Neo4j Spatial-Plugin is not available")
-
-    def add_simple_point_layer(self, layer, lat=None, lon=None):
-        """ Add a simple point layer.
-
-        :param layer:
-        :param lat:
-        :param lon:
-        :return:
-        """
-        if not layer:
-            raise ValueError("The layer name can not be empty")
-        if not lat:
-            lat = "lat"
-        if not lon:
-            lon = "lon"
-        resource = Resource(ustr(URI(self)) + u"/graphdb/addSimplePointLayer")
-        resource._post(compact({"layer": layer, "lat": lat, "lon": lon}))
-
-    def add_editable_layer(self, layer, property_name):
-        """ Add a new editable Layer.
-
-         :param layer:
-         :param format:
-         :param property_name:
-         :return:
-        """
-
-        if not layer or not format or not property_name:
-            raise ValueError("Neither layer or property_name can be empty.")
-        resource = Resource(ustr(URI(self)) + u"/graphdb/addEditableLayer")
-        resource._post(compact({"layer": layer, "format": "WKT", "nodePropertyName": property_name}))
-
-    def add_node_to_layer(self, layer=None, node=None):
-        """ Add a existing Node to a Layer.
-
-        :param layer:
-        :param Node:
-        :return:
-        """
-
-        if not layer or not node:
-            raise ValueError("Neither layer or node can be empty.")
-        uri = ustr(URI(node))
-        resource = Resource(ustr(URI(self)) + u"/graphdb/addNodeToLayer")
-        resource._post(compact({"layer": layer, "node": uri}))
-
-    def get_layer(self, name=None):
-        if not name:
-            raise ValueError("The layer name can not be empty.")
-        resource = Resource(ustr(URI(self)) + u"/graphdb/getLayer")
-        layer_nodes = [
-            _hydrated(assembled(result))
-            for i, result in grouped(resource._post(compact({"layer": name})))
-        ]
-        layer_node = None
-        if layer_nodes:
-            layer_node = layer_nodes[0]
-        return layer_node
-
-    def update_geometry_from_wkt(self, layer=None, geometry=None, node=None):
-        """ Update a wkt-encoded geometry.
-
-         :param layer:
-         :param geometry:
-         :param node:
-         :return:
-        """
-
-        if not layer or not geometry or not node:
-            raise ValueError("Neither layer, geometry or node can be empty.")
-        resource = Resource(ustr(URI(self)) + u"/graphdb/updateGeometryFromWKT")
-        resource._post(compact({"layer": layer, "geometry": geometry, "geometryNodeId": node._id}))
 
 
 class _Entity(Resource):
