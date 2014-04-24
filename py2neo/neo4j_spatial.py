@@ -60,7 +60,7 @@ class Layer(Node):
 
     @property
     def spatial_extension(self):
-        return _SpatialExtension.get_instance(URI(self).resolve("ext/SpatialPlugin"))
+        return _SpatialExtension.get_instance(URI(self.graph_db).resolve("ext/SpatialPlugin"))
 
     @property
     def name(self):
@@ -96,13 +96,19 @@ class Layer(Node):
         if layer_type.upper() == 'POINT':
             if 'lat' in kwargs:
                 params['lat'] = kwargs['lat']
+            else:
+                params['lat'] = 'lat'
             if 'lon' in kwargs:
                 params['lon'] = kwargs['lon']
+            else:
+                params['lon'] = 'lon'
             command = u'addSimplePointLayer'
         elif layer_type.upper() == 'WKT':
             params['format'] = 'WKT'
             if 'property_name' in kwargs:
                 params['nodePropertyName'] = kwargs['property_name']
+            else:
+                params['nodePropertyName'] = 'wkt'
             command = u'addEditableLayer'
         else:
             raise RuntimeError('Could not create layer of type %s' % layer_type)
@@ -119,15 +125,50 @@ class Layer(Node):
     def add_node(self, node=None):
         if not node:
             raise ValueError('node can not be empty.')
-        resource = (ustr(URI(self.spatial_extension)) + u'/graphdb/addNodeToLayer')
-        data = {"layer": self.name, "node": node.__uri__}
-
+        resource = Resource(ustr(URI(self.spatial_extension)) + u'/graphdb/addNodeToLayer')
+        data = {"layer": self.name, "node": ustr(URI(node))}
+        try:
+            resource._post(compact(data))
+        except ClientError:
+            raise
 
     def update_geometry(self, node=None, geometry=None):
-        pass
+        if not node or not geometry:
+            raise ValueError("Neither node or geometry can be empty.")
+        resource = Resource(ustr(URI(self.spatial_extension)) + u'/graphdb/updateGeometryFromWKT')
+        data = {"layer": self.name, "geometry": geometry, "geometryNodeId": node._id}
+        try:
+            resource._post(compact(data))
+        except ClientError:
+            raise
+
+    def find_geometries_in_bbox(self, minx=None, maxx=None, miny=None, maxy=None):
+        if not minx or not maxx or not miny or not maxy:
+            raise ValueError("Neither minx or maxx or miny or maxy can be empty.")
+        resource = Resource(ustr(URI(self.spatial_extension)) + u'/graphdb/findGeometriesInBBox')
+        params = {'layer': self.name, 'minx': minx, 'maxx': maxx, 'miny': miny, 'maxy': maxy}
+        nodes = []
+        try:
+            for i, result in grouped(resource._post(compact(params))):
+                nodes.append(_hydrated(assembled(result)))
+        except ClientError:
+            raise
+        return nodes
+
+    def find_geometries_within_distance(self, x=None, y=None, distance=None):
+        if not x or not y or not distance:
+            raise ValueError("Neither x, y or distance can be empty.")
+        resource = Resource(ustr(URI(self.spatial_extension)) + u'/graphdb/findGeometriesWithinDistance')
+        params = {'layer': self.name, 'pointX': x, 'pointY': y, 'distanceInKm': distance}
+        nodes = []
+        try:
+            for i, result in grouped(resource._post(compact(params))):
+                nodes.append(_hydrated(assembled(result)))
+        except ClientError:
+            raise
+        return nodes
 
 
 class _SpatialExtension(Cacheable, Resource):
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
-

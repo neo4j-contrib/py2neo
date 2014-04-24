@@ -41,10 +41,49 @@ def test_spatial_layers():
 
     found_layer = graph_db.find_layer('test_point')
     assert found_layer == point_layer
-    testnode = graph_db.create({'bla': 'blubb'})
-    point_layer.add_node(testnode)
 
 
+def test_spatial_nodes():
+    try:
+        graph_db = neo4j_spatial.SpatialGraphDatabaseService()
+    except NotImplementedError:
+        return
+    graph_db.clear()
+
+    point_layer = graph_db.add_layer('test', 'point', lat='lat', lon='lon')
+    taufkirchen, = graph_db.create({'name': 'Testpoint', 'lon': 11.616667, 'lat': 48.05})
+    point_layer.add_node(taufkirchen)
+    assert taufkirchen['bbox'] == [11.616667, 48.05, 11.616667, 48.05]
+    point_layer.update_geometry(taufkirchen, 'POINT(11.61 48.065833)')
+    assert taufkirchen['lon'] == 11.61
+    assert taufkirchen['lat'] == 48.065833
 
 
+def test_find_spatial_nodes():
+    try:
+        graph_db = neo4j_spatial.SpatialGraphDatabaseService()
+    except NotImplementedError:
+        return
+    graph_db.clear()
 
+    gemeindelayer = graph_db.add_layer('gemeinden', 'point')
+    taufkirchen, = graph_db.create({'name': 'Taufkirchen', 'lon': 11.616667, 'lat': 48.05})
+    gemeindelayer.add_node(taufkirchen)
+    unterhaching, = graph_db.create({'name': 'Unterhaching', 'lon': 11.61, 'lat': 48.065833})
+    gemeindelayer.add_node(unterhaching)
+    oberhaching, = graph_db.create({'name': 'Oberhaching', 'lon': 11.583333, 'lat': 48.016667})
+    gemeindelayer.add_node(oberhaching)
+    baltrum, = graph_db.create({'name': 'Baltrum', 'lon': 7.368333, 'lat': 53.728889})
+    gemeindelayer.add_node(baltrum)
+    nodes = gemeindelayer.find_geometries_in_bbox(minx=11, maxx=12, miny=48, maxy=49)
+    assert len(nodes) == 3
+    assert taufkirchen in nodes
+    assert unterhaching in nodes
+    assert oberhaching in nodes
+    assert baltrum not in nodes
+    nodes = gemeindelayer.find_geometries_within_distance(x=11.6, y=48, distance=10)
+    assert len(nodes) == 3
+    assert taufkirchen in nodes
+    assert unterhaching in nodes
+    assert oberhaching in nodes
+    assert baltrum not in nodes
