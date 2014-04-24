@@ -34,6 +34,7 @@ classes provided are:
   a single transaction
 """
 
+
 from __future__ import division, unicode_literals
 
 from collections import namedtuple
@@ -50,8 +51,9 @@ from .packages.httpstream import (http,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.urimagic import (URI, URITemplate,
-                                percent_encode)
+from .packages.urimagic import (Authority, URI, URITemplate,
+                                Query, percent_encode)
+
 from . import __version__
 from .exceptions import *
 from .util import *
@@ -409,6 +411,7 @@ class Resource(object):
 
 
 class ResourceMetadata(object):
+
     def __init__(self, metadata):
         self._metadata = dict(metadata)
 
@@ -423,11 +426,13 @@ class ResourceMetadata(object):
 
 
 class ResourceTemplate(_ResourceTemplate):
+
     def expand(self, **values):
         return Resource(_ResourceTemplate.expand(self, **values).uri)
 
 
 class Cacheable(object):
+
     _instances = {}
 
     @classmethod
@@ -478,6 +483,7 @@ class ServiceRoot(Cacheable, Resource):
 
 
 class Monitor(Cacheable, Resource):
+
     def __init__(self, uri=None):
         if uri is None:
             uri = ServiceRoot().monitor.__uri__
@@ -1234,6 +1240,7 @@ class IterableCypherResults(object):
 
 
 class Schema(Cacheable, Resource):
+
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
         if not self.service_root.graph_db.supports_schema_indexes:
@@ -2007,7 +2014,6 @@ class Path(object):
 
     def __getitem__(self, item):
         size = len(self._relationships)
-
         def adjust(value, default=None):
             if value is None:
                 return default
@@ -2015,7 +2021,6 @@ class Path(object):
                 return value + size
             else:
                 return value
-
         if isinstance(item, slice):
             if item.step is not None:
                 raise ValueError("Steps not supported in path slicing")
@@ -2527,6 +2532,7 @@ class BatchResponse(object):
 
 
 class BatchRequestList(object):
+
     def __init__(self, graph_db):
         self._graph_db = graph_db
         self._batch = graph_db._subresource("batch")
@@ -2682,6 +2688,7 @@ class BatchRequestList(object):
 
 
 class BatchResponseList(object):
+
     def __init__(self, response):
         self._response = response
 
@@ -2821,19 +2828,19 @@ class WriteBatch(BatchRequestList):
             query = (
                 "START a=node({A}), b=node({B}) "
                 "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->(b) "
-                                                             "RETURN ab"
+                "RETURN ab"
             )
         elif rel._start_node:
             query = (
                 "START a=node({A}) "
                 "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->() "
-                                                             "RETURN ab"
+                "RETURN ab"
             )
         elif rel._end_node:
             query = (
                 "START b=node({B}) "
                 "CREATE UNIQUE ()-[ab:`" + str(rel._type) + "` {P}]->(b) "
-                                                            "RETURN ab"
+                "RETURN ab"
             )
         else:
             raise ValueError("Either start node or end node must be "
@@ -3205,4 +3212,4 @@ class WriteBatch(BatchRequestList):
         return self.remove_from_index(Relationship, index, key, value,
                                       relationship)
 
-        ### END OF DEPRECATED METHODS ###
+    ### END OF DEPRECATED METHODS ###
