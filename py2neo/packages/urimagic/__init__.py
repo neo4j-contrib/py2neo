@@ -1,7 +1,7 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2013-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import neo4j
 
-def test_can_rewrite_uri(graph_db):
-    neo4j.rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-    assert graph_db.neo4j_version
+"""
+An implementation of URIs and URI Templates from RFC 3986 (URI Generic Syntax)
+and RFC 6570 (URI Template) respectively.
+"""
+
+
+from __future__ import unicode_literals
+
+
+__author__ = "Nigel Small"
+__copyright__ = "2013-2014, Nigel Small"
+__email__ = "nigel@nigelsmall.com"
+__license__ = "Apache License, Version 2.0"
+__version__ = "1.1.0"
+
+
+from .rfc3986 import *
+from .rfc6570 import *

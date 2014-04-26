@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import re
 from uuid import uuid4
 
 from . import neo4j
+from .util import deprecated
 from .xmlutil import xml_to_geoff
 
 try:
@@ -234,27 +235,26 @@ class Subgraph(object):
             return_nodes[name] = responses.pop(0)
         return return_nodes
 
+    @deprecated("The geoff module is deprecated, "
+                "use the load2neo server extension instead")
     def insert_into(self, graph_db):
         """ Insert subgraph into graph database using Cypher CREATE.
         """
         return self._execute_load_batch(graph_db, False)
 
+    @deprecated("The geoff module is deprecated, "
+                "use the load2neo server extension instead")
     def merge_into(self, graph_db):
         """ Merge subgraph into graph database using Cypher CREATE UNIQUE.
         """
         try:
             return self._execute_load_batch(graph_db, True)
         except neo4j.BatchError as err:
-            try:
-                err2 = json.loads(err.message) # TODO: this is a bit of a bodge
-            except ValueError:
-                pass
-            else:
-                if err2["exception"] == "UniquePathNotUniqueException":
-                    err = ConstraintViolation(
-                        "Unable to merge relationship onto multiple "
-                        "existing relationships."
-                    )
+            if err.__class__.__name__ == "UniquePathNotUniqueException":
+                err = ConstraintViolation(
+                    "Unable to merge relationship onto multiple "
+                    "existing relationships."
+                )
             raise err
 
 

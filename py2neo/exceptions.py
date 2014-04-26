@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from .packages.httpstream.jsonstream import assembled
+from .packages.jsonstream import assembled
 
 
 __all__ = ["IndexTypeError", "ServerException", "ClientError", "ServerError",
@@ -66,7 +66,10 @@ class ClientError(Exception):
 
     def __init__(self, response):
         assert response.status_code // 100 == 4
-        self.__cause__ = response
+        try:
+            self.__cause__ = response
+        except TypeError:
+            pass
         if response.is_json:
             self._server_exception = ServerException(assembled(response))
             Exception.__init__(self, self._server_exception.message)
@@ -85,7 +88,10 @@ class ServerError(Exception):
 
     def __init__(self, response):
         assert response.status_code // 100 == 5
-        self.__cause__ = response
+        try:
+            self.__cause__ = response
+        except TypeError:
+            pass
         # TODO: check for unhandled HTML errors (on 500)
         if response.is_json:
             self._server_exception = ServerException(assembled(response))

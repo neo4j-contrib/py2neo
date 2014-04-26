@@ -1,7 +1,7 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2013-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,8 +15,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from py2neo import neo4j
 
-def test_can_rewrite_uri(graph_db):
-    neo4j.rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-    assert graph_db.neo4j_version
+try:
+    unicode
+except NameError:
+    # Python 3
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s
+        try:
+            return s.decode(encoding)
+        except AttributeError:
+            return str(s)
+else:
+    # Python 2
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s.decode(encoding)
+        else:
+            return unicode(s)

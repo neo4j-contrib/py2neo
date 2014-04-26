@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2012-2013 Nigel Small
+# Copyright 2012-2014 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,4 +20,5 @@
 
 BASE=`dirname $0`
 
-py.test --cov-report term-missing --cov py2neo $BASE/test/
+cd $BASE
+py.test --cov py2neo --cov-report term-missing $*

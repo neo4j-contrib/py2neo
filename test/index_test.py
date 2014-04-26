@@ -1,7 +1,7 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
 # limitations under the License.
 
 from __future__ import unicode_literals
+
 import logging
 import sys
+from time import time
+from uuid import uuid4
 
 import pytest
-
 from py2neo import neo4j
+
 
 PY3K = sys.version_info[0] >= 3
 
@@ -271,3 +274,20 @@ class IndexedNodeTests(object):
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
         graph_db.delete(fred)
+
+
+class IndexConstructionTimingTests(object):
+
+    def test_time_of_creating_many_indexes(self, graph_db):
+        INDEX_COUNT = 1
+        indexes = dict.fromkeys(uuid4().hex for _ in range(INDEX_COUNT))
+        try:
+            t0 = time()
+            for index_name in indexes:
+                indexes[index_name] = graph_db.get_or_create_index(neo4j.Node, index_name)
+            t = time() - t0
+            print(t / INDEX_COUNT)
+        finally:
+            for index_name, index in indexes.items():
+                if index:
+                    graph_db.delete_index(neo4j.Node, index_name)

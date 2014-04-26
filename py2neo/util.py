@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import warnings
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "Record"]
+           "Record", "RecordProducer"]
 
 
 def numberise(n):
@@ -146,27 +146,33 @@ def is_collection(obj):
 has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
-def ustr(s, encoding="utf-8"):
-    """ Python 2 and 3 compatible helper for casting
-    Unicode strings.
-    """
-    try:
-        unicode
-    except NameError:
-        return str(s)
-    if isinstance(s, str):
-        return s.decode(encoding)
-    else:
-        return unicode(s)
+try:
+    unicode
+except NameError:
+    # Python 3
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s
+        try:
+            return s.decode(encoding)
+        except AttributeError:
+            return str(s)
+else:
+    # Python 2
+    def ustr(s, encoding="utf-8"):
+        if isinstance(s, str):
+            return s.decode(encoding)
+        else:
+            return unicode(s)
 
 
 def pendulate(collection):
     count = len(collection)
     for i in range(count):
         if i % 2 == 0:
-            index = i / 2
+            index = i // 2
         else:
-            index = count - ((i + 1) / 2)
+            index = count - ((i + 1) // 2)
         yield index, collection[index]
 
 
@@ -175,25 +181,24 @@ class Record(object):
     values.
     """
 
-    def __init__(self, columns, values):
-        self._columns = tuple(columns)
-        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+    def __init__(self, producer, values):
+        self._producer = producer
         self._values = tuple(values)
     
     def __repr__(self):
-        return "Record(columns={0}, values={1})".format(self._columns, self._values)
+        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
         
     def __getattr__(self, attr):
-        return self._values[self._column_indexes[attr]]
+        return self._values[self._producer.column_indexes[attr]]
         
     def __getitem__(self, item):
         if isinstance(item, (int, slice)):
             return self._values[item]
         else:
-            return self._values[self._column_indexes[item]]
+            return self._values[self._producer.column_indexes[item]]
 
     def __len__(self):
-        return len(self._columns)
+        return len(self._producer.columns)
 
     @property
     def columns(self):
@@ -201,7 +206,7 @@ class Record(object):
 
         :return: tuple of column names
         """
-        return self._columns
+        return self._producer.columns
 
     @property
     def values(self):
@@ -210,3 +215,26 @@ class Record(object):
         :return: tuple of values
         """
         return self._values
+
+
+class RecordProducer(object):
+
+    def __init__(self, columns):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+
+    def __repr__(self):
+        return "RecordProducer(columns={0})".format(self._columns)
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def column_indexes(self):
+        return self._column_indexes
+
+    def produce(self, values):
+        """ Produce a record from a set of values.
+        """
+        return Record(self, values)

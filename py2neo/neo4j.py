@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,12 +47,12 @@ import re
 from .packages.httpstream import (http,
                                   Resource as _Resource,
                                   ResourceTemplate as _ResourceTemplate,
-                                  URITemplate,
                                   ClientError as _ClientError,
                                   ServerError as _ServerError)
-from .packages.httpstream.jsonstream import assembled, grouped
+from .packages.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.httpstream.uri import URI, Query, percent_encode
+from .packages.urimagic import (Authority, URI, URITemplate,
+                                Query, percent_encode)
 
 from . import __version__
 from .exceptions import *
@@ -76,7 +76,7 @@ batch_log = logging.getLogger(__name__ + ".batch")
 cypher_log = logging.getLogger(__name__ + ".cypher")
 
 _headers = {
-    None: [("X-Stream", "true;format=pretty")]
+    None: [("X-Stream", "true")]
 }
 
 _http_rewrites = {}
@@ -164,18 +164,35 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
-def _hydrated(data):
+def _hydrated(data, hydration_cache=None):
     """ Takes input iterable, assembles and resolves any Resource objects,
     returning the result.
     """
+    if hydration_cache is None:
+        hydration_cache = {}
     if isinstance(data, dict):
-        for cls in (Relationship, Node, Path):
-            if has_all(data, cls.signature):
-                return cls._hydrated(data)
+        if has_all(data, Relationship.signature):
+            self_uri = data["self"]
+            try:
+                return hydration_cache[self_uri]
+            except KeyError:
+                hydrated = Relationship._hydrated(data)
+                hydration_cache[self_uri] = hydrated
+                return hydrated
+        elif has_all(data, Node.signature):
+            self_uri = data["self"]
+            try:
+                return hydration_cache[self_uri]
+            except KeyError:
+                hydrated = Node._hydrated(data)
+                hydration_cache[self_uri] = hydrated
+                return hydrated
+        elif has_all(data, Path.signature):
+            return Path._hydrated(data)
         else:
             raise ValueError("Cannot determine object type", data)
     elif is_collection(data):
-        return type(data)([_hydrated(datum) for datum in data])
+        return type(data)([_hydrated(datum, hydration_cache) for datum in data])
     else:
         return data
 
@@ -284,9 +301,10 @@ class Resource(object):
         scheme_host_port = (uri.scheme, uri.host, uri.port)
         if scheme_host_port in _http_rewrites:
             scheme_host_port = _http_rewrites[scheme_host_port]
-            uri._scheme = scheme_host_port[0]
-            uri._authority._host = scheme_host_port[1]
-            uri._authority._port = scheme_host_port[2]
+            # This is fine - it's all my code anyway...
+            uri._URI__set_scheme(scheme_host_port[0])
+            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
+                                                     scheme_host_port[2]))
         if uri.user_info:
             authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource(uri)
@@ -507,11 +525,10 @@ class GraphDatabaseService(Cacheable, Resource):
 
         from py2neo import neo4j
         
-        graph_db = neo4j.GraphDatabaseService(neo4j.DEFAULT_URI)
+        graph_db = neo4j.GraphDatabaseService()
         print(graph_db.neo4j_version)
 
-    :param uri: the base URI of the database (defaults to the value of
-        :py:data:`DEFAULT_URI`)
+    :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
     """
 
     def __init__(self, uri=None):
@@ -608,7 +625,7 @@ class GraphDatabaseService(Cacheable, Resource):
         """
         uri = URI(self).resolve("/".join(["label", label, "nodes"]))
         if property_key:
-            uri = uri.resolve("?" + Query.encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
+            uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Resource(uri)._get()):
                 yield _hydrated(assembled(result))
@@ -630,7 +647,8 @@ class GraphDatabaseService(Cacheable, Resource):
             batch.append_get(batch._uri_for(entity, "properties"))
         responses = batch._execute()
         try:
-            return [BatchResponse(rs).body or {} for rs in responses.json]
+            return [BatchResponse(rs, raw=True).body or {}
+                    for rs in responses.json]
         finally:
             responses.close()
 
@@ -849,6 +867,13 @@ class GraphDatabaseService(Cacheable, Resource):
     @property
     def supports_node_labels(self):
         """ Indicates whether the server supports node labels.
+        """
+        return self.neo4j_version >= (2, 0)
+
+    @property
+    def supports_optional_match(self):
+        """ Indicates whether the server supports Cypher OPTIONAL MATCH
+        clauses.
         """
         return self.neo4j_version >= (2, 0)
 
@@ -1096,19 +1121,21 @@ class CypherResults(object):
     signature = ("columns", "data")
 
     @classmethod
-    def _hydrated(cls, data):
+    def _hydrated(cls, data, hydration_cache=None):
         """ Takes assembled data...
         """
+        producer = RecordProducer(data["columns"])
         return [
-            Record(data["columns"], _hydrated(row))
+            producer.produce(_hydrated(row, hydration_cache))
             for row in data["data"]
         ]
 
     def __init__(self, response):
         content = response.json
         self._columns = tuple(content["columns"])
+        self._producer = RecordProducer(self._columns)
         self._data = [
-            Record(self._columns, _hydrated(row))
+            self._producer.produce(_hydrated(row))
             for row in content["data"]
         ]
 
@@ -1164,6 +1191,7 @@ class IterableCypherResults(object):
         self._buffered = self._buffered_results()
         self._columns = None
         self._fetch_columns()
+        self._producer = RecordProducer(self._columns)
 
     def _fetch_columns(self):
         redo = []
@@ -1192,10 +1220,12 @@ class IterableCypherResults(object):
             yield result
 
     def __iter__(self):
+        hydration_cache = {}
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield Record(self._columns, _hydrated(assembled(row)))
+                    yield self._producer.produce(_hydrated(assembled(row),
+                                                           hydration_cache))
 
     @property
     def columns(self):
@@ -1239,7 +1269,7 @@ class Schema(Cacheable, Resource):
                 raise
         else:
             return [
-                indexed["property-keys"][0]
+                indexed["property_keys"][0]
                 for indexed in response.json
             ]
 
@@ -1348,6 +1378,16 @@ class _Entity(Resource):
                 raise
         else:
             return True
+
+    def get_cached_properties(self):
+        """ Fetch last known properties without calling the server.
+
+        :return: dictionary of properties
+        """
+        if self.is_abstract:
+            return self._properties
+        else:
+            return self.__metadata__["data"]
 
     def get_properties(self):
         """ Fetch all properties.
@@ -2143,6 +2183,7 @@ class Index(Cacheable, Resource):
             self._get_or_create = Resource(uri.resolve("?unique"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._name = name or uri.path.segments[-1]
+        self.__searcher_stem_cache = {}
 
     def __repr__(self):
         return "{0}({1}, {2})".format(
@@ -2150,6 +2191,12 @@ class Index(Cacheable, Resource):
             self._content_type.__name__,
             repr(URI(self).string)
         )
+
+    def _searcher_stem_for_key(self, key):
+        if key not in self.__searcher_stem_cache:
+            stem = self._searcher.uri_template.string.partition("{key}")[0]
+            self.__searcher_stem_cache[key] = stem + percent_encode(key) + "/"
+        return self.__searcher_stem_cache[key]
 
     def add(self, key, value, entity):
         """ Add an entity to this index under the `key`:`value` pair supplied::
@@ -2432,7 +2479,35 @@ class BatchResponse(object):
     """ Individual batch response.
     """
 
-    def __init__(self, result):
+    @classmethod
+    def __hydrate(cls, result, hydration_cache=None):
+        body = result.get("body")
+        if isinstance(body, dict):
+            if has_all(body, CypherResults.signature):
+                records = CypherResults._hydrated(body, hydration_cache)
+                if len(records) == 0:
+                    return None
+                elif len(records) == 1:
+                    if len(records[0]) == 1:
+                        return records[0][0]
+                    else:
+                        return records[0]
+                else:
+                    return records
+            elif has_all(body, ("exception", "stacktrace")):
+                err = ServerException(body)
+                try:
+                    CustomBatchError = type(err.exception, (BatchError,), {})
+                except TypeError:
+                    # for Python 2.x
+                    CustomBatchError = type(str(err.exception), (BatchError,), {})
+                raise CustomBatchError(err)
+            else:
+                return _hydrated(body, hydration_cache)
+        else:
+            return _hydrated(body, hydration_cache)
+
+    def __init__(self, result, raw=False, hydration_cache=None):
         self.id_ = result.get("id")
         self.uri = result.get("from")
         self.body = result.get("body")
@@ -2440,6 +2515,12 @@ class BatchResponse(object):
         self.location = URI(result.get("location"))
         if __debug__:
             batch_log.debug("<<< {{{0}}} {1} {2} {3}".format(self.id_, self.status_code, self.location, self.body))
+        # We need to hydrate on construction to catch any errors in the batch
+        # responses contained in the body
+        if raw:
+            self.__hydrated = None
+        else:
+            self.__hydrated = self.__hydrate(result, hydration_cache)
 
     @property
     def __uri__(self):
@@ -2447,20 +2528,7 @@ class BatchResponse(object):
 
     @property
     def hydrated(self):
-        body = self.body
-        if isinstance(body, dict) and has_all(body, CypherResults.signature):
-            records = CypherResults._hydrated(body)
-            if len(records) == 0:
-                return None
-            elif len(records) == 1:
-                if len(records[0]) == 1:
-                    return records[0][0]
-                else:
-                    return records[0]
-            else:
-                return records
-        else:
-            return _hydrated(body)
+        return self.__hydrated
 
 
 class BatchRequestList(object):
@@ -2600,8 +2668,10 @@ class BatchRequestList(object):
         :rtype: :py:class:`list`
         """
         responses = self._execute()
+        hydration_cache = {}
         try:
-            return [BatchResponse(rs).hydrated for rs in responses.json]
+            return [BatchResponse(rs, hydration_cache=hydration_cache).hydrated
+                    for rs in responses.json]
         finally:
             responses.close()
 
@@ -2623,8 +2693,10 @@ class BatchResponseList(object):
         self._response = response
 
     def __iter__(self):
+        hydration_cache = {}
         for i, result in grouped(self._response):
-            yield BatchResponse(assembled(result)).hydrated
+            yield BatchResponse(assembled(result),
+                                hydration_cache=hydration_cache).hydrated
         self.close()
 
     @property
@@ -2653,8 +2725,8 @@ class ReadBatch(BatchRequestList):
         :return: batch request object
         """
         index = self._index(Node, index)
-        searcher = index._searcher.expand(key=key, value=value)
-        return self.append_get(self._uri_for(searcher))
+        uri = index._searcher_stem_for_key(key) + percent_encode(value)
+        return self.append_get(uri)
 
 
 class WriteBatch(BatchRequestList):
@@ -2906,6 +2978,10 @@ class WriteBatch(BatchRequestList):
         """ Add an existing node or relationship uniquely to an index, failing
         the entire batch if such an entry already exists.
 
+        .. warning::
+            Uniqueness modes for legacy indexes have been broken in recent
+            server versions and therefore this method may not work as expected.
+
         :param cls: the type of indexed entity
         :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
                    :py:class:`Relationship <py2neo.neo4j.Relationship>`
@@ -2972,6 +3048,10 @@ class WriteBatch(BatchRequestList):
     def create_in_index_or_fail(self, cls, index, key, value, abstract=None):
         """ Create a new node or relationship and add it uniquely to an index,
         failing the entire batch if such an entry already exists.
+
+        .. warning::
+            Uniqueness modes for legacy indexes have been broken in recent
+            server versions and therefore this method may not work as expected.
 
         :param cls: the type of indexed entity
         :type cls: :py:class:`Node <py2neo.neo4j.Node>` or

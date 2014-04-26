@@ -1,7 +1,7 @@
 #/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ from py2neo import node
 def test_can_set_labels_on_node(graph_db):
     if not graph_db.supports_node_labels:
         return
+    graph_db.clear()
     alice, = graph_db.create(node(name="Alice"))
     alice.add_labels("human", "female")
     labels = alice.get_labels()
@@ -31,3 +32,7 @@ def test_can_set_labels_on_node(graph_db):
     labels = alice.get_labels()
     assert labels == set(["mystery", "badger"])
     assert labels != set(["human", "female"])
+    found = graph_db.find("badger")
+    assert list(found) == [alice]
+    found = graph_db.find("badger", "name", "Alice")
+    assert list(found) == [alice]

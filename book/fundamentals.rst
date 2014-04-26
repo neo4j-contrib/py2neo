@@ -6,9 +6,8 @@ At the heart of py2neo are three core classes needed for every application:
 :py:class:`Node <py2neo.neo4j.Node>` and
 :py:class:`Relationship <py2neo.neo4j.Relationship>`. A
 ``GraphDatabaseService`` maintains a link to a Neo4j database via a root URI.
-For a default installation, this will be
-:py:attr:`http://localhost:7474/db/data/<py2neo.neo4j.DEFAULT_URI>` (don't
-forget the trailing slash!) and can be constructed as follows::
+For a default installation, this will be `http://localhost:7474/db/data/`
+(don't forget the trailing slash!) and can be constructed as follows::
 
     from py2neo import neo4j
     graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")

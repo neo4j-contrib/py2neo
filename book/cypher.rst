@@ -14,16 +14,6 @@ both quick to learn and easy to read.
    `Cypher transactions <http://docs.neo4j.org/chunked/milestone/rest-api-transactional.html>`_,
    as introduced in Neo4j 2.0.
 
-.. warning::
-   Cypher transactions may not work correctly in all cases due to an
-   outstanding `server bug <https://github.com/neo4j/neo4j/issues/1406>`_.
-   Until this bug has been fixed, all Node and Relationship objects returned
-   from queries will be created with incorrect URIs, e.g.
-   ``http://localhost:7474/node/1`` instead of
-   ``http://localhost:7474/db/data/node/1``. Please **do not** raise
-   GitHub issues against py2neo regarding this bug; when the server behaviour
-   has been fixed, py2neo should work correctly.
-
 
 Cypher Transactions
 -------------------
@@ -39,15 +29,25 @@ to be executed within a single server transaction.
     tx = session.create_transaction()
 
     # send three statements to for execution but leave the transaction open
-    tx.append("MERGE (a:Person {name:'Alice'})")
-    tx.append("MERGE (b:Person {name:'Bob'})")
-    tx.append("CREATE UNIQUE (a)-[:KNOWS]->(b)")
+    tx.append("MERGE (a:Person {name:'Alice'}) "
+              "RETURN a")
+    tx.append("MERGE (b:Person {name:'Bob'}) "
+              "RETURN b")
+    tx.append("MATCH (a:Person), (b:Person) "
+              "WHERE a.name = 'Alice' AND b.name = 'Bob' "
+              "CREATE UNIQUE (a)-[ab:KNOWS]->(b) "
+              "RETURN ab")
     tx.execute()
 
     # send another three statements and commit the transaction
-    tx.append("MERGE (c:Person {name:'Carol'})")
-    tx.append("MERGE (d:Person {name:'Dave'})")
-    tx.append("CREATE UNIQUE (c)-[:KNOWS]->(d)")
+    tx.append("MERGE (c:Person {name:'Carol'}) "
+              "RETURN c")
+    tx.append("MERGE (d:Person {name:'Dave'}) "
+              "RETURN d")
+    tx.append("MATCH (c:Person), (d:Person) "
+              "WHERE c.name = 'Carol' AND d.name = 'Dave' "
+              "CREATE UNIQUE (c)-[cd:KNOWS]->(d) "
+              "RETURN cd")
     tx.commit()
 
 

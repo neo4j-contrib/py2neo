@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2011-2013, Nigel Small
+# Copyright 2011-2014, Nigel Small
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,8 +25,8 @@ from collections import OrderedDict
 import json
 
 from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, Record
-from .packages.httpstream import URI
+from .util import deprecated, Record, RecordProducer
+from .packages.urimagic import URI
 
 
 @deprecated("The cypher module is deprecated, use "
@@ -215,13 +215,14 @@ class Transaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise TransactionError.new(error["code"], error["message"])
-        return [
-            [
-                Record(result["columns"], _hydrated(r["rest"]))
+        out = []
+        for result in j["results"]:
+            producer = RecordProducer(result["columns"])
+            out.append([
+                producer.produce(_hydrated(r["rest"]))
                 for r in result["data"]
-            ]
-            for result in j["results"]
-        ]
+            ])
+        return out
         
     def execute(self):
         """ Send all pending statements to the server for execution, leaving
