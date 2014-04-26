@@ -16,8 +16,6 @@
 # limitations under the License.
 import pytest
 
-from py2neo import neo4j
-
 
 @pytest.fixture
 def create_graph(graph_db):

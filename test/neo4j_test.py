@@ -32,7 +32,8 @@ logging.basicConfig(
 
 
 @pytest.mark.neoversion("2")
-def test_wrong_host_will_fail(graph_db):
+def test_wrong_host_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
     try:
         graph_db.refresh()
     except NetworkAddressError:
@@ -266,7 +267,7 @@ class MultipleNodeTestCase(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph_db):
-        self.gdb = default_graph_db()
+        self.gdb = graph_db()
         self.ref_node, = self.gdb.create({})
         self.nodes = self.gdb.create(*self.flintstones)
 

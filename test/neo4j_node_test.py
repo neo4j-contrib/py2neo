@@ -126,8 +126,8 @@ class ConcreteNodeTestCase(object):
 
 class NodeTestCase(object):
 
-    def setUp(self):
-        self.gdb = default_graph_db()
+    def setUp(self, graph_db):
+        self.gdb = graph_db()
         self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
             {"name": "Fred"}, {"name": "Wilma"}, (0, "REALLY LOVES", 1)
         )

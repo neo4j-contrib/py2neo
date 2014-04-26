@@ -1,7 +1,6 @@
 from decimal import Decimal
 import logging
 
-import logutils
 import pytest
 from logutils.colorize import ColorizingStreamHandler
 

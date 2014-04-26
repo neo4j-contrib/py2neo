@@ -44,8 +44,6 @@ class ExampleCodeTestCase(object):
 
     def test_can_execute_example_code(self):
 
-        from py2neo import neo4j, ogm
-
         class Person(object):
 
             def __init__(self, email=None, name=None, age=None):

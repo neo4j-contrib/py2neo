@@ -18,7 +18,6 @@
 from __future__ import unicode_literals
 import logging
 import sys
-import unittest
 
 import pytest
 
@@ -36,7 +35,7 @@ class CreationAndDeletionTests(object):
 
     def test_can_create_index_object_with_colon_in_name(self):
         uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
-        index = neo4j.Index(neo4j.Node, uri)
+        neo4j.Index(neo4j.Node, uri)
 
     def test_can_delete_create_and_delete_index(self):
         try:

@@ -19,8 +19,6 @@ import sys
 
 import pytest
 
-from py2neo import neo4j
-
 PY3K = sys.version_info[0] >= 3
 
 

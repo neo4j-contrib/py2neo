@@ -113,7 +113,7 @@ class CreatePathTestCase(object):
     def setup(self, graph_db):
         self.graph_db = graph_db
 
-    def test_can_create_path(self):
+    def test_can_create_path(self, graph_db):
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
         assert path._relationships[0]._type == "KNOWS"

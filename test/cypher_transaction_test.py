@@ -19,6 +19,7 @@
 from __future__ import unicode_literals
 
 import pytest
+from py2neo import cypher
 
 
 @pytest.mark.neoversion("2")

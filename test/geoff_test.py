@@ -23,7 +23,6 @@ try:
 except ImportError:
     from io import StringIO
 import sys
-import unittest
 
 from py2neo import geoff, neo4j
 

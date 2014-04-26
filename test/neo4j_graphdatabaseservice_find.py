@@ -16,9 +16,6 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
-
-
 def test_can_find_nodes_with_label(graph_db):
     alice, = graph_db.create({"name": "Alice"})
     alice.add_labels("Person")

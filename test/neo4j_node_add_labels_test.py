@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import neo4j, node
+from py2neo import node
 
 
 def test_can_add_labels_to_node(graph_db):
