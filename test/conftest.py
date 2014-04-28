@@ -43,6 +43,7 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
     db.clear()
+
     logger.info('cleared db after tests completed')
 
 
@@ -75,7 +76,12 @@ def pytest_runtest_setup(item):
 @pytest.fixture
 def graph_db(request):
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
-    db.clear()
+
+    try:
+        db.clear()
+    except Exception as exc:
+        logger.exception('Failed to clear db')
+
     return db
 
 
