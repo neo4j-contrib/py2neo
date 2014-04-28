@@ -452,23 +452,6 @@ class TestIndexedNodeAddition(object):
         # done
         self.recycling = [alice, bob]
 
-    def test_can_add_nodes_or_fail(self):
-        alice, bob = self.graph_db.create(
-            {"name": "Alice Smith"}, {"name": "Bob Smith"})
-        try:
-            self.batch.add_indexed_node_or_fail(
-                self.people, "surname", "Smith", alice)
-            self.batch.add_indexed_node_or_fail(
-                self.people, "surname", "Smith", bob)
-            try:
-                self.batch.run()
-                assert False
-            except neo4j.BatchError:
-                assert True
-        except NotImplementedError:
-            pass
-        self.recycling = [alice, bob]
-
 
 class TestIndexedRelationshipCreation(object):
     @pytest.fixture(autouse=True)
