@@ -31,7 +31,6 @@ logging.basicConfig(
 )
 
 
-@pytest.mark.neoversion("2")
 def test_wrong_host_will_fail():
     graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
     try:
@@ -42,8 +41,8 @@ def test_wrong_host_will_fail():
         assert False
 
 
-@pytest.mark.neoversion("2")
-def test_wrong_port_will_fail(graph_db):
+def test_wrong_port_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
     try:
         graph_db.refresh()
     except SocketError:
@@ -52,8 +51,8 @@ def test_wrong_port_will_fail(graph_db):
         assert False
 
 
-@pytest.mark.neoversion("2")
-def test_wrong_path_will_fail(graph_db):
+def test_wrong_path_will_fail():
+    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
     try:
         graph_db.refresh()
     except neo4j.ClientError:
