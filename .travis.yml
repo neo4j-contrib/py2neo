@@ -9,7 +9,7 @@ env:
   - NEO4J_VERSION="2.0.2"
 
 before_install:
-  - . ./test/getneo.sh
+  - . ./travis/neo.sh
   - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
 
 install:
