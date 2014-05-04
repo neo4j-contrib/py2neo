@@ -1,3 +1,17 @@
+""" Session wide configuration and fixtures for a Pytest run over Py2neo.
+
+The test run is configured to never execute on a DB that contains data.
+
+Tests that require a specific minimum version of Neo4j can be marked with
+``neoversion`` and these will be skipped when executing on lower versions.
+
+These fixtures provide the basic connection to neo4j as ``graph``, which will
+clear itself after every test, as well as a Cypher ``session`` object.
+
+Logging also gets quite excited here, as we add colour to emphasise when we
+skip tests due to neo versioning or due to other important events occuring.
+
+"""
 from decimal import Decimal
 import logging
 
@@ -21,6 +35,17 @@ logger.setLevel(logging.INFO)
 
 
 def pytest_configure(config):
+    """ Session-wide test configuration.
+
+    Executes before any tests do and can be used to configure the test
+    environment.
+
+    To guard against accidental data loss ``pytest_configure`` will bail
+    instantly if the test db contains any data. It also configures it's own
+    logging which will override any previous user-configured logging. This
+    is to ensure the correct messags reach the users console during test run.
+
+    """
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
     rels = next(db.match(), None)
     if rels:
@@ -41,6 +66,8 @@ def pytest_configure(config):
 
 
 def pytest_unconfigure(config):
+    """ Final tear-down behaviour of test environment
+    """
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
     db.clear()
 
@@ -48,6 +75,13 @@ def pytest_unconfigure(config):
 
 
 def pytest_runtest_setup(item):
+    """ Pre-test configuration.
+
+    This will execute before each test (and after ``pytest_configure``) and
+    can be used to configure the environment on a test-by-test basis, or
+    even skip the test.
+
+    """
     # looking for markers like '@pytest.mark.neoversion("X.XX")'
     version_markers = item.get_marker("neoversion")
     if version_markers:
