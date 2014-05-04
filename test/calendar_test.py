@@ -29,8 +29,8 @@ logging.basicConfig(
 
 
 @pytest.fixture(autouse=True)
-def setup(request, graph_db):
-    graph_db.clear()
+def setup(request, graph):
+    graph.clear()
 
     if request.instance:
         # Grab a handle to an index for linking to time data
@@ -76,11 +76,11 @@ class TestExampleCode(object):
         from py2neo import neo4j
         from py2neo.calendar import GregorianCalendar
 
-        graph_db = neo4j.GraphDatabaseService()
-        time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
+        graph = neo4j.GraphDatabaseService()
+        time_index = graph.get_or_create_index(neo4j.Node, "TIME")
         calendar = GregorianCalendar(time_index)
 
-        alice, birth, death = graph_db.create(
+        alice, birth, death = graph.create(
             {"name": "Alice"},
             (0, "BORN", calendar.day(1800, 1, 1)),
             (0, "DIED", calendar.day(1900, 12, 31)),

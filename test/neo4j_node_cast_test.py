@@ -19,8 +19,8 @@
 from py2neo import neo4j, node
 
 
-def test_can_cast_node(graph_db):
-    alice, = graph_db.create({"name": "Alice"})
+def test_can_cast_node(graph):
+    alice, = graph.create({"name": "Alice"})
     casted = node(alice)
     assert isinstance(casted, neo4j.Node)
     assert not casted.is_abstract

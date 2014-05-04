@@ -32,9 +32,9 @@ logging.basicConfig(
 
 
 def test_wrong_host_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
+    graph = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
     try:
-        graph_db.refresh()
+        graph.refresh()
     except NetworkAddressError:
         assert True
     else:
@@ -42,9 +42,9 @@ def test_wrong_host_will_fail():
 
 
 def test_wrong_port_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
+    graph = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
     try:
-        graph_db.refresh()
+        graph.refresh()
     except SocketError:
         assert True
     else:
@@ -52,17 +52,17 @@ def test_wrong_port_will_fail():
 
 
 def test_wrong_path_will_fail():
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
+    graph = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
     try:
-        graph_db.refresh()
+        graph.refresh()
     except neo4j.ClientError:
         assert True
     else:
         assert False
 
 
-def test_can_use_graph_if_no_trailing_slash_supplied(graph_db):
-    alice, = graph_db.create(node(name="Alice"))
+def test_can_use_graph_if_no_trailing_slash_supplied(graph):
+    alice, = graph.create(node(name="Alice"))
     assert isinstance(alice, neo4j.Node)
     assert alice["name"] == "Alice"
 
@@ -70,16 +70,16 @@ def test_can_use_graph_if_no_trailing_slash_supplied(graph_db):
 class GraphDatabaseServiceTest(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_get_same_instance(self):
-        graph_db_1 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
-        graph_db_2 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
-        assert graph_db_1 is graph_db_2
+        graph_1 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
+        graph_2 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
+        assert graph_1 is graph_2
 
     def test_neo4j_version_format(self):
-        version = self.graph_db.neo4j_version
+        version = self.graph.neo4j_version
         print(version)
         assert isinstance(version, tuple)
         assert len(version) == 4
@@ -88,19 +88,19 @@ class GraphDatabaseServiceTest(object):
         assert isinstance(version[2], int)
 
     def test_create_single_empty_node(self):
-        a, = self.graph_db.create({})
+        a, = self.graph.create({})
 
     def test_get_node_by_id(self):
-        a1, = self.graph_db.create({"foo": "bar"})
-        a2 = self.graph_db.node(a1._id)
+        a1, = self.graph.create({"foo": "bar"})
+        a2 = self.graph.node(a1._id)
         self.assertEqual(a1, a2)
 
     def test_create_node_with_property_dict(self):
-        node, = self.graph_db.create({"foo": "bar"})
+        node, = self.graph.create({"foo": "bar"})
         self.assertEqual("bar", node["foo"])
 
     def test_create_node_with_mixed_property_types(self):
-        node, = self.graph_db.create(
+        node, = self.graph.create(
             {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
         self.assertEqual(4, len(node.get_properties()))
@@ -110,12 +110,12 @@ class GraphDatabaseServiceTest(object):
         self.assertEqual(False, node["true"])
 
     def test_create_node_with_null_properties(self):
-        node, = self.graph_db.create({"foo": "bar", "no-foo": None})
+        node, = self.graph.create({"foo": "bar", "no-foo": None})
         self.assertEqual("bar", node["foo"])
         self.assertEqual(None, node["no-foo"])
 
     def test_create_multiple_nodes(self):
-        nodes = self.graph_db.create(
+        nodes = self.graph.create(
                 {},
                 {"foo": "bar"},
                 {"number": 42, "foo": "baz", "true": True},
@@ -136,13 +136,13 @@ class GraphDatabaseServiceTest(object):
         self.assertEqual(109, nodes[3]["number"])
 
     def test_batch_get_properties(self):
-        nodes = self.graph_db.create(
+        nodes = self.graph.create(
             {},
             {"foo": "bar"},
             {"number": 42, "foo": "baz", "true": True},
             {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
-        props = self.graph_db.get_properties(*nodes)
+        props = self.graph.get_properties(*nodes)
         self.assertEqual(4, len(props))
         self.assertEqual(0, len(props[0]))
         self.assertEqual(1, len(props[1]))
@@ -161,11 +161,11 @@ class GraphDatabaseServiceTest(object):
 class NewCreateTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_single_node(self):
-        results = self.graph_db.create(
+        results = self.graph.create(
             {"name": "Alice"}
         )
         self.assertTrue(results is not None)
@@ -176,7 +176,7 @@ class NewCreateTestCase(object):
         self.assertEqual("Alice", results[0]["name"])
 
     def test_can_create_simple_graph(self):
-        results = self.graph_db.create(
+        results = self.graph.create(
             {"name": "Alice"},
             {"name": "Bob"},
             (0, "KNOWS", 1)
@@ -196,7 +196,7 @@ class NewCreateTestCase(object):
         self.assertEqual(results[1], results[2].end_node)
 
     def test_can_create_simple_graph_with_rel_data(self):
-        results = self.graph_db.create(
+        results = self.graph.create(
             {"name": "Alice"},
             {"name": "Bob"},
             (0, "KNOWS", 1, {"since": 1996})
@@ -218,8 +218,8 @@ class NewCreateTestCase(object):
         self.assertEqual(1996, results[2]["since"])
 
     def test_can_create_graph_against_existing_node(self):
-        ref_node, = self.graph_db.create({})
-        results = self.graph_db.create(
+        ref_node, = self.graph.create({})
+        results = self.graph.create(
             {"name": "Alice"},
             (ref_node, "PERSON", 0)
         )
@@ -233,11 +233,11 @@ class NewCreateTestCase(object):
         self.assertEqual("PERSON", results[1].type)
         self.assertEqual(ref_node, results[1].start_node)
         self.assertEqual(results[0], results[1].end_node)
-        self.graph_db.delete(results[1], results[0])
+        self.graph.delete(results[1], results[0])
         ref_node.delete()
 
     def test_fails_on_bad_reference(self):
-        self.assertRaises(Exception, self.graph_db.create,
+        self.assertRaises(Exception, self.graph.create,
             {"name": "Alice"},
             (0, "KNOWS", 1)
         )
@@ -248,7 +248,7 @@ class NewCreateTestCase(object):
             {"number": i}
             for i in range(size)
         ]
-        results = self.graph_db.create(*nodes)
+        results = self.graph.create(*nodes)
         self.assertTrue(results is not None)
         self.assertTrue(isinstance(results, list))
         self.assertEqual(size, len(results))
@@ -265,8 +265,8 @@ class MultipleNodeTestCase(object):
     ]
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.gdb = graph_db()
+    def setup(self, graph):
+        self.gdb = graph()
         self.ref_node, = self.gdb.create({})
         self.nodes = self.gdb.create(*self.flintstones)
 
@@ -296,8 +296,8 @@ class MultipleNodeTestCase(object):
 class TestRelatedDelete(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
         self.recycling = []
 
     def test_can_delete_entire_subgraph(self):
@@ -344,7 +344,7 @@ class TestRelatedDelete(object):
         RETURN en, sc, cy, fr, de, es, eng, fre, deu, esp,
                A, B, C, D, E, F, G, H
         '''
-        data = list(neo4j.CypherQuery(self.graph_db, query).execute())
+        data = list(neo4j.CypherQuery(self.graph, query).execute())
         entities = data[0]
         for entity in entities:
             assert entity.exists

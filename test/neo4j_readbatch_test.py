@@ -22,12 +22,12 @@ from py2neo import neo4j
 class GetIndexedNodeTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_retrieve_multiple_indexed_nodes(self):
-        people = self.graph_db.get_or_create_index(neo4j.Node, "People")
-        alice, bob, carol, dave, eve = self.graph_db.create(
+        people = self.graph.get_or_create_index(neo4j.Node, "People")
+        alice, bob, carol, dave, eve = self.graph.create(
             {"name": "Alice Smith"},
             {"name": "Bob Smith"},
             {"name": "Carol Smith"},
@@ -39,7 +39,7 @@ class GetIndexedNodeTestCase(object):
         people.add("family_name", "Smith", carol)
         people.add("family_name", "Jones", dave)
         people.add("family_name", "Jones", eve)
-        batch = neo4j.ReadBatch(self.graph_db)
+        batch = neo4j.ReadBatch(self.graph)
         batch.get_indexed_nodes("People", "family_name", "Smith")
         batch.get_indexed_nodes("People", "family_name", "Jones")
         data = batch.submit()

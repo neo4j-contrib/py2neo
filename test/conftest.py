@@ -74,7 +74,7 @@ def pytest_runtest_setup(item):
 
 
 @pytest.fixture
-def graph_db(request):
+def graph(request):
     db = neo4j.GraphDatabaseService(DEFAULT_DB)
 
     try:

@@ -481,27 +481,27 @@ class MultiElementParseTest(object):
         assert entries == {}
 
 
-def test_can_insert_empty_subgraph(graph_db):
+def test_can_insert_empty_subgraph(graph):
     source = ''
     subgraph = geoff.Subgraph(source)
-    out = subgraph.insert_into(graph_db)
+    out = subgraph.insert_into(graph)
     assert out == {}
 
 
-def test_can_insert_single_node(graph_db):
+def test_can_insert_single_node(graph):
     source = '(a {"name": "Alice"})'
     subgraph = geoff.Subgraph(source)
-    out = subgraph.insert_into(graph_db)
+    out = subgraph.insert_into(graph)
     assert isinstance(out["a"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
     matches = list(out["a"].match_outgoing())
     assert len(matches) == 0
 
 
-def test_can_insert_simple_graph(graph_db):
+def test_can_insert_simple_graph(graph):
     source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
     subgraph = geoff.Subgraph(source)
-    out = subgraph.insert_into(graph_db)
+    out = subgraph.insert_into(graph)
     assert isinstance(out["a"], neo4j.Node)
     assert isinstance(out["b"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
@@ -511,7 +511,7 @@ def test_can_insert_simple_graph(graph_db):
     assert matches[0].type == "KNOWS"
 
 
-def test_can_insert_reasonably_complex_graph(graph_db):
+def test_can_insert_reasonably_complex_graph(graph):
     source = r"""
     |People {"email":"bob@example.com"}|=>(b)
     |People {"email":"ernie@example.com"}|=>(e)
@@ -525,7 +525,7 @@ def test_can_insert_reasonably_complex_graph(graph_db):
     (a)-[:MARRIED {date:"2001-09-11"}]->(b)
     """
     subgraph = geoff.Subgraph(source)
-    out = subgraph.insert_into(graph_db)
+    out = subgraph.insert_into(graph)
     assert len(out) == 6
     assert all(isinstance(node, neo4j.Node) for node in out.values())
     assert out["a"].get_properties() == {"name": "Alice", "age": 43}
@@ -536,10 +536,10 @@ def test_can_insert_reasonably_complex_graph(graph_db):
     assert out["f"].get_properties() == {"name": "Lonely Frank"}
 
 
-def test_can_merge_simple_graph(graph_db):
+def test_can_merge_simple_graph(graph):
     source = '(a {"name": "Alice"}) (b {"name": "Bob"}) (a)-[:KNOWS]->(b)'
     subgraph = geoff.Subgraph(source)
-    out = subgraph.merge_into(graph_db)
+    out = subgraph.merge_into(graph)
     assert isinstance(out["a"], neo4j.Node)
     assert isinstance(out["b"], neo4j.Node)
     assert out["a"].get_properties() == {"name": "Alice"}
@@ -549,29 +549,29 @@ def test_can_merge_simple_graph(graph_db):
     assert matches[0].type == "KNOWS"
 
 
-def test_can_insert_subgraph_from_geoff_file(graph_db):
+def test_can_insert_subgraph_from_geoff_file(graph):
     planets = geoff.Subgraph.load(PLANETS_GEOFF)
     assert len(planets.nodes) == 25
     assert len(planets.relationships) == 24
     assert len(planets.index_entries) == 0
-    out = planets.insert_into(graph_db)
+    out = planets.insert_into(graph)
     assert len(out) == 25
     assert all(isinstance(node, neo4j.Node) for node in out.values())
 
 
-def test_can_insert_subgraph_from_xml_file(graph_db):
+def test_can_insert_subgraph_from_xml_file(graph):
     planets = geoff.Subgraph.load_xml(PLANETS_XML)
     if sys.version_info >= (2, 7):
         assert planets.source == PLANETS_GEOFF.getvalue()
     assert len(planets.nodes) == 25
     assert len(planets.relationships) == 24
     assert len(planets.index_entries) == 0
-    out = planets.insert_into(graph_db)
+    out = planets.insert_into(graph)
     assert len(out) == 25
     assert all(isinstance(node, neo4j.Node) for node in out.values())
 
 
-def test_can_identify_non_unique_paths(graph_db):
+def test_can_identify_non_unique_paths(graph):
     source = """\
     |People {"email":"alice@example.com"}|=>(a)
     |People {"email":"bob@example.com"}|=>(b)
@@ -580,14 +580,14 @@ def test_can_identify_non_unique_paths(graph_db):
     (a)-[:KNOWS]->(b)
     (a)-[:KNOWS]->(b)
     """
-    geoff.Subgraph(source).insert_into(graph_db)
+    geoff.Subgraph(source).insert_into(graph)
     source = """\
     |People {"email":"alice@example.com"}|=>(a)
     |People {"email":"bob@example.com"}|=>(b)
     (a)-[:KNOWS]->(b)
     """
     try:
-        geoff.Subgraph(source).merge_into(graph_db)
+        geoff.Subgraph(source).merge_into(graph)
     except geoff.ConstraintViolation:
         assert True
     else:

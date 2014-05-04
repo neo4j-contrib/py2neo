@@ -17,6 +17,6 @@
 
 from py2neo import neo4j
 
-def test_can_rewrite_uri(graph_db):
+def test_can_rewrite_uri(graph):
     neo4j.rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-    assert graph_db.neo4j_version
+    assert graph.neo4j_version

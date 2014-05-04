@@ -22,8 +22,8 @@ from py2neo import neo4j
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 
-def _execute_batch(node_count, graph_db):
-    batch = neo4j.WriteBatch(graph_db)
+def _execute_batch(node_count, graph):
+    batch = neo4j.WriteBatch(graph)
     for i in range(node_count):
         batch.create({"number": i})
     batch.run()
@@ -33,10 +33,10 @@ def _execute_batch(node_count, graph_db):
 #    _send_big_batch(100)
 
 
-def test_can_execute_4_batches_of_300(graph_db):
-    graph_db.clear()
+def test_can_execute_4_batches_of_300(graph):
+    graph.clear()
     for i in range(4):
-        _execute_batch(300, graph_db)
+        _execute_batch(300, graph)
 
 
 #def test_can_send_batch_of_1000():

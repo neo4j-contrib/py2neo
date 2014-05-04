@@ -65,11 +65,11 @@ class ConcreteNodeTestCase(object):
     }
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_concrete_node(self):
-        alice, = self.graph_db.create({"name": "Alice", "age": 34})
+        alice, = self.graph.create({"name": "Alice", "age": 34})
         assert isinstance(alice, neo4j.Node)
         assert not alice.is_abstract
         assert alice["name"] == "Alice"
@@ -89,12 +89,12 @@ class ConcreteNodeTestCase(object):
             "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
             "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
         }
-        foo, = self.graph_db.create(data)
+        foo, = self.graph.create(data)
         for key, value in data.items():
             self.assertEqual(foo[key], value)
 
     def test_cannot_assign_oversized_long(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             if PY3K:
                 foo["long"] = 9223372036854775808
@@ -106,7 +106,7 @@ class ConcreteNodeTestCase(object):
             assert False
 
     def test_cannot_assign_mixed_list(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             foo["mixed_list"] = [42, "life", "universe", "everything"]
         except:
@@ -115,7 +115,7 @@ class ConcreteNodeTestCase(object):
             assert False
 
     def test_cannot_assign_dict(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
         except:
@@ -126,8 +126,8 @@ class ConcreteNodeTestCase(object):
 
 class NodeTestCase(object):
 
-    def setUp(self, graph_db):
-        self.gdb = graph_db()
+    def setUp(self, graph):
+        self.gdb = graph()
         self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
             {"name": "Fred"}, {"name": "Wilma"}, (0, "REALLY LOVES", 1)
         )

@@ -19,22 +19,22 @@
 from py2neo import neo4j
 
 
-def test_can_set_labels_on_preexisting_node(graph_db):
-    if not graph_db.supports_node_labels:
+def test_can_set_labels_on_preexisting_node(graph):
+    if not graph.supports_node_labels:
         return
-    alice, = graph_db.create({"name": "Alice"})
+    alice, = graph.create({"name": "Alice"})
     alice.add_labels("human", "female")
-    batch = neo4j.WriteBatch(graph_db)
+    batch = neo4j.WriteBatch(graph)
     batch.set_labels(alice, "mystery", "badger")
     batch.run()
     assert alice.get_labels() == {"mystery", "badger"}
 
 
 # def test_can_set_labels_on_node_in_same_batch():
-#     graph_db = neo4j.GraphDatabaseService()
-#     if not graph_db.supports_node_labels:
+#     graph = neo4j.GraphDatabaseService()
+#     if not graph.supports_node_labels:
 #         return
-#     batch = neo4j.WriteBatch(graph_db)
+#     batch = neo4j.WriteBatch(graph)
 #     batch.create({"name": "Alice"})
 #     batch.add_labels(0, "human", "female")
 #     batch.set_labels(0, "mystery", "badger")

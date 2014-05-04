@@ -18,15 +18,15 @@ import pytest
 
 
 @pytest.fixture
-def create_graph(graph_db):
-    a, b, c, d, e = graph_db.create(
+def create_graph(graph):
+    a, b, c, d, e = graph.create(
         {"name": "Alice"},
         {"name": "Bob"},
         {"name": "Carol"},
         {"name": "Dave"},
         {"name": "Eve"},
     )
-    rels = graph_db.create(
+    rels = graph.create(
         (a, "LOVES", b),
         (b, "LOVES", a),
         (b, "KNOWS", c),

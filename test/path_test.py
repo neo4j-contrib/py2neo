@@ -110,15 +110,15 @@ class PathTestCase(object):
 class CreatePathTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
-    def test_can_create_path(self, graph_db):
+    def test_can_create_path(self, graph):
         path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
         assert path._relationships[0]._type == "KNOWS"
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(graph_db)
+        path = path.create(graph)
         assert isinstance(path.nodes[0], neo4j.Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
@@ -132,7 +132,7 @@ class CreatePathTestCase(object):
         assert path._relationships[0]._type == "KNOWS"
         assert path._relationships[0]._properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(self.graph_db)
+        path = path.create(self.graph)
         assert isinstance(path.nodes[0], neo4j.Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
@@ -145,11 +145,11 @@ class CreatePathTestCase(object):
 class GetOrCreatePathTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_single_path(self):
-        start_node, = self.graph_db.create({})
+        start_node, = self.graph.create({})
         p1 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
@@ -161,7 +161,7 @@ class GetOrCreatePathTestCase(object):
         self.assertEqual(start_node, p1.nodes[0])
 
     def test_can_create_overlapping_paths(self):
-        start_node, = self.graph_db.create({})
+        start_node, = self.graph.create({})
         p1 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
@@ -203,7 +203,7 @@ class GetOrCreatePathTestCase(object):
         #print(p3)
 
     def test_can_use_none_for_nodes(self):
-        start_node, = self.graph_db.create({})
+        start_node, = self.graph.create({})
         p1 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
@@ -225,7 +225,7 @@ class GetOrCreatePathTestCase(object):
         self.assertEqual(p1.relationships[2], p2.relationships[2])
 
     def test_can_use_node_for_nodes(self):
-        start_node, = self.graph_db.create({})
+        start_node, = self.graph.create({})
         p1 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},

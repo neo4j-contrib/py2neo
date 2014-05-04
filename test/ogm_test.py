@@ -39,8 +39,8 @@ class Person(object):
 class ExampleCodeTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_execute_example_code(self):
 
@@ -54,8 +54,8 @@ class ExampleCodeTestCase(object):
             def __str__(self):
                 return self.name
 
-        graph_db = neo4j.GraphDatabaseService()
-        store = ogm.Store(graph_db)
+        graph = neo4j.GraphDatabaseService()
+        store = ogm.Store(graph)
 
         alice = Person("alice@example.com", "Alice", 34)
         store.save_unique("People", "email", alice.email, alice)
@@ -73,9 +73,9 @@ class ExampleCodeTestCase(object):
 class RelateTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_relate_to_other_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -99,9 +99,9 @@ class RelateTestCase(object):
 class SeparateTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_separate_from_other_objects(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -140,9 +140,9 @@ class SeparateTestCase(object):
 class LoadRelatedTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_load_single_related_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -185,12 +185,12 @@ class LoadRelatedTestCase(object):
 class LoadTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_load(self):
-        alice_node, = self.graph_db.create({
+        alice_node, = self.graph.create({
             "email": "alice@example.com",
             "name": "Alice",
             "age": 34,
@@ -204,13 +204,13 @@ class LoadTestCase(object):
 class LoadIndexedTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_load(self):
-        people = self.graph_db.get_or_create_index(neo4j.Node, "People")
-        alice_node, bob_node = self.graph_db.create({
+        people = self.graph.get_or_create_index(neo4j.Node, "People")
+        alice_node, bob_node = self.graph.create({
             "email": "alice@example.com",
             "name": "Alice Smith",
             "age": 34,
@@ -232,12 +232,12 @@ class LoadIndexedTestCase(object):
 class LoadUniqueTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_load_simple_object(self):
-        alice_node = self.graph_db.get_or_create_indexed_node("People", "email", "alice@example.com", {
+        alice_node = self.graph.get_or_create_indexed_node("People", "email", "alice@example.com", {
             "email": "alice@example.com",
             "name": "Alice Allison",
             "age": 34,
@@ -253,7 +253,7 @@ class LoadUniqueTestCase(object):
         assert alice.age == 34
 
     def test_can_load_object_with_relationships(self):
-        alice_node = self.graph_db.get_or_create_indexed_node("People", "email", "alice@example.com", {
+        alice_node = self.graph.get_or_create_indexed_node("People", "email", "alice@example.com", {
             "email": "alice@example.com",
             "name": "Alice Allison",
             "age": 34,
@@ -289,9 +289,9 @@ class LoadUniqueTestCase(object):
 class ReloadTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_reload(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -308,9 +308,9 @@ class ReloadTestCase(object):
 class SaveTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -329,15 +329,15 @@ class SaveTestCase(object):
 class SaveIndexedTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_save(self):
         alice = Person("alice@example.com", "Alice Smith", 34)
         bob = Person("bob@example.org", "Bob Smith", 66)
         self.store.save_indexed("People", "family_name", "Smith", alice, bob)
-        people = self.graph_db.get_index(neo4j.Node, "People")
+        people = self.graph.get_index(neo4j.Node, "People")
         smiths = people.get("family_name", "Smith")
         assert len(smiths) == 2
         assert alice.__node__ in smiths
@@ -354,20 +354,20 @@ class SaveIndexedTestCase(object):
 class SaveUniqueTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, neo4j.Node)
-        assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
+        assert alice.__node__ == self.graph.get_indexed_node("People", "email", "alice@example.com")
 
     def test_can_save_object_with_rels(self):
         alice = Person("alice@example.com", "Alice Allison", 34)
-        bob_node, carol_node = self.graph_db.create(
+        bob_node, carol_node = self.graph.create(
             {"name": "Bob"},
             {"name": "Carol"},
         )
@@ -375,7 +375,7 @@ class SaveUniqueTestCase(object):
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, neo4j.Node)
-        assert alice.__node__ == self.graph_db.get_indexed_node("People", "email", "alice@example.com")
+        assert alice.__node__ == self.graph.get_indexed_node("People", "email", "alice@example.com")
         friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
         assert len(friend_rels) == 1
         assert bob_node in (rel.end_node for rel in friend_rels)
@@ -390,9 +390,9 @@ class SaveUniqueTestCase(object):
 class DeleteTestCase(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph_db):
-        self.graph_db = graph_db
-        self.store = ogm.Store(self.graph_db)
+    def setup(self, graph):
+        self.graph = graph
+        self.store = ogm.Store(self.graph)
 
     def test_can_delete_object(self):
         alice = Person("alice@example.com", "Alice", 34)

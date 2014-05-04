@@ -19,10 +19,10 @@
 from py2neo import node
 
 
-def test_can_add_labels_to_node(graph_db):
-    if not graph_db.supports_node_labels:
+def test_can_add_labels_to_node(graph):
+    if not graph.supports_node_labels:
         return
-    alice, = graph_db.create(node(name="Alice"))
+    alice, = graph.create(node(name="Alice"))
     labels = alice.get_labels()
     assert labels == set()
     alice.add_labels("human")
@@ -38,8 +38,8 @@ def test_can_add_labels_to_node(graph_db):
     assert labels == set(["human", "female"])
 
 
-def test_cannot_add_labels_to_abstract_nodes(graph_db):
-    if not graph_db.supports_node_labels:
+def test_cannot_add_labels_to_abstract_nodes(graph):
+    if not graph.supports_node_labels:
         return
     alice = node(name="Alice")
     try:
