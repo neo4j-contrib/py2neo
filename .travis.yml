@@ -5,8 +5,8 @@ python:
   - "3.3"
 
 env:
-  - NEO4J_VERSION="1.9.4"
-  - NEO4J_VERSION="2.0.2"
+  - NEO4J_VERSION="1.9.7"
+  - NEO4J_VERSION="2.0.3"
 
 before_install:
   - . .travis/neo.sh
