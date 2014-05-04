@@ -13,7 +13,7 @@ before_install:
   - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
 
 install:
-  - pip install pytest logutils
+  - pip install -r .travis/requirements.txt
 
 script:
   - py.test ./test
