@@ -1,55 +1,94 @@
-# coding=utf-8
-import pytest
-from py2neo.exceptions import ClientError
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-__author__ = 'meier_ul'
+import pytest
+from py2neo.exceptions import ServerError
+
+__author__ = 'Ulrich Meier <ulrich.meier@ldbv.bayern.de'
+# Added some methods to handle Constraints. See http://docs.neo4j.org/chunked/stable/rest-api-schema-constraints.html
 
 from py2neo import neo4j, node
 
 
-def test_schema_index():
+def get_clean_database():
     graph_db = neo4j.GraphDatabaseService()
     if not graph_db.supports_schema_indexes:
-        return
+        return None
 
+
+    # Cleanup the database
+    # Constraints have to be removed before the indexed property keys can be removed.
     graph_db.clear()
     for label in graph_db.node_labels:
-        for key in graph_db.schema.get_uniqueness_constraints(label):
-            graph_db.schema.drop_uniqueness_constraint(label, key)
+        for key in graph_db.schema.get_unique_constraints(label):
+            graph_db.schema.remove_unique_constraint(label, key)
         for key in graph_db.schema.get_indexed_property_keys(label):
             graph_db.schema.drop_index(label, key)
+    return graph_db
 
-    muenchen, = graph_db.create(node(name=u"München", schluessel="09162000"))
-    muenchen.add_labels("Gemeinde", "Kreis")
-    graph_db.schema.create_index("Gemeinde", "name")
-    graph_db.schema.create_index("Gemeinde", "schluessel")
-    graph_db.schema.create_index("Kreis", "name")
-    graph_db.schema.create_index("Kreis", "schluessel")
-    found_gemeinde_name = graph_db.find("Gemeinde", "name", u"München")
-    found_gemeinde_schluessel = graph_db.find("Gemeinde", "schluessel", "09162000")
-    found_kreis_name = graph_db.find("Kreis", "name", u"München")
-    found_kreis_schluessel = graph_db.find("Kreis", "schluessel", "09162000")
-    assert list(found_gemeinde_name) == list(found_gemeinde_schluessel)
-    assert list(found_kreis_name) == list(found_kreis_schluessel)
-    assert list(found_gemeinde_name) == list(found_kreis_name)
-    keys = graph_db.schema.get_indexed_property_keys("Gemeinde")
+
+def test_schema_index():
+    graph_db = get_clean_database()
+    if graph_db is None:
+        return
+    munich, = graph_db.create({'name': u"München", 'key': "09162000"})
+    munich.add_labels("borough", "county")
+    graph_db.schema.create_index("borough", "name")
+    graph_db.schema.create_index("borough", "key")
+    graph_db.schema.create_index("county", "name")
+    graph_db.schema.create_index("county", "key")
+    found_borough_via_name = graph_db.find("borough", "name", u"München")
+    found_borough_via_key = graph_db.find("borough", "key", "09162000")
+    found_county_via_name = graph_db.find("county", "name", u"München")
+    found_county_via_key = graph_db.find("county", "key", "09162000")
+    assert list(found_borough_via_name) == list(found_borough_via_key)
+    assert list(found_county_via_name) == list(found_county_via_key)
+    assert list(found_borough_via_name) == list(found_county_via_name)
+    keys = graph_db.schema.get_indexed_property_keys("borough")
     assert "name" in keys
-    assert "schluessel" in keys
-    graph_db.schema.drop_index("Gemeinde", "name")
-    graph_db.schema.drop_index("Gemeinde", "schluessel")
-    graph_db.schema.drop_index("Kreis", "name")
-    graph_db.schema.drop_index("Kreis", "schluessel")
+    assert "key" in keys
+    graph_db.schema.drop_index("borough", "name")
+    graph_db.schema.drop_index("borough", "key")
+    graph_db.schema.drop_index("county", "name")
+    graph_db.schema.drop_index("county", "key")
     with pytest.raises(LookupError):
-        graph_db.schema.drop_index("Kreis", "schluessel")
+        graph_db.schema.drop_index("county", "key")
 
-    taufkirchen, = graph_db.create(node(name=u"Taufkirchen"))
-    taufkirchen.add_labels("Gemeinde")
-    graph_db.schema.create_uniqueness_constraint("Gemeinde", "name")
-    constraints = graph_db.schema.get_uniqueness_constraints("Gemeinde")
+
+def test_unique_constraint():
+    graph_db = get_clean_database()
+    if graph_db is None:
+        return
+    borough, = graph_db.create(node(name=u"Taufkirchen"))
+    borough.add_labels("borough")
+    graph_db.schema.add_unique_constraint("borough", "name")
+    constraints = graph_db.schema.get_unique_constraints("borough")
     assert "name" in constraints
-    taufkirchen2, = graph_db.create(node(name=u"Taufkirchen"))
+    borough_2, = graph_db.create(node(name=u"Taufkirchen"))
     with pytest.raises(ValueError):
-        taufkirchen2.add_labels("Gemeinde")
+        borough_2.add_labels("borough")
+
+
+def test_labels_constraints():
+    graph_db = get_clean_database()
+    if graph_db is None:
+        return
+    a, b = graph_db.create({"name": "Alice"}, {"name": "Alice"})
+    a.add_labels("Person")
+    b.add_labels("Person")
+    with pytest.raises(ValueError):
+        graph_db.schema.add_unique_constraint("Person", "name")
+    b.remove_labels('Person')
+    graph_db.schema.add_unique_constraint("Person", "name")
+    a.remove_labels("Person")
+    b.add_labels("Person")
+    with pytest.raises(ServerError):
+        graph_db.schema.drop_index("Person", "name")
+    b.remove_labels("Person")
+    graph_db.schema.remove_unique_constraint("Person", "name")
+    with pytest.raises(LookupError):
+        graph_db.schema.drop_index("Person", "name")
+
 
 
 

@@ -1277,7 +1277,7 @@ class Schema(Cacheable, Resource):
                 for indexed in response.json
             ]
 
-    def get_uniqueness_constraints(self, label):
+    def get_unique_constraints(self, label):
         """ Fetch a list of uniqueness constraints for a label.
 
         :param label:
@@ -1314,11 +1314,11 @@ class Schema(Cacheable, Resource):
             resource._post({"property_keys": [property_key]})
         except ClientError as err:
             if err.status_code == CONFLICT:
-                raise ValueError("Property key already indexed")
+                raise ValueError(err.cause.message)
             else:
                 raise
 
-    def create_uniqueness_constraint(self, label, property_key):
+    def add_unique_constraint(self, label, property_key):
         """ Create an uniqueness constraint for a label.
 
          :param label:
@@ -1334,7 +1334,7 @@ class Schema(Cacheable, Resource):
             resource._post({"property_keys": [property_key]})
         except ClientError as err:
             if err.status_code == CONFLICT:
-                raise ValueError("Uniqueness constraint already created")
+                raise ValueError(err.cause.message)
             else:
                 raise
 
@@ -1358,7 +1358,7 @@ class Schema(Cacheable, Resource):
             else:
                 raise
 
-    def drop_uniqueness_constraint(self, label, property_key):
+    def remove_unique_constraint(self, label, property_key):
         """ Remove uniqueness constraint for a given property key.
 
          :param label:
@@ -1806,7 +1806,7 @@ class Node(_Entity):
         try:
             self._label_resource()._post(labels)
         except ClientError as err:
-            if err.status_code == BAD_REQUEST and err.cause.exception == u'ConstraintViolationException':
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
                 raise ValueError(err.cause.message)
             else:
                 raise
@@ -1831,7 +1831,7 @@ class Node(_Entity):
         try:
             self._label_resource()._put(labels)
         except ClientError as err:
-            if err.status_code == BAD_REQUEST and err.cause.exception == u'ConstraintViolationException':
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
                 raise ValueError(err.cause.message)
             else:
                 raise
