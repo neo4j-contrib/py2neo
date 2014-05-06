@@ -51,8 +51,7 @@ from .packages.httpstream import (http,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
 from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
-from .packages.urimagic import (Authority, URI, URITemplate,
-                                Query, percent_encode)
+from .packages.urimagic import percent_encode, URI, URITemplate
 
 from . import __version__
 from .exceptions import *
@@ -112,7 +111,7 @@ def authenticate(host_port, user_name, password):
         # connect to authenticated graph database
         graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
 
-    Note: a `netloc` can be either a server name or a server name and port
+    Note: a `host_port` can be either a server name or a server name and port
     number but must match exactly that used within the GraphDatabaseService
     URI.
 
