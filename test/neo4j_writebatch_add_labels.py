@@ -19,18 +19,16 @@
 from py2neo import neo4j
 
 
-def test_can_add_labels_to_preexisting_node():
-    graph_db = neo4j.GraphDatabaseService()
-    alice, = graph_db.create({"name": "Alice"})
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_add_labels_to_preexisting_node(graph):
+    alice, = graph.create({"name": "Alice"})
+    batch = neo4j.WriteBatch(graph)
     batch.add_labels(alice, "human", "female")
     batch.run()
     assert alice.get_labels() == {"human", "female"}
 
 
-def test_can_add_labels_to_node_in_same_batch():
-    graph_db = neo4j.GraphDatabaseService()
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_add_labels_to_node_in_same_batch(graph):
+    batch = neo4j.WriteBatch(graph)
     a = batch.create({"name": "Alice"})
     batch.add_labels(a, "human", "female")
     results = batch.submit()

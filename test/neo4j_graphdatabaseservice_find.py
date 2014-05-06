@@ -16,23 +16,16 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
-
-
-def test_can_find_nodes_with_label():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    alice, = graph_db.create({"name": "Alice"})
+def test_can_find_nodes_with_label(graph):
+    alice, = graph.create({"name": "Alice"})
     alice.add_labels("Person")
-    nodes = list(graph_db.find("Person"))
+    nodes = list(graph.find("Person"))
     assert nodes == [alice]
 
 
-def test_can_find_nodes_with_label_and_property():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    alice, = graph_db.create({"name": "Alice"})
+def test_can_find_nodes_with_label_and_property(graph):
+    alice, = graph.create({"name": "Alice"})
     alice.add_labels("Person")
-    nodes = list(graph_db.find("Person", "name", "Alice"))
+    nodes = list(graph.find("Person", "name", "Alice"))
     assert nodes == [alice]
 

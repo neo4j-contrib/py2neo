@@ -19,30 +19,26 @@
 from py2neo import neo4j
 
 
-def test_can_query_node_index():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    people = graph_db.get_or_create_index(neo4j.Node, "people")
-    a = people.create("name", "Alice", {"name": "Alice"})
-    b = people.create("name", "Bob", {"name": "Bob"})
+def test_can_query_node_index(graph):
+    people = graph.get_or_create_index(neo4j.Node, "people")
+    people.create("name", "Alice", {"name": "Alice"})
+    people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
     d = people.create("name", "Dave", {"name": "Dave"})
-    e = people.create("name", "Eve", {"name": "Eve"})
+    people.create("name", "Eve", {"name": "Eve"})
     f = people.create("name", "Frank", {"name": "Frank"})
     for person in people.query("name:*a*"):
         print(person)
         assert person in (c, d, f)
 
 
-def test_can_query_node_index_with_score_by_index():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    people = graph_db.get_or_create_index(neo4j.Node, "people")
-    a = people.create("name", "Alice", {"name": "Alice"})
-    b = people.create("name", "Bob", {"name": "Bob"})
+def test_can_query_node_index_with_score_by_index(graph):
+    people = graph.get_or_create_index(neo4j.Node, "people")
+    people.create("name", "Alice", {"name": "Alice"})
+    people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
     d = people.create("name", "Dave", {"name": "Dave"})
-    e = people.create("name", "Eve", {"name": "Eve"})
+    people.create("name", "Eve", {"name": "Eve"})
     f = people.create("name", "Frank", {"name": "Frank"})
     for person, score in people.query_by_index("name:*a*"):
         print(person)
@@ -50,15 +46,13 @@ def test_can_query_node_index_with_score_by_index():
         assert isinstance(score, float)
 
 
-def test_can_query_node_index_with_score_by_relevance():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    people = graph_db.get_or_create_index(neo4j.Node, "people")
-    a = people.create("name", "Alice", {"name": "Alice"})
-    b = people.create("name", "Bob", {"name": "Bob"})
+def test_can_query_node_index_with_score_by_relevance(graph):
+    people = graph.get_or_create_index(neo4j.Node, "people")
+    people.create("name", "Alice", {"name": "Alice"})
+    people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
     d = people.create("name", "Dave", {"name": "Dave"})
-    e = people.create("name", "Eve", {"name": "Eve"})
+    people.create("name", "Eve", {"name": "Eve"})
     f = people.create("name", "Frank", {"name": "Frank"})
     for person, score in people.query_by_relevance("name:*a*"):
         print(person)
@@ -66,15 +60,13 @@ def test_can_query_node_index_with_score_by_relevance():
         assert isinstance(score, float)
 
 
-def test_can_query_node_index_with_score_by_score():
-    graph_db = neo4j.GraphDatabaseService()
-    graph_db.clear()
-    people = graph_db.get_or_create_index(neo4j.Node, "people")
-    a = people.create("name", "Alice", {"name": "Alice"})
-    b = people.create("name", "Bob", {"name": "Bob"})
+def test_can_query_node_index_with_score_by_score(graph):
+    people = graph.get_or_create_index(neo4j.Node, "people")
+    people.create("name", "Alice", {"name": "Alice"})
+    people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
     d = people.create("name", "Dave", {"name": "Dave"})
-    e = people.create("name", "Eve", {"name": "Eve"})
+    people.create("name", "Eve", {"name": "Eve"})
     f = people.create("name", "Frank", {"name": "Frank"})
     for person, score in people.query_by_score("name:*a*"):
         print(person)

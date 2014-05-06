@@ -19,19 +19,17 @@
 from py2neo import neo4j
 
 
-def test_can_set_properties_on_preexisting_node():
-    graph_db = neo4j.GraphDatabaseService()
-    alice, = graph_db.create({})
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_set_properties_on_preexisting_node(graph):
+    alice, = graph.create({})
+    batch = neo4j.WriteBatch(graph)
     batch.set_properties(alice, {"name": "Alice", "age": 34})
     batch.run()
     assert alice["name"] == "Alice"
     assert alice["age"] == 34
 
 
-def test_can_set_properties_on_node_in_same_batch():
-    graph_db = neo4j.GraphDatabaseService()
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_set_properties_on_node_in_same_batch(graph):
+    batch = neo4j.WriteBatch(graph)
     alice = batch.create({})
     batch.set_properties(alice, {"name": "Alice", "age": 34})
     results = batch.submit()
