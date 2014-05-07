@@ -1284,7 +1284,7 @@ class Schema(Cacheable, Resource):
         :return:
         """
         if not label:
-            raise ValueError("Label cannot be empy")
+            raise ValueError("Label cannot be empty")
         resource = Resource(self._uniqueness_constraint_template.expand(label=label))
         try:
             response = resource._get()
@@ -1329,9 +1329,8 @@ class Schema(Cacheable, Resource):
         if not label or not property_key:
             raise ValueError("Neither label nor property key can be empty")
         resource = Resource(self._uniqueness_constraint_template.expand(label=label))
-        property_key = bytearray(property_key, "utf-8").decode("utf-8")
         try:
-            resource._post({"property_keys": [property_key]})
+            resource._post({"property_keys": [ustr(property_key)]})
         except ClientError as err:
             if err.status_code == CONFLICT:
                 raise ValueError(err.cause.message)

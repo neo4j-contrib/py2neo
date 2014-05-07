@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
 import pytest
 from py2neo.exceptions import ServerError
+from py2neo import neo4j, node
 
 __author__ = 'Ulrich Meier <ulrich.meier@ldbv.bayern.de'
 # Added some methods to handle Constraints. See http://docs.neo4j.org/chunked/stable/rest-api-schema-constraints.html
 
-from py2neo import neo4j, node
+
 
 
 def get_clean_database():
@@ -31,15 +33,15 @@ def test_schema_index():
     graph_db = get_clean_database()
     if graph_db is None:
         return
-    munich, = graph_db.create({'name': u"München", 'key': "09162000"})
+    munich, = graph_db.create({'name': "München", 'key': "09162000"})
     munich.add_labels("borough", "county")
     graph_db.schema.create_index("borough", "name")
     graph_db.schema.create_index("borough", "key")
     graph_db.schema.create_index("county", "name")
     graph_db.schema.create_index("county", "key")
-    found_borough_via_name = graph_db.find("borough", "name", u"München")
+    found_borough_via_name = graph_db.find("borough", "name", "München")
     found_borough_via_key = graph_db.find("borough", "key", "09162000")
-    found_county_via_name = graph_db.find("county", "name", u"München")
+    found_county_via_name = graph_db.find("county", "name", "München")
     found_county_via_key = graph_db.find("county", "key", "09162000")
     assert list(found_borough_via_name) == list(found_borough_via_key)
     assert list(found_county_via_name) == list(found_county_via_key)
@@ -59,12 +61,12 @@ def test_unique_constraint():
     graph_db = get_clean_database()
     if graph_db is None:
         return
-    borough, = graph_db.create(node(name=u"Taufkirchen"))
+    borough, = graph_db.create(node(name="Taufkirchen"))
     borough.add_labels("borough")
     graph_db.schema.add_unique_constraint("borough", "name")
     constraints = graph_db.schema.get_unique_constraints("borough")
     assert "name" in constraints
-    borough_2, = graph_db.create(node(name=u"Taufkirchen"))
+    borough_2, = graph_db.create(node(name="Taufkirchen"))
     with pytest.raises(ValueError):
         borough_2.add_labels("borough")
 
