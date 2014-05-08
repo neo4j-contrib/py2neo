@@ -1,0 +1,19 @@
+language: python
+
+python:
+  - "2.7"
+  - "3.3"
+
+env:
+  - NEO4J_VERSION="1.9.7"
+  - NEO4J_VERSION="2.0.3"
+
+before_install:
+  - . .travis/neo.sh
+  - ./lib/neo4j/bin/neo4j start || ( cat ./lib/neo4j/data/log/*.log && exit 1 )
+
+install:
+  - pip install -r .travis/requirements.txt
+
+script:
+  - py.test ./test

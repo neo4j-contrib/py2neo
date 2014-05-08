@@ -16,7 +16,8 @@
 # limitations under the License.
 
 import logging
-import unittest
+
+import pytest
 
 from py2neo import neo4j
 from py2neo.calendar import GregorianCalendar
@@ -26,15 +27,16 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService()
 
+@pytest.fixture(autouse=True)
+def setup(request, graph):
+    graph.clear()
 
-def clear():
-    neo4j.GraphDatabaseService().clear()
-
-# Grab a handle to an index for linking to time data
-TIME = neo4j.GraphDatabaseService().get_or_create_index(neo4j.Node, "TIME")
+    if request.instance:
+        # Grab a handle to an index for linking to time data
+        service = neo4j.GraphDatabaseService()
+        time = service.get_or_create_index(neo4j.Node, "TIME")
+        request.instance.calendar = GregorianCalendar(time)
 
 
 def test_can_create_date():
@@ -69,17 +71,16 @@ def test_can_create_year():
     assert str(year) == "2000"
 
 
-class TestExampleCode(unittest.TestCase):
-
+class TestExampleCode(object):
     def test_example_code_runs(self):
         from py2neo import neo4j
         from py2neo.calendar import GregorianCalendar
 
-        graph_db = neo4j.GraphDatabaseService()
-        time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
+        graph = neo4j.GraphDatabaseService()
+        time_index = graph.get_or_create_index(neo4j.Node, "TIME")
         calendar = GregorianCalendar(time_index)
 
-        alice, birth, death = graph_db.create(
+        alice, birth, death = graph.create(
             {"name": "Alice"},
             (0, "BORN", calendar.day(1800, 1, 1)),
             (0, "DIED", calendar.day(1900, 12, 31)),
@@ -94,11 +95,7 @@ class TestExampleCode(unittest.TestCase):
         assert death.end_node["day"] == 31
 
 
-class TestDays(unittest.TestCase):
-
-    def setUp(self):
-        self.calendar = GregorianCalendar(TIME)
-
+class TestDays(object):
     def test_can_get_day_node(self):
         christmas = self.calendar.day(2000, 12, 25)
         assert isinstance(christmas, neo4j.Node)
@@ -118,11 +115,7 @@ class TestDays(unittest.TestCase):
         assert christmas != boxing_day
 
 
-class TestMonths(unittest.TestCase):
-
-    def setUp(self):
-        self.calendar = GregorianCalendar(TIME)
-
+class TestMonths(object):
     def test_can_get_month_node(self):
         december = self.calendar.month(2000, 12)
         assert isinstance(december, neo4j.Node)
@@ -141,11 +134,7 @@ class TestMonths(unittest.TestCase):
         assert december != january
 
 
-class TestYears(unittest.TestCase):
-
-    def setUp(self):
-        self.calendar = GregorianCalendar(TIME)
-
+class TestYears(object):
     def test_can_get_year_node(self):
         millennium = self.calendar.year(2000)
         assert isinstance(millennium, neo4j.Node)
@@ -163,12 +152,7 @@ class TestYears(unittest.TestCase):
         assert millennium_2000 != millennium_2001
 
 
-class TestDateRanges(unittest.TestCase):
-
-    def setUp(self):
-        clear()
-        self.calendar = GregorianCalendar(TIME)
-
+class TestDateRanges(object):
     def test_can_get_date_range(self):
         xmas_year = self.calendar.date_range((2000, 12, 25), (2001, 12, 25))
         assert isinstance(xmas_year, neo4j.Node)
@@ -294,7 +278,3 @@ class TestDateRanges(unittest.TestCase):
             return True
         else:
             return False
-
-
-if __name__ == "__main__":
-    unittest.main()

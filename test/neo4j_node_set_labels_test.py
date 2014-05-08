@@ -16,15 +16,14 @@
 # limitations under the License.
 
 
-from py2neo import neo4j, node
+from py2neo import node
 
 
-def test_can_set_labels_on_node():
-    graph_db = neo4j.GraphDatabaseService()
-    if not graph_db.supports_node_labels:
+def test_can_set_labels_on_node(graph):
+    if not graph.supports_node_labels:
         return
-    graph_db.clear()
-    alice, = graph_db.create(node(name="Alice"))
+    graph.clear()
+    alice, = graph.create(node(name="Alice"))
     alice.add_labels("human", "female")
     labels = alice.get_labels()
     assert len(labels) == 2
@@ -33,7 +32,7 @@ def test_can_set_labels_on_node():
     labels = alice.get_labels()
     assert labels == set(["mystery", "badger"])
     assert labels != set(["human", "female"])
-    found = graph_db.find("badger")
+    found = graph.find("badger")
     assert list(found) == [alice]
-    found = graph_db.find("badger", "name", "Alice")
+    found = graph.find("badger", "name", "Alice")
     assert list(found) == [alice]

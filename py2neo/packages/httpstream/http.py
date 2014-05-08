@@ -37,6 +37,8 @@ import logging
 from os import strerror
 from socket import error, gaierror, herror, timeout, IPPROTO_TCP, TCP_NODELAY
 from threading import local
+import socket
+import ssl
 import sys
 from xml.dom.minidom import parseString
 
@@ -54,14 +56,24 @@ __all__ = ["NetworkAddressError", "SocketError", "RedirectionError", "Request",
            "ResourceTemplate", "get", "put", "post", "delete", "head"]
 
 
+socket_timeout = 30
+
+
 class HTTPConnection(_HTTPConnection):
     """ Patched class to avoid Nagle's algorithm:
     https://en.wikipedia.org/wiki/Nagle%27s_algorithm
     """
 
     def connect(self):
-        _HTTPConnection.connect(self)
+        """ Connect to the host and port specified at construction.
+        """
+        self.sock = socket.create_connection((self.host, self.port),
+                                             socket_timeout,
+                                             self.source_address)
         self.sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+
+        if self._tunnel_host:
+            self._tunnel()
 
 
 class HTTPSConnection(_HTTPSConnection):
@@ -70,8 +82,17 @@ class HTTPSConnection(_HTTPSConnection):
     """
 
     def connect(self):
-        _HTTPSConnection.connect(self)
-        self.sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        """ Connect to the host and port specified at construction over SSL.
+        """
+        sock = socket.create_connection((self.host, self.port),
+                                             socket_timeout,
+                                             self.source_address)
+        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+
+        if self._tunnel_host:
+            self.sock = sock
+            self._tunnel()
+        self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file)
 
 
 connection_classes = {

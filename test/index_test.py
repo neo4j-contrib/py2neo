@@ -17,77 +17,69 @@
 
 from __future__ import unicode_literals
 
-import sys
-PY3K = sys.version_info[0] >= 3
-
-from py2neo import neo4j
-
 import logging
+import sys
 from time import time
-import unittest
 from uuid import uuid4
 
+import pytest
+from py2neo import neo4j
+
+
+PY3K = sys.version_info[0] >= 3
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
-
-
-class CreationAndDeletionTests(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
+class CreationAndDeletionTests(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_index_object_with_colon_in_name(self):
         uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
-        index = neo4j.Index(neo4j.Node, uri)
+        neo4j.Index(neo4j.Node, uri)
 
     def test_can_delete_create_and_delete_index(self):
         try:
-            self.graph_db.delete_index(neo4j.Node, "foo")
+            self.graph.delete_index(neo4j.Node, "foo")
         except LookupError:
             pass
-        foo = self.graph_db.get_index(neo4j.Node, "foo")
+        foo = self.graph.get_index(neo4j.Node, "foo")
         self.assertTrue(foo is None)
-        foo = self.graph_db.get_or_create_index(neo4j.Node, "foo")
+        foo = self.graph.get_or_create_index(neo4j.Node, "foo")
         self.assertTrue(foo is not None)
         self.assertTrue(isinstance(foo, neo4j.Index))
         self.assertEqual("foo", foo.name)
         self.assertEqual(neo4j.Node, foo.content_type)
-        self.graph_db.delete_index(neo4j.Node, "foo")
-        foo = self.graph_db.get_index(neo4j.Node, "foo")
+        self.graph.delete_index(neo4j.Node, "foo")
+        foo = self.graph.get_index(neo4j.Node, "foo")
         self.assertTrue(foo is None)
 
     def test_can_delete_create_and_delete_index_with_colon_in_name(self):
         try:
-            self.graph_db.delete_index(neo4j.Node, "foo:bar")
+            self.graph.delete_index(neo4j.Node, "foo:bar")
         except LookupError:
             pass
-        foo = self.graph_db.get_index(neo4j.Node, "foo:bar")
+        foo = self.graph.get_index(neo4j.Node, "foo:bar")
         self.assertTrue(foo is None)
-        foo = self.graph_db.get_or_create_index(neo4j.Node, "foo:bar")
+        foo = self.graph.get_or_create_index(neo4j.Node, "foo:bar")
         self.assertTrue(foo is not None)
         self.assertTrue(isinstance(foo, neo4j.Index))
         self.assertEqual("foo:bar", foo.name)
         self.assertEqual(neo4j.Node, foo.content_type)
-        self.graph_db.delete_index(neo4j.Node, "foo:bar")
-        foo = self.graph_db.get_index(neo4j.Node, "foo:bar")
+        self.graph.delete_index(neo4j.Node, "foo:bar")
+        foo = self.graph.get_index(neo4j.Node, "foo:bar")
         self.assertTrue(foo is None)
 
 
-class NodeIndexTestCase(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_test_index")
-
-    def tearDown(self):
-        self.graph_db.delete_index(self.index.content_type, self.index.name)
+class NodeIndexTestCase(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.graph = graph
 
     def test_add_existing_node_to_index(self):
-        alice, = self.graph_db.create({"name": "Alice Smith"})
+        alice, = self.graph.create({"name": "Alice Smith"})
         self.index.add("surname", "Smith", alice)
         entities = self.index.get("surname", "Smith")
         self.assertTrue(entities is not None)
@@ -96,7 +88,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_existing_node_to_index_with_spaces_in_key_and_value(self):
-        alice, = self.graph_db.create({"name": "Alice von Schmidt"})
+        alice, = self.graph.create({"name": "Alice von Schmidt"})
         self.index.add("family name", "von Schmidt", alice)
         entities = self.index.get("family name", "von Schmidt")
         self.assertTrue(entities is not None)
@@ -105,7 +97,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_existing_node_to_index_with_odd_chars_in_key_and_value(self):
-        alice, = self.graph_db.create({"name": "Alice Smith"})
+        alice, = self.graph.create({"name": "Alice Smith"})
         self.index.add("@!%#", "!\"$%^&*()", alice)
         entities = self.index.get("@!%#", "!\"$%^&*()")
         self.assertTrue(entities is not None)
@@ -114,7 +106,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_add_existing_node_to_index_with_slash_in_key(self):
-        node, = self.graph_db.create({"foo": "bar"})
+        node, = self.graph.create({"foo": "bar"})
         key = "foo/bar"
         value = "bar"
         self.index.add(key, value, node)
@@ -125,7 +117,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(node, entities[0])
 
     def test_add_existing_node_to_index_with_slash_in_value(self):
-        node, = self.graph_db.create({"foo": "bar"})
+        node, = self.graph.create({"foo": "bar"})
         key = "foo"
         value = "foo/bar"
         self.index.add(key, value, node)
@@ -136,7 +128,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(node, entities[0])
 
     def test_add_multiple_existing_nodes_to_index_under_same_key_and_value(self):
-        alice, bob, carol = self.graph_db.create(
+        alice, bob, carol = self.graph.create(
             {"name": "Alice Smith"},
             {"name": "Bob Smith"},
             {"name": "Carol Smith"}
@@ -184,7 +176,7 @@ class NodeIndexTestCase(unittest.TestCase):
             self.assertTrue(alice is None)
 
     def test_add_node_if_none(self):
-        alice, bob = self.graph_db.create(
+        alice, bob = self.graph.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"}
         )
         # add Alice to the index - this should be successful
@@ -205,7 +197,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertEqual(alice, entities[0])
 
     def test_node_index_query(self):
-        red, green, blue = self.graph_db.create({}, {}, {})
+        red, green, blue = self.graph.create({}, {}, {})
         self.index.add("colour", "red", red)
         self.index.add("colour", "green", green)
         self.index.add("colour", "blue", blue)
@@ -215,7 +207,7 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertFalse(blue in colours_containing_R)
 
     def test_node_index_query_utf8(self):
-        red, green, blue = self.graph_db.create({}, {}, {})
+        red, green, blue = self.graph.create({}, {}, {})
         self.index.add("colour", "красный", red)
         self.index.add("colour", "зеленый", green)
         self.index.add("colour", "синий", blue)
@@ -225,12 +217,12 @@ class NodeIndexTestCase(unittest.TestCase):
         self.assertFalse(blue in colours_containing_R)
 
 
-class RemovalTests(unittest.TestCase):
-
-    def setUp(self):
-        self.graph_db = default_graph_db()
-        self.index = self.graph_db.get_or_create_index(neo4j.Node, "node_removal_test_index")
-        self.fred, self.wilma, = self.graph_db.create(
+class RemovalTests(object):
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.graph = graph
+        self.index = self.graph.get_or_create_index(neo4j.Node, "node_removal_test_index")
+        self.fred, self.wilma, = self.graph.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
         self.index.add("name", "Fred", self.fred)
@@ -239,10 +231,6 @@ class RemovalTests(unittest.TestCase):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-
-    def tearDown(self):
-        self.graph_db.delete(self.fred, self.wilma)
-        self.graph_db.delete_index(self.index.content_type, self.index.name)
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)
@@ -279,34 +267,27 @@ class RemovalTests(unittest.TestCase):
         self.check("flintstones", "%", self.wilma)
 
 
-class IndexedNodeTests(unittest.TestCase):
+class IndexedNodeTests(object):
 
-    def test_get_or_create_indexed_node_with_int_property(self):
-        graph_db = neo4j.GraphDatabaseService()
-        fred = graph_db.get_or_create_indexed_node(index_name="person", key="name", value="Fred", properties={"level" : 1})
+    def test_get_or_create_indexed_node_with_int_property(self, graph):
+        fred = graph.get_or_create_indexed_node(index_name="person", key="name", value="Fred", properties={"level" : 1})
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
-        graph_db.delete(fred)
+        graph.delete(fred)
 
 
-class IndexConstructionTimingTests(unittest.TestCase):
+class IndexConstructionTimingTests(object):
 
-    def test_time_of_creating_many_indexes(self):
+    def test_time_of_creating_many_indexes(self, graph):
         INDEX_COUNT = 1
-        graph_db = neo4j.GraphDatabaseService()
         indexes = dict.fromkeys(uuid4().hex for _ in range(INDEX_COUNT))
         try:
             t0 = time()
             for index_name in indexes:
-                indexes[index_name] = graph_db.get_or_create_index(neo4j.Node, index_name)
+                indexes[index_name] = graph.get_or_create_index(neo4j.Node, index_name)
             t = time() - t0
             print(t / INDEX_COUNT)
         finally:
             for index_name, index in indexes.items():
                 if index:
-                    graph_db.delete_index(neo4j.Node, index_name)
-
-
-if __name__ == '__main__':
-    unittest.main()
-
+                    graph.delete_index(neo4j.Node, index_name)

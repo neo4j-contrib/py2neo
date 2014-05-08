@@ -14,21 +14,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import unittest
+import pytest
 
 from py2neo import neo4j
 
 
-class GetIndexedNodeTestCase(unittest.TestCase):
+class GetIndexedNodeTestCase(object):
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_retrieve_multiple_indexed_nodes(self):
-        people = self.graph_db.get_or_create_index(neo4j.Node, "People")
-        alice, bob, carol, dave, eve = self.graph_db.create(
+        people = self.graph.get_or_create_index(neo4j.Node, "People")
+        alice, bob, carol, dave, eve = self.graph.create(
             {"name": "Alice Smith"},
             {"name": "Bob Smith"},
             {"name": "Carol Smith"},
@@ -40,7 +39,7 @@ class GetIndexedNodeTestCase(unittest.TestCase):
         people.add("family_name", "Smith", carol)
         people.add("family_name", "Jones", dave)
         people.add("family_name", "Jones", eve)
-        batch = neo4j.ReadBatch(self.graph_db)
+        batch = neo4j.ReadBatch(self.graph)
         batch.get_indexed_nodes("People", "family_name", "Smith")
         batch.get_indexed_nodes("People", "family_name", "Jones")
         data = batch.submit()
@@ -48,7 +47,3 @@ class GetIndexedNodeTestCase(unittest.TestCase):
         joneses = data[1]
         assert smiths == [alice, bob, carol]
         assert joneses == [dave, eve]
-
-
-if __name__ == "__main__":
-    unittest.main()

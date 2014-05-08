@@ -15,35 +15,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 import sys
-PY3K = sys.version_info[0] >= 3
+
+import pytest
 
 from py2neo import neo4j, node
 
-import logging
-import unittest
+PY3K = sys.version_info[0] >= 3
+UNICODE_TEST_STR = ""
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
     level=logging.DEBUG,
 )
 
-UNICODE_TEST_STR = ""
 for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
     UNICODE_TEST_STR += chr(ch) if PY3K else unichr(ch)
 
-def default_graph_db():
-    return neo4j.GraphDatabaseService()
 
-def recycle(*entities):
-    for entity in entities:
-        try:
-            entity.delete()
-        except Exception:
-            pass
-
-
-class AbstractNodeTestCase(unittest.TestCase):
+class AbstractNodeTestCase(object):
 
     def test_can_create_abstract_node(self):
         alice = node(name="Alice", age=34)
@@ -58,7 +49,7 @@ class AbstractNodeTestCase(unittest.TestCase):
         assert alice_1 == alice_2
 
 
-class ConcreteNodeTestCase(unittest.TestCase):
+class ConcreteNodeTestCase(object):
 
     data = {
         "true": True,
@@ -73,12 +64,12 @@ class ConcreteNodeTestCase(unittest.TestCase):
         "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
     }
 
-    def setUp(self):
-        self.graph_db = neo4j.GraphDatabaseService()
-        self.graph_db.clear()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_concrete_node(self):
-        alice, = self.graph_db.create({"name": "Alice", "age": 34})
+        alice, = self.graph.create({"name": "Alice", "age": 34})
         assert isinstance(alice, neo4j.Node)
         assert not alice.is_abstract
         assert alice["name"] == "Alice"
@@ -98,12 +89,12 @@ class ConcreteNodeTestCase(unittest.TestCase):
             "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
             "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
         }
-        foo, = self.graph_db.create(data)
+        foo, = self.graph.create(data)
         for key, value in data.items():
             self.assertEqual(foo[key], value)
 
     def test_cannot_assign_oversized_long(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             if PY3K:
                 foo["long"] = 9223372036854775808
@@ -115,7 +106,7 @@ class ConcreteNodeTestCase(unittest.TestCase):
             assert False
 
     def test_cannot_assign_mixed_list(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             foo["mixed_list"] = [42, "life", "universe", "everything"]
         except:
@@ -124,7 +115,7 @@ class ConcreteNodeTestCase(unittest.TestCase):
             assert False
 
     def test_cannot_assign_dict(self):
-        foo, = self.graph_db.create({})
+        foo, = self.graph.create({})
         try:
             foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
         except:
@@ -133,10 +124,10 @@ class ConcreteNodeTestCase(unittest.TestCase):
             assert False
 
 
-class NodeTestCase(unittest.TestCase):
+class NodeTestCase(object):
 
-    def setUp(self):
-        self.gdb = default_graph_db()
+    def setUp(self, graph):
+        self.gdb = graph()
         self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
             {"name": "Fred"}, {"name": "Wilma"}, (0, "REALLY LOVES", 1)
         )
@@ -238,7 +229,3 @@ class NodeTestCase(unittest.TestCase):
 
     def tearDown(self):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
-
-
-if __name__ == '__main__':
-    unittest.main()
