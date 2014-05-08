@@ -48,9 +48,9 @@ from .packages.httpstream import (http,
                                   Resource as _Resource,
                                   ResourceTemplate as _ResourceTemplate,
                                   ClientError as _ClientError,
-                                  ServerError as _ServerError, BAD_REQUEST)
+                                  ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
-from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
 from .packages.urimagic import percent_encode, URI, URITemplate
 
 from . import __version__
