@@ -15,16 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-import logging
-
 from py2neo import neo4j
 
-
-logging.basicConfig(level=logging.DEBUG)
-
-
-def test_can_rewrite_uri():
+def test_can_rewrite_uri(graph):
     neo4j.rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-    graph_db = neo4j.GraphDatabaseService("https://localtoast:4747/db/data/")
-    assert graph_db.neo4j_version
+    assert graph.neo4j_version

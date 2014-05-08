@@ -19,9 +19,8 @@
 from py2neo import neo4j
 
 
-def test_can_create_path_with_new_nodes():
-    graph_db = neo4j.GraphDatabaseService()
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_create_path_with_new_nodes(graph):
+    batch = neo4j.WriteBatch(graph)
     batch.create_path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
     results = batch.submit()
     path = results[0]
@@ -31,10 +30,9 @@ def test_can_create_path_with_new_nodes():
     assert path.nodes[1]["name"] == "Bob"
 
 
-def test_can_create_path_with_existing_nodes():
-    graph_db = neo4j.GraphDatabaseService()
-    alice, bob = graph_db.create({"name": "Alice"}, {"name": "Bob"})
-    batch = neo4j.WriteBatch(graph_db)
+def test_can_create_path_with_existing_nodes(graph):
+    alice, bob = graph.create({"name": "Alice"}, {"name": "Bob"})
+    batch = neo4j.WriteBatch(graph)
     batch.create_path(alice, "KNOWS", bob)
     results = batch.submit()
     path = results[0]
@@ -45,16 +43,16 @@ def test_can_create_path_with_existing_nodes():
 
 
 def test_is_not_idempotent():
-    graph_db = neo4j.GraphDatabaseService()
-    alice, = graph_db.create({"name": "Alice"})
-    batch = neo4j.WriteBatch(graph_db)
+    graph = neo4j.GraphDatabaseService()
+    alice, = graph.create({"name": "Alice"})
+    batch = neo4j.WriteBatch(graph)
     batch.create_path(alice, "KNOWS", {"name": "Bob"})
     results = batch.submit()
     path = results[0]
     bob = path.nodes[1]
     assert path.nodes[0] == alice
     assert bob["name"] == "Bob"
-    batch = neo4j.WriteBatch(graph_db)
+    batch = neo4j.WriteBatch(graph)
     batch.create_path(alice, "KNOWS", {"name": "Bob"})
     results = batch.submit()
     path = results[0]
