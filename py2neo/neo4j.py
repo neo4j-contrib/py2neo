@@ -578,16 +578,13 @@ class Graph(Cacheable, Resource):
             )
 
             # create two nodes with a connecting relationship
-            alice, bob, rel = graph.create(
+            alice, bob, ab = graph.create(
                 {"name": "Alice"}, {"name": "Bob"},
                 (0, "KNOWS", 1, {"since": 2006})
             )
 
             # create a node plus a relationship to pre-existing node
-            ref_node = graph.get_reference_node()
-            alice, rel = graph.create(
-                {"name": "Alice"}, (ref_node, "PERSON", 0)
-            )
+            bob, ab = graph.create({"name": "Bob"}, (alice, "PERSON", 0))
 
         :return: list of :py:class:`Node` and/or :py:class:`Relationship`
             instances
