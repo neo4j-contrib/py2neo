@@ -41,7 +41,7 @@ Batch Insertion using Index
     batch = neo4j.WriteBatch(graph)  # batch is linked to graph database
 
     for emp_no, name in records:
-        # get_or_create_indexes_node is one of many batch methods available
+        # get_or_create_indexed_node is one of many batch methods available
         batch.get_or_create_indexed_node("Employees", "emp_no", emp_no, {
             "emp_no": emp_no, "name": name
         })
