@@ -2,20 +2,20 @@ Fundamentals
 ============
 
 At the heart of py2neo are three core classes needed for every application:
-:py:class:`GraphDatabaseService <py2neo.neo4j.GraphDatabaseService>`,
+:py:class:`Graph <py2neo.neo4j.Graph>`,
 :py:class:`Node <py2neo.neo4j.Node>` and
 :py:class:`Relationship <py2neo.neo4j.Relationship>`. A
-``GraphDatabaseService`` maintains a link to a Neo4j database via a root URI.
+``Graph`` maintains a link to a Neo4j database via a root URI.
 For a default installation, this will be `http://localhost:7474/db/data/`
 (don't forget the trailing slash!) and can be constructed as follows::
 
     from py2neo import neo4j
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+    graph_db = neo4j.Graph("http://localhost:7474/db/data/")
 
-A ``GraphDatabaseService`` object provides access to a number of core methods,
+A ``Graph`` object provides access to a number of core methods,
 such as those to create and delete nodes, match relationships and manage
 indexes. One of the most useful methods is simply named
-:py:func:`create <py2neo.neo4j.GraphDatabaseService.create>` and this can be
+:py:func:`create <py2neo.neo4j.Graph.create>` and this can be
 used to easily build nodes and relationships within the graph. Imagine we
 wanted to model the following data::
 

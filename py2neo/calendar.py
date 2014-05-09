@@ -23,7 +23,7 @@ based on a calendar subgraph::
     from py2neo import neo4j
     from py2neo.calendar import GregorianCalendar
 
-    graph_db = neo4j.GraphDatabaseService()
+    graph_db = neo4j.Graph()
     time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
     calendar = GregorianCalendar(time_index)
 

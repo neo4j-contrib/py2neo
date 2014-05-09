@@ -54,7 +54,7 @@ class ExampleCodeTestCase(object):
             def __str__(self):
                 return self.name
 
-        graph = neo4j.GraphDatabaseService()
+        graph = neo4j.Graph()
         store = ogm.Store(graph)
 
         alice = Person("alice@example.com", "Alice", 34)

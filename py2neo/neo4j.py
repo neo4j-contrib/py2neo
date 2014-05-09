@@ -19,7 +19,7 @@
 functionality and will be the starting point for most applications. The main
 classes provided are:
 
-- :py:class:`GraphDatabaseService` - an instance of a Neo4j database server,
+- :py:class:`Graph` - an instance of a Neo4j database server,
   providing a number of graph-global methods for handling nodes and
   relationships
 - :py:class:`Node` - a representation of a database node
@@ -109,10 +109,10 @@ def authenticate(host_port, user_name, password):
         neo4j.authenticate("camelot:7474", "arthur", "excalibur")
 
         # connect to authenticated graph database
-        graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
+        graph_db = neo4j.Graph("http://camelot:7474/db/data/")
 
     Note: a `host_port` can be either a server name or a server name and port
-    number but must match exactly that used within the GraphDatabaseService
+    number but must match exactly that used within the Graph
     URI.
 
     :param host_port: the host and optional port requiring authentication
@@ -458,7 +458,7 @@ class ServiceRoot(Cacheable, Resource):
 
     @property
     def graph_db(self):
-        return GraphDatabaseService.get_instance(self.__metadata__["data"])
+        return Graph.get_instance(self.__metadata__["data"])
 
     @property
     def load2neo(self):
@@ -511,7 +511,7 @@ class Monitor(Cacheable, Resource):
         return data
 
 
-class GraphDatabaseService(Cacheable, Resource):
+class Graph(Cacheable, Resource):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
     attaching to this service should need to be directly aware of; all further
@@ -524,7 +524,7 @@ class GraphDatabaseService(Cacheable, Resource):
 
         from py2neo import neo4j
         
-        graph_db = neo4j.GraphDatabaseService()
+        graph_db = neo4j.Graph()
         print(graph_db.neo4j_version)
 
     :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
@@ -657,7 +657,7 @@ class GraphDatabaseService(Cacheable, Resource):
         ::
 
             >>> from py2neo import neo4j
-            >>> graph_db = neo4j.GraphDatabaseService()
+            >>> graph_db = neo4j.Graph()
             >>> graph_db.load_geoff("(alice)<-[:KNOWS]->(bob)")
             [{u'alice': Node('http://localhost:7474/db/data/node/1'),
               u'bob': Node('http://localhost:7474/db/data/node/2')}]
@@ -780,7 +780,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :return: a matching :py:class:`Relationship` or :py:const:`None`
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
@@ -1033,12 +1033,16 @@ class GraphDatabaseService(Cacheable, Resource):
         return None
 
 
+# Deprecated alias
+GraphDatabaseService = Graph
+
+
 class CypherQuery(object):
     """ A reusable Cypher query. To create a new query object, a graph and the
     query text need to be supplied::
 
         >>> from py2neo import neo4j
-        >>> graph_db = neo4j.GraphDatabaseService()
+        >>> graph_db = neo4j.Graph()
         >>> query = neo4j.CypherQuery(graph_db, "CREATE (a) RETURN a")
 
     """
@@ -1426,7 +1430,7 @@ class Node(_Entity):
 
     Typically, concrete nodes will not be constructed directly in this way
     by client applications. Instead, methods such as
-    :py:func:`GraphDatabaseService.create` build node objects indirectly as
+    :py:func:`Graph.create` build node objects indirectly as
     required. Once created, nodes can be treated like any other container type
     so as to manage properties::
 
@@ -1578,7 +1582,7 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
         return self.service_root.graph_db.match(self, rel_type, other_node,
                                                 True, limit)
@@ -1597,7 +1601,7 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
         return self.service_root.graph_db.match(start_node, rel_type, self,
                                                 False, limit)
@@ -1616,7 +1620,7 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
         return self.service_root.graph_db.match(self, rel_type, end_node,
                                                 False, limit)
@@ -1729,7 +1733,7 @@ class Node(_Entity):
         For example::
 
             >>> from py2neo import neo4j, node
-            >>> graph_db = neo4j.GraphDatabaseService()
+            >>> graph_db = neo4j.Graph()
             >>> alice, = graph_db.create(node(name="Alice"))
             >>> alice.add_labels("female", "human")
 
@@ -2161,7 +2165,7 @@ class Index(Cacheable, Resource):
     """ Searchable database index which can contain either nodes or
     relationships.
 
-    .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
+    .. seealso:: :py:func:`Graph.get_or_create_index`
     """
 
     def __init__(self, content_type, uri, name=None):

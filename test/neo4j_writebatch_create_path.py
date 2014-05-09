@@ -43,7 +43,7 @@ def test_can_create_path_with_existing_nodes(graph):
 
 
 def test_is_not_idempotent():
-    graph = neo4j.GraphDatabaseService()
+    graph = neo4j.Graph()
     alice, = graph.create({"name": "Alice"})
     batch = neo4j.WriteBatch(graph)
     batch.create_path(alice, "KNOWS", {"name": "Bob"})

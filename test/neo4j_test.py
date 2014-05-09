@@ -32,7 +32,7 @@ logging.basicConfig(
 
 
 def test_wrong_host_will_fail():
-    graph = neo4j.GraphDatabaseService("http://localtoast:7474/db/data/")
+    graph = neo4j.Graph("http://localtoast:7474/db/data/")
     try:
         graph.refresh()
     except NetworkAddressError:
@@ -42,7 +42,7 @@ def test_wrong_host_will_fail():
 
 
 def test_wrong_port_will_fail():
-    graph = neo4j.GraphDatabaseService("http://localhost:7575/db/data/")
+    graph = neo4j.Graph("http://localhost:7575/db/data/")
     try:
         graph.refresh()
     except SocketError:
@@ -52,7 +52,7 @@ def test_wrong_port_will_fail():
 
 
 def test_wrong_path_will_fail():
-    graph = neo4j.GraphDatabaseService("http://localhost:7474/foo/bar/")
+    graph = neo4j.Graph("http://localhost:7474/foo/bar/")
     try:
         graph.refresh()
     except neo4j.ClientError:
@@ -67,15 +67,15 @@ def test_can_use_graph_if_no_trailing_slash_supplied(graph):
     assert alice["name"] == "Alice"
 
 
-class GraphDatabaseServiceTest(object):
+class GraphTest(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
 
     def test_can_get_same_instance(self):
-        graph_1 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
-        graph_2 = neo4j.GraphDatabaseService.get_instance(neo4j.DEFAULT_URI)
+        graph_1 = neo4j.Graph.get_instance(neo4j.DEFAULT_URI)
+        graph_2 = neo4j.Graph.get_instance(neo4j.DEFAULT_URI)
         assert graph_1 is graph_2
 
     def test_neo4j_version_format(self):
@@ -156,6 +156,9 @@ class GraphDatabaseServiceTest(object):
         self.assertEqual("haddock", props[3]["fish"][1])
         self.assertEqual("plaice", props[3]["fish"][2])
         self.assertEqual(109, props[3]["number"])
+
+    def test_graph_class_aliases(self):
+        assert neo4j.GraphDatabaseService is neo4j.Graph
 
 
 class NewCreateTestCase(object):

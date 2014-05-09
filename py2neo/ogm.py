@@ -18,7 +18,7 @@
 """ The ogm module provides Object to Graph Mapping features similar to ORM
 facilities available for relational databases. All functionality is available
 through the :py:class:`Store` class which is bound to a specific
-:py:class:`neo4j.GraphDatabaseService` instance on creation.
+:py:class:`neo4j.Graph` instance on creation.
 
 Conceptually, a mapped object "owns" a single node within the graph along with
 all of that node's outgoing relationships. These features are managed via a
@@ -69,7 +69,7 @@ The code below shows an example of usage::
         def __str__(self):
             return self.name
 
-    graph_db = neo4j.GraphDatabaseService()
+    graph_db = neo4j.Graph()
     store = ogm.Store(graph_db)
 
     alice = Person("alice@example.com", "Alice", 34)

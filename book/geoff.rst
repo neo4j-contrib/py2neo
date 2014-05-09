@@ -9,7 +9,7 @@ Geoff
     Geoff should now be used via the `load2neo <http://nigelsmall.com/load2neo>`_
     extension that provides more efficient and more consistent behaviour. This
     facility can be accessed client-side by using the `load_geoff
-    <../graphs_nodes_relationships/#py2neo.neo4j.GraphDatabaseService.load_geoff>`_
+    <../graphs_nodes_relationships/#py2neo.neo4j.Graph.load_geoff>`_
     method when the extension has been installed on the server.
 
 .. note::

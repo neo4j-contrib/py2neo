@@ -6,7 +6,8 @@ Release Notes
 Version 1.7
 ===========
 - Upgrade to HTTPStream 1.2.1
--
+- Renamed GraphDatabaseService to Graph and created deprecated alias
+
 
 Version 1.6.1
 =============
