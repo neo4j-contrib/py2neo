@@ -44,9 +44,9 @@ class Metadata(object):
 
 @deprecated("The cypher module is deprecated, use "
             "neo4j.CypherQuery instead")
-def execute(graph_db, query, params=None, row_handler=None,
+def execute(graph, query, params=None, row_handler=None,
             metadata_handler=None, error_handler=None):
-    query = CypherQuery(graph_db, query)
+    query = CypherQuery(graph, query)
     data, metadata = [], None
     try:
         results = query.execute(**params or {})
@@ -124,9 +124,9 @@ class Session(object):
         else:
             service_root_uri = "{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port)
         self._service_root = ServiceRoot.get_instance(service_root_uri)
-        self._graph_db = self._service_root.graph_db
+        self._graph = self._service_root.graph
         try:
-            self._transaction_uri = self._graph_db.__metadata__["transaction"]
+            self._transaction_uri = self._graph.__metadata__["transaction"]
         except KeyError:
             raise NotImplementedError("Cypher transactions are not supported "
                                       "by this server version")

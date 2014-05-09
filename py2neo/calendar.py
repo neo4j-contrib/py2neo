@@ -23,11 +23,11 @@ based on a calendar subgraph::
     from py2neo import neo4j
     from py2neo.calendar import GregorianCalendar
 
-    graph_db = neo4j.Graph()
-    time_index = graph_db.get_or_create_index(neo4j.Node, "TIME")
+    graph = neo4j.Graph()
+    time_index = graph.get_or_create_index(neo4j.Node, "TIME")
     calendar = GregorianCalendar(time_index)
 
-    graph_db.create(
+    graph.create(
         {"name": "Alice"},
         (0, "BORN", calendar.day(1800, 1, 1)),
         (0, "DIED", calendar.day(1900, 12, 31)),
@@ -126,7 +126,7 @@ class GregorianCalendar(object):
         """ Create a new calendar instance pointed to by the index provided.
         """
         self._index = index
-        self._graph_db = self._index.service_root.graph_db
+        self._graph = self._index.service_root.graph
         self._calendar = self._index.get_or_create("calendar", "Gregorian", {})
 
     def calendar(self):
@@ -236,7 +236,7 @@ class GregorianCalendar(object):
         else:
             raise ValueError("Either start or end date must be supplied "
                              "for a date range")
-        return CypherQuery(self._graph_db, query).execute_one(**params)
+        return CypherQuery(self._graph, query).execute_one(**params)
 
     def quarter(self, year, quarter):
         if quarter == 1:

@@ -10,7 +10,7 @@ For a default installation, this will be `http://localhost:7474/db/data/`
 (don't forget the trailing slash!) and can be constructed as follows::
 
     from py2neo import neo4j
-    graph_db = neo4j.Graph("http://localhost:7474/db/data/")
+    graph = neo4j.Graph("http://localhost:7474/db/data/")
 
 A ``Graph`` object provides access to a number of core methods,
 such as those to create and delete nodes, match relationships and manage
@@ -33,7 +33,7 @@ wanted to model the following data::
 This could be carried out in a single ``create`` statement::
 
     from py2neo import node, rel
-    die_hard = graph_db.create(
+    die_hard = graph.create(
         node(name="Bruce Willis"),
         node(name="John McClane"),
         node(name="Alan Rickman"),
@@ -81,7 +81,7 @@ same batch. In some circumstances, it is possible to use an integer reference
 to such a node and this makes it possible to carry out certain atomic
 operations, such as creating a relationship between two newly-created nodes::
 
-    graph_db.create(node({"name": "Alice"}), node({"name": "Bob"}), rel(0, "KNOWS", 1))
+    graph.create(node({"name": "Alice"}), node({"name": "Bob"}), rel(0, "KNOWS", 1))
 
 Due to server limitations however, not all functions support this capability.
 In particular, functions that rely on implicit Cypher queries, such as

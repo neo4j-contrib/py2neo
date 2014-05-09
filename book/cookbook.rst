@@ -14,8 +14,8 @@ Using the Regular REST API
 
     from py2neo import neo4j
 
-    graph_db = neo4j.Graph()
-    a, b, ab = graph_db.create(node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1))
+    graph = neo4j.Graph()
+    a, b, ab = graph.create(node(name="Alice"), node(name="Bob"), rel(0, "KNOWS", 1))
 
 Using Cypher
 ------------
@@ -24,7 +24,7 @@ Using Cypher
 
     from py2neo import neo4j
 
-    graph_db = neo4j.Graph()
+    graph = neo4j.Graph()
     query = neo4j.CypherQuery(db, "CREATE (a {name:{name_a}})-[ab:KNOWS]->(b {name:{name_b}})"
                                   "RETURN a, b, ab")
     a, b, ab = query.execute(name_a="Alice", name_b="Bob").data[0]
@@ -37,8 +37,8 @@ Batch Insertion using Index
     # some example source data
     records = [(101, "Alice"), (102, "Bob"), (103, "Carol")]
 
-    graph_db = neo4j.Graph("http://localhost:7474/db/data/")
-    batch = neo4j.WriteBatch(graph_db)  # batch is linked to graph database
+    graph = neo4j.Graph("http://localhost:7474/db/data/")
+    batch = neo4j.WriteBatch(graph)  # batch is linked to graph database
 
     for emp_no, name in records:
         # get_or_create_indexes_node is one of many batch methods available
@@ -78,7 +78,7 @@ As of py2neo 1.6.1, authentication can also be supplied through any resource
 URI, e.g.::
 
     from py2neo import neo4j
-    graph_db = neo4j.Graph("http://arthur:excalibur@localhost:7474/db/data/")
+    graph = neo4j.Graph("http://arthur:excalibur@localhost:7474/db/data/")
     
 .. warning:: Implicit authentication such as this applies not just to the
     resource specified but instead applies globally to any resources with the

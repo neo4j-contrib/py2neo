@@ -197,9 +197,9 @@ class Subgraph(object):
             )
         return query, params, output_names
 
-    def _execute_load_batch(self, graph_db, unique):
+    def _execute_load_batch(self, graph, unique):
         # build batch request
-        batch = neo4j.WriteBatch(graph_db)
+        batch = neo4j.WriteBatch(graph)
         # 1. indexed nodes
         index_entries = list(self.index_entries.values())
         for entry in index_entries:
@@ -237,18 +237,18 @@ class Subgraph(object):
 
     @deprecated("The geoff module is deprecated, "
                 "use the load2neo server extension instead")
-    def insert_into(self, graph_db):
+    def insert_into(self, graph):
         """ Insert subgraph into graph database using Cypher CREATE.
         """
-        return self._execute_load_batch(graph_db, False)
+        return self._execute_load_batch(graph, False)
 
     @deprecated("The geoff module is deprecated, "
                 "use the load2neo server extension instead")
-    def merge_into(self, graph_db):
+    def merge_into(self, graph):
         """ Merge subgraph into graph database using Cypher CREATE UNIQUE.
         """
         try:
-            return self._execute_load_batch(graph_db, True)
+            return self._execute_load_batch(graph, True)
         except neo4j.BatchError as err:
             if err.__class__.__name__ == "UniquePathNotUniqueException":
                 err = ConstraintViolation(
@@ -624,25 +624,25 @@ class AbstractIndexEntry(object):
         return "|{0} {1}|=>{2}".format(self.index_name, json.dumps({self.key: self.value}, separators=(",", ":")), self.node)
 
 
-def insert(graph_db, file):
+def insert(graph, file):
     """ Insert Geoff data into a graph database.
     """
-    Subgraph.load(file).insert_into(graph_db)
+    Subgraph.load(file).insert_into(graph)
 
 
-def merge(graph_db, file):
+def merge(graph, file):
     """ Merge Geoff data into a graph database.
     """
-    Subgraph.load(file).merge_into(graph_db)
+    Subgraph.load(file).merge_into(graph)
 
 
-def insert_xml(graph_db, file):
+def insert_xml(graph, file):
     """ Insert XML data into a graph database.
     """
-    Subgraph.load_xml(file).insert_into(graph_db)
+    Subgraph.load_xml(file).insert_into(graph)
 
 
-def merge_xml(graph_db, file):
+def merge_xml(graph, file):
     """ Merge XML data into a graph database.
     """
-    Subgraph.load_xml(file).merge_into(graph_db)
+    Subgraph.load_xml(file).merge_into(graph)
