@@ -205,7 +205,7 @@ class Transaction(object):
         location = dict(rs.headers).get("location")
         if location:
             self._execute = Resource(location)
-        j = rs.json
+        j = rs.content
         rs.close()
         self._clear()
         if "commit" in j:

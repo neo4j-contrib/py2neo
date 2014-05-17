@@ -19,6 +19,7 @@
 from __future__ import unicode_literals
 
 from .packages.jsonstream import assembled
+from py2neo.packages.httpstream import JSONResponse
 
 
 __all__ = ["IndexTypeError", "ServerException", "ClientError", "ServerError",
@@ -70,7 +71,7 @@ class ClientError(Exception):
             self.__cause__ = response
         except TypeError:
             pass
-        if response.is_json:
+        if isinstance(response, JSONResponse):
             self._server_exception = ServerException(assembled(response))
             Exception.__init__(self, self._server_exception.message)
         else:

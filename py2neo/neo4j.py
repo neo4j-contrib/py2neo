@@ -80,6 +80,8 @@ _headers = {
 
 _http_rewrites = {}
 
+auto_sync = True
+
 
 def _add_header(key, value, host_port=None):
     """ Add an HTTP header to be sent with all requests if no `host_port`
@@ -644,7 +646,7 @@ class Graph(Cacheable, Resource):
         responses = batch._execute()
         try:
             return [BatchResponse(rs, raw=True).body or {}
-                    for rs in responses.json]
+                    for rs in responses.content]
         finally:
             responses.close()
 
@@ -1131,7 +1133,7 @@ class CypherResults(object):
         ]
 
     def __init__(self, response):
-        content = response.json
+        content = response.content
         self._columns = tuple(content["columns"])
         self._producer = RecordProducer(self._columns)
         self._data = [
@@ -1270,7 +1272,7 @@ class Schema(Cacheable, Resource):
         else:
             return [
                 indexed["property_keys"][0]
-                for indexed in response.json
+                for indexed in response.content
             ]
 
     def create_index(self, label, property_key):
@@ -1313,7 +1315,325 @@ class Schema(Cacheable, Resource):
                 raise
 
 
-class _Entity(Resource):
+class UnboundError(Exception):
+    pass
+
+
+class Neo4jResource(_Resource):
+    """ Variant of HTTPStream Resource that passes extra headers and product
+    detail.
+    """
+
+    def __init__(self, uri):
+        uri = URI(uri)
+        scheme_host_port = (uri.scheme, uri.host, uri.port)
+        if scheme_host_port in _http_rewrites:
+            scheme_host_port = _http_rewrites[scheme_host_port]
+            # This is fine - it's all my code anyway...
+            uri._URI__set_scheme(scheme_host_port[0])
+            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
+                                                     scheme_host_port[2]))
+        if uri.user_info:
+            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
+        self._resource = _Resource.__init__(self, uri)
+        #self._subresources = {}
+        self.__headers = _get_headers(self.__uri__.host_port)
+        self.__base = super(Neo4jResource, self)
+        self.__last_get_response = None
+
+    @property
+    def headers(self):
+        return self.__headers
+
+    @property
+    def metadata(self):
+        if self.__last_get_response is None:
+            self.get()
+        return self.__last_get_response.content
+
+    def get(self, headers=None, redirect_limit=5, **kwargs):
+        headers = dict(headers or {})
+        headers.update(self.__headers)
+        kwargs.update(product=PRODUCT, cache=True)
+        self.__last_get_response = self.__base.get(headers, redirect_limit,
+                                                   **kwargs)
+        return self.__last_get_response
+
+    def put(self, body=None, headers=None, **kwargs):
+        headers = dict(headers or {})
+        headers.update(self.__headers)
+        kwargs.update(product=PRODUCT)
+        return self.__base.put(body, headers, **kwargs)
+
+    def post(self, body=None, headers=None, **kwargs):
+        headers = dict(headers or {})
+        headers.update(self.__headers)
+        kwargs.update(product=PRODUCT)
+        return self.__base.post(body, headers, **kwargs)
+
+    def delete(self, headers=None, **kwargs):
+        headers = dict(headers or {})
+        headers.update(self.__headers)
+        kwargs.update(product=PRODUCT)
+        return self.__base.delete(headers, **kwargs)
+
+
+class Neo4jResourceTemplate(_ResourceTemplate):
+
+    def expand(self, **values):
+        return Neo4jResource(self.uri_template.expand(**values))
+
+
+class Bindable(object):
+    """ Mixin for objects that can be bound to a remote resource.
+    """
+
+    def __init__(self):
+        self.__service_root = None
+        self.__graph = None
+        self.__resource = None
+
+    def __assert_bound(self):
+        if not self.bound:
+            raise UnboundError("Local object is not bound to a "
+                               "remote resource")
+
+    @property
+    def service_root(self):
+        self.__assert_bound()
+        return self.__service_root
+
+    @property
+    def graph(self):
+        self.__assert_bound()
+        return self.__graph
+
+    @property
+    def resource(self):
+        """ Returns the :class:`Resource` to which this is bound.
+        """
+        self.__assert_bound()
+        return self.__resource
+
+    @property
+    def bound(self):
+        """ Returns :const:`True` if bound to a remote resource.
+        """
+        return self.__resource is not None
+
+    def bind(self, uri):
+        """ Bind object to Resource or ResourceTemplate.
+        """
+        uri = ustr(uri)
+        base = uri[:uri.find("/", uri.find("//") + 2)]
+        self.__service_root = ServiceRoot.get_instance(base + "/")
+        self.__graph = self.__service_root.graph
+        if "{" in uri:
+            self.__resource = Neo4jResourceTemplate(uri)
+        else:
+            self.__resource = Neo4jResource(uri)
+
+    def unbind(self):
+        self.__resource = None
+        self.__graph = None
+        self.__service_root = None
+
+    # deprecated
+    @property
+    def is_abstract(self):
+        return not self.bound
+
+
+class PropertySet(Bindable, dict):
+    """ A dict subclass that equates None with a non-existent key and can be
+    bound to a remote *properties* resource.
+    """
+
+    def __init__(self, iterable=None, **kwargs):
+        Bindable.__init__(self)
+        dict.__init__(self)
+        self.update(iterable, **kwargs)
+
+    def __getitem__(self, key):
+        return dict.get(self, key)
+
+    def __setitem__(self, key, value):
+        if value is None:
+            try:
+                dict.__delitem__(self, key)
+            except KeyError:
+                pass
+        else:
+            dict.__setitem__(self, key, value)
+
+    def __eq__(self, other):
+        return self == PropertySet(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def setdefault(self, key, default=None):
+        if key in self:
+            value = self[key]
+        elif default is None:
+            value = None
+        else:
+            value = dict.setdefault(self, key, default)
+        return value
+
+    def update(self, iterable=None, **kwargs):
+        if iterable:
+            try:
+                for key in iterable.keys():
+                    self[key] = iterable[key]
+            except (AttributeError, TypeError):
+                for key, value in iterable:
+                    self[key] = value
+        for key in kwargs:
+            self[key] = kwargs[key]
+
+    def pull(self):
+        """ Copy the set of remote properties onto the local set.
+        """
+        self.resource.get()
+        self.clear()
+        properties = self.resource.metadata
+        if properties:
+            self.update(properties)
+
+    def push(self):
+        """ Copy the set of local properties onto the remote set.
+        """
+        self.resource.put(self)
+
+
+class LabelSet(Bindable, set):
+    """ A set subclass that can be bound to a remote *labels* resource.
+    """
+
+    def __init__(self, iterable=None):
+        Bindable.__init__(self)
+        set.__init__(self)
+        if iterable:
+            self.update(iterable)
+
+    def __eq__(self, other):
+        return set(self) == LabelSet(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def pull(self):
+        """ Copy the set of remote labels onto the local set.
+        """
+        self.resource.get()
+        self.clear()
+        labels = self.resource.metadata
+        if labels:
+            self.update(labels)
+
+    def push(self):
+        """ Copy the set of local labels onto the remote set.
+        """
+        self.resource.put(self)
+
+
+class PropertyContainer(Bindable):
+    """ Base class for objects that contain a set of properties,
+    i.e. :py:class:`Node` and :py:class:`Relationship`.
+    """
+
+    def __init__(self, **properties):
+        Bindable.__init__(self)
+        self.__properties = PropertySet(properties)
+
+    def __eq__(self, other):
+        return self.properties == other.properties
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __contains__(self, key):
+        return key in self.properties
+
+    def __getitem__(self, key):
+        return self.properties.__getitem__(key)
+
+    def __setitem__(self, key, value):
+        return self.properties.__setitem__(key, value)
+
+    def __delitem__(self, key):
+        return self.properties.__delitem__(key)
+
+    @property
+    def properties(self):
+        """ The set of properties attached to this object.
+        """
+        return self.__properties
+
+    def bind(self, uri):
+        super(PropertyContainer, self).bind(uri)
+        self.__properties.bind(self.resource.metadata["properties"])
+
+    def unbind(self):
+        super(PropertyContainer, self).unbind()
+        self.__properties.unbind()
+
+    def pull(self):
+        self.resource.get()
+        self.properties.clear()
+        properties = self.resource.metadata["data"]
+        if properties:
+            self.properties.update(properties)
+
+    def push(self):
+        self.properties.push()
+
+    @deprecated("Use `properties` attribute instead")
+    def get_cached_properties(self):
+        """ Fetch last known properties without calling the server.
+
+        :return: dictionary of properties
+        """
+        return self.properties
+
+    @deprecated("Use `pull` method on `properties` attribute instead")
+    def get_properties(self):
+        """ Fetch all properties.
+
+        :return: dictionary of properties
+        """
+        try:
+            self.properties.pull()
+        except UnboundError:
+            pass
+        return self.properties
+
+    @deprecated("Use `push` method on `properties` attribute instead")
+    def set_properties(self, properties):
+        """ Replace all properties with those supplied.
+
+        :param properties: dictionary of new properties
+        """
+        self.properties.clear()
+        self.properties.update(properties)
+        try:
+            self.properties.push()
+        except UnboundError:
+            pass
+
+    @deprecated("Use `push` method on `properties` attribute instead")
+    def delete_properties(self):
+        """ Delete all properties.
+        """
+        self.properties.clear()
+        try:
+            self.properties.push()
+        except UnboundError:
+            pass
+
+
+class Entity(Resource):
     """ Base class from which :py:class:`Node` and :py:class:`Relationship`
     classes inherit. Provides property management functionality by defining
     standard Python container handler methods.
@@ -1347,37 +1667,6 @@ class _Entity(Resource):
     @property
     def _properties_resource(self):
         return self._subresource("properties")
-
-    @property
-    def _id(self):
-        """ Return the internal ID for this entity.
-
-        :return: integer ID of this entity within the database or
-            :py:const:`None` if abstract
-        """
-        if self.is_abstract:
-            return None
-        else:
-            return int(URI(self).path.segments[-1])
-
-    def delete(self):
-        """ Delete this entity from the database.
-        """
-        self._delete()
-
-    @property
-    def exists(self):
-        """ Detects whether this entity still exists in the database.
-        """
-        try:
-            self._get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
-                return False
-            else:
-                raise
-        else:
-            return True
 
     def get_cached_properties(self):
         """ Fetch last known properties without calling the server.
@@ -1416,10 +1705,10 @@ class _Entity(Resource):
         self.set_properties({})
 
     def update_properties(self, properties):
-        raise NotImplementedError("_Entity.update_properties")
+        raise NotImplementedError("Entity.update_properties")
 
 
-class Node(_Entity):
+class Node(Entity):
     """ A node within a graph, identified by a URI. For example:
 
         >>> from py2neo import neo4j
@@ -1491,19 +1780,19 @@ class Node(_Entity):
         return instance
 
     def __init__(self, uri):
-        _Entity.__init__(self, uri)
+        Entity.__init__(self, uri)
 
     def __eq__(self, other):
         other = _cast(other, Node)
         if self.__uri__:
-            return _Entity.__eq__(self, other)
+            return Entity.__eq__(self, other)
         else:
             return self._properties == other._properties
 
     def __ne__(self, other):
         other = _cast(other, Node)
         if self.__uri__:
-            return _Entity.__ne__(self, other)
+            return Entity.__ne__(self, other)
         else:
             return self._properties != other._properties
 
@@ -1542,6 +1831,37 @@ class Node(_Entity):
         else:
             return hash(self.__uri__)
 
+    @property
+    def _id(self):
+        """ Return the internal ID for this entity.
+
+        :return: integer ID of this entity within the database or
+            :py:const:`None` if abstract
+        """
+        if self.is_abstract:
+            return None
+        else:
+            return int(URI(self).path.segments[-1])
+
+    def delete(self):
+        """ Delete this entity from the database.
+        """
+        self._delete()
+
+    @property
+    def exists(self):
+        """ Detects whether this entity still exists in the database.
+        """
+        try:
+            self._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return False
+            else:
+                raise
+        else:
+            return True
+
     def delete_related(self):
         """ Delete this node along with all related nodes and relationships.
         """
@@ -1562,8 +1882,8 @@ class Node(_Entity):
         outgoing.
         """
         CypherQuery(self.graph, "START a=node({a}) "
-                                   "MATCH a-[r]-b "
-                                   "DELETE r").execute(a=self._id)
+                                "MATCH a-[r]-b "
+                                "DELETE r").execute(a=self._id)
 
     def match(self, rel_type=None, other_node=None, limit=None):
         """ Iterate through matching relationships attached to this node,
@@ -1689,6 +2009,7 @@ class Node(_Entity):
         path = Path(self, *items)
         return path.get_or_create(self.service_root.graph)
 
+    @deprecated("")
     def update_properties(self, properties):
         """ Update properties with the values supplied.
 
@@ -1759,7 +2080,7 @@ class Node(_Entity):
         self._label_resource()._put(labels)
 
 
-class Relationship(_Entity):
+class Relationship(Entity):
     """ A relationship within a graph, identified by a URI.
     
     :param uri: URI identifying this relationship
@@ -1786,7 +2107,7 @@ class Relationship(_Entity):
         return instance
 
     def __init__(self, uri):
-        _Entity.__init__(self, uri)
+        Entity.__init__(self, uri)
         self._start_node = None
         self._type = None
         self._end_node = None
@@ -1794,7 +2115,7 @@ class Relationship(_Entity):
     def __eq__(self, other):
         other = _cast(other, Relationship)
         if self.__uri__:
-            return _Entity.__eq__(self, other)
+            return Entity.__eq__(self, other)
         else:
             return (self._start_node == other._start_node and
                     self._type == other._type and
@@ -1804,7 +2125,7 @@ class Relationship(_Entity):
     def __ne__(self, other):
         other = _cast(other, Relationship)
         if self.__uri__:
-            return _Entity.__ne__(self, other)
+            return Entity.__ne__(self, other)
         else:
             return (self._start_node != other._start_node or
                     self._type != other._type or
@@ -1856,6 +2177,37 @@ class Relationship(_Entity):
             return hash(self.__uri__)
         else:
             return hash(tuple(sorted(self._properties.items())))
+
+    @property
+    def _id(self):
+        """ Return the internal ID for this entity.
+
+        :return: integer ID of this entity within the database or
+            :py:const:`None` if abstract
+        """
+        if self.is_abstract:
+            return None
+        else:
+            return int(URI(self).path.segments[-1])
+
+    def delete(self):
+        """ Delete this entity from the database.
+        """
+        self._delete()
+
+    @property
+    def exists(self):
+        """ Detects whether this entity still exists in the database.
+        """
+        try:
+            self._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return False
+            else:
+                raise
+        else:
+            return True
 
     @property
     def end_node(self):
@@ -2671,7 +3023,7 @@ class BatchRequestList(object):
         hydration_cache = {}
         try:
             return [BatchResponse(rs, hydration_cache=hydration_cache).hydrated
-                    for rs in responses.json]
+                    for rs in responses.content]
         finally:
             responses.close()
 
