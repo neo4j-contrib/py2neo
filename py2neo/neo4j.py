@@ -1642,7 +1642,7 @@ class PropertyContainer(Bindable):
             pass
 
 
-class Entity(Resource):
+class _Entity(Resource):
     """ Base class from which :py:class:`Node` and :py:class:`Relationship`
     classes inherit. Provides property management functionality by defining
     standard Python container handler methods.
@@ -1714,7 +1714,7 @@ class Entity(Resource):
         self.set_properties({})
 
     def update_properties(self, properties):
-        raise NotImplementedError("Entity.update_properties")
+        raise NotImplementedError("_Entity.update_properties")
 
 
 class Node(PropertyContainer):
@@ -2113,7 +2113,7 @@ class Node(PropertyContainer):
         self.add_labels(*labels)
 
 
-class Relationship(Entity):
+class Relationship(_Entity):
     """ A relationship within a graph, identified by a URI.
     
     :param uri: URI identifying this relationship
@@ -2140,7 +2140,7 @@ class Relationship(Entity):
         return instance
 
     def __init__(self, uri):
-        Entity.__init__(self, uri)
+        _Entity.__init__(self, uri)
         self._start_node = None
         self._type = None
         self._end_node = None
@@ -2148,7 +2148,7 @@ class Relationship(Entity):
     def __eq__(self, other):
         other = _cast(other, Relationship)
         if self.__uri__:
-            return Entity.__eq__(self, other)
+            return _Entity.__eq__(self, other)
         else:
             return (self._start_node == other._start_node and
                     self._type == other._type and
@@ -2158,7 +2158,7 @@ class Relationship(Entity):
     def __ne__(self, other):
         other = _cast(other, Relationship)
         if self.__uri__:
-            return Entity.__ne__(self, other)
+            return _Entity.__ne__(self, other)
         else:
             return (self._start_node != other._start_node or
                     self._type != other._type or
