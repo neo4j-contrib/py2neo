@@ -25,5 +25,6 @@ __version__ = "1.7.0"
 
 
 from .neo4j import Graph, Node, Relationship, Path
-from .neo4j import _node as node, _rel as rel
+from .neo4j import _rel as rel
 
+node = Node.cast

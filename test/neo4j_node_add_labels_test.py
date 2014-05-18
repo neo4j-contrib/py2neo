@@ -17,6 +17,7 @@
 
 
 from py2neo import node
+from py2neo.neo4j import UnboundError
 
 
 def test_can_add_labels_to_node(graph):
@@ -38,13 +39,13 @@ def test_can_add_labels_to_node(graph):
     assert labels == set(["human", "female"])
 
 
-def test_cannot_add_labels_to_abstract_nodes(graph):
+def test_adding_labels_to_abstract_nodes_raises_unbound_error(graph):
     if not graph.supports_node_labels:
         return
     alice = node(name="Alice")
     try:
         alice.add_labels("human", "female")
-    except TypeError:
+    except UnboundError:
         assert True
     else:
         assert False

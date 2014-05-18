@@ -142,11 +142,3 @@ class PropertyContainerTestCase(object):
         self.assertEqual(None, alice["surname"])
         self.assertEqual("Alice Smith", alice["full_name"])
         self.assertEqual(33, alice["age"])
-
-    def test_update_properties(self):
-        alice, = self.graph.create({"name": "Alice", "surname": "Smith"})
-        alice.update_properties({"surname": None, "full_name": "Alice Smith", "age": 33})
-        self.assertEqual("Alice", alice["name"])
-        self.assertEqual(None, alice["surname"])
-        self.assertEqual("Alice Smith", alice["full_name"])
-        self.assertEqual(33, alice["age"])

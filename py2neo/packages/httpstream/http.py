@@ -96,6 +96,10 @@ class HTTPSConnection(_HTTPSConnection):
         self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file)
 
 
+# These are necessary as the type function can't handle unicode in Python 2.7
+client_error_name = str("ClientError")
+server_error_name = str("ServerError")
+
 connection_classes = {
     "http": HTTPConnection,
     "https": HTTPSConnection,
@@ -459,9 +463,9 @@ class Response(object):
             cls = Response
         status_class = response.status // 100
         if status_class == 4:
-            cls = type("ClientError", (cls, ClientError), {})
+            cls = type(client_error_name, (cls, ClientError), {})
         elif status_class == 5:
-            cls = type("ServerError", (cls, ServerError), {})
+            cls = type(server_error_name, (cls, ServerError), {})
         inst = cls(http, uri, request, response, **kwargs)
         if isinstance(inst, Exception):
             raise inst

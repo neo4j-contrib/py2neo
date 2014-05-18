@@ -198,46 +198,6 @@ def _hydrated(data, hydration_cache=None):
         return data
 
 
-def _node(*args, **kwargs):
-    """ Cast the arguments provided to a :py:class:`neo4j.Node`. The following
-    general combinations are possible:
-
-    - ``node()``
-    - ``node(node_instance)``
-    - ``node(property_dict)``
-    - ``node(**properties)``
-
-    If :py:const:`None` is passed as the only argument, :py:const:`None` is
-    returned instead of a ``Node`` instance.
-
-    Examples::
-
-        node()
-        node(Node("http://localhost:7474/db/data/node/1"))
-        node({"name": "Alice"})
-        node(name="Alice")
-
-    Other representations::
-
-        {"name": "Alice"}
-
-    """
-    if len(args) == 0:
-        return Node.abstract(**kwargs)
-    elif len(args) == 1 and not kwargs:
-        arg = args[0]
-        if arg is None:
-            return None
-        elif isinstance(arg, Node):
-            return arg
-        elif isinstance(arg, dict):
-            return Node.abstract(**arg)
-        else:
-            raise TypeError("Cannot cast node from {0}".format(arg))
-    else:
-        raise TypeError("Cannot cast node from {0}".format((args, kwargs)))
-
-
 def _rel(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
     following general combinations are possible:
@@ -292,6 +252,7 @@ def _rel(*args, **kwargs):
         raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
 
+# TODO: remove this class
 class Resource(object):
     """ Basic RESTful web resource with JSON metadata. Wraps an
     `httpstream.Resource`.
@@ -411,6 +372,7 @@ class Resource(object):
         return self._subresources[key]
 
 
+# TODO: remove this class
 class ResourceMetadata(object):
 
     def __init__(self, metadata):
@@ -426,6 +388,7 @@ class ResourceMetadata(object):
         return iter(self._metadata.items())
 
 
+# TODO: remove this class
 class ResourceTemplate(_ResourceTemplate):
 
     def expand(self, **values):
@@ -483,6 +446,7 @@ class ServiceRoot(Cacheable, Resource):
         return Monitor(manager.__metadata__["services"]["monitor"])
 
 
+# TODO: move to admin plugin
 class Monitor(Cacheable, Resource):
 
     def __init__(self, uri=None):
@@ -798,7 +762,8 @@ class Graph(Cacheable, Resource):
     def node(self, id_):
         """ Fetch a node by ID.
         """
-        return Node(URI(self).resolve("node/" + str(id_)))
+        node = Node()
+        node.bind(URI(self).resolve("node/" + str(id_)))
 
     @property
     def node_labels(self):
@@ -1319,6 +1284,7 @@ class UnboundError(Exception):
     pass
 
 
+# TODO: rename to Resource
 class Neo4jResource(_Resource):
     """ Variant of HTTPStream Resource that passes extra headers and product
     detail.
@@ -1355,29 +1321,57 @@ class Neo4jResource(_Resource):
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT, cache=True)
-        self.__last_get_response = self.__base.get(headers, redirect_limit,
-                                                   **kwargs)
-        return self.__last_get_response
+        # TODO: clean up exception handling - decorator? do we need both client/server types at this level?
+        try:
+            self.__last_get_response = self.__base.get(headers, redirect_limit, **kwargs)
+        except _ClientError as err:
+            raise ClientError(err)
+        except _ServerError as err:
+            raise ServerError(err)
+        else:
+            return self.__last_get_response
 
     def put(self, body=None, headers=None, **kwargs):
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
-        return self.__base.put(body, headers, **kwargs)
+        try:
+            response = self.__base.put(body, headers, **kwargs)
+        except _ClientError as err:
+            raise ClientError(err)
+        except _ServerError as err:
+            raise ServerError(err)
+        else:
+            return response
 
     def post(self, body=None, headers=None, **kwargs):
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
-        return self.__base.post(body, headers, **kwargs)
+        try:
+            response = self.__base.post(body, headers, **kwargs)
+        except _ClientError as err:
+            raise ClientError(err)
+        except _ServerError as err:
+            raise ServerError(err)
+        else:
+            return response
 
     def delete(self, headers=None, **kwargs):
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
-        return self.__base.delete(headers, **kwargs)
+        try:
+            response = self.__base.delete(headers, **kwargs)
+        except _ClientError as err:
+            raise ClientError(err)
+        except _ServerError as err:
+            raise ServerError(err)
+        else:
+            return response
 
 
+# TODO: rename to ResourceTemplate
 class Neo4jResourceTemplate(_ResourceTemplate):
 
     def expand(self, **values):
@@ -1467,7 +1461,9 @@ class PropertySet(Bindable, dict):
             dict.__setitem__(self, key, value)
 
     def __eq__(self, other):
-        return self == PropertySet(other)
+        if not isinstance(other, PropertySet):
+            other = PropertySet(other)
+        return dict.__eq__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1506,6 +1502,9 @@ class PropertySet(Bindable, dict):
         """
         self.resource.put(self)
 
+    def __json__(self):
+        return json.dumps(self, separators=",:", sort_keys=True)
+
 
 class LabelSet(Bindable, set):
     """ A set subclass that can be bound to a remote *labels* resource.
@@ -1518,7 +1517,9 @@ class LabelSet(Bindable, set):
             self.update(iterable)
 
     def __eq__(self, other):
-        return set(self) == LabelSet(other)
+        if not isinstance(other, LabelSet):
+            other = LabelSet(other)
+        return set.__eq__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1554,16 +1555,28 @@ class PropertyContainer(Bindable):
         return not self.__eq__(other)
 
     def __contains__(self, key):
+        # TODO 2.0: remove auto-pull
+        if self.bound:
+            self.properties.pull()
         return key in self.properties
 
     def __getitem__(self, key):
+        # TODO 2.0: remove auto-pull
+        if self.bound:
+            self.properties.pull()
         return self.properties.__getitem__(key)
 
     def __setitem__(self, key, value):
-        return self.properties.__setitem__(key, value)
+        self.properties.__setitem__(key, value)
+        # TODO 2.0: remove auto-push
+        if self.bound:
+            self.properties.push()
 
     def __delitem__(self, key):
-        return self.properties.__delitem__(key)
+        self.properties.__delitem__(key)
+        # TODO 2.0: remove auto-push
+        if self.bound:
+            self.properties.push()
 
     @property
     def properties(self):
@@ -1581,13 +1594,13 @@ class PropertyContainer(Bindable):
 
     def pull(self):
         self.resource.get()
-        self.properties.clear()
+        self.__properties.clear()
         properties = self.resource.metadata["data"]
         if properties:
-            self.properties.update(properties)
+            self.__properties.update(properties)
 
     def push(self):
-        self.properties.push()
+        self.__properties.push()
 
     @deprecated("Use `properties` attribute instead")
     def get_cached_properties(self):
@@ -1603,10 +1616,8 @@ class PropertyContainer(Bindable):
 
         :return: dictionary of properties
         """
-        try:
+        if self.bound:
             self.properties.pull()
-        except UnboundError:
-            pass
         return self.properties
 
     @deprecated("Use `push` method on `properties` attribute instead")
@@ -1617,10 +1628,8 @@ class PropertyContainer(Bindable):
         """
         self.properties.clear()
         self.properties.update(properties)
-        try:
+        if self.bound:
             self.properties.push()
-        except UnboundError:
-            pass
 
     @deprecated("Use `push` method on `properties` attribute instead")
     def delete_properties(self):
@@ -1708,11 +1717,12 @@ class Entity(Resource):
         raise NotImplementedError("Entity.update_properties")
 
 
-class Node(Entity):
+class Node(PropertyContainer):
     """ A node within a graph, identified by a URI. For example:
 
-        >>> from py2neo import neo4j
-        >>> alice = neo4j.Node("http://localhost:7474/db/data/node/1")
+        >>> from py2neo import Node
+        >>> alice = Node()
+        >>> alice.bind("http://localhost:7474/db/data/node/1")
 
     Typically, concrete nodes will not be constructed directly in this way
     by client applications. Instead, methods such as
@@ -1745,14 +1755,56 @@ class Node(Entity):
 
     signature = ("self",)
 
+    @staticmethod
+    def cast(*args, **kwargs):
+        """ Cast the arguments provided to a :py:class:`neo4j.Node`. The
+        following general combinations are possible:
+
+        - ``node()``
+        - ``node(node_instance)``
+        - ``node(property_dict)``
+        - ``node(**properties)``
+
+        If :py:const:`None` is passed as the only argument, :py:const:`None` is
+        returned instead of a ``Node`` instance.
+
+        Examples::
+
+            node()
+            node(Node("http://localhost:7474/db/data/node/1"))
+            node({"name": "Alice"})
+            node(name="Alice")
+
+        Other representations::
+
+            {"name": "Alice"}
+
+        """
+        if len(args) == 0:
+            return Node(**kwargs)
+        elif len(args) == 1 and not kwargs:
+            arg = args[0]
+            if arg is None:
+                return None
+            elif isinstance(arg, Node):
+                return arg
+            elif isinstance(arg, dict):
+                return Node(**arg)
+            else:
+                raise TypeError("Cannot cast node from {0}".format(arg))
+        else:
+            raise TypeError("Cannot cast node from {0}".format((args, kwargs)))
+
     @classmethod
     def _hydrated(cls, data):
-        obj = cls(data["self"])
+        obj = cls()
+        obj.bind(data["self"])
         obj._metadata = ResourceMetadata(data)
-        obj._properties = data.get("data", {})
+        obj.properties.update(data.get("data", {}))
         return obj
 
     @classmethod
+    @deprecated("Use Node constructor instead")
     def abstract(cls, **properties):
         """ Create and return a new abstract node containing properties drawn
         from the keyword arguments supplied. An abstract node is not bound to
@@ -1775,85 +1827,99 @@ class Node(Entity):
 
         :param properties: node properties
         """
-        instance = cls(None)
-        instance._properties = dict(properties)
+        instance = cls(**properties)
         return instance
 
-    def __init__(self, uri):
-        Entity.__init__(self, uri)
+    def __init__(self, *labels, **properties):
+        PropertyContainer.__init__(self, **properties)
+        self.__labels = LabelSet(labels)
 
     def __eq__(self, other):
+        # TODO: match on labels and properties only
         other = _cast(other, Node)
-        if self.__uri__:
-            return Entity.__eq__(self, other)
+        if self.bound and other.bound:
+            return self.resource == other.resource
+        elif self.bound or other.bound:
+            return False
         else:
-            return self._properties == other._properties
+            return self.properties == other.properties
 
     def __ne__(self, other):
-        other = _cast(other, Node)
-        if self.__uri__:
-            return Entity.__ne__(self, other)
-        else:
-            return self._properties != other._properties
+        return not self.__eq__(other)
 
     def __repr__(self):
-        if not self.is_abstract:
-            return "{0}({1})".format(
-                self.__class__.__name__,
-                repr(str(self.__uri__))
-            )
-        elif self._properties:
-            return "node({1})".format(
-                self.__class__.__name__,
-                repr(self._properties)
-            )
-        else:
-            return "node()".format(
-                self.__class__.__name__
-            )
+        return self.__geoff__()
 
-    def __str__(self):
-        """ Return Cypher/Geoff style representation of this node.
+    def __geoff__(self):
+        """ Return a Geoff representation of this Node.
         """
-        if self.is_abstract:
-            return "({0})".format(json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False))
-        elif self._properties:
-            return "({0} {1})".format(
-                "" if self._id is None else self._id,
-                json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
-            )
-        else:
-            return "({0})".format("" if self._id is None else self._id)
+        s = []
+        if self.bound:
+            s.append(str(self._id))
+        for label in sorted(self.labels):
+            s.append(":")
+            s.append(label)
+        if self.properties:
+            if s:
+                s.append(" ")
+            s.append(self.properties.__json__())
+        s = ["("] + s + [")"]
+        return "".join(s)
 
     def __hash__(self):
-        if self.is_abstract:
-            return hash(tuple(sorted(self._properties.items())))
+        if self.bound:
+            return hash(self.resource.uri)
         else:
-            return hash(self.__uri__)
+            # TODO: add labels to this hash
+            return hash(tuple(sorted(self.properties.items())))
+
+    @property
+    def __uri__(self):
+        return self.resource.uri
+
+    @property
+    def labels(self):
+        """ The set of labels attached to this Node.
+        """
+        return self.__labels
+
+    def bind(self, uri):
+        super(Node, self).bind(uri)
+        self.__labels.bind(self.resource.metadata["labels"])
+
+    def unbind(self):
+        super(Node, self).unbind()
+        self.__labels.unbind()
+
+    def pull(self):
+        # TODO combine this into a single call
+        super(Node, self).pull()
+        self.__labels.pull()
+
+    def push(self):
+        # TODO combine this into a single call
+        super(Node, self).push()
+        self.__labels.push()
 
     @property
     def _id(self):
         """ Return the internal ID for this entity.
 
-        :return: integer ID of this entity within the database or
-            :py:const:`None` if abstract
+        :return: integer ID of this entity within the database.
         """
-        if self.is_abstract:
-            return None
-        else:
-            return int(URI(self).path.segments[-1])
+        return int(self.resource.uri.path.segments[-1])
 
     def delete(self):
         """ Delete this entity from the database.
         """
-        self._delete()
+        self.resource.delete()
 
     @property
     def exists(self):
-        """ Detects whether this entity still exists in the database.
+        """ Detects whether this Node still exists in the database.
         """
         try:
-            self._get()
+            self.resource.get()
         except ClientError as err:
             if err.status_code == NOT_FOUND:
                 return False
@@ -1901,8 +1967,7 @@ class Node(Entity):
         .. seealso::
            :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph.match(self, rel_type, other_node,
-                                                True, limit)
+        return self.graph.match(self, rel_type, other_node, True, limit)
 
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
         """ Iterate through matching relationships where this node is the end
@@ -1920,8 +1985,7 @@ class Node(Entity):
         .. seealso::
            :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph.match(start_node, rel_type, self,
-                                                False, limit)
+        return self.graph.match(start_node, rel_type, self, False, limit)
 
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
         """ Iterate through matching relationships where this node is the start
@@ -1939,8 +2003,7 @@ class Node(Entity):
         .. seealso::
            :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph.match(self, rel_type, end_node,
-                                                False, limit)
+        return self.graph.match(self, rel_type, end_node, False, limit)
 
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
@@ -1971,7 +2034,7 @@ class Node(Entity):
         :return: `Path` object representing the newly-created path
         """
         path = Path(self, *items)
-        return path.create(self.service_root.graph)
+        return path.create(self.graph)
 
     def get_or_create_path(self, *items):
         """ Identical to `create_path` except will reuse parts of the path
@@ -2007,59 +2070,28 @@ class Node(Entity):
 
         """
         path = Path(self, *items)
-        return path.get_or_create(self.service_root.graph)
+        return path.get_or_create(self.graph)
 
-    @deprecated("")
-    def update_properties(self, properties):
-        """ Update properties with the values supplied.
-
-        :param properties: dictionary of properties to integrate with existing
-            properties
-        """
-        if self.is_abstract:
-            self._properties.update(properties)
-            self._properties = compact(self._properties)
-        else:
-            query, params = ["START a=node({A})"], {"A": self._id}
-            for i, (key, value) in enumerate(properties.items()):
-                value_tag = "V" + str(i)
-                query.append("SET a.`" + key + "`={" + value_tag + "}")
-                params[value_tag] = value
-            query.append("RETURN a")
-            rel = CypherQuery(self.graph, " ".join(query)).execute_one(**params)
-            self._properties = rel.__metadata__["data"]
-
-    def _label_resource(self):
-        if self.is_abstract:
-            raise TypeError("Abstract nodes cannot have labels")
-        try:
-            return self._subresource("labels")
-        except KeyError:
-            raise NotImplementedError("Labels are not supported in this "
-                                      "version of Neo4j")
-
+    @deprecated("Use `labels` property instead")
     def get_labels(self):
         """ Fetch all labels associated with this node.
 
         :return: :py:class:`set` of text labels
         """
-        return set(assembled(self._label_resource()._get()))
+        self.labels.pull()
+        return self.labels
 
+    @deprecated("Use `add` or `update` method of `labels` property instead")
     def add_labels(self, *labels):
         """ Add one or more labels to this node.
-
-        For example::
-
-            >>> from py2neo import neo4j, node
-            >>> graph = neo4j.Graph()
-            >>> alice, = graph.create(node(name="Alice"))
-            >>> alice.add_labels("female", "human")
 
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._post(labels)
+        self.labels.update(labels)
+        self.labels.push()
 
+    @deprecated("Use `remove` method of `labels` property instead")
     def remove_labels(self, *labels):
         """ Remove one or more labels from this node.
 
@@ -2071,13 +2103,14 @@ class Node(Entity):
             batch.remove_label(self, label)
         batch.run()
 
+    @deprecated("Use `clear` and `update` methods of `labels` property instead")
     def set_labels(self, *labels):
         """ Replace all labels on this node.
 
         :param labels: one or more text labels
         """
-        labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._put(labels)
+        self.labels.clear()
+        self.add_labels(*labels)
 
 
 class Relationship(Entity):
@@ -2214,7 +2247,8 @@ class Relationship(Entity):
         """ Return the end node of this relationship.
         """
         if self.__uri__ and not self._end_node:
-            self._end_node = Node(self.__metadata__['end'])
+            self._end_node = Node()
+            self._end_node.bind(self.__metadata__['end'])
         return self._end_node
 
     @property
@@ -2222,7 +2256,8 @@ class Relationship(Entity):
         """ Return the start node of this relationship.
         """
         if self.__uri__ and not self._start_node:
-            self._start_node = Node(self.__metadata__['start'])
+            self._start_node = Node()
+            self._start_node.bind(self.__metadata__['start'])
         return self._start_node
 
     @property
@@ -2322,16 +2357,20 @@ class Path(object):
 
     @classmethod
     def _hydrated(cls, data):
-        nodes = map(Node, data["nodes"])
+        nodes = []
+        for node_uri in data["nodes"]:
+            node = Node()
+            node.bind(node_uri)
+            nodes.append(node)
         rels = map(Relationship, data["relationships"])
         return Path(*round_robin(nodes, rels))
 
     def __init__(self, node, *rels_and_nodes):
-        self._nodes = [_node(node)]
-        self._nodes.extend(_node(n) for n in rels_and_nodes[1::2])
+        self._nodes = [Node.cast(node)]
+        self._nodes.extend(Node.cast(n) for n in rels_and_nodes[1::2])
         if len(rels_and_nodes) % 2 != 0:
             # If a trailing relationship is supplied, add a dummy end node
-            self._nodes.append(_node())
+            self._nodes.append(Node())
         self._relationships = [
             _UnboundRelationship.cast(r)
             for r in rels_and_nodes[0::2]
@@ -2448,7 +2487,7 @@ class Path(object):
                 values.append("n{0}".format(i))
             elif node.is_abstract:
                 path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = compact(node._properties)
+                params["p{0}".format(i)] = node.properties
                 values.append("n{0}".format(i))
             else:
                 path.append("(n{0})".format(i))
@@ -2784,7 +2823,7 @@ def _cast(obj, cls=(Node, Relationship), abstract=None):
     if obj is None:
         return None
     elif isinstance(obj, Node) or isinstance(obj, dict):
-        entity = _node(obj)
+        entity = Node.cast(obj)
     elif isinstance(obj, Relationship) or isinstance(obj, tuple):
         entity = _rel(obj)
     else:
@@ -2963,6 +3002,10 @@ class BatchRequestList(object):
             uri = "{{{0}}}".format(resource)
         elif isinstance(resource, BatchRequest):
             uri = "{{{0}}}".format(self.find(resource))
+        elif isinstance(resource, Node):
+            # TODO: remove when Rel is also Bindable
+            offset = len(resource.graph.__uri__.string)
+            uri = resource.resource.uri.string[offset:]
         else:
             offset = len(resource.service_root.graph.__uri__)
             uri = str(resource.__uri__)[offset:]
@@ -3119,7 +3162,7 @@ class WriteBatch(BatchRequestList):
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
             uri = self._uri_for(self._graph._subresource("node"))
-            body = compact(entity._properties)
+            body = entity.properties
         elif isinstance(entity, Relationship):
             uri = self._uri_for(entity.start_node, "relationships")
             body = {
@@ -3381,7 +3424,7 @@ class WriteBatch(BatchRequestList):
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "properties": compact(abstract._properties or {}),
+                "properties": abstract.properties,
             })
         elif cls is Relationship:
             return self.append_post(uri, {
@@ -3565,3 +3608,6 @@ class WriteBatch(BatchRequestList):
                                       relationship)
 
     ### END OF DEPRECATED METHODS ###
+
+    # TODO: PullBatch
+    # TODO: PushBatch
