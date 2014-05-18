@@ -50,7 +50,7 @@ from .packages.httpstream import (http,
                                   ClientError as _ClientError,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
-from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
 from .packages.urimagic import percent_encode, URI, URITemplate
 
 from . import __version__
@@ -1217,6 +1217,10 @@ class Schema(Cacheable, Resource):
             URITemplate(str(URI(self)) + "/index/{label}")
         self._index_key_template = \
             URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
+        self._uniqueness_constraint_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness")
+        self._uniqueness_constraint_key_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness/{property_key}")
 
     def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
@@ -1240,6 +1244,28 @@ class Schema(Cacheable, Resource):
                 for indexed in response.content
             ]
 
+    def get_unique_constraints(self, label):
+        """ Fetch a list of uniqueness constraints for a label.
+
+        :param label:
+        :return:
+        """
+        if not label:
+            raise ValueError("Label cannot be empty")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        try:
+            response = resource._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return []
+            else:
+                raise
+        else:
+            return [
+                unique["property_keys"][0]
+                for unique in response.content
+            ]
+
     def create_index(self, label, property_key):
         """ Index a property key for a label.
 
@@ -1255,7 +1281,26 @@ class Schema(Cacheable, Resource):
             resource._post({"property_keys": [property_key]})
         except ClientError as err:
             if err.status_code == CONFLICT:
-                raise ValueError("Property key already indexed")
+                raise ValueError(err.cause.message)
+            else:
+                raise
+
+    def add_unique_constraint(self, label, property_key):
+        """ Create an uniqueness constraint for a label.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        try:
+            resource._post({"property_keys": [ustr(property_key)]})
+        except ClientError as err:
+            if err.status_code == CONFLICT:
+                raise ValueError(err.cause.message)
             else:
                 raise
 
@@ -1270,6 +1315,26 @@ class Schema(Cacheable, Resource):
             raise ValueError("Neither label nor property key can be empty")
         uri = self._index_key_template.expand(label=label,
                                               property_key=property_key)
+        resource = Resource(uri)
+        try:
+            resource._delete()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                raise LookupError("Property key not found")
+            else:
+                raise
+
+    def remove_unique_constraint(self, label, property_key):
+        """ Remove uniqueness constraint for a given property key.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        uri = self._uniqueness_constraint_key_template.expand(label=label,
+                                                              property_key=property_key)
         resource = Resource(uri)
         try:
             resource._delete()
@@ -2089,7 +2154,13 @@ class Node(PropertyContainer):
         """
         labels = [ustr(label) for label in set(flatten(labels))]
         self.labels.update(labels)
-        self.labels.push()
+        try:
+            self.labels.push()
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
 
     @deprecated("Use `remove` method of `labels` property instead")
     def remove_labels(self, *labels):
@@ -2109,6 +2180,7 @@ class Node(PropertyContainer):
 
         :param labels: one or more text labels
         """
+        labels = [ustr(label) for label in set(flatten(labels))]
         self.labels.clear()
         self.add_labels(*labels)
 

@@ -76,7 +76,7 @@ class ClientError(Exception):
             Exception.__init__(self, self._server_exception.message)
         else:
             self._server_exception = None
-            Exception.__init__(self, response.args[0])
+            Exception.__init__(self, *response.args)
 
     def __getattr__(self, item):
         try:
@@ -99,7 +99,7 @@ class ServerError(Exception):
             Exception.__init__(self, self._server_exception.message)
         else:
             self._server_exception = None
-            Exception.__init__(self, response.args[0])
+            Exception.__init__(self, *response.args)
 
     def __getattr__(self, item):
         try:
