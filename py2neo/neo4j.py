@@ -43,6 +43,7 @@ import base64
 import json
 import logging
 import re
+from weakref import WeakValueDictionary
 
 from .packages.httpstream import (http,
                                   Resource as _Resource,
@@ -165,6 +166,7 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
+# TODO: remove and replace with Graph.hydrate
 def _hydrated(data, hydration_cache=None):
     """ Takes input iterable, assembles and resolves any Resource objects,
     returning the result.
@@ -501,6 +503,8 @@ class Graph(Cacheable, Resource):
             uri = ServiceRoot().graph.__uri__
         Resource.__init__(self, uri)
         self._indexes = {Node: {}, Relationship: {}}
+        self.__node_cache = WeakValueDictionary()
+        self.__rel_cache = WeakValueDictionary()
 
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
@@ -995,6 +999,36 @@ class Graph(Cacheable, Resource):
             if relationships:
                 return relationships[0]
         return None
+
+    def relative_uri(self, uri):
+        # "http://localhost:7474/db/data/", "node/1"
+        # TODO: confirm is URI
+        if uri.startswith(self.__uri__.string):
+            return uri[len(self.__uri__.string):]
+        else:
+            # TODO: specialist error
+            raise ValueError(uri + " does not belong to this graph")
+
+    def hydrate(self, data):
+        if isinstance(data, dict):
+            if "self" in data:
+                # entity (node or rel)
+                tag, i = self.relative_uri(data["self"]).partition("/")[0::2]
+                if tag == "":
+                    return self  # uri refers to graph
+                elif tag == "node":
+                    return self.__node_cache.setdefault(int(i), Node.hydrate(data))
+                elif tag == "relationship":
+                    return self.__rel_cache.setdefault(int(i), Relationship.hydrate(data))
+                else:
+                    raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
+            else:
+                # path
+                return Path.hydrate(data)
+        elif is_collection(data):
+            return type(data)(map(self.hydrate, data))
+        else:
+            return data
 
 
 # Deprecated alias
@@ -1869,6 +1903,26 @@ class Node(PropertyContainer):
         return obj
 
     @classmethod
+    def hydrate(cls, data):
+        """ Create a new Node instance from a serialised representation held
+        within a dictionary. It is expected there is at least a "self" key
+        pointing to a URI for this Node; there may also optionally be
+        properties passed in the "data" value.
+        """
+        try:
+            properties = data["data"]
+        except KeyError:
+            inst = cls()
+            inst.bind(data["self"])
+            inst.__stale = {"labels", "properties"}
+            return inst
+        else:
+            inst = cls(**properties)
+            inst.bind(data["self"])
+            inst.__stale = {"labels"}
+            return inst
+
+    @classmethod
     @deprecated("Use Node constructor instead")
     def abstract(cls, **properties):
         """ Create and return a new abstract node containing properties drawn
@@ -1898,6 +1952,7 @@ class Node(PropertyContainer):
     def __init__(self, *labels, **properties):
         PropertyContainer.__init__(self, **properties)
         self.__labels = LabelSet(labels)
+        self.__stale = set()
 
     def __eq__(self, other):
         # TODO: match on labels and properties only
@@ -1946,7 +2001,17 @@ class Node(PropertyContainer):
     def labels(self):
         """ The set of labels attached to this Node.
         """
+        if "labels" in self.__stale:
+            self.pull()
         return self.__labels
+
+    @property
+    def properties(self):
+        """ The set of properties attached to this Node.
+        """
+        if "properties" in self.__stale:
+            self.pull()
+        return super(Node, self).properties
 
     def bind(self, uri):
         super(Node, self).bind(uri)
@@ -1957,14 +2022,19 @@ class Node(PropertyContainer):
         self.__labels.unbind()
 
     def pull(self):
-        # TODO combine this into a single call
-        super(Node, self).pull()
-        self.__labels.pull()
+        query = CypherQuery(self.graph, "START a=node({a}) RETURN a,labels(a)")
+        results = query.execute(a=self._id)
+        node, labels = results[0].values
+        super(Node, self).properties.clear()
+        super(Node, self).properties.update(node.properties)
+        self.__labels.clear()
+        self.__labels.update(labels)
+        self.__stale.clear()
 
     def push(self):
         # TODO combine this into a single call
         super(Node, self).push()
-        self.__labels.push()
+        self.labels.push()
 
     @property
     def _id(self):
