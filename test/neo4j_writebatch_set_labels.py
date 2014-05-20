@@ -31,7 +31,7 @@ def test_can_set_labels_on_preexisting_node(graph):
 
 
 # def test_can_set_labels_on_node_in_same_batch():
-#     graph = neo4j.GraphDatabaseService()
+#     graph = neo4j.Graph()
 #     if not graph.supports_node_labels:
 #         return
 #     batch = neo4j.WriteBatch(graph)

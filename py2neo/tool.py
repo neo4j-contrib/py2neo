@@ -262,12 +262,12 @@ class Tool(object):
         self._script = None
 
     @property
-    def _graph_db(self):
+    def _graph(self):
         host_port = "{0}:{1}".format(self._host, self._port)
         uri = "{0}://{1}".format(self._scheme, host_port)
         if self._user and self._password:
             neo4j.authenticate(host_port, self._user, self._password)
-        return neo4j.ServiceRoot(uri).graph_db
+        return neo4j.ServiceRoot(uri).graph
 
     def _version(self):
         """ Show tool version
@@ -343,12 +343,12 @@ class Tool(object):
     def clear(self):
         """ Clear all nodes and relationships.
         """
-        self._graph_db.clear()
+        self._graph.clear()
 
     def _cypher(self, format_, query, params=None):
         if query == "-":
             query = self._in.read()
-        record_set = neo4j.CypherQuery(self._graph_db, query).execute(**params or {})
+        record_set = neo4j.CypherQuery(self._graph, query).execute(**params or {})
         writer = ResultWriter(self._out)
         writer.write(format_, record_set)
 
@@ -414,7 +414,7 @@ class Tool(object):
             file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
-        params = geoff.Subgraph.load(file).insert_into(self._graph_db)
+        params = geoff.Subgraph.load(file).insert_into(self._graph)
         self._geoff_write(params)
 
     def geoff_merge(self, file_name=None):
@@ -424,7 +424,7 @@ class Tool(object):
             file = codecs.open(file_name, encoding="utf-8")
         else:
             file = sys.stdin
-        params = geoff.Subgraph.load(file).merge_into(self._graph_db)
+        params = geoff.Subgraph.load(file).merge_into(self._graph)
         self._geoff_write(params)
 
     def xml_cypher(self, file_name=None, **prefixes):
@@ -452,7 +452,7 @@ class Tool(object):
         self._out.write("\n")
         
     def shell(self):
-        Shell(self._graph_db).repl()
+        Shell(self._graph).repl()
 
 
 class CommandLine(object):
@@ -494,8 +494,8 @@ else:
 
 class Shell(object):
 
-    def __init__(self, graph_db):
-        self.graph_db = graph_db
+    def __init__(self, graph):
+        self.graph = graph
         self.lang = "cypher"
         self.format = "text"
         self.param_sets = []
@@ -503,9 +503,9 @@ class Shell(object):
     @property
     def prompt(self):
         if self.param_sets:
-            return "\x1b[32;1m{0}/{1}\x1b[36;1m[{2}]\x1b[32;1m>\x1b[0m ".format(self.graph_db.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+            return "\x1b[32;1m{0}/{1}\x1b[36;1m[{2}]\x1b[32;1m>\x1b[0m ".format(self.graph.service_root.__uri__.host_port, self.lang, len(self.param_sets))
         else:
-            return "\x1b[32;1m{0}/{1}>\x1b[0m ".format(self.graph_db.service_root.__uri__.host_port, self.lang)
+            return "\x1b[32;1m{0}/{1}>\x1b[0m ".format(self.graph.service_root.__uri__.host_port, self.lang)
 
     def repl(self):
         print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
@@ -553,7 +553,7 @@ class Shell(object):
             if get_input("Are you sure you want to clear everything "
                          "from the database [y/N]? ").upper().startswith("Y"):
                 print("Clearing all nodes and relationships")
-                self.graph_db.clear()
+                self.graph.clear()
             else:
                 print("Clear aborted")
         elif command == "REMOVE":
@@ -580,7 +580,7 @@ class Shell(object):
             if not isinstance(params, dict):
                 params = {}
             try:
-                record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
+                record_set = neo4j.CypherQuery(self.graph, query).execute(**params)
             except CypherError as err:
                 print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
                 print("")
@@ -592,7 +592,7 @@ class Shell(object):
         query = "START n=node({i}) RETURN n"
         params = {"i": node_id}
         try:
-            record_set = neo4j.CypherQuery(self.graph_db, query).execute(**params)
+            record_set = neo4j.CypherQuery(self.graph, query).execute(**params)
         except CypherError as err:
             print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
             print("")
@@ -603,7 +603,7 @@ class Shell(object):
         title = "Node {0}".format(n._id)
         print(title)
         print("=" * len(title))
-        if self.graph_db.supports_node_labels:
+        if self.graph.supports_node_labels:
             labels = n.get_labels()
             print("Labels: " + ", ".join(labels))
         print("Properties:")
@@ -621,7 +621,7 @@ class Shell(object):
         command = line.pop()
         index_name = line.pop()
         if index_name:
-            index = self.graph_db.get_index(neo4j.Node, index_name)
+            index = self.graph.get_index(neo4j.Node, index_name)
             if not index:
                 print("\x1b[31;1mNode index {0} not found\x1b[0m".format(repr(index_name)))
                 print("")
@@ -658,7 +658,7 @@ class Shell(object):
                 self.execute_cypher(query, {})
             
     def show_neo4j_version(self, line):
-        print("Neo4j " + self.graph_db.__metadata__["neo4j_version"])
+        print("Neo4j " + self.graph.__metadata__["neo4j_version"])
 
     def add_something(self, line):
         command, subject = self._pop_command_and_argument(line)

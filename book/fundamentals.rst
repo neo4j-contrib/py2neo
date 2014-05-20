@@ -2,20 +2,20 @@ Fundamentals
 ============
 
 At the heart of py2neo are three core classes needed for every application:
-:py:class:`GraphDatabaseService <py2neo.neo4j.GraphDatabaseService>`,
+:py:class:`Graph <py2neo.neo4j.Graph>`,
 :py:class:`Node <py2neo.neo4j.Node>` and
 :py:class:`Relationship <py2neo.neo4j.Relationship>`. A
-``GraphDatabaseService`` maintains a link to a Neo4j database via a root URI.
+``Graph`` maintains a link to a Neo4j database via a root URI.
 For a default installation, this will be `http://localhost:7474/db/data/`
 (don't forget the trailing slash!) and can be constructed as follows::
 
     from py2neo import neo4j
-    graph_db = neo4j.GraphDatabaseService("http://localhost:7474/db/data/")
+    graph = neo4j.Graph("http://localhost:7474/db/data/")
 
-A ``GraphDatabaseService`` object provides access to a number of core methods,
+A ``Graph`` object provides access to a number of core methods,
 such as those to create and delete nodes, match relationships and manage
 indexes. One of the most useful methods is simply named
-:py:func:`create <py2neo.neo4j.GraphDatabaseService.create>` and this can be
+:py:func:`create <py2neo.neo4j.Graph.create>` and this can be
 used to easily build nodes and relationships within the graph. Imagine we
 wanted to model the following data::
 
@@ -33,7 +33,7 @@ wanted to model the following data::
 This could be carried out in a single ``create`` statement::
 
     from py2neo import node, rel
-    die_hard = graph_db.create(
+    die_hard = graph.create(
         node(name="Bruce Willis"),
         node(name="John McClane"),
         node(name="Alan Rickman"),
@@ -81,7 +81,7 @@ same batch. In some circumstances, it is possible to use an integer reference
 to such a node and this makes it possible to carry out certain atomic
 operations, such as creating a relationship between two newly-created nodes::
 
-    graph_db.create(node({"name": "Alice"}), node({"name": "Bob"}), rel(0, "KNOWS", 1))
+    graph.create(node({"name": "Alice"}), node({"name": "Bob"}), rel(0, "KNOWS", 1))
 
 Due to server limitations however, not all functions support this capability.
 In particular, functions that rely on implicit Cypher queries, such as

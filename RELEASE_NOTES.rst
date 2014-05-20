@@ -5,8 +5,12 @@ Release Notes
 
 Version 1.7
 ===========
+- Added null handler for logging
 - Upgrade to HTTPStream 1.2.1
--
+- Renamed GraphDatabaseService to Graph and created deprecated alias
+- Renamed all `graph_db` arguments and attributes to `graph` (including Resource and ServiceRoot)
+- Removed support for Python 2.6
+
 
 Version 1.6.1
 =============

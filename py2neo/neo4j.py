@@ -19,7 +19,7 @@
 functionality and will be the starting point for most applications. The main
 classes provided are:
 
-- :py:class:`GraphDatabaseService` - an instance of a Neo4j database server,
+- :py:class:`Graph` - an instance of a Neo4j database server,
   providing a number of graph-global methods for handling nodes and
   relationships
 - :py:class:`Node` - a representation of a database node
@@ -50,7 +50,7 @@ from .packages.httpstream import (http,
                                   ClientError as _ClientError,
                                   ServerError as _ServerError)
 from .packages.jsonstream import assembled, grouped
-from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT
+from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
 from .packages.urimagic import percent_encode, URI, URITemplate
 
 from . import __version__
@@ -109,10 +109,10 @@ def authenticate(host_port, user_name, password):
         neo4j.authenticate("camelot:7474", "arthur", "excalibur")
 
         # connect to authenticated graph database
-        graph_db = neo4j.GraphDatabaseService("http://camelot:7474/db/data/")
+        graph = neo4j.Graph("http://camelot:7474/db/data/")
 
     Note: a `host_port` can be either a server name or a server name and port
-    number but must match exactly that used within the GraphDatabaseService
+    number but must match exactly that used within the Graph
     URI.
 
     :param host_port: the host and optional port requiring authentication
@@ -349,8 +349,8 @@ class Resource(object):
         return ServiceRoot.get_instance(URI(self._resource).resolve("/"))
 
     @property
-    def graph_db(self):
-        return self.service_root.graph_db
+    def graph(self):
+        return self.service_root.graph
 
     def refresh(self):
         """ Refresh resource metadata.
@@ -457,8 +457,8 @@ class ServiceRoot(Cacheable, Resource):
         self._load2neo_checked = False
 
     @property
-    def graph_db(self):
-        return GraphDatabaseService.get_instance(self.__metadata__["data"])
+    def graph(self):
+        return Graph.get_instance(self.__metadata__["data"])
 
     @property
     def load2neo(self):
@@ -511,7 +511,7 @@ class Monitor(Cacheable, Resource):
         return data
 
 
-class GraphDatabaseService(Cacheable, Resource):
+class Graph(Cacheable, Resource):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
     attaching to this service should need to be directly aware of; all further
@@ -524,15 +524,15 @@ class GraphDatabaseService(Cacheable, Resource):
 
         from py2neo import neo4j
         
-        graph_db = neo4j.GraphDatabaseService()
-        print(graph_db.neo4j_version)
+        graph = neo4j.Graph()
+        print(graph.neo4j_version)
 
     :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
     """
 
     def __init__(self, uri=None):
         if uri is None:
-            uri = ServiceRoot().graph_db.__uri__
+            uri = ServiceRoot().graph.__uri__
         Resource.__init__(self, uri)
         self._indexes = {Node: {}, Relationship: {}}
 
@@ -569,25 +569,22 @@ class GraphDatabaseService(Cacheable, Resource):
         to other node entities within this batch::
 
             # create a single node
-            alice, = graph_db.create({"name": "Alice"})
+            alice, = graph.create({"name": "Alice"})
 
             # create multiple nodes
-            people = graph_db.create(
+            people = graph.create(
                 {"name": "Alice", "age": 33}, {"name": "Bob", "age": 44},
                 {"name": "Carol", "age": 55}, {"name": "Dave", "age": 66},
             )
 
             # create two nodes with a connecting relationship
-            alice, bob, rel = graph_db.create(
+            alice, bob, ab = graph.create(
                 {"name": "Alice"}, {"name": "Bob"},
                 (0, "KNOWS", 1, {"since": 2006})
             )
 
             # create a node plus a relationship to pre-existing node
-            ref_node = graph_db.get_reference_node()
-            alice, rel = graph_db.create(
-                {"name": "Alice"}, (ref_node, "PERSON", 0)
-            )
+            bob, ab = graph.create({"name": "Bob"}, (alice, "PERSON", 0))
 
         :return: list of :py:class:`Node` and/or :py:class:`Relationship`
             instances
@@ -657,8 +654,8 @@ class GraphDatabaseService(Cacheable, Resource):
         ::
 
             >>> from py2neo import neo4j
-            >>> graph_db = neo4j.GraphDatabaseService()
-            >>> graph_db.load_geoff("(alice)<-[:KNOWS]->(bob)")
+            >>> graph = neo4j.Graph()
+            >>> graph.load_geoff("(alice)<-[:KNOWS]->(bob)")
             [{u'alice': Node('http://localhost:7474/db/data/node/1'),
               u'bob': Node('http://localhost:7474/db/data/node/2')}]
 
@@ -685,31 +682,31 @@ class GraphDatabaseService(Cacheable, Resource):
 
             # all relationships from the graph database
             # ()-[r]-()
-            rels = list(graph_db.match())
+            rels = list(graph.match())
 
             # all relationships outgoing from `alice`
             # (alice)-[r]->()
-            rels = list(graph_db.match(start_node=alice))
+            rels = list(graph.match(start_node=alice))
 
             # all relationships incoming to `alice`
             # ()-[r]->(alice)
-            rels = list(graph_db.match(end_node=alice))
+            rels = list(graph.match(end_node=alice))
 
             # all relationships attached to `alice`, regardless of direction
             # (alice)-[r]-()
-            rels = list(graph_db.match(start_node=alice, bidirectional=True))
+            rels = list(graph.match(start_node=alice, bidirectional=True))
 
             # all relationships from `alice` to `bob`
             # (alice)-[r]->(bob)
-            rels = list(graph_db.match(start_node=alice, end_node=bob))
+            rels = list(graph.match(start_node=alice, end_node=bob))
 
             # all relationships outgoing from `alice` of type "FRIEND"
             # (alice)-[r:FRIEND]->()
-            rels = list(graph_db.match(start_node=alice, rel_type="FRIEND"))
+            rels = list(graph.match(start_node=alice, rel_type="FRIEND"))
 
             # up to three relationships outgoing from `alice` of type "FRIEND"
             # (alice)-[r:FRIEND]->()
-            rels = list(graph_db.match(start_node=alice, rel_type="FRIEND", limit=3))
+            rels = list(graph.match(start_node=alice, rel_type="FRIEND", limit=3))
 
         :param start_node: concrete start :py:class:`Node` to match or
             :py:const:`None` if any
@@ -780,7 +777,7 @@ class GraphDatabaseService(Cacheable, Resource):
         :return: a matching :py:class:`Relationship` or :py:const:`None`
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
@@ -947,10 +944,10 @@ class GraphDatabaseService(Cacheable, Resource):
         default configuration or that supplied in `config`::
 
             # get or create a node index called "People"
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            people = graph.get_or_create_index(neo4j.Node, "People")
 
             # get or create a relationship index called "Friends"
-            friends = graph_db.get_or_create_index(neo4j.Relationship, "Friends")
+            friends = graph.get_or_create_index(neo4j.Relationship, "Friends")
 
         :param content_type: either :py:class:`neo4j.Node` or
             :py:class:`neo4j.Relationship`
@@ -1033,18 +1030,22 @@ class GraphDatabaseService(Cacheable, Resource):
         return None
 
 
+# Deprecated alias
+GraphDatabaseService = Graph
+
+
 class CypherQuery(object):
     """ A reusable Cypher query. To create a new query object, a graph and the
     query text need to be supplied::
 
         >>> from py2neo import neo4j
-        >>> graph_db = neo4j.GraphDatabaseService()
-        >>> query = neo4j.CypherQuery(graph_db, "CREATE (a) RETURN a")
+        >>> graph = neo4j.Graph()
+        >>> query = neo4j.CypherQuery(graph, "CREATE (a) RETURN a")
 
     """
 
-    def __init__(self, graph_db, query):
-        self._cypher = Resource(graph_db.__metadata__["cypher"])
+    def __init__(self, graph, query):
+        self._cypher = Resource(graph.__metadata__["cypher"])
         self._query = query
 
     def __str__(self):
@@ -1171,7 +1172,7 @@ class IterableCypherResults(object):
 
     ::
 
-        query = graph_db.cypher.query("START n=node(*) RETURN n LIMIT 10")
+        query = graph.cypher.query("START n=node(*) RETURN n LIMIT 10")
         for record in query.stream():
             print record[0]
 
@@ -1242,13 +1243,17 @@ class Schema(Cacheable, Resource):
 
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)
-        if not self.service_root.graph_db.supports_schema_indexes:
+        if not self.service_root.graph.supports_schema_indexes:
             raise NotImplementedError("Schema index support requires "
                                       "version 2.0 or above")
         self._index_template = \
             URITemplate(str(URI(self)) + "/index/{label}")
         self._index_key_template = \
             URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
+        self._uniqueness_constraint_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness")
+        self._uniqueness_constraint_key_template = \
+            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness/{property_key}")
 
     def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
@@ -1272,6 +1277,28 @@ class Schema(Cacheable, Resource):
                 for indexed in response.json
             ]
 
+    def get_unique_constraints(self, label):
+        """ Fetch a list of uniqueness constraints for a label.
+
+        :param label:
+        :return:
+        """
+        if not label:
+            raise ValueError("Label cannot be empty")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        try:
+            response = resource._get()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                return []
+            else:
+                raise
+        else:
+            return [
+                unique["property_keys"][0]
+                for unique in response.json
+            ]
+
     def create_index(self, label, property_key):
         """ Index a property key for a label.
 
@@ -1287,7 +1314,26 @@ class Schema(Cacheable, Resource):
             resource._post({"property_keys": [property_key]})
         except ClientError as err:
             if err.status_code == CONFLICT:
-                raise ValueError("Property key already indexed")
+                raise ValueError(err.cause.message)
+            else:
+                raise
+
+    def add_unique_constraint(self, label, property_key):
+        """ Create an uniqueness constraint for a label.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
+        try:
+            resource._post({"property_keys": [ustr(property_key)]})
+        except ClientError as err:
+            if err.status_code == CONFLICT:
+                raise ValueError(err.cause.message)
             else:
                 raise
 
@@ -1302,6 +1348,26 @@ class Schema(Cacheable, Resource):
             raise ValueError("Neither label nor property key can be empty")
         uri = self._index_key_template.expand(label=label,
                                               property_key=property_key)
+        resource = Resource(uri)
+        try:
+            resource._delete()
+        except ClientError as err:
+            if err.status_code == NOT_FOUND:
+                raise LookupError("Property key not found")
+            else:
+                raise
+
+    def remove_unique_constraint(self, label, property_key):
+        """ Remove uniqueness constraint for a given property key.
+
+         :param label:
+         :param property_key:
+         :return:
+        """
+        if not label or not property_key:
+            raise ValueError("Neither label nor property key can be empty")
+        uri = self._uniqueness_constraint_key_template.expand(label=label,
+                                                              property_key=property_key)
         resource = Resource(uri)
         try:
             resource._delete()
@@ -1426,7 +1492,7 @@ class Node(_Entity):
 
     Typically, concrete nodes will not be constructed directly in this way
     by client applications. Instead, methods such as
-    :py:func:`GraphDatabaseService.create` build node objects indirectly as
+    :py:func:`Graph.create` build node objects indirectly as
     required. Once created, nodes can be treated like any other container type
     so as to manage properties::
 
@@ -1544,7 +1610,7 @@ class Node(_Entity):
     def delete_related(self):
         """ Delete this node along with all related nodes and relationships.
         """
-        if self.graph_db.supports_foreach_pipe:
+        if self.graph.supports_foreach_pipe:
             query = ("START a=node({a}) "
                      "MATCH (a)-[rels*0..]-(z) "
                      "FOREACH(r IN rels| DELETE r) "
@@ -1554,13 +1620,13 @@ class Node(_Entity):
                      "MATCH (a)-[rels*0..]-(z) "
                      "FOREACH(r IN rels: DELETE r) "
                      "DELETE a, z")
-        CypherQuery(self.graph_db, query).execute(a=self._id)
+        CypherQuery(self.graph, query).execute(a=self._id)
 
     def isolate(self):
         """ Delete all relationships connected to this node, both incoming and
         outgoing.
         """
-        CypherQuery(self.graph_db, "START a=node({a}) "
+        CypherQuery(self.graph, "START a=node({a}) "
                                    "MATCH a-[r]-b "
                                    "DELETE r").execute(a=self._id)
 
@@ -1578,9 +1644,9 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph_db.match(self, rel_type, other_node,
+        return self.service_root.graph.match(self, rel_type, other_node,
                                                 True, limit)
 
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
@@ -1597,9 +1663,9 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph_db.match(start_node, rel_type, self,
+        return self.service_root.graph.match(start_node, rel_type, self,
                                                 False, limit)
 
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
@@ -1616,9 +1682,9 @@ class Node(_Entity):
         :rtype: generator
 
         .. seealso::
-           :py:func:`GraphDatabaseService.match <py2neo.neo4j.GraphDatabaseService.match>`
+           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
         """
-        return self.service_root.graph_db.match(self, rel_type, end_node,
+        return self.service_root.graph.match(self, rel_type, end_node,
                                                 False, limit)
 
     def create_path(self, *items):
@@ -1650,7 +1716,7 @@ class Node(_Entity):
         :return: `Path` object representing the newly-created path
         """
         path = Path(self, *items)
-        return path.create(self.service_root.graph_db)
+        return path.create(self.service_root.graph)
 
     def get_or_create_path(self, *items):
         """ Identical to `create_path` except will reuse parts of the path
@@ -1686,7 +1752,7 @@ class Node(_Entity):
 
         """
         path = Path(self, *items)
-        return path.get_or_create(self.service_root.graph_db)
+        return path.get_or_create(self.service_root.graph)
 
     def update_properties(self, properties):
         """ Update properties with the values supplied.
@@ -1704,7 +1770,7 @@ class Node(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = CypherQuery(self.graph_db, " ".join(query)).execute_one(**params)
+            rel = CypherQuery(self.graph, " ".join(query)).execute_one(**params)
             self._properties = rel.__metadata__["data"]
 
     def _label_resource(self):
@@ -1729,14 +1795,20 @@ class Node(_Entity):
         For example::
 
             >>> from py2neo import neo4j, node
-            >>> graph_db = neo4j.GraphDatabaseService()
-            >>> alice, = graph_db.create(node(name="Alice"))
+            >>> graph = neo4j.Graph()
+            >>> alice, = graph.create(node(name="Alice"))
             >>> alice.add_labels("female", "human")
 
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._post(labels)
+        try:
+            self._label_resource()._post(labels)
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
 
     def remove_labels(self, *labels):
         """ Remove one or more labels from this node.
@@ -1744,7 +1816,7 @@ class Node(_Entity):
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        batch = WriteBatch(self.graph_db)
+        batch = WriteBatch(self.graph)
         for label in labels:
             batch.remove_label(self, label)
         batch.run()
@@ -1755,7 +1827,13 @@ class Node(_Entity):
         :param labels: one or more text labels
         """
         labels = [ustr(label) for label in set(flatten(labels))]
-        self._label_resource()._put(labels)
+        try:
+            self._label_resource()._put(labels)
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
 
 
 class Relationship(_Entity):
@@ -1894,7 +1972,7 @@ class Relationship(_Entity):
                 query.append("SET a.`" + key + "`={" + value_tag + "}")
                 params[value_tag] = value
             query.append("RETURN a")
-            rel = CypherQuery(self.graph_db, " ".join(query)).execute_one(**params)
+            rel = CypherQuery(self.graph, " ".join(query)).execute_one(**params)
             self._properties = rel.__metadata__["data"]
 
 
@@ -2128,40 +2206,40 @@ class Path(object):
         query = " ".join(clauses)
         return query, params
 
-    def _create(self, graph_db, unique):
+    def _create(self, graph, unique):
         query, params = self._create_query(unique=unique)
         try:
-            results = CypherQuery(graph_db, query).execute(**params)
+            results = CypherQuery(graph, query).execute(**params)
         except CypherError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
                 "Cypher CREATE UNIQUE clauses or the query contains "
-                "an unsupported property type".format(graph_db.__uri__)
+                "an unsupported property type".format(graph.__uri__)
             )
         else:
             for row in results:
                 return row[0]
 
-    def create(self, graph_db):
-        """ Construct a path within the specified `graph_db` from the nodes
+    def create(self, graph):
+        """ Construct a path within the specified `graph` from the nodes
         and relationships within this :py:class:`Path` instance. This makes
         use of Cypher's ``CREATE`` clause.
         """
-        return self._create(graph_db, unique=False)
+        return self._create(graph, unique=False)
 
-    def get_or_create(self, graph_db):
-        """ Construct a unique path within the specified `graph_db` from the
+    def get_or_create(self, graph):
+        """ Construct a unique path within the specified `graph` from the
         nodes and relationships within this :py:class:`Path` instance. This
         makes use of Cypher's ``CREATE UNIQUE`` clause.
         """
-        return self._create(graph_db, unique=True)
+        return self._create(graph, unique=True)
 
 
 class Index(Cacheable, Resource):
     """ Searchable database index which can contain either nodes or
     relationships.
 
-    .. seealso:: :py:func:`GraphDatabaseService.get_or_create_index`
+    .. seealso:: :py:func:`Graph.get_or_create_index`
     """
 
     def __init__(self, content_type, uri, name=None):
@@ -2174,7 +2252,7 @@ class Index(Cacheable, Resource):
             Resource.__init__(self, uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
         uri = URI(self)
-        if self.graph_db.neo4j_version >= (1, 9):
+        if self.graph.neo4j_version >= (1, 9):
             self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
             self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
         else:
@@ -2201,8 +2279,8 @@ class Index(Cacheable, Resource):
         """ Add an entity to this index under the `key`:`value` pair supplied::
 
             # create a node and obtain a reference to the "People" node index
-            alice, = graph_db.create({"name": "Alice Smith"})
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            alice, = graph.create({"name": "Alice Smith"})
+            people = graph.get_or_create_index(neo4j.Node, "People")
 
             # add the node to the index
             people.add("family_name", "Smith", alice)
@@ -2224,7 +2302,7 @@ class Index(Cacheable, Resource):
 
             # obtain a reference to the "Rooms" node index and
             # add node `alice` to room 100 if empty
-            rooms = graph_db.get_or_create_index(neo4j.Node, "Rooms")
+            rooms = graph.get_or_create_index(neo4j.Node, "Rooms")
             rooms.add_if_none("room", 100, alice)
 
         If added, this method returns the entity, otherwise :py:const:`None`
@@ -2259,7 +2337,7 @@ class Index(Cacheable, Resource):
 
             # obtain a reference to the "People" node index and
             # get all nodes where `family_name` equals "Smith"
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            people = graph.get_or_create_index(neo4j.Node, "People")
             smiths = people.get("family_name", "Smith")
 
         ..
@@ -2273,7 +2351,7 @@ class Index(Cacheable, Resource):
         """ Create and index a new node or relationship using the abstract
         provided.
         """
-        batch = WriteBatch(self.service_root.graph_db)
+        batch = WriteBatch(self.service_root.graph)
         if self._content_type is Node:
             batch.create(abstract)
             batch.add_indexed_node(self, key, value, 0)
@@ -2314,7 +2392,7 @@ class Index(Cacheable, Resource):
 
             # obtain a reference to the "Contacts" node index and
             # ensure that Alice exists therein
-            contacts = graph_db.get_or_create_index(neo4j.Node, "Contacts")
+            contacts = graph.get_or_create_index(neo4j.Node, "Contacts")
             alice = contacts.get_or_create("name", "SMITH, Alice", {
                 "given_name": "Alice Jane", "family_name": "Smith",
                 "phone": "01234 567 890", "mobile": "07890 123 456"
@@ -2323,7 +2401,7 @@ class Index(Cacheable, Resource):
             # obtain a reference to the "Friendships" relationship index and
             # ensure that Alice and Bob's friendship is registered (`alice`
             # and `bob` refer to existing nodes)
-            friendships = graph_db.get_or_create_index(neo4j.Relationship, "Friendships")
+            friendships = graph.get_or_create_index(neo4j.Relationship, "Friendships")
             alice_and_bob = friendships.get_or_create(
                 "friends", "Alice & Bob", (alice, "KNOWS", bob)
             )
@@ -2340,7 +2418,7 @@ class Index(Cacheable, Resource):
 
             # obtain a reference to the "Contacts" node index and
             # create a node for Alice if one does not already exist
-            contacts = graph_db.get_or_create_index(neo4j.Node, "Contacts")
+            contacts = graph.get_or_create_index(neo4j.Node, "Contacts")
             alice = contacts.create_if_none("name", "SMITH, Alice", {
                 "given_name": "Alice Jane", "family_name": "Smith",
                 "phone": "01234 567 890", "mobile": "07890 123 456"
@@ -2381,7 +2459,7 @@ class Index(Cacheable, Resource):
                 URI(entity.__metadata__["indexed"])
                 for entity in self.get(key, value)
             ]
-            batch = WriteBatch(self.service_root.graph_db)
+            batch = WriteBatch(self.service_root.graph)
             for uri in uris:
                 batch.append_delete(uri)
             batch.run()
@@ -2400,7 +2478,7 @@ class Index(Cacheable, Resource):
 
             # obtain a reference to the "People" node index and
             # get all nodes where `family_name` equals "Smith"
-            people = graph_db.get_or_create_index(neo4j.Node, "People")
+            people = graph.get_or_create_index(neo4j.Node, "People")
             s_people = people.query("family_name:S*")
 
         The query syntax used should be appropriate for the configuration of
@@ -2532,10 +2610,10 @@ class BatchResponse(object):
 
 class BatchRequestList(object):
 
-    def __init__(self, graph_db):
-        self._graph_db = graph_db
-        self._batch = graph_db._subresource("batch")
-        self._cypher = graph_db._subresource("cypher")
+    def __init__(self, graph):
+        self._graph = graph
+        self._batch = graph._subresource("batch")
+        self._cypher = graph._subresource("cypher")
         self.clear()
 
     def __len__(self):
@@ -2611,7 +2689,7 @@ class BatchRequestList(object):
         elif isinstance(resource, BatchRequest):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            offset = len(resource.service_root.graph_db.__uri__)
+            offset = len(resource.service_root.graph.__uri__)
             uri = str(resource.__uri__)[offset:]
         if segments:
             if not uri.endswith("/"):
@@ -2683,7 +2761,7 @@ class BatchRequestList(object):
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self._graph_db.get_or_create_index(content_type, str(index))
+            return self._graph.get_or_create_index(content_type, str(index))
 
 
 class BatchResponseList(object):
@@ -2710,8 +2788,8 @@ class ReadBatch(BatchRequestList):
     """ Generic batch execution facility for data read requests,
     """
 
-    def __init__(self, graph_db):
-        BatchRequestList.__init__(self, graph_db)
+    def __init__(self, graph):
+        BatchRequestList.__init__(self, graph)
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under a given key-value pair.
@@ -2736,13 +2814,13 @@ class WriteBatch(BatchRequestList):
     of this.
     """
 
-    def __init__(self, graph_db):
-        BatchRequestList.__init__(self, graph_db)
+    def __init__(self, graph):
+        BatchRequestList.__init__(self, graph)
         self.__new_uniqueness_modes = None
 
     @property
     def supports_index_uniqueness_modes(self):
-        return self._graph_db.supports_index_uniqueness_modes
+        return self._graph.supports_index_uniqueness_modes
 
     def _assert_can_create_or_fail(self):
         if not self.supports_index_uniqueness_modes:
@@ -2753,7 +2831,7 @@ class WriteBatch(BatchRequestList):
         """ Create a node or relationship based on the abstract entity
         provided. For example::
 
-            batch = WriteBatch(graph_db)
+            batch = WriteBatch(graph)
             a = batch.create(node(name="Alice"))
             b = batch.create(node(name="Bob"))
             batch.create(rel(a, "KNOWS", b))
@@ -2765,7 +2843,7 @@ class WriteBatch(BatchRequestList):
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
-            uri = self._uri_for(self._graph_db._subresource("node"))
+            uri = self._uri_for(self._graph._subresource("node"))
             body = compact(entity._properties)
         elif isinstance(entity, Relationship):
             uri = self._uri_for(entity.start_node, "relationships")

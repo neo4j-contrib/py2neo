@@ -765,7 +765,10 @@ class Resource(object):
     """
 
     def __init__(self, uri):
-        self._uri = URI(uri)
+        if isinstance(uri, URI):
+            self._uri = uri
+        else:
+            self._uri = URI(uri)
 
     def __str__(self):
         return "<{0}>".format(str(self._uri))

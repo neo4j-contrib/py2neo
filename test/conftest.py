@@ -46,7 +46,7 @@ def pytest_configure(config):
     is to ensure the correct messags reach the users console during test run.
 
     """
-    db = neo4j.GraphDatabaseService(DEFAULT_DB)
+    db = neo4j.Graph(DEFAULT_DB)
     rels = next(db.match(), None)
     if rels:
         logging.warning(
@@ -68,7 +68,7 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     """ Final tear-down behaviour of test environment
     """
-    db = neo4j.GraphDatabaseService(DEFAULT_DB)
+    db = neo4j.Graph(DEFAULT_DB)
     db.clear()
 
     logger.info('cleared db after tests completed')
@@ -86,7 +86,7 @@ def pytest_runtest_setup(item):
     version_markers = item.get_marker("neoversion")
     if version_markers:
         logger.info('minimum neo version required')
-        db = neo4j.GraphDatabaseService(DEFAULT_DB)
+        db = neo4j.Graph(DEFAULT_DB)
 
         required_version = Decimal(version_markers.args[0])
 
@@ -109,7 +109,7 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture
 def graph(request):
-    db = neo4j.GraphDatabaseService(DEFAULT_DB)
+    db = neo4j.Graph(DEFAULT_DB)
 
     try:
         db.clear()
