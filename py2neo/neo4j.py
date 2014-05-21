@@ -58,7 +58,7 @@ from .exceptions import *
 from .util import *
 
 
-__all__ = ["Cacheable", "Graph", "GraphDatabaseService", "Node", "Path", "Rel",
+__all__ = ["Graph", "GraphDatabaseService", "Node", "Path", "Rel",
            "Relationship", "Resource", "ResourceTemplate", "Rev", "_hydrated",
            "ReadBatch", "WriteBatch", "BatchRequestList", "_cast", "_rel",
            "Index", "LegacyReadBatch", "LegacyWriteBatch"]
@@ -67,8 +67,8 @@ __all__ = ["Cacheable", "Graph", "GraphDatabaseService", "Node", "Path", "Rel",
 DEFAULT_SCHEME = "http"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 7474
-DEFAULT_NETLOC = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
-DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_NETLOC)
+DEFAULT_HOST_PORT = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
+DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)  # TODO: remove - moved to ServiceRoot
 
 PRODUCT = ("py2neo", __version__)
 
@@ -399,7 +399,7 @@ class Bindable(object):
         """
         uri = ustr(uri)
         base = uri[:uri.find("/", uri.find("//") + 2)]
-        self.__service_root = ServiceRoot.get_instance(base + "/")
+        self.__service_root = ServiceRoot(base + "/")
         self.__graph = self.__service_root.graph
         if "{" in uri:
             self.__resource = Neo4jResourceTemplate(uri)
@@ -474,7 +474,7 @@ class Resource(object):
 
     @property
     def service_root(self):
-        return ServiceRoot.get_instance(URI(self._resource).resolve("/"))
+        return ServiceRoot(URI(self._resource).resolve("/"))
 
     @property
     def graph(self):
@@ -560,35 +560,36 @@ class ResourceTemplate(_ResourceTemplate):
         return Resource(_ResourceTemplate.expand(self, **values).uri)
 
 
-class Cacheable(object):
+class ServiceRoot(object):
+    """ Neo4j REST API service root resource.
+    """
+
+    DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
 
     __instances = {}
 
-    @classmethod
-    def get_instance(cls, uri):
+    def __new__(cls, uri=None):
         """ Fetch a cached instance if one is available, otherwise create,
         cache and return a new instance.
 
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        if uri not in cls.__instances:
-            cls.__instances[uri] = cls(uri)
-        return cls.__instances[uri]
-
-
-class ServiceRoot(Cacheable, Resource):
-    """ Neo4j REST API service root resource.
-    """
+        inst = super(ServiceRoot, cls).__new__(cls, uri)
+        return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, uri=None):
-        Resource.__init__(self, uri or DEFAULT_URI)
+        self.__resource = Neo4jResource(uri or self.DEFAULT_URI)
         self._load2neo = None
         self._load2neo_checked = False
 
     @property
+    def resource(self):
+        return self.__resource
+
+    @property
     def graph(self):
-        return Graph.get_instance(self.__metadata__["data"])
+        return Graph(self.resource.metadata["data"])
 
     @property
     def load2neo(self):
@@ -607,12 +608,24 @@ class ServiceRoot(Cacheable, Resource):
 
     @property
     def monitor(self):
-        manager = Resource(self.__metadata__["management"])
-        return Monitor(manager.__metadata__["services"]["monitor"])
+        manager = Neo4jResource(self.resource.metadata["management"])
+        return Monitor(manager.metadata["services"]["monitor"])
 
 
 # TODO: move to admin plugin
-class Monitor(Cacheable, Resource):
+class Monitor(Resource):
+
+    __instances = {}
+
+    def __new__(cls, uri=None):
+        """ Fetch a cached instance if one is available, otherwise create,
+        cache and return a new instance.
+
+        :param uri: URI of the cached resource
+        :return: a resource instance
+        """
+        inst = super(Monitor, cls).__new__(cls, uri)
+        return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, uri=None):
         if uri is None:
@@ -642,7 +655,7 @@ class Monitor(Cacheable, Resource):
         return data
 
 
-class Graph(Cacheable, Resource):
+class Graph(Resource):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
     attaching to this service should need to be directly aware of; all further
@@ -660,6 +673,18 @@ class Graph(Cacheable, Resource):
 
     :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
     """
+
+    __instances = {}
+
+    def __new__(cls, uri=None):
+        """ Fetch a cached instance if one is available, otherwise create,
+        cache and return a new instance.
+
+        :param uri: URI of the cached resource
+        :return: a resource instance
+        """
+        inst = super(Graph, cls).__new__(cls, uri)
+        return cls.__instances.setdefault((cls, uri), inst)
 
     def __init__(self, uri=None):
         if uri is None:
@@ -971,7 +996,7 @@ class Graph(Cacheable, Resource):
         .. seealso::
             :py:func:`Schema <py2neo.neo4j.Schema>`
         """
-        return Schema.get_instance(URI(self).resolve("schema"))
+        return Schema(URI(self).resolve("schema"))
 
     @property
     def size(self):
@@ -1247,7 +1272,19 @@ class IterableCypherResults(object):
         self._response.close()
 
 
-class Schema(Cacheable, Resource):
+class Schema(Resource):
+
+    __instances = {}
+
+    def __new__(cls, uri=None):
+        """ Fetch a cached instance if one is available, otherwise create,
+        cache and return a new instance.
+
+        :param uri: URI of the cached resource
+        :return: a resource instance
+        """
+        inst = super(Schema, cls).__new__(cls, uri)
+        return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, *args, **kwargs):
         Resource.__init__(self, *args, **kwargs)

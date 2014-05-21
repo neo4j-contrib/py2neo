@@ -123,7 +123,7 @@ class Session(object):
             service_root_uri = "{0}://{1}@{2}:{3}/".format(self._uri.scheme, self._uri.user_info, self._uri.host, self._uri.port)
         else:
             service_root_uri = "{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port)
-        self._service_root = ServiceRoot.get_instance(service_root_uri)
+        self._service_root = ServiceRoot(service_root_uri)
         self._graph = self._service_root.graph
         try:
             self._transaction_uri = self._graph.__metadata__["transaction"]

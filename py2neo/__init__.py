@@ -24,7 +24,7 @@ __package__ = "py2neo"
 __version__ = "1.7.0"
 
 
-from .neo4j import Graph, Node, Relationship, Path
+from .neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship
 from .neo4j import _rel as rel
 
 node = Node.cast

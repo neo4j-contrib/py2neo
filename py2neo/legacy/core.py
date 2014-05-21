@@ -22,7 +22,7 @@ from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.urimagic import percent_encode, URI
 
-from py2neo.neo4j import Graph, Node, Relationship, Resource, Cacheable, \
+from py2neo.neo4j import Graph, Node, Relationship, Resource, \
     ResourceTemplate, _hydrated
 from py2neo.legacy.batch import LegacyWriteBatch
 
@@ -192,12 +192,24 @@ class GraphDatabaseService(Graph):
         return None
 
 
-class Index(Cacheable, Resource):
+class Index(Resource):
     """ Searchable database index which can contain either nodes or
     relationships.
 
     .. seealso:: :py:func:`Graph.get_or_create_index`
     """
+
+    __instances = {}
+
+    def __new__(cls, content_type, uri, name=None):
+        """ Fetch a cached instance if one is available, otherwise create,
+        cache and return a new instance.
+
+        :param uri: URI of the cached resource
+        :return: a resource instance
+        """
+        inst = super(Index, cls).__new__(cls, content_type, uri, name)
+        return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
         self._content_type = content_type
