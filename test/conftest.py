@@ -18,7 +18,7 @@ import logging
 import pytest
 from logutils.colorize import ColorizingStreamHandler
 
-from py2neo import cypher, neo4j
+from py2neo import cypher, neo4j, legacy
 
 
 DEFAULT_DB = "http://localhost:7474/db/data/"
@@ -109,14 +109,26 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture
 def graph(request):
-    db = neo4j.Graph(DEFAULT_DB)
+    graph = neo4j.Graph(DEFAULT_DB)
 
     try:
-        db.clear()
+        graph.clear()
     except Exception as exc:
         logger.exception('Failed to clear db')
 
-    return db
+    return graph
+
+
+@pytest.fixture
+def legacy_graph(request):
+    graph = legacy.GraphDatabaseService(DEFAULT_DB)
+
+    try:
+        graph.clear()
+    except Exception as exc:
+        logger.exception('Failed to clear db')
+
+    return graph
 
 
 @pytest.fixture

@@ -14,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import sys
 
 import pytest
@@ -50,8 +51,8 @@ class TestNodeCreation(object):
 
 class TestRelationshipCreation(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = neo4j.WriteBatch(graph)
+    def setup(self, legacy_graph):
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
 
     def test_can_create_relationship_with_new_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -336,10 +337,10 @@ class TestPropertyManagement(object):
 
 class TestIndexedNodeCreation(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.people = graph.get_or_create_index(neo4j.Node, "People")
-        self.batch = neo4j.WriteBatch(graph)
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.people = legacy_graph.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
+        self.graph = legacy_graph
 
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
@@ -405,10 +406,10 @@ class TestIndexedNodeCreation(object):
 
 class TestIndexedNodeAddition(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.people = graph.get_or_create_index(neo4j.Node, "People")
-        self.batch = neo4j.WriteBatch(graph)
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.people = legacy_graph.get_or_create_index(neo4j.Node, "People")
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
+        self.graph = legacy_graph
 
     def test_can_add_single_node(self):
         alice, = self.graph.create({"name": "Alice Smith"})
@@ -455,15 +456,15 @@ class TestIndexedNodeAddition(object):
 
 class TestIndexedRelationshipCreation(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.friendships = graph.get_or_create_index(
+    def setup(self, legacy_graph):
+        self.friendships = legacy_graph.get_or_create_index(
             neo4j.Relationship, "Friendships")
 
-        self.alice, self.bob = graph.create(
+        self.alice, self.bob = legacy_graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
-        self.batch = neo4j.WriteBatch(graph)
-        self.graph = graph
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
+        self.graph = legacy_graph
 
     def test_can_create_single_indexed_relationship(self):
         self.batch.get_or_create_indexed_relationship(
@@ -495,11 +496,11 @@ class TestIndexedRelationshipCreation(object):
 
 class TestIndexedRelationshipAddition(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.friendships = graph.get_or_create_index(
+    def setup(self, legacy_graph):
+        self.friendships = legacy_graph.get_or_create_index(
             neo4j.Relationship, "Friendships")
-        self.batch = neo4j.WriteBatch(graph)
-        self.graph = graph
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
+        self.graph = legacy_graph
 
     def test_can_add_single_relationship(self):
         alice, bob, ab = self.graph.create(
@@ -551,10 +552,10 @@ class TestIndexedRelationshipAddition(object):
 
 class TestIndexedNodeRemoval(object):
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.index = graph.get_or_create_index(
+    def setup(self, legacy_graph):
+        self.index = legacy_graph.get_or_create_index(
             neo4j.Node, "node_removal_test_index")
-        self.fred, self.wilma, = graph.create(
+        self.fred, self.wilma, = legacy_graph.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
         self.index.add("name", "Fred", self.fred)
@@ -563,8 +564,8 @@ class TestIndexedNodeRemoval(object):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-        self.batch = neo4j.WriteBatch(graph)
-        self.graph = graph
+        self.batch = neo4j.LegacyWriteBatch(legacy_graph)
+        self.graph = legacy_graph
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)

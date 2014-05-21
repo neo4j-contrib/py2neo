@@ -19,7 +19,7 @@ import logging
 
 import pytest
 
-from py2neo import neo4j
+from py2neo import neo4j, legacy
 from py2neo.calendar import GregorianCalendar
 
 logging.basicConfig(
@@ -34,7 +34,7 @@ def setup(request, graph):
 
     if request.instance:
         # Grab a handle to an index for linking to time data
-        service = neo4j.Graph()
+        service = legacy.GraphDatabaseService()
         time = service.get_or_create_index(neo4j.Node, "TIME")
         request.instance.calendar = GregorianCalendar(time)
 
@@ -76,7 +76,7 @@ class TestExampleCode(object):
         from py2neo import neo4j
         from py2neo.calendar import GregorianCalendar
 
-        graph = neo4j.Graph()
+        graph = legacy.GraphDatabaseService()
         time_index = graph.get_or_create_index(neo4j.Node, "TIME")
         calendar = GregorianCalendar(time_index)
 

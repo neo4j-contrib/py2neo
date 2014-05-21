@@ -23,7 +23,7 @@ import logging
 import re
 from uuid import uuid4
 
-from . import neo4j
+from . import neo4j, legacy
 from .util import deprecated
 from .xmlutil import xml_to_geoff
 
@@ -199,7 +199,7 @@ class Subgraph(object):
 
     def _execute_load_batch(self, graph, unique):
         # build batch request
-        batch = neo4j.WriteBatch(graph)
+        batch = legacy.WriteBatch(graph)
         # 1. indexed nodes
         index_entries = list(self.index_entries.values())
         for entry in index_entries:
