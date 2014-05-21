@@ -3134,4 +3134,4 @@ class WriteBatch(BatchRequestList):
 
 
 from py2neo.legacy import GraphDatabaseService, Index, \
-    ReadBatch as LegacyReadBatch, WriteBatch as LegacyWriteBatch
+    LegacyReadBatch, LegacyWriteBatch

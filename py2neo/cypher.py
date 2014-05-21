@@ -25,7 +25,7 @@ from collections import OrderedDict
 import json
 
 from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, Record, RecordProducer
+from .util import deprecated, RecordProducer
 from .packages.urimagic import URI
 
 
