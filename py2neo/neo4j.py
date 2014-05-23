@@ -785,6 +785,7 @@ class Graph(Bindable):
             if err.status_code != NOT_FOUND:
                 raise
 
+    # TODO: replace with PullBatch
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
