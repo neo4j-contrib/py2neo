@@ -54,9 +54,9 @@ class GraphDatabaseService(Graph):
         :return:
         """
         if content_type is Node:
-            uri = self.__metadata__["node_index"]
+            uri = self.resource.metadata["node_index"]
         elif content_type is Relationship:
-            uri = self.__metadata__["relationship_index"]
+            uri = self.resource.metadata["relationship_index"]
         else:
             raise IndexTypeError(content_type.__class__.__name__)
         return Resource(uri)

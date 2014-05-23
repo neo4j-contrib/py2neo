@@ -126,7 +126,7 @@ class Session(object):
         self._service_root = ServiceRoot(service_root_uri)
         self._graph = self._service_root.graph
         try:
-            self._transaction_uri = self._graph.__metadata__["transaction"]
+            self._transaction_uri = self._graph.resource.metadata["transaction"]
         except KeyError:
             raise NotImplementedError("Cypher transactions are not supported "
                                       "by this server version")

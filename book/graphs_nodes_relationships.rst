@@ -5,7 +5,7 @@ Graph
 --------------------
 
 .. autoclass:: py2neo.neo4j.Graph
-    :members: get_instance, clear, create, delete, find,
+    :members: clear, create, delete, find,
         get_properties, load2neo_version, load_geoff,
         match, match_one, neo4j_version, node, node_labels,
         order, relationship, relationship_types, schema, size,

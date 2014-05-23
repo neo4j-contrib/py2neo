@@ -34,7 +34,7 @@ logging.basicConfig(
 def test_wrong_host_will_fail():
     graph = neo4j.Graph("http://localtoast:7474/db/data/")
     try:
-        graph.refresh()
+        graph.resource.get()
     except NetworkAddressError:
         assert True
     else:
@@ -44,7 +44,7 @@ def test_wrong_host_will_fail():
 def test_wrong_port_will_fail():
     graph = neo4j.Graph("http://localhost:7575/db/data/")
     try:
-        graph.refresh()
+        graph.resource.get()
     except SocketError:
         assert True
     else:
@@ -54,7 +54,7 @@ def test_wrong_port_will_fail():
 def test_wrong_path_will_fail():
     graph = neo4j.Graph("http://localhost:7474/foo/bar/")
     try:
-        graph.refresh()
+        graph.resource.get()
     except neo4j.ClientError:
         assert True
     else:
@@ -74,8 +74,8 @@ class GraphTest(object):
         self.graph = graph
 
     def test_can_get_same_instance(self):
-        graph_1 = neo4j.Graph.get_instance(neo4j.DEFAULT_URI)
-        graph_2 = neo4j.Graph.get_instance(neo4j.DEFAULT_URI)
+        graph_1 = neo4j.Graph(neo4j.DEFAULT_URI)
+        graph_2 = neo4j.Graph(neo4j.DEFAULT_URI)
         assert graph_1 is graph_2
 
     def test_neo4j_version_format(self):
