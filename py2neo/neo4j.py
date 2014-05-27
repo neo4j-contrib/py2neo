@@ -1753,6 +1753,8 @@ class Node(PropertyContainer):
         - ``node(node_instance)``
         - ``node(property_dict)``
         - ``node(**properties)``
+        - ``node(int)`` -> NodePointer(int)
+        - ``node(None)`` -> None
 
         If :py:const:`None` is passed as the only argument, :py:const:`None` is
         returned instead of a ``Node`` instance.
@@ -1779,6 +1781,8 @@ class Node(PropertyContainer):
                 return arg
             elif isinstance(arg, dict):
                 return Node(**arg)
+            elif isinstance(arg, int):
+                return NodePointer(arg)
             else:
                 raise TypeError("Cannot cast node from {0}".format(arg))
         else:
@@ -2143,6 +2147,12 @@ class Node(PropertyContainer):
         self.add_labels(*labels)
 
 
+class NodePointer(object):
+
+    def __init__(self, address):
+        self.address = address
+
+
 class Rel(PropertyContainer):
     """ A relationship with no start or end nodes.
     """
@@ -2482,6 +2492,7 @@ class Path(object):
             for row in results:
                 return row[0]
 
+    @deprecated("Use Graph.create(Path(...)) instead")
     def create(self, graph):
         """ Construct a path within the specified `graph` from the nodes
         and relationships within this :py:class:`Path` instance. This makes
@@ -2489,6 +2500,7 @@ class Path(object):
         """
         return self._create(graph, unique=False)
 
+    @deprecated("Use Graph.merge(Path(...)) instead")
     def get_or_create(self, graph):
         """ Construct a unique path within the specified `graph` from the
         nodes and relationships within this :py:class:`Path` instance. This
