@@ -156,10 +156,10 @@ class LegacyWriteBatch(_WriteBatch):
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "start": self._uri_for(abstract._start_node),
-                "type": str(abstract._type),
-                "end": self._uri_for(abstract._end_node),
-                "properties": abstract._properties or {},
+                "start": self._uri_for(abstract.start_node),
+                "type": str(abstract.type),
+                "end": self._uri_for(abstract.end_node),
+                "properties": abstract.properties,
             })
         else:
             raise TypeError(cls)

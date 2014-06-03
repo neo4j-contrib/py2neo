@@ -24,9 +24,9 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import json
 
-from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, RecordProducer
-from .packages.urimagic import URI
+from py2neo.neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
+from py2neo.util import deprecated, RecordProducer
+from py2neo.packages.urimagic import URI
 
 
 @deprecated("The cypher module is deprecated, use "

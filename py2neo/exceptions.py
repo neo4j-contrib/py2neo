@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from .packages.jsonstream import assembled
+from py2neo.packages.jsonstream import assembled
 from py2neo.packages.httpstream import JSONResponse
 
 

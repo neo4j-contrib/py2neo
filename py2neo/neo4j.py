@@ -43,25 +43,26 @@ import logging
 import re
 from weakref import WeakValueDictionary
 
-from .packages.httpstream import (http,
-                                  Resource as _Resource,
-                                  ResourceTemplate as _ResourceTemplate,
-                                  ClientError as _ClientError,
-                                  ServerError as _ServerError)
-from .packages.jsonstream import assembled, grouped
-from .packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
-from .packages.urimagic import percent_encode, URI, URITemplate
+from py2neo.packages.httpstream import (http,
+                                        Resource as _Resource,
+                                        ResourceTemplate as _ResourceTemplate,
+                                        ClientError as _ClientError,
+                                        ServerError as _ServerError)
+from py2neo.packages.jsonstream import assembled, grouped
+from py2neo.packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
+from py2neo.packages.urimagic import percent_encode, URI, URITemplate
 
-from . import __version__
-from .exceptions import *
+from py2neo import __version__
+from py2neo.exceptions import *
 
-from .util import *
+from py2neo.util import *
 
 
-__all__ = ["Graph", "GraphDatabaseService", "Node", "Path", "Rel",
-           "Relationship", "Resource", "ResourceTemplate", "Rev", "_hydrated",
+__all__ = ["Graph", "GraphDatabaseService", "Node", "Path", "Rel", "Rev",
+           "Relationship", "Resource", "ResourceTemplate", "_hydrated",
            "ReadBatch", "WriteBatch", "BatchRequestList", "_cast", "_rel",
-           "Index", "LegacyReadBatch", "LegacyWriteBatch"]
+           "Index", "LegacyReadBatch", "LegacyWriteBatch", "NodePointer",
+           "UnjoinableError"]
 
 
 DEFAULT_SCHEME = "http"
@@ -205,6 +206,7 @@ def _hydrated(data, hydration_cache=None):
         return data
 
 
+# TODO: move to Relationship.cast
 def _rel(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
     following general combinations are possible:
@@ -240,7 +242,7 @@ def _rel(*args, **kwargs):
             return arg
         elif isinstance(arg, tuple):
             if len(arg) == 3:
-                return Rel.cast(arg[1]).between(arg[0], arg[2])
+                return Relationship(*arg)
             elif len(arg) == 4:
                 return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
             else:
@@ -248,9 +250,9 @@ def _rel(*args, **kwargs):
         else:
             raise TypeError("Cannot cast relationship from {0}".format(arg))
     elif len(args) == 3:
-        rel = Rel.cast(args[1])
+        rel = Relationship(*args)
         rel.properties.update(kwargs)
-        return rel.between(args[0], args[2])
+        return rel
     elif len(args) == 4:
         props = args[3]
         props.update(kwargs)
@@ -263,13 +265,17 @@ class UnboundError(Exception):
     pass
 
 
+class UnjoinableError(Exception):
+    pass
+
+
 # TODO: rename to Resource
 class Neo4jResource(_Resource):
     """ Variant of HTTPStream Resource that passes extra headers and product
     detail.
     """
 
-    def __init__(self, uri):
+    def __init__(self, uri, metadata=None):
         uri = URI(uri)
         scheme_host_port = (uri.scheme, uri.host, uri.port)
         if scheme_host_port in _http_rewrites:
@@ -284,6 +290,10 @@ class Neo4jResource(_Resource):
         #self._subresources = {}
         self.__headers = _get_headers(self.__uri__.host_port)
         self.__base = super(Neo4jResource, self)
+        if metadata is None:
+            self.__initial_metadata = None
+        else:
+            self.__initial_metadata = dict(metadata)
         self.__last_get_response = None
 
         uri = uri.string
@@ -304,6 +314,8 @@ class Neo4jResource(_Resource):
     @property
     def metadata(self):
         if self.__last_get_response is None:
+            if self.__initial_metadata is not None:
+                return self.__initial_metadata
             self.get()
         return self.__last_get_response.content
 
@@ -386,6 +398,10 @@ class Bindable(object):
         return self.service_root.graph
 
     @property
+    def uri(self):
+        return self.resource.uri
+
+    @property
     def resource(self):
         """ Returns the :class:`Resource` to which this is bound.
         """
@@ -401,13 +417,16 @@ class Bindable(object):
         """
         return self.__resource is not None
 
-    def bind(self, uri):
+    def bind(self, uri, metadata=None):
         """ Bind object to Resource or ResourceTemplate.
         """
         if "{" in uri:
+            if metadata:
+                raise ValueError("Initial metadata cannot be stored for a "
+                                 "resource template")
             self.__resource = Neo4jResourceTemplate(uri)
         else:
-            self.__resource = Neo4jResource(uri)
+            self.__resource = Neo4jResource(uri, metadata)
 
     def unbind(self):
         self.__resource = None
@@ -576,7 +595,7 @@ class ServiceRoot(object):
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        inst = super(ServiceRoot, cls).__new__(cls, uri)
+        inst = super(ServiceRoot, cls).__new__(cls)
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, uri=None):
@@ -665,9 +684,9 @@ class Graph(Bindable):
     The following code illustrates how to connect to a database server and
     display its version number::
 
-        from py2neo import neo4j
+        from py2neo import Graph
         
-        graph = neo4j.Graph()
+        graph = Graph()
         print(graph.neo4j_version)
 
     :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
@@ -682,7 +701,7 @@ class Graph(Bindable):
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        inst = super(Graph, cls).__new__(cls, uri)
+        inst = super(Graph, cls).__new__(cls)
         return cls.__instances.setdefault((cls, uri), inst)
 
     def __init__(self, uri=None):
@@ -696,6 +715,12 @@ class Graph(Bindable):
         """ Return the size of this graph (i.e. the number of relationships).
         """
         return self.size
+
+    def __bool__(self):
+        return True
+
+    def __nonzero__(self):
+        return True
 
     @property
     def _load2neo(self):
@@ -780,7 +805,7 @@ class Graph(Bindable):
             uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Neo4jResource(uri).get()):
-                yield _hydrated(assembled(result))
+                yield self.hydrate(assembled(result))
         except ClientError as err:
             if err.status_code != NOT_FOUND:
                 raise
@@ -800,7 +825,7 @@ class Graph(Bindable):
             batch.append_get(batch._uri_for(entity, "properties"))
         responses = batch._execute()
         try:
-            return [BatchResponse(rs, raw=True).body or {}
+            return [BatchResponse(self, rs, raw=True).body or {}
                     for rs in responses.content]
         finally:
             responses.close()
@@ -954,8 +979,8 @@ class Graph(Bindable):
         """ Fetch a node by ID.
         """
         # TODO: use cache
-        node = Node()
-        node.bind(URI(self).resolve("node/" + str(id_)))
+        resource = self.resource.resolve("node/" + str(id_))
+        return self.hydrate(resource.get().content)
 
     @property
     def node_labels(self):
@@ -963,7 +988,7 @@ class Graph(Bindable):
         """
         resource = Neo4jResource(URI(self).resolve("labels"))
         try:
-            return set(_hydrated(assembled(resource.get())))
+            return frozenset(self.hydrate(assembled(resource.get())))
         except ClientError as err:
             if err.status_code == NOT_FOUND:
                 raise NotImplementedError("Node labels not available for this "
@@ -982,14 +1007,16 @@ class Graph(Bindable):
         """ Fetch a relationship by ID.
         """
         # TODO: use cache
-        return Relationship(URI(self).resolve("relationship/" + str(id_)))
+        resource = self.resource.resolve("relationship/" + str(id_))
+        return self.hydrate(resource.get().content)
+
 
     @property
     def relationship_types(self):
         """ The set of relationship types currently defined within the graph.
         """
         resource = Neo4jResource(self.resource.metadata["relationship_types"])
-        return frozenset(_hydrated(resource.get().content))
+        return frozenset(self.hydrate(resource.get().content))
 
     @property
     def schema(self):
@@ -1081,6 +1108,7 @@ class CypherQuery(object):
     """
 
     def __init__(self, graph, query):
+        self._graph = graph
         self._cypher = Neo4jResource(graph.resource.metadata["cypher"])
         self._query = query
 
@@ -1127,7 +1155,7 @@ class CypherQuery(object):
         :return:
         :rtype: :py:class:`CypherResults <py2neo.neo4j.CypherResults>`
         """
-        return CypherResults(self._execute(**params))
+        return CypherResults(self._graph, self._execute(**params))
 
     def execute_one(self, **params):
         """ Execute the query and return the first value from the first row.
@@ -1147,7 +1175,7 @@ class CypherQuery(object):
         :return:
         :rtype: :py:class:`IterableCypherResults <py2neo.neo4j.IterableCypherResults>`
         """
-        return IterableCypherResults(self._execute(**params))
+        return IterableCypherResults(self._graph, self._execute(**params))
 
 
 class CypherResults(object):
@@ -1157,21 +1185,21 @@ class CypherResults(object):
     signature = ("columns", "data")
 
     @classmethod
-    def _hydrated(cls, data, hydration_cache=None):
+    def _hydrated(cls, graph, data):
         """ Takes assembled data...
         """
         producer = RecordProducer(data["columns"])
         return [
-            producer.produce(_hydrated(row, hydration_cache))
+            producer.produce(graph.hydrate(row))
             for row in data["data"]
         ]
 
-    def __init__(self, response):
+    def __init__(self, graph, response):
         content = response.content
         self._columns = tuple(content["columns"])
         self._producer = RecordProducer(self._columns)
         self._data = [
-            self._producer.produce(_hydrated(row))
+            self._producer.produce(graph.hydrate(row))
             for row in content["data"]
         ]
 
@@ -1221,7 +1249,8 @@ class IterableCypherResults(object):
         entire response to be received before processing can occur.
     """
 
-    def __init__(self, response):
+    def __init__(self, graph, response):
+        self._graph = graph
         self._response = response
         self._redo_buffer = []
         self._buffered = self._buffered_results()
@@ -1256,12 +1285,10 @@ class IterableCypherResults(object):
             yield result
 
     def __iter__(self):
-        hydration_cache = {}
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield self._producer.produce(_hydrated(assembled(row),
-                                                           hydration_cache))
+                    yield self._producer.produce(self._graph.hydrate(assembled(row)))
 
     @property
     def columns(self):
@@ -1542,6 +1569,9 @@ class PropertyContainer(Bindable):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __len__(self):
+        return len(self.properties)
+
     def __contains__(self, key):
         # TODO 2.0: remove auto-pull
         if self.bound:
@@ -1572,9 +1602,13 @@ class PropertyContainer(Bindable):
         """
         return self.__properties
 
-    def bind(self, uri):
-        super(PropertyContainer, self).bind(uri)
-        self.__properties.bind(self.resource.metadata["properties"])
+    def bind(self, uri, metadata=None):
+        super(PropertyContainer, self).bind(uri, metadata)
+        try:
+            properties_uri = self.resource.metadata["properties"]
+        except KeyError:
+            properties_uri = self.resource.metadata["self"] + "/properties"
+        self.__properties.bind(properties_uri)
 
     def unbind(self):
         super(PropertyContainer, self).unbind()
@@ -1749,6 +1783,18 @@ class Node(PropertyContainer):
         """ Cast the arguments provided to a :py:class:`neo4j.Node`. The
         following general combinations are possible:
 
+        >>> Node.cast(None)
+        None
+        >>> Node.cast()
+        ()
+        >>> Node.cast("Person")
+        (:Person)
+        >>> Node.cast(name="Alice")
+        ({"name":"Alice"})
+        >>> Node.cast("Person", name="Alice")
+        (:Person {"name":"Alice"})
+
+
         - ``node()``
         - ``node(node_instance)``
         - ``node(property_dict)``
@@ -1771,23 +1817,32 @@ class Node(PropertyContainer):
             {"name": "Alice"}
 
         """
-        if len(args) == 0:
-            return Node(**kwargs)
-        elif len(args) == 1 and not kwargs:
+        if len(args) == 1 and not kwargs:
             arg = args[0]
             if arg is None:
                 return None
-            elif isinstance(arg, Node):
+            elif isinstance(arg, (Node, NodePointer, BatchRequest)):
                 return arg
-            elif isinstance(arg, dict):
-                return Node(**arg)
-            elif isinstance(arg, int):
+            elif is_integer(arg):
                 return NodePointer(arg)
-            else:
-                raise TypeError("Cannot cast node from {0}".format(arg))
-        else:
-            raise TypeError("Cannot cast node from {0}".format((args, kwargs)))
 
+        inst = Node()
+
+        def apply(x):
+            if isinstance(x, dict):
+                inst.properties.update(x)
+            elif is_collection(x):
+                for item in x:
+                    apply(item)
+            else:
+                inst.labels.add(ustr(x))
+
+        for arg in args:
+            apply(arg)
+        inst.properties.update(kwargs)
+        return inst
+
+    # TODO: remove
     @classmethod
     def _hydrated(cls, data):
         obj = cls()
@@ -1803,18 +1858,39 @@ class Node(PropertyContainer):
         pointing to a URI for this Node; there may also optionally be
         properties passed in the "data" value.
         """
-        try:
-            properties = data["data"]
-        except KeyError:
+        self = data["self"]
+        properties = data.get("data")
+        if properties is None:
             inst = cls()
-            inst.bind(data["self"])
+            inst.bind(self, data)
             inst.__stale = {"labels", "properties"}
-            return inst
         else:
             inst = cls(**properties)
-            inst.bind(data["self"])
+            inst.bind(self, data)
             inst.__stale = {"labels"}
-            return inst
+        return inst
+
+    @classmethod
+    def join(cls, n, m):
+        """ Attempt to combine two equivalent nodes into a single node.
+        """
+
+        def is_valid(node):
+            return node is None or isinstance(node, (Node, NodePointer, BatchRequest))  # TODO: BatchRequest?
+
+        if not is_valid(n) or not is_valid(m):
+            raise TypeError("Can only join Node, NodePointer or None")
+        if n is None:
+            return m
+        elif m is None or n is m:
+            return n
+        elif isinstance(n, NodePointer) and isinstance(m, NodePointer):
+            if n.address == m.address:
+                return n
+        elif n.bound and m.bound:
+            if n.resource == m.resource:
+                return n
+        raise UnjoinableError("Cannot join nodes {} and {}".format(n, m))
 
     @classmethod
     @deprecated("Use Node constructor instead")
@@ -1895,7 +1971,7 @@ class Node(PropertyContainer):
     def labels(self):
         """ The set of labels attached to this Node.
         """
-        if "labels" in self.__stale:
+        if self.bound and "labels" in self.__stale:
             self.pull()
         return self.__labels
 
@@ -1903,13 +1979,17 @@ class Node(PropertyContainer):
     def properties(self):
         """ The set of properties attached to this Node.
         """
-        if "properties" in self.__stale:
+        if self.bound and "properties" in self.__stale:
             self.pull()
         return super(Node, self).properties
 
-    def bind(self, uri):
-        super(Node, self).bind(uri)
-        self.__labels.bind(self.resource.metadata["labels"])
+    def bind(self, uri, metadata=None):
+        super(Node, self).bind(uri, metadata)
+        try:
+            labels_uri = self.resource.metadata["labels"]
+        except KeyError:
+            labels_uri = self.resource.metadata["self"] + "/labels"
+        self.__labels.bind(labels_uri)
 
     def unbind(self):
         super(Node, self).unbind()
@@ -1938,6 +2018,7 @@ class Node(PropertyContainer):
         """
         return int(self.resource.uri.path.segments[-1])
 
+    @deprecated("Use Graph.delete instead")
     def delete(self):
         """ Delete this entity from the database.
         """
@@ -2152,10 +2233,43 @@ class NodePointer(object):
     def __init__(self, address):
         self.address = address
 
+    def __eq__(self, other):
+        return self.address == other.address
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class Rel(PropertyContainer):
     """ A relationship with no start or end nodes.
     """
+
+    @staticmethod
+    def cast(*args, **kwargs):
+        if len(args) == 1 and not kwargs:
+            arg = args[0]
+            if arg is None:
+                return None
+            elif isinstance(arg, (Rel, BatchRequest)):  # TODO: BatchRequest?
+                return arg
+            elif isinstance(arg, Relationship):
+                return arg.rel
+
+        inst = Rel()
+
+        def apply(x):
+            if isinstance(x, dict):
+                inst.properties.update(x)
+            elif is_collection(x):
+                for item in x:
+                    apply(item)
+            else:
+                inst.type = ustr(x)
+
+        for arg in args:
+            apply(arg)
+        inst.properties.update(kwargs)
+        return inst
 
     @classmethod
     def hydrate(cls, data):
@@ -2164,62 +2278,50 @@ class Rel(PropertyContainer):
         pointing to a URI for this Rel; there may also optionally be a "type"
         and properties passed in the "data" value.
         """
-        try:
-            type_ = data["type"]
-            properties = data["data"]
-        except KeyError:
-            inst = cls()
-            inst.bind(data["self"])
-            inst.__stale = {"type", "properties"}
-            return inst
-        else:
-            inst = cls(type_, **properties)
-            inst.bind(data["self"])
-            return inst
-
-    @classmethod
-    def cast(cls, arg):
-        if isinstance(arg, cls):
-            return arg
-        elif isinstance(arg, Relationship):
-            return cls(arg.type, **arg.get_properties())
-        elif isinstance(arg, tuple):
-            if len(arg) == 1:
-                return cls(str(arg[0]))
-            elif len(arg) == 2:
-                return cls(str(arg[0]), **arg[1])
+        type_ = data.get("type")
+        properties = data.get("data")
+        if properties is None:
+            if type_ is None:
+                inst = cls()
             else:
-                raise TypeError(arg)
+                inst = cls(type_)
+            inst.bind(data["self"], data)
+            inst.__stale = {"properties"}
         else:
-            return cls(str(arg))
+            if type_ is None:
+                inst = cls(**properties)
+            else:
+                inst = cls(type_, **properties)
+            inst.bind(data["self"], data)
+        return inst
 
     def __init__(self, *type_, **properties):
-        PropertyContainer.__init__(self, **properties)
-        if len(type_) == 0:
-            raise ValueError("A relationship type is required")
-        elif len(type_) > 1:
+        if len(type_) > 1:
             raise ValueError("Only one relationship type can be specified")
-        self.__type = type_[0]
-        self.__reverse = False
+        PropertyContainer.__init__(self, **properties)
+        self.__type = type_[0] if type_ else None
         self.__stale = set()
 
     def __repr__(self):
         return self.__geoff__()
 
     def __eq__(self, other):
-        return (self.type == other.type and
-                self.properties == other.properties)
+        return self.type == other.type and self.properties == other.properties
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def between(self, start_node, end_node):
-        return Relationship.abstract(start_node, self.__type, end_node,
-                                     **self.properties)
+    def __reversed__(self):
+        r = Rev()
+        r._Bindable__resource = self._Bindable__resource
+        r._PropertyContainer__properties = self._PropertyContainer__properties
+        r._Rel__type = self.__type
+        r._Rel__stale = self.__stale
+        return r
 
     @property
     def type(self):
-        if "type" in self.__stale:
+        if self.bound and self.__type is None:
             self.pull()
         return self.__type
 
@@ -2233,7 +2335,7 @@ class Rel(PropertyContainer):
     def properties(self):
         """ The set of properties attached to this Rel.
         """
-        if "properties" in self.__stale:
+        if self.bound and "properties" in self.__stale:
             self.pull()
         return super(Rel, self).properties
 
@@ -2271,30 +2373,46 @@ class Rel(PropertyContainer):
 
     def __geoff__(self):
         s = []
-        if self.bound:
-            s.append(str(self._id))
-        s.append(":")
-        s.append(self.__type)
-        if self.properties:
-            s.append(" ")
-            s.append(self.properties.__json__())
-        if self.__reverse:
-            s = ["<-["] + s + ["]-"]
-        else:
-            s = ["-["] + s + ["]->"]
+        if self.type:
+            if self.bound:
+                s.append(ustr(self._id))
+            s.append(":")
+            s.append(self.type)
+            if self.properties:
+                s.append(" ")
+                s.append(self.properties.__json__())
+            s = ["["] + s + ["]"]
+        s = ["-"] + s + ["->"]
         return "".join(s)
 
 
 class Rev(Rel):
 
-    def __init__(self, *type_, **properties):
-        Rel.__init__(self, *type_, **properties)
-        self._Rel__reverse = True
+    def __reversed__(self):
+        r = Rel()
+        r._Bindable__resource = self._Bindable__resource
+        r._PropertyContainer__properties = self._PropertyContainer__properties
+        r._Rel__type = self._Rel__type
+        r._Rel__stale = self._Rel__stale
+        return r
+
+    def __geoff__(self):
+        s = []
+        if self.type:
+            if self.bound:
+                s.append(ustr(self._id))
+            s.append(":")
+            s.append(self.type)
+            if self.properties:
+                s.append(" ")
+                s.append(self.properties.__json__())
+            s = ["["] + s + ["]"]
+        s = ["<-"] + s + ["-"]
+        return "".join(s)
 
 
 class Path(object):
-    """ A representation of a sequence of nodes connected by relationships. for
-    example::
+    """ A chain of relationships.
 
         >>> from py2neo import neo4j, node
         >>> alice, bob, carol = node(name="Alice"), node(name="Bob"), node(name="Carol")
@@ -2314,111 +2432,168 @@ class Path(object):
     signature = ("length", "nodes", "relationships", "start", "end")
 
     @classmethod
-    def _hydrated(cls, data):
-        nodes = []
-        for node_uri in data["nodes"]:
-            node = Node()
-            node.bind(node_uri)
-            nodes.append(node)
-        rels = map(Relationship, data["relationships"])
-        return Path(*round_robin(nodes, rels))
+    def hydrate(cls, data):
+        # TODO: fetch directions (Rel/Rev) as they cannot be lazily derived :-(
+        nodes = [Node.hydrate({"self": uri}) for uri in data["nodes"]]
+        rels = [Rel.hydrate({"self": uri}) for uri in data["relationships"]]
+        path = Path(*round_robin(nodes, rels))
+        path.__metadata = data
+        return path
 
-    def __init__(self, node, *rels_and_nodes):
-        self._nodes = [Node.cast(node)]
-        self._nodes.extend(Node.cast(n) for n in rels_and_nodes[1::2])
-        if len(rels_and_nodes) % 2 != 0:
-            # If a trailing relationship is supplied, add a dummy end node
-            self._nodes.append(Node())
-        self._relationships = [
-            Rel.cast(r)
-            for r in rels_and_nodes[0::2]
-        ]
+    def __init__(self, *entities):
+        nodes = []
+        rels = []
+
+        def join_path(path, index):
+            if len(nodes) == len(rels):
+                nodes.extend(path.nodes)
+                rels.extend(path.rels)
+            else:
+                # try joining forward
+                try:
+                    nodes[-1] = Node.join(nodes[-1], path.start_node)
+                except UnjoinableError:
+                    # try joining backward
+                    try:
+                        nodes[-1] = Node.join(nodes[-1], path.end_node)
+                    except UnjoinableError:
+                        raise UnjoinableError("Path at position {} cannot be "
+                                              "joined".format(index))
+                    else:
+                        nodes.extend(path.nodes[-2::-1])
+                        rels.extend(reversed(r) for r in path.rels[::-1])
+                        # TODO: replace with reverse handler
+                else:
+                    nodes.extend(path.nodes[1:])
+                    rels.extend(path.rels)
+
+        def join_rel(rel, index):
+            if len(nodes) == len(rels):
+                raise UnjoinableError("Rel at position {} cannot be "
+                                      "joined".format(index))
+            else:
+                rels.append(rel)
+
+        def join_node(node):
+            if len(nodes) == len(rels):
+                nodes.append(node)
+            else:
+                nodes[-1] = Node.join(nodes[-1], node)
+
+        for i, entity in enumerate(entities):
+            if isinstance(entity, Path):
+                join_path(entity, i)
+            elif isinstance(entity, Rel):
+                join_rel(entity, i)
+            elif isinstance(entity, (Node, NodePointer)):
+                join_node(entity)
+            elif len(nodes) == len(rels):
+                join_node(Node.cast(entity))
+            else:
+                join_rel(Rel.cast(entity), i)
+        join_node(None)
+
+        self.__nodes = tuple(nodes)
+        self.__rels = tuple(rels)
+        self.__relationships = None
+        self.__order = len(self.__nodes)
+        self.__size = len(self.__rels)
+        self.__metadata = None
 
     def __repr__(self):
-        out = ", ".join(repr(item) for item in round_robin(self._nodes,
-                                                           self._relationships))
+        out = ", ".join(repr(item)
+                        for item in round_robin(self.__nodes, self.__rels))
         return "Path({0})".format(out)
 
     def __str__(self):
         out = []
-        for i, rel in enumerate(self._relationships):
-            out.append(str(self._nodes[i]))
+        for i, rel in enumerate(self.__rels):
+            out.append(str(self.__nodes[i]))
             out.append(str(rel))
-        out.append(str(self._nodes[-1]))
+        out.append(str(self.__nodes[-1]))
         return "".join(out)
 
+    def __bool__(self):
+        return bool(self.rels)
+
     def __nonzero__(self):
-        return bool(self._relationships)
+        return bool(self.rels)
 
     def __len__(self):
-        return len(self._relationships)
+        return self.size
 
     def __eq__(self, other):
-        return (self._nodes == other._nodes and
-                self._relationships == other._relationships)
+        return self.nodes == other.nodes and self.rels == other.rels
 
     def __ne__(self, other):
-        return (self._nodes != other._nodes or
-                self._relationships != other._relationships)
+        return not self.__eq__(other)
 
     def __getitem__(self, item):
-        size = len(self._relationships)
-        def adjust(value, default=None):
-            if value is None:
-                return default
-            if value < 0:
-                return value + size
+        path = Path()
+        try:
+            if isinstance(item, slice):
+                p, q = item.start, item.stop
+                if q is not None:
+                    q += 1
+                path.__nodes = self.nodes[p:q]
+                path.__rels = self.rels[item]
             else:
-                return value
-        if isinstance(item, slice):
-            if item.step is not None:
-                raise ValueError("Steps not supported in path slicing")
-            start, stop = adjust(item.start, 0), adjust(item.stop, size)
-            path = Path(self._nodes[start])
-            for i in range(start, stop):
-                path._relationships.append(self._relationships[i])
-                path._nodes.append(self._nodes[i + 1])
-            return path
-        else:
-            i = int(item)
-            if i < 0:
-                i += len(self._relationships)
-            return Path(self._nodes[i], self._relationships[i],
-                        self._nodes[i + 1])
-
-    def __iter__(self):
-        return iter(
-            _rel((self._nodes[i], rel, self._nodes[i + 1]))
-            for i, rel in enumerate(self._relationships)
-        )
+                if item >= 0:
+                    path.__nodes = self.nodes[item:item + 2]
+                elif item == -1:
+                    path.__nodes = self.nodes[-2:None]
+                else:
+                    path.__nodes = self.nodes[item - 1:item + 1]
+                path.__rels = (self.rels[item],)
+        except IndexError:
+            raise IndexError("Path segment index out of range")
+        return path
 
     @property
     def order(self):
         """ The number of nodes within this path.
         """
-        return len(self._nodes)
+        return self.__order
 
     @property
     def size(self):
         """ The number of relationships within this path.
         """
-        return len(self._relationships)
+        return self.__size
+
+    @property
+    def start_node(self):
+        return self.__nodes[0]
+
+    @property
+    def end_node(self):
+        return self.__nodes[-1]
 
     @property
     def nodes(self):
-        """ Return a list of all the nodes which make up this path.
+        """ Return a tuple of all the nodes which make up this path.
         """
-        return list(self._nodes)
+        return self.__nodes
+
+    @property
+    def rels(self):
+        """ Return a tuple of all the rels which make up this path.
+        """
+        return self.__rels
 
     @property
     def relationships(self):
         """ Return a list of all the relationships which make up this path.
         """
-        return [
-            _rel((self._nodes[i], rel, self._nodes[i + 1]))
-            for i, rel in enumerate(self._relationships)
-        ]
+        if self.__relationships is None:
+            # TODO: always convert to FORWARD
+            self.__relationships = tuple(
+                Relationship(self.nodes[i], rel, self.nodes[i + 1])
+                for i, rel in enumerate(self.rels)
+            )
+        return self.__relationships
 
+    # TODO: remove - use Path constructor instead
     @classmethod
     def join(cls, left, rel, right):
         """ Join the two paths `left` and `right` with the relationship `rel`.
@@ -2431,9 +2606,9 @@ class Path(object):
             right = right[:]
         else:
             right = Path(right)
-        left._relationships.append(Rel.cast(rel))
-        left._nodes.extend(right._nodes)
-        left._relationships.extend(right._relationships)
+        left.__rels.append(Rel.cast(rel))
+        left.__nodes.extend(right.__nodes)
+        left.__rels.extend(right.__rels)
         return left
 
     def _create_query(self, unique):
@@ -2462,10 +2637,10 @@ class Path(object):
                 path.append("-[r{0}:`{1}`]->".format(i, rel.type))
                 values.append("r{0}".format(i))
 
-        append_node(0, self._nodes[0])
-        for i, rel in enumerate(self._relationships):
+        append_node(0, self.__nodes[0])
+        for i, rel in enumerate(self.__rels):
             append_rel(i, rel)
-            append_node(i + 1, self._nodes[i + 1])
+            append_node(i + 1, self.__nodes[i + 1])
         clauses = []
         if nodes:
             clauses.append("START {0}".format(",".join(nodes)))
@@ -2508,8 +2683,12 @@ class Path(object):
         """
         return self._create(graph, unique=True)
 
+    # service_root/graph/resource
+    # bound/bind/unbind
+    # pull/push
 
-class Relationship(_Entity):
+
+class Relationship(Path):
     """ A relationship within a graph, identified by a URI.
 
     :param uri: URI identifying this relationship
@@ -2518,107 +2697,97 @@ class Relationship(_Entity):
     signature = ("self", "type")
 
     @classmethod
+    def hydrate(cls, data):
+        """ Create a new Relationship instance from a serialised representation
+        held within a dictionary.
+        """
+        return cls(Node.hydrate({"self": data["start"]}), Rel.hydrate(data),
+                   Node.hydrate({"self": data["end"]}))
+
+    # TODO: remove
+    @classmethod
     def _hydrated(cls, data):
         obj = cls(data["self"])
         obj._metadata = ResourceMetadata(data)
         obj._properties = data.get("data", {})
         return obj
 
+    # TODO: remove
     @classmethod
     def abstract(cls, start_node, type_, end_node, **properties):
         """ Create and return a new abstract relationship.
         """
-        instance = cls(None)
-        instance._start_node = start_node
-        instance._type = type_
-        instance._end_node = end_node
-        instance._properties = dict(properties)
+        instance = cls(start_node, type_, end_node, **properties)
         return instance
 
-    def __init__(self, uri):
-        _Entity.__init__(self, uri)
-        self._start_node = None
-        self._type = None
-        self._end_node = None
+    def __init__(self, start_node, rel, end_node, **properties):
+        Path.__init__(self, start_node, Rel.cast(rel), end_node)
+        self.rel.properties.update(properties)
 
     def __eq__(self, other):
-        other = _cast(other, Relationship)
-        if self.__uri__:
-            return _Entity.__eq__(self, other)
+        if self.bound:
+            return self.resource == other.resource
         else:
-            return (self._start_node == other._start_node and
-                    self._type == other._type and
-                    self._end_node == other._end_node and
-                    self._properties == other._properties)
+            return self.nodes == other.nodes and self.rels == other.rels
 
     def __ne__(self, other):
-        other = _cast(other, Relationship)
-        if self.__uri__:
-            return _Entity.__ne__(self, other)
-        else:
-            return (self._start_node != other._start_node or
-                    self._type != other._type or
-                    self._end_node != other._end_node or
-                    self._properties != other._properties)
+        return not self.__eq__(other)
 
-    def __repr__(self):
-        if not self.is_abstract:
-            return "{0}({1})".format(
-                self.__class__.__name__,
-                repr(str(self.__uri__))
-            )
-        elif self._properties:
-            return "rel({1}, {2}, {3}, {4})".format(
-                self.__class__.__name__,
-                repr(self.start_node),
-                repr(self.type),
-                repr(self.end_node),
-                repr(self._properties)
-            )
-        else:
-            return "rel({1}, {2}, {3})".format(
-                self.__class__.__name__,
-                repr(self.start_node),
-                repr(self.type),
-                repr(self.end_node)
-            )
+    #def __repr__(self):
+    #    if not self.is_abstract:
+    #        return "{0}({1})".format(
+    #            self.__class__.__name__,
+    #            repr(str(self.__uri__))
+    #        )
+    #    elif self._properties:
+    #        return "rel({1}, {2}, {3}, {4})".format(
+    #            self.__class__.__name__,
+    #            repr(self.start_node),
+    #            repr(self.type),
+    #            repr(self.end_node),
+    #            repr(self._properties)
+    #        )
+    #    else:
+    #        return "rel({1}, {2}, {3})".format(
+    #            self.__class__.__name__,
+    #            repr(self.start_node),
+    #            repr(self.type),
+    #            repr(self.end_node)
+    #        )
 
-    def __str__(self):
-        type_str = str(self.type)
-        if not SIMPLE_NAME.match(type_str):
-            type_str = json.dumps(type_str, ensure_ascii=False)
-        if self._properties:
-            return "{0}-[:{1} {2}]->{3}".format(
-                str(self.start_node),
-                type_str,
-                json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
-                str(self.end_node),
-            )
-        else:
-            return "{0}-[:{1}]->{2}".format(
-                str(self.start_node),
-                type_str,
-                str(self.end_node),
-            )
+    #def __str__(self):
+    #    type_str = str(self.type)
+    #    if not SIMPLE_NAME.match(type_str):
+    #        type_str = json.dumps(type_str, ensure_ascii=False)
+    #    if self._properties:
+    #        return "{0}-[:{1} {2}]->{3}".format(
+    #            str(self.start_node),
+    #            type_str,
+    #            json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
+    #            str(self.end_node),
+    #        )
+    #    else:
+    #        return "{0}-[:{1}]->{2}".format(
+    #            str(self.start_node),
+    #            type_str,
+    #            str(self.end_node),
+    #        )
 
-    def __hash__(self):
-        if self.__uri__:
-            return hash(self.__uri__)
-        else:
-            return hash(tuple(sorted(self._properties.items())))
+    #def __hash__(self):
+    #    if self.__uri__:
+    #        return hash(self.__uri__)
+    #    else:
+    #        return hash(tuple(sorted(self._properties.items())))
 
     @property
     def _id(self):
-        """ Return the internal ID for this entity.
+        return self.rel._id
 
-        :return: integer ID of this entity within the database or
-            :py:const:`None` if abstract
-        """
-        if self.is_abstract:
-            return None
-        else:
-            return int(URI(self).path.segments[-1])
+    @property
+    def rel(self):
+        return self.rels[0]
 
+    @deprecated("Use Graph.delete instead")
     def delete(self):
         """ Delete this entity from the database.
         """
@@ -2628,41 +2797,23 @@ class Relationship(_Entity):
     def exists(self):
         """ Detects whether this entity still exists in the database.
         """
-        try:
-            self._get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
-                return False
-            else:
-                raise
-        else:
-            return True
+        return self.rel.exists
 
     @property
-    def end_node(self):
-        """ Return the end node of this relationship.
-        """
-        if self.__uri__ and not self._end_node:
-            self._end_node = Node()
-            self._end_node.bind(self.__metadata__['end'])
-        return self._end_node
+    def bound(self):
+        return self.rel.bound
 
     @property
-    def start_node(self):
-        """ Return the start node of this relationship.
-        """
-        if self.__uri__ and not self._start_node:
-            self._start_node = Node()
-            self._start_node.bind(self.__metadata__['start'])
-        return self._start_node
+    def resource(self):
+        return self.rel.resource
 
     @property
     def type(self):
-        """ Return the type of this relationship as a string.
-        """
-        if self.__uri__ and not self._type:
-            self._type = self.__metadata__['type']
-        return self._type
+        return self.rel.type
+
+    @property
+    def properties(self):
+        return self.rel.properties
 
     def update_properties(self, properties):
         """ Update the properties for this relationship with the values
@@ -2680,6 +2831,103 @@ class Relationship(_Entity):
             query.append("RETURN a")
             rel = CypherQuery(self.graph, " ".join(query)).execute_one(**params)
             self._properties = rel.__metadata__["data"]
+
+    # deprecated
+    @property
+    def is_abstract(self):
+        return not self.bound
+
+    def __contains__(self, key):
+        return self.rel.__contains__(key)
+
+    def __getitem__(self, key):
+        return self.rel.__getitem__(key)
+
+    def __setitem__(self, key, value):
+        self.rel.__setitem__(key, value)
+
+    def __delitem__(self, key):
+        self.rel.__delitem__(key)
+
+    def __len__(self):
+        return self.rel.__len__()
+
+    @property
+    def bound(self):
+        return self.rel.bound
+
+    def bind(self, uri, metadata=None):
+        # TODO: do for start_node, rel and end_node
+        self.rel.bind(uri, metadata)
+
+    def unbind(self):
+        # TODO: do for start_node, rel and end_node
+        self.rel.unbind()
+
+    def pull(self):
+        # TODO: do for start_node, rel and end_node
+        self.rel.pull()
+
+    def push(self):
+        # TODO: do for start_node, rel and end_node
+        self.rel.push()
+
+    @property
+    def service_root(self):
+        try:
+            return self.start_node.service_root
+        except UnboundError:
+            try:
+                return self.end_node.service_root
+            except UnboundError:
+                return self.rel.service_root
+
+    @property
+    def graph(self):
+        return self.service_root.graph
+
+    @property
+    def uri(self):
+        return self.rel.uri
+
+    @deprecated("Use `properties` attribute instead")
+    def get_cached_properties(self):
+        """ Fetch last known properties without calling the server.
+
+        :return: dictionary of properties
+        """
+        return self.properties
+
+    @deprecated("Use `pull` method on `properties` attribute instead")
+    def get_properties(self):
+        """ Fetch all properties.
+
+        :return: dictionary of properties
+        """
+        if self.bound:
+            self.properties.pull()
+        return self.properties
+
+    @deprecated("Use `push` method on `properties` attribute instead")
+    def set_properties(self, properties):
+        """ Replace all properties with those supplied.
+
+        :param properties: dictionary of new properties
+        """
+        self.properties.clear()
+        self.properties.update(properties)
+        if self.bound:
+            self.properties.push()
+
+    @deprecated("Use `push` method on `properties` attribute instead")
+    def delete_properties(self):
+        """ Delete all properties.
+        """
+        self.properties.clear()
+        try:
+            self.properties.push()
+        except UnboundError:
+            pass
 
 
 def _cast(obj, cls=(Node, Relationship), abstract=None):
@@ -2734,11 +2982,11 @@ class BatchResponse(object):
     """
 
     @classmethod
-    def __hydrate(cls, result, hydration_cache=None):
+    def __hydrate(cls, graph, result, hydration_cache=None):
         body = result.get("body")
         if isinstance(body, dict):
             if has_all(body, CypherResults.signature):
-                records = CypherResults._hydrated(body, hydration_cache)
+                records = CypherResults._hydrated(graph, body)
                 if len(records) == 0:
                     return None
                 elif len(records) == 1:
@@ -2757,11 +3005,11 @@ class BatchResponse(object):
                     CustomBatchError = type(str(err.exception), (BatchError,), {})
                 raise CustomBatchError(err)
             else:
-                return _hydrated(body, hydration_cache)
+                return graph.hydrate(body)
         else:
-            return _hydrated(body, hydration_cache)
+            return graph.hydrate(body)
 
-    def __init__(self, result, raw=False, hydration_cache=None):
+    def __init__(self, graph, result, raw=False):
         self.id_ = result.get("id")
         self.uri = result.get("from")
         self.body = result.get("body")
@@ -2774,7 +3022,7 @@ class BatchResponse(object):
         if raw:
             self.__hydrated = None
         else:
-            self.__hydrated = self.__hydrate(result, hydration_cache)
+            self.__hydrated = self.__hydrate(graph, result)
 
     @property
     def __uri__(self):
@@ -2865,6 +3113,8 @@ class BatchRequestList(object):
         """
         if isinstance(resource, int):
             uri = "{{{0}}}".format(resource)
+        elif isinstance(resource, NodePointer):
+            uri = "{{{0}}}".format(resource.address)
         elif isinstance(resource, BatchRequest):
             uri = "{{{0}}}".format(self.find(resource))
         elif isinstance(resource, Node):
@@ -2873,7 +3123,7 @@ class BatchRequestList(object):
             uri = resource.resource.uri.string[offset:]
         else:
             offset = len(resource.service_root.graph.resource.uri)
-            uri = str(resource.__uri__)[offset:]
+            uri = str(resource.uri)[offset:]
         if segments:
             if not uri.endswith("/"):
                 uri += "/"
@@ -2930,7 +3180,7 @@ class BatchRequestList(object):
         responses = self._execute()
         hydration_cache = {}
         try:
-            return [BatchResponse(rs, hydration_cache=hydration_cache).hydrated
+            return [BatchResponse(self._graph, rs).hydrated
                     for rs in responses.content]
         finally:
             responses.close()
@@ -2949,14 +3199,14 @@ class BatchRequestList(object):
 
 class BatchResponseList(object):
 
-    def __init__(self, response):
+    def __init__(self, graph, response):
+        self._graph = graph
         self._response = response
 
     def __iter__(self):
         hydration_cache = {}
         for i, result in grouped(self._response):
-            yield BatchResponse(assembled(result),
-                                hydration_cache=hydration_cache).hydrated
+            yield BatchResponse(self._graph, assembled(result)).hydrated
         self.close()
 
     @property
@@ -3007,11 +3257,11 @@ class WriteBatch(BatchRequestList):
         elif isinstance(entity, Relationship):
             uri = self._uri_for(entity.start_node, "relationships")
             body = {
-                "type": entity._type,
+                "type": entity.type,
                 "to": self._uri_for(entity.end_node)
             }
-            if entity._properties:
-                body["data"] = compact(entity._properties)
+            if entity.properties:
+                body["data"] = entity.properties
         else:
             raise TypeError(entity)
         return self.append_post(uri, body)

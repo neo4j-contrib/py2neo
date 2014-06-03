@@ -28,4 +28,4 @@ __license__ = "Apache License, Version 2.0"
 __version__ = "1.3.0"
 
 
-from .http import *
+from py2neo.packages.httpstream.http import *

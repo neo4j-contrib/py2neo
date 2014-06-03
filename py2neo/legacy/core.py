@@ -208,7 +208,7 @@ class Index(Resource):
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        inst = super(Index, cls).__new__(cls, content_type, uri, name)
+        inst = super(Index, cls).__new__(cls)
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
@@ -237,6 +237,11 @@ class Index(Resource):
             self._content_type.__name__,
             repr(URI(self).string)
         )
+
+    # TODO: remove when bindable
+    @property
+    def uri(self):
+        return self.__uri__
 
     def _searcher_stem_for_key(self, key):
         if key not in self.__searcher_stem_cache:
@@ -312,7 +317,7 @@ class Index(Resource):
         ..
         """
         return [
-            _hydrated(assembled(result))
+            self.graph.hydrate(assembled(result))
             for i, result in grouped(self._searcher.expand(key=key, value=value)._get())
         ]
 

@@ -23,9 +23,9 @@ import logging
 import re
 from uuid import uuid4
 
-from . import neo4j
-from .util import deprecated
-from .xmlutil import xml_to_geoff
+from py2neo import neo4j
+from py2neo.util import deprecated
+from py2neo.xmlutil import xml_to_geoff
 
 try:
     from StringIO import StringIO

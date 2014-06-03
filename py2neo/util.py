@@ -29,7 +29,7 @@ import warnings
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "Record", "RecordProducer"]
+           "Record", "RecordProducer", "is_integer"]
 
 
 def numberise(n):
@@ -141,6 +141,16 @@ def is_collection(obj):
     except TypeError:
         return True
     return False
+
+
+try:
+    long
+except NameError:
+    # Python 3
+    is_integer = lambda x: isinstance(x, int)
+else:
+    # Python 2
+    is_integer = lambda x: isinstance(x, (int, long))
 
 
 has_all = lambda iterable, items: all(item in iterable for item in items)

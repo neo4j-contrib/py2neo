@@ -46,9 +46,9 @@ from py2neo.packages.jsonstream import JSONStream
 from py2neo.packages.urimagic import URI, URITemplate
 from py2neo.packages.urimagic.kvlist import KeyValueList  # no point in another copy
 
-from . import __version__
-from .jsonencoder import JSONEncoder
-from .numbers import *
+from py2neo.packages.httpstream import __version__
+from py2neo.packages.httpstream.jsonencoder import JSONEncoder
+from py2neo.packages.httpstream.numbers import *
 
 
 __all__ = ["NetworkAddressError", "SocketError", "RedirectionError", "Request",

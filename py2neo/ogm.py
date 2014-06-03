@@ -89,7 +89,7 @@ The code below shows an example of usage::
 
 from __future__ import unicode_literals
 
-from . import neo4j
+from py2neo import neo4j
 
 
 class NotSaved(ValueError):

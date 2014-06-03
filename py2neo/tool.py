@@ -29,10 +29,10 @@ import os
 import readline
 import sys
 
-from . import __version__, __copyright__, neo4j, geoff
-from .exceptions import CypherError
-from .util import ustr
-from .xmlutil import xml_to_cypher, xml_to_geoff
+from py2neo import __version__, __copyright__, neo4j, geoff
+from py2neo.exceptions import CypherError
+from py2neo.util import ustr
+from py2neo.xmlutil import xml_to_cypher, xml_to_geoff
 
 
 PY3 = sys.version > '3'
