@@ -67,7 +67,7 @@ def test_can_use_graph_if_no_trailing_slash_supplied(graph):
     assert alice["name"] == "Alice"
 
 
-class GraphTest(object):
+class TestGraph(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -93,26 +93,26 @@ class GraphTest(object):
     def test_get_node_by_id(self):
         a1, = self.graph.create({"foo": "bar"})
         a2 = self.graph.node(a1._id)
-        self.assertEqual(a1, a2)
+        assert a1 == a2
 
     def test_create_node_with_property_dict(self):
         node, = self.graph.create({"foo": "bar"})
-        self.assertEqual("bar", node["foo"])
+        assert node["foo"] == "bar"
 
     def test_create_node_with_mixed_property_types(self):
         node, = self.graph.create(
             {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
-        self.assertEqual(4, len(node.get_properties()))
-        self.assertEqual("chips", node["fish"])
-        self.assertEqual("bar", node["foo"])
-        self.assertEqual(13, node["number"])
-        self.assertEqual(False, node["true"])
+        assert len(node.get_properties()) == 4
+        assert node["fish"] == "chips"
+        assert node["foo"] == "bar"
+        assert node["number"] == 13
+        assert not node["true"]
 
     def test_create_node_with_null_properties(self):
         node, = self.graph.create({"foo": "bar", "no-foo": None})
-        self.assertEqual("bar", node["foo"])
-        self.assertEqual(None, node["no-foo"])
+        assert node["foo"] == "bar"
+        assert node["no-foo"] is None
 
     def test_create_multiple_nodes(self):
         nodes = self.graph.create(
@@ -121,19 +121,19 @@ class GraphTest(object):
                 {"number": 42, "foo": "baz", "true": True},
                 {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
-        self.assertEqual(4, len(nodes))
-        self.assertEqual(0, len(nodes[0].get_properties()))
-        self.assertEqual(1, len(nodes[1].get_properties()))
-        self.assertEqual("bar", nodes[1]["foo"])
-        self.assertEqual(3, len(nodes[2].get_properties()))
-        self.assertEqual(42, nodes[2]["number"])
-        self.assertEqual("baz", nodes[2]["foo"])
-        self.assertEqual(True, nodes[2]["true"])
-        self.assertEqual(2, len(nodes[3].get_properties()))
-        self.assertEqual("cod", nodes[3]["fish"][0])
-        self.assertEqual("haddock", nodes[3]["fish"][1])
-        self.assertEqual("plaice", nodes[3]["fish"][2])
-        self.assertEqual(109, nodes[3]["number"])
+        assert len(nodes) == 4
+        assert len(nodes[0].get_properties()) == 0
+        assert len(nodes[1].get_properties()) == 1
+        assert nodes[1]["foo"] == "bar"
+        assert len(nodes[2].get_properties()) == 3
+        assert nodes[2]["number"] == 42
+        assert nodes[2]["foo"] == "baz"
+        assert nodes[2]["true"]
+        assert len(nodes[3].get_properties()) == 2
+        assert nodes[3]["fish"][0] == "cod"
+        assert nodes[3]["fish"][1] == "haddock"
+        assert nodes[3]["fish"][2] == "plaice"
+        assert nodes[3]["number"] == 109
 
     def test_batch_get_properties(self):
         nodes = self.graph.create(
@@ -143,25 +143,25 @@ class GraphTest(object):
             {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
         props = self.graph.get_properties(*nodes)
-        self.assertEqual(4, len(props))
-        self.assertEqual(0, len(props[0]))
-        self.assertEqual(1, len(props[1]))
-        self.assertEqual("bar", props[1]["foo"])
-        self.assertEqual(3, len(props[2]))
-        self.assertEqual(42, props[2]["number"])
-        self.assertEqual("baz", props[2]["foo"])
-        self.assertEqual(True, props[2]["true"])
-        self.assertEqual(2, len(props[3]))
-        self.assertEqual("cod", props[3]["fish"][0])
-        self.assertEqual("haddock", props[3]["fish"][1])
-        self.assertEqual("plaice", props[3]["fish"][2])
-        self.assertEqual(109, props[3]["number"])
+        assert len(props) == 4
+        assert len(props[0]) == 0
+        assert len(props[1]) == 1
+        assert props[1]["foo"] == "bar"
+        assert len(props[2]) == 3
+        assert props[2]["number"] == 42
+        assert props[2]["foo"] == "baz"
+        assert props[2]["true"]
+        assert len(props[3]) == 2
+        assert props[3]["fish"][0] == "cod"
+        assert props[3]["fish"][1] == "haddock"
+        assert props[3]["fish"][2] == "plaice"
+        assert props[3]["number"] == 109
 
     def test_graph_class_aliases(self):
-        assert neo4j.GraphDatabaseService is neo4j.Graph
+        assert issubclass(neo4j.GraphDatabaseService, neo4j.Graph)
 
 
-class NewCreateTestCase(object):
+class TestNewCreate(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -171,12 +171,12 @@ class NewCreateTestCase(object):
         results = self.graph.create(
             {"name": "Alice"}
         )
-        self.assertTrue(results is not None)
-        self.assertTrue(isinstance(results, list))
-        self.assertEqual(1, len(results))
-        self.assertTrue(isinstance(results[0], neo4j.Node))
-        self.assertTrue("name" in results[0])
-        self.assertEqual("Alice", results[0]["name"])
+        assert results is not None
+        assert isinstance(results, list)
+        assert len(results) == 1
+        assert isinstance(results[0], neo4j.Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
 
     def test_can_create_simple_graph(self):
         results = self.graph.create(
@@ -184,19 +184,19 @@ class NewCreateTestCase(object):
             {"name": "Bob"},
             (0, "KNOWS", 1)
         )
-        self.assertTrue(results is not None)
-        self.assertTrue(isinstance(results, list))
-        self.assertEqual(3, len(results))
-        self.assertTrue(isinstance(results[0], neo4j.Node))
-        self.assertTrue("name" in results[0])
-        self.assertEqual("Alice", results[0]["name"])
-        self.assertTrue(isinstance(results[1], neo4j.Node))
-        self.assertTrue("name" in results[1])
-        self.assertEqual("Bob", results[1]["name"])
-        self.assertTrue(isinstance(results[2], neo4j.Relationship))
-        self.assertEqual("KNOWS", results[2].type)
-        self.assertEqual(results[0], results[2].start_node)
-        self.assertEqual(results[1], results[2].end_node)
+        assert results is not None
+        assert isinstance(results, list)
+        assert len(results) == 3
+        assert isinstance(results[0], neo4j.Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], neo4j.Node)
+        assert "name" in results[1]
+        assert results[1]["name"] == "Bob"
+        assert isinstance(results[2], neo4j.Relationship)
+        assert results[2].type == "KNOWS"
+        assert results[2].start_node == results[0]
+        assert results[2].end_node == results[1]
 
     def test_can_create_simple_graph_with_rel_data(self):
         results = self.graph.create(
@@ -204,21 +204,21 @@ class NewCreateTestCase(object):
             {"name": "Bob"},
             (0, "KNOWS", 1, {"since": 1996})
         )
-        self.assertTrue(results is not None)
-        self.assertTrue(isinstance(results, list))
-        self.assertEqual(3, len(results))
-        self.assertTrue(isinstance(results[0], neo4j.Node))
-        self.assertTrue("name" in results[0])
-        self.assertEqual("Alice", results[0]["name"])
-        self.assertTrue(isinstance(results[1], neo4j.Node))
-        self.assertTrue("name" in results[1])
-        self.assertEqual("Bob", results[1]["name"])
-        self.assertTrue(isinstance(results[2], neo4j.Relationship))
-        self.assertEqual("KNOWS", results[2].type)
-        self.assertEqual(results[0], results[2].start_node)
-        self.assertEqual(results[1], results[2].end_node)
-        self.assertTrue("since" in results[2])
-        self.assertEqual(1996, results[2]["since"])
+        assert results is not None
+        assert isinstance(results, list)
+        assert len(results) == 3
+        assert isinstance(results[0], neo4j.Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], neo4j.Node)
+        assert "name" in results[1]
+        assert results[1]["name"] == "Bob"
+        assert isinstance(results[2], neo4j.Relationship)
+        assert results[2].type == "KNOWS"
+        assert results[2].start_node == results[0]
+        assert results[2].end_node == results[1]
+        assert "since" in results[2]
+        assert results[2]["since"] == 1996
 
     def test_can_create_graph_against_existing_node(self):
         ref_node, = self.graph.create({})
@@ -226,24 +226,22 @@ class NewCreateTestCase(object):
             {"name": "Alice"},
             (ref_node, "PERSON", 0)
         )
-        self.assertTrue(results is not None)
-        self.assertTrue(isinstance(results, list))
-        self.assertEqual(2, len(results))
-        self.assertTrue(isinstance(results[0], neo4j.Node))
-        self.assertTrue("name" in results[0])
-        self.assertEqual("Alice", results[0]["name"])
-        self.assertTrue(isinstance(results[1], neo4j.Relationship))
-        self.assertEqual("PERSON", results[1].type)
-        self.assertEqual(ref_node, results[1].start_node)
-        self.assertEqual(results[0], results[1].end_node)
+        assert results is not None
+        assert isinstance(results, list)
+        assert len(results) == 2
+        assert isinstance(results[0], neo4j.Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], neo4j.Relationship)
+        assert results[1].type == "PERSON"
+        assert results[1].start_node == ref_node
+        assert results[1].end_node == results[0]
         self.graph.delete(results[1], results[0])
         ref_node.delete()
 
     def test_fails_on_bad_reference(self):
-        self.assertRaises(Exception, self.graph.create,
-            {"name": "Alice"},
-            (0, "KNOWS", 1)
-        )
+        with pytest.raises(Exception):
+            self.graph.create({"name": "Alice"}, (0, "KNOWS", 1))
 
     def test_can_create_big_graph(self):
         size = 40
@@ -252,13 +250,14 @@ class NewCreateTestCase(object):
             for i in range(size)
         ]
         results = self.graph.create(*nodes)
-        self.assertTrue(results is not None)
-        self.assertTrue(isinstance(results, list))
-        self.assertEqual(size, len(results))
+        assert results is not None
+        assert isinstance(results, list)
+        assert len(results) == size
         for i in range(size):
-            self.assertTrue(isinstance(results[i], neo4j.Node))
+            assert isinstance(results[i], neo4j.Node)
 
-class MultipleNodeTestCase(object):
+
+class TestMultipleNode(object):
 
     flintstones = [
         {"name": "Fred"},
@@ -269,19 +268,19 @@ class MultipleNodeTestCase(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
-        self.gdb = graph()
+        self.gdb = graph
         self.ref_node, = self.gdb.create({})
         self.nodes = self.gdb.create(*self.flintstones)
 
     def test_is_created(self):
-        self.assertTrue(self.nodes is not None)
-        self.assertEqual(len(self.nodes), len(self.flintstones))
+        assert self.nodes is not None
+        assert len(self.nodes) == len(self.flintstones)
 
     def test_has_correct_properties(self):
-        self.assertEqual([
+        assert [
             node.get_properties()
             for node in self.nodes
-        ], self.flintstones)
+        ] == self.flintstones
 
     def test_create_relationships(self):
         rels = self.gdb.create(*[
@@ -289,7 +288,7 @@ class MultipleNodeTestCase(object):
             for node in self.nodes
         ])
         self.gdb.delete(*rels)
-        self.assertEqual(len(self.nodes), len(rels))
+        assert len(self.nodes) == len(rels)
 
     def tearDown(self):
         self.gdb.delete(*self.nodes)
