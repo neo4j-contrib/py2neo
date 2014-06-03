@@ -49,7 +49,7 @@ from py2neo.packages.httpstream import (http,
                                         ClientError as _ClientError,
                                         ServerError as _ServerError)
 from py2neo.packages.jsonstream import assembled, grouped
-from py2neo.packages.httpstream.numbers import CREATED, NOT_FOUND, CONFLICT, BAD_REQUEST
+from py2neo.packages.httpstream.numbers import NOT_FOUND, CONFLICT, BAD_REQUEST
 from py2neo.packages.urimagic import percent_encode, URI, URITemplate
 
 from py2neo import __version__

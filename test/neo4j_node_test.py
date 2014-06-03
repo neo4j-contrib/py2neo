@@ -34,7 +34,7 @@ for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
     UNICODE_TEST_STR += chr(ch) if PY3K else unichr(ch)
 
 
-class AbstractNodeTestCase(object):
+class TestAbstractNode(object):
 
     def test_can_create_abstract_node(self):
         alice = node(name="Alice", age=34)
@@ -49,7 +49,7 @@ class AbstractNodeTestCase(object):
         assert alice_1 == alice_2
 
 
-class ConcreteNodeTestCase(object):
+class TestConcreteNode(object):
 
     data = {
         "true": True,
@@ -91,7 +91,7 @@ class ConcreteNodeTestCase(object):
         }
         foo, = self.graph.create(data)
         for key, value in data.items():
-            self.assertEqual(foo[key], value)
+            assert foo[key] == value
 
     def test_cannot_assign_oversized_long(self):
         foo, = self.graph.create({})
@@ -124,72 +124,73 @@ class ConcreteNodeTestCase(object):
             assert False
 
 
-class NodeTestCase(object):
+class TestNode(object):
 
-    def setUp(self, graph):
-        self.gdb = graph()
+    @pytest.fixture(autouse=True)
+    def setup(self, graph):
+        self.gdb = graph
         self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
             {"name": "Fred"}, {"name": "Wilma"}, (0, "REALLY LOVES", 1)
         )
 
     def test_get_all_relationships(self):
         rels = list(self.fred.match())
-        self.assertEqual(1, len(rels))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert len(rels) == 1
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_all_outgoing_relationships(self):
         rels = list(self.fred.match_outgoing())
-        self.assertEqual(1, len(rels))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert len(rels) == 1
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_all_incoming_relationships(self):
         #rels = self.wilma.get_relationships(neo4j.Direction.INCOMING)
         rels = list(self.wilma.match_incoming())
-        self.assertEqual(1, len(rels))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert len(rels) == 1
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_all_relationships_of_type(self):
         #rels = self.fred.get_relationships(neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES"))
-        self.assertEqual(1, len(rels))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert len(rels) == 1
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_single_relationship(self):
         #rel = self.fred.get_single_relationship(neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES", limit=1))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_single_outgoing_relationship(self):
         #rel = self.fred.get_single_relationship(neo4j.Direction.OUTGOING, "REALLY LOVES")
         rels = list(self.fred.match_outgoing("REALLY LOVES", limit=1))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_get_single_incoming_relationship(self):
         #rel = self.wilma.get_single_relationship(neo4j.Direction.INCOMING, "REALLY LOVES")
         rels = list(self.wilma.match_incoming("REALLY LOVES",
                                               start_node=self.fred, limit=1))
-        self.assertTrue(isinstance(rels[0], neo4j.Relationship))
-        self.assertEqual("REALLY LOVES", rels[0].type)
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert isinstance(rels[0], neo4j.Relationship)
+        assert rels[0].type == "REALLY LOVES"
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def test_explicit_is_related_to(self):
         #self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES"))
@@ -223,9 +224,9 @@ class NodeTestCase(object):
     def test_get_relationships_with(self):
         #rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES", other_node=self.wilma))
-        self.assertEqual(1, len(rels))
-        self.assertEqual(self.fred, rels[0].start_node)
-        self.assertEqual(self.wilma, rels[0].end_node)
+        assert len(rels) == 1
+        assert rels[0].start_node == self.fred
+        assert rels[0].end_node == self.wilma
 
     def tearDown(self):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
