@@ -430,7 +430,7 @@ class Index(Resource):
             t.expand(key=key, value=value, entity=entity._id)._delete()
         elif key and value:
             uris = [
-                URI(entity.__metadata__["indexed"])
+                URI(entity.resource.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
             batch = LegacyWriteBatch(self.service_root.graph)
