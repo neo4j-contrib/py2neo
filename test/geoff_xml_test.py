@@ -23,7 +23,8 @@ from py2neo import geoff
 FIXTURES = os.path.join(os.path.dirname(__file__), "files")
 
 
-class XMLTestCase(object):
+class TestXMLTestCase(object):
+
     def test_can_create_subgraph_from_xml(self):
         xml_file = os.path.join(FIXTURES, "planets.xml")
         geoff_file = os.path.join(FIXTURES, "planets.geoff")
