@@ -83,7 +83,8 @@ def test_many_queries(graph):
     graph.delete(node)
 
 
-class CypherTestCase(object):
+class TestCypher(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
@@ -91,12 +92,11 @@ class CypherTestCase(object):
     def test_nonsense_query_with_error_handler(self):
         def print_error(message, exception, stacktrace):
             print(message)
-            self.assertTrue(len(message) > 0)
+            assert len(message) > 0
         cypher.execute(self.graph, (
             "SELECT z=nude(0) "
             "RETURNS x"
         ), error_handler=print_error)
-        self.assertTrue(True)
 
     def test_query(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -105,78 +105,82 @@ class CypherTestCase(object):
             "match a-[ab:KNOWS]->b "
             "return a,b,ab,a.name,b.name"
         ).format(a._id, b._id))
-        self.assertEqual(1, len(data))
+        assert len(data) == 1
         for row in data:
-            self.assertEqual(5, len(row))
-            self.assertTrue(isinstance(row[0], neo4j.Node))
-            self.assertTrue(isinstance(row[1], neo4j.Node))
-            self.assertTrue(isinstance(row[2], neo4j.Relationship))
-            self.assertEqual("Alice", row[3])
-            self.assertEqual("Bob", row[4])
-        self.assertEqual(5, len(metadata.columns))
-        self.assertEqual("a", metadata.columns[0])
-        self.assertEqual("b", metadata.columns[1])
-        self.assertEqual("ab", metadata.columns[2])
-        self.assertEqual("a.name", metadata.columns[3])
-        self.assertEqual("b.name", metadata.columns[4])
+            assert len(row) == 5
+            assert isinstance(row[0], neo4j.Node)
+            assert isinstance(row[1], neo4j.Node)
+            assert isinstance(row[2], neo4j.Relationship)
+            assert row[3] == "Alice"
+            assert row[4] == "Bob"
+        assert len(metadata.columns) == 5
+        assert metadata.columns[0] == "a"
+        assert metadata.columns[1] == "b"
+        assert metadata.columns[2] == "ab"
+        assert metadata.columns[3] == "a.name"
+        assert metadata.columns[4] == "b.name"
 
     def test_query_with_handlers(self):
         a, b, ab = alice_and_bob(self.graph)
+
         def check_metadata(metadata):
-            self.assertEqual(5, len(metadata.columns))
-            self.assertEqual("a", metadata.columns[0])
-            self.assertEqual("b", metadata.columns[1])
-            self.assertEqual("ab", metadata.columns[2])
-            self.assertEqual("a.name", metadata.columns[3])
-            self.assertEqual("b.name", metadata.columns[4])
+            assert len(metadata.columns) == 5
+            assert metadata.columns[0] == "a"
+            assert metadata.columns[1] == "b"
+            assert metadata.columns[2] == "ab"
+            assert metadata.columns[3] == "a.name"
+            assert metadata.columns[4] == "b.name"
+
         def check_row(row):
-            self.assertTrue(isinstance(row, list))
-            self.assertEqual(5, len(row))
-            self.assertTrue(isinstance(row[0], neo4j.Node))
-            self.assertTrue(isinstance(row[1], neo4j.Node))
-            self.assertTrue(isinstance(row[2], neo4j.Relationship))
-            self.assertEqual(row[0], a)
-            self.assertEqual(row[1], b)
-            self.assertEqual(row[2], ab)
-            self.assertEqual(row[3], "Alice")
-            self.assertEqual(row[4], "Bob")
+            assert isinstance(row, list)
+            assert len(row) == 5
+            assert isinstance(row[0], neo4j.Node)
+            assert isinstance(row[1], neo4j.Node)
+            assert isinstance(row[2], neo4j.Relationship)
+            assert row[0] == a
+            assert row[1] == b
+            assert row[2] == ab
+            assert row[3] == "Alice"
+            assert row[4] == "Bob"
+
         query = (
             "START a=node({0}), b=node({1}) "
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
         ).format(a._id, b._id)
         cypher.execute(self.graph, query,
-            row_handler=check_row, metadata_handler=check_metadata
-        )
+                       row_handler=check_row, metadata_handler=check_metadata)
 
     def test_query_with_params(self):
         a, b, ab = alice_and_bob(self.graph)
+
         def check_metadata(metadata):
-            self.assertEqual(5, len(metadata.columns))
-            self.assertEqual("a", metadata.columns[0])
-            self.assertEqual("b", metadata.columns[1])
-            self.assertEqual("ab", metadata.columns[2])
-            self.assertEqual("a.name", metadata.columns[3])
-            self.assertEqual("b.name", metadata.columns[4])
+            assert len(metadata.columns) == 5
+            assert metadata.columns[0] == "a"
+            assert metadata.columns[1] == "b"
+            assert metadata.columns[2] == "ab"
+            assert metadata.columns[3] == "a.name"
+            assert metadata.columns[4] == "b.name"
+
         def check_row(row):
-            self.assertTrue(isinstance(row, list))
-            self.assertEqual(5, len(row))
-            self.assertTrue(isinstance(row[0], neo4j.Node))
-            self.assertTrue(isinstance(row[1], neo4j.Node))
-            self.assertTrue(isinstance(row[2], neo4j.Relationship))
-            self.assertEqual(row[0], a)
-            self.assertEqual(row[1], b)
-            self.assertEqual(row[2], ab)
-            self.assertEqual(row[3], "Alice")
-            self.assertEqual(row[4], "Bob")
+            assert isinstance(row, list)
+            assert len(row) == 5
+            assert isinstance(row[0], neo4j.Node)
+            assert isinstance(row[1], neo4j.Node)
+            assert isinstance(row[2], neo4j.Relationship)
+            assert row[0] == a
+            assert row[1] == b
+            assert row[2] == ab
+            assert row[3] == "Alice"
+            assert row[4] == "Bob"
+
         query = (
             "START a=node({A}),b=node({B}) "
             "MATCH a-[ab]-b "
             "RETURN a,b,ab,a.name,b.name"
         )
         cypher.execute(self.graph, query, {"A": a._id, "B": b._id},
-            row_handler=check_row, metadata_handler=check_metadata
-        )
+                       row_handler=check_row, metadata_handler=check_metadata)
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -185,16 +189,16 @@ class CypherTestCase(object):
             "match p=(a-[ab:KNOWS]->b) "
             "return p"
         ).format(a._id, b._id))
-        self.assertEqual(1, len(data))
+        assert len(data) == 1
         for row in data:
-            self.assertEqual(1, len(row))
-            self.assertTrue(isinstance(row[0], neo4j.Path))
-            self.assertEqual(2, len(row[0].nodes))
-            self.assertEqual(a, row[0].nodes[0])
-            self.assertEqual(b, row[0].nodes[1])
-            self.assertEqual("KNOWS", row[0].relationships[0].type)
-        self.assertEqual(1, len(metadata.columns))
-        self.assertEqual("p", metadata.columns[0])
+            assert len(row) == 1
+            assert isinstance(row[0], neo4j.Path)
+            assert len(row[0].nodes) == 2
+            assert row[0].nodes[0] == a
+            assert row[0].nodes[1] == b
+            assert row[0].relationships[0].type == "KNOWS"
+        assert len(metadata.columns) == 1
+        assert metadata.columns[0] == "p"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
@@ -271,7 +275,8 @@ class CypherTestCase(object):
         assert data[0] == [c]
 
 
-class CypherDumpTestCase(object):
+class TestCypherDump(object):
+
     def test_can_dump_string(self):
         assert cypher.dumps('hello') == '"hello"'
 
