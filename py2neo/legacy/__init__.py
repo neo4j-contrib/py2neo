@@ -18,9 +18,10 @@
 
 from __future__ import division, unicode_literals
 
-from py2neo.legacy.core import GraphDatabaseService, Index, IndexTypeError
+from py2neo.legacy.core import GraphDatabaseService, Index, IndexTypeError, \
+    LegacyNode
 from py2neo.legacy.batch import LegacyReadBatch, LegacyWriteBatch
 
 
 __all__ = ["GraphDatabaseService", "Index", "IndexTypeError",
-           "LegacyReadBatch", "LegacyWriteBatch"]
+           "LegacyReadBatch", "LegacyWriteBatch", "LegacyNode"]

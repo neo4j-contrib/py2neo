@@ -1852,8 +1852,9 @@ class Node(PropertyContainer):
         return self.__geoff__()
 
     def __eq__(self, other):
+        # TODO: equal to None?
         # TODO: match on labels and properties only
-        other = _cast(other, Node)
+        other = _cast(other, Node)  # TODO: Node.cast
         if self.bound and other.bound:
             return self.resource == other.resource
         elif self.bound or other.bound:
@@ -1912,8 +1913,9 @@ class Node(PropertyContainer):
         try:
             labels_uri = self.resource.metadata["labels"]
         except KeyError:
-            labels_uri = self.resource.metadata["self"] + "/labels"
-        self.__labels.bind(labels_uri)
+            self.__class__ = LegacyNode
+        else:
+            self.__labels.bind(labels_uri)
 
     def unbind(self):
         super(Node, self).unbind()
@@ -3362,4 +3364,4 @@ class WriteBatch(BatchRequestList):
 
 
 from py2neo.legacy import GraphDatabaseService, Index, \
-    LegacyReadBatch, LegacyWriteBatch
+    LegacyReadBatch, LegacyWriteBatch, LegacyNode

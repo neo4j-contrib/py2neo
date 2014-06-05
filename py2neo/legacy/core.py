@@ -23,11 +23,11 @@ from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.urimagic import percent_encode, URI
 
 from py2neo.neo4j import Graph, Node, Relationship, Resource, \
-    ResourceTemplate, _hydrated
+    ResourceTemplate, _hydrated, PropertyContainer, CypherQuery
 from py2neo.legacy.batch import LegacyWriteBatch
 
 
-__all__ = ["GraphDatabaseService", "Index", "IndexTypeError"]
+__all__ = ["GraphDatabaseService", "Index", "IndexTypeError", "LegacyNode"]
 
 
 class IndexTypeError(TypeError):
@@ -190,6 +190,30 @@ class GraphDatabaseService(Graph):
             if relationships:
                 return relationships[0]
         return None
+
+
+class LegacyNode(Node):
+
+    @property
+    def labels(self):
+        return self._Node__labels
+
+    def bind(self, uri, metadata=None):
+        PropertyContainer.bind(self, uri, metadata)
+
+    def unbind(self):
+        PropertyContainer.unbind(self)
+
+    def pull(self):
+        query = CypherQuery(self.graph, "START a=node({a}) RETURN a")
+        results = query.execute(a=self._id)
+        node, = results[0].values
+        super(Node, self).properties.clear()
+        super(Node, self).properties.update(node.properties)
+        self._Node__stale.clear()
+
+    def push(self):
+        PropertyContainer.push(self)
 
 
 class Index(Resource):
