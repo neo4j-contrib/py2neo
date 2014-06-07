@@ -67,6 +67,19 @@ def test_can_use_graph_if_no_trailing_slash_supplied(graph):
     assert alice["name"] == "Alice"
 
 
+def test_authentication_adds_the_correct_header():
+    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
+    headers = neo4j._get_headers("localhost:7474")
+    assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
+
+
+def test_can_add_same_header_twice():
+    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
+    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
+    headers = neo4j._get_headers("localhost:7474")
+    assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
+
+
 class TestGraph(object):
 
     @pytest.fixture(autouse=True)

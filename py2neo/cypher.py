@@ -24,7 +24,7 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import json
 
-from py2neo.neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
+from py2neo.neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource
 from py2neo.util import deprecated, RecordProducer
 from py2neo.packages.urimagic import URI
 
@@ -164,7 +164,7 @@ class Transaction(object):
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
         self._commit = None
-        self._clear()
+        self._statements = []
         self._finished = False
 
     def _clear(self):
@@ -201,7 +201,7 @@ class Transaction(object):
 
     def _post(self, resource):
         self._assert_unfinished()
-        rs = resource._post({"statements": self._statements})
+        rs = resource.post({"statements": self._statements})
         location = dict(rs.headers).get("location")
         if location:
             self._execute = Resource(location)
@@ -219,7 +219,7 @@ class Transaction(object):
         for result in j["results"]:
             producer = RecordProducer(result["columns"])
             out.append([
-                producer.produce(_hydrated(r["rest"]))
+                producer.produce(self._begin.service_root.graph.hydrate(r["rest"]))
                 for r in result["data"]
             ])
         return out
@@ -249,7 +249,7 @@ class Transaction(object):
         self._assert_unfinished()
         try:
             if self._execute:
-                self._execute._delete()
+                self._execute.delete()
         finally:
             self._finished = True
 

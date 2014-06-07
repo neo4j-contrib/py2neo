@@ -23,7 +23,7 @@ from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.urimagic import percent_encode, URI
 
 from py2neo.neo4j import Graph, Node, Relationship, Resource, \
-    ResourceTemplate, _hydrated, PropertyContainer, CypherQuery
+    ResourceTemplate, PropertyContainer, CypherQuery, Bindable
 from py2neo.legacy.batch import LegacyWriteBatch
 
 
@@ -69,7 +69,7 @@ class GraphDatabaseService(Graph):
         :return: a list of :py:class:`Index` instances of the specified type
         """
         index_manager = self._index_manager(content_type)
-        index_index = index_manager._get().content
+        index_index = index_manager.get().content
         if index_index:
             self._indexes[content_type] = dict(
                 (key, Index(content_type, value["template"]))
@@ -123,7 +123,7 @@ class GraphDatabaseService(Graph):
         if index:
             return index
         index_manager = self._index_manager(content_type)
-        rs = index_manager._post({"name": index_name, "config": config or {}})
+        rs = index_manager.post({"name": index_name, "config": config or {}})
         index = Index(content_type, assembled(rs)["template"])
         self._indexes[content_type].update({index_name: index})
         return index
@@ -140,7 +140,7 @@ class GraphDatabaseService(Graph):
             self.get_indexes(content_type)
         if index_name in self._indexes[content_type]:
             index = self._indexes[content_type][index_name]
-            index._delete()
+            index.resource.delete()
             del self._indexes[content_type][index_name]
         else:
             raise LookupError("Index not found")
@@ -193,6 +193,9 @@ class GraphDatabaseService(Graph):
 
 
 class LegacyNode(Node):
+    """ Legacy Node object for pre-2.0 servers. Does not
+    synchronise label information with server.
+    """
 
     @property
     def labels(self):
@@ -216,7 +219,7 @@ class LegacyNode(Node):
         PropertyContainer.push(self)
 
 
-class Index(Resource):
+class Index(Bindable):
     """ Searchable database index which can contain either nodes or
     relationships.
 
@@ -236,15 +239,16 @@ class Index(Resource):
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
+        Bindable.__init__(self)
         self._content_type = content_type
         key_value_pos = uri.find("/{key}/{value}")
         if key_value_pos >= 0:
             self._searcher = ResourceTemplate(uri)
-            Resource.__init__(self, URI(uri[:key_value_pos]))
+            self.bind(uri[:key_value_pos])
         else:
-            Resource.__init__(self, uri)
+            self.bind(uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
-        uri = URI(self)
+        uri = self.resource.uri
         if self.graph.neo4j_version >= (1, 9):
             self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
             self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
@@ -261,11 +265,6 @@ class Index(Resource):
             self._content_type.__name__,
             repr(URI(self).string)
         )
-
-    # TODO: remove when bindable
-    @property
-    def uri(self):
-        return self.__uri__
 
     def _searcher_stem_for_key(self, key):
         if key not in self.__searcher_stem_cache:
@@ -287,7 +286,7 @@ class Index(Resource):
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
         """
-        self._post({
+        self.resource.post({
             "key": key,
             "value": value,
             "uri": str(URI(entity))
@@ -306,7 +305,7 @@ class Index(Resource):
         If added, this method returns the entity, otherwise :py:const:`None`
         is returned.
         """
-        rs = self._get_or_create._post({
+        rs = self._get_or_create.post({
             "key": key,
             "value": value,
             "uri": str(URI(entity))
@@ -342,14 +341,14 @@ class Index(Resource):
         """
         return [
             self.graph.hydrate(assembled(result))
-            for i, result in grouped(self._searcher.expand(key=key, value=value)._get())
+            for i, result in grouped(self._searcher.expand(key=key, value=value).get())
         ]
 
     def create(self, key, value, abstract):
         """ Create and index a new node or relationship using the abstract
         provided.
         """
-        batch = LegacyWriteBatch(self.service_root.graph)
+        batch = LegacyWriteBatch(self.graph)
         if self._content_type is Node:
             batch.create(abstract)
             batch.add_indexed_node(self, key, value, 0)
@@ -381,7 +380,7 @@ class Index(Resource):
             }
         else:
             raise TypeError(self._content_type)
-        return self._get_or_create._post(body)
+        return self._get_or_create.post(body)
 
     def get_or_create(self, key, value, abstract):
         """ Fetch a single entity from the index which is associated with the
@@ -406,7 +405,7 @@ class Index(Resource):
 
         ..
         """
-        return _hydrated(assembled(self._create_unique(key, value, abstract)))
+        return self.graph.hydrate(assembled(self._create_unique(key, value, abstract)))
 
     def create_if_none(self, key, value, abstract):
         """ Create a new entity with the specified details within the current
@@ -426,7 +425,7 @@ class Index(Resource):
         """
         rs = self._create_unique(key, value, abstract)
         if rs.status_code == CREATED:
-            return _hydrated(assembled(rs))
+            return self.graph.hydrate(assembled(rs))
         else:
             return None
 
@@ -450,23 +449,23 @@ class Index(Resource):
 
         """
         if key and value and entity:
-            t = ResourceTemplate(URI(self).string + "/{key}/{value}/{entity}")
-            t.expand(key=key, value=value, entity=entity._id)._delete()
+            t = ResourceTemplate(self.resource.uri.string + "/{key}/{value}/{entity}")
+            t.expand(key=key, value=value, entity=entity._id).delete()
         elif key and value:
             uris = [
                 URI(entity.resource.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
-            batch = LegacyWriteBatch(self.service_root.graph)
+            batch = LegacyWriteBatch(self.graph)
             for uri in uris:
                 batch.append_delete(uri)
             batch.run()
         elif key and entity:
-            t = ResourceTemplate(URI(self).string + "/{key}/{entity}")
-            t.expand(key=key, entity=entity._id)._delete()
+            t = ResourceTemplate(self.resource.uri.string + "/{key}/{entity}")
+            t.expand(key=key, entity=entity._id).delete()
         elif entity:
-            t = ResourceTemplate(URI(self).string + "/{entity}")
-            t.expand(entity=entity._id)._delete()
+            t = ResourceTemplate(self.resource.uri.string + "/{entity}")
+            t.expand(entity=entity._id).delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 
@@ -484,14 +483,14 @@ class Index(Resource):
         should be Apache Lucene query syntax.
         """
         resource = self._query_template.expand(query=query)
-        for i, result in grouped(resource._get()):
-            yield _hydrated(assembled(result))
+        for i, result in grouped(resource.get()):
+            yield self.graph.hydrate(assembled(result))
 
     def _query_with_score(self, query, order):
         resource = self._query_template.expand(query=query, order=order)
-        for i, result in grouped(resource._get()):
+        for i, result in grouped(resource.get()):
             meta = assembled(result)
-            yield _hydrated(meta), meta["score"]
+            yield self.graph.hydrate(meta), meta["score"]
 
     def query_by_index(self, query):
         return self._query_with_score(query, "index")

@@ -80,8 +80,7 @@ class TestNodeIndex(object):
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.graph = legacy_graph
-        self.index = self.graph.get_or_create_index(neo4j.Node,
-                                                    "node_test_index")
+        self.index = self.graph.get_or_create_index(neo4j.Node, "node_test_index")
 
     def test_add_existing_node_to_index(self):
         alice, = self.graph.create({"name": "Alice Smith"})

@@ -59,7 +59,7 @@ from py2neo.util import *
 
 
 __all__ = ["Graph", "GraphDatabaseService", "Node", "Path", "Rel", "Rev",
-           "Relationship", "Resource", "ResourceTemplate", "_hydrated",
+           "Relationship",
            "ReadBatch", "WriteBatch", "BatchRequestList", "_cast", "_rel",
            "Index", "LegacyReadBatch", "LegacyWriteBatch", "NodePointer",
            "UnjoinableError"]
@@ -172,40 +172,6 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
-# TODO: remove and replace with Graph.hydrate
-def _hydrated(data, hydration_cache=None):
-    """ Takes input iterable, assembles and resolves any Resource objects,
-    returning the result.
-    """
-    if hydration_cache is None:
-        hydration_cache = {}
-    if isinstance(data, dict):
-        if has_all(data, Relationship.signature):
-            self_uri = data["self"]
-            try:
-                return hydration_cache[self_uri]
-            except KeyError:
-                hydrated = Relationship._hydrated(data)
-                hydration_cache[self_uri] = hydrated
-                return hydrated
-        elif has_all(data, Node.signature):
-            self_uri = data["self"]
-            try:
-                return hydration_cache[self_uri]
-            except KeyError:
-                hydrated = Node._hydrated(data)
-                hydration_cache[self_uri] = hydrated
-                return hydrated
-        elif has_all(data, Path.signature):
-            return Path._hydrated(data)
-        else:
-            raise ValueError("Cannot determine object type", data)
-    elif is_collection(data):
-        return type(data)([_hydrated(datum, hydration_cache) for datum in data])
-    else:
-        return data
-
-
 # TODO: move to Relationship.cast
 def _rel(*args, **kwargs):
     """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
@@ -269,8 +235,7 @@ class UnjoinableError(Exception):
     pass
 
 
-# TODO: rename to Resource
-class Neo4jResource(_Resource):
+class Resource(_Resource):
     """ Variant of HTTPStream Resource that passes extra headers and product
     detail.
     """
@@ -289,7 +254,7 @@ class Neo4jResource(_Resource):
         self._resource = _Resource.__init__(self, uri)
         #self._subresources = {}
         self.__headers = _get_headers(self.__uri__.host_port)
-        self.__base = super(Neo4jResource, self)
+        self.__base = super(Resource, self)
         if metadata is None:
             self.__initial_metadata = None
         else:
@@ -373,11 +338,10 @@ class Neo4jResource(_Resource):
             return response
 
 
-# TODO: rename to ResourceTemplate
-class Neo4jResourceTemplate(_ResourceTemplate):
+class ResourceTemplate(_ResourceTemplate):
 
     def expand(self, **values):
-        return Neo4jResource(self.uri_template.expand(**values))
+        return Resource(self.uri_template.expand(**values))
 
 
 class Bindable(object):
@@ -424,9 +388,9 @@ class Bindable(object):
             if metadata:
                 raise ValueError("Initial metadata cannot be stored for a "
                                  "resource template")
-            self.__resource = Neo4jResourceTemplate(uri)
+            self.__resource = ResourceTemplate(uri)
         else:
-            self.__resource = Neo4jResource(uri, metadata)
+            self.__resource = Resource(uri, metadata)
 
     def unbind(self):
         self.__resource = None
@@ -435,149 +399,6 @@ class Bindable(object):
     @property
     def is_abstract(self):
         return not self.bound
-
-
-# TODO: remove this class
-class Resource(object):
-    """ Basic RESTful web resource with JSON metadata. Wraps an
-    `httpstream.Resource`.
-    """
-
-    def __init__(self, uri):
-        uri = URI(uri)
-        scheme_host_port = (uri.scheme, uri.host, uri.port)
-        if scheme_host_port in _http_rewrites:
-            scheme_host_port = _http_rewrites[scheme_host_port]
-            # This is fine - it's all my code anyway...
-            uri._URI__set_scheme(scheme_host_port[0])
-            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
-                                                     scheme_host_port[2]))
-        if uri.user_info:
-            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
-        self._resource = _Resource(uri)
-        self._metadata = None
-        self._subresources = {}
-        self._headers = _get_headers(self.__uri__.host_port)
-        self._product = PRODUCT
-
-    def __repr__(self):
-        """ Return a valid Python representation of this object.
-        """
-        return repr(self._resource)
-
-    def __eq__(self, other):
-        """ Determine equality of two objects based on URI.
-        """
-        return self._resource == other._resource
-
-    def __ne__(self, other):
-        """ Determine inequality of two objects based on URI.
-        """
-        return self._resource != other._resource
-
-    @property
-    def __uri__(self):
-        return self._resource.__uri__
-
-    @property
-    def __metadata__(self):
-        if not self._metadata:
-            self.refresh()
-        return self._metadata
-
-    @property
-    def is_abstract(self):
-        """ Indicates whether this entity is abstract (i.e. not bound
-        to a concrete entity within the database)
-        """
-        return not bool(self.__uri__)
-
-    @property
-    def service_root(self):
-        return ServiceRoot(URI(self._resource).resolve("/"))
-
-    @property
-    def graph(self):
-        return self.service_root.graph
-
-    def refresh(self):
-        """ Refresh resource metadata.
-        """
-        if not self.is_abstract:
-            self._metadata = ResourceMetadata(self._get().content)
-
-    def _get(self):
-        try:
-            return self._resource.get(headers=self._headers,
-                                      product=self._product)
-        except _ClientError as e:
-            raise ClientError(e)
-        except _ServerError as e:
-            raise ServerError(e)
-
-    def _put(self, body=None):
-        try:
-            return self._resource.put(body=body,
-                                      headers=self._headers,
-                                      product=self._product)
-        except _ClientError as e:
-            raise ClientError(e)
-        except _ServerError as e:
-            raise ServerError(e)
-
-    def _post(self, body=None):
-        try:
-            return self._resource.post(body=body,
-                                       headers=self._headers,
-                                       product=self._product)
-        except _ClientError as e:
-            raise ClientError(e)
-        except _ServerError as e:
-            raise ServerError(e)
-
-    def _delete(self):
-        try:
-            return self._resource.delete(headers=self._headers,
-                                         product=self._product)
-        except _ClientError as e:
-            raise ClientError(e)
-        except _ServerError as e:
-            raise ServerError(e)
-
-    def _subresource(self, key, cls=None):
-        if key not in self._subresources:
-            try:
-                uri = URI(self.__metadata__[key])
-            except KeyError:
-                raise KeyError("Key {0} not found in resource "
-                               "metadata".format(repr(key)), self.__metadata__)
-            if not cls:
-                cls = Resource
-            self._subresources[key] = cls(uri)
-        return self._subresources[key]
-
-
-# TODO: remove this class
-class ResourceMetadata(object):
-
-    def __init__(self, metadata):
-        self._metadata = dict(metadata)
-
-    def __contains__(self, key):
-        return key in self._metadata
-
-    def __getitem__(self, key):
-        return self._metadata[key]
-
-    def __iter__(self):
-        return iter(self._metadata.items())
-
-
-# TODO: remove this class
-class ResourceTemplate(_ResourceTemplate):
-
-    def expand(self, **values):
-        return Resource(_ResourceTemplate.expand(self, **values).uri)
 
 
 class ServiceRoot(object):
@@ -599,7 +420,7 @@ class ServiceRoot(object):
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, uri=None):
-        self.__resource = Neo4jResource(uri or self.DEFAULT_URI)
+        self.__resource = Resource(uri or self.DEFAULT_URI)
         self._load2neo = None
         self._load2neo_checked = False
 
@@ -614,7 +435,7 @@ class ServiceRoot(object):
     @property
     def load2neo(self):
         if not self._load2neo_checked:
-            self._load2neo = Neo4jResource(URI(self).resolve("/load2neo"))
+            self._load2neo = Resource(URI(self).resolve("/load2neo"))
             try:
                 self._load2neo.get()
             except ClientError:
@@ -645,7 +466,7 @@ class Monitor(Bindable):
     def __init__(self, uri=None):
         if uri is None:
             service_root = ServiceRoot()
-            manager = Neo4jResource(service_root.resource.metadata["management"])
+            manager = Resource(service_root.resource.metadata["management"])
             monitor = Monitor(manager.metadata["services"]["monitor"])
             uri = monitor.resource.uri
         Bindable.__init__(self, uri)
@@ -659,7 +480,7 @@ class Monitor(Bindable):
                                       "relationship_count",
                                       "property_count"))
         uri = self.resource.metadata["resources"]["latest_data"]
-        latest_data = Neo4jResource(uri).get().content
+        latest_data = Resource(uri).get().content
         timestamps = latest_data["timestamps"]
         data = latest_data["data"]
         data = zip(
@@ -738,6 +559,7 @@ class Graph(Bindable):
         batch.append_cypher("START n=node(*) DELETE n")
         batch.run()
 
+    # TODO: pass out same objects passed in
     def create(self, *abstracts):
         """ Create multiple nodes and/or relationships as part of a single
         batch.
@@ -804,7 +626,7 @@ class Graph(Bindable):
         if property_key:
             uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
-            for i, result in grouped(Neo4jResource(uri).get()):
+            for i, result in grouped(Resource(uri).get()):
                 yield self.hydrate(assembled(result))
         except ClientError as err:
             if err.status_code != NOT_FOUND:
@@ -844,7 +666,7 @@ class Graph(Bindable):
         :param geoff: geoff data to load
         :return: list of node mappings
         """
-        loader = Neo4jResource(self._load2neo.metadata["geoff_loader"])
+        loader = Resource(self._load2neo.metadata["geoff_loader"])
         return [
             dict((key, self.node(value)) for key, value in line[0].items())
             for line in loader.post(geoff).tsj
@@ -986,7 +808,7 @@ class Graph(Bindable):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        resource = Neo4jResource(URI(self).resolve("labels"))
+        resource = Resource(URI(self).resolve("labels"))
         try:
             return frozenset(self.hydrate(assembled(resource.get())))
         except ClientError as err:
@@ -1015,7 +837,7 @@ class Graph(Bindable):
     def relationship_types(self):
         """ The set of relationship types currently defined within the graph.
         """
-        resource = Neo4jResource(self.resource.metadata["relationship_types"])
+        resource = Resource(self.resource.metadata["relationship_types"])
         return frozenset(self.hydrate(resource.get().content))
 
     @property
@@ -1109,7 +931,7 @@ class CypherQuery(object):
 
     def __init__(self, graph, query):
         self._graph = graph
-        self._cypher = Neo4jResource(graph.resource.metadata["cypher"])
+        self._cypher = Resource(graph.resource.metadata["cypher"])
         self._query = query
 
     def __str__(self):
@@ -1338,7 +1160,7 @@ class Schema(Bindable):
         """
         if not label:
             raise ValueError("Label cannot be empty")
-        resource = Neo4jResource(self._index_template.expand(label=label))
+        resource = Resource(self._index_template.expand(label=label))
         try:
             response = resource.get()
         except ClientError as err:
@@ -1360,7 +1182,7 @@ class Schema(Bindable):
         """
         if not label:
             raise ValueError("Label cannot be empty")
-        resource = Neo4jResource(self._uniqueness_constraint_template.expand(label=label))
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
         try:
             response = resource.get()
         except ClientError as err:
@@ -1383,7 +1205,7 @@ class Schema(Bindable):
         """
         if not label or not property_key:
             raise ValueError("Neither label nor property key can be empty")
-        resource = Neo4jResource(self._index_template.expand(label=label))
+        resource = Resource(self._index_template.expand(label=label))
         property_key = bytearray(property_key, "utf-8").decode("utf-8")
         try:
             resource.post({"property_keys": [property_key]})
@@ -1403,7 +1225,7 @@ class Schema(Bindable):
 
         if not label or not property_key:
             raise ValueError("Neither label nor property key can be empty")
-        resource = Neo4jResource(self._uniqueness_constraint_template.expand(label=label))
+        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
         try:
             resource.post({"property_keys": [ustr(property_key)]})
         except ClientError as err:
@@ -1423,7 +1245,7 @@ class Schema(Bindable):
             raise ValueError("Neither label nor property key can be empty")
         uri = self._index_key_template.expand(label=label,
                                               property_key=property_key)
-        resource = Neo4jResource(uri)
+        resource = Resource(uri)
         try:
             resource.delete()
         except ClientError as err:
@@ -1443,7 +1265,7 @@ class Schema(Bindable):
             raise ValueError("Neither label nor property key can be empty")
         uri = self._uniqueness_constraint_key_template.expand(label=label,
                                                               property_key=property_key)
-        resource = Neo4jResource(uri)
+        resource = Resource(uri)
         try:
             resource.delete()
         except ClientError as err:
@@ -1765,15 +1587,6 @@ class Node(PropertyContainer):
             apply(arg)
         inst.properties.update(kwargs)
         return inst
-
-    # TODO: remove
-    @classmethod
-    def _hydrated(cls, data):
-        obj = cls()
-        obj.bind(data["self"])
-        obj._metadata = ResourceMetadata(data)
-        obj.properties.update(data.get("data", {}))
-        return obj
 
     @classmethod
     def hydrate(cls, data):
@@ -2632,14 +2445,6 @@ class Relationship(Path):
 
     # TODO: remove
     @classmethod
-    def _hydrated(cls, data):
-        obj = cls(data["self"])
-        obj._metadata = ResourceMetadata(data)
-        obj._properties = data.get("data", {})
-        return obj
-
-    # TODO: remove
-    @classmethod
     def abstract(cls, start_node, type_, end_node, **properties):
         """ Create and return a new abstract relationship.
         """
@@ -2964,8 +2769,8 @@ class BatchRequestList(object):
     def __init__(self, graph):
         self._graph = graph
         # TODO: make function for subresource pattern below
-        self._batch = Neo4jResource(graph.resource.metadata["batch"])
-        self._cypher = Neo4jResource(graph.resource.metadata["cypher"])
+        self._batch = Resource(graph.resource.metadata["batch"])
+        self._cypher = Resource(graph.resource.metadata["cypher"])
         self.clear()
 
     def __len__(self):
@@ -3178,7 +2983,7 @@ class WriteBatch(BatchRequestList):
         """
         entity = _cast(abstract, abstract=True)
         if isinstance(entity, Node):
-            uri = self._uri_for(Neo4jResource(self._graph.resource.metadata["node"]))
+            uri = self._uri_for(Resource(self._graph.resource.metadata["node"]))
             body = entity.properties
         elif isinstance(entity, Relationship):
             uri = self._uri_for(entity.start_node, "relationships")
