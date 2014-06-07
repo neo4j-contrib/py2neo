@@ -8,6 +8,7 @@ python:
 env:
   - NEO4J_VERSION="1.9.7"
   - NEO4J_VERSION="2.0.3"
+  - NEO4J_VERSION="2.1.1"
 
 before_install:
   - . .travis/neo.sh
