@@ -24,7 +24,8 @@ except ImportError:
     from io import StringIO
 import sys
 
-from py2neo import geoff, neo4j, legacy
+from py2neo import neo4j
+from py2neo.ext import geoff
 
 
 PLANETS_GEOFF = StringIO("""\

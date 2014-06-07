@@ -16,16 +16,7 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@nigelsmall.com>"
-__copyright__ = "2011-2014, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "1.7.0"
+from __future__ import unicode_literals
 
-
-# TODO
-from py2neo.neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship, NodePointer, UnjoinableError
-
-node = Node.cast
-rel = Relationship.cast
+from py2neo.ext.geoff.loader import Loader
+from py2neo.ext.geoff.legacy import *

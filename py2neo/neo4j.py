@@ -58,10 +58,9 @@ from py2neo.exceptions import *
 from py2neo.util import *
 
 
-__all__ = ["Graph", "GraphDatabaseService", "Node", "Path", "Rel", "Rev",
-           "Relationship",
-           "ReadBatch", "WriteBatch", "BatchRequestList", "_cast", "_rel",
-           "Index", "LegacyReadBatch", "LegacyWriteBatch", "NodePointer",
+__all__ = ["Graph", "GraphDatabaseService", "Node", "NodePointer", "Path", "Rel", "Rev", "Relationship",
+           "ReadBatch", "WriteBatch", "BatchRequestList", "_cast",
+           "Index", "LegacyReadBatch", "LegacyWriteBatch",
            "UnjoinableError"]
 
 
@@ -170,61 +169,6 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
             pass
     else:
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
-
-
-# TODO: move to Relationship.cast
-def _rel(*args, **kwargs):
-    """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
-    following general combinations are possible:
-
-    - ``rel(relationship_instance)``
-    - ``rel((start_node, type, end_node))``
-    - ``rel((start_node, type, end_node, properties))``
-    - ``rel((start_node, (type, properties), end_node))``
-    - ``rel(start_node, (type, properties), end_node)``
-    - ``rel(start_node, type, end_node, properties)``
-    - ``rel(start_node, type, end_node, **properties)``
-
-    Examples::
-
-        rel(Relationship("http://localhost:7474/db/data/relationship/1"))
-        rel((alice, "KNOWS", bob))
-        rel((alice, "KNOWS", bob, {"since": 1999}))
-        rel((alice, ("KNOWS", {"since": 1999}), bob))
-        rel(alice, ("KNOWS", {"since": 1999}), bob)
-        rel(alice, "KNOWS", bob, {"since": 1999})
-        rel(alice, "KNOWS", bob, since=1999)
-
-    Other representations::
-
-        (alice, "KNOWS", bob)
-        (alice, "KNOWS", bob, {"since": 1999})
-        (alice, ("KNOWS", {"since": 1999}), bob)
-
-    """
-    if len(args) == 1 and not kwargs:
-        arg = args[0]
-        if isinstance(arg, Relationship):
-            return arg
-        elif isinstance(arg, tuple):
-            if len(arg) == 3:
-                return Relationship(*arg)
-            elif len(arg) == 4:
-                return Relationship.abstract(arg[0], arg[1], arg[2], **arg[3])
-            else:
-                raise TypeError("Cannot cast relationship from {0}".format(arg))
-        else:
-            raise TypeError("Cannot cast relationship from {0}".format(arg))
-    elif len(args) == 3:
-        rel = Relationship(*args)
-        rel.properties.update(kwargs)
-        return rel
-    elif len(args) == 4:
-        props = args[3]
-        props.update(kwargs)
-        return Relationship.abstract(*args[0:3], **props)
-    else:
-        raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
 
 class UnboundError(Exception):
@@ -421,8 +365,6 @@ class ServiceRoot(object):
 
     def __init__(self, uri=None):
         self.__resource = Resource(uri or self.DEFAULT_URI)
-        self._load2neo = None
-        self._load2neo_checked = False
 
     @property
     def resource(self):
@@ -433,19 +375,8 @@ class ServiceRoot(object):
         return Graph(self.resource.metadata["data"])
 
     @property
-    def load2neo(self):
-        if not self._load2neo_checked:
-            self._load2neo = Resource(URI(self).resolve("/load2neo"))
-            try:
-                self._load2neo.get()
-            except ClientError:
-                self._load2neo = None
-            finally:
-                self._load2neo_checked = True
-        if self._load2neo is None:
-            raise NotImplementedError("Load2neo extension not available")
-        else:
-            return self._load2neo
+    def uri(self):
+        return self.resource.uri
 
 
 # TODO: move to admin plugin
@@ -515,6 +446,19 @@ class Graph(Bindable):
 
     __instances = {}
 
+    @staticmethod
+    def cast(obj):
+        if obj is None:
+            return None
+        elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev)):
+            return obj
+        elif isinstance(obj, dict):
+            return Node.cast(obj)
+        elif isinstance(obj, tuple):
+            return Relationship.cast(obj)
+        else:
+            raise TypeError(obj)
+
     def __new__(cls, uri=None):
         """ Fetch a cached instance if one is available, otherwise create,
         cache and return a new instance.
@@ -542,10 +486,6 @@ class Graph(Bindable):
 
     def __nonzero__(self):
         return True
-
-    @property
-    def _load2neo(self):
-        return self.service_root.load2neo
 
     def clear(self):
         """ Clear all nodes and relationships from the graph.
@@ -652,32 +592,6 @@ class Graph(Bindable):
         finally:
             responses.close()
 
-    def load_geoff(self, geoff):
-        """ Load Geoff data via the load2neo extension.
-
-        ::
-
-            >>> from py2neo import neo4j
-            >>> graph = neo4j.Graph()
-            >>> graph.load_geoff("(alice)<-[:KNOWS]->(bob)")
-            [{u'alice': Node('http://localhost:7474/db/data/node/1'),
-              u'bob': Node('http://localhost:7474/db/data/node/2')}]
-
-        :param geoff: geoff data to load
-        :return: list of node mappings
-        """
-        loader = Resource(self._load2neo.metadata["geoff_loader"])
-        return [
-            dict((key, self.node(value)) for key, value in line[0].items())
-            for line in loader.post(geoff).tsj
-        ]
-
-    @property
-    def load2neo_version(self):
-        """ The load2neo extension version, if available.
-        """
-        return version_tuple(self._load2neo.metadata["load2neo_version"])
-
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
         """ Iterate through all relationships matching specified criteria.
@@ -730,16 +644,22 @@ class Graph(Bindable):
             params = {}
         elif end_node is None:
             query = "START a=node({A})"
-            start_node = _cast(start_node, Node, abstract=False)
+            start_node = Node.cast(start_node)
+            if not start_node.bound:
+                raise TypeError("Nodes for relationship match end points must be bound")
             params = {"A": start_node._id}
         elif start_node is None:
             query = "START b=node({B})"
-            end_node = _cast(end_node, Node, abstract=False)
+            end_node = Node.cast(end_node)
+            if not end_node.bound:
+                raise TypeError("Nodes for relationship match end points must be bound")
             params = {"B": end_node._id}
         else:
             query = "START a=node({A}),b=node({B})"
-            start_node = _cast(start_node, Node, abstract=False)
-            end_node = _cast(end_node, Node, abstract=False)
+            start_node = Node.cast(start_node)
+            end_node = Node.cast(end_node)
+            if not start_node.bound or not end_node.bound:
+                raise TypeError("Nodes for relationship match end points must be bound")
             params = {"A": start_node._id, "B": end_node._id}
         if rel_type is None:
             rel_clause = ""
@@ -1003,8 +923,6 @@ class CypherQuery(object):
 class CypherResults(object):
     """ A static set of results from a Cypher query.
     """
-
-    signature = ("columns", "data")
 
     @classmethod
     def _hydrated(cls, graph, data):
@@ -1490,8 +1408,9 @@ class Node(PropertyContainer):
     """ A node within a graph, identified by a URI. For example:
 
         >>> from py2neo import Node
-        >>> alice = Node()
-        >>> alice.bind("http://localhost:7474/db/data/node/1")
+        >>> alice = Node("Person", name="Alice")
+        >>> alice
+        (:Person {name:"Alice"})
 
     Typically, concrete nodes will not be constructed directly in this way
     by client applications. Instead, methods such as
@@ -1522,23 +1441,20 @@ class Node(PropertyContainer):
     :param uri: URI identifying this node
     """
 
-    signature = ("self",)
-
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a :py:class:`neo4j.Node`. The
         following general combinations are possible:
 
         >>> Node.cast(None)
-        None
         >>> Node.cast()
         ()
         >>> Node.cast("Person")
         (:Person)
         >>> Node.cast(name="Alice")
-        ({"name":"Alice"})
+        ({name:"Alice"})
         >>> Node.cast("Person", name="Alice")
-        (:Person {"name":"Alice"})
+        (:Person {name:"Alice"})
 
 
         - ``node()``
@@ -1662,37 +1578,27 @@ class Node(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        return self.__geoff__()
+        r = Representation()
+        if self.bound:
+            r.write_node(self, "N" + ustr(self._id))
+        else:
+            r.write_node(self)
+        return repr(r)
 
     def __eq__(self, other):
-        # TODO: equal to None?
-        # TODO: match on labels and properties only
-        other = _cast(other, Node)  # TODO: Node.cast
+        if other is None:
+            return False
+        other = Node.cast(other)
         if self.bound and other.bound:
             return self.resource == other.resource
         elif self.bound or other.bound:
             return False
         else:
-            return self.properties == other.properties
+            return (LabelSet.__eq__(self.labels, other.labels) and
+                    PropertyContainer.__eq__(self, other))
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __geoff__(self):
-        """ Return a Geoff representation of this Node.
-        """
-        s = []
-        if self.bound:
-            s.append(str(self._id))
-        for label in sorted(self.labels):
-            s.append(":")
-            s.append(label)
-        if self.properties:
-            if s:
-                s.append(" ")
-            s.append(self.properties.__json__())
-        s = ["("] + s + [")"]
-        return "".join(s)
 
     def __hash__(self):
         if self.bound:
@@ -1985,6 +1891,21 @@ class Rel(PropertyContainer):
 
     @staticmethod
     def cast(*args, **kwargs):
+        """ Cast the arguments provided to a Rel object.
+
+        >>> Rel.cast('KNOWS')
+        -[:KNOWS]->
+        >>> Rel.cast(('KNOWS',))
+        -[:KNOWS]->
+        >>> Rel.cast('KNOWS', {'since': 1999})
+        -[:KNOWS {since:1999}]->
+        >>> Rel.cast(('KNOWS', {'since': 1999}))
+        -[:KNOWS {since:1999}]->
+        >>> Rel.cast('KNOWS', since=1999)
+        -[:KNOWS {since:1999}]->
+
+        """
+
         if len(args) == 1 and not kwargs:
             arg = args[0]
             if arg is None:
@@ -2042,7 +1963,12 @@ class Rel(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        return self.__geoff__()
+        r = Representation()
+        if self.bound:
+            r.write_rel(self, "R" + ustr(self._id))
+        else:
+            r.write_rel(self)
+        return repr(r)
 
     def __eq__(self, other):
         return self.type == other.type and self.properties == other.properties
@@ -2110,20 +2036,6 @@ class Rel(PropertyContainer):
         else:
             return True
 
-    def __geoff__(self):
-        s = []
-        if self.type:
-            if self.bound:
-                s.append(ustr(self._id))
-            s.append(":")
-            s.append(self.type)
-            if self.properties:
-                s.append(" ")
-                s.append(self.properties.__json__())
-            s = ["["] + s + ["]"]
-        s = ["-"] + s + ["->"]
-        return "".join(s)
-
 
 class Rev(Rel):
 
@@ -2135,40 +2047,30 @@ class Rev(Rel):
         r._Rel__stale = self._Rel__stale
         return r
 
-    def __geoff__(self):
-        s = []
-        if self.type:
-            if self.bound:
-                s.append(ustr(self._id))
-            s.append(":")
-            s.append(self.type)
-            if self.properties:
-                s.append(" ")
-                s.append(self.properties.__json__())
-            s = ["["] + s + ["]"]
-        s = ["<-"] + s + ["-"]
-        return "".join(s)
-
 
 class Path(object):
     """ A chain of relationships.
 
-        >>> from py2neo import neo4j, node
-        >>> alice, bob, carol = node(name="Alice"), node(name="Bob"), node(name="Carol")
-        >>> abc = neo4j.Path(alice, "KNOWS", bob, "KNOWS", carol)
+        >>> from py2neo import Node, Path, Rev
+        >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
+        >>> abc = Path(alice, "KNOWS", bob, Rev("KNOWS"), carol)
+        >>> abc
+        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})<-[:KNOWS]-({name:"Carol"})
         >>> abc.nodes
-        [node(**{'name': 'Alice'}), node(**{'name': 'Bob'}), node(**{'name': 'Carol'})]
-        >>> dave, eve = node(name="Dave"), node(name="Eve")
-        >>> de = neo4j.Path(dave, "KNOWS", eve)
-        >>> de.nodes
-        [node(**{'name': 'Dave'}), node(**{'name': 'Eve'})]
-        >>> abcde = neo4j.Path.join(abc, "KNOWS", de)
-        >>> str(abcde)
-        '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})-[:"KNOWS"]->({"name":"Carol"})-[:"KNOWS"]->({"name":"Dave"})-[:"KNOWS"]->({"name":"Eve"})'
+        (({name:"Alice"}), ({name:"Bob"}), ({name:"Carol"}))
+        >>> abc.rels
+        (-[:KNOWS]->, <-[:KNOWS]-)
+        >>> abc.relationships
+        (({name:"Alice"})-[:KNOWS]->({name:"Bob"}), ({name:"Carol"})-[:KNOWS]->({name:"Bob"}))
+        >>> dave, eve = Node(name="Dave"), Node(name="Eve")
+        >>> de = Path(dave, "KNOWS", eve)
+        >>> de
+        ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
+        >>> abcde = Path(abc, "KNOWS", de)
+        >>> abcde
+        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})<-[:KNOWS]-({name:"Carol"})-[:KNOWS]->({name:"Dave"})-[:KNOWS]->({name:"Eve"})
 
     """
-
-    signature = ("length", "nodes", "relationships", "start", "end")
 
     @classmethod
     def hydrate(cls, data):
@@ -2240,17 +2142,9 @@ class Path(object):
         self.__metadata = None
 
     def __repr__(self):
-        out = ", ".join(repr(item)
-                        for item in round_robin(self.__nodes, self.__rels))
-        return "Path({0})".format(out)
-
-    def __str__(self):
-        out = []
-        for i, rel in enumerate(self.__rels):
-            out.append(str(self.__nodes[i]))
-            out.append(str(rel))
-        out.append(str(self.__nodes[-1]))
-        return "".join(out)
+        r = Representation()
+        r.write_path(self)
+        return repr(r)
 
     def __bool__(self):
         return bool(self.rels)
@@ -2325,7 +2219,6 @@ class Path(object):
         """ Return a list of all the relationships which make up this path.
         """
         if self.__relationships is None:
-            # TODO: always convert to FORWARD
             self.__relationships = tuple(
                 Relationship(self.nodes[i], rel, self.nodes[i + 1])
                 for i, rel in enumerate(self.rels)
@@ -2433,7 +2326,59 @@ class Relationship(Path):
     :param uri: URI identifying this relationship
     """
 
-    signature = ("self", "type")
+    @staticmethod
+    def cast(*args, **kwargs):
+        """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
+        following general combinations are possible:
+
+        - ``rel(relationship_instance)``
+        - ``rel((start_node, type, end_node))``
+        - ``rel((start_node, type, end_node, properties))``
+        - ``rel((start_node, (type, properties), end_node))``
+        - ``rel(start_node, (type, properties), end_node)``
+        - ``rel(start_node, type, end_node, properties)``
+        - ``rel(start_node, type, end_node, **properties)``
+
+        Examples::
+
+            rel(Relationship("http://localhost:7474/db/data/relationship/1"))
+            rel((alice, "KNOWS", bob))
+            rel((alice, "KNOWS", bob, {"since": 1999}))
+            rel((alice, ("KNOWS", {"since": 1999}), bob))
+            rel(alice, ("KNOWS", {"since": 1999}), bob)
+            rel(alice, "KNOWS", bob, {"since": 1999})
+            rel(alice, "KNOWS", bob, since=1999)
+
+        Other representations::
+
+            (alice, "KNOWS", bob)
+            (alice, "KNOWS", bob, {"since": 1999})
+            (alice, ("KNOWS", {"since": 1999}), bob)
+
+        """
+        if len(args) == 1 and not kwargs:
+            arg = args[0]
+            if isinstance(arg, Relationship):
+                return arg
+            elif isinstance(arg, tuple):
+                if len(arg) == 3:
+                    return Relationship(*arg)
+                elif len(arg) == 4:
+                    return Relationship(arg[0], arg[1], arg[2], **arg[3])
+                else:
+                    raise TypeError("Cannot cast relationship from {0}".format(arg))
+            else:
+                raise TypeError("Cannot cast relationship from {0}".format(arg))
+        elif len(args) == 3:
+            rel = Relationship(*args)
+            rel.properties.update(kwargs)
+            return rel
+        elif len(args) == 4:
+            props = args[3]
+            props.update(kwargs)
+            return Relationship(*args[0:3], **props)
+        else:
+            raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
     @classmethod
     def hydrate(cls, data):
@@ -2452,8 +2397,20 @@ class Relationship(Path):
         return instance
 
     def __init__(self, start_node, rel, end_node, **properties):
-        Path.__init__(self, start_node, Rel.cast(rel), end_node)
+        cast_rel = Rel.cast(rel)
+        if isinstance(cast_rel, Rev):  # always forwards
+            Path.__init__(self, end_node, reversed(cast_rel), start_node)
+        else:
+            Path.__init__(self, start_node, cast_rel, end_node)
         self.rel.properties.update(properties)
+
+    def __repr__(self):
+        r = Representation()
+        if self.bound:
+            r.write_relationship(self, "R" + self._id)
+        else:
+            r.write_relationship(self)
+        return repr(r)
 
     def __eq__(self, other):
         if self.bound:
@@ -2463,46 +2420,6 @@ class Relationship(Path):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    #def __repr__(self):
-    #    if not self.is_abstract:
-    #        return "{0}({1})".format(
-    #            self.__class__.__name__,
-    #            repr(str(self.__uri__))
-    #        )
-    #    elif self._properties:
-    #        return "rel({1}, {2}, {3}, {4})".format(
-    #            self.__class__.__name__,
-    #            repr(self.start_node),
-    #            repr(self.type),
-    #            repr(self.end_node),
-    #            repr(self._properties)
-    #        )
-    #    else:
-    #        return "rel({1}, {2}, {3})".format(
-    #            self.__class__.__name__,
-    #            repr(self.start_node),
-    #            repr(self.type),
-    #            repr(self.end_node)
-    #        )
-
-    #def __str__(self):
-    #    type_str = str(self.type)
-    #    if not SIMPLE_NAME.match(type_str):
-    #        type_str = json.dumps(type_str, ensure_ascii=False)
-    #    if self._properties:
-    #        return "{0}-[:{1} {2}]->{3}".format(
-    #            str(self.start_node),
-    #            type_str,
-    #            json.dumps(self._properties, separators=(",", ":"), ensure_ascii=False),
-    #            str(self.end_node),
-    #        )
-    #    else:
-    #        return "{0}-[:{1}]->{2}".format(
-    #            str(self.start_node),
-    #            type_str,
-    #            str(self.end_node),
-    #        )
 
     #def __hash__(self):
     #    if self.__uri__:
@@ -2667,7 +2584,7 @@ def _cast(obj, cls=(Node, Relationship), abstract=None):
     elif isinstance(obj, Node) or isinstance(obj, dict):
         entity = Node.cast(obj)
     elif isinstance(obj, Relationship) or isinstance(obj, tuple):
-        entity = _rel(obj)
+        entity = Relationship.cast(obj)
     else:
         raise TypeError(obj)
     if not isinstance(entity, cls):
@@ -2716,7 +2633,7 @@ class BatchResponse(object):
     def __hydrate(cls, graph, result, hydration_cache=None):
         body = result.get("body")
         if isinstance(body, dict):
-            if has_all(body, CypherResults.signature):
+            if has_all(body, ("columns", "data")):
                 records = CypherResults._hydrated(graph, body)
                 if len(records) == 0:
                     return None
@@ -3035,38 +2952,38 @@ class WriteBatch(BatchRequestList):
         :param rel_abstract: relationship abstract to be fetched or created
         """
         rel = _cast(rel_abstract, cls=Relationship, abstract=True)
-        if not (isinstance(rel._start_node, Node) or rel._start_node is None):
+        if not (isinstance(rel.start_node, Node) or rel.start_node is None):
             raise TypeError("Relationship start node must be a "
                             "Node instance or None")
-        if not (isinstance(rel._end_node, Node) or rel._end_node is None):
+        if not (isinstance(rel.end_node, Node) or rel.end_node is None):
             raise TypeError("Relationship end node must be a "
                             "Node instance or None")
-        if rel._start_node and rel._end_node:
+        if rel.start_node and rel.end_node:
             query = (
                 "START a=node({A}), b=node({B}) "
-                "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->(b) "
+                "CREATE UNIQUE (a)-[ab:`" + str(rel.type) + "` {P}]->(b) "
                 "RETURN ab"
             )
-        elif rel._start_node:
+        elif rel.start_node:
             query = (
                 "START a=node({A}) "
-                "CREATE UNIQUE (a)-[ab:`" + str(rel._type) + "` {P}]->() "
+                "CREATE UNIQUE (a)-[ab:`" + str(rel.type) + "` {P}]->() "
                 "RETURN ab"
             )
-        elif rel._end_node:
+        elif rel.end_node:
             query = (
                 "START b=node({B}) "
-                "CREATE UNIQUE ()-[ab:`" + str(rel._type) + "` {P}]->(b) "
+                "CREATE UNIQUE ()-[ab:`" + str(rel.type) + "` {P}]->(b) "
                 "RETURN ab"
             )
         else:
             raise ValueError("Either start node or end node must be "
                              "specified for a unique relationship")
         params = {"P": compact(rel._properties or {})}
-        if rel._start_node:
-            params["A"] = rel._start_node._id
-        if rel._end_node:
-            params["B"] = rel._end_node._id
+        if rel.start_node:
+            params["A"] = rel.start_node._id
+        if rel.end_node:
+            params["B"] = rel.end_node._id
         return self.append_cypher(query, params)
 
     def delete(self, entity):
@@ -3168,5 +3085,6 @@ class WriteBatch(BatchRequestList):
     # TODO: PushBatch
 
 
+from py2neo.cypher import Representation
 from py2neo.legacy import GraphDatabaseService, Index, \
     LegacyReadBatch, LegacyWriteBatch, LegacyNode

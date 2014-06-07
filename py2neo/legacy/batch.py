@@ -21,7 +21,7 @@ from __future__ import division, unicode_literals
 from py2neo.packages.urimagic import percent_encode
 
 from py2neo.neo4j import Node, Relationship,  \
-    _cast, _rel, ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
+    _cast, ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
 from py2neo.util import *
 
 
@@ -145,21 +145,22 @@ class LegacyWriteBatch(_WriteBatch):
 
     def _create_in_index(self, cls, index, key, value, abstract, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
-        abstract = _cast(abstract, cls=cls, abstract=True)
         if cls is Node:
+            node = Node.cast(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "properties": abstract.properties,
+                "properties": node.properties,
             })
         elif cls is Relationship:
+            relationship = Relationship.cast(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "start": self._uri_for(abstract.start_node),
                 "type": str(abstract.type),
                 "end": self._uri_for(abstract.end_node),
-                "properties": abstract.properties,
+                "properties": relationship.properties,
             })
         else:
             raise TypeError(cls)
@@ -288,9 +289,9 @@ class LegacyWriteBatch(_WriteBatch):
                                             properties=None):
         self._assert_can_create_or_fail()
         if properties:
-            abstract = _rel(start_node, (type_, properties), end_node)
+            abstract = Relationship(start_node, (type_, properties), end_node)
         else:
-            abstract = _rel(start_node, type_, end_node)
+            abstract = Relationship(start_node, type_, end_node)
         return self.create_in_index_or_fail(Relationship, index, key, value,
                                             abstract)
 
@@ -315,9 +316,9 @@ class LegacyWriteBatch(_WriteBatch):
     def get_or_create_indexed_relationship(self, index, key, value, start_node,
                                            type_, end_node, properties=None):
         if properties:
-            abstract = _rel(start_node, (type_, properties), end_node)
+            abstract = Relationship(start_node, (type_, properties), end_node)
         else:
-            abstract = _rel(start_node, type_, end_node)
+            abstract = Relationship(start_node, type_, end_node)
         return self.get_or_create_in_index(Relationship, index, key, value,
                                            abstract)
 
