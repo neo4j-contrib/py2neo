@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import json
 
-from py2neo.exceptions import ClientError
+from py2neo.error import ClientError
 from py2neo.neo4j import Bindable, Resource
 
 

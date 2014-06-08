@@ -15,12 +15,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+""" Generic command line tool for Neo4j.
+"""
 
-from __future__ import division, unicode_literals
+from __future__ import print_function
 
-from py2neo.legacy.batch import LegacyReadBatch, LegacyWriteBatch
-from py2neo.legacy.index import Index
-from py2neo.legacy.neo4j import GraphDatabaseService, LegacyNode
+import sys
+
+from py2neo.tool import Tool
 
 
-__all__ = ["GraphDatabaseService", "Index", "LegacyNode", "LegacyReadBatch", "LegacyWriteBatch"]
+if __name__ == "__main__":
+    try:
+        Tool().do(sys.argv)
+        sys.exit(0)
+    except Exception as err:
+        print(*err.args)
+        sys.exit(1)

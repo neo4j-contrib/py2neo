@@ -15,13 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 
 import pytest
 
 from py2neo import neo4j, node, rel
-
-PY3K = sys.version_info[0] >= 3
+from py2neo.batch import BatchError
 
 
 class TestNodeCreation(object):
@@ -50,6 +48,7 @@ class TestNodeCreation(object):
 
 
 class TestRelationshipCreation(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.batch = neo4j.LegacyWriteBatch(legacy_graph)
@@ -225,7 +224,7 @@ class TestUniqueRelationshipCreation(object):
         self.batch.get_or_create_path(alice, "KNOWS", bob)
         try:
             self.batch.submit()
-        except neo4j.BatchError as err:
+        except BatchError as err:
             assert err.__class__.__name__ == "UniquePathNotUniqueException"
         else:
             assert False

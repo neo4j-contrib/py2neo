@@ -14,9 +14,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
 import pytest
 
-from py2neo import neo4j, ogm
+from py2neo import neo4j
+from py2neo.ext import ogm
 
 
 class Person(object):

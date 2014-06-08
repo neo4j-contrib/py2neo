@@ -12,6 +12,7 @@ Logging also gets quite excited here, as we add colour to emphasise when we
 skip tests due to neo versioning or due to other important events occuring.
 
 """
+
 from decimal import Decimal
 import logging
 

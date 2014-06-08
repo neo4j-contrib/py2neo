@@ -24,6 +24,7 @@ import re
 from uuid import uuid4
 
 from py2neo import neo4j
+from py2neo.batch import BatchError
 from py2neo.util import deprecated
 from py2neo.xmlutil import xml_to_geoff
 
@@ -252,7 +253,7 @@ class Subgraph(object):
         """
         try:
             return self._execute_load_batch(graph, True)
-        except neo4j.BatchError as err:
+        except BatchError as err:
             if err.__class__.__name__ == "UniquePathNotUniqueException":
                 err = ConstraintViolation(
                     "Unable to merge relationship onto multiple "

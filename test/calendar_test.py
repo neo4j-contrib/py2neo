@@ -20,7 +20,7 @@ import logging
 import pytest
 
 from py2neo import neo4j, legacy
-from py2neo.calendar import GregorianCalendar
+from py2neo.ext.calendar import GregorianCalendar
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -74,7 +74,7 @@ def test_can_create_year():
 class TestExampleCode(object):
     def test_example_code_runs(self):
         from py2neo import neo4j
-        from py2neo.calendar import GregorianCalendar
+        from py2neo.ext.calendar import GregorianCalendar
 
         graph = legacy.GraphDatabaseService()
         time_index = graph.get_or_create_index(neo4j.Node, "TIME")

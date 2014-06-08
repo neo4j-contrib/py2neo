@@ -18,11 +18,10 @@
 
 from __future__ import division, unicode_literals
 
+from py2neo.batch import ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
+from py2neo.neo4j import Node, Relationship
 from py2neo.packages.urimagic import percent_encode
-
-from py2neo.neo4j import Node, Relationship,  \
-    _cast, ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
-from py2neo.util import *
+from py2neo.util import deprecated
 
 
 __all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
@@ -31,6 +30,18 @@ __all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
 class LegacyReadBatch(_ReadBatch):
     """ Generic batch execution facility for data read requests,
     """
+
+    def _index(self, content_type, index):
+        """ Fetch an Index object.
+        """
+        from py2neo.legacy.index import Index
+        if isinstance(index, Index):
+            if content_type == index._content_type:
+                return index
+            else:
+                raise TypeError("Index is not for {0}s".format(content_type))
+        else:
+            return self.graph.get_or_create_index(content_type, str(index))
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under a given key-value pair.
@@ -55,13 +66,25 @@ class LegacyWriteBatch(_WriteBatch):
     of this.
     """
 
+    def _index(self, content_type, index):
+        """ Fetch an Index object.
+        """
+        from py2neo.legacy.index import Index
+        if isinstance(index, Index):
+            if content_type == index._content_type:
+                return index
+            else:
+                raise TypeError("Index is not for {0}s".format(content_type))
+        else:
+            return self.graph.get_or_create_index(content_type, str(index))
+
     def __init__(self, graph):
         super(LegacyWriteBatch, self).__init__(graph)
         self.__new_uniqueness_modes = None
 
     @property
     def supports_index_uniqueness_modes(self):
-        return self._graph.supports_index_uniqueness_modes
+        return self.graph.supports_index_uniqueness_modes
 
     def _assert_can_create_or_fail(self):
         if not self.supports_index_uniqueness_modes:

@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,9 +24,44 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import json
 
-from py2neo.neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, Node, NodePointer, Rel, Rev, Relationship, Path
-from py2neo.util import deprecated, RecordProducer, is_collection
+from py2neo.neo4j import DEFAULT_URI, CypherQuery, ServiceRoot, Resource, Node, Rel, Rev, Relationship, Path
+from py2neo.util import deprecated, is_collection
 from py2neo.packages.urimagic import URI
+
+
+class CypherError(Exception):
+
+    def __init__(self, response):
+        self._response = response
+        Exception.__init__(self, self.message)
+
+    @property
+    def message(self):
+        return self._response.message
+
+    @property
+    def exception(self):
+        return self._response.exception
+
+    @property
+    def full_name(self):
+        return self._response.full_name
+
+    @property
+    def stack_trace(self):
+        return self._response.stack_trace
+
+    @property
+    def cause(self):
+        return self._response.cause
+
+    @property
+    def request(self):
+        return self._response.request
+
+    @property
+    def response(self):
+        return self._response
 
 
 @deprecated("The cypher module is deprecated, use "
@@ -214,8 +249,8 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
         return dump_collection(obj)
     else:
         return json.dumps(obj, ensure_ascii=ensure_ascii)
-        
-        
+
+
 class Session(object):
     """ A Session is the base object from which Cypher transactions are
     created and is instantiated using a root service URI. If unspecified, this
@@ -241,7 +276,7 @@ class Session(object):
         except KeyError:
             raise NotImplementedError("Cypher transactions are not supported "
                                       "by this server version")
-        
+
     def create_transaction(self):
         """ Create a new transaction object.
 
@@ -264,7 +299,7 @@ class Session(object):
         results = tx.execute()
         return results[0]
 
-        
+
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
@@ -334,7 +369,7 @@ class Transaction(object):
                 for r in result["data"]
             ])
         return out
-        
+
     def execute(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
@@ -387,3 +422,67 @@ class TransactionFinished(Exception):
 
     def __repr__(self):
         return "Transaction finished"
+
+
+class Record(object):
+    """ A single row of a Cypher execution result, holding a sequence of named
+    values.
+    """
+
+    def __init__(self, producer, values):
+        self._producer = producer
+        self._values = tuple(values)
+
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
+
+    def __getattr__(self, attr):
+        return self._values[self._producer.column_indexes[attr]]
+
+    def __getitem__(self, item):
+        if isinstance(item, (int, slice)):
+            return self._values[item]
+        else:
+            return self._values[self._producer.column_indexes[item]]
+
+    def __len__(self):
+        return len(self._producer.columns)
+
+    @property
+    def columns(self):
+        """ The column names defined for this record.
+
+        :return: tuple of column names
+        """
+        return self._producer.columns
+
+    @property
+    def values(self):
+        """ The values stored in this record.
+
+        :return: tuple of values
+        """
+        return self._values
+
+
+class RecordProducer(object):
+
+    def __init__(self, columns):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+
+    def __repr__(self):
+        return "RecordProducer(columns={0})".format(self._columns)
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def column_indexes(self):
+        return self._column_indexes
+
+    def produce(self, values):
+        """ Produce a record from a set of values.
+        """
+        return Record(self, values)

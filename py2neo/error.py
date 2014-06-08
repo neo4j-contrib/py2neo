@@ -22,14 +22,6 @@ from py2neo.packages.jsonstream import assembled
 from py2neo.packages.httpstream import JSONResponse
 
 
-__all__ = ["IndexTypeError", "ServerException", "ClientError", "ServerError",
-           "CypherError", "BatchError"]
-
-
-class IndexTypeError(TypeError):
-    pass
-
-
 class ServerException(object):
 
     def __init__(self, data):
@@ -108,46 +100,9 @@ class ServerError(Exception):
             return getattr(self.__cause__, item)
 
 
-class _FeatureError(Exception):
-
-    def __init__(self, response):
-        self._response = response
-        Exception.__init__(self, self.message)
-
-    @property
-    def message(self):
-        return self._response.message
-
-    @property
-    def exception(self):
-        return self._response.exception
-
-    @property
-    def full_name(self):
-        return self._response.full_name
-
-    @property
-    def stack_trace(self):
-        return self._response.stack_trace
-
-    @property
-    def cause(self):
-        return self._response.cause
-
-    @property
-    def request(self):
-        return self._response.request
-
-    @property
-    def response(self):
-        return self._response
-
-
-class CypherError(_FeatureError):
-
+class UnboundError(Exception):
     pass
 
 
-class BatchError(_FeatureError):
-
+class UnjoinableError(Exception):
     pass
