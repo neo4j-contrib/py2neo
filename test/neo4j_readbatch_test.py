@@ -14,16 +14,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
 import pytest
 
 from py2neo import neo4j
 
 
-class GetIndexedNodeTestCase(object):
+class TestGetIndexedNode(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
 
     def test_can_retrieve_multiple_indexed_nodes(self):
         people = self.graph.get_or_create_index(neo4j.Node, "People")
@@ -39,7 +41,7 @@ class GetIndexedNodeTestCase(object):
         people.add("family_name", "Smith", carol)
         people.add("family_name", "Jones", dave)
         people.add("family_name", "Jones", eve)
-        batch = neo4j.ReadBatch(self.graph)
+        batch = neo4j.LegacyReadBatch(self.graph)
         batch.get_indexed_nodes("People", "family_name", "Smith")
         batch.get_indexed_nodes("People", "family_name", "Jones")
         data = batch.submit()

@@ -24,7 +24,7 @@ from py2neo import neo4j
 PY3K = sys.version_info[0] >= 3
 
 
-class IsolateTestCase(object):
+class TestIsolate(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -55,7 +55,7 @@ class IsolateTestCase(object):
         assert len(friendships) == 0
 
 
-class RelationshipTestCase(object):
+class TestRelationship(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -66,29 +66,29 @@ class RelationshipTestCase(object):
             {"name": "Alice"}, {"name": "Bob"}
         )
         ab = alice.create_path("KNOWS", bob).relationships[0]
-        self.assertTrue(ab is not None)
-        self.assertTrue(isinstance(ab, neo4j.Relationship))
-        self.assertEqual(alice, ab.start_node)
-        self.assertEqual("KNOWS", ab.type)
-        self.assertEqual(bob, ab.end_node)
+        assert ab is not None
+        assert isinstance(ab, neo4j.Relationship)
+        assert ab.start_node == alice
+        assert ab.type == "KNOWS"
+        assert ab.end_node == bob
 
     def test_create_relationship_from(self):
         alice, bob = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
         ba = bob.create_path("LIKES", alice).relationships[0]
-        self.assertTrue(ba is not None)
-        self.assertTrue(isinstance(ba, neo4j.Relationship))
-        self.assertEqual(bob, ba.start_node)
-        self.assertEqual("LIKES", ba.type)
-        self.assertEqual(alice, ba.end_node)
+        assert ba is not None
+        assert isinstance(ba, neo4j.Relationship)
+        assert ba.start_node == bob
+        assert ba.type == "LIKES"
+        assert ba.end_node == alice
 
     def test_getting_no_relationships(self):
         alice, = self.graph.create({"name": "Alice"})
         rels = list(alice.match())
-        self.assertTrue(rels is not None)
-        self.assertTrue(isinstance(rels, list))
-        self.assertEqual(0, len(rels))
+        assert rels is not None
+        assert isinstance(rels, list)
+        assert len(rels) == 0
 
     def test_get_relationship(self):
         alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
@@ -100,28 +100,28 @@ class RelationshipTestCase(object):
             {"name": "Alice"}, {"name": "Bob"}
         )
         ab = alice.create_path(("KNOWS", {"since": 1999}), bob).relationships[0]
-        self.assertTrue(ab is not None)
-        self.assertTrue(isinstance(ab, neo4j.Relationship))
-        self.assertEqual(alice, ab.start_node)
-        self.assertEqual("KNOWS", ab.type)
-        self.assertEqual(bob, ab.end_node)
-        self.assertEqual(len(ab), 1)
-        self.assertEqual(ab["since"], 1999)
-        self.assertEqual(ab.get_properties(), {"since": 1999})
+        assert ab is not None
+        assert isinstance(ab, neo4j.Relationship)
+        assert ab.start_node == alice
+        assert ab.type == "KNOWS"
+        assert ab.end_node == bob
+        assert len(ab) == 1
+        assert ab["since"] == 1999
+        assert ab.get_properties() == {"since": 1999}
         ab["foo"] = "bar"
-        self.assertEqual(len(ab), 2)
-        self.assertEqual(ab["foo"], "bar")
-        self.assertEqual(ab.get_properties(), {"since": 1999, "foo": "bar"})
+        assert len(ab) == 2
+        assert ab["foo"] == "bar"
+        assert ab.get_properties() == {"since": 1999, "foo": "bar"}
         del ab["foo"]
-        self.assertEqual(len(ab), 1)
-        self.assertEqual(ab["since"], 1999)
-        self.assertEqual(ab.get_properties(), {"since": 1999})
+        assert len(ab) == 1
+        assert ab["since"] == 1999
+        assert ab.get_properties() == {"since": 1999}
         ab.delete_properties()
-        self.assertEqual(len(ab), 0)
-        self.assertEqual(ab.get_properties(), {})
+        assert len(ab) == 0
+        assert ab.get_properties() == {}
 
 
-class RelateTestCase(object):
+class TestRelate(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -132,78 +132,78 @@ class RelateTestCase(object):
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertTrue(rel is not None)
-        self.assertTrue(isinstance(rel, neo4j.Relationship))
-        self.assertEqual(alice, rel.start_node)
-        self.assertEqual("KNOWS", rel.type)
-        self.assertEqual(bob, rel.end_node)
+        assert rel is not None
+        assert isinstance(rel, neo4j.Relationship)
+        assert rel.start_node == alice
+        assert rel.type == "KNOWS"
+        assert rel.end_node == bob
 
     def test_repeated_relate(self):
         alice, bob = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel1 = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertTrue(rel1 is not None)
-        self.assertTrue(isinstance(rel1, neo4j.Relationship))
-        self.assertEqual(alice, rel1.start_node)
-        self.assertEqual("KNOWS", rel1.type)
-        self.assertEqual(bob, rel1.end_node)
+        assert rel1 is not None
+        assert isinstance(rel1, neo4j.Relationship)
+        assert rel1.start_node == alice
+        assert rel1.type == "KNOWS"
+        assert rel1.end_node == bob
         rel2 = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertEqual(rel1, rel2)
+        assert rel1  == rel2
         rel3 = alice.get_or_create_path("KNOWS", bob).relationships[0]
-        self.assertEqual(rel1, rel3)
+        assert rel1 == rel3
 
     def test_relate_with_no_end_node(self):
         alice, = self.graph.create(
             {"name": "Alice"}
         )
         rel = alice.get_or_create_path("KNOWS", None).relationships[0]
-        self.assertTrue(rel is not None)
-        self.assertTrue(isinstance(rel, neo4j.Relationship))
-        self.assertEqual(alice, rel.start_node)
-        self.assertEqual("KNOWS", rel.type)
+        assert rel is not None
+        assert isinstance(rel, neo4j.Relationship)
+        assert rel.start_node == alice
+        assert rel.type == "KNOWS"
 
     def test_relate_with_data(self):
         alice, bob = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertTrue(rel is not None)
-        self.assertTrue(isinstance(rel, neo4j.Relationship))
-        self.assertEqual(alice, rel.start_node)
-        self.assertEqual("KNOWS", rel.type)
-        self.assertEqual(bob, rel.end_node)
-        self.assertTrue("since" in rel)
-        self.assertEqual(2006, rel["since"])
+        assert rel is not None
+        assert isinstance(rel, neo4j.Relationship)
+        assert rel.start_node == alice
+        assert rel.type == "KNOWS"
+        assert rel.end_node == bob
+        assert "since" in rel
+        assert rel["since"] == 2006
 
     def test_relate_with_null_data(self):
         alice, bob = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006, "dummy": None}), bob).relationships[0]
-        self.assertTrue(rel is not None)
-        self.assertTrue(isinstance(rel, neo4j.Relationship))
-        self.assertEqual(alice, rel.start_node)
-        self.assertEqual("KNOWS", rel.type)
-        self.assertEqual(bob, rel.end_node)
-        self.assertTrue("since" in rel)
-        self.assertEqual(2006, rel["since"])
-        self.assertEqual(None, rel["dummy"])
+        assert rel is not None
+        assert isinstance(rel, neo4j.Relationship)
+        assert rel.start_node == alice
+        assert rel.type == "KNOWS"
+        assert rel.end_node == bob
+        assert "since" in rel
+        assert rel["since"] == 2006
+        assert rel["dummy"] is None
 
     def test_repeated_relate_with_data(self):
         alice, bob = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"}
         )
         rel1 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertTrue(rel1 is not None)
-        self.assertTrue(isinstance(rel1, neo4j.Relationship))
-        self.assertEqual(alice, rel1.start_node)
-        self.assertEqual("KNOWS", rel1.type)
-        self.assertEqual(bob, rel1.end_node)
+        assert rel1 is not None
+        assert isinstance(rel1, neo4j.Relationship)
+        assert rel1.start_node == alice
+        assert rel1.type == "KNOWS"
+        assert rel1.end_node == bob
         rel2 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertEqual(rel1, rel2)
+        assert rel1 == rel2
         rel3 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
-        self.assertEqual(rel1, rel3)
+        assert rel1 == rel3
 
     # disabled test known to fail due to server issues
     #
@@ -212,11 +212,11 @@ class RelateTestCase(object):
     #        {"name": "Alice"}, {"name": "Bob"}
     #    )
     #    rel, = self.graph.get_or_create_relationships((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
-    #    self.assertTrue(rel is not None)
-    #    self.assertTrue(isinstance(rel, neo4j.Relationship))
-    #    self.assertEqual(alice, rel.start_node)
+    #    assert rel is not None
+    #    assert isinstance(rel, neo4j.Relationship)
+    #    assert rel.start_node == alice
     #    self.assertEqual("LIKES", rel.type)
-    #    self.assertEqual(bob, rel.end_node)
+    #    assert rel.end_node == bob
     #    self.assertTrue("reasons" in rel)
     #    self.assertEqual("looks", rel["reasons"][0])
     #    self.assertEqual("wealth", rel["reasons"][1])
@@ -231,14 +231,14 @@ class RelateTestCase(object):
         #batch.get_or_create((alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}))
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)
         rels1 = batch.submit()
-        self.assertTrue(rels1 is not None)
-        self.assertEqual(2, len(rels1))
+        assert rels1 is not None
+        assert len(rels1) == 2
         batch = neo4j.WriteBatch(self.graph)
         batch.get_or_create_path(bob, ("WORKS WITH", {"since": 2004, "company": "Megacorp"}), carol)
         #batch.get_or_create((alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}))
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)
         batch.get_or_create_path(bob, ("WORKS WITH", {"since": 2009, "company": "Megacorp"}), dave)
         rels2 = batch.submit()
-        self.assertTrue(rels2 is not None)
-        self.assertEqual(3, len(rels2))
-        self.assertEqual(rels1[1], rels2[1])
+        assert rels2 is not None
+        assert len(rels2) == 3
+        assert rels1[1] == rels2[1]

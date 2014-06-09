@@ -46,13 +46,14 @@ from py2neo.packages.jsonstream import JSONStream
 from py2neo.packages.urimagic import URI, URITemplate
 from py2neo.packages.urimagic.kvlist import KeyValueList  # no point in another copy
 
-from . import __version__
-from .jsonencoder import JSONEncoder
-from .numbers import *
+from py2neo.packages.httpstream import __version__
+from py2neo.packages.httpstream.jsonencoder import JSONEncoder
+from py2neo.packages.httpstream.numbers import *
 
 
 __all__ = ["NetworkAddressError", "SocketError", "RedirectionError", "Request",
-           "Response", "Redirection", "ClientError", "ServerError", "Resource",
+           "Response", "TextResponse", "JSONResponse", "XMLResponse",
+           "Redirection", "ClientError", "ServerError", "Resource",
            "ResourceTemplate", "get", "put", "post", "delete", "head"]
 
 
@@ -94,6 +95,10 @@ class HTTPSConnection(_HTTPSConnection):
             self._tunnel()
         self.sock = ssl.wrap_socket(sock, self.key_file, self.cert_file)
 
+
+# These are necessary as the type function can't handle unicode in Python 2.7
+client_error_name = str("ClientError")
+server_error_name = str("ServerError")
 
 connection_classes = {
     "http": HTTPConnection,
@@ -380,11 +385,13 @@ class Request(object):
     def body(self):
         """ Content of the request.
         """
-        if isinstance(self._body, (dict, list, tuple)):
-            return json.dumps(self._body, cls=JSONEncoder,
-                              separators=(",", ":"))
+        body = self._body
+        if isinstance(body, (set, frozenset)):
+            body = list(body)
+        if isinstance(body, (dict, list, tuple)):
+            return json.dumps(body, cls=JSONEncoder, separators=",:")
         else:
-            return self._body
+            return body
 
     @body.setter
     def body(self, value):
@@ -422,30 +429,69 @@ class Request(object):
                     redirection.close()
                 else:
                     return redirection
-            elif status_class == 4:
-                raise ClientError(http, uri, self, rs, **response_kwargs)
-            elif status_class == 5:
-                raise ServerError(http, uri, self, rs, **response_kwargs)
             else:
-                return Response(http, uri, self, rs, **response_kwargs)
+                return Response.wrap(http, uri, self, rs, **response_kwargs)
+
+
+class ContentConsumed(Exception):
+    pass
 
 
 class Response(object):
     """ File-like object allowing consumption of an HTTP response.
     """
 
+    @staticmethod
+    def wrap(http, uri, request, response, **kwargs):
+        """ Factory method to return an instance of an appropriate Response
+        subclass.
+        """
+        content_type_header = response.getheader("Content-Type")
+        if content_type_header:
+            content_type = content_type_header.partition(";")[0].strip()
+        else:
+            content_type = None
+        if content_type in ("application/json", "application/javascript",
+                            "application/x-javascript", "text/javascript",
+                            "text/json"):
+            cls = JSONResponse
+        elif content_type in ("application/xml",):
+            cls = XMLResponse
+        elif content_type and content_type.startswith("text/"):
+            cls = TextResponse
+        else:
+            cls = Response
+        status_class = response.status // 100
+        if status_class == 4:
+            cls = type(client_error_name, (cls, ClientError), {})
+        elif status_class == 5:
+            cls = type(server_error_name, (cls, ServerError), {})
+        inst = cls(http, uri, request, response, **kwargs)
+        if isinstance(inst, Exception):
+            raise inst
+        else:
+            return inst
+
     def __init__(self, http, uri, request, response, **kwargs):
-        self._http = http
-        self._uri = URI(uri)
-        self._request = request
-        self._response = response
-        self._reason = kwargs.get("reason")
-        self.__headers = KeyValueList(self._response.getheaders())
+        self.__http = http
+        if isinstance(uri, URI):
+            self.__uri = uri
+        else:
+            self.__uri = URI(uri)
+        self.__request = request
+        self.__response = response
+        self.__consumed = False
+        if kwargs.get("cache"):
+            self.__cached = bytearray()
+        else:
+            self.__cached = None
+        self.__reason = kwargs.get("reason")
+        self.__headers = KeyValueList(self.__response.getheaders())
         #: Default chunk size for this response
         self.chunk_size = kwargs.get("chunk_size", default_chunk_size)
         log.info("<<< {0}".format(self))
         if __debug__:
-            for key, value in self._response.getheaders():
+            for key, value in self.__response.getheaders():
                 log.debug("<<< {0}: {1}".format(key, value))
 
     def __del__(self):
@@ -459,9 +505,9 @@ class Response(object):
                                           self.content_length)
 
     def __getitem__(self, key):
-        if not self._response:
+        if not self.__response:
             return None
-        return self._response.getheader(key)
+        return self.__response.getheader(key)
 
     def __enter__(self):
         return self
@@ -470,52 +516,74 @@ class Response(object):
         self.close()
         return False
 
+    def __iter__(self):
+        """ Iterate through the content as bytes.
+        """
+        return iter(self.content or b"")
+
+    @property
+    def cache(self):
+        """ Flag to indicate whether or not content will be cached.
+        """
+        return self.__cached is not None
+
+    @property
+    def consumed(self):
+        """ Flag to indicate whether or not content has been consumed.
+        """
+        return self.__consumed
+
     @property
     def closed(self):
-        """ Indicates whether or not the response is closed.
+        """ Flag to indicate whether or not the response is closed.
         """
-        return not bool(self._http)
+        return not bool(self.__http)
 
     def close(self):
         """ Close the response, discarding all remaining content and releasing
         the underlying connection object.
         """
-        if self._http:
+        if self.__http:
             try:
-                self._response.read()
+                if self.cache:
+                    self.__cached += self.__response.read()
+                else:
+                    self.__response.read()
             except HTTPException:
                 pass
-            ConnectionPool.release(self._http)
-            self._http = None
+            else:
+                self.__consumed = True
+            ConnectionPool.release(self.__http)
+            self.__http = None
 
     @property
     def __uri__(self):
-        return self._uri
+        return self.__uri
 
     @property
     def uri(self):
         """ The URI from which the response came.
         """
-        return self._uri
+        return self.__uri
 
     @property
     def request(self):
         """ The :py:class:`Request` object which preceded this response.
         """
-        return self._request
+        return self.__request
 
     @property
     def status_code(self):
         """ The status code of the response
         """
-        return self._response.status
+        return self.__response.status
 
     @property
     def reason(self):
         """ The reason phrase attached to this response.
         """
-        if self._reason:
-            return self._reason
+        if self.__reason:
+            return self.__reason
         else:
             return responses[self.status_code]
 
@@ -531,7 +599,7 @@ class Response(object):
         field. If the content is chunked, this returns :py:const:`None`.
         """
         if not self.is_chunked:
-            return int(self._response.getheader("Content-Length", 0))
+            return int(self.__response.getheader("Content-Length", 0))
 
     @property
     def content_type(self):
@@ -540,7 +608,7 @@ class Response(object):
         try:
             content_type = [
                 _.strip()
-                for _ in self._response.getheader("Content-Type").split(";")
+                for _ in self.__response.getheader("Content-Type").split(";")
             ]
         except AttributeError:
             return None
@@ -553,7 +621,7 @@ class Response(object):
         try:
             content_type = dict(
                 _.strip().partition("=")[0::2]
-                for _ in self._response.getheader("Content-Type").split(";")
+                for _ in self.__response.getheader("Content-Type").split(";")
             )
         except AttributeError:
             return default_encoding
@@ -563,106 +631,76 @@ class Response(object):
     def is_chunked(self):
         """ Indicates whether or not the content is chunked.
         """
-        return self._response.getheader("Transfer-Encoding") == "chunked"
-
-    @property
-    def is_json(self):
-        """ Indicates whether or not the content is JSON.
-        """
-        return self.content_type in ("application/json",
-                                     "application/x-javascript",
-                                     "text/javascript",
-                                     "text/json")
-
-    @property
-    def json(self):
-        """ Fetch all content, decoding from JSON and returning the decoded
-        value.
-        """
-        if not self.is_json:
-            raise TypeError("Content is not JSON")
-        return json.loads(self.read().decode(self.encoding))
-
-    @property
-    def is_text(self):
-        """ Indicates whether or not the content is plain text.
-        """
-        return self.content_type.partition("/")[0] == "text"
-
-    @property
-    def text(self):
-        """ Fetches all content as a string.
-        """
-        if not self.is_text and not self.is_json and not self.is_xml:
-            raise TypeError("Content is not text")
-        return self.read().decode(self.encoding)
-
-    @property
-    def is_tsj(self):
-        """ Indicates whether or not the content is tab-separated JSON.
-        """
-        return self.content_type == "text/x-tab-separated-json"
-
-    @property
-    def tsj(self):
-        """ Fetches all content, decoding from tab-separated JSON and returning
-        the decoded values.
-        """
-        if not self.is_tsj:
-            raise TypeError("Content is not tab-separated JSON")
-        return [
-            [json.loads(value) for value in line.split("\t")]
-            for line in self.read().decode(self.encoding).splitlines()
-        ]
-
-    @property
-    def is_xml(self):
-        """ Indicates whether or not the content is XML.
-        """
-        return self.content_type == "application/xml"
-
-    @property
-    def dom(self):
-        """ Fetches all content, decoding from XML and returning as a DOM
-        object.
-        """
-        if not self.is_xml:
-            raise TypeError("Content is not XML")
-        return parseString(self.read().decode(self.encoding))
+        return self.__response.getheader("Transfer-Encoding") == "chunked"
 
     @property
     def content(self):
-        """ Fetch all content, returning a value appropriate for the content
-        type.
+        """ Fetch and return all content.
         """
         if self.status_code == NO_CONTENT:
             return None
-        elif self.is_json:
-            return self.json
-        elif self.is_tsj:
-            return self.tsj
-        elif self.is_text:
-            return self.text
+        elif self.__consumed and self.cache:
+            if isinstance(self.__cached, bytearray):
+                self.__cached = bytes(self.__cached)
+            return self.__cached
         else:
             return self.read()
 
     def read(self, size=None):
-        """ Fetch some or all of the response content, returning as a bytearray.
+        """ Fetch some or all of the response content as raw bytes.
         """
-        completed = False
+        if self.__consumed:
+            raise ContentConsumed("All available response content has already "
+                                  "been consumed")
         try:
             if size is None:
-                data = self._response.read()
-                completed = True
+                data = self.__response.read()
+                self.__consumed = True
             else:
-                data = self._response.read(size)
-                completed = bool(size and not data)
+                data = self.__response.read(size)
+                self.__consumed = bool(size and not data)
+            if self.cache:
+                self.__cached += data
             return data
         finally:
-            if completed:
+            if self.__consumed:
                 self.close()
 
-    def iter_chunks(self, chunk_size=None):
+
+class Redirection(Response):
+
+    def __init__(self, http, uri, request, response, **kwargs):
+        assert response.status // 100 == 3
+        Response.__init__(self, http, uri, request, response, **kwargs)
+
+
+class ClientError(Exception):
+    pass
+
+
+class ServerError(Exception):
+    pass
+
+
+class TextResponse(Response):
+
+    def __init__(self, *args, **kwargs):
+        super(TextResponse, self).__init__(*args, **kwargs)
+        self.__cached = None
+
+    @property
+    def content(self):
+        """ Fetches all content as a string.
+        """
+        if self.cache:
+            if self.__cached is None:
+                self.__cached = \
+                    super(TextResponse, self).content.decode(self.encoding)
+            return self.__cached
+        else:
+            return super(TextResponse, self).content.decode(self.encoding)
+
+    def chunks(self, chunk_size=None):
         """ Iterate through the content as chunks of text. Chunk sizes may vary
         slightly from that specified due to multi-byte characters. If no chunk
         size is specified, a default of 4096 is used.
@@ -688,16 +726,11 @@ class Response(object):
         finally:
             self.close()
 
-    def iter_json(self):
-        """ Iterate through the content as individual JSON values.
-        """
-        return iter(JSONStream(self.iter_chunks()))
-
-    def iter_lines(self, keep_ends=False):
+    def lines(self, keep_ends=False):
         """ Iterate through the content as lines of text.
         """
         data = ""
-        for chunk in self.iter_chunks():
+        for chunk in self.chunks():
             data += chunk
             while "\r" in data or "\n" in data:
                 cr, lf = data.find("\r"), data.find("\n")
@@ -718,46 +751,53 @@ class Response(object):
         if data:
             yield data
 
-    def iter_tsj(self):
-        """ Iterate through the content as lines of tab-separated JSON.
+    def __iter__(self):
+        """ Iterate through the content as lines of text.
         """
-        for line in self.iter_lines():
-            yield [json.loads(value) for value in line.split("\t")]
+        return self.lines()
+
+
+class JSONResponse(TextResponse):
+
+    def __init__(self, *args, **kwargs):
+        super(JSONResponse, self).__init__(*args, **kwargs)
+        self.__cached = None
+
+    @property
+    def content(self):
+        """ Fetch all content, decoding from JSON and returning the decoded
+        value.
+        """
+        if self.cache:
+            if self.__cached is None:
+                self.__cached = json.loads(super(JSONResponse, self).content)
+            return self.__cached
+        else:
+            return json.loads(super(JSONResponse, self).content)
 
     def __iter__(self):
-        if self.status_code == NO_CONTENT:
-            return iter([])
-        elif self.is_json:
-            return self.iter_json()
-        elif self.is_tsj:
-            return self.iter_tsj()
-        elif self.is_text:
-            return self.iter_lines()
+        """ Iterate through the content as individual JSON values.
+        """
+        return iter(JSONStream(self.chunks()))
+
+
+class XMLResponse(TextResponse):
+
+    def __init__(self, *args, **kwargs):
+        super(XMLResponse, self).__init__(*args, **kwargs)
+        self.__cached = None
+
+    @property
+    def content(self):
+        """ Fetches all content, decoding from XML and returning as a DOM
+        object.
+        """
+        if self.cache:
+            if self.__cached is None:
+                self.__cached = parseString(super(XMLResponse, self).content)
+            return self.__cached
         else:
-            return self.iter_chunks()
-
-
-class Redirection(Response):
-
-    def __init__(self, http, uri, request, response, **kwargs):
-        assert response.status // 100 == 3
-        Response.__init__(self, http, uri, request, response, **kwargs)
-
-
-class ClientError(Exception, Response):
-
-    def __init__(self, http, uri, request, response, **kwargs):
-        assert response.status // 100 == 4
-        Response.__init__(self, http, uri, request, response, **kwargs)
-        Exception.__init__(self, self.reason)
-
-
-class ServerError(Exception, Response):
-
-    def __init__(self, http, uri, request, response, **kwargs):
-        assert response.status // 100 == 5
-        Response.__init__(self, http, uri, request, response, **kwargs)
-        Exception.__init__(self, self.reason)
+            return parseString(super(XMLResponse, self).content)
 
 
 class Resource(object):
@@ -820,6 +860,8 @@ class Resource(object):
             be listed in the ``User-Agent`` header (optional)
         :param chunk_size: number of bytes to retrieve per chunk (optional,
             default=4096)
+        :param cache: flag to indicate whether to turn on caching so that
+            response content can be stored for multiple reads (optional)
         :return: file-like :py:class:`Response <httpstream.http.Response>`
             object from which content can be read
         """

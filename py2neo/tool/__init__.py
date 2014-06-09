@@ -29,10 +29,11 @@ import os
 import readline
 import sys
 
-from . import __version__, __copyright__, neo4j, geoff
-from .exceptions import CypherError
-from .util import ustr
-from .xmlutil import xml_to_cypher, xml_to_geoff
+from py2neo import __version__, __copyright__, neo4j
+from py2neo.ext import geoff
+from py2neo.exceptions import CypherError
+from py2neo.util import ustr
+from py2neo.xmlutil import xml_to_cypher, xml_to_geoff
 
 
 PY3 = sys.version > '3'
@@ -126,16 +127,16 @@ class ResultWriter(object):
     def _jsonify(cls, value):
         if isinstance(value, list):
             out = "[" + ", ".join(cls._jsonify(i) for i in value) + "]"
-        elif hasattr(value, "__uri__") and hasattr(value, "_properties"):
+        elif hasattr(value, "uri") and hasattr(value, "_properties"):
             metadata = {
-                "uri": ustr(value.__uri__),
+                "uri": ustr(value.uri),
                 "properties": value._properties,
             }
             try:
                 metadata.update({
-                    "start": ustr(value.start_node.__uri__),
+                    "start": ustr(value.start_node.uri),
                     "type": ustr(value.type),
-                    "end": ustr(value.end_node.__uri__),
+                    "end": ustr(value.end_node.uri),
                 })
             except AttributeError:
                 pass
@@ -503,9 +504,9 @@ class Shell(object):
     @property
     def prompt(self):
         if self.param_sets:
-            return "\x1b[32;1m{0}/{1}\x1b[36;1m[{2}]\x1b[32;1m>\x1b[0m ".format(self.graph.service_root.__uri__.host_port, self.lang, len(self.param_sets))
+            return "\x1b[32;1m{0}/{1}\x1b[36;1m[{2}]\x1b[32;1m>\x1b[0m ".format(self.graph.uri.host_port, self.lang, len(self.param_sets))
         else:
-            return "\x1b[32;1m{0}/{1}>\x1b[0m ".format(self.graph.service_root.__uri__.host_port, self.lang)
+            return "\x1b[32;1m{0}/{1}>\x1b[0m ".format(self.graph.uri.host_port, self.lang)
 
     def repl(self):
         print("Neotool Shell (py2neo/{0} Python/{1}.{2}.{3}-{4}-{5})".format(__version__, *sys.version_info))
@@ -608,10 +609,11 @@ class Shell(object):
             print("Labels: " + ", ".join(labels))
         print("Properties:")
         properties = n.get_cached_properties()
-        max_key_len = max(len(key) for key in properties.keys())
-        for key, value in sorted(properties.items()):
-            print("  {0} : {1}".format(key.ljust(max_key_len),
-                                     json.dumps(value)))
+        if properties:
+            max_key_len = max(len(key) for key in properties.keys())
+            for key, value in sorted(properties.items()):
+                print("  {0} : {1}".format(key.ljust(max_key_len),
+                                         json.dumps(value)))
         print("Relationships:")
         for r in n.match():
             print("  {0}".format(r))

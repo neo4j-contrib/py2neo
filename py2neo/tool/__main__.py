@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2013-2014, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-"""
-HTTPStream
+""" Generic command line tool for Neo4j.
 """
 
+from __future__ import print_function
 
-__author__ = "Nigel Small"
-__copyright__ = "2013-2014, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__version__ = "1.3.0"
+import sys
+
+from py2neo.tool import Tool
 
 
-from py2neo.packages.httpstream.http import *
+if __name__ == "__main__":
+    try:
+        Tool().do(sys.argv)
+        sys.exit(0)
+    except Exception as err:
+        print(*err.args)
+        sys.exit(1)

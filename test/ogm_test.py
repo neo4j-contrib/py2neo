@@ -14,9 +14,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
 import pytest
 
-from py2neo import neo4j, ogm
+from py2neo import neo4j
+from py2neo.ext import ogm
 
 
 class Person(object):
@@ -36,11 +39,11 @@ class Person(object):
         return "{0} <{1}>".format(self.name, self.email)
 
 
-class ExampleCodeTestCase(object):
+class TestExampleCode(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
 
     def test_can_execute_example_code(self):
 
@@ -54,7 +57,7 @@ class ExampleCodeTestCase(object):
             def __str__(self):
                 return self.name
 
-        graph = neo4j.Graph()
+        graph = neo4j.GraphDatabaseService()
         store = ogm.Store(graph)
 
         alice = Person("alice@example.com", "Alice", 34)
@@ -70,11 +73,11 @@ class ExampleCodeTestCase(object):
         print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 
-class RelateTestCase(object):
+class TestRelate(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_relate_to_other_object(self):
@@ -96,11 +99,11 @@ class RelateTestCase(object):
         assert alice.__rel__["LIKES"] == [({"since": 1999}, bob)]
 
 
-class SeparateTestCase(object):
+class TestSeparate(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_separate_from_other_objects(self):
@@ -137,11 +140,11 @@ class SeparateTestCase(object):
         assert alice.__rel__["LIKES"] == [({}, bob)]
 
 
-class LoadRelatedTestCase(object):
+class TestLoadRelated(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_load_single_related_object(self):
@@ -182,11 +185,11 @@ class LoadRelatedTestCase(object):
         assert friends == []
 
 
-class LoadTestCase(object):
+class TestLoad(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_load(self):
@@ -201,11 +204,11 @@ class LoadTestCase(object):
         assert alice.age == 34
 
 
-class LoadIndexedTestCase(object):
+class TestLoadIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_load(self):
@@ -229,11 +232,11 @@ class LoadIndexedTestCase(object):
             assert smiths[i].age in (34, 66)
 
 
-class LoadUniqueTestCase(object):
+class TestLoadUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_load_simple_object(self):
@@ -286,11 +289,11 @@ class LoadUniqueTestCase(object):
         assert alice is None
 
 
-class ReloadTestCase(object):
+class TestReload(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_reload(self):
@@ -305,11 +308,11 @@ class ReloadTestCase(object):
         assert alice.age == 35
 
 
-class SaveTestCase(object):
+class TestSave(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_save_simple_object(self):
@@ -326,11 +329,11 @@ class SaveTestCase(object):
         assert alice.__node__["age"] == 35
 
 
-class SaveIndexedTestCase(object):
+class TestSaveIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_save(self):
@@ -351,11 +354,11 @@ class SaveIndexedTestCase(object):
         assert carol.__node__ in smiths
 
 
-class SaveUniqueTestCase(object):
+class TestSaveUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_save_simple_object(self):
@@ -387,11 +390,11 @@ class SaveUniqueTestCase(object):
         assert carol_node in (rel.end_node for rel in friend_rels)
 
 
-class DeleteTestCase(object):
+class TestDelete(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setup(self, legacy_graph):
+        self.graph = legacy_graph
         self.store = ogm.Store(self.graph)
 
     def test_can_delete_object(self):

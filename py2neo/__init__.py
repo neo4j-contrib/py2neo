@@ -24,5 +24,8 @@ __package__ = "py2neo"
 __version__ = "1.7.0"
 
 
-from .neo4j import _node as node, _rel as rel
+# TODO
+from py2neo.neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship, NodePointer, UnjoinableError
 
+node = Node.cast
+rel = Relationship.cast

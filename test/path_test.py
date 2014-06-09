@@ -19,34 +19,44 @@ import sys
 
 import pytest
 
-from py2neo import neo4j
+from py2neo import neo4j, Node, Path
 
 PY3K = sys.version_info[0] >= 3
 
 
-class PathTestCase(object):
+class TestPathConstruction(object):
+
+    def test_can_construct_simple_path(self):
+        alice = Node(name="Alice")
+        bob = Node(name="Bob")
+        path = Path(alice, "KNOWS", bob)
+        assert path.order == 2
+        assert path.size == 1
+
+
+class TestPath(object):
 
     def test_can_create_path(self):
-        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert len(path) == 1
         assert path.nodes[0]["name"] == "Alice"
-        assert path._relationships[0]._type == "KNOWS"
+        assert path.rels[0].type == "KNOWS"
         assert path.nodes[-1]["name"] == "Bob"
-        path = neo4j.Path.join(path, "KNOWS", {"name": "Carol"})
+        path = Path(path, "KNOWS", {"name": "Carol"})
         assert len(path) == 2
         assert path.nodes[0]["name"] == "Alice"
-        assert path._relationships[0]._type == "KNOWS"
+        assert path.relationships[0].type == "KNOWS"
         assert path.nodes[1]["name"] == "Bob"
-        path = neo4j.Path.join({"name": "Zach"}, "KNOWS", path)
+        path = Path({"name": "Zach"}, "KNOWS", path)
         assert len(path) == 3
         assert path.nodes[0]["name"] == "Zach"
-        assert path._relationships[0]._type == "KNOWS"
+        assert path.relationships[0].type == "KNOWS"
         assert path.nodes[1]["name"] == "Alice"
-        assert path._relationships[1]._type == "KNOWS"
+        assert path.relationships[1].type == "KNOWS"
         assert path.nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
-        path = neo4j.Path({"name": "Alice"},
+        path = Path({"name": "Alice"},
             "KNOWS", {"name": "Bob"},
             "KNOWS", {"name": "Carol"},
             "KNOWS", {"name": "Dave"},
@@ -54,16 +64,16 @@ class PathTestCase(object):
             "KNOWS", {"name": "Frank"},
         )
         assert len(path) == 5
-        assert path[0] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        assert path[1] == neo4j.Path({"name": "Bob"}, "KNOWS", {"name": "Carol"})
-        assert path[2] == neo4j.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
-        assert path[-1] == neo4j.Path({"name": "Eve"}, "KNOWS", {"name": "Frank"})
-        assert path[0:2] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
-        assert path[3:5] == neo4j.Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
-        assert path[:] == neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[0] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        assert path[1] == Path({"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[2] == Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        assert path[-1] == Path({"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[0:2] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
+        assert path[3:5] == Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[:] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
 
     def test_can_iterate_path(self):
-        path = neo4j.Path({"name": "Alice"},
+        path = Path({"name": "Alice"},
             "KNOWS", {"name": "Bob"},
             "KNOWS", {"name": "Carol"},
             "KNOWS", {"name": "Dave"},
@@ -71,78 +81,78 @@ class PathTestCase(object):
             "KNOWS", {"name": "Frank"},
         )
         assert list(iter(path)) == [
-            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
-            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
-            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
-            ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
-            ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
+            Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+            Path({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
+            Path({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
         ]
         assert list(enumerate(path)) == [
-            (0, ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})),
-            (1, ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'})),
-            (2, ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'})),
-            (3, ({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'})),
-            (4, ({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}))
+            (0, Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})),
+            (1, Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'})),
+            (2, Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'})),
+            (3, Path({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'})),
+            (4, Path({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}))
         ]
 
     def test_can_join_paths(self):
-        path1 = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        path2 = neo4j.Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
-        path = neo4j.Path.join(path1, "KNOWS", path2)
+        path1 = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        path2 = Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        path = Path(path1, "KNOWS", path2)
         assert list(iter(path)) == [
-            ({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
-            ({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
-            ({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+            Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
+            Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
+            Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
         ]
 
-    def test_path_representation(self):
-        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        #print(str(path))
-        assert str(path) == '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})'
-        #print(repr(path))
-        assert repr(path) == (
-            "Path(node({'name': 'Alice'}), "
-            "('KNOWS', {}), "
-            "node({'name': 'Bob'}))"
-        )
+    #def test_path_representation(self):
+    #    path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+    #    #print(str(path))
+    #    assert str(path) == '({"name":"Alice"})-[:"KNOWS"]->({"name":"Bob"})'
+    #    #print(repr(path))
+    #    assert repr(path) == (
+    #        "Path(node({'name': 'Alice'}), "
+    #        "('KNOWS', {}), "
+    #        "node({'name': 'Bob'}))"
+    #    )
 
 
-class CreatePathTestCase(object):
+class TestCreatePath(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
 
     def test_can_create_path(self, graph):
-        path = neo4j.Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
-        assert path._relationships[0]._type == "KNOWS"
+        assert path.rels[0].type == "KNOWS"
         assert path.nodes[1] == {"name": "Bob"}
         path = path.create(graph)
-        assert isinstance(path.nodes[0], neo4j.Node)
+        assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
-        assert path._relationships[0]._type == "KNOWS"
-        assert isinstance(path.nodes[1], neo4j.Node)
+        assert path.relationships[0].type == "KNOWS"
+        assert isinstance(path.nodes[1], Node)
         assert path.nodes[1]["name"] == "Bob"
 
     def test_can_create_path_with_rel_properties(self):
-        path = neo4j.Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
+        path = Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
-        assert path._relationships[0]._type == "KNOWS"
-        assert path._relationships[0]._properties == {"since": 1999}
+        assert path.rels[0].type == "KNOWS"
+        assert path.rels[0].properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
         path = path.create(self.graph)
-        assert isinstance(path.nodes[0], neo4j.Node)
+        assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
-        assert path._relationships[0]._type == "KNOWS"
-        assert path._relationships[0]._properties == {"since": 1999}
-        assert isinstance(path.nodes[1], neo4j.Node)
+        assert path.relationships[0].type == "KNOWS"
+        assert path.relationships[0].properties == {"since": 1999}
+        assert isinstance(path.nodes[1], Node)
         assert path.nodes[1]["name"] == "Bob"
 
 
-class GetOrCreatePathTestCase(object):
+class TestGetOrCreatePath(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -156,9 +166,9 @@ class GetOrCreatePathTestCase(object):
             "DAY",   {"number": 25},
         )
         #print(p1)
-        self.assertTrue(isinstance(p1, neo4j.Path))
-        self.assertEqual(3, len(p1))
-        self.assertEqual(start_node, p1.nodes[0])
+        assert isinstance(p1, Path)
+        assert len(p1) == 3
+        assert p1.nodes[0] == start_node
 
     def test_can_create_overlapping_paths(self):
         start_node, = self.graph.create({})
@@ -167,39 +177,39 @@ class GetOrCreatePathTestCase(object):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
         )
-        self.assertTrue(isinstance(p1, neo4j.Path))
-        self.assertEqual(3, len(p1))
-        self.assertEqual(start_node, p1.nodes[0])
+        assert isinstance(p1, Path)
+        assert len(p1) == 3
+        assert p1.nodes[0] == start_node
         #print(p1)
         p2 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
         )
-        self.assertTrue(isinstance(p2, neo4j.Path))
-        self.assertEqual(3, len(p2))
-        self.assertEqual(p1.nodes[0], p2.nodes[0])
-        self.assertEqual(p1.nodes[1], p2.nodes[1])
-        self.assertEqual(p1.nodes[2], p2.nodes[2])
-        self.assertNotEqual(p1.nodes[3], p2.nodes[3])
-        self.assertEqual(p1.relationships[0], p2.relationships[0])
-        self.assertEqual(p1.relationships[1], p2.relationships[1])
-        self.assertNotEqual(p1.relationships[2], p2.relationships[2])
+        assert isinstance(p2, Path)
+        assert len(p2) == 3
+        assert p1.nodes[0] == p2.nodes[0]
+        assert p1.nodes[1] == p2.nodes[1]
+        assert p1.nodes[2] == p2.nodes[2]
+        assert p1.nodes[3] != p2.nodes[3]
+        assert p1.relationships[0] == p2.relationships[0]
+        assert p1.relationships[1] == p2.relationships[1]
+        assert p1.relationships[2] != p2.relationships[2]
         #print(p2)
         p3 = start_node.get_or_create_path(
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
         )
-        self.assertTrue(isinstance(p3, neo4j.Path))
-        self.assertEqual(3, len(p3))
-        self.assertEqual(p2.nodes[0], p3.nodes[0])
-        self.assertEqual(p2.nodes[1], p3.nodes[1])
-        self.assertNotEqual(p2.nodes[2], p3.nodes[2])
-        self.assertNotEqual(p2.nodes[3], p3.nodes[3])
-        self.assertEqual(p2.relationships[0], p3.relationships[0])
-        self.assertNotEqual(p2.relationships[1], p3.relationships[1])
-        self.assertNotEqual(p2.relationships[2], p3.relationships[2])
+        assert isinstance(p3, Path)
+        assert len(p3) == 3
+        assert p2.nodes[0] == p3.nodes[0]
+        assert p2.nodes[1] == p3.nodes[1]
+        assert p2.nodes[2] != p3.nodes[2]
+        assert p2.nodes[3] != p3.nodes[3]
+        assert p2.relationships[0] == p3.relationships[0]
+        assert p2.relationships[1] != p3.relationships[1]
+        assert p2.relationships[2] != p3.relationships[2]
         #print(p3)
 
     def test_can_use_none_for_nodes(self):
@@ -214,15 +224,15 @@ class GetOrCreatePathTestCase(object):
             "MONTH", None,
             "DAY",   {"number": 25},
         )
-        self.assertTrue(isinstance(p2, neo4j.Path))
-        self.assertEqual(3, len(p2))
-        self.assertEqual(p1.nodes[0], p2.nodes[0])
-        self.assertEqual(p1.nodes[1], p2.nodes[1])
-        self.assertEqual(p1.nodes[2], p2.nodes[2])
-        self.assertEqual(p1.nodes[3], p2.nodes[3])
-        self.assertEqual(p1.relationships[0], p2.relationships[0])
-        self.assertEqual(p1.relationships[1], p2.relationships[1])
-        self.assertEqual(p1.relationships[2], p2.relationships[2])
+        assert isinstance(p2, Path)
+        assert len(p2) == 3
+        assert p1.nodes[0] == p2.nodes[0]
+        assert p1.nodes[1] == p2.nodes[1]
+        assert p1.nodes[2] == p2.nodes[2]
+        assert p1.nodes[3] == p2.nodes[3]
+        assert p1.relationships[0] == p2.relationships[0]
+        assert p1.relationships[1] == p2.relationships[1]
+        assert p1.relationships[2] == p2.relationships[2]
 
     def test_can_use_node_for_nodes(self):
         start_node, = self.graph.create({})
@@ -236,12 +246,12 @@ class GetOrCreatePathTestCase(object):
             "MONTH", p1.nodes[2],
             "DAY",   {"number": 25},
         )
-        self.assertTrue(isinstance(p2, neo4j.Path))
-        self.assertEqual(3, len(p2))
-        self.assertEqual(p1.nodes[0], p2.nodes[0])
-        self.assertEqual(p1.nodes[1], p2.nodes[1])
-        self.assertEqual(p1.nodes[2], p2.nodes[2])
-        self.assertEqual(p1.nodes[3], p2.nodes[3])
-        self.assertEqual(p1.relationships[0], p2.relationships[0])
-        self.assertEqual(p1.relationships[1], p2.relationships[1])
-        self.assertEqual(p1.relationships[2], p2.relationships[2])
+        assert isinstance(p2, Path)
+        assert len(p2) == 3
+        assert p1.nodes[0] == p2.nodes[0]
+        assert p1.nodes[1] == p2.nodes[1]
+        assert p1.nodes[2] == p2.nodes[2]
+        assert p1.nodes[3] == p2.nodes[3]
+        assert p1.relationships[0] == p2.relationships[0]
+        assert p1.relationships[1] == p2.relationships[1]
+        assert p1.relationships[2] == p2.relationships[2]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright 2013-2014, Nigel Small
+# Copyright 2011-2014, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,7 @@
 # limitations under the License.
 
 
-"""
-HTTPStream
-"""
+from __future__ import unicode_literals
 
-
-__author__ = "Nigel Small"
-__copyright__ = "2013-2014, Nigel Small"
-__email__ = "nigel@nigelsmall.com"
-__license__ = "Apache License, Version 2.0"
-__version__ = "1.3.0"
-
-
-from py2neo.packages.httpstream.http import *
+from py2neo.ext.geoff.loader import Loader
+from py2neo.ext.geoff.legacy import *

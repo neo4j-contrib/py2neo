@@ -15,11 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import pytest
+
 from py2neo import neo4j
 
 
-class MatchTestCase(object):
+class TestMatch(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -38,22 +40,22 @@ class MatchTestCase(object):
         self.alice, self.bob, self.carol = stuff[0:3]
 
     def test_can_match_all(self):
-        rels = self.graph.match()
+        rels = list(self.graph.match())
         assert len(rels) == 6
 
     def test_will_return_empty_list_on_no_match(self):
-        rels = self.graph.match(rel_type="HATES")
+        rels = list(self.graph.match(rel_type="HATES"))
         assert len(rels) == 0
 
     def test_can_match_start_node(self):
-        rels = self.graph.match(start_node=self.alice)
+        rels = list(self.graph.match(start_node=self.alice))
         assert len(rels) == 2
         assert "KNOWS" in [rel.type for rel in rels]
         assert "LOVES" in [rel.type for rel in rels]
         assert self.bob in [rel.end_node for rel in rels]
 
     def test_can_match_type_only(self):
-        rels = self.graph.match(rel_type="LOVES")
+        rels = list(self.graph.match(rel_type="LOVES"))
         assert len(rels) == 2
         assert self.alice in [rel.start_node for rel in rels]
         assert self.bob in [rel.start_node for rel in rels]
@@ -61,24 +63,24 @@ class MatchTestCase(object):
         assert self.bob in [rel.end_node for rel in rels]
 
     def test_can_match_start_node_and_type(self):
-        rels = self.graph.match(start_node=self.alice, rel_type="KNOWS")
+        rels = list(self.graph.match(start_node=self.alice, rel_type="KNOWS"))
         assert len(rels) == 1
         assert self.bob in [rel.end_node for rel in rels]
 
     def test_can_match_start_node_and_end_node(self):
-        rels = self.graph.match(start_node=self.alice, end_node=self.bob)
+        rels = list(self.graph.match(start_node=self.alice, end_node=self.bob))
         assert len(rels) == 2
         assert "KNOWS" in [rel.type for rel in rels]
         assert "LOVES" in [rel.type for rel in rels]
 
     def test_can_match_type_and_end_node(self):
-        rels = self.graph.match(rel_type="KNOWS", end_node=self.bob)
+        rels = list(self.graph.match(rel_type="KNOWS", end_node=self.bob))
         assert len(rels) == 2
         assert self.alice in [rel.start_node for rel in rels]
         assert self.carol in [rel.start_node for rel in rels]
 
     def test_can_bidi_match_start_node(self):
-        rels = self.graph.match(start_node=self.bob, bidirectional=True)
+        rels = list(self.graph.match(start_node=self.bob, bidirectional=True))
         assert len(rels) == 6
         assert "KNOWS" in [rel.type for rel in rels]
         assert "LOVES" in [rel.type for rel in rels]
@@ -90,7 +92,7 @@ class MatchTestCase(object):
         assert self.carol in [rel.end_node for rel in rels]
 
     def test_can_bidi_match_start_node_and_type(self):
-        rels = self.graph.match(start_node=self.bob, rel_type="KNOWS", bidirectional=True)
+        rels = list(self.graph.match(start_node=self.bob, rel_type="KNOWS", bidirectional=True))
         assert len(rels) == 4
         assert self.alice in [rel.start_node for rel in rels]
         assert self.bob in [rel.start_node for rel in rels]
@@ -100,7 +102,7 @@ class MatchTestCase(object):
         assert self.carol in [rel.end_node for rel in rels]
 
     def test_can_bidi_match_start_node_and_end_node(self):
-        rels = self.graph.match(start_node=self.alice, end_node=self.bob, bidirectional=True)
+        rels = list(self.graph.match(start_node=self.alice, end_node=self.bob, bidirectional=True))
         assert len(rels) == 4
         assert "KNOWS" in [rel.type for rel in rels]
         assert "LOVES" in [rel.type for rel in rels]
@@ -110,7 +112,7 @@ class MatchTestCase(object):
         assert self.bob in [rel.end_node for rel in rels]
 
     def test_can_bidi_match_type_and_end_node(self):
-        rels = self.graph.match(rel_type="KNOWS", end_node=self.bob, bidirectional=True)
+        rels = list(self.graph.match(rel_type="KNOWS", end_node=self.bob, bidirectional=True))
         assert len(rels) == 4
         assert self.alice in [rel.start_node for rel in rels]
         assert self.carol in [rel.start_node for rel in rels]
@@ -122,7 +124,7 @@ class MatchTestCase(object):
         assert self.carol in [rel.end_node for rel in rels]
 
     def test_can_match_with_limit(self):
-        rels = self.graph.match(limit=3)
+        rels = list(self.graph.match(limit=3))
         assert len(rels) == 3
 
     def test_can_match_one(self):
@@ -130,14 +132,13 @@ class MatchTestCase(object):
         assert isinstance(rel, neo4j.Relationship)
 
     def test_can_match_none(self):
-        rels = self.graph.match(rel_type="HATES", limit=1)
+        rels = list(self.graph.match(rel_type="HATES", limit=1))
         assert len(rels) == 0
 
     def test_can_match_multiple_types(self):
-        rels = self.graph.match(rel_type=("LOVES", "KNOWS"))
+        rels = list(self.graph.match(rel_type=("LOVES", "KNOWS")))
         assert len(rels) == 6
 
     def test_can_match_start_node_and_multiple_types(self):
-        rels = self.graph.match(start_node=self.alice, rel_type=("LOVES",
-                                                                    "KNOWS"))
+        rels = list(self.graph.match(start_node=self.alice, rel_type=("LOVES", "KNOWS")))
         assert len(rels) == 2

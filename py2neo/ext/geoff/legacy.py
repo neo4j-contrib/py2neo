@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,15 +23,19 @@ import logging
 import re
 from uuid import uuid4
 
-from . import neo4j
-from .util import deprecated
-from .xmlutil import xml_to_geoff
+from py2neo import neo4j
+from py2neo.batch import BatchError
+from py2neo.util import deprecated
+from py2neo.xmlutil import xml_to_geoff
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 
+
+__all__ = ["ConstraintViolation", "Subgraph", "AbstractNode", "AbstractRelationship",
+           "AbstractIndexEntry", "insert", "merge", "insert_xml", "merge_xml"]
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +203,7 @@ class Subgraph(object):
 
     def _execute_load_batch(self, graph, unique):
         # build batch request
-        batch = neo4j.WriteBatch(graph)
+        batch = neo4j.LegacyWriteBatch(graph)
         # 1. indexed nodes
         index_entries = list(self.index_entries.values())
         for entry in index_entries:
@@ -249,7 +253,7 @@ class Subgraph(object):
         """
         try:
             return self._execute_load_batch(graph, True)
-        except neo4j.BatchError as err:
+        except BatchError as err:
             if err.__class__.__name__ == "UniquePathNotUniqueException":
                 err = ConstraintViolation(
                     "Unable to merge relationship onto multiple "

@@ -48,16 +48,16 @@ def test_can_cast_3_tuple():
     casted = neo4j._cast(("Alice", "KNOWS", "Bob"))
     assert isinstance(casted, neo4j.Relationship)
     assert casted.is_abstract
-    assert casted.start_node == "Alice"
+    assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
-    assert casted.end_node == "Bob"
+    assert casted.end_node == neo4j.Node("Bob")
 
 
 def test_can_cast_4_tuple():
     casted = neo4j._cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
     assert isinstance(casted, neo4j.Relationship)
     assert casted.is_abstract
-    assert casted.start_node == "Alice"
+    assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
-    assert casted.end_node == "Bob"
+    assert casted.end_node == neo4j.Node("Bob")
     assert casted["since"] == 1999

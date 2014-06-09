@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,9 +24,44 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import json
 
-from .neo4j import DEFAULT_URI, CypherQuery, CypherError, ServiceRoot, Resource, _hydrated
-from .util import deprecated, Record, RecordProducer
-from .packages.urimagic import URI
+from py2neo.neo4j import DEFAULT_URI, CypherQuery, ServiceRoot, Resource, Node, Rel, Rev, Relationship, Path
+from py2neo.util import deprecated, is_collection
+from py2neo.packages.urimagic import URI
+
+
+class CypherError(Exception):
+
+    def __init__(self, response):
+        self._response = response
+        Exception.__init__(self, self.message)
+
+    @property
+    def message(self):
+        return self._response.message
+
+    @property
+    def exception(self):
+        return self._response.exception
+
+    @property
+    def full_name(self):
+        return self._response.full_name
+
+    @property
+    def stack_trace(self):
+        return self._response.stack_trace
+
+    @property
+    def cause(self):
+        return self._response.cause
+
+    @property
+    def request(self):
+        return self._response.request
+
+    @property
+    def response(self):
+        return self._response
 
 
 @deprecated("The cypher module is deprecated, use "
@@ -67,6 +102,110 @@ def execute(graph, query, params=None, row_handler=None,
             return [list(record) for record in results], metadata
 
 
+class Representation(object):
+
+    safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+
+    def __init__(self):
+        self.__buffer = []
+
+    def __repr__(self):
+        return "".join(self.__buffer)
+
+    def write_value(self, value):
+        self.__buffer.append(json.dumps(value))
+
+    def write_identifier(self, identifier):
+        safe = all(ch in self.safe_chars for ch in identifier)
+        if not safe:
+            self.__buffer.append("`")
+            self.__buffer.append(identifier.replace("`", "``"))
+            self.__buffer.append("`")
+        else:
+            self.__buffer.append(identifier)
+
+    def write_collection(self, collection):
+        self.__buffer.append("[")
+        link = ""
+        for value in collection:
+            self.__buffer.append(link)
+            self.write(value)
+            link = ","
+        self.__buffer.append("]")
+
+    def write_mapping(self, mapping):
+        self.__buffer.append("{")
+        link = ""
+        for key, value in mapping.items():
+            self.__buffer.append(link)
+            self.write_identifier(key)
+            self.__buffer.append(":")
+            self.write(value)
+            link = ","
+        self.__buffer.append("}")
+
+    def write_node(self, node, name=None):
+        self.__buffer.append("(")
+        if name:
+            self.write_identifier(name)
+        for label in sorted(node.labels):
+            self.__buffer.append(":")
+            self.write_identifier(label)
+        if node.properties:
+            if name or node.labels:
+                self.__buffer.append(" ")
+            self.write_mapping(node.properties)
+        self.__buffer.append(")")
+
+    def write_rel(self, rel, name=None):
+        if isinstance(rel, Rev):
+            self.__buffer.append("<-[")
+        else:
+            self.__buffer.append("-[")
+        if name:
+            self.write_identifier(name)
+        self.__buffer.append(":")
+        self.write_identifier(rel.type)
+        if rel.properties:
+            self.__buffer.append(" ")
+            self.write_mapping(rel.properties)
+        if isinstance(rel, Rev):
+            self.__buffer.append("]-")
+        else:
+            self.__buffer.append("]->")
+
+    def write_path(self, path):
+        nodes = path.nodes
+        self.write_node(nodes[0])
+        for i, rel in enumerate(path.rels):
+            self.write_rel(rel)
+            self.write_node(nodes[i + 1])
+
+    def write_relationship(self, relationship, name=None):
+        self.write_node(relationship.start_node)
+        self.write_rel(relationship.rel, name)
+        self.write_node(relationship.end_node)
+
+    def write(self, obj):
+        if obj is None:
+            pass
+        elif isinstance(obj, Node):
+            self.write_node(obj)
+        elif isinstance(obj, Rel):
+            self.write_rel(obj)
+        elif isinstance(obj, Path):
+            self.write_path(obj)
+        elif isinstance(obj, Relationship):
+            self.write_relationship(obj)
+        elif isinstance(obj, dict):
+            self.write_mapping(obj)
+        elif is_collection(obj):
+            self.write_collection(obj)
+        else:
+            self.write_value(obj)
+
+
+# TODO: add support for Node, NodePointer, Path, Rel, Relationship and Rev
 def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
     """ Dumps an object as a Cypher expression string.
 
@@ -74,7 +213,8 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
     :param separators:
     :return:
     """
-    if isinstance(obj, dict):
+
+    def dump_mapping(obj):
         buffer = ["{"]
         link = ""
         for key, value in obj.items():
@@ -91,7 +231,8 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
             link = separators[0]
         buffer.append("}")
         return "".join(buffer)
-    elif isinstance(obj, (tuple, set, list)):
+
+    def dump_collection(obj):
         buffer = ["["]
         link = ""
         for value in obj:
@@ -101,10 +242,15 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
             link = separators[0]
         buffer.append("]")
         return "".join(buffer)
+
+    if isinstance(obj, dict):
+        return dump_mapping(obj)
+    elif is_collection(obj):
+        return dump_collection(obj)
     else:
         return json.dumps(obj, ensure_ascii=ensure_ascii)
-        
-        
+
+
 class Session(object):
     """ A Session is the base object from which Cypher transactions are
     created and is instantiated using a root service URI. If unspecified, this
@@ -123,14 +269,14 @@ class Session(object):
             service_root_uri = "{0}://{1}@{2}:{3}/".format(self._uri.scheme, self._uri.user_info, self._uri.host, self._uri.port)
         else:
             service_root_uri = "{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port)
-        self._service_root = ServiceRoot.get_instance(service_root_uri)
+        self._service_root = ServiceRoot(service_root_uri)
         self._graph = self._service_root.graph
         try:
-            self._transaction_uri = self._graph.__metadata__["transaction"]
+            self._transaction_uri = self._graph.resource.metadata["transaction"]
         except KeyError:
             raise NotImplementedError("Cypher transactions are not supported "
                                       "by this server version")
-        
+
     def create_transaction(self):
         """ Create a new transaction object.
 
@@ -153,7 +299,7 @@ class Session(object):
         results = tx.execute()
         return results[0]
 
-        
+
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
@@ -164,7 +310,7 @@ class Transaction(object):
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
         self._commit = None
-        self._clear()
+        self._statements = []
         self._finished = False
 
     def _clear(self):
@@ -201,11 +347,11 @@ class Transaction(object):
 
     def _post(self, resource):
         self._assert_unfinished()
-        rs = resource._post({"statements": self._statements})
+        rs = resource.post({"statements": self._statements})
         location = dict(rs.headers).get("location")
         if location:
             self._execute = Resource(location)
-        j = rs.json
+        j = rs.content
         rs.close()
         self._clear()
         if "commit" in j:
@@ -219,11 +365,11 @@ class Transaction(object):
         for result in j["results"]:
             producer = RecordProducer(result["columns"])
             out.append([
-                producer.produce(_hydrated(r["rest"]))
+                producer.produce(self._begin.service_root.graph.hydrate(r["rest"]))
                 for r in result["data"]
             ])
         return out
-        
+
     def execute(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
@@ -249,7 +395,7 @@ class Transaction(object):
         self._assert_unfinished()
         try:
             if self._execute:
-                self._execute._delete()
+                self._execute.delete()
         finally:
             self._finished = True
 
@@ -276,3 +422,67 @@ class TransactionFinished(Exception):
 
     def __repr__(self):
         return "Transaction finished"
+
+
+class Record(object):
+    """ A single row of a Cypher execution result, holding a sequence of named
+    values.
+    """
+
+    def __init__(self, producer, values):
+        self._producer = producer
+        self._values = tuple(values)
+
+    def __repr__(self):
+        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
+
+    def __getattr__(self, attr):
+        return self._values[self._producer.column_indexes[attr]]
+
+    def __getitem__(self, item):
+        if isinstance(item, (int, slice)):
+            return self._values[item]
+        else:
+            return self._values[self._producer.column_indexes[item]]
+
+    def __len__(self):
+        return len(self._producer.columns)
+
+    @property
+    def columns(self):
+        """ The column names defined for this record.
+
+        :return: tuple of column names
+        """
+        return self._producer.columns
+
+    @property
+    def values(self):
+        """ The values stored in this record.
+
+        :return: tuple of values
+        """
+        return self._values
+
+
+class RecordProducer(object):
+
+    def __init__(self, columns):
+        self._columns = tuple(columns)
+        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+
+    def __repr__(self):
+        return "RecordProducer(columns={0})".format(self._columns)
+
+    @property
+    def columns(self):
+        return self._columns
+
+    @property
+    def column_indexes(self):
+        return self._column_indexes
+
+    def produce(self, values):
+        """ Produce a record from a set of values.
+        """
+        return Record(self, values)

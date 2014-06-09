@@ -29,7 +29,7 @@ import warnings
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "Record", "RecordProducer"]
+           "is_integer"]
 
 
 def numberise(n):
@@ -143,6 +143,16 @@ def is_collection(obj):
     return False
 
 
+try:
+    long
+except NameError:
+    # Python 3
+    is_integer = lambda x: isinstance(x, int)
+else:
+    # Python 2
+    is_integer = lambda x: isinstance(x, (int, long))
+
+
 has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
@@ -174,67 +184,3 @@ def pendulate(collection):
         else:
             index = count - ((i + 1) // 2)
         yield index, collection[index]
-
-
-class Record(object):
-    """ A single row of a Cypher execution result, holding a sequence of named
-    values.
-    """
-
-    def __init__(self, producer, values):
-        self._producer = producer
-        self._values = tuple(values)
-    
-    def __repr__(self):
-        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
-        
-    def __getattr__(self, attr):
-        return self._values[self._producer.column_indexes[attr]]
-        
-    def __getitem__(self, item):
-        if isinstance(item, (int, slice)):
-            return self._values[item]
-        else:
-            return self._values[self._producer.column_indexes[item]]
-
-    def __len__(self):
-        return len(self._producer.columns)
-
-    @property
-    def columns(self):
-        """ The column names defined for this record.
-
-        :return: tuple of column names
-        """
-        return self._producer.columns
-
-    @property
-    def values(self):
-        """ The values stored in this record.
-
-        :return: tuple of values
-        """
-        return self._values
-
-
-class RecordProducer(object):
-
-    def __init__(self, columns):
-        self._columns = tuple(columns)
-        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
-
-    def __repr__(self):
-        return "RecordProducer(columns={0})".format(self._columns)
-
-    @property
-    def columns(self):
-        return self._columns
-
-    @property
-    def column_indexes(self):
-        return self._column_indexes
-
-    def produce(self, values):
-        """ Produce a record from a set of values.
-        """
-        return Record(self, values)

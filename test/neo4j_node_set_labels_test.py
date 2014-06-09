@@ -27,11 +27,11 @@ def test_can_set_labels_on_node(graph):
     alice.add_labels("human", "female")
     labels = alice.get_labels()
     assert len(labels) == 2
-    assert labels == set(["human", "female"])
+    assert labels == {"human", "female"}
     alice.set_labels("mystery", "badger")
     labels = alice.get_labels()
-    assert labels == set(["mystery", "badger"])
-    assert labels != set(["human", "female"])
+    assert labels == {"mystery", "badger"}
+    assert labels != {"human", "female"}
     found = graph.find("badger")
     assert list(found) == [alice]
     found = graph.find("badger", "name", "Alice")
