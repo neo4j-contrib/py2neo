@@ -507,7 +507,8 @@ class Graph(Bindable):
                     params[name] = node.properties
                 else:
                     CREATE.append("({0}{1})".format(name, labels))
-            RETURN.append("labels({})".format(name))
+            if self.supports_node_labels:
+                RETURN.append("labels({})".format(name))
             RETURN.append(name)
             return [name], []
 
@@ -1399,11 +1400,7 @@ class PropertyContainer(Bindable):
 
     def bind(self, uri, metadata=None):
         Bindable.bind(self, uri, metadata)
-        try:
-            properties_uri = self.resource.metadata["properties"]
-        except KeyError:
-            properties_uri = self.resource.metadata["self"] + "/properties"
-        self.__properties.bind(properties_uri)
+        self.__properties.bind(uri + "/properties")
 
     def unbind(self):
         Bindable.unbind(self)
@@ -1687,12 +1684,10 @@ class Node(PropertyContainer):
 
     def bind(self, uri, metadata=None):
         PropertyContainer.bind(self, uri, metadata)
-        try:
-            labels_uri = self.resource.metadata["labels"]
-        except KeyError:
-            self.__class__ = LegacyNode
+        if self.graph.supports_node_labels:
+            self.__labels.bind(uri + "/labels")
         else:
-            self.__labels.bind(labels_uri)
+            self.__class__ = LegacyNode
         self.cache[uri] = self  # TODO same in rel
 
     def unbind(self):
