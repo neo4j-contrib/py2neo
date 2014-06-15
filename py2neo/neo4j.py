@@ -501,7 +501,10 @@ class Graph(Bindable):
                 params[name] = node._id
             else:
                 # TODO: use cypher.Representation?
-                labels = "".join(":`" + label.replace("`", "``") + "`" for label in node.labels)
+                if self.supports_node_labels:
+                    labels = "".join(":`" + label.replace("`", "``") + "`" for label in node.labels)
+                else:
+                    labels = ""
                 if node.properties:
                     CREATE.append("({0}{1} {{{0}}})".format(name, labels))
                     params[name] = node.properties
