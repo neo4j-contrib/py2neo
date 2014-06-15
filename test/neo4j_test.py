@@ -185,7 +185,6 @@ class TestNewCreate(object):
             {"name": "Alice"}
         )
         assert results is not None
-        assert isinstance(results, list)
         assert len(results) == 1
         assert isinstance(results[0], neo4j.Node)
         assert "name" in results[0]
@@ -198,7 +197,6 @@ class TestNewCreate(object):
             (0, "KNOWS", 1)
         )
         assert results is not None
-        assert isinstance(results, list)
         assert len(results) == 3
         assert isinstance(results[0], neo4j.Node)
         assert "name" in results[0]
@@ -218,7 +216,6 @@ class TestNewCreate(object):
             (0, "KNOWS", 1, {"since": 1996})
         )
         assert results is not None
-        assert isinstance(results, list)
         assert len(results) == 3
         assert isinstance(results[0], neo4j.Node)
         assert "name" in results[0]
@@ -240,7 +237,6 @@ class TestNewCreate(object):
             (ref_node, "PERSON", 0)
         )
         assert results is not None
-        assert isinstance(results, list)
         assert len(results) == 2
         assert isinstance(results[0], neo4j.Node)
         assert "name" in results[0]
@@ -264,7 +260,6 @@ class TestNewCreate(object):
         ]
         results = self.graph.create(*nodes)
         assert results is not None
-        assert isinstance(results, list)
         assert len(results) == size
         for i in range(size):
             assert isinstance(results[i], neo4j.Node)

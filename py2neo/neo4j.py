@@ -222,13 +222,14 @@ class Resource(_Resource):
         kwargs.update(product=PRODUCT, cache=True)
         # TODO: clean up exception handling - decorator? do we need both client/server types at this level?
         try:
-            self.__last_get_response = self.__base.get(headers, redirect_limit, **kwargs)
+            response = self.__base.get(headers, redirect_limit, **kwargs)
         except _ClientError as err:
             raise ClientError(err)
         except _ServerError as err:
             raise ServerError(err)
         else:
-            return self.__last_get_response
+            self.__last_get_response = response
+            return response
 
     def put(self, body=None, headers=None, **kwargs):
         headers = dict(headers or {})
@@ -280,8 +281,9 @@ class Bindable(object):
     """ Base class for objects that can be bound to a remote resource.
     """
 
+    __resource = None
+
     def __init__(self, uri=None):
-        self.__resource = None
         if uri:
             self.bind(uri)
 
@@ -337,30 +339,33 @@ class ServiceRoot(object):
     """ Neo4j REST API service root resource.
     """
 
-    DEFAULT_URI = "{0}://{1}".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
+    DEFAULT_URI = "{0}://{1}/".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
 
     __instances = {}
 
     def __new__(cls, uri=None):
-        """ Fetch a cached instance if one is available, otherwise create,
-        cache and return a new instance.
+        if uri is None:
+            uri = cls.DEFAULT_URI
+        if not uri.endswith("/"):
+            uri += "/"
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(ServiceRoot, cls).__new__(cls)
+            inst.__resource = Resource(uri)
+            inst.__graph = None
+            cls.__instances[uri] = inst
+        return inst
 
-        :param uri: URI of the cached resource
-        :return: a resource instance
-        """
-        inst = super(ServiceRoot, cls).__new__(cls)
-        return cls.__instances.setdefault(uri, inst)
-
-    def __init__(self, uri=None):
-        self.__resource = Resource(uri or self.DEFAULT_URI)
+    @property
+    def graph(self):
+        if self.__graph is None:
+            self.__graph = Graph(self.resource.metadata["data"])
+        return self.__graph
 
     @property
     def resource(self):
         return self.__resource
-
-    @property
-    def graph(self):
-        return Graph(self.resource.metadata["data"])
 
     @property
     def uri(self):
@@ -402,21 +407,18 @@ class Graph(Bindable):
             raise TypeError(obj)
 
     def __new__(cls, uri=None):
-        """ Fetch a cached instance if one is available, otherwise create,
-        cache and return a new instance.
-
-        :param uri: URI of the cached resource
-        :return: a resource instance
-        """
-        inst = super(Graph, cls).__new__(cls)
-        return cls.__instances.setdefault((cls, uri), inst)
-
-    def __init__(self, uri=None):
         if uri is None:
-            uri = ServiceRoot().graph.resource.uri
-        Bindable.__init__(self, uri)
-        self.__node_cache = WeakValueDictionary()
-        self.__rel_cache = WeakValueDictionary()
+            uri = ServiceRoot().graph.uri.string
+        if not uri.endswith("/"):
+            uri += "/"
+        key = (cls, uri)
+        try:
+            inst = cls.__instances[key]
+        except KeyError:
+            inst = super(Graph, cls).__new__(cls)
+            inst.bind(uri)
+            cls.__instances[key] = inst
+        return inst
 
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
@@ -429,6 +431,7 @@ class Graph(Bindable):
     def __nonzero__(self):
         return True
 
+    # TODO: rename to delete_all
     def clear(self):
         """ Clear all nodes and relationships from the graph.
 
@@ -442,7 +445,7 @@ class Graph(Bindable):
         batch.run()
 
     # TODO: pass out same objects passed in
-    def create(self, *abstracts):
+    def create(self, *entities):
         """ Create multiple nodes and/or relationships as part of a single
         batch.
 
@@ -481,12 +484,107 @@ class Graph(Bindable):
             name on the left of the assignment operation.
 
         """
-        if not abstracts:
+        entities = tuple(map(Graph.cast, entities))
+        names = []
+
+        START = []
+        CREATE = []
+        RETURN = []
+        params = {}
+
+        def _(*args):
+            return "".join("_" + ustr(arg) for arg in args)
+
+        def create_node(name, node):
+            if node.bound:
+                START.append("{0}=node({{{0}}})".format(name))
+                params[name] = node._id
+            else:
+                # TODO: use cypher.Representation?
+                labels = "".join(":`" + label.replace("`", "``") + "`" for label in node.labels)
+                if node.properties:
+                    CREATE.append("({0}{1} {{{0}}})".format(name, labels))
+                    params[name] = node.properties
+                else:
+                    CREATE.append("({0}{1})".format(name, labels))
+            RETURN.append("labels({})".format(name))
+            RETURN.append(name)
+            return [name], []
+
+        def create_rel(name, rel, *node_names):
+            if rel.bound:
+                START.append("{0}=relationship({{{0}}})".format(name))
+                params[name] = rel._id
+            else:
+                # TODO: use cypher.Representation?
+                if rel.properties:
+                    CREATE.append("({0})-[{1}:`{2}` {{{1}}}]->({3})".format(node_names[0], name, rel.type.replace("`", "``"), node_names[1]))
+                    params[name] = rel.properties
+                else:
+                    CREATE.append("({0})-[{1}:`{2}`]->({3})".format(node_names[0], name, rel.type.replace("`", "``"), node_names[1]))
+            RETURN.append(name)
+            return [], [name]
+
+        def create_path(name, relationship):
+            node_names = [None] * len(relationship.nodes)
+            rel_names = [None] * len(relationship.rels)
+            for i, node in enumerate(relationship.nodes):
+                if isinstance(node, NodePointer):
+                    node_names[i] = _(node.address)
+                    # Switch out node with object from elsewhere in entity list
+                    nodes = list(relationship.nodes)
+                    nodes[i] = entities[node.address]
+                    relationship._Path__nodes = tuple(nodes)
+                else:
+                    node_names[i] = name + _("n", i)
+                    create_node(node_names[i], node)
+            for i, rel in enumerate(relationship.rels):
+                rel_names[i] = name + _("r", i)
+                create_rel(rel_names[i], rel, node_names[i], node_names[i + 1])
+            return node_names, rel_names
+
+        for i, entity in enumerate(entities):
+            name = _(i)
+            if isinstance(entity, Node):
+                names.append(create_node(name, entity))
+            elif isinstance(entity, Path):
+                names.append(create_path(name, entity))
+            else:
+                raise TypeError("Cannot create entity of type {}".format(type(entity).__name__))
+
+        clauses = []
+        if START:
+            clauses.append("START " + ",".join(START))
+        if CREATE:
+            clauses.append("CREATE " + ",".join(CREATE))
+        if RETURN:
+            clauses.append("RETURN " + ",".join(RETURN))
+        if not clauses:
             return []
-        batch = WriteBatch(self)
-        for abstract in abstracts:
-            batch.create(abstract)
-        return batch.submit()
+
+        statement = "\n".join(clauses)
+        raw = CypherQuery(self, statement)._execute(**params).content
+        columns = raw["columns"]
+        data = raw["data"]
+        if not data:
+            # TODO
+            raise Exception("No results returned - wtf is going on? :-(")
+
+        # TODO: hydrate labels (label_data?)
+        dehydrated = dict(zip(columns, data[0]))
+        for i, entity in enumerate(entities):
+            node_names, rel_names = names[i]
+            if isinstance(entity, Node):
+                Node.hydrate(dehydrated[node_names[0]], entity)
+            elif isinstance(entity, Path):
+                for j, node in enumerate(entity.nodes):
+                    Node.hydrate(dehydrated[node_names[j]], node)
+                for j, rel in enumerate(entity.rels):
+                    Rel.hydrate(dehydrated[rel_names[j]], rel)
+            else:
+                raise ValueError("Unexpected entity type")
+
+        return entities
 
     def delete(self, *entities):
         """ Delete multiple nodes and/or relationships as part of a single
@@ -657,9 +755,15 @@ class Graph(Bindable):
     def node(self, id_):
         """ Fetch a node by ID.
         """
-        # TODO: use cache
         resource = self.resource.resolve("node/" + str(id_))
-        return self.hydrate(resource.get().content)
+        uri_string = resource.uri.string
+        try:
+            return Node.cache[uri_string]
+        except KeyError:
+            try:
+                return Node.cache.setdefault(uri_string, Node.hydrate(resource.get().content))
+            except _ClientError:
+                raise ValueError("Node with ID {} not found".format(id_))
 
     @property
     def node_labels(self):
@@ -685,10 +789,16 @@ class Graph(Bindable):
     def relationship(self, id_):
         """ Fetch a relationship by ID.
         """
-        # TODO: use cache
         resource = self.resource.resolve("relationship/" + str(id_))
-        return self.hydrate(resource.get().content)
-
+        uri_string = resource.uri.string
+        try:
+            return Relationship.cache[uri_string]
+        except KeyError:
+            try:
+                return Relationship.cache.setdefault(uri_string,
+                                                     Relationship.hydrate(resource.get().content))
+            except _ClientError:
+                raise ValueError("Relationship with ID {} not found".format(id_))
 
     @property
     def relationship_types(self):
@@ -704,6 +814,7 @@ class Graph(Bindable):
         .. seealso::
             :py:func:`Schema <py2neo.neo4j.Schema>`
         """
+        # TODO: cache
         return Schema(URI(self).resolve("schema"))
 
     @property
@@ -754,7 +865,8 @@ class Graph(Bindable):
             # TODO: specialist error
             raise ValueError(uri + " does not belong to this graph")
 
-    # TODO:  add support for CypherResults and BatchResponse
+    # TODO: add support for CypherResults and BatchResponse
+    # TODO: add inst argument?
     def hydrate(self, data):
         if isinstance(data, dict):
             if "self" in data:
@@ -763,9 +875,9 @@ class Graph(Bindable):
                 if tag == "":
                     return self  # uri refers to graph
                 elif tag == "node":
-                    return self.__node_cache.setdefault(int(i), Node.hydrate(data))
+                    return Node.hydrate(data)
                 elif tag == "relationship":
-                    return self.__rel_cache.setdefault(int(i), Relationship.hydrate(data))
+                    return Relationship.hydrate(data)
                 else:
                     raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
             elif "nodes" in data and "relationships" in data:
@@ -813,10 +925,7 @@ class CypherQuery(object):
             if params:
                 cypher_log.debug("Params: " + repr(params))
         try:
-            return self._cypher.post({
-                "query": self._query,
-                "params": dict(params or {}),
-            })
+            response = self._cypher.post({"query": self._query, "params": params})
         except ClientError as e:
             if e.exception:
                 # A CustomCypherError is a dynamically created subclass of
@@ -826,6 +935,8 @@ class CypherQuery(object):
                 raise CustomCypherError(e)
             else:
                 raise CypherError(e)
+        else:
+            return response
 
     def run(self, **params):
         """ Execute the query and discard any results.
@@ -868,7 +979,7 @@ class CypherResults(object):
     """ A static set of results from a Cypher query.
     """
 
-    # TODO
+    # TODO: refactor
     @classmethod
     def _hydrated(cls, graph, data):
         """ Takes assembled data...
@@ -991,29 +1102,24 @@ class Schema(Bindable):
 
     __instances = {}
 
-    def __new__(cls, uri=None):
-        """ Fetch a cached instance if one is available, otherwise create,
-        cache and return a new instance.
-
-        :param uri: URI of the cached resource
-        :return: a resource instance
-        """
-        inst = super(Schema, cls).__new__(cls, uri)
-        return cls.__instances.setdefault(uri, inst)
-
-    def __init__(self, uri):
-        Bindable.__init__(self, uri)
-        if not self.service_root.graph.supports_schema_indexes:
-            raise NotImplementedError("Schema index support requires "
-                                      "version 2.0 or above")
-        self._index_template = \
-            URITemplate(str(URI(self)) + "/index/{label}")
-        self._index_key_template = \
-            URITemplate(str(URI(self)) + "/index/{label}/{property_key}")
-        self._uniqueness_constraint_template = \
-            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness")
-        self._uniqueness_constraint_key_template = \
-            URITemplate(str(URI(self)) + "/constraint/{label}/uniqueness/{property_key}")
+    def __new__(cls, uri):
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(Schema, cls).__new__(cls)
+            inst.bind(uri)
+            if not inst.graph.supports_schema_indexes:
+                raise NotImplementedError("Schema index support requires version 2.0 or above")
+            inst._index_template = \
+                URITemplate(uri + "/index/{label}")
+            inst._index_key_template = \
+                URITemplate(uri + "/index/{label}/{property_key}")
+            inst._uniqueness_constraint_template = \
+                URITemplate(uri + "/constraint/{label}/uniqueness")
+            inst._uniqueness_constraint_key_template = \
+                URITemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
+            cls.__instances[uri] = inst
+        return inst
 
     def get_indexed_property_keys(self, label):
         """ Fetch a list of indexed property keys for a label.
@@ -1188,6 +1294,10 @@ class PropertySet(Bindable, dict):
         for key in kwargs:
             self[key] = kwargs[key]
 
+    def replace(self, iterable=None, **kwargs):
+        self.clear()
+        self.update(iterable, **kwargs)
+
     def pull(self):
         """ Copy the set of remote properties onto the local set.
         """
@@ -1288,7 +1398,7 @@ class PropertyContainer(Bindable):
         return self.__properties
 
     def bind(self, uri, metadata=None):
-        super(PropertyContainer, self).bind(uri, metadata)
+        Bindable.bind(self, uri, metadata)
         try:
             properties_uri = self.resource.metadata["properties"]
         except KeyError:
@@ -1296,15 +1406,14 @@ class PropertyContainer(Bindable):
         self.__properties.bind(properties_uri)
 
     def unbind(self):
-        super(PropertyContainer, self).unbind()
+        Bindable.unbind(self)
         self.__properties.unbind()
 
     def pull(self):
         self.resource.get()
-        self.__properties.clear()
         properties = self.resource.metadata["data"]
         if properties:
-            self.__properties.update(properties)
+            self.__properties.replace(properties)
 
     def push(self):
         self.__properties.push()
@@ -1333,8 +1442,7 @@ class PropertyContainer(Bindable):
 
         :param properties: dictionary of new properties
         """
-        self.properties.clear()
-        self.properties.update(properties)
+        self.properties.replace(properties)
         if self.bound:
             self.properties.push()
 
@@ -1385,6 +1493,8 @@ class Node(PropertyContainer):
 
     :param uri: URI identifying this node
     """
+
+    cache = WeakValueDictionary()
 
     @staticmethod
     def cast(*args, **kwargs):
@@ -1450,21 +1560,23 @@ class Node(PropertyContainer):
         return inst
 
     @classmethod
-    def hydrate(cls, data):
+    def hydrate(cls, data, inst=None):
         """ Create a new Node instance from a serialised representation held
         within a dictionary. It is expected there is at least a "self" key
         pointing to a URI for this Node; there may also optionally be
         properties passed in the "data" value.
         """
+        # TODO: label_data
         self = data["self"]
         properties = data.get("data")
-        if properties is None:
+        if inst is None:
             inst = cls()
-            inst.bind(self, data)
+        inst = cls.cache.setdefault(self, inst)
+        inst.bind(self, data)
+        if properties is None:
             inst.__stale = {"labels", "properties"}
         else:
-            inst = cls(**properties)
-            inst.bind(self, data)
+            inst._PropertyContainer__properties.replace(properties)
             inst.__stale = {"labels"}
         return inst
 
@@ -1525,7 +1637,7 @@ class Node(PropertyContainer):
     def __repr__(self):
         r = Representation()
         if self.bound:
-            r.write_node(self, "N" + ustr(self._id))
+            r.write_node(self, "n" + ustr(self._id))
         else:
             r.write_node(self)
         return repr(r)
@@ -1552,6 +1664,7 @@ class Node(PropertyContainer):
             # TODO: add labels to this hash
             return hash(tuple(sorted(self.properties.items())))
 
+    # TODO: remove
     @property
     def __uri__(self):
         return self.resource.uri
@@ -1573,24 +1686,27 @@ class Node(PropertyContainer):
         return super(Node, self).properties
 
     def bind(self, uri, metadata=None):
-        super(Node, self).bind(uri, metadata)
+        PropertyContainer.bind(self, uri, metadata)
         try:
             labels_uri = self.resource.metadata["labels"]
         except KeyError:
             self.__class__ = LegacyNode
         else:
             self.__labels.bind(labels_uri)
+        self.cache[uri] = self  # TODO same in rel
 
     def unbind(self):
-        super(Node, self).unbind()
+        try:
+            del self.cache[self.uri]  # TODO: same in rel
+        except KeyError:
+            pass
+        PropertyContainer.unbind(self)
         self.__labels.unbind()
 
     def pull(self):
         query = CypherQuery(self.graph, "START a=node({a}) RETURN a,labels(a)")
         results = query.execute(a=self._id)
         node, labels = results[0].values
-        super(Node, self).properties.clear()
-        super(Node, self).properties.update(node.properties)
         self.__labels.clear()
         self.__labels.update(labels)
         self.__stale.clear()
@@ -1834,6 +1950,8 @@ class Rel(PropertyContainer):
     """ A relationship with no start or end nodes.
     """
 
+    cache = WeakValueDictionary()
+
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a Rel object.
@@ -1877,27 +1995,27 @@ class Rel(PropertyContainer):
         return inst
 
     @classmethod
-    def hydrate(cls, data):
+    def hydrate(cls, data, inst=None):
         """ Create a new Rel instance from a serialised representation held
         within a dictionary. It is expected there is at least a "self" key
         pointing to a URI for this Rel; there may also optionally be a "type"
         and properties passed in the "data" value.
         """
+        self = data["self"]
         type_ = data.get("type")
         properties = data.get("data")
-        if properties is None:
+        if inst is None:
             if type_ is None:
                 inst = cls()
             else:
                 inst = cls(type_)
-            inst.bind(data["self"], data)
+        inst = cls.cache.setdefault(self, inst)
+        inst.bind(self, data)
+        if properties is None:
             inst.__stale = {"properties"}
         else:
-            if type_ is None:
-                inst = cls(**properties)
-            else:
-                inst = cls(type_, **properties)
-            inst.bind(data["self"], data)
+            inst._PropertyContainer__properties.replace(properties)
+            inst.__stale = set()
         return inst
 
     def __init__(self, *type_, **properties):
@@ -1910,7 +2028,7 @@ class Rel(PropertyContainer):
     def __repr__(self):
         r = Representation()
         if self.bound:
-            r.write_rel(self, "R" + ustr(self._id))
+            r.write_rel(self, "r" + ustr(self._id))
         else:
             r.write_rel(self)
         return repr(r)
@@ -2018,13 +2136,21 @@ class Path(object):
     """
 
     @classmethod
-    def hydrate(cls, data):
+    def hydrate(cls, data, inst=None):
         # TODO: fetch directions (Rel/Rev) as they cannot be lazily derived :-(
-        nodes = [Node.hydrate({"self": uri}) for uri in data["nodes"]]
-        rels = [Rel.hydrate({"self": uri}) for uri in data["relationships"]]
-        path = Path(*round_robin(nodes, rels))
-        path.__metadata = data
-        return path
+        if inst is None:
+            nodes = [Node.hydrate({"self": uri}) for uri in data["nodes"]]
+            rels = [Rel.hydrate({"self": uri}) for uri in data["relationships"]]
+            inst = Path(*round_robin(nodes, rels))
+        else:
+            for i, node in enumerate(inst.nodes):
+                uri = data["nodes"][i]
+                Node.hydrate({"self": uri}, node)
+            for i, rel in enumerate(inst.rels):
+                uri = data["relationships"][i]
+                Rel.hydrate({"self": uri}, rel)
+        inst.__metadata = data
+        return inst
 
     def __init__(self, *entities):
         nodes = []
@@ -2271,6 +2397,8 @@ class Relationship(Path):
     :param uri: URI identifying this relationship
     """
 
+    cache = WeakValueDictionary()
+
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
@@ -2326,12 +2454,18 @@ class Relationship(Path):
             raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
 
     @classmethod
-    def hydrate(cls, data):
+    def hydrate(cls, data, inst=None):
         """ Create a new Relationship instance from a serialised representation
         held within a dictionary.
         """
-        return cls(Node.hydrate({"self": data["start"]}), Rel.hydrate(data),
-                   Node.hydrate({"self": data["end"]}))
+        if inst is None:
+            inst = cls(Node.hydrate({"self": data["start"]}), Rel.hydrate(data),
+                       Node.hydrate({"self": data["end"]}))
+        else:
+            Node.hydrate({"self": data["start"]}, inst.start_node)
+            Node.hydrate({"self": data["end"]}, inst.end_node)
+            Rel.hydrate(data, inst.rel)
+        return cls.cache.setdefault(data["self"], inst)
 
     # TODO: remove
     @classmethod
@@ -2352,7 +2486,7 @@ class Relationship(Path):
     def __repr__(self):
         r = Representation()
         if self.bound:
-            r.write_relationship(self, "R" + ustr(self._id))
+            r.write_relationship(self, "r" + ustr(self._id))
         else:
             r.write_relationship(self)
         return repr(r)
@@ -2452,8 +2586,13 @@ class Relationship(Path):
     def bind(self, uri, metadata=None):
         # TODO: do for start_node, rel and end_node
         self.rel.bind(uri, metadata)
+        self.cache[uri] = self
 
     def unbind(self):
+        try:
+            del self.cache[self.uri]
+        except KeyError:
+            pass
         # TODO: do for start_node, rel and end_node
         self.rel.unbind()
 
@@ -2507,8 +2646,7 @@ class Relationship(Path):
 
         :param properties: dictionary of new properties
         """
-        self.properties.clear()
-        self.properties.update(properties)
+        self.properties.replace(properties)
         if self.bound:
             self.properties.push()
 

@@ -130,11 +130,15 @@ class BatchResponse(object):
         batch_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
+        raw_body = data.get("body")
         if body_hydrator:
-            body = body_hydrator(data.get("body"))
+            body = body_hydrator(raw_body)
         else:
-            body = data.get("body")
+            body = raw_body
         location = data.get("location")
+        if __debug__:
+            batch_log.debug("<<< {{{0}}} {1} {2}".format(
+                batch_id, status_code, raw_body, location))
         return cls(batch_id, uri, status_code, body, location)
 
     def __init__(self, batch_id, uri, status_code=None, body=None, location=None):
@@ -143,9 +147,6 @@ class BatchResponse(object):
         self.status_code = status_code or 200
         self.body = body
         self.location = location
-        if __debug__:
-            batch_log.debug("<<< {{{0}}} {1} {2}".format(
-                self.batch_id, self.status_code, self.body, self.location))
 
 
 class BatchRequestList(object):
