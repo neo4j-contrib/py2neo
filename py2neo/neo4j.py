@@ -449,7 +449,6 @@ class Graph(Bindable):
         batch.append_cypher("START n=node(*) DELETE n")
         batch.run()
 
-    # TODO: pass out same objects passed in
     def create(self, *entities):
         """ Create multiple nodes and/or relationships as part of a single
         batch.
@@ -492,6 +491,8 @@ class Graph(Bindable):
         entities = tuple(map(Graph.cast, entities))
         names = []
 
+        supports_node_labels = self.supports_node_labels
+
         START = []
         CREATE = []
         RETURN = []
@@ -506,17 +507,17 @@ class Graph(Bindable):
                 params[name] = node._id
             else:
                 # TODO: use cypher.Representation?
-                if self.supports_node_labels:
-                    labels = "".join(":`" + label.replace("`", "``") + "`" for label in node.labels)
+                if supports_node_labels:
+                    labels = "".join(":`" + label.replace("`", "``") + "`"
+                                     for label in node.labels)
                 else:
                     labels = ""
                 if node.properties:
-                    CREATE.append("({0}{1} {{{0}}})".format(name, labels))
+                    template = "({0}{1} {{{0}}})"
                     params[name] = node.properties
                 else:
-                    CREATE.append("({0}{1})".format(name, labels))
-            if self.supports_node_labels:
-                RETURN.append("labels({})".format(name))
+                    template = "({0}{1})"
+                CREATE.append(template.format(name, labels))
             RETURN.append(name)
             return [name], []
 
@@ -527,10 +528,12 @@ class Graph(Bindable):
             else:
                 # TODO: use cypher.Representation?
                 if rel.properties:
-                    CREATE.append("({0})-[{1}:`{2}` {{{1}}}]->({3})".format(node_names[0], name, rel.type.replace("`", "``"), node_names[1]))
+                    template = "({0})-[{1}:`{2}` {{{1}}}]->({3})"
                     params[name] = rel.properties
                 else:
-                    CREATE.append("({0})-[{1}:`{2}`]->({3})".format(node_names[0], name, rel.type.replace("`", "``"), node_names[1]))
+                    template = "({0})-[{1}:`{2}`]->({3})"
+                CREATE.append(template.format(node_names[0], name,
+                                              rel.type.replace("`", "``"), node_names[1]))
             RETURN.append(name)
             return [], [name]
 
@@ -545,10 +548,10 @@ class Graph(Bindable):
                     nodes[i] = entities[node.address]
                     relationship._Path__nodes = tuple(nodes)
                 else:
-                    node_names[i] = name + _("n", i)
+                    node_names[i] = name + "n" + ustr(i)
                     create_node(node_names[i], node)
             for i, rel in enumerate(relationship.rels):
-                rel_names[i] = name + _("r", i)
+                rel_names[i] = name + "r" + ustr(i)
                 create_rel(rel_names[i], rel, node_names[i], node_names[i + 1])
             return node_names, rel_names
 
@@ -578,17 +581,16 @@ class Graph(Bindable):
         if not data:
             raise RuntimeError("No results returned")
 
-        # TODO: hydrate labels (label_data?)
         dehydrated = dict(zip(columns, data[0]))
         for i, entity in enumerate(entities):
             node_names, rel_names = names[i]
             if isinstance(entity, Node):
-                Node.hydrate(dehydrated[node_names[0]], entity)
+                entity.bind(dehydrated[node_names[0]]["self"])
             elif isinstance(entity, Path):
                 for j, node in enumerate(entity.nodes):
-                    Node.hydrate(dehydrated[node_names[j]], node)
+                    node.bind(dehydrated[node_names[j]]["self"])
                 for j, rel in enumerate(entity.rels):
-                    Rel.hydrate(dehydrated[rel_names[j]], rel)
+                    rel.bind(dehydrated[rel_names[j]]["self"])
             else:
                 raise ValueError("Unexpected entity type")
 

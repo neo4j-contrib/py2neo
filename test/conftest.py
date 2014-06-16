@@ -35,44 +35,44 @@ logger = logging.getLogger('pytest_configure')
 logger.setLevel(logging.INFO)
 
 
-def pytest_configure(config):
-    """ Session-wide test configuration.
-
-    Executes before any tests do and can be used to configure the test
-    environment.
-
-    To guard against accidental data loss ``pytest_configure`` will bail
-    instantly if the test db contains any data. It also configures it's own
-    logging which will override any previous user-configured logging. This
-    is to ensure the correct messags reach the users console during test run.
-
-    """
-    db = neo4j.Graph(DEFAULT_DB)
-    rels = next(db.match(), None)
-    if rels:
-        logging.warning(
-            'Test Runner will only operate on an empty graph.    '
-            'Either clear the DB with `neotool clear` or provide '
-            'a differnt DB URI ')
-
-        pytest.exit(1)
-
-    handler = ColorizingStreamHandler()
-    handler.level_map = PY2NEO_LOGGING_LEVEL_COLOUR_MAP
-    logger.addHandler(handler)
-
-    logger.info('- all logging captured at >= DEUBG and piped '
-                'to stdout for test failures.                 ')
-    logger.info('- tests running on Neo4J %s', db.neo4j_version)
-
-
-def pytest_unconfigure(config):
-    """ Final tear-down behaviour of test environment
-    """
-    db = neo4j.Graph(DEFAULT_DB)
-    db.clear()
-
-    logger.info('cleared db after tests completed')
+#def pytest_configure(config):
+#    """ Session-wide test configuration.
+#
+#    Executes before any tests do and can be used to configure the test
+#    environment.
+#
+#    To guard against accidental data loss ``pytest_configure`` will bail
+#    instantly if the test db contains any data. It also configures it's own
+#    logging which will override any previous user-configured logging. This
+#    is to ensure the correct messags reach the users console during test run.
+#
+#    """
+#    db = neo4j.Graph(DEFAULT_DB)
+#    rels = next(db.match(), None)
+#    if rels:
+#        logging.warning(
+#            'Test Runner will only operate on an empty graph.    '
+#            'Either clear the DB with `neotool clear` or provide '
+#            'a differnt DB URI ')
+#
+#        pytest.exit(1)
+#
+#    handler = ColorizingStreamHandler()
+#    handler.level_map = PY2NEO_LOGGING_LEVEL_COLOUR_MAP
+#    logger.addHandler(handler)
+#
+#    logger.info('- all logging captured at >= DEUBG and piped '
+#                'to stdout for test failures.                 ')
+#    logger.info('- tests running on Neo4J %s', db.neo4j_version)
+#
+#
+#def pytest_unconfigure(config):
+#    """ Final tear-down behaviour of test environment
+#    """
+#    db = neo4j.Graph(DEFAULT_DB)
+#    db.clear()
+#
+#    logger.info('cleared db after tests completed')
 
 
 def pytest_runtest_setup(item):
@@ -111,24 +111,12 @@ def pytest_runtest_setup(item):
 @pytest.fixture
 def graph(request):
     graph = neo4j.Graph(DEFAULT_DB)
-
-    try:
-        graph.clear()
-    except Exception as exc:
-        logger.exception('Failed to clear db')
-
     return graph
 
 
 @pytest.fixture
 def legacy_graph(request):
     graph = legacy.GraphDatabaseService(DEFAULT_DB)
-
-    try:
-        graph.clear()
-    except Exception as exc:
-        logger.exception('Failed to clear db')
-
     return graph
 
 

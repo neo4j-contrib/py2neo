@@ -209,6 +209,10 @@ class TestLoadIndexed(object):
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.graph = legacy_graph
+        try:
+            self.graph.delete_index(neo4j.Node, "People")
+        except LookupError:
+            pass
         self.store = ogm.Store(self.graph)
 
     def test_can_load(self):
@@ -237,6 +241,11 @@ class TestLoadUnique(object):
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.graph = legacy_graph
+        try:
+            self.graph.delete_index(neo4j.Node, "People")
+        except LookupError:
+            pass
+        self.graph.get_or_create_index(neo4j.Node, "People")
         self.store = ogm.Store(self.graph)
 
     def test_can_load_simple_object(self):
@@ -334,6 +343,10 @@ class TestSaveIndexed(object):
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.graph = legacy_graph
+        try:
+            self.graph.delete_index(neo4j.Node, "People")
+        except LookupError:
+            pass
         self.store = ogm.Store(self.graph)
 
     def test_can_save(self):

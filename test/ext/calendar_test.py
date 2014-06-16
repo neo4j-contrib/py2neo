@@ -30,11 +30,13 @@ logging.basicConfig(
 
 @pytest.fixture(autouse=True)
 def setup(request, graph):
-    graph.clear()
-
     if request.instance:
         # Grab a handle to an index for linking to time data
         service = legacy.GraphDatabaseService()
+        try:
+            service.delete_index(neo4j.Node, "TIME")
+        except LookupError:
+            pass
         time = service.get_or_create_index(neo4j.Node, "TIME")
         request.instance.calendar = GregorianCalendar(time)
 

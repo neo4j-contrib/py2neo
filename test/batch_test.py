@@ -23,6 +23,7 @@ from py2neo.batch import BatchError
 
 
 class TestNodeCreation(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.batch = neo4j.WriteBatch(graph)
@@ -335,11 +336,13 @@ class TestPropertyManagement(object):
 
 
 class TestIndexedNodeCreation(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.people = legacy_graph.get_or_create_index(neo4j.Node, "People")
         self.batch = neo4j.LegacyWriteBatch(legacy_graph)
         self.graph = legacy_graph
+        self.graph.clear()
 
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
@@ -404,11 +407,13 @@ class TestIndexedNodeCreation(object):
 
 
 class TestIndexedNodeAddition(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.people = legacy_graph.get_or_create_index(neo4j.Node, "People")
         self.batch = neo4j.LegacyWriteBatch(legacy_graph)
         self.graph = legacy_graph
+        self.graph.clear()
 
     def test_can_add_single_node(self):
         alice, = self.graph.create({"name": "Alice Smith"})
@@ -454,6 +459,7 @@ class TestIndexedNodeAddition(object):
 
 
 class TestIndexedRelationshipCreation(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.friendships = legacy_graph.get_or_create_index(
@@ -494,12 +500,14 @@ class TestIndexedRelationshipCreation(object):
 
 
 class TestIndexedRelationshipAddition(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
         self.friendships = legacy_graph.get_or_create_index(
             neo4j.Relationship, "Friendships")
         self.batch = neo4j.LegacyWriteBatch(legacy_graph)
         self.graph = legacy_graph
+        self.graph.clear()
 
     def test_can_add_single_relationship(self):
         alice, bob, ab = self.graph.create(
@@ -550,8 +558,11 @@ class TestIndexedRelationshipAddition(object):
 
 
 class TestIndexedNodeRemoval(object):
+
     @pytest.fixture(autouse=True)
     def setup(self, legacy_graph):
+        self.graph = legacy_graph
+        self.graph.clear()
         self.index = legacy_graph.get_or_create_index(
             neo4j.Node, "node_removal_test_index")
         self.fred, self.wilma, = legacy_graph.create(
@@ -564,7 +575,6 @@ class TestIndexedNodeRemoval(object):
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
         self.batch = neo4j.LegacyWriteBatch(legacy_graph)
-        self.graph = legacy_graph
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)
