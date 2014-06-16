@@ -372,6 +372,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
+# TODO: make auto_sync = False (and GDS.auto_sync = True)
 class Graph(Bindable):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
@@ -507,7 +508,6 @@ class Graph(Bindable):
                 START.append("{0}=node({{{0}}})".format(name))
                 params[name] = node._id
             else:
-                # TODO: use cypher.Representation?
                 if supports_node_labels:
                     labels = "".join(":`" + label.replace("`", "``") + "`"
                                      for label in node.labels)
@@ -527,7 +527,6 @@ class Graph(Bindable):
                 START.append("{0}=relationship({{{0}}})".format(name))
                 params[name] = rel._id
             else:
-                # TODO: use cypher.Representation?
                 if rel.properties:
                     template = "({0})-[{1}:`{2}` {{{1}}}]->({3})"
                     params[name] = rel.properties
@@ -1648,33 +1647,6 @@ class Node(PropertyContainer):
                 return n
         raise UnjoinableError("Cannot join nodes {} and {}".format(n, m))
 
-    @classmethod
-    @deprecated("Use Node constructor instead")
-    def abstract(cls, **properties):
-        """ Create and return a new abstract node containing properties drawn
-        from the keyword arguments supplied. An abstract node is not bound to
-        a concrete node within a database but properties can be managed
-        similarly to those within bound nodes::
-
-            >>> alice = Node.abstract(name="Alice")
-            >>> alice["name"]
-            'Alice'
-            >>> alice["age"] = 34
-            alice.get_properties()
-            {'age': 34, 'name': 'Alice'}
-
-        If more complex property keys are required, abstract nodes may be
-        instantiated with the ``**`` syntax::
-
-            >>> alice = Node.abstract(**{"first name": "Alice"})
-            >>> alice["first name"]
-            'Alice'
-
-        :param properties: node properties
-        """
-        instance = cls(**properties)
-        return instance
-
     def __init__(self, *labels, **properties):
         PropertyContainer.__init__(self, **properties)
         self.__labels = LabelSet(labels)
@@ -1709,11 +1681,6 @@ class Node(PropertyContainer):
         else:
             # TODO: add labels to this hash
             return hash(tuple(sorted(self.properties.items())))
-
-    # TODO: remove
-    @property
-    def __uri__(self):
-        return self.resource.uri
 
     @property
     def labels(self):
@@ -2340,24 +2307,6 @@ class Path(object):
             )
         return self.__relationships
 
-    ## TODO: remove - use Path constructor instead
-    #@classmethod
-    #def join(cls, left, rel, right):
-    #    """ Join the two paths `left` and `right` with the relationship `rel`.
-    #    """
-    #    if isinstance(left, Path):
-    #        left = left[:]
-    #    else:
-    #        left = Path(left)
-    #    if isinstance(right, Path):
-    #        right = right[:]
-    #    else:
-    #        right = Path(right)
-    #    left.__rels.append(Rel.cast(rel))
-    #    left.__nodes.extend(right.__nodes)
-    #    left.__rels.extend(right.__rels)
-    #    return left
-
     def _create_query(self, unique):
         nodes, path, values, params = [], [], [], {}
 
@@ -2408,7 +2357,7 @@ class Path(object):
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
                 "Cypher CREATE UNIQUE clauses or the query contains "
-                "an unsupported property type".format(graph.__uri__)
+                "an unsupported property type".format(graph.uri)
             )
         else:
             for row in results:
@@ -2511,14 +2460,6 @@ class Relationship(Path):
             Rel.hydrate(data, inst.rel)
         return cls.cache.setdefault(data["self"], inst)
 
-    # TODO: remove
-    @classmethod
-    def abstract(cls, start_node, type_, end_node, **properties):
-        """ Create and return a new abstract relationship.
-        """
-        instance = cls(start_node, type_, end_node, **properties)
-        return instance
-
     def __init__(self, start_node, rel, end_node, **properties):
         cast_rel = Rel.cast(rel)
         if isinstance(cast_rel, Rev):  # always forwards
@@ -2544,12 +2485,6 @@ class Relationship(Path):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    #def __hash__(self):
-    #    if self.__uri__:
-    #        return hash(self.__uri__)
-    #    else:
-    #        return hash(tuple(sorted(self._properties.items())))
-
     @property
     def _id(self):
         return self.rel._id
@@ -2562,7 +2497,7 @@ class Relationship(Path):
     def delete(self):
         """ Delete this entity from the database.
         """
-        self._delete()
+        self.graph.delete(self)
 
     @property
     def exists(self):
