@@ -25,7 +25,7 @@ __version__ = "1.7.0"
 
 
 # TODO
-from py2neo.neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship, NodePointer, UnjoinableError
+from py2neo.neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship, NodePointer, UnjoinableError, CypherQuery
 
 node = Node.cast
 rel = Relationship.cast

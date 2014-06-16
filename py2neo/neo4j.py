@@ -54,7 +54,7 @@ from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is
 
 
 __all__ = ["DEFAULT_URI", "Graph", "GraphDatabaseService", "Node", "NodePointer", "Path", "Rel", "Rev", "Relationship",
-           "ReadBatch", "WriteBatch", "BatchRequestList", "_cast",
+           "ReadBatch", "WriteBatch", "BatchRequestList", "_cast", "CypherQuery",
            "Index", "LegacyReadBatch", "LegacyWriteBatch",
            "UnjoinableError"]
 
@@ -417,6 +417,7 @@ class Graph(Bindable):
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
             inst.bind(uri)
+            inst.__cypher = Cypher(uri + "cypher")
             cls.__instances[key] = inst
         return inst
 
@@ -430,6 +431,10 @@ class Graph(Bindable):
 
     def __nonzero__(self):
         return True
+
+    @property
+    def cypher(self):
+        return self.__cypher
 
     # TODO: rename to delete_all
     def clear(self):
@@ -567,12 +572,11 @@ class Graph(Bindable):
             return []
 
         statement = "\n".join(clauses)
-        raw = CypherQuery(self, statement)._execute(**params).content
+        raw = CypherQuery(self, statement).post(**params).content
         columns = raw["columns"]
         data = raw["data"]
         if not data:
-            # TODO
-            raise Exception("No results returned - wtf is going on? :-(")
+            raise RuntimeError("No results returned")
 
         # TODO: hydrate labels (label_data?)
         dehydrated = dict(zip(columns, data[0]))
@@ -606,7 +610,7 @@ class Graph(Bindable):
         """ Iterate through a set of labelled nodes, optionally filtering
         by property key and value
         """
-        uri = self.resource.uri.resolve("/".join(["label", label, "nodes"]))
+        uri = self.uri.resolve("/".join(["label", label, "nodes"]))
         if property_key:
             uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
@@ -616,7 +620,7 @@ class Graph(Bindable):
             if err.status_code != NOT_FOUND:
                 raise
 
-    # TODO: replace with PullBatch
+    # TODO: replace with `pull`
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
@@ -899,37 +903,76 @@ class Graph(Bindable):
             return data
 
 
+class Cypher(Bindable):
+
+    __instances = {}
+
+    def __new__(cls, uri):
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(Cypher, cls).__new__(cls)
+            inst.bind(uri)
+            cls.__instances[uri] = inst
+        return inst
+
+    def post(self, query, params=None):
+        if __debug__:
+            cypher_log.debug("Query: " + repr(query))
+        payload = {"query": query}
+        if params:
+            if __debug__:
+                cypher_log.debug("Params: " + repr(params))
+            payload["params"] = params
+        try:
+            response = self.resource.post(payload)
+        except ClientError as e:
+            if e.exception:
+                # A CustomCypherError is a dynamically created subclass of
+                # CypherError with the same name as the underlying server
+                # exception
+                CustomCypherError = type(str(e.exception), (CypherError,), {})
+                raise CustomCypherError(e)
+            else:
+                raise CypherError(e)
+        else:
+            return response
+
+    def execute(self, query, params=None):
+        return CypherResults(self.graph, self.post(query, params))
+
+
 class CypherQuery(object):
     """ A reusable Cypher query. To create a new query object, a graph and the
     query text need to be supplied::
 
-        >>> from py2neo import neo4j
-        >>> graph = neo4j.Graph()
-        >>> query = neo4j.CypherQuery(graph, "CREATE (a) RETURN a")
+        >>> from py2neo import Graph, CypherQuery
+        >>> graph = Graph()
+        >>> query = CypherQuery(graph, "CREATE (a) RETURN a")
 
     """
 
     def __init__(self, graph, query):
-        self._graph = graph
-        self._cypher = Resource(graph.resource.metadata["cypher"])
-        self._query = query
+        self.graph = graph
+        self.__cypher_resource = self.graph.cypher.resource
+        self.query = query
 
-    def __str__(self):
-        return self._query
+    def __repr__(self):
+        return self.query
 
     @property
     def string(self):
         """ The text of the query.
         """
-        return self._query
+        return self.query
 
-    def _execute(self, **params):
+    def post(self, **params):
         if __debug__:
-            cypher_log.debug("Query: " + repr(self._query))
+            cypher_log.debug("Query: " + repr(self.query))
             if params:
                 cypher_log.debug("Params: " + repr(params))
         try:
-            response = self._cypher.post({"query": self._query, "params": params})
+            response = self.__cypher_resource.post({"query": self.query, "params": params})
         except ClientError as e:
             if e.exception:
                 # A CustomCypherError is a dynamically created subclass of
@@ -947,7 +990,7 @@ class CypherQuery(object):
 
         :param params:
         """
-        self._execute(**params).close()
+        self.post(**params).close()
 
     def execute(self, **params):
         """ Execute the query and return the results.
@@ -956,7 +999,7 @@ class CypherQuery(object):
         :return:
         :rtype: :py:class:`CypherResults <py2neo.neo4j.CypherResults>`
         """
-        return CypherResults(self._graph, self._execute(**params))
+        return CypherResults(self.graph, self.post(**params))
 
     def execute_one(self, **params):
         """ Execute the query and return the first value from the first row.
@@ -976,7 +1019,7 @@ class CypherQuery(object):
         :return:
         :rtype: :py:class:`IterableCypherResults <py2neo.neo4j.IterableCypherResults>`
         """
-        return IterableCypherResults(self._graph, self._execute(**params))
+        return IterableCypherResults(self.graph, self.post(**params))
 
 
 class CypherResults(object):
