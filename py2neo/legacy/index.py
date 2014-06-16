@@ -72,7 +72,7 @@ class Index(Bindable):
         return "{0}({1}, {2})".format(
             self.__class__.__name__,
             self._content_type.__name__,
-            repr(URI(self).string)
+            repr(self.uri.string)
         )
 
     def _searcher_stem_for_key(self, key):
@@ -98,7 +98,7 @@ class Index(Bindable):
         self.resource.post({
             "key": key,
             "value": value,
-            "uri": str(URI(entity))
+            "uri": entity.uri.string,
         })
         return entity
 
@@ -117,7 +117,7 @@ class Index(Bindable):
         rs = self._get_or_create.post({
             "key": key,
             "value": value,
-            "uri": str(URI(entity))
+            "uri": entity.uri.string,
         })
         if rs.status_code == CREATED:
             return entity
@@ -182,9 +182,9 @@ class Index(Bindable):
             body = {
                 "key": key,
                 "value": value,
-                "start": str(abstract[0].__uri__),
+                "start": abstract[0].uri.string,
                 "type": abstract[1],
-                "end": str(abstract[2].__uri__),
+                "end": abstract[2].uri.string,
                 "properties": abstract[3] if len(abstract) > 3 else None
             }
         else:
