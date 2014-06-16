@@ -418,7 +418,7 @@ class Graph(Bindable):
             inst = super(Graph, cls).__new__(cls)
             inst.bind(uri)
             inst.__cypher = Cypher(uri + "cypher")
-            inst.__schema = Schema(uri + "schema")
+            inst.__schema = None
             cls.__instances[key] = inst
         return inst
 
@@ -825,6 +825,8 @@ class Graph(Bindable):
         .. seealso::
             :py:func:`Schema <py2neo.neo4j.Schema>`
         """
+        if self.__schema is None:
+            self.__schema = Schema(self.uri + "schema")
         return self.__schema
 
     @property
@@ -2338,23 +2340,23 @@ class Path(object):
             )
         return self.__relationships
 
-    # TODO: remove - use Path constructor instead
-    @classmethod
-    def join(cls, left, rel, right):
-        """ Join the two paths `left` and `right` with the relationship `rel`.
-        """
-        if isinstance(left, Path):
-            left = left[:]
-        else:
-            left = Path(left)
-        if isinstance(right, Path):
-            right = right[:]
-        else:
-            right = Path(right)
-        left.__rels.append(Rel.cast(rel))
-        left.__nodes.extend(right.__nodes)
-        left.__rels.extend(right.__rels)
-        return left
+    ## TODO: remove - use Path constructor instead
+    #@classmethod
+    #def join(cls, left, rel, right):
+    #    """ Join the two paths `left` and `right` with the relationship `rel`.
+    #    """
+    #    if isinstance(left, Path):
+    #        left = left[:]
+    #    else:
+    #        left = Path(left)
+    #    if isinstance(right, Path):
+    #        right = right[:]
+    #    else:
+    #        right = Path(right)
+    #    left.__rels.append(Rel.cast(rel))
+    #    left.__nodes.extend(right.__nodes)
+    #    left.__rels.extend(right.__rels)
+    #    return left
 
     def _create_query(self, unique):
         nodes, path, values, params = [], [], [], {}
