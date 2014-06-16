@@ -418,6 +418,7 @@ class Graph(Bindable):
             inst = super(Graph, cls).__new__(cls)
             inst.bind(uri)
             inst.__cypher = Cypher(uri + "cypher")
+            inst.__schema = Schema(uri + "schema")
             cls.__instances[key] = inst
         return inst
 
@@ -824,8 +825,7 @@ class Graph(Bindable):
         .. seealso::
             :py:func:`Schema <py2neo.neo4j.Schema>`
         """
-        # TODO: cache
-        return Schema(URI(self).resolve("schema"))
+        return self.__schema
 
     @property
     def size(self):
@@ -876,7 +876,6 @@ class Graph(Bindable):
             raise ValueError(uri + " does not belong to this graph")
 
     # TODO: add support for CypherResults and BatchResponse
-    # TODO: add inst argument?
     def hydrate(self, data):
         if isinstance(data, dict):
             if "self" in data:
