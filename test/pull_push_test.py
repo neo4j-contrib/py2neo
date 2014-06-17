@@ -18,9 +18,10 @@
 
 import pytest
 
-from py2neo.core import Node
+from py2neo.core import Graph, Node
 
 
+@pytest.skip(not Graph().supports_node_labels)
 def test_can_pull_node(graph):
     local = Node()
     remote = Node("Person", name="Alice")
@@ -33,6 +34,7 @@ def test_can_pull_node(graph):
     assert local.properties == remote.properties
 
 
+@pytest.skip(not Graph().supports_node_labels)
 def test_can_push_node(graph):
     local = Node("Person", name="Alice")
     remote = Node()

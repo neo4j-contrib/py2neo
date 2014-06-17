@@ -1469,7 +1469,7 @@ class Node(PropertyContainer):
         if self.graph.supports_node_labels:
             self.__labels.bind(uri + "/labels")
         else:
-            from py2neo.legacy.neo4j import LegacyNode
+            from py2neo.legacy.core import LegacyNode
             self.__class__ = LegacyNode
         self.cache[uri] = self
 
