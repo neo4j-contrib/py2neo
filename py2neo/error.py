@@ -22,7 +22,7 @@ from py2neo.packages.jsonstream import assembled
 from py2neo.packages.httpstream import JSONResponse, \
     ClientError as _ClientError, ServerError as _ServerError
 
-__all__ = ["ServerException", "ClientError", "ServerError", "UnboundError", "UnjoinableError"]
+__all__ = ["ServerException", "ClientError", "ServerError", "BindError", "JoinError"]
 
 
 class ServerException(object):
@@ -103,9 +103,11 @@ class ServerError(_ServerError):
             return getattr(self.__cause__, item)
 
 
-class UnboundError(Exception):
-    pass
+class BindError(Exception):
+    """ Raised when a local graph entity is not or cannot be bound to a remote graph entity.
+    """
 
 
-class UnjoinableError(Exception):
-    pass
+class JoinError(Exception):
+    """ Raised when two graph entities cannot be joined together.
+    """

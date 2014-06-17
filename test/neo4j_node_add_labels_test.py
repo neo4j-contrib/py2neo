@@ -17,7 +17,7 @@
 
 
 from py2neo import node
-from py2neo.error import UnboundError
+from py2neo.error import BindError
 
 
 def test_can_add_labels_to_node(graph):
@@ -45,7 +45,7 @@ def test_adding_labels_to_abstract_nodes_raises_unbound_error(graph):
     alice = node(name="Alice")
     try:
         alice.add_labels("human", "female")
-    except UnboundError:
+    except BindError:
         assert True
     else:
         assert False

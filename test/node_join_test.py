@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import Node, NodePointer, UnjoinableError
+from py2neo import Node, NodePointer, JoinError
 
 
 alice = Node(name="Alice")
@@ -45,7 +45,7 @@ def test_can_join_same_nodes():
 
 
 def test_cannot_join_different_nodes():
-    with pytest.raises(UnjoinableError):
+    with pytest.raises(JoinError):
         Node.join(alice, bob)
 
 
@@ -62,12 +62,12 @@ def test_can_join_same_pointers():
 
 
 def test_cannot_join_different_pointers():
-    with pytest.raises(UnjoinableError):
+    with pytest.raises(JoinError):
         Node.join(pointer_1, pointer_2)
 
 
 def test_cannot_join_node_and_pointer():
-    with pytest.raises(UnjoinableError):
+    with pytest.raises(JoinError):
         Node.join(alice, pointer_2)
 
 

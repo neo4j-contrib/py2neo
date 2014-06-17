@@ -19,13 +19,13 @@
 import pytest
 
 from py2neo.core import Resource, Node, Rel, Rev, Relationship
-from py2neo.error import UnboundError
+from py2neo.error import BindError
 
 
 def test_default_state_for_node_is_unbound():
     node = Node()
     assert not node.bound
-    with pytest.raises(UnboundError):
+    with pytest.raises(BindError):
         r = node.resource
 
 
@@ -38,7 +38,7 @@ def test_can_bind_node_to_resource():
     assert node.resource.uri == uri
     node.unbind()
     assert not node.bound
-    with pytest.raises(UnboundError):
+    with pytest.raises(BindError):
         r = node.resource
 
 
@@ -51,7 +51,7 @@ def test_can_bind_rel_to_resource():
     assert rel.resource.uri == uri
     rel.unbind()
     assert not rel.bound
-    with pytest.raises(UnboundError):
+    with pytest.raises(BindError):
         r = rel.resource
 
 
@@ -64,7 +64,7 @@ def test_can_bind_rev_to_resource():
     assert rel.resource.uri == uri
     rel.unbind()
     assert not rel.bound
-    with pytest.raises(UnboundError):
+    with pytest.raises(BindError):
         r = rel.resource
 
 
@@ -77,5 +77,5 @@ def test_can_bind_relationship_to_resource():
     assert relationship.resource.uri == uri
     relationship.unbind()
     assert not relationship.bound
-    with pytest.raises(UnboundError):
+    with pytest.raises(BindError):
         r = relationship.resource

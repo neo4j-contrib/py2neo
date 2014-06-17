@@ -42,7 +42,7 @@ import re
 from weakref import WeakValueDictionary
 
 from py2neo import __version__
-from py2neo.error import ClientError, ServerError, ServerException, UnboundError, UnjoinableError
+from py2neo.error import ClientError, ServerError, ServerException, BindError, JoinError
 from py2neo.packages.httpstream import (
     http, Resource as _Resource, ResourceTemplate as _ResourceTemplate,
     ClientError as _ClientError, ServerError as _ServerError)
@@ -290,8 +290,7 @@ class Bindable(object):
         if self.bound:
             return self.__resource
         else:
-            raise UnboundError("Local object is not bound to a "
-                               "remote resource")
+            raise BindError("Local entity is not bound to a remote entity")
 
     @property
     def bound(self):
@@ -304,7 +303,7 @@ class Bindable(object):
         """
         if "{" in uri:
             if metadata:
-                raise ValueError("Initial metadata cannot be stored for a resource template")
+                raise ValueError("Initial metadata cannot be passed to a resource template")
             self.__resource = ResourceTemplate(uri)
         else:
             self.__resource = Resource(uri, metadata)
@@ -1257,7 +1256,7 @@ class PropertyContainer(Bindable):
         self.properties.clear()
         try:
             self.properties.push()
-        except UnboundError:
+        except BindError:
             pass
 
 
@@ -1410,7 +1409,7 @@ class Node(PropertyContainer):
         elif n.bound and m.bound:
             if n.resource == m.resource:
                 return n
-        raise UnjoinableError("Cannot join nodes {} and {}".format(n, m))
+        raise JoinError("Cannot join nodes {} and {}".format(n, m))
 
     def __init__(self, *labels, **properties):
         PropertyContainer.__init__(self, **properties)
@@ -1954,12 +1953,12 @@ class Path(object):
                 # try joining forward
                 try:
                     nodes[-1] = Node.join(nodes[-1], path.start_node)
-                except UnjoinableError:
+                except JoinError:
                     # try joining backward
                     try:
                         nodes[-1] = Node.join(nodes[-1], path.end_node)
-                    except UnjoinableError:
-                        raise UnjoinableError("Path at position {} cannot be "
+                    except JoinError:
+                        raise JoinError("Path at position {} cannot be "
                                               "joined".format(index))
                     else:
                         nodes.extend(path.nodes[-2::-1])
@@ -1971,7 +1970,7 @@ class Path(object):
 
         def join_rel(rel, index):
             if len(nodes) == len(rels):
-                raise UnjoinableError("Rel at position {} cannot be "
+                raise JoinError("Rel at position {} cannot be "
                                       "joined".format(index))
             else:
                 rels.append(rel)
@@ -2369,10 +2368,10 @@ class Relationship(Path):
     def service_root(self):
         try:
             return self.start_node.service_root
-        except UnboundError:
+        except BindError:
             try:
                 return self.end_node.service_root
-            except UnboundError:
+            except BindError:
                 return self.rel.service_root
 
     @property
@@ -2418,7 +2417,7 @@ class Relationship(Path):
         self.properties.clear()
         try:
             self.properties.push()
-        except UnboundError:
+        except BindError:
             pass
 
 
