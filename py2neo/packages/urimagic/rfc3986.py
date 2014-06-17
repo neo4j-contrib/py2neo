@@ -606,6 +606,9 @@ class URI(Part):
     def __hash__(self):
         return hash(self.string)
 
+    def __add__(self, other):
+        return URI("{0}{1}".format(self, other))
+
     @property
     def __uri__(self):
         return self.string

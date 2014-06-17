@@ -16,11 +16,9 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 from py2neo.legacy.batch import LegacyReadBatch, LegacyWriteBatch
+from py2neo.legacy.core import GraphDatabaseService, LegacyNode
 from py2neo.legacy.index import Index
-from py2neo.legacy.neo4j import GraphDatabaseService, LegacyNode
 
 
 __all__ = ["GraphDatabaseService", "Index", "LegacyNode", "LegacyReadBatch", "LegacyWriteBatch"]

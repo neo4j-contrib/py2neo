@@ -36,6 +36,10 @@ def test_can_bind_node_to_resource():
     assert node.bound
     assert isinstance(node.resource, Resource)
     assert node.resource.uri == uri
+    node.unbind()
+    assert not node.bound
+    with pytest.raises(UnboundError):
+        r = node.resource
 
 
 def test_can_bind_rel_to_resource():
@@ -45,6 +49,10 @@ def test_can_bind_rel_to_resource():
     assert rel.bound
     assert isinstance(rel.resource, Resource)
     assert rel.resource.uri == uri
+    rel.unbind()
+    assert not rel.bound
+    with pytest.raises(UnboundError):
+        r = rel.resource
 
 
 def test_can_bind_rev_to_resource():
@@ -54,6 +62,10 @@ def test_can_bind_rev_to_resource():
     assert rel.bound
     assert isinstance(rel.resource, Resource)
     assert rel.resource.uri == uri
+    rel.unbind()
+    assert not rel.bound
+    with pytest.raises(UnboundError):
+        r = rel.resource
 
 
 def test_can_bind_relationship_to_resource():
@@ -63,3 +75,7 @@ def test_can_bind_relationship_to_resource():
     assert relationship.bound
     assert isinstance(relationship.resource, Resource)
     assert relationship.resource.uri == uri
+    relationship.unbind()
+    assert not relationship.bound
+    with pytest.raises(UnboundError):
+        r = relationship.resource
