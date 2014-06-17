@@ -48,7 +48,7 @@ from __future__ import unicode_literals
 
 from datetime import date as _date
 
-from py2neo.neo4j import CypherQuery
+from py2neo.cypher import CypherQuery
 
 
 class GregorianCalendar(object):

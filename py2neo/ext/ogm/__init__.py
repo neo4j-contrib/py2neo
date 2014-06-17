@@ -89,7 +89,9 @@ The code below shows an example of usage::
 
 from __future__ import unicode_literals
 
-from py2neo import neo4j
+from py2neo.core import Node
+from py2neo.cypher import CypherQuery
+from py2neo.legacy import LegacyWriteBatch as WriteBatch
 
 
 class NotSaved(ValueError):
@@ -120,14 +122,14 @@ class Store(object):
             raise NotSaved(subj)
 
     def _get_node(self, endpoint):
-        if isinstance(endpoint, neo4j.Node):
+        if isinstance(endpoint, Node):
             return endpoint
         if not hasattr(endpoint, "__node__"):
             self.save(endpoint)
         return endpoint.__node__
 
     def _is_same(self, obj, endpoint):
-        if isinstance(endpoint, neo4j.Node):
+        if isinstance(endpoint, Node):
             if hasattr(obj, "__node__"):
                 return endpoint == obj.__node__
             else:
@@ -223,7 +225,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: a list of `cls` instances
         """
-        index = self.graph.get_index(neo4j.Node, index_name)
+        index = self.graph.get_index(Node, index_name)
         nodes = index.get(key, value)
         return [self.load(cls, node) for node in nodes]
 
@@ -236,7 +238,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: as instance of `cls` containing the loaded data
         """
-        index = self.graph.get_index(neo4j.Node, index_name)
+        index = self.graph.get_index(Node, index_name)
         nodes = index.get(key, value)
         if not nodes:
             return None
@@ -283,7 +285,7 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            query = neo4j.CypherQuery(self.graph, "START a=node({A}) "
+            query = CypherQuery(self.graph, "START a=node({A}) "
                                                      "MATCH (a)-[r]->(b) "
                                                      "DELETE r")
             query.execute(A=subj.__node__._id)
@@ -291,11 +293,11 @@ class Store(object):
             subj.__node__, = self.graph.create(props)
         # write rels
         if hasattr(subj, "__rel__"):
-            batch = neo4j.WriteBatch(self.graph)
+            batch = WriteBatch(self.graph)
             for rel_type, rels in subj.__rel__.items():
                 for rel_props, endpoint in rels:
                     end_node = self._get_node(endpoint)
-                    if not neo4j.familiar(end_node, self.graph):
+                    if end_node not in self.graph:
                         raise ValueError(end_node)
                     batch.create((subj.__node__, rel_type, end_node, rel_props))
             batch.run()
@@ -310,7 +312,7 @@ class Store(object):
         :param value: the index value
         :param subj: one or more objects to save
         """
-        index = self.graph.get_or_create_index(neo4j.Node, index_name)
+        index = self.graph.get_or_create_index(Node, index_name)
         for subj in subj:
             index.add(key, value, self.save(self._get_node(subj)))
 
@@ -323,7 +325,7 @@ class Store(object):
         :param value: the index value
         :param subj: the object to save
         """
-        index = self.graph.get_or_create_index(neo4j.Node, index_name)
+        index = self.graph.get_or_create_index(Node, index_name)
         node = index.get_or_create(key, value, {})
         self.save(subj, node)
 
@@ -337,5 +339,4 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        neo4j.CypherQuery(self.graph,
-                          self.__delete_query).execute(A=node._id)
+        CypherQuery(self.graph, self.__delete_query).execute(A=node._id)

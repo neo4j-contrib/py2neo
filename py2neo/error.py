@@ -19,7 +19,10 @@
 from __future__ import unicode_literals
 
 from py2neo.packages.jsonstream import assembled
-from py2neo.packages.httpstream import JSONResponse
+from py2neo.packages.httpstream import JSONResponse, \
+    ClientError as _ClientError, ServerError as _ServerError
+
+__all__ = ["ServerException", "ClientError", "ServerError", "UnboundError", "UnjoinableError"]
 
 
 class ServerException(object):
@@ -55,7 +58,7 @@ class ServerException(object):
         return self._cause
 
 
-class ClientError(Exception):
+class ClientError(_ClientError):
 
     def __init__(self, response):
         assert response.status_code // 100 == 4
@@ -77,7 +80,7 @@ class ClientError(Exception):
             return getattr(self.__cause__, item)
 
 
-class ServerError(Exception):
+class ServerError(_ServerError):
 
     def __init__(self, response):
         assert response.status_code // 100 == 5
@@ -86,7 +89,7 @@ class ServerError(Exception):
         except TypeError:
             pass
         # TODO: check for unhandled HTML errors (on 500)
-        if response.is_json:
+        if isinstance(response, JSONResponse):
             self._server_exception = ServerException(assembled(response))
             Exception.__init__(self, self._server_exception.message)
         else:

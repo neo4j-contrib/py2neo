@@ -19,8 +19,12 @@
 from py2neo import neo4j
 
 
-def test_can_query_node_index(graph):
-    people = graph.get_or_create_index(neo4j.Node, "people")
+def test_can_query_node_index(legacy_graph):
+    try:
+        legacy_graph.delete_index(neo4j.Node, "people")
+    except LookupError:
+        pass
+    people = legacy_graph.get_or_create_index(neo4j.Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -32,8 +36,12 @@ def test_can_query_node_index(graph):
         assert person in (c, d, f)
 
 
-def test_can_query_node_index_with_score_by_index(graph):
-    people = graph.get_or_create_index(neo4j.Node, "people")
+def test_can_query_node_index_with_score_by_index(legacy_graph):
+    try:
+        legacy_graph.delete_index(neo4j.Node, "people")
+    except LookupError:
+        pass
+    people = legacy_graph.get_or_create_index(neo4j.Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -46,8 +54,12 @@ def test_can_query_node_index_with_score_by_index(graph):
         assert isinstance(score, float)
 
 
-def test_can_query_node_index_with_score_by_relevance(graph):
-    people = graph.get_or_create_index(neo4j.Node, "people")
+def test_can_query_node_index_with_score_by_relevance(legacy_graph):
+    try:
+        legacy_graph.delete_index(neo4j.Node, "people")
+    except LookupError:
+        pass
+    people = legacy_graph.get_or_create_index(neo4j.Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -60,8 +72,12 @@ def test_can_query_node_index_with_score_by_relevance(graph):
         assert isinstance(score, float)
 
 
-def test_can_query_node_index_with_score_by_score(graph):
-    people = graph.get_or_create_index(neo4j.Node, "people")
+def test_can_query_node_index_with_score_by_score(legacy_graph):
+    try:
+        legacy_graph.delete_index(neo4j.Node, "people")
+    except LookupError:
+        pass
+    people = legacy_graph.get_or_create_index(neo4j.Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})

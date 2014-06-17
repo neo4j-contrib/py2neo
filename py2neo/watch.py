@@ -23,6 +23,9 @@ import sys
 import threading
 
 
+__all__ = ["Watcher", "watch"]
+
+
 def blue(s):
     return "\x1b[34m{}\x1b[0m".format(s)
 

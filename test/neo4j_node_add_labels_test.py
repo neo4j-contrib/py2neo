@@ -17,7 +17,7 @@
 
 
 from py2neo import node
-from py2neo.neo4j import UnboundError
+from py2neo.error import UnboundError
 
 
 def test_can_add_labels_to_node(graph):

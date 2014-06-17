@@ -20,8 +20,10 @@ import sys
 
 import pytest
 
-from py2neo import neo4j, node
-from py2neo.packages.httpstream import (NetworkAddressError, SocketError)
+from py2neo import node
+from py2neo.core import authenticate, _get_headers, Graph, Node, Relationship
+from py2neo.cypher import CypherQuery
+from py2neo.legacy import GraphDatabaseService
 
 PY3K = sys.version_info[0] >= 3
 
@@ -31,53 +33,39 @@ logging.basicConfig(
 )
 
 
-def test_wrong_host_will_fail():
-    graph = neo4j.Graph("http://localtoast:7474/db/data/")
-    try:
-        graph.resource.get()
-    except NetworkAddressError:
-        assert True
-    else:
-        assert False
-
-
-def test_wrong_port_will_fail():
-    graph = neo4j.Graph("http://localhost:7575/db/data/")
-    try:
-        graph.resource.get()
-    except SocketError:
-        assert True
-    else:
-        assert False
-
-
-def test_wrong_path_will_fail():
-    graph = neo4j.Graph("http://localhost:7474/foo/bar/")
-    try:
-        graph.resource.get()
-    except neo4j.ClientError:
-        assert True
-    else:
-        assert False
-
-
 def test_can_use_graph_if_no_trailing_slash_supplied(graph):
     alice, = graph.create(node(name="Alice"))
-    assert isinstance(alice, neo4j.Node)
+    assert isinstance(alice, Node)
     assert alice["name"] == "Alice"
 
 
 def test_authentication_adds_the_correct_header():
-    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
-    headers = neo4j._get_headers("localhost:7474")
+    from py2neo.core import _headers
+    _headers.clear()
+    _headers.update({None: [("X-Stream", "true")]})
+    authenticate("localhost:7474", "arthur", "excalibur")
+    headers = _get_headers("localhost:7474")
     assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
 
 
 def test_can_add_same_header_twice():
-    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
-    neo4j.authenticate("localhost:7474", "arthur", "excalibur")
-    headers = neo4j._get_headers("localhost:7474")
+    from py2neo.core import _headers
+    _headers.clear()
+    _headers.update({None: [("X-Stream", "true")]})
+    authenticate("localhost:7474", "arthur", "excalibur")
+    authenticate("localhost:7474", "arthur", "excalibur")
+    headers = _get_headers("localhost:7474")
     assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
+
+
+def test_implicit_authentication_through_resource_constructor():
+    from py2neo.core import _headers, Resource
+    _headers.clear()
+    _headers.update({None: [("X-Stream", "true")]})
+    resource = Resource("http://arthur:excalibur@localhost:7474/")
+    headers = _get_headers("localhost:7474")
+    assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
+    assert resource.headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
 
 
 class TestGraph(object):
@@ -87,8 +75,8 @@ class TestGraph(object):
         self.graph = graph
 
     def test_can_get_same_instance(self):
-        graph_1 = neo4j.Graph(neo4j.DEFAULT_URI)
-        graph_2 = neo4j.Graph(neo4j.DEFAULT_URI)
+        graph_1 = Graph()
+        graph_2 = Graph()
         assert graph_1 is graph_2
 
     def test_neo4j_version_format(self):
@@ -171,7 +159,7 @@ class TestGraph(object):
         assert props[3]["number"] == 109
 
     def test_graph_class_aliases(self):
-        assert issubclass(neo4j.GraphDatabaseService, neo4j.Graph)
+        assert issubclass(GraphDatabaseService, Graph)
 
 
 class TestNewCreate(object):
@@ -186,7 +174,7 @@ class TestNewCreate(object):
         )
         assert results is not None
         assert len(results) == 1
-        assert isinstance(results[0], neo4j.Node)
+        assert isinstance(results[0], Node)
         assert "name" in results[0]
         assert results[0]["name"] == "Alice"
 
@@ -198,13 +186,13 @@ class TestNewCreate(object):
         )
         assert results is not None
         assert len(results) == 3
-        assert isinstance(results[0], neo4j.Node)
+        assert isinstance(results[0], Node)
         assert "name" in results[0]
         assert results[0]["name"] == "Alice"
-        assert isinstance(results[1], neo4j.Node)
+        assert isinstance(results[1], Node)
         assert "name" in results[1]
         assert results[1]["name"] == "Bob"
-        assert isinstance(results[2], neo4j.Relationship)
+        assert isinstance(results[2], Relationship)
         assert results[2].type == "KNOWS"
         assert results[2].start_node == results[0]
         assert results[2].end_node == results[1]
@@ -217,13 +205,13 @@ class TestNewCreate(object):
         )
         assert results is not None
         assert len(results) == 3
-        assert isinstance(results[0], neo4j.Node)
+        assert isinstance(results[0], Node)
         assert "name" in results[0]
         assert results[0]["name"] == "Alice"
-        assert isinstance(results[1], neo4j.Node)
+        assert isinstance(results[1], Node)
         assert "name" in results[1]
         assert results[1]["name"] == "Bob"
-        assert isinstance(results[2], neo4j.Relationship)
+        assert isinstance(results[2], Relationship)
         assert results[2].type == "KNOWS"
         assert results[2].start_node == results[0]
         assert results[2].end_node == results[1]
@@ -238,10 +226,10 @@ class TestNewCreate(object):
         )
         assert results is not None
         assert len(results) == 2
-        assert isinstance(results[0], neo4j.Node)
+        assert isinstance(results[0], Node)
         assert "name" in results[0]
         assert results[0]["name"] == "Alice"
-        assert isinstance(results[1], neo4j.Relationship)
+        assert isinstance(results[1], Relationship)
         assert results[1].type == "PERSON"
         assert results[1].start_node == ref_node
         assert results[1].end_node == results[0]
@@ -262,7 +250,7 @@ class TestNewCreate(object):
         assert results is not None
         assert len(results) == size
         for i in range(size):
-            assert isinstance(results[i], neo4j.Node)
+            assert isinstance(results[i], Node)
 
 
 class TestMultipleNode(object):
@@ -354,7 +342,7 @@ class TestRelatedDelete(object):
         RETURN en, sc, cy, fr, de, es, eng, fre, deu, esp,
                A, B, C, D, E, F, G, H
         '''
-        data = list(neo4j.CypherQuery(self.graph, query).execute())
+        data = list(CypherQuery(self.graph, query).execute())
         entities = data[0]
         for entity in entities:
             assert entity.exists

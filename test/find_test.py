@@ -16,16 +16,22 @@
 # limitations under the License.
 
 
+import pytest
+
+from py2neo import Graph
+
+
+@pytest.skip(not Graph().supports_node_labels)
 def test_can_find_nodes_with_label(graph):
     alice, = graph.create({"name": "Alice"})
     alice.add_labels("Person")
     nodes = list(graph.find("Person"))
-    assert nodes == [alice]
+    assert alice in nodes
 
 
+@pytest.skip(not Graph().supports_node_labels)
 def test_can_find_nodes_with_label_and_property(graph):
     alice, = graph.create({"name": "Alice"})
     alice.add_labels("Person")
     nodes = list(graph.find("Person", "name", "Alice"))
-    assert nodes == [alice]
-
+    assert alice in nodes

@@ -19,7 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo.batch import ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
-from py2neo.neo4j import Node, Relationship
+from py2neo.core import Node, Relationship
 from py2neo.packages.urimagic import percent_encode
 from py2neo.util import deprecated
 

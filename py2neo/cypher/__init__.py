@@ -23,10 +23,16 @@ from __future__ import unicode_literals
 
 from collections import OrderedDict
 import json
+import logging
 
-from py2neo.neo4j import DEFAULT_URI, CypherQuery, ServiceRoot, Resource, Node, Rel, Rev, Relationship, Path
-from py2neo.util import deprecated, is_collection
+from py2neo.core import Bindable, Resource, ServiceRoot
 from py2neo.packages.urimagic import URI
+from py2neo.packages.jsonstream import assembled, grouped
+from py2neo.error import ClientError
+from py2neo.util import is_collection, deprecated
+
+
+cypher_log = logging.getLogger(__name__ + ".cypher")
 
 
 class CypherError(Exception):
@@ -102,153 +108,257 @@ def execute(graph, query, params=None, row_handler=None,
             return [list(record) for record in results], metadata
 
 
-class Representation(object):
+class Cypher(Bindable):
 
-    safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+    __instances = {}
 
-    def __init__(self):
-        self.__buffer = []
+    def __new__(cls, uri):
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(Cypher, cls).__new__(cls)
+            inst.bind(uri)
+            cls.__instances[uri] = inst
+        return inst
 
-    def __repr__(self):
-        return "".join(self.__buffer)
-
-    def write_value(self, value):
-        self.__buffer.append(json.dumps(value))
-
-    def write_identifier(self, identifier):
-        safe = all(ch in self.safe_chars for ch in identifier)
-        if not safe:
-            self.__buffer.append("`")
-            self.__buffer.append(identifier.replace("`", "``"))
-            self.__buffer.append("`")
+    def post(self, query, params=None):
+        if __debug__:
+            cypher_log.debug("Query: " + repr(query))
+        payload = {"query": query}
+        if params:
+            if __debug__:
+                cypher_log.debug("Params: " + repr(params))
+            payload["params"] = params
+        try:
+            response = self.resource.post(payload)
+        except ClientError as e:
+            if e.exception:
+                # A CustomCypherError is a dynamically created subclass of
+                # CypherError with the same name as the underlying server
+                # exception
+                CustomCypherError = type(str(e.exception), (CypherError,), {})
+                raise CustomCypherError(e)
+            else:
+                raise CypherError(e)
         else:
-            self.__buffer.append(identifier)
+            return response
 
-    def write_collection(self, collection):
-        self.__buffer.append("[")
-        link = ""
-        for value in collection:
-            self.__buffer.append(link)
-            self.write(value)
-            link = ","
-        self.__buffer.append("]")
+    def execute(self, query, params=None):
+        return CypherResults(self.graph, self.post(query, params))
 
-    def write_mapping(self, mapping):
-        self.__buffer.append("{")
-        link = ""
-        for key, value in mapping.items():
-            self.__buffer.append(link)
-            self.write_identifier(key)
-            self.__buffer.append(":")
-            self.write(value)
-            link = ","
-        self.__buffer.append("}")
+    def execute_one(self, query, params=None):
+        try:
+            return self.execute(query, params).data[0][0]
+        except IndexError:
+            return None
 
-    def write_node(self, node, name=None):
-        self.__buffer.append("(")
-        if name:
-            self.write_identifier(name)
-        for label in sorted(node.labels):
-            self.__buffer.append(":")
-            self.write_identifier(label)
-        if node.properties:
-            if name or node.labels:
-                self.__buffer.append(" ")
-            self.write_mapping(node.properties)
-        self.__buffer.append(")")
-
-    def write_rel(self, rel, name=None):
-        if isinstance(rel, Rev):
-            self.__buffer.append("<-[")
-        else:
-            self.__buffer.append("-[")
-        if name:
-            self.write_identifier(name)
-        self.__buffer.append(":")
-        self.write_identifier(rel.type)
-        if rel.properties:
-            self.__buffer.append(" ")
-            self.write_mapping(rel.properties)
-        if isinstance(rel, Rev):
-            self.__buffer.append("]-")
-        else:
-            self.__buffer.append("]->")
-
-    def write_path(self, path):
-        nodes = path.nodes
-        self.write_node(nodes[0])
-        for i, rel in enumerate(path.rels):
-            self.write_rel(rel)
-            self.write_node(nodes[i + 1])
-
-    def write_relationship(self, relationship, name=None):
-        self.write_node(relationship.start_node)
-        self.write_rel(relationship.rel, name)
-        self.write_node(relationship.end_node)
-
-    def write(self, obj):
-        if obj is None:
-            pass
-        elif isinstance(obj, Node):
-            self.write_node(obj)
-        elif isinstance(obj, Rel):
-            self.write_rel(obj)
-        elif isinstance(obj, Path):
-            self.write_path(obj)
-        elif isinstance(obj, Relationship):
-            self.write_relationship(obj)
-        elif isinstance(obj, dict):
-            self.write_mapping(obj)
-        elif is_collection(obj):
-            self.write_collection(obj)
-        else:
-            self.write_value(obj)
+    def stream(self, query, params=None):
+        """ Execute the query and return a result iterator.
+        """
+        return IterableCypherResults(self.graph, self.post(query, params))
 
 
-# TODO: add support for Node, NodePointer, Path, Rel, Relationship and Rev
-def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
-    """ Dumps an object as a Cypher expression string.
+class CypherQuery(object):
+    """ A reusable Cypher query. To create a new query object, a graph and the
+    query text need to be supplied::
 
-    :param obj:
-    :param separators:
-    :return:
+        >>> from py2neo import Graph, CypherQuery
+        >>> graph = Graph()
+        >>> query = CypherQuery(graph, "CREATE (a) RETURN a")
+
     """
 
-    def dump_mapping(obj):
-        buffer = ["{"]
-        link = ""
-        for key, value in obj.items():
-            buffer.append(link)
-            if " " in key:
-                buffer.append("`")
-                buffer.append(key.replace("`", "``"))
-                buffer.append("`")
+    def __init__(self, graph, query):
+        self.graph = graph
+        self.__cypher_resource = self.graph.cypher.resource
+        self.query = query
+
+    def __repr__(self):
+        return self.query
+
+    @property
+    def string(self):
+        """ The text of the query.
+        """
+        return self.query
+
+    def post(self, **params):
+        if __debug__:
+            cypher_log.debug("Query: " + repr(self.query))
+            if params:
+                cypher_log.debug("Params: " + repr(params))
+        try:
+            response = self.__cypher_resource.post({"query": self.query, "params": params})
+        except ClientError as e:
+            if e.exception:
+                # A CustomCypherError is a dynamically created subclass of
+                # CypherError with the same name as the underlying server
+                # exception
+                CustomCypherError = type(str(e.exception), (CypherError,), {})
+                raise CustomCypherError(e)
             else:
-                buffer.append(key)
-            buffer.append(separators[1])
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("}")
-        return "".join(buffer)
+                raise CypherError(e)
+        else:
+            return response
 
-    def dump_collection(obj):
-        buffer = ["["]
-        link = ""
-        for value in obj:
-            buffer.append(link)
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("]")
-        return "".join(buffer)
+    def run(self, **params):
+        """ Execute the query and discard any results.
 
-    if isinstance(obj, dict):
-        return dump_mapping(obj)
-    elif is_collection(obj):
-        return dump_collection(obj)
-    else:
-        return json.dumps(obj, ensure_ascii=ensure_ascii)
+        :param params:
+        """
+        self.post(**params).close()
+
+    def execute(self, **params):
+        """ Execute the query and return the results.
+
+        :param params:
+        :return:
+        :rtype: :py:class:`CypherResults <py2neo.neo4j.CypherResults>`
+        """
+        return CypherResults(self.graph, self.post(**params))
+
+    def execute_one(self, **params):
+        """ Execute the query and return the first value from the first row.
+
+        :param params:
+        :return:
+        """
+        try:
+            return self.execute(**params).data[0][0]
+        except IndexError:
+            return None
+
+    def stream(self, **params):
+        """ Execute the query and return a result iterator.
+
+        :param params:
+        :return:
+        :rtype: :py:class:`IterableCypherResults <py2neo.neo4j.IterableCypherResults>`
+        """
+        return IterableCypherResults(self.graph, self.post(**params))
+
+
+class CypherResults(object):
+    """ A static set of results from a Cypher query.
+    """
+
+    # TODO: refactor
+    @classmethod
+    def _hydrated(cls, graph, data):
+        """ Takes assembled data...
+        """
+        producer = RecordProducer(data["columns"])
+        return [
+            producer.produce(graph.hydrate(row))
+            for row in data["data"]
+        ]
+
+    def __init__(self, graph, response):
+        content = response.content
+        self._columns = tuple(content["columns"])
+        self._producer = RecordProducer(self._columns)
+        self._data = [
+            self._producer.produce(graph.hydrate(row))
+            for row in content["data"]
+        ]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, item):
+        return self._data[item]
+
+    @property
+    def columns(self):
+        """ Column names.
+        """
+        return self._columns
+
+    @property
+    def data(self):
+        """ List of result records.
+        """
+        return self._data
+
+    def __iter__(self):
+        return iter(self._data)
+
+
+class IterableCypherResults(object):
+    """ An iterable set of results from a Cypher query.
+
+    ::
+
+        query = graph.cypher.query("START n=node(*) RETURN n LIMIT 10")
+        for record in query.stream():
+            print record[0]
+
+    Each record returned is cast into a :py:class:`namedtuple` with names
+    derived from the resulting column names.
+
+    .. note ::
+        Results are available as returned from the server and are decoded
+        incrementally. This means that there is no need to wait for the
+        entire response to be received before processing can occur.
+    """
+
+    def __init__(self, graph, response):
+        self._graph = graph
+        self._response = response
+        self._redo_buffer = []
+        self._buffered = self._buffered_results()
+        self._columns = None
+        self._fetch_columns()
+        self._producer = RecordProducer(self._columns)
+
+    def _fetch_columns(self):
+        redo = []
+        section = []
+        for key, value in self._buffered:
+            if key and key[0] == "columns":
+                section.append((key, value))
+            else:
+                redo.append((key, value))
+                if key and key[0] == "data":
+                    break
+        self._redo_buffer.extend(redo)
+        self._columns = tuple(assembled(section)["columns"])
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def _buffered_results(self):
+        for result in self._response:
+            while self._redo_buffer:
+                yield self._redo_buffer.pop(0)
+            yield result
+
+    def __iter__(self):
+        for key, section in grouped(self._buffered):
+            if key[0] == "data":
+                for i, row in grouped(section):
+                    yield self._producer.produce(self._graph.hydrate(assembled(row)))
+
+    @property
+    def columns(self):
+        """ Column names.
+        """
+        return self._columns
+
+    def close(self):
+        """ Close results and free resources.
+        """
+        self._response.close()
 
 
 class Session(object):
@@ -264,7 +374,7 @@ class Session(object):
     """
 
     def __init__(self, uri=None):
-        self._uri = URI(uri or DEFAULT_URI)
+        self._uri = URI(uri or ServiceRoot.DEFAULT_URI)
         if self._uri.user_info:
             service_root_uri = "{0}://{1}@{2}:{3}/".format(self._uri.scheme, self._uri.user_info, self._uri.host, self._uri.port)
         else:
@@ -486,3 +596,50 @@ class RecordProducer(object):
         """ Produce a record from a set of values.
         """
         return Record(self, values)
+
+
+# TODO keep in __init__ as wrapper
+# TODO: add support for Node, NodePointer, Path, Rel, Relationship and Rev
+def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
+    """ Dumps an object as a Cypher expression string.
+
+    :param obj:
+    :param separators:
+    :return:
+    """
+
+    def dump_mapping(obj):
+        buffer = ["{"]
+        link = ""
+        for key, value in obj.items():
+            buffer.append(link)
+            if " " in key:
+                buffer.append("`")
+                buffer.append(key.replace("`", "``"))
+                buffer.append("`")
+            else:
+                buffer.append(key)
+            buffer.append(separators[1])
+            buffer.append(dumps(value, separators=separators,
+                                ensure_ascii=ensure_ascii))
+            link = separators[0]
+        buffer.append("}")
+        return "".join(buffer)
+
+    def dump_collection(obj):
+        buffer = ["["]
+        link = ""
+        for value in obj:
+            buffer.append(link)
+            buffer.append(dumps(value, separators=separators,
+                                ensure_ascii=ensure_ascii))
+            link = separators[0]
+        buffer.append("]")
+        return "".join(buffer)
+
+    if isinstance(obj, dict):
+        return dump_mapping(obj)
+    elif is_collection(obj):
+        return dump_collection(obj)
+    else:
+        return json.dumps(obj, ensure_ascii=ensure_ascii)

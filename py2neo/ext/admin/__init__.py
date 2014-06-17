@@ -38,7 +38,7 @@ from __future__ import division, unicode_literals
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo.neo4j import Bindable, Resource, ServiceRoot
+from py2neo.core import Bindable, Resource, ServiceRoot
 from py2neo.util import numberise
 
 

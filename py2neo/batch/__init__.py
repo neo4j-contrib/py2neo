@@ -38,7 +38,8 @@ from __future__ import division, unicode_literals
 import logging
 
 from py2neo.error import ClientError, ServerError, ServerException
-from py2neo.neo4j import CypherResults, Resource, Node, Relationship, _cast, NodePointer, Path
+from py2neo.core import Resource, Node, Relationship, _cast, NodePointer, Path
+from py2neo.cypher import CypherResults
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI
 from py2neo.util import compact, deprecated, has_all, pendulate
@@ -153,9 +154,6 @@ class BatchRequestList(object):
 
     def __init__(self, graph, hydrate=True):
         self.graph = graph
-        # TODO: make function for subresource pattern below
-        self._batch = Resource(graph.resource.metadata["batch"])
-        self._cypher = Resource(graph.resource.metadata["cypher"])
         self.clear()
         self.hydrate = hydrate
 
@@ -196,7 +194,7 @@ class BatchRequestList(object):
             body = {"query": str(query), "params": dict(params)}
         else:
             body = {"query": str(query)}
-        return self.append_post(self._uri_for(self._cypher), body)
+        return self.append_post(self._uri_for(self.graph.cypher), body)
 
     @property
     def _body(self):
@@ -258,7 +256,7 @@ class BatchRequestList(object):
             for id_, request in enumerate(self._requests):
                 batch_log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
         try:
-            response = self._batch.post(self._body)
+            response = self.graph.batch.post(self._body)
         except (ClientError, ServerError) as e:
             if e.exception:
                 # A CustomBatchError is a dynamically created subclass of

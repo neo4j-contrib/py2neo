@@ -19,7 +19,9 @@ import logging
 import pytest
 from logutils.colorize import ColorizingStreamHandler
 
-from py2neo import cypher, neo4j, legacy
+from py2neo import Graph
+from py2neo.cypher import Session
+from py2neo.legacy import GraphDatabaseService
 
 
 DEFAULT_DB = "http://localhost:7474/db/data/"
@@ -87,7 +89,7 @@ def pytest_runtest_setup(item):
     version_markers = item.get_marker("neoversion")
     if version_markers:
         logger.info('minimum neo version required')
-        db = neo4j.Graph(DEFAULT_DB)
+        db = Graph(DEFAULT_DB)
 
         required_version = Decimal(version_markers.args[0])
 
@@ -110,17 +112,17 @@ def pytest_runtest_setup(item):
 
 @pytest.fixture
 def graph(request):
-    graph = neo4j.Graph(DEFAULT_DB)
+    graph = Graph(DEFAULT_DB)
     return graph
 
 
 @pytest.fixture
 def legacy_graph(request):
-    graph = legacy.GraphDatabaseService(DEFAULT_DB)
+    graph = GraphDatabaseService(DEFAULT_DB)
     return graph
 
 
 @pytest.fixture
 def session(request):
-    session = cypher.Session()
+    session = Session()
     return session

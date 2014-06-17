@@ -14,11 +14,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+
 from __future__ import unicode_literals
 
 import pytest
 
-from py2neo import cypher, neo4j
+from py2neo import cypher
+from py2neo.cypher import CypherQuery, CypherError
+from py2neo.core import Node, Relationship, Path
 
 
 def alice_and_bob(graph):
@@ -32,22 +36,22 @@ def alice_and_bob(graph):
 def test_nonsense_query(graph):
     query = "SELECT z=nude(0) RETURNS x"
     try:
-        neo4j.CypherQuery(graph, query).execute()
-    except neo4j.CypherError:
+        CypherQuery(graph, query).execute()
+    except CypherError:
         assert True
     else:
         assert False
 
 
 def test_can_run(graph):
-    query = neo4j.CypherQuery(graph, "CREATE (a {name:'Alice'}) "
+    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     query.run()
     assert True
 
 
 def test_can_execute(graph):
-    query = neo4j.CypherQuery(graph, "CREATE (a {name:'Alice'}) "
+    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     results = query.execute()
     assert len(results) == 1
@@ -56,14 +60,14 @@ def test_can_execute(graph):
 
 
 def test_can_execute_one(graph):
-    query = neo4j.CypherQuery(graph, "CREATE (a {name:'Alice'}) "
+    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     result = query.execute_one()
     assert result == "Alice"
 
 
 def test_can_stream(graph):
-    query = neo4j.CypherQuery(graph, "CREATE (a {name:'Alice'}) "
+    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
                                         "RETURN a.name")
     stream = query.stream()
     results = list(stream)
@@ -76,7 +80,7 @@ def test_many_queries(graph):
     node, = graph.create({})
     query = "START z=node({0}) RETURN z".format(node._id)
     for i in range(40):
-        with neo4j.CypherQuery(graph, query).execute() as records:
+        with CypherQuery(graph, query).execute() as records:
             for record in records:
                 assert record.columns == ("z",)
                 assert record.values == (node,)
@@ -108,9 +112,9 @@ class TestCypher(object):
         assert len(data) == 1
         for row in data:
             assert len(row) == 5
-            assert isinstance(row[0], neo4j.Node)
-            assert isinstance(row[1], neo4j.Node)
-            assert isinstance(row[2], neo4j.Relationship)
+            assert isinstance(row[0], Node)
+            assert isinstance(row[1], Node)
+            assert isinstance(row[2], Relationship)
             assert row[3] == "Alice"
             assert row[4] == "Bob"
         assert len(metadata.columns) == 5
@@ -134,9 +138,9 @@ class TestCypher(object):
         def check_row(row):
             assert isinstance(row, list)
             assert len(row) == 5
-            assert isinstance(row[0], neo4j.Node)
-            assert isinstance(row[1], neo4j.Node)
-            assert isinstance(row[2], neo4j.Relationship)
+            assert isinstance(row[0], Node)
+            assert isinstance(row[1], Node)
+            assert isinstance(row[2], Relationship)
             assert row[0] == a
             assert row[1] == b
             assert row[2] == ab
@@ -165,9 +169,9 @@ class TestCypher(object):
         def check_row(row):
             assert isinstance(row, list)
             assert len(row) == 5
-            assert isinstance(row[0], neo4j.Node)
-            assert isinstance(row[1], neo4j.Node)
-            assert isinstance(row[2], neo4j.Relationship)
+            assert isinstance(row[0], Node)
+            assert isinstance(row[1], Node)
+            assert isinstance(row[2], Relationship)
             assert row[0] == a
             assert row[1] == b
             assert row[2] == ab
@@ -192,7 +196,7 @@ class TestCypher(object):
         assert len(data) == 1
         for row in data:
             assert len(row) == 1
-            assert isinstance(row[0], neo4j.Path)
+            assert isinstance(row[0], Path)
             assert len(row[0].nodes) == 2
             assert row[0].nodes[0] == a
             assert row[0].nodes[1] == b

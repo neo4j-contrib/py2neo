@@ -19,7 +19,8 @@
 from __future__ import division, unicode_literals
 
 from py2neo.legacy.index import Index
-from py2neo.neo4j import Graph, Node, Relationship, Resource, PropertyContainer, CypherQuery
+from py2neo.core import Graph, Node, Relationship, Resource, PropertyContainer
+from py2neo.cypher import CypherQuery
 from py2neo.packages.jsonstream import assembled
 
 

@@ -23,7 +23,7 @@ import logging
 import re
 from uuid import uuid4
 
-from py2neo import neo4j
+from py2neo.legacy import LegacyWriteBatch
 from py2neo.batch import BatchError
 from py2neo.util import deprecated
 from py2neo.xmlutil import xml_to_geoff
@@ -203,7 +203,7 @@ class Subgraph(object):
 
     def _execute_load_batch(self, graph, unique):
         # build batch request
-        batch = neo4j.LegacyWriteBatch(graph)
+        batch = LegacyWriteBatch(graph)
         # 1. indexed nodes
         index_entries = list(self.index_entries.values())
         for entry in index_entries:

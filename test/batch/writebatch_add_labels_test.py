@@ -16,23 +16,25 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
+import pytest
+
+from py2neo import Graph, WriteBatch
 
 
-def test_can_remove_labels_from_preexisting_node(graph):
+@pytest.skip(not Graph().supports_node_labels)
+def test_can_add_labels_to_preexisting_node(graph):
     alice, = graph.create({"name": "Alice"})
-    alice.add_labels("human", "female")
-    batch = neo4j.WriteBatch(graph)
-    batch.remove_label(alice, "human")
-    batch.run()
-    assert alice.get_labels() == {"female"}
-
-
-def test_can_add_labels_to_node_in_same_batch(graph):
-    batch = neo4j.WriteBatch(graph)
-    alice = batch.create({"name": "Alice"})
+    batch = WriteBatch(graph)
     batch.add_labels(alice, "human", "female")
-    batch.remove_label(alice, "female")
+    batch.run()
+    assert alice.get_labels() == {"human", "female"}
+
+
+@pytest.skip(not Graph().supports_node_labels)
+def test_can_add_labels_to_node_in_same_batch(graph):
+    batch = WriteBatch(graph)
+    a = batch.create({"name": "Alice"})
+    batch.add_labels(a, "human", "female")
     results = batch.submit()
-    alice = results[batch.find(alice)]
-    assert alice.get_labels() == {"human"}
+    alice = results[batch.find(a)]
+    assert alice.get_labels() == {"human", "female"}

@@ -22,6 +22,7 @@ from py2neo import node
 def test_can_set_labels_on_node(graph):
     if not graph.supports_node_labels:
         return
+    graph.delete(*graph.find("badger"))
     alice, = graph.create(node(name="Alice"))
     alice.add_labels("human", "female")
     labels = alice.get_labels()

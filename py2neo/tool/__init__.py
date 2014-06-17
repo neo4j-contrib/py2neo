@@ -29,9 +29,10 @@ import os
 import readline
 import sys
 
-from py2neo import __version__, __copyright__, neo4j
+from py2neo import __version__, __copyright__
+from py2neo.core import authenticate, ServiceRoot, Node
 from py2neo.ext import geoff
-from py2neo.exceptions import CypherError
+from py2neo.cypher import CypherError, CypherQuery
 from py2neo.util import ustr
 from py2neo.xmlutil import xml_to_cypher, xml_to_geoff
 
@@ -267,8 +268,8 @@ class Tool(object):
         host_port = "{0}:{1}".format(self._host, self._port)
         uri = "{0}://{1}".format(self._scheme, host_port)
         if self._user and self._password:
-            neo4j.authenticate(host_port, self._user, self._password)
-        return neo4j.ServiceRoot(uri).graph
+            authenticate(host_port, self._user, self._password)
+        return ServiceRoot(uri).graph
 
     def _version(self):
         """ Show tool version
@@ -344,12 +345,12 @@ class Tool(object):
     def clear(self):
         """ Clear all nodes and relationships.
         """
-        self._graph.clear()
+        self._graph.delete_all()
 
     def _cypher(self, format_, query, params=None):
         if query == "-":
             query = self._in.read()
-        record_set = neo4j.CypherQuery(self._graph, query).execute(**params or {})
+        record_set = CypherQuery(self._graph, query).execute(**params or {})
         writer = ResultWriter(self._out)
         writer.write(format_, record_set)
 
@@ -554,7 +555,7 @@ class Shell(object):
             if get_input("Are you sure you want to clear everything "
                          "from the database [y/N]? ").upper().startswith("Y"):
                 print("Clearing all nodes and relationships")
-                self.graph.clear()
+                self.graph.delete_all()
             else:
                 print("Clear aborted")
         elif command == "REMOVE":
@@ -581,7 +582,7 @@ class Shell(object):
             if not isinstance(params, dict):
                 params = {}
             try:
-                record_set = neo4j.CypherQuery(self.graph, query).execute(**params)
+                record_set = CypherQuery(self.graph, query).execute(**params)
             except CypherError as err:
                 print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
                 print("")
@@ -593,7 +594,7 @@ class Shell(object):
         query = "START n=node({i}) RETURN n"
         params = {"i": node_id}
         try:
-            record_set = neo4j.CypherQuery(self.graph, query).execute(**params)
+            record_set = CypherQuery(self.graph, query).execute(**params)
         except CypherError as err:
             print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
             print("")
@@ -612,8 +613,7 @@ class Shell(object):
         if properties:
             max_key_len = max(len(key) for key in properties.keys())
             for key, value in sorted(properties.items()):
-                print("  {0} : {1}".format(key.ljust(max_key_len),
-                                         json.dumps(value)))
+                print("  {0} : {1}".format(key.ljust(max_key_len), json.dumps(value)))
         print("Relationships:")
         for r in n.match():
             print("  {0}".format(r))
@@ -623,7 +623,7 @@ class Shell(object):
         command = line.pop()
         index_name = line.pop()
         if index_name:
-            index = self.graph.get_index(neo4j.Node, index_name)
+            index = self.graph.get_index(Node, index_name)
             if not index:
                 print("\x1b[31;1mNode index {0} not found\x1b[0m".format(repr(index_name)))
                 print("")

@@ -19,7 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo.legacy.batch import LegacyWriteBatch
-from py2neo.neo4j import Bindable, Node, Relationship, Resource, ResourceTemplate
+from py2neo.core import Bindable, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.urimagic import percent_encode, URI

@@ -24,9 +24,13 @@ __package__ = "py2neo"
 __version__ = "1.7.0"
 
 
-# TODO
-from py2neo.neo4j import ServiceRoot, Graph, Node, Rel, Rev, Path, Relationship, NodePointer, UnjoinableError, CypherQuery
-from py2neo.watch import watch
+from py2neo.batch import *
+from py2neo.core import *
+from py2neo.cypher import *
+from py2neo.error import *
+from py2neo.legacy import *
+from py2neo.watch import *
+
 
 node = Node.cast
 rel = Relationship.cast

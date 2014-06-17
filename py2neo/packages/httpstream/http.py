@@ -108,7 +108,7 @@ connection_classes = {
 default_encoding = "ISO-8859-1"
 default_chunk_size = 4096
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("httpstream")
 try:
     log.addHandler(logging.NullHandler())
 except AttributeError:

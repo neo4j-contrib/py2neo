@@ -28,6 +28,10 @@ class TestGetIndexedNode(object):
         self.graph = legacy_graph
 
     def test_can_retrieve_multiple_indexed_nodes(self):
+        try:
+            self.graph.delete_index(neo4j.Node, "People")
+        except LookupError:
+            pass
         people = self.graph.get_or_create_index(neo4j.Node, "People")
         alice, bob, carol, dave, eve = self.graph.create(
             {"name": "Alice Smith"},

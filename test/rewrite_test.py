@@ -16,21 +16,19 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
+from py2neo import rewrite, Resource
 
 
-def test_can_add_labels_to_preexisting_node(graph):
-    alice, = graph.create({"name": "Alice"})
-    batch = neo4j.WriteBatch(graph)
-    batch.add_labels(alice, "human", "female")
-    batch.run()
-    assert alice.get_labels() == {"human", "female"}
+def test_can_rewrite_uri():
+    rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
+    assert Resource("https://localtoast:4747/").uri == "http://localhost:7474/"
 
 
-def test_can_add_labels_to_node_in_same_batch(graph):
-    batch = neo4j.WriteBatch(graph)
-    a = batch.create({"name": "Alice"})
-    batch.add_labels(a, "human", "female")
-    results = batch.submit()
-    alice = results[batch.find(a)]
-    assert alice.get_labels() == {"human", "female"}
+def test_can_remove_rewrite_uri():
+    rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
+    rewrite(("https", "localtoast", 4747), None)
+    assert Resource("https://localtoast:4747/").uri == "https://localtoast:4747/"
+
+
+def test_can_remove_unknown_rewrite_uri():
+    rewrite(("https", "localnonsense", 4747), None)

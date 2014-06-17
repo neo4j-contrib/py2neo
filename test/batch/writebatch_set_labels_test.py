@@ -16,20 +16,24 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
+import pytest
+
+from py2neo import Graph, WriteBatch
 
 
+@pytest.skip(not Graph().supports_node_labels)
 def test_can_set_labels_on_preexisting_node(graph):
     if not graph.supports_node_labels:
         return
     alice, = graph.create({"name": "Alice"})
     alice.add_labels("human", "female")
-    batch = neo4j.WriteBatch(graph)
+    batch = WriteBatch(graph)
     batch.set_labels(alice, "mystery", "badger")
     batch.run()
     assert alice.get_labels() == {"mystery", "badger"}
 
 
+# @pytest.skip(not Graph().supports_node_labels)
 # def test_can_set_labels_on_node_in_same_batch():
 #     graph = neo4j.Graph()
 #     if not graph.supports_node_labels:
