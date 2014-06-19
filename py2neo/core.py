@@ -183,6 +183,7 @@ class Resource(_Resource):
             self.__service_root = self
         else:
             self.__service_root = ServiceRoot(service_root_uri)
+        self.__relative_uri = NotImplemented
 
     @property
     def headers(self):
@@ -191,6 +192,21 @@ class Resource(_Resource):
     @property
     def service_root(self):
         return self.__service_root
+
+    @property
+    def graph(self):
+        return self.__service_root.graph
+
+    @property
+    def relative_uri(self):
+        if self.__relative_uri is NotImplemented:
+            self_uri = self.uri.string
+            graph_uri = self.graph.uri.string
+            if self_uri.startswith(graph_uri):
+                self.__relative_uri = URI(self_uri[len(graph_uri):])
+            else:
+                self.__relative_uri = None
+        return self.__relative_uri
 
     @property
     def metadata(self):
@@ -282,6 +298,10 @@ class Bindable(object):
     @property
     def uri(self):
         return self.resource.uri
+
+    @property
+    def relative_uri(self):
+        return self.resource.relative_uri
 
     @property
     def resource(self):
@@ -865,22 +885,23 @@ class Graph(Bindable):
         """
         return "transaction" in self.resource.metadata
 
-    def relative_uri(self, uri):
-        # "http://localhost:7474/db/data/", "node/1"
-        # TODO: confirm is URI
-        self_uri = self.resource.uri.string
-        if uri.startswith(self_uri):
-            return uri[len(self_uri):]
-        else:
-            # TODO: specialist error
-            raise ValueError(uri + " does not belong to this graph")
-
     # TODO: add support for CypherResults and BatchResponse
     def hydrate(self, data):
+
+        def relative_uri(uri):
+            # "http://localhost:7474/db/data/", "node/1"
+            # TODO: confirm is URI
+            self_uri = self.resource.uri.string
+            if uri.startswith(self_uri):
+                return uri[len(self_uri):]
+            else:
+                # TODO: specialist error
+                raise ValueError(uri + " does not belong to this graph")
+
         if isinstance(data, dict):
             if "self" in data:
                 # entity (node or rel)
-                tag, i = self.relative_uri(data["self"]).partition("/")[0::2]
+                tag, i = relative_uri(data["self"]).partition("/")[0::2]
                 if tag == "":
                     return self  # uri refers to graph
                 elif tag == "node":
