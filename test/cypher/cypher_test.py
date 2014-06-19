@@ -20,7 +20,6 @@ from __future__ import unicode_literals
 
 import pytest
 
-from py2neo import cypher
 from py2neo.cypher import CypherQuery, CypherError
 from py2neo.core import Node, Relationship, Path
 
@@ -94,122 +93,55 @@ class TestCypher(object):
         self.graph = graph
 
     def test_nonsense_query_with_error_handler(self):
-        def print_error(message, exception, stacktrace):
-            print(message)
-            assert len(message) > 0
-        cypher.execute(self.graph, (
-            "SELECT z=nude(0) "
-            "RETURNS x"
-        ), error_handler=print_error)
+        with pytest.raises(CypherError):
+            self.graph.cypher.execute("SELECT z=nude(0) RETURNS x")
 
     def test_query(self):
         a, b, ab = alice_and_bob(self.graph)
-        data, metadata = cypher.execute(self.graph, (
+        results = self.graph.cypher.execute((
             "start a=node({0}),b=node({1}) "
             "match a-[ab:KNOWS]->b "
             "return a,b,ab,a.name,b.name"
         ).format(a._id, b._id))
-        assert len(data) == 1
-        for row in data:
+        assert len(results) == 1
+        for row in results:
             assert len(row) == 5
             assert isinstance(row[0], Node)
             assert isinstance(row[1], Node)
             assert isinstance(row[2], Relationship)
             assert row[3] == "Alice"
             assert row[4] == "Bob"
-        assert len(metadata.columns) == 5
-        assert metadata.columns[0] == "a"
-        assert metadata.columns[1] == "b"
-        assert metadata.columns[2] == "ab"
-        assert metadata.columns[3] == "a.name"
-        assert metadata.columns[4] == "b.name"
-
-    def test_query_with_handlers(self):
-        a, b, ab = alice_and_bob(self.graph)
-
-        def check_metadata(metadata):
-            assert len(metadata.columns) == 5
-            assert metadata.columns[0] == "a"
-            assert metadata.columns[1] == "b"
-            assert metadata.columns[2] == "ab"
-            assert metadata.columns[3] == "a.name"
-            assert metadata.columns[4] == "b.name"
-
-        def check_row(row):
-            assert isinstance(row, list)
-            assert len(row) == 5
-            assert isinstance(row[0], Node)
-            assert isinstance(row[1], Node)
-            assert isinstance(row[2], Relationship)
-            assert row[0] == a
-            assert row[1] == b
-            assert row[2] == ab
-            assert row[3] == "Alice"
-            assert row[4] == "Bob"
-
-        query = (
-            "START a=node({0}), b=node({1}) "
-            "MATCH a-[ab]-b "
-            "RETURN a,b,ab,a.name,b.name"
-        ).format(a._id, b._id)
-        cypher.execute(self.graph, query,
-                       row_handler=check_row, metadata_handler=check_metadata)
-
-    def test_query_with_params(self):
-        a, b, ab = alice_and_bob(self.graph)
-
-        def check_metadata(metadata):
-            assert len(metadata.columns) == 5
-            assert metadata.columns[0] == "a"
-            assert metadata.columns[1] == "b"
-            assert metadata.columns[2] == "ab"
-            assert metadata.columns[3] == "a.name"
-            assert metadata.columns[4] == "b.name"
-
-        def check_row(row):
-            assert isinstance(row, list)
-            assert len(row) == 5
-            assert isinstance(row[0], Node)
-            assert isinstance(row[1], Node)
-            assert isinstance(row[2], Relationship)
-            assert row[0] == a
-            assert row[1] == b
-            assert row[2] == ab
-            assert row[3] == "Alice"
-            assert row[4] == "Bob"
-
-        query = (
-            "START a=node({A}),b=node({B}) "
-            "MATCH a-[ab]-b "
-            "RETURN a,b,ab,a.name,b.name"
-        )
-        cypher.execute(self.graph, query, {"A": a._id, "B": b._id},
-                       row_handler=check_row, metadata_handler=check_metadata)
+        assert len(results.columns) == 5
+        assert results.columns[0] == "a"
+        assert results.columns[1] == "b"
+        assert results.columns[2] == "ab"
+        assert results.columns[3] == "a.name"
+        assert results.columns[4] == "b.name"
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph)
-        data, metadata = cypher.execute(self.graph, (
+        results = self.graph.cypher.execute((
             "start a=node({0}),b=node({1}) "
             "match p=(a-[ab:KNOWS]->b) "
             "return p"
         ).format(a._id, b._id))
-        assert len(data) == 1
-        for row in data:
+        assert len(results) == 1
+        for row in results:
             assert len(row) == 1
             assert isinstance(row[0], Path)
             assert len(row[0].nodes) == 2
             assert row[0].nodes[0] == a
             assert row[0].nodes[1] == b
             assert row[0].relationships[0].type == "KNOWS"
-        assert len(metadata.columns) == 1
-        assert metadata.columns[0] == "p"
+        assert len(results.columns) == 1
+        assert results.columns[0] == "p"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
         query = "START a = node({N}) RETURN collect(a);"
         params = {"N": node._id}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0][0] == [node]
+        results = self.graph.cypher.execute(query, params)
+        assert results[0][0] == [node]
 
     def test_param_used_once(self):
         node, = self.graph.create({})
@@ -218,8 +150,10 @@ class TestCypher(object):
             "RETURN a"
         )
         params = {"X": node._id}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0] == [node]
+        results = self.graph.cypher.execute(query, params)
+        record = results[0]
+        assert record.columns == ("a",)
+        assert record.values == (node,)
 
     def test_param_used_twice(self):
         node, = self.graph.create({})
@@ -228,8 +162,10 @@ class TestCypher(object):
             "RETURN a, b"
         )
         params = {"X": node._id}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0] == [node, node]
+        results = self.graph.cypher.execute(query, params)
+        record = results[0]
+        assert record.columns == ("a", "b")
+        assert record.values == (node, node)
 
     def test_param_used_thrice(self):
         node, = self.graph.create({})
@@ -238,8 +174,10 @@ class TestCypher(object):
             "RETURN a, b, c"
         )
         params = {"X": node._id}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0] == [node, node, node]
+        results = self.graph.cypher.execute(query, params)
+        record = results[0]
+        assert record.columns == ("a", "b", "c")
+        assert record.values == (node, node, node)
 
     def test_param_reused_once_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -253,8 +191,9 @@ class TestCypher(object):
             "RETURN b"
         )
         params = {"A": a._id, "min_age": 50}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0] == [b]
+        results = self.graph.cypher.execute(query, params)
+        record = results[0]
+        assert record.values == (b,)
 
     def test_param_reused_twice_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -275,26 +214,7 @@ class TestCypher(object):
             "RETURN c"
         )
         params = {"A": a._id, "min_age": 50}
-        data, metadata = cypher.execute(self.graph, query, params)
-        assert data[0] == [c]
+        results = self.graph.cypher.execute(query, params)
+        record = results[0]
+        assert record.values == (c,)
 
-
-class TestCypherDump(object):
-
-    def test_can_dump_string(self):
-        assert cypher.dumps('hello') == '"hello"'
-
-    def test_can_dump_number(self):
-        assert cypher.dumps(42) == '42'
-
-    def test_can_dump_map(self):
-        assert cypher.dumps({"one": 1}) == '{one: 1}'
-
-    def test_can_dump_map_with_space_in_key(self):
-        assert cypher.dumps({"number one": 1}) == '{`number one`: 1}'
-
-    def test_can_dump_map_with_backticks_in_key(self):
-        assert cypher.dumps({"number `one`": 1}) == '{`number ``one```: 1}'
-
-    def test_can_dump_list(self):
-        assert cypher.dumps([4, 5, 6]) == '[4, 5, 6]'

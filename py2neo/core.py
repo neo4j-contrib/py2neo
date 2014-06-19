@@ -1417,7 +1417,7 @@ class Node(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.cypher.expression import Representation
+        from py2neo.cypher import Representation
         r = Representation()
         if self.bound:
             r.write_node(self, "n" + ustr(self._id))
@@ -1803,7 +1803,7 @@ class Rel(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.cypher.expression import Representation
+        from py2neo.cypher import Representation
         r = Representation()
         if self.bound:
             r.write_rel(self, "r" + ustr(self._id))
@@ -2002,7 +2002,7 @@ class Path(object):
         self.__metadata = None
 
     def __repr__(self):
-        from py2neo.cypher.expression import Representation
+        from py2neo.cypher import Representation
         r = Representation()
         r.write_path(self)
         return repr(r)
@@ -2249,7 +2249,7 @@ class Relationship(Path):
         self.rel.properties.update(properties)
 
     def __repr__(self):
-        from py2neo.cypher.expression import Representation
+        from py2neo.cypher import Representation
         r = Representation()
         if self.bound:
             r.write_relationship(self, "r" + ustr(self._id))
