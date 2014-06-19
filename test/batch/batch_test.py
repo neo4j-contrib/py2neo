@@ -77,12 +77,10 @@ class TestRelationshipCreation(object):
             legacy_graph.delete_index(Relationship, "friendships")
         except LookupError:
             pass
-        self.batch.get_or_create_indexed_node(
-            "people", "name", "Alice", {"name": "Alice"})
-        self.batch.get_or_create_indexed_node(
-            "people", "name", "Bob", {"name": "Bob"})
-        self.batch.get_or_create_indexed_relationship(
-            "friendships", "names", "alice_bob", 0, "KNOWS", 1)
+        self.batch.get_or_create_in_index(Node, "people", "name", "Alice", {"name": "Alice"})
+        self.batch.get_or_create_in_index(Node, "people", "name", "Bob", {"name": "Bob"})
+        self.batch.get_or_create_in_index(Relationship, "friendships",
+                                          "names", "alice_bob", (0, "KNOWS", 1))
         #self.batch.create((0, "KNOWS", 1))
         alice, bob, knows = self.batch.submit()
         assert isinstance(knows, Relationship)
@@ -361,7 +359,7 @@ class TestIndexedNodeCreation(object):
         properties = {"name": "Alice Smith"}
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(properties)
-        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         alice, index_entry = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice.get_properties() == properties
@@ -372,7 +370,7 @@ class TestIndexedNodeCreation(object):
         alice_props = {"name": "Alice Smith"}
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(alice_props)
-        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         alice, alice_index_entry = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice.get_properties() == alice_props
@@ -381,7 +379,7 @@ class TestIndexedNodeCreation(object):
         bob_props = {"name": "Bob Smith"}
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(bob_props)
-        self.batch.add_indexed_node(self.people, "surname", "Smith", 0)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         bob, bob_index_entry = self.batch.submit()
         assert isinstance(bob, Node)
         assert bob.get_properties() == bob_props
@@ -396,16 +394,14 @@ class TestIndexedNodeCreation(object):
     def test_can_get_or_create_uniquely_indexed_node(self):
         # create Alice
         alice_props = {"name": "Alice Smith"}
-        self.batch.get_or_create_indexed_node(
-            self.people, "surname", "Smith", alice_props)
+        self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", alice_props)
         alice, = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice.get_properties() == alice_props
         self.batch.clear()
         # create Bob
         bob_props = {"name": "Bob Smith"}
-        self.batch.get_or_create_indexed_node(
-            self.people, "surname", "Smith", bob_props)
+        self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", bob_props)
         bob, = self.batch.submit()
         assert isinstance(bob, Node)
         assert bob.get_properties() != bob_props
@@ -433,7 +429,7 @@ class TestIndexedNodeAddition(object):
 
     def test_can_add_single_node(self):
         alice, = self.graph.create({"name": "Alice Smith"})
-        self.batch.add_indexed_node(self.people, "surname", "Smith", alice)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", alice)
         self.batch.run()
         # check entries
         smiths = self.people.get("surname", "Smith")
@@ -445,8 +441,8 @@ class TestIndexedNodeAddition(object):
     def test_can_add_two_similar_nodes(self):
         alice, bob = self.graph.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"})
-        self.batch.add_indexed_node(self.people, "surname", "Smith", alice)
-        self.batch.add_indexed_node(self.people, "surname", "Smith", bob)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", alice)
+        self.batch.add_to_index(Node, self.people, "surname", "Smith", bob)
         nodes = self.batch.submit()
         assert nodes[0] != nodes[1]
         # check entries
@@ -460,10 +456,8 @@ class TestIndexedNodeAddition(object):
     def test_can_add_nodes_only_if_none_exist(self):
         alice, bob = self.graph.create(
             {"name": "Alice Smith"}, {"name": "Bob Smith"})
-        self.batch.get_or_add_indexed_node(
-            self.people, "surname", "Smith", alice)
-        self.batch.get_or_add_indexed_node(
-            self.people, "surname", "Smith", bob)
+        self.batch.get_or_add_to_index(Node, self.people, "surname", "Smith", alice)
+        self.batch.get_or_add_to_index(Node, self.people, "surname", "Smith", bob)
         nodes = self.batch.submit()
         assert nodes[0] == nodes[1]
         # check entries
@@ -530,10 +524,8 @@ class TestIndexedRelationshipAddition(object):
         self.graph = legacy_graph
 
     def test_can_add_single_relationship(self, legacy_graph):
-        alice, bob, ab = self.graph.create(
-            {"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
-        self.batch.add_indexed_relationship(
-            self.friendships, "friends", "alice_&_bob", ab)
+        alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
+        self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab)
         self.batch.run()
         # check entries
         rels = self.friendships.get("friends", "alice_&_bob")
@@ -546,10 +538,8 @@ class TestIndexedRelationshipAddition(object):
         alice, bob, ab1, ab2 = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"},
             (0, "KNOWS", 1), (0, "KNOWS", 1))
-        self.batch.add_indexed_relationship(
-            self.friendships, "friends", "alice_&_bob", ab1)
-        self.batch.add_indexed_relationship(
-            self.friendships, "friends", "alice_&_bob", ab2)
+        self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab1)
+        self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab2)
         self.batch.run()
         # check entries
         entries = self.friendships.get("friends", "alice_&_bob")
@@ -563,10 +553,10 @@ class TestIndexedRelationshipAddition(object):
         alice, bob, ab1, ab2 = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"},
             (0, "KNOWS", 1), (0, "KNOWS", 1))
-        self.batch.get_or_add_indexed_relationship(
-            self.friendships, "friends", "alice_&_bob", ab1)
-        self.batch.get_or_add_indexed_relationship(
-            self.friendships, "friends", "alice_&_bob", ab2)
+        self.batch.get_or_add_to_index(Relationship, self.friendships,
+                                       "friends", "alice_&_bob", ab1)
+        self.batch.get_or_add_to_index(Relationship, self.friendships,
+                                       "friends", "alice_&_bob", ab2)
         results = self.batch.submit()
         assert results[0] == results[1]
         # check entries
@@ -605,8 +595,8 @@ class TestIndexedNodeRemoval(object):
             assert entity in e
 
     def test_remove_key_value_entity(self):
-        self.batch.remove_indexed_node(
-            self.index, key="name", value="Flintstone", node=self.fred)
+        self.batch.remove_from_index(Node, self.index, key="name",
+                                     value="Flintstone", entity=self.fred)
         self.batch.run()
         self.check("name", "Fred", self.fred)
         self.check("name", "Wilma", self.wilma)
@@ -614,7 +604,7 @@ class TestIndexedNodeRemoval(object):
         self.check("flintstones", "%", self.fred, self.wilma)
 
     def test_remove_key_entity(self):
-        self.batch.remove_indexed_node(self.index, key="name", node=self.fred)
+        self.batch.remove_from_index(Node, self.index, key="name", entity=self.fred)
         self.batch.run()
         self.check("name", "Fred")
         self.check("name", "Wilma", self.wilma)
@@ -622,7 +612,7 @@ class TestIndexedNodeRemoval(object):
         self.check("flintstones", "%", self.fred, self.wilma)
 
     def test_remove_entity(self):
-        self.batch.remove_indexed_node(self.index, node=self.fred)
+        self.batch.remove_from_index(Node, self.index, entity=self.fred)
         self.batch.run()
         self.check("name", "Fred")
         self.check("name", "Wilma", self.wilma)

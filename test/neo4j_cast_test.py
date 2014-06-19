@@ -16,28 +16,28 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
+from py2neo import Graph, Node, Relationship
 
 
 def test_can_cast_node(graph):
     alice, = graph.create({"name": "Alice"})
-    casted = neo4j._cast(alice)
-    assert isinstance(casted, neo4j.Node)
+    casted = Graph.cast(alice)
+    assert isinstance(casted, Node)
     assert not casted.is_abstract
     assert casted["name"] == "Alice"
 
 
 def test_can_cast_dict():
-    casted = neo4j._cast({"name": "Alice"})
-    assert isinstance(casted, neo4j.Node)
+    casted = Graph.cast({"name": "Alice"})
+    assert isinstance(casted, Node)
     assert casted.is_abstract
     assert casted["name"] == "Alice"
 
 
 def test_can_cast_rel(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
-    casted = neo4j._cast(ab)
-    assert isinstance(casted, neo4j.Relationship)
+    casted = Graph.cast(ab)
+    assert isinstance(casted, Relationship)
     assert not casted.is_abstract
     assert casted.start_node == a
     assert casted.type == "KNOWS"
@@ -45,19 +45,19 @@ def test_can_cast_rel(graph):
 
 
 def test_can_cast_3_tuple():
-    casted = neo4j._cast(("Alice", "KNOWS", "Bob"))
-    assert isinstance(casted, neo4j.Relationship)
+    casted = Graph.cast(("Alice", "KNOWS", "Bob"))
+    assert isinstance(casted, Relationship)
     assert casted.is_abstract
-    assert casted.start_node == neo4j.Node("Alice")
+    assert casted.start_node == Node("Alice")
     assert casted.type == "KNOWS"
-    assert casted.end_node == neo4j.Node("Bob")
+    assert casted.end_node == Node("Bob")
 
 
 def test_can_cast_4_tuple():
-    casted = neo4j._cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
-    assert isinstance(casted, neo4j.Relationship)
+    casted = Graph.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
+    assert isinstance(casted, Relationship)
     assert casted.is_abstract
-    assert casted.start_node == neo4j.Node("Alice")
+    assert casted.start_node == Node("Alice")
     assert casted.type == "KNOWS"
-    assert casted.end_node == neo4j.Node("Bob")
+    assert casted.end_node == Node("Bob")
     assert casted["since"] == 1999

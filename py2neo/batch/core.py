@@ -21,11 +21,11 @@ from __future__ import division, unicode_literals
 import logging
 
 from py2neo.error import ClientError, ServerError
-from py2neo.core import Resource, Node, Relationship, _cast, NodePointer, Path
+from py2neo.core import Resource, Node, Relationship, NodePointer, Path
 from py2neo.cypher import CypherResults
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI
-from py2neo.util import compact, deprecated, has_all, pendulate, ustr
+from py2neo.util import compact, has_all, pendulate, ustr
 from py2neo.batch.error import BatchError
 
 
@@ -161,7 +161,6 @@ class BatchRequestList(object):
                 return i
         raise ValueError("Request not found")
 
-    # TODO merge with Graph.relative_uri
     def _uri_for(self, resource, *segments, **kwargs):
         """ Return a relative URI in string format for the entity specified
         plus extra path segments.
@@ -172,13 +171,8 @@ class BatchRequestList(object):
             uri = "{{{0}}}".format(resource.address)
         elif isinstance(resource, BatchRequest):
             uri = "{{{0}}}".format(self.find(resource))
-        elif isinstance(resource, Node):
-            # TODO: remove when Rel is also Bindable
-            offset = len(resource.graph.resource.uri.string)
-            uri = resource.resource.uri.string[offset:]
         else:
-            offset = len(resource.service_root.graph.resource.uri)
-            uri = str(resource.uri)[offset:]
+            uri = resource.relative_uri.string
         if segments:
             if not uri.endswith("/"):
                 uri += "/"
@@ -320,8 +314,9 @@ class WriteBatch(BatchRequestList):
         :type abstract: abstract
         :return: batch request object
         """
-        entity = _cast(abstract, abstract=True)
+        entity = self.graph.cast(abstract)
         if isinstance(entity, Node):
+            # TODO: cache this uri
             uri = self._uri_for(Resource(self.graph.resource.metadata["node"]))
             body = entity.properties
         elif isinstance(entity, Relationship):
@@ -364,49 +359,6 @@ class WriteBatch(BatchRequestList):
         """
         query, params = Path(node, *rels_and_nodes)._create_query(unique=True)
         self.append_cypher(query, params)
-
-    @deprecated("WriteBatch.get_or_create is deprecated, please use "
-                "get_or_create_path instead")
-    def get_or_create(self, rel_abstract):
-        """ Use the abstract supplied to create a new relationship if one does
-        not already exist.
-
-        :param rel_abstract: relationship abstract to be fetched or created
-        """
-        rel = _cast(rel_abstract, cls=Relationship, abstract=True)
-        if not (isinstance(rel.start_node, Node) or rel.start_node is None):
-            raise TypeError("Relationship start node must be a "
-                            "Node instance or None")
-        if not (isinstance(rel.end_node, Node) or rel.end_node is None):
-            raise TypeError("Relationship end node must be a "
-                            "Node instance or None")
-        if rel.start_node and rel.end_node:
-            query = (
-                "START a=node({A}), b=node({B}) "
-                "CREATE UNIQUE (a)-[ab:`" + str(rel.type) + "` {P}]->(b) "
-                "RETURN ab"
-            )
-        elif rel.start_node:
-            query = (
-                "START a=node({A}) "
-                "CREATE UNIQUE (a)-[ab:`" + str(rel.type) + "` {P}]->() "
-                "RETURN ab"
-            )
-        elif rel.end_node:
-            query = (
-                "START b=node({B}) "
-                "CREATE UNIQUE ()-[ab:`" + str(rel.type) + "` {P}]->(b) "
-                "RETURN ab"
-            )
-        else:
-            raise ValueError("Either start node or end node must be "
-                             "specified for a unique relationship")
-        params = {"P": compact(rel._properties or {})}
-        if rel.start_node:
-            params["A"] = rel.start_node._id
-        if rel.end_node:
-            params["B"] = rel.end_node._id
-        return self.append_cypher(query, params)
 
     def delete(self, entity):
         """ Delete a node or relationship from the graph.

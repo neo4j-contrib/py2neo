@@ -55,7 +55,7 @@ from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is
 
 __all__ = ["authenticate", "rewrite", "Resource", "ResourceTemplate", "Bindable",
            "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
-           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship", "_cast"]
+           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship"]
 
 
 DEFAULT_SCHEME = "http"
@@ -2403,6 +2403,10 @@ class Relationship(Path):
     def uri(self):
         return self.rel.uri
 
+    @property
+    def relative_uri(self):
+        return self.rel.relative_uri
+
     @deprecated("Use `properties` attribute instead")
     def get_cached_properties(self):
         """ Fetch last known properties without calling the server.
@@ -2440,19 +2444,3 @@ class Relationship(Path):
             self.properties.push()
         except BindError:
             pass
-
-
-def _cast(obj, cls=(Node, Relationship), abstract=None):
-    if obj is None:
-        return None
-    elif isinstance(obj, Node) or isinstance(obj, dict):
-        entity = Node.cast(obj)
-    elif isinstance(obj, Relationship) or isinstance(obj, tuple):
-        entity = Relationship.cast(obj)
-    else:
-        raise TypeError(obj)
-    if not isinstance(entity, cls):
-        raise TypeError(obj)
-    if abstract is not None and bool(abstract) != bool(entity.is_abstract):
-        raise TypeError(obj)
-    return entity

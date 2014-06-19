@@ -21,7 +21,6 @@ from __future__ import division, unicode_literals
 from py2neo.batch import ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
 from py2neo.core import Node, Relationship
 from py2neo.packages.urimagic import percent_encode
-from py2neo.util import deprecated
 
 
 __all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
@@ -232,7 +231,7 @@ class LegacyWriteBatch(_WriteBatch):
             query = "uniqueness=get_or_create"
         else:
             query = "unique"
-        return self._create_in_index(cls, index, key, value, abstract, query)
+        return self._create_in_index(cls, index, key, value, cls.cast(abstract), query)
 
     ### REMOVE FROM INDEX ###
 
@@ -274,85 +273,3 @@ class LegacyWriteBatch(_WriteBatch):
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self.append_delete(uri)
-
-    ### START OF DEPRECATED METHODS ###
-
-    @deprecated("WriteBatch.add_indexed_node is deprecated, "
-                "use add_to_index instead")
-    def add_indexed_node(self, index, key, value, node):
-        return self.add_to_index(Node, index, key, value, node)
-
-    @deprecated("WriteBatch.add_indexed_relationship is deprecated, "
-                "use add_to_index instead")
-    def add_indexed_relationship(self, index, key, value, relationship):
-        return self.add_to_index(Relationship, index, key, value, relationship)
-
-    @deprecated("WriteBatch.add_indexed_node_or_fail is deprecated, "
-                "use add_to_index_or_fail instead")
-    def add_indexed_node_or_fail(self, index, key, value, node):
-        return self.add_to_index_or_fail(Node, index, key, value, node)
-
-    @deprecated("WriteBatch.add_indexed_relationship_or_fail is deprecated, "
-                "use add_to_index_or_fail instead")
-    def add_indexed_relationship_or_fail(self, index, key, value, relationship):
-        return self.add_to_index_or_fail(Relationship, index, key, value,
-                                         relationship)
-
-    @deprecated("WriteBatch.create_indexed_node_or_fail is deprecated, "
-                "use create_in_index_or_fail instead")
-    def create_indexed_node_or_fail(self, index, key, value, properties=None):
-        self._assert_can_create_or_fail()
-        abstract = properties or {}
-        return self.create_in_index_or_fail(Node, index, key, value, abstract)
-
-    @deprecated("WriteBatch.create_indexed_relationship_or_fail is deprecated, "
-                "use create_in_index_or_fail instead")
-    def create_indexed_relationship_or_fail(self, index, key, value,
-                                            start_node, type_, end_node,
-                                            properties=None):
-        self._assert_can_create_or_fail()
-        if properties:
-            abstract = Relationship(start_node, (type_, properties), end_node)
-        else:
-            abstract = Relationship(start_node, type_, end_node)
-        return self.create_in_index_or_fail(Relationship, index, key, value,
-                                            abstract)
-
-    @deprecated("WriteBatch.get_or_add_indexed_node is deprecated, "
-                "use get_or_add_to_index instead")
-    def get_or_add_indexed_node(self, index, key, value, node):
-        self.get_or_add_to_index(Node, index, key, value, node)
-
-    @deprecated("WriteBatch.get_or_add_indexed_relationship is deprecated, "
-                "use get_or_add_to_index instead")
-    def get_or_add_indexed_relationship(self, index, key, value, relationship):
-        self.get_or_add_to_index(Relationship, index, key, value, relationship)
-
-    @deprecated("WriteBatch.get_or_create_indexed_node is deprecated, "
-                "use get_or_create_in_index instead")
-    def get_or_create_indexed_node(self, index, key, value, properties=None):
-        abstract = properties or {}
-        return self.get_or_create_in_index(Node, index, key, value, abstract)
-
-    @deprecated("WriteBatch.get_or_create_indexed_relationship is deprecated, "
-                "use get_or_create_indexed instead")
-    def get_or_create_indexed_relationship(self, index, key, value, start_node,
-                                           type_, end_node, properties=None):
-        if properties:
-            abstract = Relationship(start_node, (type_, properties), end_node)
-        else:
-            abstract = Relationship(start_node, type_, end_node)
-        return self.get_or_create_in_index(Relationship, index, key, value,
-                                           abstract)
-
-    @deprecated("WriteBatch.remove_indexed_node is deprecated, "
-                "use remove_indexed instead")
-    def remove_indexed_node(self, index, key=None, value=None, node=None):
-        return self.remove_from_index(Node, index, key, value, node)
-
-    @deprecated("WriteBatch.remove_indexed_relationship is deprecated, "
-                "use remove_indexed instead")
-    def remove_indexed_relationship(self, index, key=None, value=None,
-                                    relationship=None):
-        return self.remove_from_index(Relationship, index, key, value,
-                                      relationship)

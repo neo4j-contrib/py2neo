@@ -23,6 +23,7 @@ import logging
 import re
 from uuid import uuid4
 
+from py2neo.core import Node
 from py2neo.legacy import LegacyWriteBatch
 from py2neo.batch import BatchError
 from py2neo.util import deprecated
@@ -207,7 +208,7 @@ class Subgraph(object):
         # 1. indexed nodes
         index_entries = list(self.index_entries.values())
         for entry in index_entries:
-            batch.get_or_create_indexed_node(entry.index_name, entry.key, entry.value, entry.node.properties)
+            batch.get_or_create_in_index(Node, entry.index_name, entry.key, entry.value, entry.node.properties)
         # 2. related nodes
         if self._rels:
             query, params, related_names = self._get_relationship_query(unique)

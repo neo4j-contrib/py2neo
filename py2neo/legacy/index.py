@@ -160,10 +160,10 @@ class Index(Bindable):
         batch = LegacyWriteBatch(self.graph)
         if self._content_type is Node:
             batch.create(abstract)
-            batch.add_indexed_node(self, key, value, 0)
+            batch.add_to_index(Node, self, key, value, 0)
         elif self._content_type is Relationship:
             batch.create(abstract)
-            batch.add_indexed_relationship(self, key, value, 0)
+            batch.add_to_index(Relationship, self, key, value, 0)
         else:
             raise TypeError(self._content_type)
         entity, index_entry = batch.submit()
