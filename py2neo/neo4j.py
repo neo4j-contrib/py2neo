@@ -2538,6 +2538,7 @@ class BatchRequestList(object):
         self._batch = graph_db._subresource("batch")
         self._cypher = graph_db._subresource("cypher")
         self.clear()
+        self.__cypher_uri = None
 
     def __len__(self):
         return len(self._requests)
@@ -2573,10 +2574,12 @@ class BatchRequestList(object):
         :rtype: :py:class:`_Batch.Request`
         """
         if params:
-            body = {"query": str(query), "params": dict(params)}
+            body = {"query": ustr(query), "params": dict(params)}
         else:
-            body = {"query": str(query)}
-        return self.append_post(self._uri_for(self._cypher), body)
+            body = {"query": ustr(query)}
+        if self.__cypher_uri is None:
+            self.__cypher_uri = self._uri_for(self._cypher)
+        return self.append_post(self.__cypher_uri, body)
 
     @property
     def _body(self):
