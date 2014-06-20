@@ -331,11 +331,6 @@ class Bindable(object):
     def unbind(self):
         self.__resource = None
 
-    # deprecated
-    @property
-    def is_abstract(self):
-        return not self.bound
-
 
 class ServiceRoot(object):
     """ Neo4j REST API service root resource.
@@ -456,19 +451,6 @@ class Graph(Bindable):
             from py2neo.cypher import Cypher
             self.__cypher = Cypher(self.uri.string + "cypher")
         return self.__cypher
-
-    def delete_all(self):
-        """ Clear all nodes and relationships from the graph.
-
-        .. warning::
-            This method will permanently remove **all** nodes and relationships
-            from the graph and cannot be undone.
-        """
-        from py2neo.batch import WriteBatch
-        batch = WriteBatch(self)
-        batch.append_cypher("START r=rel(*) DELETE r")
-        batch.append_cypher("START n=node(*) DELETE n")
-        batch.run()
 
     def create(self, *entities):
         """ Create multiple nodes and/or relationships as part of a single
@@ -618,6 +600,7 @@ class Graph(Bindable):
     def delete(self, *entities):
         """ Delete multiple nodes and/or relationships.
         """
+        # TODO: switch to Cypher
         from py2neo.batch import WriteBatch
         if not entities:
             return
@@ -625,6 +608,19 @@ class Graph(Bindable):
         for entity in entities:
             if entity is not None:
                 batch.delete(entity)
+        batch.run()
+
+    def delete_all(self):
+        """ Clear all nodes and relationships from the graph.
+
+        .. warning::
+            This method will permanently remove **all** nodes and relationships
+            from the graph and cannot be undone.
+        """
+        from py2neo.batch import WriteBatch
+        batch = WriteBatch(self)
+        batch.append_cypher("START r=rel(*) DELETE r")
+        batch.append_cypher("START n=node(*) DELETE n")
         batch.run()
 
     def find(self, label, property_key=None, property_value=None):
@@ -636,9 +632,11 @@ class Graph(Bindable):
             uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
         try:
             for i, result in grouped(Resource(uri).get()):
-                yield self.hydrate(assembled(result))
+                yield Node.hydrate(assembled(result))
         except ClientError as err:
-            if err.status_code != NOT_FOUND:
+            if err.status_code == NOT_FOUND:
+                pass
+            else:
                 raise
 
     # TODO: replace with `pull`
@@ -656,6 +654,47 @@ class Graph(Bindable):
         for entity in entities:
             batch.append_get(batch._uri_for(entity, "properties"))
         return [properties or {} for properties in batch.submit()]
+
+    # TODO: add support for CypherResults and BatchResponse
+    def hydrate(self, data):
+
+        def relative_uri(uri):
+            # "http://localhost:7474/db/data/", "node/1"
+            # TODO: confirm is URI
+            self_uri = self.resource.uri.string
+            if uri.startswith(self_uri):
+                return uri[len(self_uri):]
+            else:
+                # TODO: specialist error
+                raise ValueError(uri + " does not belong to this graph")
+
+        if isinstance(data, dict):
+            if "self" in data:
+                # entity (node or rel)
+                tag, i = relative_uri(data["self"]).partition("/")[0::2]
+                if tag == "":
+                    return self  # uri refers to graph
+                elif tag == "node":
+                    return Node.hydrate(data)
+                elif tag == "relationship":
+                    return Relationship.hydrate(data)
+                else:
+                    raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
+            elif "nodes" in data and "relationships" in data:
+                # path
+                return Path.hydrate(data)
+            elif has_all(data, ("exception", "stacktrace")):
+                # TODO: should this be BatchError?
+                from py2neo.batch import BatchError
+                err = ServerException(data)
+                raise BatchError.with_name(err.exception)(err)
+            else:
+                # TODO: warn about dict ambiguity
+                return data
+        elif is_collection(data):
+            return type(data)(map(self.hydrate, data))
+        else:
+            return data
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):
@@ -775,6 +814,12 @@ class Graph(Bindable):
         else:
             return None
 
+    def merge(self, *entities):
+        """ Merge a number nodes, relationships and/or paths into the
+        graph using Cypher MERGE/CREATE UNIQUE.
+        """
+        # TODO
+
     @property
     def neo4j_version(self):
         """ The database software version as a 4-tuple of (``int``, ``int``,
@@ -799,21 +844,27 @@ class Graph(Bindable):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
+        if not self.supports_node_labels:
+            raise NotImplementedError("Node labels not available for this Neo4j server version")
         if self.__node_labels is None:
             self.__node_labels = Resource(self.uri.string + "labels")
-        try:
-            return frozenset(self.hydrate(assembled(self.__node_labels.get())))
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
-                raise NotImplementedError("Node labels not available for this Neo4j server version")
-            else:
-                raise
+        return frozenset(self.__node_labels.get().content)
 
     @property
     def order(self):
         """ The number of nodes in this graph.
         """
         return self.cypher.execute_one("START n=node(*) RETURN count(n)")
+
+    def pull(self, *entities):
+        """ Update one or more local entities by pulling data from their remote counterparts.
+        """
+        # TODO
+
+    def push(self, *entities):
+        """ Update one or more remote entities by pushing data from their local counterparts.
+        """
+        # TODO
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -835,7 +886,7 @@ class Graph(Bindable):
         """
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
-        return frozenset(self.hydrate(self.__relationship_types.get().content))
+        return frozenset(self.__relationship_types.get().content)
 
     @property
     def schema(self):
@@ -884,47 +935,6 @@ class Graph(Bindable):
         """ Indicates whether the server supports explicit Cypher transactions.
         """
         return "transaction" in self.resource.metadata
-
-    # TODO: add support for CypherResults and BatchResponse
-    def hydrate(self, data):
-
-        def relative_uri(uri):
-            # "http://localhost:7474/db/data/", "node/1"
-            # TODO: confirm is URI
-            self_uri = self.resource.uri.string
-            if uri.startswith(self_uri):
-                return uri[len(self_uri):]
-            else:
-                # TODO: specialist error
-                raise ValueError(uri + " does not belong to this graph")
-
-        if isinstance(data, dict):
-            if "self" in data:
-                # entity (node or rel)
-                tag, i = relative_uri(data["self"]).partition("/")[0::2]
-                if tag == "":
-                    return self  # uri refers to graph
-                elif tag == "node":
-                    return Node.hydrate(data)
-                elif tag == "relationship":
-                    return Relationship.hydrate(data)
-                else:
-                    raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
-            elif "nodes" in data and "relationships" in data:
-                # path
-                return Path.hydrate(data)
-            elif has_all(data, ("exception", "stacktrace")):
-                # TODO: should this be BatchError?
-                from py2neo.batch import BatchError
-                err = ServerException(data)
-                raise BatchError.with_name(err.exception)(err)
-            else:
-                # TODO: warn about dict ambiguity
-                return data
-        elif is_collection(data):
-            return type(data)(map(self.hydrate, data))
-        else:
-            return data
 
 
 class Schema(Bindable):
@@ -2114,14 +2124,14 @@ class Path(object):
             if node is None:
                 path.append("(n{0})".format(i))
                 values.append("n{0}".format(i))
-            elif node.is_abstract:
-                path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = node.properties
-                values.append("n{0}".format(i))
-            else:
+            elif node.bound:
                 path.append("(n{0})".format(i))
                 nodes.append("n{0}=node({{i{0}}})".format(i))
                 params["i{0}".format(i)] = node._id
+                values.append("n{0}".format(i))
+            else:
+                path.append("(n{0} {{p{0}}})".format(i))
+                params["p{0}".format(i)] = node.properties
                 values.append("n{0}".format(i))
 
         def append_rel(i, rel):
@@ -2327,10 +2337,7 @@ class Relationship(Path):
         """ Update the properties for this relationship with the values
         supplied.
         """
-        if self.is_abstract:
-            self._properties.update(properties)
-            self._properties = compact(self._properties)
-        else:
+        if self.bound:
             query, params = ["START a=rel({A})"], {"A": self._id}
             for i, (key, value) in enumerate(properties.items()):
                 value_tag = "V" + str(i)
@@ -2339,11 +2346,9 @@ class Relationship(Path):
             query.append("RETURN a")
             rel = self.graph.cypher.execute_one(" ".join(query), params)
             self._properties = rel.__metadata__["data"]
-
-    # deprecated
-    @property
-    def is_abstract(self):
-        return not self.bound
+        else:
+            self._properties.update(properties)
+            self._properties = compact(self._properties)
 
     def __contains__(self, key):
         return self.rel.__contains__(key)

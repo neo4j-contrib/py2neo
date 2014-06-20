@@ -23,14 +23,14 @@ def test_can_cast_node(graph):
     alice, = graph.create({"name": "Alice"})
     casted = Graph.cast(alice)
     assert isinstance(casted, Node)
-    assert not casted.is_abstract
+    assert casted.bound
     assert casted["name"] == "Alice"
 
 
 def test_can_cast_dict():
     casted = Graph.cast({"name": "Alice"})
     assert isinstance(casted, Node)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted["name"] == "Alice"
 
 
@@ -38,7 +38,7 @@ def test_can_cast_rel(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
     casted = Graph.cast(ab)
     assert isinstance(casted, Relationship)
-    assert not casted.is_abstract
+    assert casted.bound
     assert casted.start_node == a
     assert casted.type == "KNOWS"
     assert casted.end_node == b
@@ -47,7 +47,7 @@ def test_can_cast_rel(graph):
 def test_can_cast_3_tuple():
     casted = Graph.cast(("Alice", "KNOWS", "Bob"))
     assert isinstance(casted, Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == Node("Bob")
@@ -56,7 +56,7 @@ def test_can_cast_3_tuple():
 def test_can_cast_4_tuple():
     casted = Graph.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
     assert isinstance(casted, Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == Node("Bob")

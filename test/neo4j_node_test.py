@@ -39,7 +39,7 @@ class TestAbstractNode(object):
     def test_can_create_abstract_node(self):
         alice = node(name="Alice", age=34)
         assert isinstance(alice, neo4j.Node)
-        assert alice.is_abstract
+        assert not alice.bound
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -71,7 +71,7 @@ class TestConcreteNode(object):
     def test_can_create_concrete_node(self):
         alice, = self.graph.create({"name": "Alice", "age": 34})
         assert isinstance(alice, neo4j.Node)
-        assert not alice.is_abstract
+        assert alice.bound
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 

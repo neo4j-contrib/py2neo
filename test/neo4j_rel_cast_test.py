@@ -22,7 +22,7 @@ def test_can_cast_rel(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
     casted = rel(ab)
     assert isinstance(casted, neo4j.Relationship)
-    assert not casted.is_abstract
+    assert casted.bound
     assert casted.start_node == a
     assert casted.type == "KNOWS"
     assert casted.end_node == b
@@ -55,7 +55,7 @@ def test_cannot_cast_2_tuple():
 def test_can_cast_3_tuple():
     casted = rel(("Alice", "KNOWS", "Bob"))
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -64,7 +64,7 @@ def test_can_cast_3_tuple():
 def test_can_cast_3_tuple_with_unbound_rel():
     casted = rel(("Alice", ("KNOWS", {"since": 1999}), "Bob"))
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -74,7 +74,7 @@ def test_can_cast_3_tuple_with_unbound_rel():
 def test_can_cast_4_tuple():
     casted = rel(("Alice", "KNOWS", "Bob", {"since": 1999}))
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -116,7 +116,7 @@ def test_cannot_cast_2_args():
 def test_can_cast_3_args():
     casted = rel("Alice", "KNOWS", "Bob")
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -125,7 +125,7 @@ def test_can_cast_3_args():
 def test_can_cast_3_args_with_mid_tuple():
     casted = rel("Alice", ("KNOWS", {"since": 1999}), "Bob")
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -135,7 +135,7 @@ def test_can_cast_3_args_with_mid_tuple():
 def test_can_cast_3_args_with_mid_tuple_and_props():
     casted = rel("Alice", ("KNOWS", {"since": 1999}), "Bob", foo="bar")
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -146,7 +146,7 @@ def test_can_cast_3_args_with_mid_tuple_and_props():
 def test_can_cast_kwargs():
     casted = rel("Alice", "KNOWS", "Bob", since=1999)
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -156,7 +156,7 @@ def test_can_cast_kwargs():
 def test_can_cast_4_args():
     casted = rel("Alice", "KNOWS", "Bob", {"since": 1999})
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
@@ -166,7 +166,7 @@ def test_can_cast_4_args():
 def test_can_cast_4_args_and_props():
     casted = rel("Alice", "KNOWS", "Bob", {"since": 1999}, foo="bar")
     assert isinstance(casted, neo4j.Relationship)
-    assert casted.is_abstract
+    assert not casted.bound
     assert casted.start_node == neo4j.Node("Alice")
     assert casted.type == "KNOWS"
     assert casted.end_node == neo4j.Node("Bob")
