@@ -186,16 +186,20 @@ class Resource(_Resource):
         self.__relative_uri = NotImplemented
 
     @property
+    def graph(self):
+        return self.__service_root.graph
+
+    @property
     def headers(self):
         return self.__headers
 
     @property
-    def service_root(self):
-        return self.__service_root
-
-    @property
-    def graph(self):
-        return self.__service_root.graph
+    def metadata(self):
+        if self.__last_get_response is None:
+            if self.__initial_metadata is not None:
+                return self.__initial_metadata
+            self.get()
+        return self.__last_get_response.content
 
     @property
     def relative_uri(self):
@@ -209,12 +213,8 @@ class Resource(_Resource):
         return self.__relative_uri
 
     @property
-    def metadata(self):
-        if self.__last_get_response is None:
-            if self.__initial_metadata is not None:
-                return self.__initial_metadata
-            self.get()
-        return self.__last_get_response.content
+    def service_root(self):
+        return self.__service_root
 
     def get(self, headers=None, redirect_limit=5, **kwargs):
         headers = dict(headers or {})
@@ -287,17 +287,25 @@ class Bindable(object):
         if uri:
             self.bind(uri)
 
+    def bind(self, uri, metadata=None):
+        """ Bind object to Resource or ResourceTemplate.
+        """
+        if "{" in uri:
+            if metadata:
+                raise ValueError("Initial metadata cannot be passed to a resource template")
+            self.__resource = ResourceTemplate(uri)
+        else:
+            self.__resource = Resource(uri, metadata)
+
     @property
-    def service_root(self):
-        return self.resource.service_root
+    def bound(self):
+        """ Returns :const:`True` if bound to a remote resource.
+        """
+        return self.__resource is not None
 
     @property
     def graph(self):
         return self.service_root.graph
-
-    @property
-    def uri(self):
-        return self.resource.uri
 
     @property
     def relative_uri(self):
@@ -313,23 +321,15 @@ class Bindable(object):
             raise BindError("Local entity is not bound to a remote entity")
 
     @property
-    def bound(self):
-        """ Returns :const:`True` if bound to a remote resource.
-        """
-        return self.__resource is not None
-
-    def bind(self, uri, metadata=None):
-        """ Bind object to Resource or ResourceTemplate.
-        """
-        if "{" in uri:
-            if metadata:
-                raise ValueError("Initial metadata cannot be passed to a resource template")
-            self.__resource = ResourceTemplate(uri)
-        else:
-            self.__resource = Resource(uri, metadata)
+    def service_root(self):
+        return self.resource.service_root
 
     def unbind(self):
         self.__resource = None
+
+    @property
+    def uri(self):
+        return self.resource.uri
 
 
 class ServiceRoot(object):
@@ -1093,6 +1093,14 @@ class PropertySet(Bindable, dict):
         dict.__init__(self)
         self.update(iterable, **kwargs)
 
+    def __eq__(self, other):
+        if not isinstance(other, PropertySet):
+            other = PropertySet(other)
+        return dict.__eq__(self, other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __getitem__(self, key):
         return dict.get(self, key)
 
@@ -1105,13 +1113,21 @@ class PropertySet(Bindable, dict):
         else:
             dict.__setitem__(self, key, value)
 
-    def __eq__(self, other):
-        if not isinstance(other, PropertySet):
-            other = PropertySet(other)
-        return dict.__eq__(self, other)
+    def pull(self):
+        """ Copy the set of remote properties onto the local set.
+        """
+        self.resource.get()
+        properties = self.resource.metadata
+        self.replace(properties or {})
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def push(self):
+        """ Copy the set of local properties onto the remote set.
+        """
+        self.resource.put(self)
+
+    def replace(self, iterable=None, **kwargs):
+        self.clear()
+        self.update(iterable, **kwargs)
 
     def setdefault(self, key, default=None):
         if key in self:
@@ -1133,25 +1149,6 @@ class PropertySet(Bindable, dict):
         for key in kwargs:
             self[key] = kwargs[key]
 
-    def replace(self, iterable=None, **kwargs):
-        self.clear()
-        self.update(iterable, **kwargs)
-
-    def pull(self):
-        """ Copy the set of remote properties onto the local set.
-        """
-        self.resource.get()
-        properties = self.resource.metadata
-        self.replace(properties or {})
-
-    def push(self):
-        """ Copy the set of local properties onto the remote set.
-        """
-        self.resource.put(self)
-
-    def __json__(self):
-        return json.dumps(self, separators=",:", sort_keys=True)
-
 
 class LabelSet(Bindable, set):
     """ A set subclass that can be bound to a remote *labels* resource.
@@ -1171,10 +1168,6 @@ class LabelSet(Bindable, set):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def replace(self, iterable):
-        self.clear()
-        self.update(iterable)
-
     def pull(self):
         """ Copy the set of remote labels onto the local set.
         """
@@ -1186,6 +1179,10 @@ class LabelSet(Bindable, set):
         """ Copy the set of local labels onto the remote set.
         """
         self.resource.put(self)
+
+    def replace(self, iterable):
+        self.clear()
+        self.update(iterable)
 
 
 class PropertyContainer(Bindable):
@@ -1230,19 +1227,15 @@ class PropertyContainer(Bindable):
         if self.bound:
             self.properties.push()
 
+    def bind(self, uri, metadata=None):
+        Bindable.bind(self, uri, metadata)
+        self.__properties.bind(uri + "/properties")
+
     @property
     def properties(self):
         """ The set of properties attached to this object.
         """
         return self.__properties
-
-    def bind(self, uri, metadata=None):
-        Bindable.bind(self, uri, metadata)
-        self.__properties.bind(uri + "/properties")
-
-    def unbind(self):
-        Bindable.unbind(self)
-        self.__properties.unbind()
 
     def pull(self):
         self.resource.get()
@@ -1251,6 +1244,10 @@ class PropertyContainer(Bindable):
 
     def push(self):
         self.__properties.push()
+
+    def unbind(self):
+        Bindable.unbind(self)
+        self.__properties.unbind()
 
     @deprecated("Use `properties` attribute instead")
     def get_cached_properties(self):
@@ -1479,20 +1476,12 @@ class Node(PropertyContainer):
             return hash(tuple(sorted(self.properties.items())))
 
     @property
-    def labels(self):
-        """ The set of labels attached to this Node.
-        """
-        if self.bound and "labels" in self.__stale:
-            self.pull()
-        return self.__labels
+    def _id(self):
+        """ Return the internal ID for this entity.
 
-    @property
-    def properties(self):
-        """ The set of properties attached to this Node.
+        :return: integer ID of this entity within the database.
         """
-        if self.bound and "properties" in self.__stale:
-            self.pull()
-        return super(Node, self).properties
+        return int(self.uri.path.segments[-1])
 
     def bind(self, uri, metadata=None):
         PropertyContainer.bind(self, uri, metadata)
@@ -1502,40 +1491,6 @@ class Node(PropertyContainer):
             from py2neo.legacy.core import LegacyNode
             self.__class__ = LegacyNode
         self.cache[uri] = self
-
-    def unbind(self):
-        try:
-            del self.cache[self.uri]
-        except KeyError:
-            pass
-        PropertyContainer.unbind(self)
-        self.__labels.unbind()
-
-    def pull(self):
-        query = "START a=node({a}) RETURN a,labels(a)"
-        content = self.graph.cypher.post(query, {"a": self._id}).content
-        dehydrated, label_data = content["data"][0]
-        dehydrated["label_data"] = label_data
-        Node.hydrate(dehydrated, self)
-
-    def push(self):
-        # TODO combine this into a single call
-        super(Node, self).push()
-        self.labels.push()
-
-    @property
-    def _id(self):
-        """ Return the internal ID for this entity.
-
-        :return: integer ID of this entity within the database.
-        """
-        return int(self.uri.path.segments[-1])
-
-    @deprecated("Use Graph.delete instead")
-    def delete(self):
-        """ Delete this entity from the database.
-        """
-        self.graph.delete(self)
 
     @property
     def exists(self):
@@ -1551,27 +1506,13 @@ class Node(PropertyContainer):
         else:
             return True
 
-    def delete_related(self):
-        """ Delete this node along with all related nodes and relationships.
+    @property
+    def labels(self):
+        """ The set of labels attached to this Node.
         """
-        if self.graph.supports_foreach_pipe:
-            query = ("START a=node({a}) "
-                     "MATCH (a)-[rels*0..]-(z) "
-                     "FOREACH(r IN rels| DELETE r) "
-                     "DELETE a, z")
-        else:
-            query = ("START a=node({a}) "
-                     "MATCH (a)-[rels*0..]-(z) "
-                     "FOREACH(r IN rels: DELETE r) "
-                     "DELETE a, z")
-        self.graph.cypher.post(query, {"a": self._id})
-
-    def isolate(self):
-        """ Delete all relationships connected to this node, both incoming and
-        outgoing.
-        """
-        query = "START a=node({a}) MATCH a-[r]-b DELETE r"
-        self.graph.cypher.post(query, {"a": self._id})
+        if self.bound and "labels" in self.__stale:
+            self.pull()
+        return self.__labels
 
     def match(self, rel_type=None, other_node=None, limit=None):
         """ Iterate through matching relationships attached to this node,
@@ -1627,6 +1568,53 @@ class Node(PropertyContainer):
         """
         return self.graph.match(self, rel_type, end_node, False, limit)
 
+    @property
+    def properties(self):
+        """ The set of properties attached to this Node.
+        """
+        if self.bound and "properties" in self.__stale:
+            self.pull()
+        return super(Node, self).properties
+
+    def pull(self):
+        query = "START a=node({a}) RETURN a,labels(a)"
+        content = self.graph.cypher.post(query, {"a": self._id}).content
+        dehydrated, label_data = content["data"][0]
+        dehydrated["label_data"] = label_data
+        Node.hydrate(dehydrated, self)
+
+    def push(self):
+        # TODO combine this into a single call
+        super(Node, self).push()
+        self.labels.push()
+
+    def unbind(self):
+        try:
+            del self.cache[self.uri]
+        except KeyError:
+            pass
+        PropertyContainer.unbind(self)
+        self.__labels.unbind()
+
+    ### DEPRECATED ###
+
+    @deprecated("Use `add` or `update` method of `labels` property instead")
+    def add_labels(self, *labels):
+        """ Add one or more labels to this node.
+
+        :param labels: one or more text labels
+        """
+        labels = [ustr(label) for label in set(flatten(labels))]
+        self.labels.update(labels)
+        try:
+            self.labels.push()
+        except ClientError as err:
+            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
+                raise ValueError(err.cause.message)
+            else:
+                raise
+
+    @deprecated("Use graph.create(Path(node, ...)) instead")
     def create_path(self, *items):
         """ Create a new path, starting at this node and chaining together the
         alternating relationships and nodes provided::
@@ -1656,6 +1644,38 @@ class Node(PropertyContainer):
         path = Path(self, *items)
         return path.create(self.graph)
 
+    @deprecated("Use Graph.delete instead")
+    def delete(self):
+        """ Delete this entity from the database.
+        """
+        self.graph.delete(self)
+
+    @deprecated("Use Cypher query instead")
+    def delete_related(self):
+        """ Delete this node along with all related nodes and relationships.
+        """
+        if self.graph.supports_foreach_pipe:
+            query = ("START a=node({a}) "
+                     "MATCH (a)-[rels*0..]-(z) "
+                     "FOREACH(r IN rels| DELETE r) "
+                     "DELETE a, z")
+        else:
+            query = ("START a=node({a}) "
+                     "MATCH (a)-[rels*0..]-(z) "
+                     "FOREACH(r IN rels: DELETE r) "
+                     "DELETE a, z")
+        self.graph.cypher.post(query, {"a": self._id})
+
+    @deprecated("Use `labels` property instead")
+    def get_labels(self):
+        """ Fetch all labels associated with this node.
+
+        :return: :py:class:`set` of text labels
+        """
+        self.labels.pull()
+        return self.labels
+
+    @deprecated("Use graph.merge(Path(node, ...)) instead")
     def get_or_create_path(self, *items):
         """ Identical to `create_path` except will reuse parts of the path
         which already exist.
@@ -1692,30 +1712,13 @@ class Node(PropertyContainer):
         path = Path(self, *items)
         return path.get_or_create(self.graph)
 
-    @deprecated("Use `labels` property instead")
-    def get_labels(self):
-        """ Fetch all labels associated with this node.
-
-        :return: :py:class:`set` of text labels
+    @deprecated("Use Cypher query instead")
+    def isolate(self):
+        """ Delete all relationships connected to this node, both incoming and
+        outgoing.
         """
-        self.labels.pull()
-        return self.labels
-
-    @deprecated("Use `add` or `update` method of `labels` property instead")
-    def add_labels(self, *labels):
-        """ Add one or more labels to this node.
-
-        :param labels: one or more text labels
-        """
-        labels = [ustr(label) for label in set(flatten(labels))]
-        self.labels.update(labels)
-        try:
-            self.labels.push()
-        except ClientError as err:
-            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
-                raise ValueError(err.cause.message)
-            else:
-                raise
+        query = "START a=node({a}) MATCH a-[r]-b DELETE r"
+        self.graph.cypher.post(query, {"a": self._id})
 
     @deprecated("Use `remove` method of `labels` property instead")
     def remove_labels(self, *labels):
@@ -1857,31 +1860,6 @@ class Rel(PropertyContainer):
         return r
 
     @property
-    def type(self):
-        if self.bound and self.__type is None:
-            self.pull()
-        return self.__type
-
-    @type.setter
-    def type(self, name):
-        if self.bound:
-            raise TypeError("The type of a bound Rel is immutable")
-        self.__type = name
-
-    @property
-    def properties(self):
-        """ The set of properties attached to this Rel.
-        """
-        if self.bound and "properties" in self.__stale:
-            self.pull()
-        return super(Rel, self).properties
-
-    def pull(self):
-        super(Rel, self).pull()
-        self.__type = self.resource.metadata["type"]
-        self.__stale.clear()
-
-    @property
     def _id(self):
         """ Return the internal ID for this Rel.
 
@@ -1889,10 +1867,9 @@ class Rel(PropertyContainer):
         """
         return int(self.uri.path.segments[-1])
 
-    def delete(self):
-        """ Delete this Rel from the database.
-        """
-        self.resource.delete()
+    def bind(self, uri, metadata=None):
+        PropertyContainer.bind(self, uri, metadata)
+        self.cache[uri] = self
 
     @property
     def exists(self):
@@ -1908,9 +1885,30 @@ class Rel(PropertyContainer):
         else:
             return True
 
-    def bind(self, uri, metadata=None):
-        PropertyContainer.bind(self, uri, metadata)
-        self.cache[uri] = self
+    @property
+    def properties(self):
+        """ The set of properties attached to this Rel.
+        """
+        if self.bound and "properties" in self.__stale:
+            self.pull()
+        return super(Rel, self).properties
+
+    def pull(self):
+        super(Rel, self).pull()
+        self.__type = self.resource.metadata["type"]
+        self.__stale.clear()
+
+    @property
+    def type(self):
+        if self.bound and self.__type is None:
+            self.pull()
+        return self.__type
+
+    @type.setter
+    def type(self, name):
+        if self.bound:
+            raise TypeError("The type of a bound Rel is immutable")
+        self.__type = name
 
     def unbind(self):
         try:
@@ -1918,6 +1916,14 @@ class Rel(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
+
+    ### DEPRECATED ###
+
+    @deprecated("Use graph.delete instead")
+    def delete(self):
+        """ Delete this Rel from the database.
+        """
+        self.resource.delete()
 
 
 class Rev(Rel):
@@ -2038,6 +2044,12 @@ class Path(object):
         r.write_path(self)
         return repr(r)
 
+    def __eq__(self, other):
+        return self.nodes == other.nodes and self.rels == other.rels
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __bool__(self):
         return bool(self.rels)
 
@@ -2046,12 +2058,6 @@ class Path(object):
 
     def __len__(self):
         return self.size
-
-    def __eq__(self, other):
-        return self.nodes == other.nodes and self.rels == other.rels
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __getitem__(self, item):
         path = Path()
@@ -2075,30 +2081,33 @@ class Path(object):
         return path
 
     @property
-    def order(self):
-        """ The number of nodes within this path.
-        """
-        return self.__order
-
-    @property
-    def size(self):
-        """ The number of relationships within this path.
-        """
-        return self.__size
-
-    @property
-    def start_node(self):
-        return self.__nodes[0]
-
-    @property
     def end_node(self):
         return self.__nodes[-1]
+
+    @property
+    def graph(self):
+        # TODO
+        return NotImplemented
 
     @property
     def nodes(self):
         """ Return a tuple of all the nodes which make up this path.
         """
         return self.__nodes
+
+    @property
+    def order(self):
+        """ The number of nodes within this path.
+        """
+        return self.__order
+
+    def pull(self):
+        # TODO
+        pass
+
+    def push(self):
+        # TODO
+        pass
 
     @property
     def rels(self):
@@ -2116,6 +2125,23 @@ class Path(object):
                 for i, rel in enumerate(self.rels)
             )
         return self.__relationships
+
+    @property
+    def service_root(self):
+        # TODO
+        return NotImplemented
+
+    @property
+    def size(self):
+        """ The number of relationships within this path.
+        """
+        return self.__size
+
+    @property
+    def start_node(self):
+        return self.__nodes[0]
+
+    ### DEPRECATED ###
 
     def _create_query(self, unique):
         nodes, path, values, params = [], [], [], {}
@@ -2189,10 +2215,6 @@ class Path(object):
         makes use of Cypher's ``CREATE UNIQUE`` clause.
         """
         return self._create(graph, unique=True)
-
-    # service_root/graph/resource
-    # bound/bind/unbind
-    # pull/push
 
 
 class Relationship(Path):
@@ -2297,58 +2319,8 @@ class Relationship(Path):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
-    def _id(self):
-        return self.rel._id
-
-    @property
-    def rel(self):
-        return self.rels[0]
-
-    @deprecated("Use Graph.delete instead")
-    def delete(self):
-        """ Delete this entity from the database.
-        """
-        self.graph.delete(self)
-
-    @property
-    def exists(self):
-        """ Detects whether this entity still exists in the database.
-        """
-        return self.rel.exists
-
-    @property
-    def bound(self):
-        return self.rel.bound
-
-    @property
-    def resource(self):
-        return self.rel.resource
-
-    @property
-    def type(self):
-        return self.rel.type
-
-    @property
-    def properties(self):
-        return self.rel.properties
-
-    def update_properties(self, properties):
-        """ Update the properties for this relationship with the values
-        supplied.
-        """
-        if self.bound:
-            query, params = ["START a=rel({A})"], {"A": self._id}
-            for i, (key, value) in enumerate(properties.items()):
-                value_tag = "V" + str(i)
-                query.append("SET a.`" + key + "`={" + value_tag + "}")
-                params[value_tag] = value
-            query.append("RETURN a")
-            rel = self.graph.cypher.execute_one(" ".join(query), params)
-            self._properties = rel.__metadata__["data"]
-        else:
-            self._properties.update(properties)
-            self._properties = compact(self._properties)
+    def __len__(self):
+        return self.rel.__len__()
 
     def __contains__(self, key):
         return self.rel.__contains__(key)
@@ -2362,25 +2334,32 @@ class Relationship(Path):
     def __delitem__(self, key):
         self.rel.__delitem__(key)
 
-    def __len__(self):
-        return self.rel.__len__()
-
     @property
-    def bound(self):
-        return self.rel.bound
+    def _id(self):
+        return self.rel._id
 
     def bind(self, uri, metadata=None):
         # TODO: do for start_node, rel and end_node
         self.rel.bind(uri, metadata)
         self.cache[uri] = self
 
-    def unbind(self):
-        try:
-            del self.cache[self.uri]
-        except KeyError:
-            pass
-        # TODO: do for start_node, rel and end_node
-        self.rel.unbind()
+    @property
+    def bound(self):
+        return self.rel.bound
+
+    @property
+    def exists(self):
+        """ Detects whether this entity still exists in the database.
+        """
+        return self.rel.exists
+
+    @property
+    def graph(self):
+        return self.service_root.graph
+
+    @property
+    def properties(self):
+        return self.rel.properties
 
     def pull(self):
         # TODO: do for start_node, rel and end_node
@@ -2389,6 +2368,18 @@ class Relationship(Path):
     def push(self):
         # TODO: do for start_node, rel and end_node
         self.rel.push()
+
+    @property
+    def rel(self):
+        return self.rels[0]
+
+    @property
+    def relative_uri(self):
+        return self.rel.relative_uri
+
+    @property
+    def resource(self):
+        return self.rel.resource
 
     @property
     def service_root(self):
@@ -2401,16 +2392,38 @@ class Relationship(Path):
                 return self.rel.service_root
 
     @property
-    def graph(self):
-        return self.service_root.graph
+    def type(self):
+        return self.rel.type
+
+    def unbind(self):
+        try:
+            del self.cache[self.uri]
+        except KeyError:
+            pass
+        # TODO: do for start_node, rel and end_node
+        self.rel.unbind()
 
     @property
     def uri(self):
         return self.rel.uri
 
-    @property
-    def relative_uri(self):
-        return self.rel.relative_uri
+    ### DEPRECATED ###
+
+    @deprecated("Use Graph.delete instead")
+    def delete(self):
+        """ Delete this entity from the database.
+        """
+        self.graph.delete(self)
+
+    @deprecated("Use `push` method on `properties` attribute instead")
+    def delete_properties(self):
+        """ Delete all properties.
+        """
+        self.properties.clear()
+        try:
+            self.properties.push()
+        except BindError:
+            pass
 
     @deprecated("Use `properties` attribute instead")
     def get_cached_properties(self):
@@ -2440,12 +2453,20 @@ class Relationship(Path):
         if self.bound:
             self.properties.push()
 
-    @deprecated("Use `push` method on `properties` attribute instead")
-    def delete_properties(self):
-        """ Delete all properties.
+    @deprecated("Use properties.update and push instead")
+    def update_properties(self, properties):
+        """ Update the properties for this relationship with the values
+        supplied.
         """
-        self.properties.clear()
-        try:
-            self.properties.push()
-        except BindError:
-            pass
+        if self.bound:
+            query, params = ["START a=rel({A})"], {"A": self._id}
+            for i, (key, value) in enumerate(properties.items()):
+                value_tag = "V" + str(i)
+                query.append("SET a.`" + key + "`={" + value_tag + "}")
+                params[value_tag] = value
+            query.append("RETURN a")
+            rel = self.graph.cypher.execute_one(" ".join(query), params)
+            self._properties = rel.__metadata__["data"]
+        else:
+            self._properties.update(properties)
+            self._properties = compact(self._properties)
