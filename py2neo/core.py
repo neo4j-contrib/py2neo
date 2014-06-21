@@ -15,21 +15,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The neo4j module provides the main `Neo4j <http://neo4j.org/>`_ client
-functionality and will be the starting point for most applications. The main
-classes provided are:
+""" Core objects and functionality for py2neo.
 
-- :py:class:`Graph` - an instance of a Neo4j database server,
-  providing a number of graph-global methods for handling nodes and
-  relationships
-- :py:class:`Node` - a representation of a database node
-- :py:class:`Relationship` - a representation of a relationship between two
-  database nodes
-- :py:class:`Path` - a sequence of alternating nodes and relationships
-- :py:class:`ReadBatch` - a batch of read requests to be carried out within a
-  single transaction
-- :py:class:`WriteBatch` - a batch of write requests to be carried out within
-  a single transaction
+authenticate - register authentication details for a host:port
+rewrite - register a rewrite hook for a scheme://host:port
+
+Resource - local representation of a remote web resource
+ResourceTemplate - template for Resource generation based on a pattern
+Bindable - base class for objects that can be bound to remote resources
+ServiceRoot - root resource for a Neo4j server instance
+Graph - main graph resource class to bind to a remote graph database service
+Schema - schema index and constraint management resource
+PropertySet - dict subclass that equates None and missing values for storing properties
+LabelSet - set subclass for storing labels
+PropertyContainer - base class for Node and Relationship classes
+Node - local graph node object that can be bound to a remote Neo4j node
+NodePointer - reference to a node object defined elsewhere
+Rel - forward relationship without start and end node information
+Rev - reverse relationship without start and end node information
+Path - local graph path object that represents a remote Neo4j path
+Relationship - local graph relationship object that can be bound to a remote Neo4j relationship
+
 """
 
 
@@ -37,16 +43,14 @@ from __future__ import division, unicode_literals
 
 import base64
 import json
-import logging
 import re
 from weakref import WeakValueDictionary
 
 from py2neo import __version__
 from py2neo.error import ClientError, ServerError, ServerException, BindError, JoinError
-from py2neo.packages.httpstream import (
-    http, Resource as _Resource, ResourceTemplate as _ResourceTemplate,
-    ClientError as _ClientError, ServerError as _ServerError)
-from py2neo.packages.httpstream.numbers import NOT_FOUND, CONFLICT, BAD_REQUEST
+from py2neo.packages.httpstream import http, Resource as _Resource, \
+    ResourceTemplate as _ResourceTemplate, ClientError as _ClientError, ServerError as _ServerError
+from py2neo.packages.httpstream.numbers import BAD_REQUEST, NOT_FOUND, CONFLICT
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI, URITemplate
 from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is_integer, \
