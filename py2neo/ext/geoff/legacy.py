@@ -254,13 +254,13 @@ class Subgraph(object):
         """
         try:
             return self._execute_load_batch(graph, True)
-        except BatchError as err:
-            if err.__class__.__name__ == "UniquePathNotUniqueException":
-                err = ConstraintViolation(
+        except BatchError as error:
+            if error.__cause__.__class__.__name__ == "UniquePathNotUniqueException":
+                error = ConstraintViolation(
                     "Unable to merge relationship onto multiple "
                     "existing relationships."
                 )
-            raise err
+            raise error
 
 
 class _Parser(object):

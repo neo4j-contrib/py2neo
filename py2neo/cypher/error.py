@@ -30,6 +30,7 @@ class CypherError(GraphError):
         self.params = request_body.get("params")
 
 
+# TODO: bring into line with other exceptions
 class TransactionError(Exception):
     """ Raised when an error occurs while processing a Cypher transaction.
     """

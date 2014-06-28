@@ -18,12 +18,12 @@
 
 from __future__ import division, unicode_literals
 
-from py2neo.batch.core import BatchRequestList
+from py2neo.batch.core import Batch
 
 
-class ReadBatch(BatchRequestList):
+class ReadBatch(Batch):
     """ Generic batch execution facility for data read requests,
     """
 
     def __init__(self, graph):
-        BatchRequestList.__init__(self, graph)
+        Batch.__init__(self, graph)

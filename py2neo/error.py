@@ -28,6 +28,10 @@ class BindError(Exception):
 
 
 class GraphError(Exception):
+    """ Default exception class for all errors returned by the
+    Neo4j server. See also `CypherError` subclass and `BatchError`
+    wrapper class which contain additional qualifying information.
+    """
 
     @classmethod
     def hydrate(cls, data):

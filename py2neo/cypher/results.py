@@ -24,23 +24,19 @@ class CypherResults(object):
     """ A static set of results from a Cypher query.
     """
 
-    # TODO: refactor
     @classmethod
-    def _hydrated(cls, graph, data):
-        """ Takes assembled data...
-        """
-        producer = RecordProducer(data["columns"])
-        return [
-            producer.produce(graph.hydrate(row))
-            for row in data["data"]
-        ]
+    def hydrate(cls, data, graph):
+        columns = data["columns"]
+        rows = data["data"]
+        producer = RecordProducer(columns)
+        return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
 
     def __init__(self, columns, data):
         self.columns = columns
         self.data = data
 
     def __repr__(self):
-        column_widths = [len(column) for column in self.columns]
+        column_widths = list(map(len, self.columns))
         for row in self.data:
             for i, value in enumerate(row):
                 column_widths[i] = max(column_widths[i], len(str(value)))

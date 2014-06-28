@@ -21,20 +21,26 @@ from __future__ import division, unicode_literals
 import json
 import logging
 
-from py2neo.core import NodePointer, Bindable, Resource
+from py2neo.core import NodePointer, Bindable
 from py2neo.cypher import CypherResults
+from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI
-from py2neo.util import has_all, pendulate, ustr, is_collection
-from py2neo.batch.error import BatchError
+from py2neo.util import pendulate, ustr
 
 
 log = logging.getLogger("py2neo.batch")
 
 
-class Batch(Bindable):
+class BatchError(Exception):
+    """ Wraps a base `GraphError` within a batch context.
+    """
 
-    error_class = BatchError
+    def __init__(self, error):
+        self.__cause__ = error
+
+
+class BatchResource(Bindable):
 
     __instances = {}
 
@@ -42,48 +48,37 @@ class Batch(Bindable):
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            inst = super(Batch, cls).__new__(cls)
+            inst = super(BatchResource, cls).__new__(cls)
             inst.bind(uri)
             cls.__instances[uri] = inst
         return inst
 
-    def hydrate(self, data):
-        if isinstance(data, dict):
-            if has_all(data, ("id", "from")):
-                return BatchResponse.hydrate(data, self.graph)
-            else:
-                # TODO: warn about dict ambiguity
-                return data
-        elif is_collection(data):
-            return type(data)(map(self.hydrate, data))
-        else:
-            return data
-
-    def post(self, requests):
-        request_count = len(requests)
+    def post(self, batch):
+        request_count = len(batch)
         request_text = "request" if request_count == 1 else "requests"
         log.info("Executing batch with %s %s", request_count, request_text)
         data = []
-        for i, request in enumerate(requests):
+        for i, request in enumerate(batch):
+            # TODO: take from repr
             log.info(">>> {{%s}} %s %s %s", i, request.method, request.uri, request.body)
             data.append(dict(request, id=i))
         return self.resource.post(data)
 
-    def run(self, requests):
-        self.post(requests).close()
+    def run(self, batch):
+        self.post(batch).close()
 
-    def stream(self, requests):
-        response_list = self.post(requests)
+    def stream(self, batch):
+        response_list = self.post(batch)
         try:
-            for i, response in grouped(response_list):
-                yield self.hydrate(assembled(response))
+            for i, rs in grouped(response_list):
+                yield BatchResponse.hydrate(assembled(rs), batch)
         finally:
             response_list.close()
 
-    def submit(self, requests):
-        response_list = self.post(requests)
+    def submit(self, batch):
+        response_list = self.post(batch)
         try:
-            return self.hydrate(response_list.content)
+            return [BatchResponse.hydrate(rs, batch) for rs in response_list.content]
         finally:
             response_list.close()
 
@@ -124,47 +119,62 @@ class BatchResponse(object):
     """
 
     @classmethod
-    def hydrate(cls, data, graph):
-        batch_id = data["id"]
+    def hydrate(cls, data, batch):
+        request_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
         body = data.get("body")
         location = data.get("location")
+        # TODO use instance repr (and move to caller)
         log.info("<<< {{{0}}} {1} {2}".format(
-            batch_id, status_code, body, location))
-        return cls(graph, batch_id, uri, body, location, status_code)
+            request_id, status_code, body, location))
+        return cls(batch, request_id, uri, body, location, status_code)
 
-    def __init__(self, graph, batch_id, uri, body_data=None, location=None, status_code=None):
-        self.graph = graph
-        self.batch_id = batch_id
+    # TODO: pass in batch-request-list instead of graph and map ids back to requests
+    def __init__(self, batch, request_id, uri, content_data=None, location=None, status_code=None):
+        self.batch = batch
+        self.request_id = request_id
         self.uri = URI(uri)
-        self.__body_data = body_data
-        self.__body = NotImplemented
+        self.__content_data = content_data
+        self.__content = NotImplemented
         self.location = URI(location)
         self.status_code = status_code or 200
 
-    @property
-    def body_data(self):
-        return self.__body_data
+    def __repr__(self):
+        # TODO: fix
+        return "{{{0}}} {1} {2}".format(self.request_id, self.status_code, self.content, self.location)
 
     @property
-    def body(self):
-        if self.__body is NotImplemented:
-            self.__body = self.graph.hydrate(self.__body_data)
-            # If Cypher results, reduce to single row or single value if possible
-            if isinstance(self.__body, CypherResults):
-                num_rows = len(self.__body)
-                if num_rows == 0:
-                    self.__body = None
-                elif num_rows == 1:
-                    self.__body = self.__body[0]
-                    num_columns = len(self.__body)
-                    if num_columns == 1:
-                        self.__body = self.__body[0]
-        return self.__body
+    def graph(self):
+        return self.batch.graph
+
+    @property
+    def content_data(self):
+        return self.__content_data
+
+    @property
+    def content(self):
+        if self.__content is NotImplemented:
+            try:
+                self.__content = self.graph.hydrate(self.__content_data)
+            except GraphError as error:
+                # TODO: pass batch context to error constructor
+                raise BatchError(error)
+            else:
+                # If Cypher results, reduce to single row or single value if possible
+                if isinstance(self.__content, CypherResults):
+                    num_rows = len(self.__content)
+                    if num_rows == 0:
+                        self.__content = None
+                    elif num_rows == 1:
+                        self.__content = self.__content[0]
+                        num_columns = len(self.__content)
+                        if num_columns == 1:
+                            self.__content = self.__content[0]
+        return self.__content
 
 
-class BatchRequestList(object):
+class Batch(object):
 
     def __init__(self, graph, hydrate=True):
         self.graph = graph
@@ -256,17 +266,17 @@ class BatchRequestList(object):
         response_list = self.graph.batch.stream(self)
         if self.hydrate:
             for response in response_list:
-                yield response.body
+                yield response.content
         else:
             for response in response_list:
-                yield response.body_data
+                yield response.content_data
 
     def submit(self):
-        response_list = self.graph.batch.stream(self)
+        response_list = self.graph.batch.submit(self)
         if self.hydrate:
-            return [response.body for response in response_list]
+            return [response.content for response in response_list]
         else:
-            return [response.body_data for response in response_list]
+            return [response.content_data for response in response_list]
 
 
 #class CreateNodeBatchRequest(BatchRequest):

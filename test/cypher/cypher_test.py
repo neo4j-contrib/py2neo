@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 import pytest
 
 from py2neo.error import GraphError
-from py2neo.cypher import CypherQuery, CypherError
+from py2neo.cypher import CypherQuery
 from py2neo.core import Node, Relationship, Path
 
 
@@ -37,7 +37,7 @@ def test_nonsense_query(graph):
     query = "SELECT z=nude(0) RETURNS x"
     try:
         CypherQuery(graph, query).execute()
-    except CypherError:
+    except GraphError:
         assert True
     else:
         assert False

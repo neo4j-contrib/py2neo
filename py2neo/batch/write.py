@@ -20,10 +20,10 @@ from __future__ import division, unicode_literals
 
 from py2neo.core import Resource, Node, Relationship, Path
 from py2neo.util import compact
-from py2neo.batch.core import BatchRequestList
+from py2neo.batch.core import Batch
 
 
-class WriteBatch(BatchRequestList):
+class WriteBatch(Batch):
     """ Generic batch execution facility for data write requests. Most methods
     return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
     can be used as a reference in other methods. See the
@@ -32,7 +32,7 @@ class WriteBatch(BatchRequestList):
     """
 
     def __init__(self, graph):
-        BatchRequestList.__init__(self, graph)
+        Batch.__init__(self, graph)
 
     def create(self, abstract):
         """ Create a node or relationship based on the abstract entity

@@ -22,13 +22,13 @@ import logging
 
 from py2neo.core import Bindable
 from py2neo.cypher.error import CypherError
-from py2neo.cypher.results import CypherResults, IterableCypherResults, RecordProducer
+from py2neo.cypher.results import IterableCypherResults
 
 
-log = logging.getLogger("cypher")
+log = logging.getLogger("py2neo.cypher")
 
 
-class Cypher(Bindable):
+class CypherResource(Bindable):
 
     error_class = CypherError
 
@@ -38,16 +38,10 @@ class Cypher(Bindable):
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            inst = super(Cypher, cls).__new__(cls)
+            inst = super(CypherResource, cls).__new__(cls)
             inst.bind(uri)
             cls.__instances[uri] = inst
         return inst
-
-    def hydrate(self, data):
-        columns = data["columns"]
-        rows = data["data"]
-        producer = RecordProducer(columns)
-        return CypherResults(columns, [producer.produce(self.graph.hydrate(row)) for row in rows])
 
     def post(self, query, params=None):
         if __debug__:
@@ -65,7 +59,7 @@ class Cypher(Bindable):
     def execute(self, query, params=None):
         response = self.post(query, params)
         try:
-            return self.hydrate(response.content)
+            return self.graph.hydrate(response.content)
         finally:
             response.close()
 

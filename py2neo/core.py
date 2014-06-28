@@ -470,15 +470,15 @@ class Graph(Bindable):
     @property
     def batch(self):
         if self.__batch is None:
-            from py2neo.batch import Batch
-            self.__batch = Batch(self.uri.string + "batch")
+            from py2neo.batch import BatchResource
+            self.__batch = BatchResource(self.uri.string + "batch")
         return self.__batch
 
     @property
     def cypher(self):
         if self.__cypher is None:
-            from py2neo.cypher import Cypher
-            self.__cypher = Cypher(self.uri.string + "cypher")
+            from py2neo.cypher import CypherResource
+            self.__cypher = CypherResource(self.uri.string + "cypher")
         return self.__cypher
 
     def create(self, *entities):
@@ -674,12 +674,12 @@ class Graph(Bindable):
         of a single batch; returns a list of dictionaries in the same order
         as the supplied entities.
         """
-        from py2neo.batch import BatchRequestList
+        from py2neo.batch import Batch
         if not entities:
             return []
         if len(entities) == 1:
             return [entities[0].get_properties()]
-        batch = BatchRequestList(self, hydrate=False)
+        batch = Batch(self, hydrate=False)
         for entity in entities:
             batch.append_get(batch._uri_for(entity, "properties"))
         return [properties or {} for properties in batch.submit()]
@@ -698,10 +698,9 @@ class Graph(Bindable):
 
         if isinstance(data, dict):
             if "self" in data:
-                # entity (node or rel)
                 tag, i = relative_uri(data["self"]).partition("/")[0::2]
                 if tag == "":
-                    return self  # uri refers to graph
+                    return self
                 elif tag == "node":
                     return Node.hydrate(data)
                 elif tag == "relationship":
@@ -709,15 +708,12 @@ class Graph(Bindable):
                 else:
                     raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
             elif "nodes" in data and "relationships" in data:
-                # path
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                return self.cypher.hydrate(data)
-            elif has_all(data, ("exception", "stacktrace")):
-                # TODO: could this be any kind of error, not necessarily a batch error?
-                # TODO: if so, should this logic be moved to Batch.hydrate instead?
-                from py2neo.batch import BatchError
-                raise BatchError.hydrate(data)
+                from py2neo.cypher import CypherResults
+                return CypherResults.hydrate(data, self)
+            elif "exception" in data and "stacktrace" in data:
+                raise GraphError.hydrate(data)
             else:
                 # TODO: warn about dict ambiguity
                 return data
@@ -2216,11 +2212,10 @@ class Path(object):
         return query, params
 
     def _create(self, graph, unique):
-        from py2neo.cypher import CypherError
         query, params = self._create_query(unique=unique)
         try:
             results = graph.cypher.execute(query, params)
-        except CypherError:
+        except GraphError:
             raise NotImplementedError(
                 "The Neo4j server at <{0}> does not support "
                 "Cypher CREATE UNIQUE clauses or the query contains "
