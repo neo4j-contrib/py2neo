@@ -18,18 +18,74 @@
 
 from __future__ import division, unicode_literals
 
+import json
 import logging
 
-from py2neo.error import ClientError, ServerError
-from py2neo.core import Resource, Node, Relationship, NodePointer, Path
+from py2neo.core import NodePointer, Bindable, Resource
 from py2neo.cypher import CypherResults
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI
-from py2neo.util import compact, has_all, pendulate, ustr
+from py2neo.util import has_all, pendulate, ustr, is_collection
 from py2neo.batch.error import BatchError
 
 
-batch_log = logging.getLogger(__name__ + ".batch")
+log = logging.getLogger("py2neo.batch")
+
+
+class Batch(Bindable):
+
+    error_class = BatchError
+
+    __instances = {}
+
+    def __new__(cls, uri):
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(Batch, cls).__new__(cls)
+            inst.bind(uri)
+            cls.__instances[uri] = inst
+        return inst
+
+    def hydrate(self, data):
+        if isinstance(data, dict):
+            if has_all(data, ("id", "from")):
+                return BatchResponse.hydrate(data, self.graph)
+            else:
+                # TODO: warn about dict ambiguity
+                return data
+        elif is_collection(data):
+            return type(data)(map(self.hydrate, data))
+        else:
+            return data
+
+    def post(self, requests):
+        request_count = len(requests)
+        request_text = "request" if request_count == 1 else "requests"
+        log.info("Executing batch with %s %s", request_count, request_text)
+        data = []
+        for i, request in enumerate(requests):
+            log.info(">>> {{%s}} %s %s %s", i, request.method, request.uri, request.body)
+            data.append(dict(request, id=i))
+        return self.resource.post(data)
+
+    def run(self, requests):
+        self.post(requests).close()
+
+    def stream(self, requests):
+        response_list = self.post(requests)
+        try:
+            for i, response in grouped(response_list):
+                yield self.hydrate(assembled(response))
+        finally:
+            response_list.close()
+
+    def submit(self, requests):
+        response_list = self.post(requests)
+        try:
+            return self.hydrate(response_list.content)
+        finally:
+            response_list.close()
 
 
 class BatchRequest(object):
@@ -37,30 +93,30 @@ class BatchRequest(object):
     """
 
     def __init__(self, method, uri, body=None):
-        self._method = method
-        self._uri = uri
-        self._body = body
+        self.method = method
+        self.uri = ustr(uri)
+        self.body = body
+
+    def __repr__(self):
+        parts = [self.method, self.uri]
+        if self.body is not None:
+            parts.append(json.dumps(self.body, separators=",:"))
+        return " ".join(parts)
 
     def __eq__(self, other):
-        return id(self) == id(other)
+        return self is other
 
     def __ne__(self, other):
-        return id(self) != id(other)
+        return not self.__eq__(other)
 
     def __hash__(self):
         return hash(id(self))
 
-    @property
-    def method(self):
-        return self._method
-
-    @property
-    def uri(self):
-        return self._uri
-
-    @property
-    def body(self):
-        return self._body
+    def __iter__(self):
+        yield "method", self.method
+        yield "to", self.uri
+        if self.body is not None:
+            yield "body", self.body
 
 
 class BatchResponse(object):
@@ -68,27 +124,44 @@ class BatchResponse(object):
     """
 
     @classmethod
-    def hydrate(cls, data, body_hydrator=None):
+    def hydrate(cls, data, graph):
         batch_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
-        raw_body = data.get("body")
-        if body_hydrator:
-            body = body_hydrator(raw_body)
-        else:
-            body = raw_body
+        body = data.get("body")
         location = data.get("location")
-        if __debug__:
-            batch_log.debug("<<< {{{0}}} {1} {2}".format(
-                batch_id, status_code, raw_body, location))
-        return cls(batch_id, uri, status_code, body, location)
+        log.info("<<< {{{0}}} {1} {2}".format(
+            batch_id, status_code, body, location))
+        return cls(graph, batch_id, uri, body, location, status_code)
 
-    def __init__(self, batch_id, uri, status_code=None, body=None, location=None):
+    def __init__(self, graph, batch_id, uri, body_data=None, location=None, status_code=None):
+        self.graph = graph
         self.batch_id = batch_id
         self.uri = URI(uri)
+        self.__body_data = body_data
+        self.__body = NotImplemented
+        self.location = URI(location)
         self.status_code = status_code or 200
-        self.body = body
-        self.location = location
+
+    @property
+    def body_data(self):
+        return self.__body_data
+
+    @property
+    def body(self):
+        if self.__body is NotImplemented:
+            self.__body = self.graph.hydrate(self.__body_data)
+            # If Cypher results, reduce to single row or single value if possible
+            if isinstance(self.__body, CypherResults):
+                num_rows = len(self.__body)
+                if num_rows == 0:
+                    self.__body = None
+                elif num_rows == 1:
+                    self.__body = self.__body[0]
+                    num_columns = len(self.__body)
+                    if num_columns == 1:
+                        self.__body = self.__body[0]
+        return self.__body
 
 
 class BatchRequestList(object):
@@ -103,6 +176,9 @@ class BatchRequestList(object):
 
     def __nonzero__(self):
         return bool(self._requests)
+
+    def __iter__(self):
+        return iter(self._requests)
 
     def append(self, request):
         self._requests.append(request)
@@ -135,18 +211,6 @@ class BatchRequestList(object):
         if params:
             body["params"] = dict(params)
         return self.append_post(self.graph.cypher.relative_uri, body)
-
-    @property
-    def _body(self):
-        return [
-            {
-                "id": i,
-                "method": request.method,
-                "to": str(request.uri),
-                "body": request.body,
-            }
-            for i, request in enumerate(self._requests)
-        ]
 
     def clear(self):
         """ Clear all requests from this batch.
@@ -182,278 +246,29 @@ class BatchRequestList(object):
             uri += "?" + query
         return uri
 
-    def _execute(self):
-        request_count = len(self)
-        request_text = "request" if request_count == 1 else "requests"
-        batch_log.info("Executing batch with {0} {1}".format(request_count, request_text))
-        if __debug__:
-            for id_, request in enumerate(self._requests):
-                batch_log.debug(">>> {{{0}}} {1} {2} {3}".format(id_, request.method, request.uri, request.body))
-        try:
-            response = self.graph.batch.post(self._body)
-        except (ClientError, ServerError) as e:
-            if e.exception:
-                # A CustomBatchError is a dynamically created subclass of
-                # BatchError with the same name as the underlying server
-                # exception
-                CustomBatchError = type(str(e.exception), (BatchError,), {})
-                raise CustomBatchError(e)
-            else:
-                raise BatchError(e)
-        else:
-            return response
+    def post(self):
+        return self.graph.batch.post(self)
 
     def run(self):
-        """ Execute the batch on the server and discard the results. If the
-        batch results are not required, this will generally be the fastest
-        execution method.
-        """
-        return self._execute().close()
+        self.graph.batch.run(self)
 
     def stream(self):
-        """ Execute the batch on the server and return iterable results. This
-        method allows handling of results as they are received from the server.
-
-        :return: iterable results
-        :rtype: :py:class:`BatchResponseList`
-        """
-        response_list = BatchResponseList(self.graph, self._execute(), hydrate=self.hydrate)
-        for response in response_list:
-            yield response.body
-        response_list.close()
+        response_list = self.graph.batch.stream(self)
+        if self.hydrate:
+            for response in response_list:
+                yield response.body
+        else:
+            for response in response_list:
+                yield response.body_data
 
     def submit(self):
-        """ Execute the batch on the server and return a list of results. This
-        method blocks until all results are received.
-
-        :return: result records
-        :rtype: :py:class:`list`
-        """
-        response_list = BatchResponseList(self.graph, self._execute(), hydrate=self.hydrate)
-        return [response.body for response in response_list.responses]
-
-
-class BatchResponseList(object):
-
-    def __init__(self, graph, response, hydrate):
-        self.__graph = graph
-        self.__response = response
-        if not hydrate:
-            self.body_hydrator = None
-
-    def __iter__(self):
-        for i, response in grouped(self.__response):
-            yield BatchResponse.hydrate(assembled(response), self.body_hydrator)
-        self.close()
-
-    @property
-    def graph(self):
-        return self.__graph
-
-    @property
-    def responses(self):
-        return [
-            BatchResponse.hydrate(response, self.body_hydrator)
-            for response in self.__response.content
-        ]
-
-    @property
-    def closed(self):
-        return self.__response.closed
-
-    def close(self):
-        self.__response.close()
-
-    def body_hydrator(self, data):
-        if isinstance(data, dict) and has_all(data, ("columns", "data")):
-            records = CypherResults._hydrated(self.__graph, data)
-            if len(records) == 0:
-                return None
-            elif len(records) == 1:
-                if len(records[0]) == 1:
-                    return records[0][0]
-                else:
-                    return records[0]
-            else:
-                return records
+        response_list = self.graph.batch.stream(self)
+        if self.hydrate:
+            return [response.body for response in response_list]
         else:
-            return self.__graph.hydrate(data)
+            return [response.body_data for response in response_list]
 
 
-# TODO: remove - redundant
-class ReadBatch(BatchRequestList):
-    """ Generic batch execution facility for data read requests,
-    """
-
-    def __init__(self, graph):
-        BatchRequestList.__init__(self, graph)
-
-
-class WriteBatch(BatchRequestList):
-    """ Generic batch execution facility for data write requests. Most methods
-    return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
-    can be used as a reference in other methods. See the
-    :py:meth:`create <py2neo.neo4j.WriteBatch.create>` method for an example
-    of this.
-    """
-
-    def __init__(self, graph):
-        BatchRequestList.__init__(self, graph)
-
-    def create(self, abstract):
-        """ Create a node or relationship based on the abstract entity
-        provided. For example::
-
-            batch = WriteBatch(graph)
-            a = batch.create(node(name="Alice"))
-            b = batch.create(node(name="Bob"))
-            batch.create(rel(a, "KNOWS", b))
-            results = batch.submit()
-
-        :param abstract: node or relationship
-        :type abstract: abstract
-        :return: batch request object
-        """
-        entity = self.graph.cast(abstract)
-        if isinstance(entity, Node):
-            # TODO: cache this uri
-            uri = self._uri_for(Resource(self.graph.resource.metadata["node"]))
-            body = entity.properties
-        elif isinstance(entity, Relationship):
-            uri = self._uri_for(entity.start_node, "relationships")
-            body = {
-                "type": entity.type,
-                "to": self._uri_for(entity.end_node)
-            }
-            if entity.properties:
-                body["data"] = entity.properties
-        else:
-            raise TypeError(entity)
-        return self.append_post(uri, body)
-
-    def create_path(self, node, *rels_and_nodes):
-        """ Construct a path across a specified set of nodes and relationships.
-        Nodes may be existing concrete node instances, abstract nodes or
-        :py:const:`None` but references to other requests are not supported.
-
-        :param node: start node
-        :type node: concrete, abstract or :py:const:`None`
-        :param rels_and_nodes: alternating relationships and nodes
-        :type rels_and_nodes: concrete, abstract or :py:const:`None`
-        :return: batch request object
-        """
-        query, params = Path(node, *rels_and_nodes)._create_query(unique=False)
-        self.append_cypher(query, params)
-
-    def get_or_create_path(self, node, *rels_and_nodes):
-        """ Construct a unique path across a specified set of nodes and
-        relationships, adding only parts that are missing. Nodes may be
-        existing concrete node instances, abstract nodes or :py:const:`None`
-        but references to other requests are not supported.
-
-        :param node: start node
-        :type node: concrete, abstract or :py:const:`None`
-        :param rels_and_nodes: alternating relationships and nodes
-        :type rels_and_nodes: concrete, abstract or :py:const:`None`
-        :return: batch request object
-        """
-        query, params = Path(node, *rels_and_nodes)._create_query(unique=True)
-        self.append_cypher(query, params)
-
-    def delete(self, entity):
-        """ Delete a node or relationship from the graph.
-
-        :param entity: node or relationship to delete
-        :type entity: concrete or reference
-        :return: batch request object
-        """
-        return self.append_delete(self._uri_for(entity))
-
-    def set_property(self, entity, key, value):
-        """ Set a single property on a node or relationship.
-
-        :param entity: node or relationship on which to set property
-        :type entity: concrete or reference
-        :param key: property key
-        :type key: :py:class:`str`
-        :param value: property value
-        :return: batch request object
-        """
-        if value is None:
-            self.delete_property(entity, key)
-        else:
-            uri = self._uri_for(entity, "properties", key)
-            return self.append_put(uri, value)
-
-    def set_properties(self, entity, properties):
-        """ Replace all properties on a node or relationship.
-
-        :param entity: node or relationship on which to set properties
-        :type entity: concrete or reference
-        :param properties: properties
-        :type properties: :py:class:`dict`
-        :return: batch request object
-        """
-        uri = self._uri_for(entity, "properties")
-        return self.append_put(uri, compact(properties))
-
-    def delete_property(self, entity, key):
-        """ Delete a single property from a node or relationship.
-
-        :param entity: node or relationship from which to delete property
-        :type entity: concrete or reference
-        :param key: property key
-        :type key: :py:class:`str`
-        :return: batch request object
-        """
-        uri = self._uri_for(entity, "properties", key)
-        return self.append_delete(uri)
-
-    def delete_properties(self, entity):
-        """ Delete all properties from a node or relationship.
-
-        :param entity: node or relationship from which to delete properties
-        :type entity: concrete or reference
-        :return: batch request object
-        """
-        uri = self._uri_for(entity, "properties")
-        return self.append_delete(uri)
-
-    def add_labels(self, node, *labels):
-        """ Add labels to a node.
-
-        :param node: node to which to add labels
-        :type entity: concrete or reference
-        :param labels: text labels
-        :type labels: :py:class:`str`
-        :return: batch request object
-        """
-        uri = self._uri_for(node, "labels")
-        return self.append_post(uri, list(labels))
-
-    def remove_label(self, node, label):
-        """ Remove a label from a node.
-
-        :param node: node from which to remove labels (can be a reference to
-            another request within the same batch)
-        :param label: text label
-        :type label: :py:class:`str`
-        :return: batch request object
-        """
-        uri = self._uri_for(node, "labels", label)
-        return self.append_delete(uri)
-
-    def set_labels(self, node, *labels):
-        """ Replace all labels on a node.
-
-        :param node: node on which to replace labels (can be a reference to
-            another request within the same batch)
-        :param labels: text labels
-        :type labels: :py:class:`str`
-        :return: batch request object
-        """
-        uri = self._uri_for(node, "labels")
-        return self.append_put(uri, list(labels))
-
-    # TODO: PullBatch
-    # TODO: PushBatch
+#class CreateNodeBatchRequest(BatchRequest):
+#    def __init__(self, properties=None):
+#        BatchRequest.__init__(self, "POST", "node", properties or {})

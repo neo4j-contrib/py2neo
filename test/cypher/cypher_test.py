@@ -20,6 +20,7 @@ from __future__ import unicode_literals
 
 import pytest
 
+from py2neo.error import GraphError
 from py2neo.cypher import CypherQuery, CypherError
 from py2neo.core import Node, Relationship, Path
 
@@ -93,7 +94,7 @@ class TestCypher(object):
         self.graph = graph
 
     def test_nonsense_query_with_error_handler(self):
-        with pytest.raises(CypherError):
+        with pytest.raises(GraphError):
             self.graph.cypher.execute("SELECT z=nude(0) RETURNS x")
 
     def test_query(self):

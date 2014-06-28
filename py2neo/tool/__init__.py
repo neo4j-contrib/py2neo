@@ -31,6 +31,7 @@ import sys
 
 from py2neo import __version__, __copyright__
 from py2neo.core import authenticate, ServiceRoot, Node
+from py2neo.error import GraphError
 from py2neo.ext import geoff
 from py2neo.cypher import CypherError, CypherQuery
 from py2neo.util import ustr
@@ -583,8 +584,8 @@ class Shell(object):
                 params = {}
             try:
                 record_set = CypherQuery(self.graph, query).execute(**params)
-            except CypherError as err:
-                print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
+            except GraphError as error:
+                print("\x1b[31;1m{0}: {1}\x1b[0m".format(error.__class__.__name__, error))
                 print("")
             else:
                 writer = ResultWriter(sys.stdout)
@@ -595,8 +596,8 @@ class Shell(object):
         params = {"i": node_id}
         try:
             record_set = CypherQuery(self.graph, query).execute(**params)
-        except CypherError as err:
-            print("\x1b[31;1m{0}: {1}\x1b[0m".format(err.__class__.__name__, err))
+        except GraphError as error:
+            print("\x1b[31;1m{0}: {1}\x1b[0m".format(error.__class__.__name__, error))
             print("")
         else:
             self.display_node(record_set[0][0])

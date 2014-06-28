@@ -21,15 +21,16 @@ from __future__ import unicode_literals
 import logging
 
 from py2neo.core import Bindable
-from py2neo.error import ClientError
 from py2neo.cypher.error import CypherError
-from py2neo.cypher.results import CypherResults, IterableCypherResults
+from py2neo.cypher.results import CypherResults, IterableCypherResults, RecordProducer
 
 
 log = logging.getLogger("cypher")
 
 
 class Cypher(Bindable):
+
+    error_class = CypherError
 
     __instances = {}
 
@@ -42,6 +43,12 @@ class Cypher(Bindable):
             cls.__instances[uri] = inst
         return inst
 
+    def hydrate(self, data):
+        columns = data["columns"]
+        rows = data["data"]
+        producer = RecordProducer(columns)
+        return CypherResults(columns, [producer.produce(self.graph.hydrate(row)) for row in rows])
+
     def post(self, query, params=None):
         if __debug__:
             log.debug("Query: " + repr(query))
@@ -50,24 +57,20 @@ class Cypher(Bindable):
             if __debug__:
                 log.debug("Params: " + repr(params))
             payload["params"] = params
-        try:
-            response = self.resource.post(payload)
-        except ClientError as e:
-            if e.exception:
-                # A CustomCypherError is a dynamically created subclass of
-                # CypherError with the same name as the underlying server
-                # exception
-                CustomCypherError = type(str(e.exception), (CypherError,), {})
-                raise CustomCypherError(e)
-            else:
-                raise CypherError(e)
-        else:
-            return response
+        return self.resource.post(payload)
+
+    def run(self, query, params=None):
+        self.post(query, params).close()
 
     def execute(self, query, params=None):
-        return CypherResults(self.graph, self.post(query, params))
+        response = self.post(query, params)
+        try:
+            return self.hydrate(response.content)
+        finally:
+            response.close()
 
     def execute_one(self, query, params=None):
+        # TODO: make sure post response is closed
         try:
             return self.execute(query, params).data[0][0]
         except IndexError:
@@ -79,6 +82,7 @@ class Cypher(Bindable):
         return IterableCypherResults(self.graph, self.post(query, params))
 
 
+# TODO: rework to use Cypher resource
 class CypherQuery(object):
     """ A reusable Cypher query. To create a new query object, a graph and the
     query text need to be supplied::
@@ -92,7 +96,6 @@ class CypherQuery(object):
 
     def __init__(self, graph, query):
         self.graph = graph
-        self.__cypher_resource = self.graph.cypher.resource
         self.query = query
 
     def __repr__(self):
@@ -105,56 +108,16 @@ class CypherQuery(object):
         return self.query
 
     def post(self, **params):
-        if __debug__:
-            log.debug("Query: " + repr(self.query))
-            if params:
-                log.debug("Params: " + repr(params))
-        try:
-            response = self.__cypher_resource.post({"query": self.query, "params": params})
-        except ClientError as e:
-            if e.exception:
-                # A CustomCypherError is a dynamically created subclass of
-                # CypherError with the same name as the underlying server
-                # exception
-                CustomCypherError = type(str(e.exception), (CypherError,), {})
-                raise CustomCypherError(e)
-            else:
-                raise CypherError(e)
-        else:
-            return response
+        return self.graph.cypher.post(self.query, params)
 
     def run(self, **params):
-        """ Execute the query and discard any results.
-
-        :param params:
-        """
-        self.post(**params).close()
+        self.graph.cypher.run(self.query, params)
 
     def execute(self, **params):
-        """ Execute the query and return the results.
-
-        :param params:
-        :return:
-        :rtype: :py:class:`CypherResults <py2neo.neo4j.CypherResults>`
-        """
-        return CypherResults(self.graph, self.post(**params))
+        return self.graph.cypher.execute(self.query, params)
 
     def execute_one(self, **params):
-        """ Execute the query and return the first value from the first row.
-
-        :param params:
-        :return:
-        """
-        try:
-            return self.execute(**params).data[0][0]
-        except IndexError:
-            return None
+        return self.graph.cypher.execute_one(self.query, params)
 
     def stream(self, **params):
-        """ Execute the query and return a result iterator.
-
-        :param params:
-        :return:
-        :rtype: :py:class:`IterableCypherResults <py2neo.neo4j.IterableCypherResults>`
-        """
-        return IterableCypherResults(self.graph, self.post(**params))
+        return self.graph.cypher.stream(self.query, params)

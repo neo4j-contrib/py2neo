@@ -21,6 +21,7 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 
 from py2neo.core import Resource, ServiceRoot
+from py2neo.cypher.error import TransactionError, TransactionFinished
 from py2neo.cypher.results import RecordProducer
 from py2neo.packages.urimagic import URI
 
@@ -70,7 +71,7 @@ class Session(object):
         """
         tx = self.create_transaction()
         tx.append(statement, parameters)
-        results = tx.execute()
+        results = tx.commit()
         return results[0]
 
 
@@ -80,18 +81,15 @@ class Transaction(object):
     """
 
     def __init__(self, uri):
-        self._begin = Resource(uri)
-        self._begin_commit = Resource(uri + "/commit")
-        self._execute = None
-        self._commit = None
-        self._statements = []
-        self._finished = False
+        self.statements = []
+        self.__begin = Resource(uri)
+        self.__begin_commit = Resource(uri + "/commit")
+        self.__execute = None
+        self.__commit = None
+        self.__finished = False
 
-    def _clear(self):
-        self._statements = []
-
-    def _assert_unfinished(self):
-        if self._finished:
+    def __assert_unfinished(self):
+        if self.__finished:
             raise TransactionFinished()
 
     @property
@@ -102,7 +100,7 @@ class Transaction(object):
         :return: :py:const:`True` if this transaction has finished,
                  :py:const:`False` otherwise
         """
-        return self._finished
+        return self.__finished
 
     def append(self, statement, parameters=None):
         """ Append a statement to the current queue of statements to be
@@ -111,25 +109,25 @@ class Transaction(object):
         :param statement: the statement to execute
         :param parameters: a dictionary of execution parameters
         """
-        self._assert_unfinished()
+        self.__assert_unfinished()
         # OrderedDict is used here to avoid statement/parameters ordering bug
-        self._statements.append(OrderedDict([
+        self.statements.append(OrderedDict([
             ("statement", statement),
             ("parameters", dict(parameters or {})),
             ("resultDataContents", ["REST"]),
         ]))
 
-    def _post(self, resource):
-        self._assert_unfinished()
-        rs = resource.post({"statements": self._statements})
+    def post(self, resource):
+        self.__assert_unfinished()
+        rs = resource.post({"statements": self.statements})
         location = dict(rs.headers).get("location")
         if location:
-            self._execute = Resource(location)
+            self.__execute = Resource(location)
         j = rs.content
         rs.close()
-        self._clear()
+        self.statements = []
         if "commit" in j:
-            self._commit = Resource(j["commit"])
+            self.__commit = Resource(j["commit"])
         if "errors" in j:
             errors = j["errors"]
             if len(errors) >= 1:
@@ -139,7 +137,7 @@ class Transaction(object):
         for result in j["results"]:
             producer = RecordProducer(result["columns"])
             out.append([
-                producer.produce(self._begin.service_root.graph.hydrate(r["rest"]))
+                producer.produce(self.__begin.service_root.graph.hydrate(r["rest"]))
                 for r in result["data"]
             ])
         return out
@@ -150,7 +148,7 @@ class Transaction(object):
 
         :return: list of results from pending statements
         """
-        return self._post(self._execute or self._begin)
+        return self.post(self.__execute or self.__begin)
 
     def commit(self):
         """ Send all pending statements to the server for execution and commit
@@ -159,40 +157,16 @@ class Transaction(object):
         :return: list of results from pending statements
         """
         try:
-            return self._post(self._commit or self._begin_commit)
+            return self.post(self.__commit or self.__begin_commit)
         finally:
-            self._finished = True
+            self.__finished = True
 
     def rollback(self):
         """ Rollback the current transaction.
         """
-        self._assert_unfinished()
+        self.__assert_unfinished()
         try:
-            if self._execute:
-                self._execute.delete()
+            if self.__execute:
+                self.__execute.delete()
         finally:
-            self._finished = True
-
-
-class TransactionError(Exception):
-    """ Raised when an error occurs while processing a Cypher transaction.
-    """
-
-    @classmethod
-    def new(cls, code, message):
-        CustomError = type(str(code), (cls,), {})
-        return CustomError(message)
-
-    def __init__(self, message):
-        Exception.__init__(self, message)
-
-
-class TransactionFinished(Exception):
-    """ Raised when actions are attempted against a finished Transaction.
-    """
-
-    def __init__(self):
-        pass
-
-    def __repr__(self):
-        return "Transaction finished"
+            self.__finished = True

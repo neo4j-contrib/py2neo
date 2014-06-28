@@ -16,36 +16,39 @@
 # limitations under the License.
 
 
-class CypherError(Exception):
+import json
 
-    def __init__(self, response):
-        self._response = response
-        Exception.__init__(self, self.message)
+from py2neo.error import GraphError
 
-    @property
-    def message(self):
-        return self._response.message
 
-    @property
-    def exception(self):
-        return self._response.exception
+class CypherError(GraphError):
 
-    @property
-    def full_name(self):
-        return self._response.full_name
+    def __init__(self, message, **kwargs):
+        GraphError.__init__(self, message, **kwargs)
+        request_body = json.loads(self.request.body)
+        self.query = request_body.get("query")
+        self.params = request_body.get("params")
 
-    @property
-    def stack_trace(self):
-        return self._response.stack_trace
 
-    @property
-    def cause(self):
-        return self._response.cause
+class TransactionError(Exception):
+    """ Raised when an error occurs while processing a Cypher transaction.
+    """
 
-    @property
-    def request(self):
-        return self._response.request
+    @classmethod
+    def new(cls, code, message):
+        CustomError = type(str(code), (cls,), {})
+        return CustomError(message)
 
-    @property
-    def response(self):
-        return self._response
+    def __init__(self, message):
+        Exception.__init__(self, message)
+
+
+class TransactionFinished(Exception):
+    """ Raised when actions are attempted against a finished Transaction.
+    """
+
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return "Transaction finished"

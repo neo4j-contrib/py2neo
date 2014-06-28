@@ -16,7 +16,14 @@
 # limitations under the License.
 
 
-from py2neo.batch.core import Batch, BatchRequest, BatchResponse, BatchRequestList
-from py2neo.batch.error import BatchError
-from py2neo.batch.read import ReadBatch
-from py2neo.batch.write import WriteBatch
+from __future__ import division, unicode_literals
+
+from py2neo.batch.core import BatchRequestList
+
+
+class ReadBatch(BatchRequestList):
+    """ Generic batch execution facility for data read requests,
+    """
+
+    def __init__(self, graph):
+        BatchRequestList.__init__(self, graph)

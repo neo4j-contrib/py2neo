@@ -74,7 +74,7 @@ class Watcher(threading.local):
         self.logger = logging.getLogger(self.logger_name)
         self.formatter = ColourFormatter()
 
-    def watch(self, level=logging.INFO, out=sys.stdout):
+    def watch(self, level=None, out=sys.stdout):
         try:
             self.logger.removeHandler(self.handlers[self.logger_name])
         except KeyError:
@@ -83,6 +83,8 @@ class Watcher(threading.local):
         handler.setFormatter(self.formatter)
         self.handlers[self.logger_name] = handler
         self.logger.addHandler(handler)
+        if level is None:
+            level = logging.DEBUG if __debug__ else logging.INFO
         self.logger.setLevel(level)
 
 

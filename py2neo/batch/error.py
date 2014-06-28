@@ -16,44 +16,10 @@
 # limitations under the License.
 
 
-class BatchError(Exception):
+from py2neo.error import GraphError
 
-    @classmethod
-    def with_name(cls, name):
-        try:
-            return type(name, (cls,), {})
-        except TypeError:
-            # for Python 2.x
-            return type(str(name), (cls,), {})
 
-    def __init__(self, response):
-        self._response = response
-        Exception.__init__(self, self.message)
+class BatchError(GraphError):
 
-    @property
-    def message(self):
-        return self._response.message
-
-    @property
-    def exception(self):
-        return self._response.exception
-
-    @property
-    def full_name(self):
-        return self._response.full_name
-
-    @property
-    def stack_trace(self):
-        return self._response.stack_trace
-
-    @property
-    def cause(self):
-        return self._response.cause
-
-    @property
-    def request(self):
-        return self._response.request
-
-    @property
-    def response(self):
-        return self._response
+    def __init__(self, message, **kwargs):
+        GraphError.__init__(self, message, **kwargs)

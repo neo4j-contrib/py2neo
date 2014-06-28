@@ -47,9 +47,10 @@ import re
 from weakref import WeakValueDictionary
 
 from py2neo import __version__
-from py2neo.error import ClientError, ServerError, ServerException, BindError, JoinError
-from py2neo.packages.httpstream import http, Resource as _Resource, \
-    ResourceTemplate as _ResourceTemplate, ClientError as _ClientError, ServerError as _ServerError
+from py2neo.error import GraphError, BindError, JoinError
+from py2neo.packages.httpstream import http, ClientError, ServerError, \
+    Resource as _Resource, ResourceTemplate as _ResourceTemplate
+from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import BAD_REQUEST, NOT_FOUND, CONFLICT
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI, URITemplate
@@ -160,6 +161,8 @@ class Resource(_Resource):
     detail.
     """
 
+    error_class = GraphError
+
     def __init__(self, uri, metadata=None):
         uri = URI(uri)
         scheme_host_port = (uri.scheme, uri.host, uri.port)
@@ -224,13 +227,16 @@ class Resource(_Resource):
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT, cache=True)
-        # TODO: clean up exception handling - decorator? do we need both client/server types at this level?
         try:
             response = self.__base.get(headers, redirect_limit, **kwargs)
-        except _ClientError as err:
-            raise ClientError(err)
-        except _ServerError as err:
-            raise ServerError(err)
+        except (ClientError, ServerError) as error:
+            if isinstance(error, JSONResponse):
+                content = error.content
+                content["request"] = error.request
+                content["response"] = error
+                raise self.error_class.hydrate(content)
+            else:
+                raise
         else:
             self.__last_get_response = response
             return response
@@ -241,10 +247,14 @@ class Resource(_Resource):
         kwargs.update(product=PRODUCT)
         try:
             response = self.__base.put(body, headers, **kwargs)
-        except _ClientError as err:
-            raise ClientError(err)
-        except _ServerError as err:
-            raise ServerError(err)
+        except (ClientError, ServerError) as error:
+            if isinstance(error, JSONResponse):
+                content = error.content
+                content["request"] = error.request
+                content["response"] = error
+                raise self.error_class.hydrate(content)
+            else:
+                raise
         else:
             return response
 
@@ -254,10 +264,14 @@ class Resource(_Resource):
         kwargs.update(product=PRODUCT)
         try:
             response = self.__base.post(body, headers, **kwargs)
-        except _ClientError as err:
-            raise ClientError(err)
-        except _ServerError as err:
-            raise ServerError(err)
+        except (ClientError, ServerError) as error:
+            if isinstance(error, JSONResponse):
+                content = error.content
+                content["request"] = error.request
+                content["response"] = error
+                raise self.error_class.hydrate(content)
+            else:
+                raise
         else:
             return response
 
@@ -267,28 +281,38 @@ class Resource(_Resource):
         kwargs.update(product=PRODUCT)
         try:
             response = self.__base.delete(headers, **kwargs)
-        except _ClientError as err:
-            raise ClientError(err)
-        except _ServerError as err:
-            raise ServerError(err)
+        except (ClientError, ServerError) as error:
+            if isinstance(error, JSONResponse):
+                content = error.content
+                content["request"] = error.request
+                content["response"] = error
+                raise self.error_class.hydrate(content)
+            else:
+                raise
         else:
             return response
 
 
 class ResourceTemplate(_ResourceTemplate):
 
+    error_class = GraphError
+
     def expand(self, **values):
-        return Resource(self.uri_template.expand(**values))
+        resource = Resource(self.uri_template.expand(**values))
+        resource.error_class = self.error_class
+        return resource
 
 
 class Bindable(object):
     """ Base class for objects that can be bound to a remote resource.
     """
 
+    error_class = GraphError
+
     __resource = None
 
     def __init__(self, uri=None):
-        if uri:
+        if uri and not self.bound:
             self.bind(uri)
 
     def bind(self, uri, metadata=None):
@@ -300,6 +324,7 @@ class Bindable(object):
             self.__resource = ResourceTemplate(uri)
         else:
             self.__resource = Resource(uri, metadata)
+        self.__resource.error_class = self.error_class
 
     @property
     def bound(self):
@@ -445,8 +470,8 @@ class Graph(Bindable):
     @property
     def batch(self):
         if self.__batch is None:
-            # TODO: specialist class
-            self.__batch = Resource(self.uri.string + "batch")
+            from py2neo.batch import Batch
+            self.__batch = Batch(self.uri.string + "batch")
         return self.__batch
 
     @property
@@ -637,8 +662,8 @@ class Graph(Bindable):
         try:
             for i, result in grouped(Resource(uri).get()):
                 yield Node.hydrate(assembled(result))
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 pass
             else:
                 raise
@@ -659,7 +684,7 @@ class Graph(Bindable):
             batch.append_get(batch._uri_for(entity, "properties"))
         return [properties or {} for properties in batch.submit()]
 
-    # TODO: add support for CypherResults and BatchResponse
+    # TODO: add support for CypherResults
     def hydrate(self, data):
 
         def relative_uri(uri):
@@ -669,7 +694,6 @@ class Graph(Bindable):
             if uri.startswith(self_uri):
                 return uri[len(self_uri):]
             else:
-                # TODO: specialist error
                 raise ValueError(uri + " does not belong to this graph")
 
         if isinstance(data, dict):
@@ -687,11 +711,13 @@ class Graph(Bindable):
             elif "nodes" in data and "relationships" in data:
                 # path
                 return Path.hydrate(data)
+            elif "columns" in data and "data" in data:
+                return self.cypher.hydrate(data)
             elif has_all(data, ("exception", "stacktrace")):
-                # TODO: should this be BatchError?
+                # TODO: could this be any kind of error, not necessarily a batch error?
+                # TODO: if so, should this logic be moved to Batch.hydrate instead?
                 from py2neo.batch import BatchError
-                err = ServerException(data)
-                raise BatchError.with_name(err.exception)(err)
+                raise BatchError.hydrate(data)
             else:
                 # TODO: warn about dict ambiguity
                 return data
@@ -841,7 +867,7 @@ class Graph(Bindable):
         except KeyError:
             try:
                 return Node.cache.setdefault(uri_string, Node.hydrate(resource.get().content))
-            except _ClientError:
+            except ClientError:
                 raise ValueError("Node with ID {} not found".format(id_))
 
     @property
@@ -881,7 +907,7 @@ class Graph(Bindable):
             try:
                 return Relationship.cache.setdefault(uri_string,
                                                      Relationship.hydrate(resource.get().content))
-            except _ClientError:
+            except ClientError:
                 raise ValueError("Relationship with ID {} not found".format(id_))
 
     @property
@@ -975,8 +1001,8 @@ class Schema(Bindable):
         resource = Resource(self._index_template.expand(label=label))
         try:
             response = resource.get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 return []
             else:
                 raise
@@ -997,8 +1023,8 @@ class Schema(Bindable):
         resource = Resource(self._uniqueness_constraint_template.expand(label=label))
         try:
             response = resource.get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 return []
             else:
                 raise
@@ -1021,8 +1047,8 @@ class Schema(Bindable):
         property_key = bytearray(property_key, "utf-8").decode("utf-8")
         try:
             resource.post({"property_keys": [property_key]})
-        except ClientError as err:
-            if err.status_code == CONFLICT:
+        except GraphError as err:
+            if err.response.status_code == CONFLICT:
                 raise ValueError(err.cause.message)
             else:
                 raise
@@ -1040,8 +1066,8 @@ class Schema(Bindable):
         resource = Resource(self._uniqueness_constraint_template.expand(label=label))
         try:
             resource.post({"property_keys": [ustr(property_key)]})
-        except ClientError as err:
-            if err.status_code == CONFLICT:
+        except GraphError as err:
+            if err.response.status_code == CONFLICT:
                 raise ValueError(err.cause.message)
             else:
                 raise
@@ -1060,8 +1086,8 @@ class Schema(Bindable):
         resource = Resource(uri)
         try:
             resource.delete()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 raise LookupError("Property key not found")
             else:
                 raise
@@ -1080,8 +1106,8 @@ class Schema(Bindable):
         resource = Resource(uri)
         try:
             resource.delete()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 raise LookupError("Property key not found")
             else:
                 raise
@@ -1502,8 +1528,8 @@ class Node(PropertyContainer):
         """
         try:
             self.resource.get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 return False
             else:
                 raise
@@ -1612,8 +1638,8 @@ class Node(PropertyContainer):
         self.labels.update(labels)
         try:
             self.labels.push()
-        except ClientError as err:
-            if err.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
+        except GraphError as err:
+            if err.response.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
                 raise ValueError(err.cause.message)
             else:
                 raise
@@ -1881,8 +1907,8 @@ class Rel(PropertyContainer):
         """
         try:
             self.resource.get()
-        except ClientError as err:
-            if err.status_code == NOT_FOUND:
+        except GraphError as err:
+            if err.response.status_code == NOT_FOUND:
                 return False
             else:
                 raise

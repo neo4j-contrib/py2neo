@@ -97,7 +97,7 @@ class HTTPSConnection(_HTTPSConnection):
 
 
 # These are necessary as the type function can't handle unicode in Python 2.7
-client_error_name = str("ClientError")
+client_error_name = str("GraphError")
 server_error_name = str("ServerError")
 
 connection_classes = {

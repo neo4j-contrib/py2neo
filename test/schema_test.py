@@ -22,8 +22,8 @@ from uuid import uuid4
 
 import pytest
 
-from py2neo.error import ServerError
 from py2neo import neo4j, node, Graph
+from py2neo.packages.httpstream.http import ServerError
 
 
 def get_clean_database():

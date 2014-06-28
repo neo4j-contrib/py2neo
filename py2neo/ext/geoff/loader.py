@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import json
 
-from py2neo.error import ClientError
+from py2neo.error import GraphError
 from py2neo.core import Bindable, Resource
 
 
@@ -30,7 +30,7 @@ class Loader(Bindable):
         Bindable.__init__(self, graph.service_root.uri.resolve("load2neo"))
         try:
             self.__load2neo_version = self.resource.metadata["load2neo_version"]
-        except ClientError:
+        except GraphError:
             raise NotImplementedError("Load2neo extension not available")
         self.__geoff_loader = Resource(self.resource.metadata["geoff_loader"])
 

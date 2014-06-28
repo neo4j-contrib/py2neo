@@ -17,6 +17,7 @@
 
 
 from py2neo.packages.jsonstream import assembled, grouped
+from py2neo.util import ustr
 
 
 class CypherResults(object):
@@ -34,14 +35,32 @@ class CypherResults(object):
             for row in data["data"]
         ]
 
-    def __init__(self, graph, response):
-        content = response.content
-        self._columns = tuple(content["columns"])
-        self._producer = RecordProducer(self._columns)
-        self._data = [
-            self._producer.produce(graph.hydrate(row))
-            for row in content["data"]
-        ]
+    def __init__(self, columns, data):
+        self.columns = columns
+        self.data = data
+
+    def __repr__(self):
+        column_widths = [len(column) for column in self.columns]
+        for row in self.data:
+            for i, value in enumerate(row):
+                column_widths[i] = max(column_widths[i], len(str(value)))
+        out = [" " + " | ".join(
+            column.ljust(column_widths[i])
+            for i, column in enumerate(self.columns)
+        ) + " "]
+        out += ["-" + "-+-".join(
+            "-" * column_widths[i]
+            for i, column in enumerate(self.columns)
+        ) + "-"]
+        for row in self.data:
+            out.append(" " + " | ".join(ustr(value).ljust(column_widths[i])
+                                        for i, value in enumerate(row)) + " ")
+        out = "\n".join(out)
+        if len(self.data) == 1:
+            out += "\n(1 row)\n"
+        else:
+            out += "\n({0} rows)\n".format(len(self.data))
+        return out
 
     def __enter__(self):
         return self
@@ -50,25 +69,13 @@ class CypherResults(object):
         return False
 
     def __len__(self):
-        return len(self._data)
+        return len(self.data)
 
     def __getitem__(self, item):
-        return self._data[item]
-
-    @property
-    def columns(self):
-        """ Column names.
-        """
-        return self._columns
-
-    @property
-    def data(self):
-        """ List of result records.
-        """
-        return self._data
+        return self.data[item]
 
     def __iter__(self):
-        return iter(self._data)
+        return iter(self.data)
 
 
 class IterableCypherResults(object):
@@ -90,7 +97,7 @@ class IterableCypherResults(object):
     """
 
     def __init__(self, graph, response):
-        self._graph = graph
+        self.__graph = graph
         self._response = response
         self._redo_buffer = []
         self._buffered = self._buffered_results()
@@ -128,7 +135,11 @@ class IterableCypherResults(object):
         for key, section in grouped(self._buffered):
             if key[0] == "data":
                 for i, row in grouped(section):
-                    yield self._producer.produce(self._graph.hydrate(assembled(row)))
+                    yield self._producer.produce(self.__graph.hydrate(assembled(row)))
+
+    @property
+    def graph(self):
+        return self.__graph
 
     @property
     def columns(self):
@@ -186,19 +197,19 @@ class Record(object):
 class RecordProducer(object):
 
     def __init__(self, columns):
-        self._columns = tuple(columns)
-        self._column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self.__columns = tuple(columns)
+        self.__column_indexes = dict((b, a) for a, b in enumerate(columns))
 
     def __repr__(self):
-        return "RecordProducer(columns={0})".format(self._columns)
+        return "RecordProducer(columns={0})".format(self.__columns)
 
     @property
     def columns(self):
-        return self._columns
+        return self.__columns
 
     @property
     def column_indexes(self):
-        return self._column_indexes
+        return self.__column_indexes
 
     def produce(self, values):
         """ Produce a record from a set of values.

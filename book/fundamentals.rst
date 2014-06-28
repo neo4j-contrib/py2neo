@@ -114,7 +114,7 @@ HTTP requests may occasionally trigger an error response. The exceptions which
 may be raised are below and correspond to the equivalently named HTTP
 response statuses.
 
-.. autoclass:: py2neo.exceptions.ClientError
+.. autoclass:: py2neo.exceptions.GraphError
 
 .. autoclass:: py2neo.exceptions.ServerError
 
