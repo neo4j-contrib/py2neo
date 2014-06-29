@@ -134,7 +134,7 @@ class AddLabelsJob(PostJob):
 
     def __init__(self, node, *labels):
         uri = self.uri_for(node, "labels")
-        PostJob.__init__(self, uri, LabelSet(labels))
+        PostJob.__init__(self, uri, list(LabelSet(labels)))
 
 
 class RemoveLabelJob(DeleteJob):
@@ -148,7 +148,7 @@ class SetLabelsJob(PutJob):
 
     def __init__(self, entity, *labels):
         uri = self.uri_for(entity, "labels")
-        PutJob.__init__(self, uri, LabelSet(labels))
+        PutJob.__init__(self, uri, list(LabelSet(labels)))
 
 
 class WriteBatch(Batch):
