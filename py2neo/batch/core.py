@@ -54,38 +54,73 @@ class BatchResource(Bindable):
         return inst
 
     def post(self, batch):
-        request_count = len(batch)
-        request_text = "request" if request_count == 1 else "requests"
-        log.info("Executing batch with %s %s", request_count, request_text)
+        num_jobs = len(batch)
+        plural = "" if num_jobs == 1 else "s"
+        log.info(">>> Sending batch request with %s job%s", num_jobs, plural)
         data = []
-        for i, request in enumerate(batch):
-            # TODO: take from repr
-            log.info(">>> {{%s}} %s %s %s", i, request.method, request.uri, request.body)
-            data.append(dict(request, id=i))
-        return self.resource.post(data)
+        for i, job in enumerate(batch):
+            log.info(">>> {%s} %s", i, job)
+            data.append(dict(job, id=i))
+        response = self.resource.post(data)
+        log.info("<<< Received batch response for %s job%s", num_jobs, plural)
+        return response
 
     def run(self, batch):
-        self.post(batch).close()
+        response = self.post(batch)
+        log.info("<<< Discarding batch response")
+        response.close()
 
     def stream(self, batch):
-        response_list = self.post(batch)
+        response = self.post(batch)
         try:
-            for i, rs in grouped(response_list):
-                yield BatchResponse.hydrate(assembled(rs), batch)
+            for i, job_data in grouped(response):
+                result = JobResult.hydrate(assembled(job_data), batch)
+                log.info("<<< %s", result)
+                yield result
         finally:
-            response_list.close()
+            response.close()
 
     def submit(self, batch):
-        response_list = self.post(batch)
+        response = self.post(batch)
         try:
-            return [BatchResponse.hydrate(rs, batch) for rs in response_list.content]
+            results = []
+            for job_data in response.content:
+                result = JobResult.hydrate(job_data, batch)
+                log.info("<<< %s", result)
+                results.append(result)
+            return results
         finally:
-            response_list.close()
+            response.close()
 
 
-class BatchRequest(object):
+class Job(object):
     """ Individual batch request.
     """
+
+    # Indicates whether or not the result should be
+    # interpreted as raw data.
+    raw = False
+
+    # TODO: tidy up
+    @classmethod
+    def uri_for(cls, entity, *segments, **kwargs):
+        """ Return a relative URI in string format for the entity specified
+        plus extra path segments.
+        """
+        if isinstance(entity, int):
+            uri = "{{{0}}}".format(entity)
+        elif isinstance(entity, NodePointer):
+            uri = "{{{0}}}".format(entity.address)
+        else:
+            uri = entity.relative_uri.string
+        if segments:
+            if not uri.endswith("/"):
+                uri += "/"
+            uri += "/".join(map(percent_encode, segments))
+        query = kwargs.get("query")
+        if query is not None:
+            uri += "?" + query
+        return uri
 
     def __init__(self, method, uri, body=None):
         self.method = method
@@ -114,26 +149,22 @@ class BatchRequest(object):
             yield "body", self.body
 
 
-class BatchResponse(object):
+class JobResult(object):
     """ Individual batch response.
     """
 
     @classmethod
     def hydrate(cls, data, batch):
-        request_id = data["id"]
+        job_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
         body = data.get("body")
         location = data.get("location")
-        # TODO use instance repr (and move to caller)
-        log.info("<<< {{{0}}} {1} {2}".format(
-            request_id, status_code, body, location))
-        return cls(batch, request_id, uri, body, location, status_code)
+        return cls(batch, job_id, uri, body, location, status_code)
 
-    # TODO: pass in batch-request-list instead of graph and map ids back to requests
-    def __init__(self, batch, request_id, uri, content_data=None, location=None, status_code=None):
+    def __init__(self, batch, job_id, uri, content_data=None, location=None, status_code=None):
         self.batch = batch
-        self.request_id = request_id
+        self.job_id = job_id
         self.uri = URI(uri)
         self.__content_data = content_data
         self.__content = NotImplemented
@@ -141,12 +172,18 @@ class BatchResponse(object):
         self.status_code = status_code or 200
 
     def __repr__(self):
-        # TODO: fix
-        return "{{{0}}} {1} {2}".format(self.request_id, self.status_code, self.content, self.location)
+        parts = ["{" + ustr(self.job_id) + "}", ustr(self.status_code)]
+        if self.content_data is not None:
+            parts.append(json.dumps(self.content_data, separators=",:"))
+        return " ".join(parts)
 
     @property
     def graph(self):
         return self.batch.graph
+
+    @property
+    def job(self):
+        return self.batch[self.job_id]
 
     @property
     def content_data(self):
@@ -174,37 +211,79 @@ class BatchResponse(object):
         return self.__content
 
 
+class GetJob(Job):
+
+    def __init__(self, uri):
+        Job.__init__(self, "GET", uri)
+
+
+class PutJob(Job):
+
+    def __init__(self, uri, body=None):
+        Job.__init__(self, "PUT", uri, body)
+
+
+class PostJob(Job):
+
+    def __init__(self, uri, body=None):
+        Job.__init__(self, "POST", uri, body)
+
+
+class DeleteJob(Job):
+
+    def __init__(self, uri):
+        Job.__init__(self, "DELETE", uri)
+
+
+class CypherJob(PostJob):
+
+    def __init__(self, query, params=None):
+        body = {"query": ustr(query)}
+        if params:
+            body["params"] = dict(params)
+        PostJob.__init__(self, "cypher", body)
+
+
 class Batch(object):
 
     def __init__(self, graph, hydrate=True):
         self.graph = graph
-        self.clear()
-        self.hydrate = hydrate
+        self.jobs = []
+        self.hydrate = hydrate  # TODO remove (Job.raw)
 
     def __len__(self):
-        return len(self._requests)
+        return len(self.jobs)
 
     def __nonzero__(self):
-        return bool(self._requests)
+        return bool(self.jobs)
 
     def __iter__(self):
-        return iter(self._requests)
+        return iter(self.jobs)
 
-    def append(self, request):
-        self._requests.append(request)
-        return request
+    def resolve(self, node):
+        """ Convert any references to previous jobs within the same batch
+        into NodePointer objects.
+        """
+        if isinstance(node, Job):
+            return NodePointer(self.find(node))
+        else:
+            return node
+
+    def append(self, job):
+        self.jobs.append(job)
+        return job
 
     def append_get(self, uri):
-        return self.append(BatchRequest("GET", uri))
+        return self.append(Job("GET", uri))
 
     def append_put(self, uri, body=None):
-        return self.append(BatchRequest("PUT", uri, body))
+        return self.append(Job("PUT", uri, body))
 
     def append_post(self, uri, body=None):
-        return self.append(BatchRequest("POST", uri, body))
+        return self.append(Job("POST", uri, body))
 
     def append_delete(self, uri):
-        return self.append(BatchRequest("DELETE", uri))
+        return self.append(Job("DELETE", uri))
 
     def append_cypher(self, query, params=None):
         """ Append a Cypher query to this batch. Resources returned from Cypher
@@ -217,24 +296,22 @@ class Batch(object):
         :return: batch request object
         :rtype: :py:class:`_Batch.Request`
         """
-        body = {"query": ustr(query)}
-        if params:
-            body["params"] = dict(params)
-        return self.append_post(self.graph.cypher.relative_uri, body)
+        return self.append(CypherJob(query, params))
 
     def clear(self):
-        """ Clear all requests from this batch.
+        """ Clear all jobs from this batch.
         """
-        self._requests = []
+        self.jobs = []
 
-    def find(self, request):
-        """ Find the position of a request within this batch.
+    def find(self, job):
+        """ Find the position of a job within this batch.
         """
-        for i, req in pendulate(self._requests):
-            if req == request:
+        for i, candidate_job in pendulate(self.jobs):
+            if candidate_job == job:
                 return i
-        raise ValueError("Request not found")
+        raise ValueError("Job not found in batch")
 
+    # TODO: remove (moved to Job.uri_for)
     def _uri_for(self, resource, *segments, **kwargs):
         """ Return a relative URI in string format for the entity specified
         plus extra path segments.
@@ -243,7 +320,7 @@ class Batch(object):
             uri = "{{{0}}}".format(resource)
         elif isinstance(resource, NodePointer):
             uri = "{{{0}}}".format(resource.address)
-        elif isinstance(resource, BatchRequest):
+        elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
             uri = resource.relative_uri.string
@@ -264,6 +341,7 @@ class Batch(object):
 
     def stream(self):
         response_list = self.graph.batch.stream(self)
+        # TODO: replace with `raw` detection from Job object
         if self.hydrate:
             for response in response_list:
                 yield response.content
@@ -273,12 +351,8 @@ class Batch(object):
 
     def submit(self):
         response_list = self.graph.batch.submit(self)
+        # TODO: replace with `raw` detection from Job object
         if self.hydrate:
             return [response.content for response in response_list]
         else:
             return [response.content_data for response in response_list]
-
-
-#class CreateNodeBatchRequest(BatchRequest):
-#    def __init__(self, properties=None):
-#        BatchRequest.__init__(self, "POST", "node", properties or {})

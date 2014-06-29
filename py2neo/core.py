@@ -1392,11 +1392,11 @@ class Node(PropertyContainer):
 
         """
         if len(args) == 1 and not kwargs:
-            from py2neo.batch import BatchRequest
+            from py2neo.batch import Job
             arg = args[0]
             if arg is None:
                 return None
-            elif isinstance(arg, (Node, NodePointer, BatchRequest)):
+            elif isinstance(arg, (Node, NodePointer, Job)):
                 return arg
             elif is_integer(arg):
                 return NodePointer(arg)
@@ -1448,8 +1448,8 @@ class Node(PropertyContainer):
         """
 
         def is_valid(node):
-            from py2neo.batch import BatchRequest
-            return node is None or isinstance(node, (Node, NodePointer, BatchRequest))  # TODO: BatchRequest?
+            from py2neo.batch import Job
+            return node is None or isinstance(node, (Node, NodePointer, Job))  # TODO: BatchRequest?
 
         if not is_valid(n) or not is_valid(m):
             raise TypeError("Can only join Node, NodePointer or None")
@@ -1806,11 +1806,11 @@ class Rel(PropertyContainer):
         """
 
         if len(args) == 1 and not kwargs:
-            from py2neo.batch import BatchRequest
+            from py2neo.batch import Job
             arg = args[0]
             if arg is None:
                 return None
-            elif isinstance(arg, (Rel, BatchRequest)):  # TODO: BatchRequest?
+            elif isinstance(arg, (Rel, Job)):  # TODO: BatchRequest?
                 return arg
             elif isinstance(arg, Relationship):
                 return arg.rel

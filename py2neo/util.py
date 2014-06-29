@@ -44,6 +44,7 @@ def numberise(n):
         return n
 
 
+# TODO: replace all usages with PropertySet constructor
 def compact(obj):
     """ Return a copy of an object with all :py:const:`None` values removed.
     """
