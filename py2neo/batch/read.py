@@ -27,3 +27,10 @@ class ReadBatch(Batch):
 
     def __init__(self, graph):
         Batch.__init__(self, graph)
+
+    def stream(self):
+        for result in self.graph.batch.stream(self):
+            yield result.content
+
+    def submit(self):
+        return [result.content for result in self.graph.batch.submit(self)]

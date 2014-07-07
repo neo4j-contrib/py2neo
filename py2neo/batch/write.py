@@ -19,12 +19,11 @@
 from __future__ import division, unicode_literals
 
 from py2neo.core import Node, Relationship, Path, PropertySet, LabelSet
-from py2neo.util import compact
-from py2neo.batch.core import Batch, PostJob, CypherJob, DeleteJob, PutJob
+from py2neo.batch.core import Batch, Job, CypherJob
 
 
 # TODO: find a better home for this method
-def _create_query(p, unique):
+def _create_query(p, unique=False):
     nodes, path, values, params = [], [], [], {}
 
     def append_node(i, node):
@@ -44,7 +43,7 @@ def _create_query(p, unique):
     def append_rel(i, rel):
         if rel.properties:
             path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel.type))
-            params["q{0}".format(i)] = compact(rel.properties)
+            params["q{0}".format(i)] = PropertySet(rel.properties)
             values.append("r{0}".format(i))
         else:
             path.append("-[r{0}:`{1}`]->".format(i, rel.type))
@@ -67,88 +66,88 @@ def _create_query(p, unique):
     return query, params
 
 
-class CreateNodeJob(PostJob):
+class CreateNodeJob(Job):
 
     def __init__(self, **properties):
-        PostJob.__init__(self, "node", properties)
+        Job.__init__(self, "POST", "node", properties)
 
 
-class CreateRelationshipJob(PostJob):
+class CreateRelationshipJob(Job):
 
     def __init__(self, start_node, rel, end_node, **properties):
         uri = self.uri_for(start_node, "relationships")
         body = {"type": rel.type, "to": self.uri_for(end_node)}
         if rel.properties or properties:
             body["data"] = dict(rel.properties, **properties)
-        PostJob.__init__(self, uri, body)
+        Job.__init__(self, "POST", uri, body)
 
 
 class CreatePathJob(CypherJob):
 
     def __init__(self, *entities):
-        CypherJob.__init__(self, *_create_query(Path(*entities), unique=False))
+        CypherJob.__init__(self, *_create_query(Path(*entities)))
 
 
-class MergePathJob(CypherJob):
+class CreateUniquePathJob(CypherJob):
 
     def __init__(self, *entities):
         CypherJob.__init__(self, *_create_query(Path(*entities), unique=True))
 
 
-class DeleteEntityJob(DeleteJob):
+class DeleteEntityJob(Job):
 
     def __init__(self, entity):
         uri = self.uri_for(entity)
-        DeleteJob.__init__(self, uri)
+        Job.__init__(self, "DELETE", uri)
 
 
-class SetPropertyJob(PutJob):
+class SetPropertyJob(Job):
 
     def __init__(self, entity, key, value):
         uri = self.uri_for(entity, "properties", key)
-        PutJob.__init__(self, uri, value)
+        Job.__init__(self, "PUT", uri, value)
 
 
-class SetPropertiesJob(PutJob):
+class SetPropertiesJob(Job):
 
     def __init__(self, entity, properties):
         uri = self.uri_for(entity, "properties")
-        PutJob.__init__(self, uri, PropertySet(properties))
+        Job.__init__(self, "PUT", uri, PropertySet(properties))
 
 
-class DeletePropertyJob(DeleteJob):
+class DeletePropertyJob(Job):
 
     def __init__(self, entity, key):
         uri = self.uri_for(entity, "properties", key)
-        DeleteJob.__init__(self, uri)
+        Job.__init__(self, "DELETE", uri)
 
 
-class DeletePropertiesJob(DeleteJob):
+class DeletePropertiesJob(Job):
 
     def __init__(self, entity):
         uri = self.uri_for(entity, "properties")
-        DeleteJob.__init__(self, uri)
+        Job.__init__(self, "DELETE", uri)
 
 
-class AddLabelsJob(PostJob):
+class AddLabelsJob(Job):
 
     def __init__(self, node, *labels):
         uri = self.uri_for(node, "labels")
-        PostJob.__init__(self, uri, list(LabelSet(labels)))
+        Job.__init__(self, "POST", uri, list(LabelSet(labels)))
 
 
-class RemoveLabelJob(DeleteJob):
+class RemoveLabelJob(Job):
 
     def __init__(self, entity, label):
         uri = self.uri_for(entity, "labels", label)
-        DeleteJob.__init__(self, uri)
+        Job.__init__(self, "DELETE", uri)
 
 
-class SetLabelsJob(PutJob):
+class SetLabelsJob(Job):
 
     def __init__(self, entity, *labels):
         uri = self.uri_for(entity, "labels")
-        PutJob.__init__(self, uri, list(LabelSet(labels)))
+        Job.__init__(self, "PUT", uri, list(LabelSet(labels)))
 
 
 class WriteBatch(Batch):
@@ -161,6 +160,16 @@ class WriteBatch(Batch):
 
     def __init__(self, graph):
         Batch.__init__(self, graph)
+
+    def run(self):
+        self.graph.batch.run(self)
+
+    def stream(self):
+        for result in self.graph.batch.stream(self):
+            yield result.content
+
+    def submit(self):
+        return [result.content for result in self.graph.batch.submit(self)]
 
     def create(self, abstract):
         """ Create a node or relationship based on the abstract entity
@@ -211,7 +220,7 @@ class WriteBatch(Batch):
         :type rels_and_nodes: concrete, abstract or :py:const:`None`
         :return: batch request object
         """
-        return self.append(MergePathJob(node, *rels_and_nodes))
+        return self.append(CreateUniquePathJob(node, *rels_and_nodes))
 
     def delete(self, entity):
         """ Delete a node or relationship from the graph.

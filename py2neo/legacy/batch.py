@@ -18,7 +18,7 @@
 
 from __future__ import division, unicode_literals
 
-from py2neo.batch import ReadBatch as _ReadBatch, WriteBatch as _WriteBatch
+from py2neo.batch import ReadBatch, WriteBatch
 from py2neo.core import Node, Relationship
 from py2neo.packages.urimagic import percent_encode
 
@@ -26,7 +26,7 @@ from py2neo.packages.urimagic import percent_encode
 __all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
 
 
-class LegacyReadBatch(_ReadBatch):
+class LegacyReadBatch(ReadBatch):
     """ Generic batch execution facility for data read requests,
     """
 
@@ -57,7 +57,7 @@ class LegacyReadBatch(_ReadBatch):
         return self.append_get(uri)
 
 
-class LegacyWriteBatch(_WriteBatch):
+class LegacyWriteBatch(WriteBatch):
     """ Generic batch execution facility for data write requests. Most methods
     return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
     can be used as a reference in other methods. See the

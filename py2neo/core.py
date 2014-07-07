@@ -668,21 +668,14 @@ class Graph(Bindable):
             else:
                 raise
 
-    # TODO: replace with `pull`
+    @deprecated("Use `pull` instead")
     def get_properties(self, *entities):
         """ Fetch properties for multiple nodes and/or relationships as part
         of a single batch; returns a list of dictionaries in the same order
         as the supplied entities.
         """
-        from py2neo.batch import Batch
-        if not entities:
-            return []
-        if len(entities) == 1:
-            return [entities[0].get_properties()]
-        batch = Batch(self, hydrate=False)
-        for entity in entities:
-            batch.append_get(batch._uri_for(entity, "properties"))
-        return [properties or {} for properties in batch.submit()]
+        self.pull(*entities)
+        return [entity.properties for entity in entities]
 
     # TODO: add support for CypherResults
     def hydrate(self, data):
@@ -844,7 +837,7 @@ class Graph(Bindable):
         """ Merge a number nodes, relationships and/or paths into the
         graph using Cypher MERGE/CREATE UNIQUE.
         """
-        # TODO
+        # TODO (can't use batch)
 
     @property
     def neo4j_version(self):
@@ -885,7 +878,12 @@ class Graph(Bindable):
     def pull(self, *entities):
         """ Update one or more local entities by pulling data from their remote counterparts.
         """
-        # TODO
+        if entities:
+            from py2neo.batch.pull import PullBatch
+            batch = PullBatch(self)
+            for entity in entities:
+                batch.append(entity)
+            batch.pull()
 
     def push(self, *entities):
         """ Update one or more remote entities by pushing data from their local counterparts.
@@ -1846,6 +1844,8 @@ class Rel(PropertyContainer):
                 inst = cls()
             else:
                 inst = cls(type_)
+        else:
+            inst.__type = type_
         inst = cls.cache.setdefault(self, inst)
         inst.bind(self, data)
         if properties is None:
@@ -2105,6 +2105,9 @@ class Path(object):
         except IndexError:
             raise IndexError("Path segment index out of range")
         return path
+
+    def __iter__(self):
+        return iter(self.relationships)
 
     @property
     def end_node(self):
@@ -2419,6 +2422,12 @@ class Relationship(Path):
     @property
     def type(self):
         return self.rel.type
+
+    @type.setter
+    def type(self, name):
+        if self.rel.bound:
+            raise TypeError("The type of a bound Relationship is immutable")
+        self.rel.type = name
 
     def unbind(self):
         try:

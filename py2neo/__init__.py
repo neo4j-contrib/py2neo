@@ -21,7 +21,7 @@ __copyright__ = "2011-2014, Nigel Small"
 __email__ = "nigel@nigelsmall.com"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "spoon.horse.custard"
+__version__ = "spoon.horse.custard"  # TODO: update this before release
 
 
 from py2neo.batch import *

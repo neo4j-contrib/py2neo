@@ -73,8 +73,8 @@ class BatchResource(Bindable):
     def stream(self, batch):
         response = self.post(batch)
         try:
-            for i, job_data in grouped(response):
-                result = JobResult.hydrate(assembled(job_data), batch)
+            for i, result_data in grouped(response):
+                result = JobResult.hydrate(assembled(result_data), batch)
                 log.info("<<< %s", result)
                 yield result
         finally:
@@ -84,8 +84,8 @@ class BatchResource(Bindable):
         response = self.post(batch)
         try:
             results = []
-            for job_data in response.content:
-                result = JobResult.hydrate(job_data, batch)
+            for result_data in response.content:
+                result = JobResult.hydrate(result_data, batch)
                 log.info("<<< %s", result)
                 results.append(result)
             return results
@@ -99,7 +99,7 @@ class Job(object):
 
     # Indicates whether or not the result should be
     # interpreted as raw data.
-    raw = False
+    raw_result = False
 
     # TODO: tidy up
     @classmethod
@@ -158,23 +158,40 @@ class JobResult(object):
         job_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
-        body = data.get("body")
         location = data.get("location")
-        return cls(batch, job_id, uri, body, location, status_code)
+        if batch.jobs[job_id].raw_result:
+            body = data.get("body")
+        else:
+            try:
+                body = batch.graph.hydrate(data.get("body"))
+            except GraphError as error:
+                # TODO: pass batch context to error constructor
+                raise BatchError(error)
+            else:
+                # If Cypher results, reduce to single row or single value if possible
+                if isinstance(body, CypherResults):
+                    num_rows = len(body)
+                    if num_rows == 0:
+                        body = None
+                    elif num_rows == 1:
+                        body = body[0]
+                        num_columns = len(body)
+                        if num_columns == 1:
+                            body = body[0]
+        return cls(batch, job_id, uri, status_code, location, body)
 
-    def __init__(self, batch, job_id, uri, content_data=None, location=None, status_code=None):
+    def __init__(self, batch, job_id, uri, status_code=None, location=None, content=None):
         self.batch = batch
         self.job_id = job_id
         self.uri = URI(uri)
-        self.__content_data = content_data
-        self.__content = NotImplemented
-        self.location = URI(location)
         self.status_code = status_code or 200
+        self.location = URI(location)
+        self.content = content
 
     def __repr__(self):
         parts = ["{" + ustr(self.job_id) + "}", ustr(self.status_code)]
-        if self.content_data is not None:
-            parts.append(json.dumps(self.content_data, separators=",:"))
+        if self.content is not None:
+            parts.append(repr(self.content))
         return " ".join(parts)
 
     @property
@@ -185,63 +202,14 @@ class JobResult(object):
     def job(self):
         return self.batch[self.job_id]
 
-    @property
-    def content_data(self):
-        return self.__content_data
 
-    @property
-    def content(self):
-        if self.__content is NotImplemented:
-            try:
-                self.__content = self.graph.hydrate(self.__content_data)
-            except GraphError as error:
-                # TODO: pass batch context to error constructor
-                raise BatchError(error)
-            else:
-                # If Cypher results, reduce to single row or single value if possible
-                if isinstance(self.__content, CypherResults):
-                    num_rows = len(self.__content)
-                    if num_rows == 0:
-                        self.__content = None
-                    elif num_rows == 1:
-                        self.__content = self.__content[0]
-                        num_columns = len(self.__content)
-                        if num_columns == 1:
-                            self.__content = self.__content[0]
-        return self.__content
-
-
-class GetJob(Job):
-
-    def __init__(self, uri):
-        Job.__init__(self, "GET", uri)
-
-
-class PutJob(Job):
-
-    def __init__(self, uri, body=None):
-        Job.__init__(self, "PUT", uri, body)
-
-
-class PostJob(Job):
-
-    def __init__(self, uri, body=None):
-        Job.__init__(self, "POST", uri, body)
-
-
-class DeleteJob(Job):
-
-    def __init__(self, uri):
-        Job.__init__(self, "DELETE", uri)
-
-
-class CypherJob(PostJob):
+class CypherJob(Job):
 
     def __init__(self, query, params=None):
         body = {"query": ustr(query)}
         if params:
             body["params"] = dict(params)
-        PostJob.__init__(self, "cypher", body)
+        Job.__init__(self, "POST", "cypher", body)
 
 
 class Batch(object):
@@ -249,7 +217,6 @@ class Batch(object):
     def __init__(self, graph, hydrate=True):
         self.graph = graph
         self.jobs = []
-        self.hydrate = hydrate  # TODO remove (Job.raw)
 
     def __len__(self):
         return len(self.jobs)
@@ -332,27 +299,3 @@ class Batch(object):
         if query is not None:
             uri += "?" + query
         return uri
-
-    def post(self):
-        return self.graph.batch.post(self)
-
-    def run(self):
-        self.graph.batch.run(self)
-
-    def stream(self):
-        response_list = self.graph.batch.stream(self)
-        # TODO: replace with `raw` detection from Job object
-        if self.hydrate:
-            for response in response_list:
-                yield response.content
-        else:
-            for response in response_list:
-                yield response.content_data
-
-    def submit(self):
-        response_list = self.graph.batch.submit(self)
-        # TODO: replace with `raw` detection from Job object
-        if self.hydrate:
-            return [response.content for response in response_list]
-        else:
-            return [response.content_data for response in response_list]

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import WriteBatch
+from py2neo.batch.write import WriteBatch
 
 
 def test_cannot_create_with_bad_type(graph):
