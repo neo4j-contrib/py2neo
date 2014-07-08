@@ -62,7 +62,8 @@ class PullBatch(Batch):
     def append(self, entity):
         if isinstance(entity, Node):
             self.jobs.append(PullPropertiesJob(entity))
-            self.jobs.append(PullNodeLabelsJob(entity))
+            if entity.graph.supports_node_labels:
+                self.jobs.append(PullNodeLabelsJob(entity))
         elif isinstance(entity, Rel):
             self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Path):
