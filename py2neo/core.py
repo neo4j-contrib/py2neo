@@ -629,7 +629,7 @@ class Graph(Bindable):
     def delete(self, *entities):
         """ Delete multiple nodes and/or relationships.
         """
-        # TODO: switch to Cypher
+        # TODO: switch to DeleteBatch
         from py2neo.batch import WriteBatch
         if not entities:
             return

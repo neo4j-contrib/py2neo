@@ -21,6 +21,19 @@ from py2neo.batch.pull import PullBatch
 
 
 def test_can_pull_node(graph):
+    uri = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a").uri
+    alice = Node()
+    alice.bind(uri)
+    assert alice.properties["name"] is None
+    batch = PullBatch(graph)
+    batch.append(alice)
+    batch.pull()
+    assert alice.properties["name"] == "Alice"
+
+
+def test_can_pull_node_with_label(graph):
+    if not graph.supports_node_labels:
+        return
     uri = graph.cypher.execute_one("CREATE (a:Person {name:'Alice'}) RETURN a").uri
     alice = Node()
     alice.bind(uri)
