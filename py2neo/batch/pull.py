@@ -16,42 +16,42 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
+from __future__ import unicode_literals
 
-from py2neo.core import Node, Rel, Path
-from py2neo.batch.core import Batch, Job
-
-
-class PullJob(Job):
-
-    def __init__(self, method, entity, *segments, **kwargs):
-        self.entity = entity
-        uri = self.uri_for(entity, *segments, **kwargs)
-        Job.__init__(self, method, uri)
+from py2neo.core import Node, Path, Rel
+from py2neo.batch.core import Batch, Job, Target
 
 
-class PullPropertiesJob(PullJob):
+class PullPropertyJob(Job):
+
+    raw_result = True
+
+    def __init__(self, entity, key):
+        Job.__init__(self, "GET", Target(entity, "properties", key))
+
+
+class PullPropertiesJob(Job):
 
     raw_result = True
 
     def __init__(self, entity):
-        PullJob.__init__(self, "GET", entity, "properties")
+        Job.__init__(self, "GET", Target(entity, "properties"))
 
 
-class PullNodeLabelsJob(PullJob):
+class PullNodeLabelsJob(Job):
 
     raw_result = True
 
     def __init__(self, node):
-        PullJob.__init__(self, "GET", node, "labels")
+        Job.__init__(self, "GET", Target(node, "labels"))
 
 
-class PullRelationshipJob(PullJob):
+class PullRelationshipJob(Job):
 
     raw_result = True
 
     def __init__(self, relationship):
-        PullJob.__init__(self, "GET", relationship)
+        Job.__init__(self, "GET", Target(relationship))
 
 
 class PullBatch(Batch):
@@ -75,11 +75,12 @@ class PullBatch(Batch):
     def pull(self):
         for i, result in enumerate(self.graph.batch.submit(self)):
             job = self.jobs[i]
+            entity = job.target.entity
             if isinstance(job, PullPropertiesJob):
-                job.entity.properties.replace(result.content)
+                entity.properties.replace(result.content)
             elif isinstance(job, PullNodeLabelsJob):
-                job.entity.labels.replace(result.content)
+                entity.labels.replace(result.content)
             elif isinstance(job, PullRelationshipJob):
-                job.entity.__class__.hydrate(result.content, job.entity)
+                entity.__class__.hydrate(result.content, entity)
             else:
                 raise TypeError("Unsupported job type")

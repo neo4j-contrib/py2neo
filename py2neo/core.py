@@ -646,10 +646,10 @@ class Graph(Bindable):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        from py2neo.batch import WriteBatch
+        from py2neo.batch import WriteBatch, CypherJob
         batch = WriteBatch(self)
-        batch.append_cypher("START r=rel(*) DELETE r")
-        batch.append_cypher("START n=node(*) DELETE n")
+        batch.append(CypherJob("START r=rel(*) DELETE r"))
+        batch.append(CypherJob("START n=node(*) DELETE n"))
         batch.run()
 
     def find(self, label, property_key=None, property_value=None):
@@ -876,7 +876,8 @@ class Graph(Bindable):
         return self.cypher.execute_one("START n=node(*) RETURN count(n)")
 
     def pull(self, *entities):
-        """ Update one or more local entities by pulling data from their remote counterparts.
+        """ Update one or more local entities by pulling data from
+        their remote counterparts.
         """
         if entities:
             from py2neo.batch.pull import PullBatch
@@ -886,9 +887,15 @@ class Graph(Bindable):
             batch.pull()
 
     def push(self, *entities):
-        """ Update one or more remote entities by pushing data from their local counterparts.
+        """ Update one or more remote entities by pushing data from
+        their local counterparts.
         """
-        # TODO
+        if entities:
+            from py2neo.batch.push import PushBatch
+            batch = PushBatch(self)
+            for entity in entities:
+                batch.append(entity)
+            batch.push()
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.

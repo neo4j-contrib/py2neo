@@ -25,7 +25,7 @@ from uuid import uuid4
 
 from py2neo.core import Node
 from py2neo.legacy import LegacyWriteBatch
-from py2neo.batch import BatchError
+from py2neo.batch import BatchError, CypherJob
 from py2neo.util import deprecated
 from py2neo.xmlutil import xml_to_geoff
 
@@ -212,7 +212,7 @@ class Subgraph(object):
         # 2. related nodes
         if self._rels:
             query, params, related_names = self._get_relationship_query(unique)
-            batch.append_cypher(query, params)
+            batch.append(CypherJob(query, params))
         else:
             related_names = []
         # 3. odd nodes

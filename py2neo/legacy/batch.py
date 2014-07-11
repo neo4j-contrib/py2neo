@@ -18,8 +18,8 @@
 
 from __future__ import division, unicode_literals
 
-from py2neo.batch import ReadBatch, WriteBatch
-from py2neo.core import Node, Relationship
+from py2neo.batch import ReadBatch, WriteBatch, Job, Target
+from py2neo.core import Node, Relationship, NodePointer
 from py2neo.packages.urimagic import percent_encode
 
 
@@ -29,6 +29,9 @@ __all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
 class LegacyReadBatch(ReadBatch):
     """ Generic batch execution facility for data read requests,
     """
+
+    def append_get(self, uri):
+        return self.append(Job("GET", Target(uri)))
 
     def _index(self, content_type, index):
         """ Fetch an Index object.
@@ -64,6 +67,33 @@ class LegacyWriteBatch(WriteBatch):
     :py:meth:`create <py2neo.neo4j.WriteBatch.create>` method for an example
     of this.
     """
+
+    def append_post(self, uri, body=None):
+        return self.append(Job("POST", Target(uri), body))
+
+    def append_delete(self, uri):
+        return self.append(Job("DELETE", Target(uri)))
+
+    def _uri_for(self, resource, *segments, **kwargs):
+        """ Return a relative URI in string format for the entity specified
+        plus extra path segments.
+        """
+        if isinstance(resource, int):
+            uri = "{{{0}}}".format(resource)
+        elif isinstance(resource, NodePointer):
+            uri = "{{{0}}}".format(resource.address)
+        elif isinstance(resource, Job):
+            uri = "{{{0}}}".format(self.find(resource))
+        else:
+            uri = resource.relative_uri.string
+        if segments:
+            if not uri.endswith("/"):
+                uri += "/"
+            uri += "/".join(map(percent_encode, segments))
+        query = kwargs.get("query")
+        if query is not None:
+            uri += "?" + query
+        return uri
 
     def _index(self, content_type, index):
         """ Fetch an Index object.

@@ -54,6 +54,9 @@ class BatchResource(Bindable):
         return inst
 
     def post(self, batch):
+        """ Post a batch to the server batch endpoint and return an
+        HTTPStream response.
+        """
         num_jobs = len(batch)
         plural = "" if num_jobs == 1 else "s"
         log.info(">>> Sending batch request with %s job%s", num_jobs, plural)
@@ -93,6 +96,30 @@ class BatchResource(Bindable):
             response.close()
 
 
+class Target(object):
+
+    def __init__(self, entity, *offsets):
+        self.entity = entity
+        self.offsets = offsets
+
+    @property
+    def uri_string(self):
+        if isinstance(self.entity, int):
+            uri_string = "{{{0}}}".format(self.entity)
+        elif isinstance(self.entity, NodePointer):
+            uri_string = "{{{0}}}".format(self.entity.address)
+        else:
+            try:
+                uri_string = self.entity.relative_uri.string
+            except AttributeError:
+                uri_string = ustr(self.entity)
+        if self.offsets:
+            if not uri_string.endswith("/"):
+                uri_string += "/"
+            uri_string += "/".join(map(percent_encode, self.offsets))
+        return uri_string
+
+
 class Job(object):
     """ Individual batch request.
     """
@@ -101,34 +128,32 @@ class Job(object):
     # interpreted as raw data.
     raw_result = False
 
-    # TODO: tidy up
-    @classmethod
-    def uri_for(cls, entity, *segments, **kwargs):
-        """ Return a relative URI in string format for the entity specified
-        plus extra path segments.
-        """
-        if isinstance(entity, int):
-            uri = "{{{0}}}".format(entity)
-        elif isinstance(entity, NodePointer):
-            uri = "{{{0}}}".format(entity.address)
-        else:
-            uri = entity.relative_uri.string
-        if segments:
-            if not uri.endswith("/"):
-                uri += "/"
-            uri += "/".join(map(percent_encode, segments))
-        query = kwargs.get("query")
-        if query is not None:
-            uri += "?" + query
-        return uri
+    ## TODO: tidy up (and make redundant)
+    #@classmethod
+    #def uri_for(cls, entity, *segments):
+    #    """ Return a relative URI in string format for the entity specified
+    #    plus extra path segments.
+    #    """
+    #    if isinstance(entity, int):
+    #        uri = "{{{0}}}".format(entity)
+    #    elif isinstance(entity, NodePointer):
+    #        uri = "{{{0}}}".format(entity.address)
+    #    else:
+    #        uri = entity.relative_uri.string
+    #    if segments:
+    #        if not uri.endswith("/"):
+    #            uri += "/"
+    #        uri += "/".join(map(percent_encode, segments))
+    #    return uri
 
-    def __init__(self, method, uri, body=None):
+    # TODO: comment
+    def __init__(self, method, target, body=None):
         self.method = method
-        self.uri = ustr(uri)
+        self.target = target
         self.body = body
 
     def __repr__(self):
-        parts = [self.method, self.uri]
+        parts = [self.method, self.target.uri_string]
         if self.body is not None:
             parts.append(json.dumps(self.body, separators=",:"))
         return " ".join(parts)
@@ -144,7 +169,7 @@ class Job(object):
 
     def __iter__(self):
         yield "method", self.method
-        yield "to", self.uri
+        yield "to", self.target.uri_string
         if self.body is not None:
             yield "body", self.body
 
@@ -205,16 +230,19 @@ class JobResult(object):
 
 class CypherJob(Job):
 
+    target = Target("cypher")
+
     def __init__(self, query, params=None):
         body = {"query": ustr(query)}
         if params:
             body["params"] = dict(params)
-        Job.__init__(self, "POST", "cypher", body)
+        Job.__init__(self, "POST", self.target, body)
 
 
+# TODO: make single-use
 class Batch(object):
 
-    def __init__(self, graph, hydrate=True):
+    def __init__(self, graph):
         self.graph = graph
         self.jobs = []
 
@@ -240,31 +268,6 @@ class Batch(object):
         self.jobs.append(job)
         return job
 
-    def append_get(self, uri):
-        return self.append(Job("GET", uri))
-
-    def append_put(self, uri, body=None):
-        return self.append(Job("PUT", uri, body))
-
-    def append_post(self, uri, body=None):
-        return self.append(Job("POST", uri, body))
-
-    def append_delete(self, uri):
-        return self.append(Job("DELETE", uri))
-
-    def append_cypher(self, query, params=None):
-        """ Append a Cypher query to this batch. Resources returned from Cypher
-        queries cannot be referenced by other batch requests.
-
-        :param query: Cypher query
-        :type query: :py:class:`str`
-        :param params: query parameters
-        :type params: :py:class:`dict`
-        :return: batch request object
-        :rtype: :py:class:`_Batch.Request`
-        """
-        return self.append(CypherJob(query, params))
-
     def clear(self):
         """ Clear all jobs from this batch.
         """
@@ -277,25 +280,3 @@ class Batch(object):
             if candidate_job == job:
                 return i
         raise ValueError("Job not found in batch")
-
-    # TODO: remove (moved to Job.uri_for)
-    def _uri_for(self, resource, *segments, **kwargs):
-        """ Return a relative URI in string format for the entity specified
-        plus extra path segments.
-        """
-        if isinstance(resource, int):
-            uri = "{{{0}}}".format(resource)
-        elif isinstance(resource, NodePointer):
-            uri = "{{{0}}}".format(resource.address)
-        elif isinstance(resource, Job):
-            uri = "{{{0}}}".format(self.find(resource))
-        else:
-            uri = resource.relative_uri.string
-        if segments:
-            if not uri.endswith("/"):
-                uri += "/"
-            uri += "/".join(map(percent_encode, segments))
-        query = kwargs.get("query")
-        if query is not None:
-            uri += "?" + query
-        return uri

@@ -19,7 +19,8 @@
 from __future__ import division, unicode_literals
 
 from py2neo.core import Node, Relationship, Path, PropertySet, LabelSet
-from py2neo.batch.core import Batch, Job, CypherJob
+from py2neo.batch.core import Batch, Job, CypherJob, Target
+from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
 
 # TODO: find a better home for this method
@@ -68,18 +69,19 @@ def _create_query(p, unique=False):
 
 class CreateNodeJob(Job):
 
+    target = Target("node")
+
     def __init__(self, **properties):
-        Job.__init__(self, "POST", "node", properties)
+        Job.__init__(self, "POST", self.target, properties)
 
 
 class CreateRelationshipJob(Job):
 
     def __init__(self, start_node, rel, end_node, **properties):
-        uri = self.uri_for(start_node, "relationships")
-        body = {"type": rel.type, "to": self.uri_for(end_node)}
+        body = {"type": rel.type, "to": Target(end_node).uri_string}
         if rel.properties or properties:
             body["data"] = dict(rel.properties, **properties)
-        Job.__init__(self, "POST", uri, body)
+        Job.__init__(self, "POST", Target(start_node, "relationships"), body)
 
 
 class CreatePathJob(CypherJob):
@@ -97,57 +99,31 @@ class CreateUniquePathJob(CypherJob):
 class DeleteEntityJob(Job):
 
     def __init__(self, entity):
-        uri = self.uri_for(entity)
-        Job.__init__(self, "DELETE", uri)
-
-
-class SetPropertyJob(Job):
-
-    def __init__(self, entity, key, value):
-        uri = self.uri_for(entity, "properties", key)
-        Job.__init__(self, "PUT", uri, value)
-
-
-class SetPropertiesJob(Job):
-
-    def __init__(self, entity, properties):
-        uri = self.uri_for(entity, "properties")
-        Job.__init__(self, "PUT", uri, PropertySet(properties))
+        Job.__init__(self, "DELETE", Target(entity))
 
 
 class DeletePropertyJob(Job):
 
     def __init__(self, entity, key):
-        uri = self.uri_for(entity, "properties", key)
-        Job.__init__(self, "DELETE", uri)
+        Job.__init__(self, "DELETE", Target(entity, "properties", key))
 
 
 class DeletePropertiesJob(Job):
 
     def __init__(self, entity):
-        uri = self.uri_for(entity, "properties")
-        Job.__init__(self, "DELETE", uri)
+        Job.__init__(self, "DELETE", Target(entity, "properties"))
 
 
-class AddLabelsJob(Job):
+class AddNodeLabelsJob(Job):
 
     def __init__(self, node, *labels):
-        uri = self.uri_for(node, "labels")
-        Job.__init__(self, "POST", uri, list(LabelSet(labels)))
+        Job.__init__(self, "POST", Target(node, "labels"), list(LabelSet(labels)))
 
 
-class RemoveLabelJob(Job):
+class RemoveNodeLabelJob(Job):
 
     def __init__(self, entity, label):
-        uri = self.uri_for(entity, "labels", label)
-        Job.__init__(self, "DELETE", uri)
-
-
-class SetLabelsJob(Job):
-
-    def __init__(self, entity, *labels):
-        uri = self.uri_for(entity, "labels")
-        Job.__init__(self, "PUT", uri, list(LabelSet(labels)))
+        Job.__init__(self, "DELETE", Target(entity, "labels", label))
 
 
 class WriteBatch(Batch):
@@ -241,7 +217,7 @@ class WriteBatch(Batch):
         :param value: property value
         :return: batch request object
         """
-        return self.append(SetPropertyJob(self.resolve(entity), key, value))
+        return self.append(PushPropertyJob(self.resolve(entity), key, value))
 
     def set_properties(self, entity, properties):
         """ Replace all properties on a node or relationship.
@@ -252,7 +228,7 @@ class WriteBatch(Batch):
         :type properties: :py:class:`dict`
         :return: batch request object
         """
-        return self.append(SetPropertiesJob(self.resolve(entity), properties))
+        return self.append(PushPropertiesJob(self.resolve(entity), properties))
 
     def delete_property(self, entity, key):
         """ Delete a single property from a node or relationship.
@@ -283,7 +259,7 @@ class WriteBatch(Batch):
         :type labels: :py:class:`str`
         :return: batch request object
         """
-        return self.append(AddLabelsJob(self.resolve(node), *labels))
+        return self.append(AddNodeLabelsJob(self.resolve(node), *labels))
 
     def remove_label(self, node, label):
         """ Remove a label from a node.
@@ -294,7 +270,7 @@ class WriteBatch(Batch):
         :type label: :py:class:`str`
         :return: batch request object
         """
-        return self.append(RemoveLabelJob(self.resolve(node), label))
+        return self.append(RemoveNodeLabelJob(self.resolve(node), label))
 
     def set_labels(self, node, *labels):
         """ Replace all labels on a node.
@@ -305,7 +281,7 @@ class WriteBatch(Batch):
         :type labels: :py:class:`str`
         :return: batch request object
         """
-        return self.append(SetLabelsJob(self.resolve(node), *labels))
+        return self.append(PushNodeLabelsJob(self.resolve(node), labels))
 
     # TODO: PullBatch
     # TODO: PushBatch
