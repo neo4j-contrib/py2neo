@@ -54,6 +54,7 @@ from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import BAD_REQUEST, NOT_FOUND, CONFLICT
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.urimagic import percent_encode, URI, URITemplate
+from py2neo.types import cast_property
 from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is_integer, \
     round_robin, ustr, version_tuple
 
@@ -80,9 +81,6 @@ _headers = {
 }
 
 _http_rewrites = {}
-
-# TODO: move to Graph/GDS
-auto_sync = True
 
 
 def _add_header(key, value, host_port=None):
@@ -398,7 +396,6 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-# TODO: make auto_sync = False (and GDS.auto_sync = True)
 class Graph(Bindable):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
@@ -425,6 +422,9 @@ class Graph(Bindable):
     __schema = None
     __node_labels = None
     __relationship_types = None
+
+    # Auto-sync will be removed in 2.1
+    auto_sync_properties = False
 
     @staticmethod
     def cast(obj):
@@ -1142,7 +1142,7 @@ class PropertySet(Bindable, dict):
             except KeyError:
                 pass
         else:
-            dict.__setitem__(self, key, value)
+            dict.__setitem__(self, key, cast_property(value))
 
     def pull(self):
         """ Copy the set of remote properties onto the local set.
@@ -1224,6 +1224,8 @@ class PropertyContainer(Bindable):
     def __init__(self, **properties):
         Bindable.__init__(self)
         self.__properties = PropertySet(properties)
+        # Auto-sync will be removed in 2.1
+        self.auto_sync_properties = Graph.auto_sync_properties
 
     def __eq__(self, other):
         return self.properties == other.properties
@@ -1235,28 +1237,20 @@ class PropertyContainer(Bindable):
         return len(self.properties)
 
     def __contains__(self, key):
-        # TODO 2.0: remove auto-pull
-        if self.bound:
-            self.properties.pull()
+        self.__pull_if_bound()
         return key in self.properties
 
     def __getitem__(self, key):
-        # TODO 2.0: remove auto-pull
-        if self.bound:
-            self.properties.pull()
+        self.__pull_if_bound()
         return self.properties.__getitem__(key)
 
     def __setitem__(self, key, value):
         self.properties.__setitem__(key, value)
-        # TODO 2.0: remove auto-push
-        if self.bound:
-            self.properties.push()
+        self.__push_if_bound()
 
     def __delitem__(self, key):
         self.properties.__delitem__(key)
-        # TODO 2.0: remove auto-push
-        if self.bound:
-            self.properties.push()
+        self.__push_if_bound()
 
     def bind(self, uri, metadata=None):
         Bindable.bind(self, uri, metadata)
@@ -1279,6 +1273,22 @@ class PropertyContainer(Bindable):
     def unbind(self):
         Bindable.unbind(self)
         self.__properties.unbind()
+
+    @deprecated("Auto-sync will be removed in 2.1")
+    def __pull_if_bound(self):
+        if self.auto_sync_properties:
+            try:
+                self.properties.pull()
+            except BindError:
+                pass
+
+    @deprecated("Auto-sync will be removed in 2.1")
+    def __push_if_bound(self):
+        if self.auto_sync_properties:
+            try:
+                self.properties.push()
+            except BindError:
+                pass
 
     @deprecated("Use `properties` attribute instead")
     def get_cached_properties(self):

@@ -29,6 +29,7 @@ class TestIsolate(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
+        neo4j.Graph.auto_sync_properties = True
 
     def test_can_isolate_node(self):
         posse = self.graph.create(
@@ -60,6 +61,7 @@ class TestRelationship(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
+        neo4j.Graph.auto_sync_properties = True
 
     def test_create_relationship_to(self):
         alice, bob = self.graph.create(
@@ -126,6 +128,7 @@ class TestRelate(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
+        neo4j.Graph.auto_sync_properties = True
 
     def test_relate(self):
         alice, bob = self.graph.create(
