@@ -1615,9 +1615,10 @@ class Node(PropertyContainer):
         Node.hydrate(dehydrated, self)
 
     def push(self):
-        # TODO combine this into a single call
-        super(Node, self).push()
-        self.labels.push()
+        from py2neo.batch.push import PushBatch
+        batch = PushBatch(self.graph)
+        batch.append(self)
+        batch.push()
 
     def unbind(self):
         try:
