@@ -122,6 +122,7 @@ class TestCreatePath(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
+        neo4j.Graph.auto_sync_properties = True
 
     def test_can_create_path(self, graph):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
