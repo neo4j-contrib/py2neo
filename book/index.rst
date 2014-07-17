@@ -23,7 +23,6 @@ Contents
    batches
    cypher
    ogm
-   geoff
    calendar
    neotool
    deprecated_features

@@ -1512,9 +1512,10 @@ class Node(PropertyContainer):
     def __hash__(self):
         if self.bound:
             return hash(self.resource.uri)
-        else:
-            # TODO: add labels to this hash
-            return hash(tuple(sorted(self.properties.items())))
+        hashable = tuple(sorted(self.properties.items()))
+        if self.graph.supports_node_labels:
+            hashable = (hashable, tuple(sorted(self.labels)))
+        return hash(hashable)
 
     @property
     def _id(self):

@@ -1,0 +1,27 @@
+{% extends "basic/layout.html" %}
+
+{% block relbar1 %}
+{% endblock %}
+
+{% block sidebar1 %}{{ sidebar() }}{% endblock %}
+{% block sidebar2 %}{% endblock %}
+
+{% block document %}
+    <header>
+    <div class="title"><a href="/">Nigel Small</a></div>
+    <div class="contact">
+    <a href="http://twitter.com/neonige"><img src="{{ pathto('_static/twitter_mark.png', 1) }}"></a>
+    <a href="http://github.com/nigelsmall"><img src="{{ pathto('_static/github_mark.png', 1) }}"></a>
+    </div>
+    </header>
+    <main>
+        {{ super() }}
+    </main>
+    <footer>
+        <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons Licence" style="border-width:0" src="http://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br>
+This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+    </footer>
+{% endblock %}
+
+{% block relbar2 %}
+{% endblock %}
