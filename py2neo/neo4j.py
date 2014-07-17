@@ -21,4 +21,4 @@ from py2neo.core import *
 from py2neo.cypher import *
 from py2neo.error import *
 from py2neo.legacy import *
-from py2neo.watch import *
+from py2neo.packages.httpstream.watch import watch

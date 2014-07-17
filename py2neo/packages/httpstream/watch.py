@@ -26,24 +26,68 @@ import threading
 __all__ = ["Watcher", "watch"]
 
 
-def blue(s):
-    return "\x1b[34m{}\x1b[0m".format(s)
+def black(s):
+    return "\x1b[30m{}\x1b[0m".format(s)
 
 
-def cyan(s):
-    return "\x1b[36m{}\x1b[0m".format(s)
+def red(s):
+    return "\x1b[31m{}\x1b[0m".format(s)
+
+
+def green(s):
+    return "\x1b[32m{}\x1b[0m".format(s)
 
 
 def yellow(s):
     return "\x1b[33m{}\x1b[0m".format(s)
 
 
-def bright_yellow(s):
-    return "\x1b[33;1m{}\x1b[0m".format(s)
+def blue(s):
+    return "\x1b[34m{}\x1b[0m".format(s)
+
+
+def magenta(s):
+    return "\x1b[35m{}\x1b[0m".format(s)
+
+
+def cyan(s):
+    return "\x1b[36m{}\x1b[0m".format(s)
+
+
+def white(s):
+    return "\x1b[36m{}\x1b[0m".format(s)
+
+
+def bright_black(s):
+    return "\x1b[30;1m{}\x1b[0m".format(s)
 
 
 def bright_red(s):
     return "\x1b[31;1m{}\x1b[0m".format(s)
+
+
+def bright_green(s):
+    return "\x1b[32;1m{}\x1b[0m".format(s)
+
+
+def bright_yellow(s):
+    return "\x1b[33;1m{}\x1b[0m".format(s)
+
+
+def bright_blue(s):
+    return "\x1b[34;1m{}\x1b[0m".format(s)
+
+
+def bright_magenta(s):
+    return "\x1b[35;1m{}\x1b[0m".format(s)
+
+
+def bright_cyan(s):
+    return "\x1b[36;1m{}\x1b[0m".format(s)
+
+
+def bright_white(s):
+    return "\x1b[37;1m{}\x1b[0m".format(s)
 
 
 class ColourFormatter(logging.Formatter):

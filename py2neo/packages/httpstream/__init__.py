@@ -16,8 +16,10 @@
 # limitations under the License.
 
 
-"""
-HTTPStream
+""" HTTPStream is an HTTP client library for Python that wraps the
+standard library HTTP client with a convenient resource-based interface
+and also provides support for incremental JSON document retrieval and
+RFC 6570 URI Templates.
 """
 
 
@@ -28,4 +30,5 @@ __license__ = "Apache License, Version 2.0"
 __version__ = "1.3.0"
 
 
-from py2neo.packages.httpstream.http import *
+from .http import *
+from .watch import watch

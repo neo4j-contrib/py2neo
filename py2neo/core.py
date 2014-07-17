@@ -52,8 +52,8 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import BAD_REQUEST, NOT_FOUND, CONFLICT
+from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI, URITemplate
 from py2neo.packages.jsonstream import assembled, grouped
-from py2neo.packages.urimagic import percent_encode, URI, URITemplate
 from py2neo.types import cast_property
 from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is_integer, \
     round_robin, ustr, version_tuple
@@ -2408,11 +2408,9 @@ class Relationship(Path):
         return self.rel.properties
 
     def pull(self):
-        # TODO: do for start_node, rel and end_node
         self.rel.pull()
 
     def push(self):
-        # TODO: do for start_node, rel and end_node
         self.rel.push()
 
     @property

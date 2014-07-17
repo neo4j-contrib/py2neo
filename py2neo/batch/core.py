@@ -25,7 +25,7 @@ from py2neo.core import NodePointer, Bindable
 from py2neo.cypher import CypherResults
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
-from py2neo.packages.urimagic import percent_encode, URI
+from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, ustr
 
 

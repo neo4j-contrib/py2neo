@@ -23,7 +23,7 @@ from collections import OrderedDict
 from py2neo.core import Resource, ServiceRoot
 from py2neo.cypher.error import TransactionError, TransactionFinished
 from py2neo.cypher.results import RecordProducer
-from py2neo.packages.urimagic import URI
+from py2neo.packages.httpstream.packages.urimagic import URI
 
 
 class Session(object):
