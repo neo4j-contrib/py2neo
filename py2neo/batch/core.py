@@ -128,24 +128,6 @@ class Job(object):
     # interpreted as raw data.
     raw_result = False
 
-    ## TODO: tidy up (and make redundant)
-    #@classmethod
-    #def uri_for(cls, entity, *segments):
-    #    """ Return a relative URI in string format for the entity specified
-    #    plus extra path segments.
-    #    """
-    #    if isinstance(entity, int):
-    #        uri = "{{{0}}}".format(entity)
-    #    elif isinstance(entity, NodePointer):
-    #        uri = "{{{0}}}".format(entity.address)
-    #    else:
-    #        uri = entity.relative_uri.string
-    #    if segments:
-    #        if not uri.endswith("/"):
-    #            uri += "/"
-    #        uri += "/".join(map(percent_encode, segments))
-    #    return uri
-
     # TODO: comment
     def __init__(self, method, target, body=None):
         self.method = method

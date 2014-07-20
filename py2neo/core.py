@@ -1458,16 +1458,16 @@ class Node(PropertyContainer):
         return inst
 
     @classmethod
+    def __joinable(cls, obj):
+        from py2neo.batch import Job
+        return obj is None or isinstance(obj, (Node, NodePointer, Job))
+
+    @classmethod
     def join(cls, n, m):
-        """ Attempt to combine two equivalent nodes into a single node.
+        """ Attempt to coalesce two equivalent nodes into a single node.
         """
-
-        def is_valid(node):
-            from py2neo.batch import Job
-            return node is None or isinstance(node, (Node, NodePointer, Job))  # TODO: BatchRequest?
-
-        if not is_valid(n) or not is_valid(m):
-            raise TypeError("Can only join Node, NodePointer or None")
+        if not cls.__joinable(n) or not cls.__joinable(m):
+            raise TypeError("Can only join Node, NodePointer, Job or None")
         if n is None:
             return m
         elif m is None or n is m:
@@ -1827,7 +1827,7 @@ class Rel(PropertyContainer):
             arg = args[0]
             if arg is None:
                 return None
-            elif isinstance(arg, (Rel, Job)):  # TODO: BatchRequest?
+            elif isinstance(arg, (Rel, Job)):
                 return arg
             elif isinstance(arg, Relationship):
                 return arg.rel
@@ -1897,6 +1897,7 @@ class Rel(PropertyContainer):
         return not self.__eq__(other)
 
     def __reversed__(self):
+        # TODO: this should return an iterator
         r = Rev()
         r._Bindable__resource = self._Bindable__resource
         r._PropertyContainer__properties = self._PropertyContainer__properties
@@ -1974,6 +1975,7 @@ class Rel(PropertyContainer):
 class Rev(Rel):
 
     def __reversed__(self):
+        # TODO: this should return an iterator
         r = Rel()
         r._Bindable__resource = self._Bindable__resource
         r._PropertyContainer__properties = self._PropertyContainer__properties
@@ -2040,20 +2042,17 @@ class Path(object):
                     try:
                         nodes[-1] = Node.join(nodes[-1], path.end_node)
                     except JoinError:
-                        raise JoinError("Path at position {} cannot be "
-                                              "joined".format(index))
+                        raise JoinError("Path at position %s cannot be joined" % index)
                     else:
                         nodes.extend(path.nodes[-2::-1])
                         rels.extend(reversed(r) for r in path.rels[::-1])
-                        # TODO: replace with reverse handler
                 else:
                     nodes.extend(path.nodes[1:])
                     rels.extend(path.rels)
 
         def join_rel(rel, index):
             if len(nodes) == len(rels):
-                raise JoinError("Rel at position {} cannot be "
-                                      "joined".format(index))
+                raise JoinError("Rel at position %s cannot be joined" % index)
             else:
                 rels.append(rel)
 
@@ -2127,6 +2126,9 @@ class Path(object):
 
     def __iter__(self):
         return iter(self.relationships)
+
+    def __reversed__(self):
+        return iter(reversed(self.relationships))
 
     @property
     def end_node(self):
@@ -2386,9 +2388,10 @@ class Relationship(Path):
         return self.rel._id
 
     def bind(self, uri, metadata=None):
-        # TODO: do for start_node, rel and end_node
         self.rel.bind(uri, metadata)
         self.cache[uri] = self
+        self.start_node.bind(self.resource.metadata["start"])
+        self.end_node.bind(self.resource.metadata["end"])
 
     @property
     def bound(self):
@@ -2451,8 +2454,9 @@ class Relationship(Path):
             del self.cache[self.uri]
         except KeyError:
             pass
-        # TODO: do for start_node, rel and end_node
         self.rel.unbind()
+        self.start_node.unbind()
+        self.end_node.unbind()
 
     @property
     def uri(self):

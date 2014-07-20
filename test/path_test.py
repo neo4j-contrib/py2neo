@@ -15,13 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 
 import pytest
 
-from py2neo import neo4j, Node, Path
-
-PY3K = sys.version_info[0] >= 3
+from py2neo import neo4j, Node, Path, Rev, Relationship
 
 
 class TestPathConstruction(object):
@@ -256,3 +253,73 @@ class TestGetOrCreatePath(object):
         assert p1.relationships[0] == p2.relationships[0]
         assert p1.relationships[1] == p2.relationships[1]
         assert p1.relationships[2] == p2.relationships[2]
+
+
+class TestPathIterationAndReversal(object):
+
+    @pytest.fixture
+    def alice(self):
+        return Node("Person", name="Alice", age=33)
+
+    @pytest.fixture
+    def bob(self):
+        return Node("Person", name="Bob", age=44)
+
+    @pytest.fixture
+    def carol(self):
+        return Node("Person", name="Carol", age=55)
+
+    @pytest.fixture
+    def dave(self):
+        return Node("Person", name="Dave", age=66)
+
+    def test_can_iterate_path_relationships(self, alice, bob, carol, dave):
+        # given
+        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        # when
+        rels = list(path)
+        # then
+        assert rels == [
+            Relationship(alice, "LOVES", bob),
+            Relationship(carol, "HATES", bob),
+            Relationship(carol, "KNOWS", dave),
+        ]
+
+    def test_can_make_new_path_from_relationships(self, alice, bob, carol, dave):
+        # given
+        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        rels = list(path)
+        # when
+        new_path = Path(*rels)
+        # then
+        new_rels = list(new_path)
+        assert new_rels == [
+            Relationship(alice, "LOVES", bob),
+            Relationship(carol, "HATES", bob),
+            Relationship(carol, "KNOWS", dave),
+        ]
+
+    def test_can_make_new_path_from_path(self, alice, bob, carol, dave):
+        # given
+        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        # when
+        new_path = Path(path)
+        # then
+        new_rels = list(new_path)
+        assert new_rels == [
+            Relationship(alice, "LOVES", bob),
+            Relationship(carol, "HATES", bob),
+            Relationship(carol, "KNOWS", dave),
+        ]
+
+    def test_can_reverse_iterate_path_relationships(self, alice, bob, carol, dave):
+        # given
+        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        # when
+        rels = list(reversed(path))
+        # then
+        assert rels == [
+            Relationship(carol, "KNOWS", dave),
+            Relationship(carol, "HATES", bob),
+            Relationship(alice, "LOVES", bob),
+        ]

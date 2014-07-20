@@ -1,44 +1,48 @@
-Requirements & Installation
-===========================
+===============
+Getting Started
+===============
 
 Requirements
-------------
+============
+
 
 Neo4j
-~~~~~
+-----
+Neo4j versions **1.9**, **2.0** and **2.1** are supported.
 
-Neo4j version 1.8 or above is required. Older versions may partially work but
-are no longer supported.
 
 Python
-~~~~~~
+------
+Python versions **2.7**, **3.3** and **3.4** are supported.
 
-The following Python versions are supported:
+Jython version **2.7** is also supported but has been less thoroughly tested.
 
-- `CPython 2.6 <http://www.python.org/download/releases/2.6.8/>`_
-- `CPython 2.7 <http://www.python.org/download/releases/2.7.4/>`_
-- `CPython 3.3 <http://www.python.org/download/releases/3.3.0/>`_
-- `Jython 2.7 <http://www.jython.org/>`_
+If you are using a different Python variant such as PyPy or IronPython then please help to improve
+support by providing feedback.
 
-If you are using a different variant such as PyPy or IronPython then please
-help to improve support by providing feedback.
+
+Dependencies
+------------
+Py2neo is self-contained and requires no third-party dependencies to be installed. It does however
+come bundled with `HTTPStream <http://nigelsmall.com/httpstream>`_,
+`JSONStream <http://nigelsmall.com/jsonstream>`_ and `URIMagic <http://nigelsmall.com/urimagic>`_
+which are used internally for HTTP communication.
+
 
 Installation
-------------
-
-Python Package Index (PyPI)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The easiest way to install py2neo is from the Python Package Index (PyPI),
-using ``pip`` or ``easy_install``::
+============
+Py2neo can be installed from the Python Package Index (PyPI) using ``pip`` or ``easy_install``::
 
     pip install py2neo
-    easy_install py2neo
+
 
 Source Code
------------
+===========
 
-You may prefer to use the latest code directly from GitHub::
+The source code is also available from GitHub but be sure to checkout the correct release branch.
+
+::
 
     git clone git@github.com:nigelsmall/py2neo.git
+    git checkout release/2.0.0
 
