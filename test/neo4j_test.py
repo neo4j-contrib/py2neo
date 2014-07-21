@@ -15,13 +15,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import logging
 
 import pytest
 
 from py2neo import node
 from py2neo.core import authenticate, _get_headers, Graph, Node, Relationship
-from py2neo.cypher import CypherQuery
 from py2neo.legacy import GraphDatabaseService
 
 
@@ -102,7 +102,7 @@ class TestGraph(object):
         node, = self.graph.create(
             {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
-        assert len(node.get_properties()) == 4
+        assert len(node.properties) == 4
         assert node["fish"] == "chips"
         assert node["foo"] == "bar"
         assert node["number"] == 13
@@ -121,27 +121,28 @@ class TestGraph(object):
                 {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
         assert len(nodes) == 4
-        assert len(nodes[0].get_properties()) == 0
-        assert len(nodes[1].get_properties()) == 1
+        assert len(nodes[0].properties) == 0
+        assert len(nodes[1].properties) == 1
         assert nodes[1]["foo"] == "bar"
-        assert len(nodes[2].get_properties()) == 3
+        assert len(nodes[2].properties) == 3
         assert nodes[2]["number"] == 42
         assert nodes[2]["foo"] == "baz"
         assert nodes[2]["true"]
-        assert len(nodes[3].get_properties()) == 2
+        assert len(nodes[3].properties) == 2
         assert nodes[3]["fish"][0] == "cod"
         assert nodes[3]["fish"][1] == "haddock"
         assert nodes[3]["fish"][2] == "plaice"
         assert nodes[3]["number"] == 109
 
-    def test_batch_get_properties(self):
+    def test_batch_pull_and_check_properties(self):
         nodes = self.graph.create(
             {},
             {"foo": "bar"},
             {"number": 42, "foo": "baz", "true": True},
             {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
-        props = self.graph.get_properties(*nodes)
+        self.graph.pull(*nodes)
+        props = [n.properties for n in nodes]
         assert len(props) == 4
         assert len(props[0]) == 0
         assert len(props[1]) == 1
@@ -231,8 +232,7 @@ class TestNewCreate(object):
         assert results[1].type == "PERSON"
         assert results[1].start_node == ref_node
         assert results[1].end_node == results[0]
-        self.graph.delete(results[1], results[0])
-        ref_node.delete()
+        self.graph.delete(results[1], results[0], ref_node)
 
     def test_fails_on_bad_reference(self):
         with pytest.raises(Exception):
@@ -262,9 +262,9 @@ class TestMultipleNode(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
-        self.gdb = graph
-        self.ref_node, = self.gdb.create({})
-        self.nodes = self.gdb.create(*self.flintstones)
+        self.graph = graph
+        self.ref_node, = self.graph.create({})
+        self.nodes = self.graph.create(*self.flintstones)
 
     def test_is_created(self):
         assert self.nodes is not None
@@ -272,79 +272,18 @@ class TestMultipleNode(object):
 
     def test_has_correct_properties(self):
         assert [
-            node.get_properties()
+            node.properties
             for node in self.nodes
         ] == self.flintstones
 
     def test_create_relationships(self):
-        rels = self.gdb.create(*[
+        rels = self.graph.create(*[
             (self.ref_node, "FLINTSTONE", node)
             for node in self.nodes
         ])
-        self.gdb.delete(*rels)
+        self.graph.delete(*rels)
         assert len(self.nodes) == len(rels)
 
     def tearDown(self):
-        self.gdb.delete(*self.nodes)
-        self.ref_node.delete()
-
-
-class TestRelatedDelete(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.recycling = []
-
-    def test_can_delete_entire_subgraph(self):
-        query = '''\
-        CREATE (en {place: "England"}),
-               (sc {place: "Scotland"}),
-               (cy {place: "Wales"}),
-               (fr {place: "France"}),
-               (de {place: "Germany"}),
-               (es {place: "Spain"}),
-               (eng {lang: "English"}),
-               (fre {lang: "French"}),
-               (deu {lang: "German"}),
-               (esp {lang: "Spanish"}),
-               (A {name: "Alice"}),
-               (A)-[:LIVES_IN]->(en),
-               (A)-[:SPEAKS]->(eng),
-               (B {name: "Bob"}),
-               (B)-[:LIVES_IN]->(cy),
-               (B)-[:SPEAKS]->(eng),
-               (C {name: "Carlos"}),
-               (C)-[:LIVES_IN]->(es),
-               (C)-[:SPEAKS]->(esp),
-               (D {name: "Dagmar"}),
-               (D)-[:LIVES_IN]->(de),
-               (D)-[:SPEAKS]->(deu),
-               (E {name: "Elspeth"}),
-               (E)-[:LIVES_IN]->(sc),
-               (E)-[:SPEAKS]->(eng),
-               (E)-[:SPEAKS]->(deu),
-               (F {name: "François"}),
-               (F)-[:LIVES_IN]->(fr),
-               (F)-[:SPEAKS]->(eng),
-               (F)-[:SPEAKS]->(fre),
-               (G {name: "Gina"}),
-               (G)-[:LIVES_IN]->(de),
-               (G)-[:SPEAKS]->(eng),
-               (G)-[:SPEAKS]->(fre),
-               (G)-[:SPEAKS]->(deu),
-               (G)-[:SPEAKS]->(esp),
-               (H {name: "Hans"}),
-               (H)-[:LIVES_IN]->(de),
-               (H)-[:SPEAKS]->(deu)
-        RETURN en, sc, cy, fr, de, es, eng, fre, deu, esp,
-               A, B, C, D, E, F, G, H
-        '''
-        data = list(CypherQuery(self.graph, query).execute())
-        entities = data[0]
-        for entity in entities:
-            assert entity.exists
-        alice = entities[10]
-        alice.delete_related()
-        for entity in entities:
-            assert not entity.exists
+        self.graph.delete(*self.nodes)
+        self.graph.delete(self.ref_node)

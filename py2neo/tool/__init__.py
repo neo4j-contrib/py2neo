@@ -607,10 +607,9 @@ class Shell(object):
         print(title)
         print("=" * len(title))
         if self.graph.supports_node_labels:
-            labels = n.get_labels()
-            print("Labels: " + ", ".join(labels))
+            print("Labels: " + ", ".join(n.labels))
         print("Properties:")
-        properties = n.get_cached_properties()
+        properties = n.properties
         if properties:
             max_key_len = max(len(key) for key in properties.keys())
             for key, value in sorted(properties.items()):

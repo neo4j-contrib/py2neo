@@ -35,7 +35,7 @@ class TestNodeCreation(object):
         self.batch.create(node())
         a, = self.batch.submit()
         assert isinstance(a, Node)
-        assert a.get_properties() == {}
+        assert a.properties == {}
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -65,7 +65,7 @@ class TestRelationshipCreation(object):
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert knows.end_node == bob
-        assert knows.get_properties() == {}
+        assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_new_indexed_nodes(self, legacy_graph):
@@ -87,7 +87,7 @@ class TestRelationshipCreation(object):
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert knows.end_node == bob
-        assert knows.get_properties() == {}
+        assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_nodes(self):
@@ -101,7 +101,7 @@ class TestRelationshipCreation(object):
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert knows.end_node == bob
-        assert knows.get_properties() == {}
+        assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_start_node(self):
@@ -115,7 +115,7 @@ class TestRelationshipCreation(object):
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert knows.end_node == bob
-        assert knows.get_properties() == {}
+        assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_end_node(self):
@@ -129,7 +129,7 @@ class TestRelationshipCreation(object):
         assert knows.start_node == alice
         assert knows.type == "KNOWS"
         assert knows.end_node == bob
-        assert knows.get_properties() == {}
+        assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_multiple_relationships(self):
@@ -154,12 +154,12 @@ class TestRelationshipCreation(object):
         assert knows1.start_node == alice
         assert knows1.type == "KNOWS"
         assert knows1.end_node == bob
-        assert knows1.get_properties() == {}
+        assert knows1.properties == {}
         assert isinstance(knows2, Relationship)
         assert knows2.start_node == alice
         assert knows2.type == "KNOWS"
         assert knows2.end_node == bob
-        assert knows2.get_properties() == {}
+        assert knows2.properties == {}
         self.recycling = [knows1, knows2, alice, bob]
 
     def test_can_create_relationship_with_properties(self):
@@ -305,7 +305,8 @@ class TestPropertyManagement(object):
         self.graph = graph
 
     def _check_properties(self, entity, expected_properties):
-        actual_properties = entity.get_properties()
+        entity.pull()
+        actual_properties = entity.properties
         assert len(actual_properties) == len(expected_properties)
         for key, value in expected_properties.items():
             assert key in actual_properties
@@ -314,14 +315,12 @@ class TestPropertyManagement(object):
     def test_can_add_new_node_property(self):
         self.batch.set_property(self.alice, "age", 33)
         self.batch.run()
-        self._check_properties(
-            self.alice, {"name": "Alice", "surname": "Allison", "age": 33})
+        self._check_properties(self.alice, {"name": "Alice", "surname": "Allison", "age": 33})
 
     def test_can_overwrite_existing_node_property(self):
         self.batch.set_property(self.alice, "name", "Alison")
         self.batch.run()
-        self._check_properties(
-            self.alice, {"name": "Alison", "surname": "Allison"})
+        self._check_properties(self.alice, {"name": "Alison", "surname": "Allison"})
 
     def test_can_replace_all_node_properties(self):
         props = {"full_name": "Alice Allison", "age": 33}
@@ -364,7 +363,7 @@ class TestIndexedNodeCreation(object):
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         alice, index_entry = self.batch.submit()
         assert isinstance(alice, Node)
-        assert alice.get_properties() == properties
+        assert alice.properties == properties
         self.graph.delete(alice)
 
     def test_can_create_two_similarly_indexed_nodes(self):
@@ -375,7 +374,7 @@ class TestIndexedNodeCreation(object):
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         alice, alice_index_entry = self.batch.submit()
         assert isinstance(alice, Node)
-        assert alice.get_properties() == alice_props
+        assert alice.properties == alice_props
         self.batch.clear()
         # create Bob
         bob_props = {"name": "Bob Smith"}
@@ -384,7 +383,7 @@ class TestIndexedNodeCreation(object):
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
         bob, bob_index_entry = self.batch.submit()
         assert isinstance(bob, Node)
-        assert bob.get_properties() == bob_props
+        assert bob.properties == bob_props
         # check entries
         smiths = self.people.get("surname", "Smith")
         assert len(smiths) == 2
@@ -399,15 +398,15 @@ class TestIndexedNodeCreation(object):
         self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", alice_props)
         alice, = self.batch.submit()
         assert isinstance(alice, Node)
-        assert alice.get_properties() == alice_props
+        assert alice.properties == alice_props
         self.batch.clear()
         # create Bob
         bob_props = {"name": "Bob Smith"}
         self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", bob_props)
         bob, = self.batch.submit()
         assert isinstance(bob, Node)
-        assert bob.get_properties() != bob_props
-        assert bob.get_properties() == alice_props
+        assert bob.properties != bob_props
+        assert bob.properties == alice_props
         assert bob == alice
         # check entries
         smiths = self.people.get("surname", "Smith")
@@ -493,7 +492,7 @@ class TestIndexedNodeAddition(object):
 #        assert rels[0].start_node == self.alice
 #        assert rels[0].type == "KNOWS"
 #        assert rels[0].end_node == self.bob
-#        assert rels[0].get_properties() == {}
+#        assert rels[0].properties == {}
 #        legacy_graph.delete(rels)
 #        legacy_graph.delete(self.alice, self.bob)
 #

@@ -57,3 +57,16 @@ def test_can_hydrate_graph(graph):
     data = graph.resource.get().content
     hydrated = graph.hydrate(data)
     assert hydrated is graph
+
+
+def test_graph_contains(graph):
+    node, = graph.create({})
+    assert node in graph
+
+
+def test_can_hydrate_map(graph):
+    data = {
+        "foo": "bar"
+    }
+    hydrated = graph.hydrate(data)
+    assert isinstance(hydrated, dict)

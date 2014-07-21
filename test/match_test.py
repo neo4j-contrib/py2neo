@@ -16,9 +16,11 @@
 # limitations under the License.
 
 
+from uuid import uuid4
+
 import pytest
 
-from py2neo import neo4j
+from py2neo import neo4j, Node
 
 
 class TestMatch(object):
@@ -123,9 +125,13 @@ class TestMatch(object):
         rels = list(self.graph.match(limit=3))
         assert len(rels) == 3
 
-    def test_can_match_one(self):
+    def test_can_match_one_when_some_exist(self):
         rel = self.graph.match_one()
         assert isinstance(rel, neo4j.Relationship)
+
+    def test_can_match_one_when_none_exist(self):
+        rel = self.graph.match_one(rel_type=uuid4())
+        assert rel is None
 
     def test_can_match_none(self):
         rels = list(self.graph.match(rel_type="ZXZXZXZXZXZXZXZXZ", limit=1))
@@ -138,3 +144,27 @@ class TestMatch(object):
     def test_can_match_start_node_and_multiple_types(self):
         rels = list(self.graph.match(start_node=self.alice, rel_type=("LOVES", "KNOWS")))
         assert len(rels) == 2
+
+    def test_relationship_start_node_must_be_bound(self):
+        try:
+            list(self.graph.match(start_node=Node()))
+        except TypeError:
+            assert True
+        else:
+            assert False
+
+    def test_relationship_end_node_must_be_bound(self):
+        try:
+            list(self.graph.match(end_node=Node()))
+        except TypeError:
+            assert True
+        else:
+            assert False
+
+    def test_relationship_start_and_end_node_must_be_bound(self):
+        try:
+            list(self.graph.match(start_node=Node(), end_node=Node()))
+        except TypeError:
+            assert True
+        else:
+            assert False

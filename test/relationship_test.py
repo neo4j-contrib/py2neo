@@ -21,6 +21,11 @@ import pytest
 from py2neo import Graph, Relationship, WriteBatch
 
 
+def test_can_get_all_relationship_types(graph):
+    types = graph.relationship_types
+    assert isinstance(types, frozenset)
+
+
 def test_can_get_relationship_by_id_when_cached(graph):
     _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
     got = graph.relationship(relationship._id)
@@ -132,18 +137,18 @@ class TestRelationship(object):
         assert ab.end_node == bob
         assert len(ab) == 1
         assert ab["since"] == 1999
-        assert ab.get_properties() == {"since": 1999}
+        assert ab.properties == {"since": 1999}
         ab["foo"] = "bar"
         assert len(ab) == 2
         assert ab["foo"] == "bar"
-        assert ab.get_properties() == {"since": 1999, "foo": "bar"}
+        assert ab.properties == {"since": 1999, "foo": "bar"}
         del ab["foo"]
         assert len(ab) == 1
         assert ab["since"] == 1999
-        assert ab.get_properties() == {"since": 1999}
-        ab.delete_properties()
+        assert ab.properties == {"since": 1999}
+        ab.properties.clear()
         assert len(ab) == 0
-        assert ab.get_properties() == {}
+        assert ab.properties == {}
 
 
 class TestRelate(object):

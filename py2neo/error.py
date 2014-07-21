@@ -56,7 +56,7 @@ class GraphError(Exception):
         self.stack_trace = kwargs.get("stacktrace")
         try:
             self.cause = self.hydrate(kwargs["cause"])
-        except KeyError:
+        except Exception:
             self.cause = None
 
 

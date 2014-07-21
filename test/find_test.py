@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from py2neo import GraphError
+from py2neo import GraphError, Node
 
 
 try:
@@ -36,8 +36,7 @@ def test_will_find_no_nodes_with_non_existent_label(graph):
 def test_can_find_nodes_with_label(graph):
     if not graph.supports_node_labels:
         return
-    alice, = graph.create({"name": "Alice"})
-    alice.add_labels("Person")
+    alice, = graph.create(Node("Person", name="Alice"))
     nodes = list(graph.find("Person"))
     assert alice in nodes
 
@@ -45,8 +44,7 @@ def test_can_find_nodes_with_label(graph):
 def test_can_find_nodes_with_label_and_property(graph):
     if not graph.supports_node_labels:
         return
-    alice, = graph.create({"name": "Alice"})
-    alice.add_labels("Person")
+    alice, = graph.create(Node("Person", name="Alice"))
     nodes = list(graph.find("Person", "name", "Alice"))
     assert alice in nodes
 

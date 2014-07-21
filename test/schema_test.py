@@ -22,7 +22,7 @@ from uuid import uuid4
 
 import pytest
 
-from py2neo import neo4j, node, Graph
+from py2neo import neo4j, node, Graph, GraphError, Node
 from py2neo.packages.httpstream.http import ServerError
 
 
@@ -31,74 +31,77 @@ def get_clean_database():
     graph = neo4j.Graph()
     for label in graph.node_labels:
         for key in graph.schema.get_unique_constraints(label):
-            graph.schema.remove_unique_constraint(label, key)
-        for key in graph.schema.get_indexed_property_keys(label):
+            graph.schema.drop_unique_constraint(label, key)
+        for key in graph.schema.get_indexes(label):
             graph.schema.drop_index(label, key)
     return graph
 
 
-@pytest.skip(not Graph().supports_node_labels)
 def test_schema_index():
-    graph_db = get_clean_database()
+    graph = get_clean_database()
+    if not graph.supports_node_labels:
+        return
     label_1 = uuid4().hex
     label_2 = uuid4().hex
-    munich, = graph_db.create({'name': "München", 'key': "09162000"})
-    munich.add_labels(label_1, label_2)
-    graph_db.schema.create_index(label_1, "name")
-    graph_db.schema.create_index(label_1, "key")
-    graph_db.schema.create_index(label_2, "name")
-    graph_db.schema.create_index(label_2, "key")
-    found_borough_via_name = graph_db.find(label_1, "name", "München")
-    found_borough_via_key = graph_db.find(label_1, "key", "09162000")
-    found_county_via_name = graph_db.find(label_2, "name", "München")
-    found_county_via_key = graph_db.find(label_2, "key", "09162000")
+    munich, = graph.create({'name': "München", 'key': "09162000"})
+    munich.labels.replace({label_1, label_2})
+    graph.schema.create_index(label_1, "name")
+    graph.schema.create_index(label_1, "key")
+    graph.schema.create_index(label_2, "name")
+    graph.schema.create_index(label_2, "key")
+    found_borough_via_name = graph.find(label_1, "name", "München")
+    found_borough_via_key = graph.find(label_1, "key", "09162000")
+    found_county_via_name = graph.find(label_2, "name", "München")
+    found_county_via_key = graph.find(label_2, "key", "09162000")
     assert list(found_borough_via_name) == list(found_borough_via_key)
     assert list(found_county_via_name) == list(found_county_via_key)
     assert list(found_borough_via_name) == list(found_county_via_name)
-    keys = graph_db.schema.get_indexed_property_keys(label_1)
+    keys = graph.schema.get_indexes(label_1)
     assert "name" in keys
     assert "key" in keys
-    graph_db.schema.drop_index(label_1, "name")
-    graph_db.schema.drop_index(label_1, "key")
-    graph_db.schema.drop_index(label_2, "name")
-    graph_db.schema.drop_index(label_2, "key")
-    with pytest.raises(LookupError):
-        graph_db.schema.drop_index(label_2, "key")
-    graph_db.delete(munich)
+    graph.schema.drop_index(label_1, "name")
+    graph.schema.drop_index(label_1, "key")
+    graph.schema.drop_index(label_2, "name")
+    graph.schema.drop_index(label_2, "key")
+    with pytest.raises(GraphError):
+        graph.schema.drop_index(label_2, "key")
+    graph.delete(munich)
 
 
-@pytest.skip(not Graph().supports_node_labels)
 def test_unique_constraint():
-    graph_db = get_clean_database()
+    graph = get_clean_database()
+    if not graph.supports_node_labels:
+        return
     label_1 = uuid4().hex
-    borough, = graph_db.create(node(name="Taufkirchen"))
-    borough.add_labels(label_1)
-    graph_db.schema.add_unique_constraint(label_1, "name")
-    constraints = graph_db.schema.get_unique_constraints(label_1)
+    borough, = graph.create(Node(label_1, name="Taufkirchen"))
+    graph.schema.create_unique_constraint(label_1, "name")
+    constraints = graph.schema.get_unique_constraints(label_1)
     assert "name" in constraints
-    borough_2, = graph_db.create(node(name="Taufkirchen"))
-    with pytest.raises(ValueError):
-        borough_2.add_labels(label_1)
-    graph_db.delete(borough, borough_2)
+    with pytest.raises(GraphError):
+        graph.create(Node(label_1, name="Taufkirchen"))
+    graph.delete(borough)
 
 
-@pytest.skip(not Graph().supports_node_labels)
 def test_labels_constraints():
     graph_db = get_clean_database()
+    if not graph_db.supports_node_labels:
+        return
     label_1 = uuid4().hex
-    a, b = graph_db.create({"name": "Alice"}, {"name": "Alice"})
-    a.add_labels(label_1)
-    b.add_labels(label_1)
-    with pytest.raises(ValueError):
-        graph_db.schema.add_unique_constraint(label_1, "name")
-    b.remove_labels(label_1)
-    graph_db.schema.add_unique_constraint(label_1, "name")
-    a.remove_labels(label_1)
-    b.add_labels(label_1)
-    with pytest.raises(ServerError):
+    a, b = graph_db.create(Node(label_1, name="Alice"), Node(label_1, name="Alice"))
+    with pytest.raises(GraphError):
+        graph_db.schema.create_unique_constraint(label_1, "name")
+    b.labels.remove(label_1)
+    b.push()
+    graph_db.schema.create_unique_constraint(label_1, "name")
+    a.labels.remove(label_1)
+    a.push()
+    b.labels.add(label_1)
+    b.push()
+    with pytest.raises(ServerError):  # this is probably a bug
         graph_db.schema.drop_index(label_1, "name")
-    b.remove_labels(label_1)
-    graph_db.schema.remove_unique_constraint(label_1, "name")
-    with pytest.raises(LookupError):
+    b.labels.remove(label_1)
+    b.push()
+    graph_db.schema.drop_unique_constraint(label_1, "name")
+    with pytest.raises(GraphError):
         graph_db.schema.drop_index(label_1, "name")
     graph_db.delete(a, b)

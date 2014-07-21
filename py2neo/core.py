@@ -52,12 +52,11 @@ from py2neo.error import GraphError, BindError, JoinError
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
-from py2neo.packages.httpstream.numbers import BAD_REQUEST, NOT_FOUND, CONFLICT
+from py2neo.packages.httpstream.numbers import NOT_FOUND, CONFLICT
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI, URITemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.types import cast_property
-from py2neo.util import compact, deprecated, flatten, has_all, is_collection, is_integer, \
-    round_robin, ustr, version_tuple
+from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
 
 
 __all__ = ["authenticate", "rewrite", "Resource", "ResourceTemplate", "Bindable",
@@ -679,15 +678,6 @@ class Graph(Bindable):
             else:
                 raise
 
-    @deprecated("Use `pull` instead")
-    def get_properties(self, *entities):
-        """ Fetch properties for multiple nodes and/or relationships as part
-        of a single batch; returns a list of dictionaries in the same order
-        as the supplied entities.
-        """
-        self.pull(*entities)
-        return [entity.properties for entity in entities]
-
     def hydrate(self, data):
         """ Hydrate a dictionary of data into a Node, Relationship or other
         graph object.
@@ -788,11 +778,7 @@ class Graph(Bindable):
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
-            if self.neo4j_version >= (2, 0, 0):
-                # yuk, version sniffing :-(
-                separator = "|:"
-            else:
-                separator = "|"
+            separator = "|:" if self.neo4j_version >= (2, 0, 0) else "|"
             rel_clause = ":" + separator.join("`{0}`".format(_)
                                               for _ in rel_type)
         else:
@@ -981,138 +967,65 @@ class Schema(Bindable):
             inst.bind(uri)
             if not inst.graph.supports_schema_indexes:
                 raise NotImplementedError("Schema index support requires version 2.0 or above")
-            inst._index_template = \
-                URITemplate(uri + "/index/{label}")
-            inst._index_key_template = \
-                URITemplate(uri + "/index/{label}/{property_key}")
+            inst._index_template = ResourceTemplate(uri + "/index/{label}")
+            inst._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
             inst._uniqueness_constraint_template = \
-                URITemplate(uri + "/constraint/{label}/uniqueness")
+                ResourceTemplate(uri + "/constraint/{label}/uniqueness")
             inst._uniqueness_constraint_key_template = \
-                URITemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
+                ResourceTemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
             cls.__instances[uri] = inst
         return inst
 
-    def get_indexed_property_keys(self, label):
-        """ Fetch a list of indexed property keys for a label.
-
-        :param label:
-        :return:
-        """
-        if not label:
-            raise ValueError("Label cannot be empty")
-        resource = Resource(self._index_template.expand(label=label))
-        try:
-            response = resource.get()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
-                return []
-            else:
-                raise
-        else:
-            return [
-                indexed["property_keys"][0]
-                for indexed in response.content
-            ]
-
-    def get_unique_constraints(self, label):
-        """ Fetch a list of uniqueness constraints for a label.
-
-        :param label:
-        :return:
-        """
-        if not label:
-            raise ValueError("Label cannot be empty")
-        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
-        try:
-            response = resource.get()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
-                return []
-            else:
-                raise
-        else:
-            return [
-                unique["property_keys"][0]
-                for unique in response.content
-            ]
-
     def create_index(self, label, property_key):
         """ Index a property key for a label.
-
-        :param label:
-        :param property_key:
-        :return:
         """
-        if not label or not property_key:
-            raise ValueError("Neither label nor property key can be empty")
-        resource = Resource(self._index_template.expand(label=label))
-        property_key = bytearray(property_key, "utf-8").decode("utf-8")
-        try:
-            resource.post({"property_keys": [property_key]})
-        except GraphError as err:
-            if err.response.status_code == CONFLICT:
-                raise ValueError(err.cause.message)
-            else:
-                raise
+        self._index_template.expand(label=label).post({"property_keys": [property_key]})
 
-    def add_unique_constraint(self, label, property_key):
+    def create_unique_constraint(self, label, property_key):
         """ Create an uniqueness constraint for a label.
-
-         :param label:
-         :param property_key:
-         :return:
         """
-
-        if not label or not property_key:
-            raise ValueError("Neither label nor property key can be empty")
-        resource = Resource(self._uniqueness_constraint_template.expand(label=label))
-        try:
-            resource.post({"property_keys": [ustr(property_key)]})
-        except GraphError as err:
-            if err.response.status_code == CONFLICT:
-                raise ValueError(err.cause.message)
-            else:
-                raise
+        self._uniqueness_constraint_template.expand(label=label).post(
+            {"property_keys": [property_key]})
 
     def drop_index(self, label, property_key):
         """ Remove label index for a given property key.
-
-        :param label:
-        :param property_key:
-        :return:
         """
-        if not label or not property_key:
-            raise ValueError("Neither label nor property key can be empty")
-        uri = self._index_key_template.expand(label=label,
-                                              property_key=property_key)
-        resource = Resource(uri)
         try:
-            resource.delete()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
-                raise LookupError("Property key not found")
+            self._index_key_template.expand(label=label, property_key=property_key).delete()
+        except ClientError as error:
+            if error.status_code == NOT_FOUND:
+                raise GraphError("No such schema index (label=%r, key=%r)" % (label, property_key))
             else:
                 raise
 
-    def remove_unique_constraint(self, label, property_key):
+    def drop_unique_constraint(self, label, property_key):
         """ Remove uniqueness constraint for a given property key.
-
-         :param label:
-         :param property_key:
-         :return:
         """
-        if not label or not property_key:
-            raise ValueError("Neither label nor property key can be empty")
-        uri = self._uniqueness_constraint_key_template.expand(label=label,
-                                                              property_key=property_key)
-        resource = Resource(uri)
         try:
-            resource.delete()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
-                raise LookupError("Property key not found")
+            self._uniqueness_constraint_key_template.expand(
+                label=label, property_key=property_key).delete()
+        except ClientError as error:
+            if error.status_code == NOT_FOUND:
+                raise GraphError("No such unique constraint (label=%r, key=%r)" %
+                                 (label, property_key))
             else:
                 raise
+
+    def get_indexes(self, label):
+        """ Fetch a list of indexed property keys for a label.
+        """
+        return [
+            indexed["property_keys"][0]
+            for indexed in self._index_template.expand(label=label).get().content
+        ]
+
+    def get_unique_constraints(self, label):
+        """ Fetch a list of unique constraints for a label.
+        """
+        return [
+            unique["property_keys"][0]
+            for unique in self._uniqueness_constraint_template.expand(label=label).get().content
+        ]
 
 
 class PropertySet(Bindable, dict):
@@ -1275,59 +1188,21 @@ class PropertyContainer(Bindable):
         Bindable.unbind(self)
         self.__properties.unbind()
 
-    @deprecated("Auto-sync will be removed in 2.1")
     def __pull_if_bound(self):
+        # remove in 2.1
         if self.auto_sync_properties:
             try:
                 self.properties.pull()
             except BindError:
                 pass
 
-    @deprecated("Auto-sync will be removed in 2.1")
     def __push_if_bound(self):
+        # remove in 2.1
         if self.auto_sync_properties:
             try:
                 self.properties.push()
             except BindError:
                 pass
-
-    @deprecated("Use `properties` attribute instead")
-    def get_cached_properties(self):
-        """ Fetch last known properties without calling the server.
-
-        :return: dictionary of properties
-        """
-        return self.properties
-
-    @deprecated("Use `pull` method on `properties` attribute instead")
-    def get_properties(self):
-        """ Fetch all properties.
-
-        :return: dictionary of properties
-        """
-        if self.bound:
-            self.properties.pull()
-        return self.properties
-
-    @deprecated("Use `push` method on `properties` attribute instead")
-    def set_properties(self, properties):
-        """ Replace all properties with those supplied.
-
-        :param properties: dictionary of new properties
-        """
-        self.properties.replace(properties)
-        if self.bound:
-            self.properties.push()
-
-    @deprecated("Use `push` method on `properties` attribute instead")
-    def delete_properties(self):
-        """ Delete all properties.
-        """
-        self.properties.clear()
-        try:
-            self.properties.push()
-        except BindError:
-            pass
 
 
 class Node(PropertyContainer):
@@ -1640,153 +1515,6 @@ class Node(PropertyContainer):
         PropertyContainer.unbind(self)
         self.__labels.unbind()
 
-    ### DEPRECATED ###
-
-    @deprecated("Use `add` or `update` method of `labels` property instead")
-    def add_labels(self, *labels):
-        """ Add one or more labels to this node.
-
-        :param labels: one or more text labels
-        """
-        labels = [ustr(label) for label in set(flatten(labels))]
-        self.labels.update(labels)
-        try:
-            self.labels.push()
-        except GraphError as err:
-            if err.response.status_code == BAD_REQUEST and err.cause.exception == 'ConstraintViolationException':
-                raise ValueError(err.cause.message)
-            else:
-                raise
-
-    @deprecated("Use graph.create(Path(node, ...)) instead")
-    def create_path(self, *items):
-        """ Create a new path, starting at this node and chaining together the
-        alternating relationships and nodes provided::
-
-            (self)-[rel_0]->(node_0)-[rel_1]->(node_1) ...
-                   |-----|  |------| |-----|  |------|
-             item:    0        1        2        3
-
-        Each relationship may be specified as one of the following:
-
-        - an existing Relationship instance
-        - a string holding the relationship type, e.g. "KNOWS"
-        - a (`str`, `dict`) tuple holding both the relationship type and
-          its properties, e.g. ("KNOWS", {"since": 1999})
-
-        Nodes can be any of the following:
-
-        - an existing Node instance
-        - an integer containing the ID of an existing node
-        - a `dict` holding a set of properties for a new node
-        - :py:const:`None`, representing an unspecified node that will be
-          created as required
-
-        :param items: alternating relationships and nodes
-        :return: `Path` object representing the newly-created path
-        """
-        path = Path(self, *items)
-        return path.create(self.graph)
-
-    @deprecated("Use Graph.delete instead")
-    def delete(self):
-        """ Delete this entity from the database.
-        """
-        self.graph.delete(self)
-
-    @deprecated("Use Cypher query instead")
-    def delete_related(self):
-        """ Delete this node along with all related nodes and relationships.
-        """
-        if self.graph.supports_foreach_pipe:
-            query = ("START a=node({a}) "
-                     "MATCH (a)-[rels*0..]-(z) "
-                     "FOREACH(r IN rels| DELETE r) "
-                     "DELETE a, z")
-        else:
-            query = ("START a=node({a}) "
-                     "MATCH (a)-[rels*0..]-(z) "
-                     "FOREACH(r IN rels: DELETE r) "
-                     "DELETE a, z")
-        self.graph.cypher.post(query, {"a": self._id})
-
-    @deprecated("Use `labels` property instead")
-    def get_labels(self):
-        """ Fetch all labels associated with this node.
-
-        :return: :py:class:`set` of text labels
-        """
-        self.labels.pull()
-        return self.labels
-
-    @deprecated("Use graph.merge(Path(node, ...)) instead")
-    def get_or_create_path(self, *items):
-        """ Identical to `create_path` except will reuse parts of the path
-        which already exist.
-
-        Some examples::
-
-            # add dates to calendar, starting at calendar_root
-            christmas_day = calendar_root.get_or_create_path(
-                "YEAR",  {"number": 2000},
-                "MONTH", {"number": 12},
-                "DAY",   {"number": 25},
-            )
-            # `christmas_day` will now contain a `Path` object
-            # containing the nodes and relationships used:
-            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
-
-            # adding a second, overlapping path will reuse
-            # nodes and relationships wherever possible
-            christmas_eve = calendar_root.get_or_create_path(
-                "YEAR",  {"number": 2000},
-                "MONTH", {"number": 12},
-                "DAY",   {"number": 24},
-            )
-            # `christmas_eve` will contain the same year and month nodes
-            # as `christmas_day` but a different (new) day node:
-            # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
-            #                                  |
-            #                                [:DAY]
-            #                                  |
-            #                                  v
-            #                                 (24)
-
-        """
-        path = Path(self, *items)
-        return path.get_or_create(self.graph)
-
-    @deprecated("Use Cypher query instead")
-    def isolate(self):
-        """ Delete all relationships connected to this node, both incoming and
-        outgoing.
-        """
-        query = "START a=node({a}) MATCH a-[r]-b DELETE r"
-        self.graph.cypher.post(query, {"a": self._id})
-
-    @deprecated("Use `remove` method of `labels` property instead")
-    def remove_labels(self, *labels):
-        """ Remove one or more labels from this node.
-
-        :param labels: one or more text labels
-        """
-        from py2neo.batch import WriteBatch
-        labels = [ustr(label) for label in set(flatten(labels))]
-        batch = WriteBatch(self.graph)
-        for label in labels:
-            batch.remove_label(self, label)
-        batch.run()
-
-    @deprecated("Use `clear` and `update` methods of `labels` property instead")
-    def set_labels(self, *labels):
-        """ Replace all labels on this node.
-
-        :param labels: one or more text labels
-        """
-        labels = [ustr(label) for label in set(flatten(labels))]
-        self.labels.clear()
-        self.add_labels(*labels)
-
 
 class NodePointer(object):
 
@@ -1963,14 +1691,6 @@ class Rel(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
-
-    ### DEPRECATED ###
-
-    @deprecated("Use graph.delete instead")
-    def delete(self):
-        """ Delete this Rel from the database.
-        """
-        self.resource.delete()
 
 
 class Rev(Rel):
@@ -2191,80 +1911,6 @@ class Path(object):
     @property
     def start_node(self):
         return self.__nodes[0]
-
-    ### DEPRECATED ###
-
-    def _create_query(self, unique):
-        nodes, path, values, params = [], [], [], {}
-
-        def append_node(i, node):
-            if node is None:
-                path.append("(n{0})".format(i))
-                values.append("n{0}".format(i))
-            elif node.bound:
-                path.append("(n{0})".format(i))
-                nodes.append("n{0}=node({{i{0}}})".format(i))
-                params["i{0}".format(i)] = node._id
-                values.append("n{0}".format(i))
-            else:
-                path.append("(n{0} {{p{0}}})".format(i))
-                params["p{0}".format(i)] = node.properties
-                values.append("n{0}".format(i))
-
-        def append_rel(i, rel):
-            if rel.properties:
-                path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel.type))
-                params["q{0}".format(i)] = compact(rel.properties)
-                values.append("r{0}".format(i))
-            else:
-                path.append("-[r{0}:`{1}`]->".format(i, rel.type))
-                values.append("r{0}".format(i))
-
-        append_node(0, self.__nodes[0])
-        for i, rel in enumerate(self.__rels):
-            append_rel(i, rel)
-            append_node(i + 1, self.__nodes[i + 1])
-        clauses = []
-        if nodes:
-            clauses.append("START {0}".format(",".join(nodes)))
-        if unique:
-            clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
-        else:
-            clauses.append("CREATE p={0}".format("".join(path)))
-        #clauses.append("RETURN {0}".format(",".join(values)))
-        clauses.append("RETURN p")
-        query = " ".join(clauses)
-        return query, params
-
-    def _create(self, graph, unique):
-        query, params = self._create_query(unique=unique)
-        try:
-            results = graph.cypher.execute(query, params)
-        except GraphError:
-            raise NotImplementedError(
-                "The Neo4j server at <{0}> does not support "
-                "Cypher CREATE UNIQUE clauses or the query contains "
-                "an unsupported property type".format(graph.uri)
-            )
-        else:
-            for row in results:
-                return row[0]
-
-    @deprecated("Use Graph.create(Path(...)) instead")
-    def create(self, graph):
-        """ Construct a path within the specified `graph` from the nodes
-        and relationships within this :py:class:`Path` instance. This makes
-        use of Cypher's ``CREATE`` clause.
-        """
-        return self._create(graph, unique=False)
-
-    @deprecated("Use Graph.merge(Path(...)) instead")
-    def get_or_create(self, graph):
-        """ Construct a unique path within the specified `graph` from the
-        nodes and relationships within this :py:class:`Path` instance. This
-        makes use of Cypher's ``CREATE UNIQUE`` clause.
-        """
-        return self._create(graph, unique=True)
 
 
 class Relationship(Path):
@@ -2495,66 +2141,5 @@ class Relationship(Path):
         """
         return self.rel.uri
 
-    ### DEPRECATED ###
 
-    @deprecated("Use Graph.delete instead")
-    def delete(self):
-        """ Delete this entity from the database.
-        """
-        self.graph.delete(self)
-
-    @deprecated("Use `push` method on `properties` attribute instead")
-    def delete_properties(self):
-        """ Delete all properties.
-        """
-        self.properties.clear()
-        try:
-            self.properties.push()
-        except BindError:
-            pass
-
-    @deprecated("Use `properties` attribute instead")
-    def get_cached_properties(self):
-        """ Fetch last known properties without calling the server.
-
-        :return: dictionary of properties
-        """
-        return self.properties
-
-    @deprecated("Use `pull` method on `properties` attribute instead")
-    def get_properties(self):
-        """ Fetch all properties.
-
-        :return: dictionary of properties
-        """
-        if self.bound:
-            self.properties.pull()
-        return self.properties
-
-    @deprecated("Use `push` method on `properties` attribute instead")
-    def set_properties(self, properties):
-        """ Replace all properties with those supplied.
-
-        :param properties: dictionary of new properties
-        """
-        self.properties.replace(properties)
-        if self.bound:
-            self.properties.push()
-
-    @deprecated("Use properties.update and push instead")
-    def update_properties(self, properties):
-        """ Update the properties for this relationship with the values
-        supplied.
-        """
-        if self.bound:
-            query, params = ["START a=rel({A})"], {"A": self._id}
-            for i, (key, value) in enumerate(properties.items()):
-                value_tag = "V" + str(i)
-                query.append("SET a.`" + key + "`={" + value_tag + "}")
-                params[value_tag] = value
-            query.append("RETURN a")
-            rel = self.graph.cypher.execute_one(" ".join(query), params)
-            self._properties = rel.__metadata__["data"]
-        else:
-            self._properties.update(properties)
-            self._properties = compact(self._properties)
+from py2neo.deprecated import *

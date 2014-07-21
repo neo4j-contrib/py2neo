@@ -23,11 +23,15 @@ from py2neo.error import GraphError
 
 class CypherError(GraphError):
 
+    query = None
+    params = None
+
     def __init__(self, message, **kwargs):
         GraphError.__init__(self, message, **kwargs)
-        request_body = json.loads(self.request.body)
-        self.query = request_body.get("query")
-        self.params = request_body.get("params")
+        if self.request:
+            request_body = json.loads(self.request.body)
+            self.query = request_body.get("query")
+            self.params = request_body.get("params")
 
 
 # TODO: bring into line with other exceptions

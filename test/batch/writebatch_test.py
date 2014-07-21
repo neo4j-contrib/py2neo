@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from py2neo import Node
 
 from py2neo.batch.write import WriteBatch
 
@@ -103,6 +103,7 @@ def test_can_set_property_on_preexisting_node(graph):
     batch = WriteBatch(graph)
     batch.set_property(alice, "age", 34)
     batch.run()
+    alice.pull()
     assert alice["age"] == 34
 
 
@@ -120,6 +121,7 @@ def test_can_set_properties_on_preexisting_node(graph):
     batch = WriteBatch(graph)
     batch.set_properties(alice, {"name": "Alice", "age": 34})
     batch.run()
+    alice.pull()
     assert alice["name"] == "Alice"
     assert alice["age"] == 34
 
@@ -139,6 +141,7 @@ def test_can_delete_property_on_preexisting_node(graph):
     batch = WriteBatch(graph)
     batch.delete_property(alice, "age")
     batch.run()
+    alice.pull()
     assert alice["name"] == "Alice"
     assert alice["age"] is None
 
@@ -158,8 +161,8 @@ def test_can_delete_properties_on_preexisting_node(graph):
     batch = WriteBatch(graph)
     batch.delete_properties(alice)
     batch.run()
-    props = alice.get_properties()
-    assert props == {}
+    alice.pull()
+    assert alice.properties == {}
 
 
 def test_can_delete_properties_on_node_in_same_batch(graph):
@@ -168,7 +171,7 @@ def test_can_delete_properties_on_node_in_same_batch(graph):
     batch.delete_properties(alice)
     results = batch.submit()
     alice = results[batch.find(alice)]
-    props = alice.get_properties()
+    props = alice.properties
     assert props == {}
 
 
@@ -179,7 +182,8 @@ def test_can_add_labels_to_preexisting_node(graph):
     batch = WriteBatch(graph)
     batch.add_labels(alice, "human", "female")
     batch.run()
-    assert alice.get_labels() == {"human", "female"}
+    alice.pull()
+    assert alice.labels == {"human", "female"}
 
 
 def test_can_add_labels_to_node_in_same_batch(graph):
@@ -190,21 +194,21 @@ def test_can_add_labels_to_node_in_same_batch(graph):
     batch.add_labels(a, "human", "female")
     results = batch.submit()
     alice = results[batch.find(a)]
-    assert alice.get_labels() == {"human", "female"}
+    assert alice.labels == {"human", "female"}
 
 
 def test_can_remove_labels_from_preexisting_node(graph):
     if not graph.supports_node_labels:
         return
-    alice, = graph.create({"name": "Alice"})
-    alice.add_labels("human", "female")
+    alice, = graph.create(Node("human", "female", name="Alice"))
     batch = WriteBatch(graph)
     batch.remove_label(alice, "human")
     batch.run()
-    assert alice.get_labels() == {"female"}
+    alice.pull()
+    assert alice.labels == {"female"}
 
 
-def test_can_add_labels_to_node_in_same_batch(graph):
+def test_can_add_and_remove_labels_on_node_in_same_batch(graph):
     if not graph.supports_node_labels:
         return
     batch = WriteBatch(graph)
@@ -213,18 +217,18 @@ def test_can_add_labels_to_node_in_same_batch(graph):
     batch.remove_label(alice, "female")
     results = batch.submit()
     alice = results[batch.find(alice)]
-    assert alice.get_labels() == {"human"}
+    assert alice.labels == {"human"}
 
 
 def test_can_set_labels_on_preexisting_node(graph):
     if not graph.supports_node_labels:
         return
-    alice, = graph.create({"name": "Alice"})
-    alice.add_labels("human", "female")
+    alice, = graph.create(Node("human", "female", name="Alice"))
     batch = WriteBatch(graph)
     batch.set_labels(alice, "mystery", "badger")
     batch.run()
-    assert alice.get_labels() == {"mystery", "badger"}
+    alice.pull()
+    assert alice.labels == {"mystery", "badger"}
 
 
 def test_can_set_labels_on_node_in_same_batch(graph):
@@ -236,4 +240,4 @@ def test_can_set_labels_on_node_in_same_batch(graph):
     batch.set_labels(0, "mystery", "badger")
     results = batch.submit()
     alice = results[0]
-    assert alice.get_labels() == {"mystery", "badger"}
+    assert alice.labels == {"mystery", "badger"}
