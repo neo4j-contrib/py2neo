@@ -2388,10 +2388,19 @@ class Relationship(Path):
         return self.rel._id
 
     def bind(self, uri, metadata=None):
+        """ Bind to a remote relationship. The relationship start and end
+        nodes will also become bound to their corresponding remote nodes.
+        """
         self.rel.bind(uri, metadata)
         self.cache[uri] = self
-        self.start_node.bind(self.resource.metadata["start"])
-        self.end_node.bind(self.resource.metadata["end"])
+        for i, key, node in [(0, "start", self.start_node), (-1, "end", self.end_node)]:
+            uri = self.resource.metadata[key]
+            if isinstance(node, Node):
+                node.bind(uri)
+            else:
+                nodes = list(self._Path__nodes)
+                nodes[i] = Node(uri)
+                self._Path__nodes = tuple(nodes)
 
     @property
     def bound(self):

@@ -70,12 +70,17 @@ def test_can_bind_rev_to_resource():
 
 def test_can_bind_relationship_to_resource():
     uri = "http://localhost:7474/db/relationship/1"
+    metadata = {
+        "start": "http://localhost:7474/db/node/1",
+        "end": "http://localhost:7474/db/node/2",
+    }
     relationship = Relationship({}, "", {})
-    relationship.bind(uri)
+    # Pass in metadata to avoid callback to server
+    relationship.bind(uri, metadata=metadata)
     assert relationship.bound
     assert isinstance(relationship.resource, Resource)
     assert relationship.resource.uri == uri
     relationship.unbind()
     assert not relationship.bound
     with pytest.raises(BindError):
-        r = relationship.resource
+        _ = relationship.resource
