@@ -20,7 +20,7 @@ from py2neo import GraphError
 try:
     from unittest.mock import patch, Mock
 except ImportError:
-    from mock import patch
+    from mock import patch, Mock
 from uuid import uuid4
 
 from py2neo.packages.httpstream import Resource as _Resource
