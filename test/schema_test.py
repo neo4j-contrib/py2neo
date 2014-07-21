@@ -18,11 +18,15 @@
 
 from __future__ import unicode_literals
 
+try:
+    from unittest.mock import Mock, patch
+except ImportError:
+    from mock import Mock, patch
 from uuid import uuid4
 
 import pytest
 
-from py2neo import neo4j, node, Graph, GraphError, Node
+from py2neo import neo4j, GraphError, Node
 from py2neo.packages.httpstream.http import ServerError
 
 
@@ -35,6 +39,17 @@ def get_clean_database():
         for key in graph.schema.get_indexes(label):
             graph.schema.drop_index(label, key)
     return graph
+
+
+def test_schema_not_supported(graph):
+    with patch("py2neo.Graph.supports_schema_indexes") as mocked:
+        mocked.__get__ = Mock(return_value=False)
+        try:
+            _ = graph.schema
+        except NotImplementedError:
+            assert True
+        else:
+            assert False
 
 
 def test_schema_index():
@@ -103,5 +118,5 @@ def test_labels_constraints():
     b.push()
     graph_db.schema.drop_unique_constraint(label_1, "name")
     with pytest.raises(GraphError):
-        graph_db.schema.drop_index(label_1, "name")
+        graph_db.schema.drop_unique_constraint(label_1, "name")
     graph_db.delete(a, b)

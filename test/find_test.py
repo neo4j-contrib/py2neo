@@ -14,7 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from py2neo import GraphError, Node
 
 
 try:
@@ -23,6 +22,7 @@ except ImportError:
     from mock import patch, Mock
 from uuid import uuid4
 
+from py2neo import GraphError, Node
 from py2neo.packages.httpstream import Resource as _Resource
 
 

@@ -1,5 +1,6 @@
 datadiff
 logutils
+mock
 pep8
 pyflakes
 pytest

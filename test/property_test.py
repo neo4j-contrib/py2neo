@@ -83,6 +83,22 @@ class TestPropertySet(object):
         # then
         assert "name" not in p
 
+    def test_update_with_dict(self):
+        # given
+        p = PropertySet()
+        # when
+        p.update({"name": "Alice"})
+        # then
+        assert p["name"] == "Alice"
+
+    def test_update_with_key_value_list(self):
+        # given
+        p = PropertySet()
+        # when
+        p.update([("name", "Alice")])
+        # then
+        assert p["name"] == "Alice"
+
 
 class TestPropertyContainer(object):
 
