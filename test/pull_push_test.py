@@ -35,6 +35,20 @@ def test_can_pull_node(graph):
     assert local.properties == remote.properties
 
 
+def test_can_graph_pull_node(graph):
+    if not graph.supports_node_labels:
+        return
+    local = Node()
+    remote = Node("Person", name="Alice")
+    graph.create(remote)
+    assert local.labels == set()
+    assert local.properties == {}
+    local.bind(remote.uri)
+    graph.pull(local)
+    assert local.labels == remote.labels
+    assert local.properties == remote.properties
+
+
 def test_can_push_node(graph):
     if not graph.supports_node_labels:
         return
@@ -45,5 +59,19 @@ def test_can_push_node(graph):
     assert remote.properties == {}
     local.bind(remote.uri)
     local.push()
+    assert remote.labels == remote.labels
+    assert remote.properties == remote.properties
+
+
+def test_can_graph_push_node(graph):
+    if not graph.supports_node_labels:
+        return
+    local = Node("Person", name="Alice")
+    remote = Node()
+    graph.create(remote)
+    assert remote.labels == set()
+    assert remote.properties == {}
+    local.bind(remote.uri)
+    graph.push(local)
     assert remote.labels == remote.labels
     assert remote.properties == remote.properties

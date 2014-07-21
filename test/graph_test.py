@@ -44,7 +44,7 @@ def test_same_uri_gives_same_instance():
 
 def test_graph_len_returns_number_of_rels(graph):
     size = len(graph)
-    num_rels = graph.cypher.execute_one("MATCH ()-[r]->() RETURN COUNT(r)")
+    num_rels = graph.cypher.execute_one("START r=rel(*) RETURN COUNT(r)")
     assert size == num_rels
 
 
