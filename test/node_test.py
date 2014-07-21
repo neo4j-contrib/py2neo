@@ -34,6 +34,32 @@ for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
     UNICODE_TEST_STR += chr(ch) if PY3K else unichr(ch)
 
 
+def test_can_get_node_by_id_when_cached(graph):
+    node, = graph.create({})
+    got = graph.node(node._id)
+    assert got is node
+
+
+def test_can_get_node_by_id_when_not_cached(graph):
+    node, = graph.create({})
+    Node.cache.clear()
+    got = graph.node(node._id)
+    assert got._id == node._id
+
+
+def test_cannot_get_node_by_id_when_id_does_not_exist(graph):
+    node, = graph.create({})
+    node_id = node._id
+    graph.delete(node)
+    Node.cache.clear()
+    try:
+        _ = graph.node(node_id)
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
 class TestAbstractNode(object):
 
     def test_can_create_abstract_node(self):

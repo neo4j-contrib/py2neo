@@ -16,7 +16,6 @@
 # limitations under the License.
 
 import logging
-import sys
 
 import pytest
 
@@ -25,7 +24,6 @@ from py2neo.core import authenticate, _get_headers, Graph, Node, Relationship
 from py2neo.cypher import CypherQuery
 from py2neo.legacy import GraphDatabaseService
 
-PY3K = sys.version_info[0] >= 3
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",

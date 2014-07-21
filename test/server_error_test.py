@@ -22,8 +22,7 @@ except ImportError:
     from mock import patch
 
 from py2neo import Resource, GraphError
-from py2neo.packages.httpstream import ClientError, ServerError
-from py2neo.packages.httpstream import Resource as _Resource
+from py2neo.packages.httpstream import ClientError, ServerError, Resource as _Resource
 
 
 class DodgyServerError(ServerError):

@@ -19,6 +19,10 @@
 from py2neo import Node, NodePointer, Rel
 
 
+def test_graph_cast(graph):
+    assert graph.cast(None) is None
+
+
 def test_node_cast():
     alice = Node("Person", "Employee", name="Alice", age=33)
     assert Node.cast() == Node()

@@ -21,6 +21,11 @@ from __future__ import unicode_literals
 from py2neo import Node, Relationship, Rev, Path
 
 
+def test_creating_nothing_does_nothing(graph):
+    created = graph.create()
+    assert created == []
+
+
 class TestGraphCreateNode(object):
 
     def test_can_create_node_from_dict(self, graph):
@@ -121,6 +126,14 @@ class TestGraphCreateRelationship(object):
         assert ab.start_node is a
         assert ab.end_node is b
 
+    def test_can_update_already_bound_rel(self, graph):
+        # given
+        _, _, rel = graph.create({}, {}, (0, "KNOWS", 1))
+        # when
+        created, = graph.create(rel)
+        # then
+        assert created is rel
+
 
 class TestGraphCreatePath(object):
 
@@ -148,3 +161,12 @@ class TestGraphCreatePath(object):
         created, = graph.create(relationship)
         # then
         assert created is relationship
+
+
+def test_cannot_create_entity_of_other_castable_type(graph):
+    try:
+        graph.create(None)
+    except TypeError:
+        assert True
+    else:
+        assert False

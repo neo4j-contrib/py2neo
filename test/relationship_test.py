@@ -15,13 +15,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 
 import pytest
 
-from py2neo import neo4j
+from py2neo import Graph, Relationship, WriteBatch
 
-PY3K = sys.version_info[0] >= 3
+
+def test_can_get_relationship_by_id_when_cached(graph):
+    _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
+    got = graph.relationship(relationship._id)
+    assert got is relationship
+
+
+def test_can_get_relationship_by_id_when_not_cached(graph):
+    _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
+    Relationship.cache.clear()
+    got = graph.relationship(relationship._id)
+    assert got._id == relationship._id
+
+
+def test_cannot_get_relationship_by_id_when_id_does_not_exist(graph):
+    _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
+    rel_id = relationship._id
+    graph.delete(relationship)
+    Relationship.cache.clear()
+    try:
+        _ = graph.relationship(rel_id)
+    except ValueError:
+        assert True
+    else:
+        assert False
 
 
 class TestIsolate(object):
@@ -29,7 +52,7 @@ class TestIsolate(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
-        neo4j.Graph.auto_sync_properties = True
+        Graph.auto_sync_properties = True
 
     def test_can_isolate_node(self):
         posse = self.graph.create(
@@ -61,7 +84,7 @@ class TestRelationship(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
-        neo4j.Graph.auto_sync_properties = True
+        Graph.auto_sync_properties = True
 
     def test_create_relationship_to(self):
         alice, bob = self.graph.create(
@@ -69,7 +92,7 @@ class TestRelationship(object):
         )
         ab = alice.create_path("KNOWS", bob).relationships[0]
         assert ab is not None
-        assert isinstance(ab, neo4j.Relationship)
+        assert isinstance(ab, Relationship)
         assert ab.start_node == alice
         assert ab.type == "KNOWS"
         assert ab.end_node == bob
@@ -80,7 +103,7 @@ class TestRelationship(object):
         )
         ba = bob.create_path("LIKES", alice).relationships[0]
         assert ba is not None
-        assert isinstance(ba, neo4j.Relationship)
+        assert isinstance(ba, Relationship)
         assert ba.start_node == bob
         assert ba.type == "LIKES"
         assert ba.end_node == alice
@@ -103,7 +126,7 @@ class TestRelationship(object):
         )
         ab = alice.create_path(("KNOWS", {"since": 1999}), bob).relationships[0]
         assert ab is not None
-        assert isinstance(ab, neo4j.Relationship)
+        assert isinstance(ab, Relationship)
         assert ab.start_node == alice
         assert ab.type == "KNOWS"
         assert ab.end_node == bob
@@ -128,7 +151,7 @@ class TestRelate(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
-        neo4j.Graph.auto_sync_properties = True
+        Graph.auto_sync_properties = True
 
     def test_relate(self):
         alice, bob = self.graph.create(
@@ -136,7 +159,7 @@ class TestRelate(object):
         )
         rel = alice.get_or_create_path("KNOWS", bob).relationships[0]
         assert rel is not None
-        assert isinstance(rel, neo4j.Relationship)
+        assert isinstance(rel, Relationship)
         assert rel.start_node == alice
         assert rel.type == "KNOWS"
         assert rel.end_node == bob
@@ -147,7 +170,7 @@ class TestRelate(object):
         )
         rel1 = alice.get_or_create_path("KNOWS", bob).relationships[0]
         assert rel1 is not None
-        assert isinstance(rel1, neo4j.Relationship)
+        assert isinstance(rel1, Relationship)
         assert rel1.start_node == alice
         assert rel1.type == "KNOWS"
         assert rel1.end_node == bob
@@ -162,7 +185,7 @@ class TestRelate(object):
         )
         rel = alice.get_or_create_path("KNOWS", None).relationships[0]
         assert rel is not None
-        assert isinstance(rel, neo4j.Relationship)
+        assert isinstance(rel, Relationship)
         assert rel.start_node == alice
         assert rel.type == "KNOWS"
 
@@ -172,7 +195,7 @@ class TestRelate(object):
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
         assert rel is not None
-        assert isinstance(rel, neo4j.Relationship)
+        assert isinstance(rel, Relationship)
         assert rel.start_node == alice
         assert rel.type == "KNOWS"
         assert rel.end_node == bob
@@ -185,7 +208,7 @@ class TestRelate(object):
         )
         rel = alice.get_or_create_path(("KNOWS", {"since": 2006, "dummy": None}), bob).relationships[0]
         assert rel is not None
-        assert isinstance(rel, neo4j.Relationship)
+        assert isinstance(rel, Relationship)
         assert rel.start_node == alice
         assert rel.type == "KNOWS"
         assert rel.end_node == bob
@@ -199,7 +222,7 @@ class TestRelate(object):
         )
         rel1 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
         assert rel1 is not None
-        assert isinstance(rel1, neo4j.Relationship)
+        assert isinstance(rel1, Relationship)
         assert rel1.start_node == alice
         assert rel1.type == "KNOWS"
         assert rel1.end_node == bob
@@ -216,7 +239,7 @@ class TestRelate(object):
     #    )
     #    rel, = self.graph.get_or_create_relationships((alice, "LIKES", bob, {"reasons": ["looks", "wealth"]}))
     #    assert rel is not None
-    #    assert isinstance(rel, neo4j.Relationship)
+    #    assert isinstance(rel, Relationship)
     #    assert rel.start_node == alice
     #    self.assertEqual("LIKES", rel.type)
     #    assert rel.end_node == bob
@@ -229,14 +252,14 @@ class TestRelate(object):
             {"name": "Alice"}, {"name": "Bob"},
             {"name": "Carol"}, {"name": "Dave"}
         )
-        batch = neo4j.WriteBatch(self.graph)
+        batch = WriteBatch(self.graph)
         batch.get_or_create_path(alice, ("IS~MARRIED~TO", {"since": 1996}), bob)
         #batch.get_or_create((alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}))
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)
         rels1 = batch.submit()
         assert rels1 is not None
         assert len(rels1) == 2
-        batch = neo4j.WriteBatch(self.graph)
+        batch = WriteBatch(self.graph)
         batch.get_or_create_path(bob, ("WORKS WITH", {"since": 2004, "company": "Megacorp"}), carol)
         #batch.get_or_create((alice, "DISLIKES", carol, {"reasons": ["youth", "beauty"]}))
         batch.get_or_create_path(alice, ("DISLIKES!", {"reason": "youth"}), carol)

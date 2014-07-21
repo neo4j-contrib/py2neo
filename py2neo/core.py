@@ -44,6 +44,7 @@ from __future__ import division, unicode_literals
 import base64
 import json
 import re
+from warnings import warn
 from weakref import WeakValueDictionary
 
 from py2neo import __version__
@@ -540,11 +541,10 @@ class Graph(Bindable):
                 START.append("{0}=node({{{0}}})".format(name))
                 params[name] = node._id
             else:
+                labels = ""
                 if supports_node_labels:
                     labels = "".join(":`" + label.replace("`", "``") + "`"
                                      for label in node.labels)
-                else:
-                    labels = ""
                 if node.properties:
                     template = "({0}{1} {{{0}}})"
                     params[name] = node.properties
@@ -569,20 +569,23 @@ class Graph(Bindable):
             RETURN.append(name)
             return [], [name]
 
-        def create_path(name, relationship):
-            node_names = [None] * len(relationship.nodes)
-            rel_names = [None] * len(relationship.rels)
-            for i, node in enumerate(relationship.nodes):
+        def create_path(name, path):
+            node_names = [None] * len(path.nodes)
+            rel_names = [None] * len(path.rels)
+            for i, node in enumerate(path.nodes):
                 if isinstance(node, NodePointer):
                     node_names[i] = _(node.address)
                     # Switch out node with object from elsewhere in entity list
-                    nodes = list(relationship.nodes)
-                    nodes[i] = entities[node.address]
-                    relationship._Path__nodes = tuple(nodes)
+                    nodes = list(path.nodes)
+                    node = entities[node.address]
+                    if not isinstance(node, Node):
+                        raise ValueError("Pointer does not refer to a node")
+                    nodes[i] = node
+                    path.__nodes = tuple(nodes)
                 else:
                     node_names[i] = name + "n" + ustr(i)
                     create_node(node_names[i], node)
-            for i, rel in enumerate(relationship.rels):
+            for i, rel in enumerate(path.rels):
                 rel_names[i] = name + "r" + ustr(i)
                 create_rel(rel_names[i], rel, node_names[i], node_names[i + 1])
             return node_names, rel_names
@@ -610,39 +613,45 @@ class Graph(Bindable):
         raw = self.cypher.post(statement, params).content
         columns = raw["columns"]
         data = raw["data"]
-        if not data:
-            raise RuntimeError("No results returned")
 
         dehydrated = dict(zip(columns, data[0]))
         for i, entity in enumerate(entities):
             node_names, rel_names = names[i]
             if isinstance(entity, Node):
-                entity.bind(dehydrated[node_names[0]]["self"])
+                metadata = dehydrated[node_names[0]]
+                entity.bind(metadata["self"], metadata)
+            elif isinstance(entity, Relationship):
+                metadata = dehydrated[rel_names[0]]
+                entity.bind(metadata["self"], metadata)
             elif isinstance(entity, Path):
                 for j, node in enumerate(entity.nodes):
-                    node.bind(dehydrated[node_names[j]]["self"])
+                    metadata = dehydrated[node_names[j]]
+                    node.bind(metadata["self"], metadata)
                 for j, rel in enumerate(entity.rels):
-                    rel.bind(dehydrated[rel_names[j]]["self"])
-            else:
-                raise ValueError("Unexpected entity type")
+                    metadata = dehydrated[rel_names[j]]
+                    rel.bind(metadata["self"], metadata)
 
         return entities
 
     def delete(self, *entities):
-        """ Delete multiple nodes and/or relationships.
+        """ Delete one or more Nodes, Relationships and/or Paths. Note that
+        deleting a relationship or path will remove only the relationships,
+        not the nodes. These must be deleted explicitly *after* the relationships
+        have been deleted.
         """
-        # TODO: switch to DeleteBatch
-        from py2neo.batch import WriteBatch
-        if not entities:
-            return
-        batch = WriteBatch(self)
-        for entity in entities:
-            if entity is not None:
-                batch.delete(entity)
-        batch.run()
+        if entities:
+            from py2neo.batch import WriteBatch
+            batch = WriteBatch(self)
+            for entity in entities:
+                if isinstance(entity, Path):
+                    for rel in entity:
+                        batch.delete(rel)
+                elif entity is not None:
+                    batch.delete(entity)
+            batch.run()
 
     def delete_all(self):
-        """ Clear all nodes and relationships from the graph.
+        """ Delete all nodes and relationships from the graph.
 
         .. warning::
             This method will permanently remove **all** nodes and relationships
@@ -679,38 +688,28 @@ class Graph(Bindable):
         self.pull(*entities)
         return [entity.properties for entity in entities]
 
-    # TODO: add support for CypherResults
     def hydrate(self, data):
-
-        def relative_uri(uri):
-            # "http://localhost:7474/db/data/", "node/1"
-            # TODO: confirm is URI
-            self_uri = self.resource.uri.string
-            if uri.startswith(self_uri):
-                return uri[len(self_uri):]
-            else:
-                raise ValueError(uri + " does not belong to this graph")
-
+        """ Hydrate a dictionary of data into a Node, Relationship or other
+        graph object.
+        """
         if isinstance(data, dict):
             if "self" in data:
-                tag, i = relative_uri(data["self"]).partition("/")[0::2]
-                if tag == "":
-                    return self
-                elif tag == "node":
-                    return Node.hydrate(data)
-                elif tag == "relationship":
+                if "type" in data:
                     return Relationship.hydrate(data)
                 else:
-                    raise ValueError("Cannot hydrate entity of type '{}'".format(tag))
+                    return Node.hydrate(data)
             elif "nodes" in data and "relationships" in data:
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
                 from py2neo.cypher import CypherResults
                 return CypherResults.hydrate(data, self)
+            elif "neo4j_version" in data:
+                return self
             elif "exception" in data and "stacktrace" in data:
                 raise GraphError.hydrate(data)
             else:
-                # TODO: warn about dict ambiguity
+                warn("Map literals returned over the Neo4j REST interface are ambiguous "
+                     "and may be hydrated as graph objects")
                 return data
         elif is_collection(data):
             return type(data)(map(self.hydrate, data))
@@ -851,7 +850,7 @@ class Graph(Bindable):
     def node(self, id_):
         """ Fetch a node by ID.
         """
-        resource = self.resource.resolve("node/" + str(id_))
+        resource = self.resource.resolve("node/%s" % id_)
         uri_string = resource.uri.string
         try:
             return Node.cache[uri_string]
@@ -2401,7 +2400,10 @@ class Relationship(Path):
                 node.bind(uri)
             else:
                 nodes = list(self._Path__nodes)
-                nodes[i] = Node(uri)
+                node = Node.cache.setdefault(uri, Node())
+                if not node.bound:
+                    node.bind(uri)
+                nodes[i] = node
                 self._Path__nodes = tuple(nodes)
 
     @property
