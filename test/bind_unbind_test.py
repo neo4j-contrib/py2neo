@@ -18,15 +18,49 @@
 
 import pytest
 
-from py2neo.core import Resource, Node, Rel, Rev, Relationship
+from py2neo.core import Resource, Node, Rel, Rev, Relationship, Bindable
 from py2neo.error import BindError
+
+
+def test_can_create_bindable_with_initial_uri():
+    uri = "http://localhost:7474/db/data/node/1"
+    bindable = Bindable(uri)
+    assert bindable.bound
+    assert bindable.uri == uri
+
+
+def test_can_create_bindable_with_initial_uri_and_metadata():
+    uri = "http://localhost:7474/db/data/node/1"
+    metadata = {"foo": "bar"}
+    bindable = Bindable(uri, metadata)
+    assert bindable.bound
+    assert bindable.uri == uri
+    assert bindable.resource.metadata == metadata
+
+
+def test_can_create_bindable_with_initial_uri_template():
+    uri = "http://localhost:7474/db/data/node/{node_id}"
+    bindable = Bindable(uri)
+    assert bindable.bound
+    assert bindable.uri == uri
+
+
+def test_cannot_create_bindable_with_initial_uri_template_and_metadata():
+    uri = "http://localhost:7474/db/data/node/{node_id}"
+    metadata = {"foo": "bar"}
+    try:
+        _ = Bindable(uri, metadata)
+    except ValueError:
+        assert True
+    else:
+        assert False
 
 
 def test_default_state_for_node_is_unbound():
     node = Node()
     assert not node.bound
     with pytest.raises(BindError):
-        r = node.resource
+        _ = node.resource
 
 
 def test_can_bind_node_to_resource():
@@ -39,7 +73,7 @@ def test_can_bind_node_to_resource():
     node.unbind()
     assert not node.bound
     with pytest.raises(BindError):
-        r = node.resource
+        _ = node.resource
 
 
 def test_can_bind_rel_to_resource():
@@ -52,7 +86,7 @@ def test_can_bind_rel_to_resource():
     rel.unbind()
     assert not rel.bound
     with pytest.raises(BindError):
-        r = rel.resource
+        _ = rel.resource
 
 
 def test_can_bind_rev_to_resource():
@@ -65,7 +99,7 @@ def test_can_bind_rev_to_resource():
     rel.unbind()
     assert not rel.bound
     with pytest.raises(BindError):
-        r = rel.resource
+        _ = rel.resource
 
 
 def test_can_bind_relationship_to_resource():

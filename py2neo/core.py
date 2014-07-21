@@ -306,9 +306,9 @@ class Bindable(object):
 
     __resource = None
 
-    def __init__(self, uri=None):
+    def __init__(self, uri=None, metadata=None):
         if uri and not self.bound:
-            self.bind(uri)
+            self.bind(uri, metadata)
 
     def bind(self, uri, metadata=None):
         """ Bind object to Resource or ResourceTemplate.
@@ -353,7 +353,10 @@ class Bindable(object):
 
     @property
     def uri(self):
-        return self.resource.uri
+        if isinstance(self.resource, ResourceTemplate):
+            return self.resource.uri_template
+        else:
+            return self.resource.uri
 
 
 class ServiceRoot(object):
@@ -363,6 +366,8 @@ class ServiceRoot(object):
     DEFAULT_URI = "{0}://{1}/".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
 
     __instances = {}
+
+    __graph = None
 
     def __new__(cls, uri=None):
         if uri is None:
