@@ -33,11 +33,12 @@ from py2neo.packages.httpstream.http import ServerError
 def get_clean_database():
     # Constraints have to be removed before the indexed property keys can be removed.
     graph = neo4j.Graph()
-    for label in graph.node_labels:
-        for key in graph.schema.get_unique_constraints(label):
-            graph.schema.drop_unique_constraint(label, key)
-        for key in graph.schema.get_indexes(label):
-            graph.schema.drop_index(label, key)
+    if graph.supports_node_labels:
+        for label in graph.node_labels:
+            for key in graph.schema.get_unique_constraints(label):
+                graph.schema.drop_unique_constraint(label, key)
+            for key in graph.schema.get_indexes(label):
+                graph.schema.drop_index(label, key)
     return graph
 
 
