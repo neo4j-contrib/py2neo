@@ -20,7 +20,7 @@ import sys
 
 import pytest
 
-from py2neo import neo4j, node
+from py2neo import neo4j, node, Node, BindError
 
 PY3K = sys.version_info[0] >= 3
 UNICODE_TEST_STR = ""
@@ -119,6 +119,21 @@ class TestConcreteNode(object):
         try:
             foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
         except:
+            assert True
+        else:
+            assert False
+
+    def test_relative_uri_of_bound_node(self):
+        node, = self.graph.create({})
+        relative_uri_string = node.relative_uri.string
+        assert node.uri.string.endswith(relative_uri_string)
+        assert relative_uri_string.startswith("node/")
+
+    def test_relative_uri_of_unbound_node(self):
+        node = Node()
+        try:
+            _ = node.relative_uri
+        except BindError:
             assert True
         else:
             assert False

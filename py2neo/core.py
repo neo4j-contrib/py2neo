@@ -211,10 +211,7 @@ class Resource(_Resource):
         if self.__relative_uri is NotImplemented:
             self_uri = self.uri.string
             graph_uri = self.graph.uri.string
-            if self_uri.startswith(graph_uri):
-                self.__relative_uri = URI(self_uri[len(graph_uri):])
-            else:
-                self.__relative_uri = None
+            self.__relative_uri = URI(self_uri[len(graph_uri):])
         return self.__relative_uri
 
     @property
@@ -2404,11 +2401,15 @@ class Relationship(Path):
 
     @property
     def bound(self):
+        """ Flag to indicate if this relationship is bound to a remote
+        relationship.
+        """
         return self.rel.bound
 
     @property
     def exists(self):
-        """ Detects whether this entity still exists in the database.
+        """ Flag to indicate if this relationship exists in the
+        database, if bound.
         """
         return self.rel.exists
 
@@ -2428,14 +2429,22 @@ class Relationship(Path):
 
     @property
     def rel(self):
+        """ The :class:`py2neo.Rel` object within this relationship.
+        """
         return self.rels[0]
 
     @property
     def relative_uri(self):
+        """ The URI of this relationship, relative to the graph
+        database root, if bound.
+        """
         return self.rel.relative_uri
 
     @property
     def resource(self):
+        """ The resource object wrapped by this relationship, if
+        bound.
+        """
         return self.rel.resource
 
     @property
@@ -2450,6 +2459,8 @@ class Relationship(Path):
 
     @property
     def type(self):
+        """ The type of this relationship.
+        """
         return self.rel.type
 
     @type.setter
@@ -2459,16 +2470,22 @@ class Relationship(Path):
         self.rel.type = name
 
     def unbind(self):
+        """ Unbind this relationship and its start and end
+        nodes, if bound.
+        """
         try:
             del self.cache[self.uri]
         except KeyError:
             pass
         self.rel.unbind()
-        self.start_node.unbind()
-        self.end_node.unbind()
+        for node in [self.start_node, self.end_node]:
+            if isinstance(node, Node):
+                node.unbind()
 
     @property
     def uri(self):
+        """ The URI of this relationship, if bound.
+        """
         return self.rel.uri
 
     ### DEPRECATED ###
