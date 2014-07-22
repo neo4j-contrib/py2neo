@@ -368,3 +368,26 @@ def test_service_root(graph):
         assert True
     else:
         assert False
+
+
+def test_graph(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    assert ab.graph == Graph("http://localhost:7474/db/data/")
+    ab.rel.unbind()
+    assert ab.graph == Graph("http://localhost:7474/db/data/")
+    a.unbind()
+    assert ab.graph == Graph("http://localhost:7474/db/data/")
+    b.unbind()
+    try:
+        _ = ab.graph
+    except BindError:
+        assert True
+    else:
+        assert False
+
+
+def test_repr(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    assert repr(ab) == "()-[r%s:KNOWS]->()" % ab._id
+    ab.unbind()
+    assert repr(ab) == "()-[:KNOWS]->()"
