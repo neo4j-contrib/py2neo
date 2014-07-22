@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import neo4j, Node, Path, Rev, Relationship
+from py2neo import neo4j, Node, Path, Rev, Relationship, JoinError, Rel
 
 
 class TestPathConstruction(object):
@@ -323,3 +323,84 @@ class TestPathIterationAndReversal(object):
             Relationship(carol, "HATES", bob),
             Relationship(alice, "LOVES", bob),
         ]
+
+
+def test_can_hydrate_path_into_existing_instance(graph):
+    alice = Node("Person", name="Alice", age=33)
+    bob = Node("Person", name="Bob", age=44)
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    path = Path(alice, "KNOWS", bob)
+    hydrated = Path.hydrate(dehydrated, inst=path)
+    assert hydrated is path
+
+
+def test_can_join_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = path_1 + path_2
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_cannot_join_incompatible_paths():
+    path_1 = Node(name="Alice") + "KNOWS" + Node(name="Bob")
+    path_2 = Node(name="Carol") + "KNOWS" + Node(name="Dave")
+    try:
+        _ = path_1 + path_2
+    except JoinError:
+        assert True
+    else:
+        assert False
+
+
+def test_cannot_build_path_with_two_consecutive_rels():
+    try:
+        _ = Path(Node(name="Alice"), Rel("KNOWS"), Rel("KNOWS"), Node(name="Bob"))
+    except JoinError:
+        assert True
+    else:
+        assert False
+
+
+def test_path_equality():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    path_2 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    assert path_1 == path_2
+
+
+def test_path_inequality():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    path_2 = Path(alice, "KNOWS", carol, Rev("KNOWS"), dave)
+    assert path_1 != path_2
+
+
+def test_path_in_several_ways():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    assert path.__bool__()
+    assert path.__nonzero__()
+    assert path[0] == Relationship(alice, "LOVES", bob)
+    assert path[1] == Relationship(carol, "HATES", bob)
+    assert path[2] == Relationship(carol, "KNOWS", dave)
+    assert path[-1] == Relationship(carol, "KNOWS", dave)
+    assert path[0:1] == Path(alice, "LOVES", bob)
+    assert path[0:2] == Path(alice, "LOVES", bob, Rev("HATES"), carol)
+    try:
+        _ = path[7]
+    except IndexError:
+        assert True
+    else:
+        assert False

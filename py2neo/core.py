@@ -1686,7 +1686,7 @@ class Rel(PropertyContainer):
     @type.setter
     def type(self, name):
         if self.bound:
-            raise TypeError("The type of a bound Rel is immutable")
+            raise AttributeError("The type of a bound Rel is immutable")
         self.__type = name
 
     def unbind(self):
@@ -1834,25 +1834,25 @@ class Path(object):
         return self.size
 
     def __getitem__(self, item):
-        path = Path()
         try:
             if isinstance(item, slice):
+                path = Path()
                 p, q = item.start, item.stop
                 if q is not None:
                     q += 1
                 path.__nodes = self.nodes[p:q]
                 path.__rels = self.rels[item]
+                return path
             else:
                 if item >= 0:
-                    path.__nodes = self.nodes[item:item + 2]
-                elif item == -1:
-                    path.__nodes = self.nodes[-2:None]
+                    start_node = self.nodes[item]
+                    end_node = self.nodes[item + 1]
                 else:
-                    path.__nodes = self.nodes[item - 1:item + 1]
-                path.__rels = (self.rels[item],)
+                    start_node = self.nodes[item - 1]
+                    end_node = self.nodes[item]
+                return Relationship(start_node, self.rels[item], end_node)
         except IndexError:
             raise IndexError("Path segment index out of range")
-        return path
 
     def __iter__(self):
         return iter(self.relationships)
@@ -2131,7 +2131,7 @@ class Relationship(Path):
     @type.setter
     def type(self, name):
         if self.rel.bound:
-            raise TypeError("The type of a bound Relationship is immutable")
+            raise AttributeError("The type of a bound Relationship is immutable")
         self.rel.type = name
 
     def unbind(self):

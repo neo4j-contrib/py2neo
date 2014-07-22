@@ -320,3 +320,23 @@ def test_relationship_exists_will_raise_non_404_errors(graph):
             assert True
         else:
             assert False
+
+
+def test_type_of_bound_rel_is_immutable(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    try:
+        ab.rel.type = "LIKES"
+    except AttributeError:
+        assert True
+    else:
+        assert False
+
+
+def test_type_of_bound_relationship_is_immutable(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    try:
+        ab.type = "LIKES"
+    except AttributeError:
+        assert True
+    else:
+        assert False
