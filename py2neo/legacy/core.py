@@ -201,11 +201,7 @@ class LegacyNode(Node):
         PropertyContainer.unbind(self)
 
     def pull(self):
-        query = CypherQuery(self.graph, "START a=node({a}) RETURN a")
-        results = query.execute(a=self._id)
-        node, = results[0].values
-        super(Node, self).properties.clear()
-        super(Node, self).properties.update(node.properties)
+        CypherQuery(self.graph, "START a=node({a}) RETURN a").execute(a=self._id)
         self._Node__stale.clear()
 
     def push(self):
