@@ -1319,8 +1319,8 @@ class Node(PropertyContainer):
         properties = data.get("data")
         labels = data.get("label_data")
         if inst is None:
-            inst = cls()
-        inst = cls.cache.setdefault(self, inst)
+            inst = cls.cache.setdefault(self, cls())
+        cls.cache[self] = inst
         inst.bind(self, data)
         inst.__stale = set()
         if properties is None:
@@ -1590,14 +1590,10 @@ class Rel(PropertyContainer):
         type_ = data.get("type")
         properties = data.get("data")
         if inst is None:
-            if type_ is None:
-                inst = cls()
-            else:
-                inst = cls(type_)
-        else:
-            inst.__type = type_
-        inst = cls.cache.setdefault(self, inst)
+            inst = cls.cache.setdefault(self, cls())
+        cls.cache[self] = inst
         inst.bind(self, data)
+        inst.__type = type_
         if properties is None:
             inst.__stale = {"properties"}
         else:
@@ -1992,14 +1988,17 @@ class Relationship(Path):
         """ Create a new Relationship instance from a serialised representation
         held within a dictionary.
         """
+        self = data["self"]
         if inst is None:
-            inst = cls(Node.hydrate({"self": data["start"]}), Rel.hydrate(data),
-                       Node.hydrate({"self": data["end"]}))
+            inst = cls.cache.setdefault(self, cls(Node.hydrate({"self": data["start"]}),
+                                                  Rel.hydrate(data),
+                                                  Node.hydrate({"self": data["end"]})))
         else:
             Node.hydrate({"self": data["start"]}, inst.start_node)
             Node.hydrate({"self": data["end"]}, inst.end_node)
             Rel.hydrate(data, inst.rel)
-        return cls.cache.setdefault(data["self"], inst)
+        cls.cache[self] = inst
+        return inst
 
     def __init__(self, start_node, rel, end_node, **properties):
         cast_rel = Rel.cast(rel)
@@ -2115,12 +2114,12 @@ class Relationship(Path):
     @property
     def service_root(self):
         try:
-            return self.start_node.service_root
+            return self.rel.service_root
         except BindError:
             try:
-                return self.end_node.service_root
+                return self.start_node.service_root
             except BindError:
-                return self.rel.service_root
+                return self.end_node.service_root
 
     @property
     def type(self):

@@ -22,7 +22,7 @@ except ImportError:
 
 import pytest
 
-from py2neo import Graph, Relationship, WriteBatch, Rel, Rev, GraphError
+from py2neo import Graph, Relationship, WriteBatch, Rel, Rev, GraphError, ServiceRoot, BindError
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -332,11 +332,39 @@ def test_type_of_bound_rel_is_immutable(graph):
         assert False
 
 
+def test_type_of_unbound_rel_is_mutable():
+    ab = Rel("KNOWS")
+    ab.type = "LIKES"
+    assert ab.type == "LIKES"
+
+
 def test_type_of_bound_relationship_is_immutable(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
     try:
         ab.type = "LIKES"
     except AttributeError:
+        assert True
+    else:
+        assert False
+
+
+def test_type_of_unbound_relationship_is_mutable():
+    ab = Relationship({}, "KNOWS", {})
+    ab.type = "LIKES"
+    assert ab.type == "LIKES"
+
+
+def test_service_root(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    ab.rel.unbind()
+    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    a.unbind()
+    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    b.unbind()
+    try:
+        _ = ab.service_root
+    except BindError:
         assert True
     else:
         assert False

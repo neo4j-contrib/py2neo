@@ -71,8 +71,9 @@ def test_can_push_node(graph):
     assert remote.properties == {}
     local.bind(remote.uri)
     local.push()
-    assert remote.labels == remote.labels
-    assert remote.properties == remote.properties
+    remote.pull()
+    assert local.labels == remote.labels
+    assert local.properties == remote.properties
 
 
 def test_can_push_node_labels_only(graph):
@@ -84,7 +85,8 @@ def test_can_push_node_labels_only(graph):
     assert remote.labels == set()
     local.bind(remote.uri)
     local.labels.push()
-    assert remote.labels == remote.labels
+    remote.labels.pull()
+    assert local.labels == remote.labels
 
 
 def test_can_graph_push_node(graph):
@@ -97,8 +99,9 @@ def test_can_graph_push_node(graph):
     assert remote.properties == {}
     local.bind(remote.uri)
     graph.push(local)
-    assert remote.labels == remote.labels
-    assert remote.properties == remote.properties
+    graph.pull(remote)
+    assert local.labels == remote.labels
+    assert local.properties == remote.properties
 
 
 def test_can_push_rel(graph):
@@ -108,4 +111,16 @@ def test_can_push_rel(graph):
     assert remote.properties == {}
     local.bind(remote.uri)
     local.push()
-    assert remote.properties == remote.properties
+    remote.pull()
+    assert local.properties == remote.properties
+
+
+def test_can_push_relationship(graph):
+    local = Rel("KNOWS", since=1999)
+    remote = Rel("KNOWS")
+    a, b, ab = graph.create({}, {}, (0, remote, 1))
+    assert ab.properties == {}
+    local.bind(ab.uri)
+    ab.push()
+    local.pull()
+    assert local.properties == remote.properties
