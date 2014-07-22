@@ -70,13 +70,14 @@ class Representation(object):
         self.__buffer.append("(")
         if name:
             self.write_identifier(name)
-        for label in sorted(node.labels):
-            self.__buffer.append(":")
-            self.write_identifier(label)
-        if node.properties:
-            if name or node.labels:
-                self.__buffer.append(" ")
-            self.write_mapping(node.properties)
+        if node is not None:
+            for label in sorted(node.labels):
+                self.__buffer.append(":")
+                self.write_identifier(label)
+            if node.properties:
+                if name or node.labels:
+                    self.__buffer.append(" ")
+                self.write_mapping(node.properties)
         self.__buffer.append(")")
 
     def write_rel(self, rel, name=None):

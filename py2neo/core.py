@@ -1389,6 +1389,9 @@ class Node(PropertyContainer):
             hashable = (tuple(sorted(self.properties.items())), tuple(sorted(self.labels)))
         return hash(hashable)
 
+    def __add__(self, other):
+        return Path(self, other)
+
     @property
     def _id(self):
         """ Return the internal ID for this entity.
@@ -1517,6 +1520,9 @@ class NodePointer(object):
     def __init__(self, address):
         self.address = address
 
+    def __repr__(self):
+        return "{%s}" % self.address
+
     def __eq__(self, other):
         return self.address == other.address
 
@@ -1618,14 +1624,19 @@ class Rel(PropertyContainer):
     def __eq__(self, other):
         return self.type == other.type and self.properties == other.properties
 
-    def __reversed__(self):
-        # TODO: this should return an iterator
+    def __pos__(self):
+        return self
+
+    def __neg__(self):
         r = Rev()
         r._Bindable__resource = self._Bindable__resource
         r._PropertyContainer__properties = self._PropertyContainer__properties
         r._Rel__type = self.__type
         r._Rel__stale = self.__stale
         return r
+
+    def __abs__(self):
+        return self
 
     @property
     def _id(self):
@@ -1688,14 +1699,19 @@ class Rel(PropertyContainer):
 
 class Rev(Rel):
 
-    def __reversed__(self):
-        # TODO: this should return an iterator
+    def __pos__(self):
+        return self
+
+    def __neg__(self):
         r = Rel()
         r._Bindable__resource = self._Bindable__resource
         r._PropertyContainer__properties = self._PropertyContainer__properties
         r._Rel__type = self._Rel__type
         r._Rel__stale = self._Rel__stale
         return r
+
+    def __abs__(self):
+        return self.__neg__()
 
 
 class Path(object):
@@ -1759,7 +1775,7 @@ class Path(object):
                         raise JoinError("Path at position %s cannot be joined" % index)
                     else:
                         nodes.extend(path.nodes[-2::-1])
-                        rels.extend(reversed(r) for r in path.rels[::-1])
+                        rels.extend(-r for r in path.rels[::-1])
                 else:
                     nodes.extend(path.nodes[1:])
                     rels.extend(path.rels)
@@ -1843,6 +1859,9 @@ class Path(object):
 
     def __reversed__(self):
         return iter(reversed(self.relationships))
+
+    def __add__(self, other):
+        return Path(self, other)
 
     @property
     def end_node(self):
@@ -1985,7 +2004,7 @@ class Relationship(Path):
     def __init__(self, start_node, rel, end_node, **properties):
         cast_rel = Rel.cast(rel)
         if isinstance(cast_rel, Rev):  # always forwards
-            Path.__init__(self, end_node, reversed(cast_rel), start_node)
+            Path.__init__(self, end_node, -cast_rel, start_node)
         else:
             Path.__init__(self, start_node, cast_rel, end_node)
         self.rel.properties.update(properties)
