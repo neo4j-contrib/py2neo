@@ -128,6 +128,8 @@ def test_labels_constraints():
 
 
 def test_drop_index_will_raise_non_404_errors(graph):
+    if not graph.supports_node_labels:
+        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = DodgyClientError
         try:
@@ -139,6 +141,8 @@ def test_drop_index_will_raise_non_404_errors(graph):
 
 
 def test_drop_unique_constraint_will_raise_non_404_errors(graph):
+    if not graph.supports_node_labels:
+        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = DodgyClientError
         try:
