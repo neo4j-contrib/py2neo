@@ -15,10 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+try:
+    from unittest.mock import Mock, patch
+except ImportError:
+    from mock import Mock, patch
 
 import pytest
 
-from py2neo import Graph, Relationship, WriteBatch
+from py2neo import Graph, Relationship, WriteBatch, Rel, Rev, GraphError
+from py2neo.packages.httpstream import ClientError, Resource as _Resource
+
+
+class DodgyClientError(ClientError):
+    status_code = 499
 
 
 def test_can_get_all_relationship_types(graph):
@@ -273,3 +282,41 @@ class TestRelate(object):
         assert rels2 is not None
         assert len(rels2) == 3
         assert rels1[1] == rels2[1]
+
+
+def test_rel_cannot_have_multiple_types():
+    try:
+        _ = Rel("LIKES", "HATES")
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
+def test_unbound_rel_representation():
+    likes = Rel("LIKES")
+    assert repr(likes) == "-[:LIKES]->"
+
+
+def test_unbound_rev_representation():
+    likes = Rev("LIKES")
+    assert repr(likes) == "<-[:LIKES]-"
+
+
+def test_bound_rel_representation(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    assert repr(ab.rel) == "-[r%s:KNOWS]->" % ab._id
+
+
+def test_relationship_exists_will_raise_non_404_errors(graph):
+    with patch.object(_Resource, "get") as mocked:
+        error = GraphError("bad stuff happened")
+        error.response = DodgyClientError()
+        mocked.side_effect = error
+        a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+        try:
+            _ = ab.exists
+        except GraphError:
+            assert True
+        else:
+            assert False

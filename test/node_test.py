@@ -16,11 +16,17 @@
 # limitations under the License.
 
 import logging
+try:
+    from unittest.mock import Mock, patch
+except ImportError:
+    from mock import Mock, patch
 import sys
 
 import pytest
 
-from py2neo import neo4j, node, Node, BindError
+from py2neo import neo4j, Node, BindError, LegacyNode, GraphError
+from py2neo.packages.httpstream import ClientError, Resource as _Resource
+
 
 PY3K = sys.version_info[0] >= 3
 UNICODE_TEST_STR = ""
@@ -32,6 +38,10 @@ logging.basicConfig(
 
 for ch in [0x3053,0x308c,0x306f,0x30c6,0x30b9,0x30c8,0x3067,0x3059]:
     UNICODE_TEST_STR += chr(ch) if PY3K else unichr(ch)
+
+
+class DodgyClientError(ClientError):
+    status_code = 499
 
 
 def test_can_get_node_by_id_when_cached(graph):
@@ -60,19 +70,74 @@ def test_cannot_get_node_by_id_when_id_does_not_exist(graph):
         assert False
 
 
+def test_bound_nodes_is_not_equal_to_unbound_node():
+    alice_1 = Node(name="Alice")
+    alice_1.bind("http://localhost:7474/db/data/node/1")
+    alice_2 = Node(name="Alice")
+    assert alice_1 != alice_2
+
+
+def test_bound_nodes_are_hashed_on_uri():
+    alice_1 = Node(name="Alice Smith")
+    alice_1.bind("http://localhost:7474/db/data/node/1")
+    Node.cache.clear()
+    alice_2 = Node(name="Alice")
+    alice_2.bind(alice_1.uri)
+    assert hash(alice_1) == hash(alice_2)
+
+
+def test_unbound_nodes_are_hashed_on_labels_and_properties():
+    alice_1 = Node("Person", name="Alice")
+    alice_2 = Node("Person", name="Alice")
+    assert hash(alice_1) == hash(alice_2)
+
+
+def test_binding_node_if_labels_not_supported_casts_to_legacy_node():
+    with patch("py2neo.Graph.supports_node_labels") as mocked:
+        mocked.__get__ = Mock(return_value=False)
+        alice = Node(name="Alice Smith")
+        assert isinstance(alice, Node)
+        alice.bind("http://localhost:7474/db/data/node/1")
+        assert isinstance(alice, LegacyNode)
+
+
+def test_node_exists_will_raise_non_404_errors():
+    with patch.object(_Resource, "get") as mocked:
+        error = GraphError("bad stuff happened")
+        error.response = DodgyClientError()
+        mocked.side_effect = error
+        alice = Node(name="Alice Smith")
+        alice.bind("http://localhost:7474/db/data/node/1")
+        try:
+            _ = alice.exists
+        except GraphError:
+            assert True
+        else:
+            assert False
+
+
 class TestAbstractNode(object):
 
-    def test_can_create_abstract_node(self):
-        alice = node(name="Alice", age=34)
-        assert isinstance(alice, neo4j.Node)
+    def test_can_create_unbound_node(self):
+        alice = Node(name="Alice", age=34)
+        assert isinstance(alice, Node)
         assert not alice.bound
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
-    def test_can_equate_abstract_nodes(self):
-        alice_1 = node(name="Alice", age=34)
-        alice_2 = node(name="Alice", age=34)
+    def test_node_equality(self):
+        alice_1 = Node(name="Alice", age=34)
+        alice_2 = Node(name="Alice", age=34)
         assert alice_1 == alice_2
+
+    def test_node_inequality(self):
+        alice = Node(name="Alice", age=34)
+        bob = Node(name="Bob", age=56)
+        assert alice != bob
+
+    def test_node_is_never_equal_to_none(self):
+        alice = Node(name="Alice", age=34)
+        assert alice != None
 
 
 class TestConcreteNode(object):

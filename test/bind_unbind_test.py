@@ -118,3 +118,24 @@ def test_can_bind_relationship_to_resource():
     assert not relationship.bound
     with pytest.raises(BindError):
         _ = relationship.resource
+
+
+def test_can_unbind_node_if_not_cached(graph):
+    node, = graph.create({})
+    Node.cache.clear()
+    node.unbind()
+    assert not node.bound
+
+
+def test_can_unbind_rel_if_not_cached(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    Rel.cache.clear()
+    ab.rel.unbind()
+    assert not ab.bound
+
+
+def test_can_unbind_relationship_if_not_cached(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    Relationship.cache.clear()
+    ab.unbind()
+    assert not ab.bound

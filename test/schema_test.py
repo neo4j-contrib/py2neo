@@ -27,7 +27,11 @@ from uuid import uuid4
 import pytest
 
 from py2neo import neo4j, GraphError, Node
-from py2neo.packages.httpstream.http import ServerError
+from py2neo.packages.httpstream import ClientError, ServerError, Resource as _Resource
+
+
+class DodgyClientError(ClientError):
+    status_code = 499
 
 
 def get_clean_database():
@@ -121,3 +125,25 @@ def test_labels_constraints():
     with pytest.raises(GraphError):
         graph_db.schema.drop_unique_constraint(label_1, "name")
     graph_db.delete(a, b)
+
+
+def test_drop_index_will_raise_non_404_errors(graph):
+    with patch.object(_Resource, "delete") as mocked:
+        mocked.side_effect = DodgyClientError
+        try:
+            graph.schema.drop_index("Person", "name")
+        except DodgyClientError:
+            assert True
+        else:
+            assert False
+
+
+def test_drop_unique_constraint_will_raise_non_404_errors(graph):
+    with patch.object(_Resource, "delete") as mocked:
+        mocked.side_effect = DodgyClientError
+        try:
+            graph.schema.drop_unique_constraint("Person", "name")
+        except DodgyClientError:
+            assert True
+        else:
+            assert False

@@ -1348,8 +1348,8 @@ class Node(PropertyContainer):
             return m
         elif m is None or n is m:
             return n
-        elif isinstance(n, NodePointer) and isinstance(m, NodePointer):
-            if n.address == m.address:
+        elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
+            if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
                 return n
         elif n.bound and m.bound:
             if n.resource == m.resource:
@@ -1382,15 +1382,11 @@ class Node(PropertyContainer):
             return (LabelSet.__eq__(self.labels, other.labels) and
                     PropertyContainer.__eq__(self, other))
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def __hash__(self):
         if self.bound:
-            return hash(self.resource.uri)
-        hashable = tuple(sorted(self.properties.items()))
-        if self.graph.supports_node_labels:
-            hashable = (hashable, tuple(sorted(self.labels)))
+            hashable = self.resource.uri
+        else:
+            hashable = (tuple(sorted(self.properties.items())), tuple(sorted(self.labels)))
         return hash(hashable)
 
     @property
@@ -1621,9 +1617,6 @@ class Rel(PropertyContainer):
 
     def __eq__(self, other):
         return self.type == other.type and self.properties == other.properties
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __reversed__(self):
         # TODO: this should return an iterator

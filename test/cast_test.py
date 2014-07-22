@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, Rel
+from py2neo import Node, NodePointer, Rel, Relationship
 
 
 def test_graph_cast(graph):
@@ -47,3 +47,4 @@ def test_rel_cast():
     assert Rel.cast("KNOWS", since=1999) == Rel("KNOWS", since=1999)
     assert Rel.cast({"since": 1999}) == Rel(since=1999)
     assert Rel.cast(("KNOWS", {"since": 1999})) == knows
+    assert Rel.cast(Relationship({}, "KNOWS", {})) == Rel("KNOWS")

@@ -71,6 +71,7 @@ def test_can_hydrate_map(graph):
     hydrated = graph.hydrate(data)
     assert isinstance(hydrated, dict)
 
+
 def test_supports(graph):
     assert isinstance(graph.supports_foreach_pipe, bool)
     assert isinstance(graph.supports_node_labels, bool)

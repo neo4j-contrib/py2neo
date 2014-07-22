@@ -44,6 +44,14 @@ def test_can_join_same_nodes():
     assert Node.join(alice, alice) is alice
 
 
+def test_can_join_similar_bound_nodes():
+    alice.bind("http://localhost:7474/db/data/node/1")
+    Node.cache.clear()
+    alice_2 = Node(name="Alice")
+    alice_2.bind(alice.uri)
+    assert Node.join(alice, alice_2) == alice
+
+
 def test_cannot_join_different_nodes():
     with pytest.raises(JoinError):
         Node.join(alice, bob)
@@ -59,6 +67,10 @@ def test_can_join_pointer_and_node():
 
 def test_can_join_same_pointers():
     assert Node.join(pointer_1, pointer_1) is pointer_1
+
+
+def test_can_join_equal_pointers():
+    assert Node.join(pointer_1, NodePointer(pointer_1.address)) == pointer_1
 
 
 def test_cannot_join_different_pointers():

@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo.core import Graph, Node
+from py2neo.core import Graph, Node, Rel
 
 
 def test_can_pull_node(graph):
@@ -98,4 +98,14 @@ def test_can_graph_push_node(graph):
     local.bind(remote.uri)
     graph.push(local)
     assert remote.labels == remote.labels
+    assert remote.properties == remote.properties
+
+
+def test_can_push_rel(graph):
+    local = Rel("KNOWS", since=1999)
+    remote = Rel("KNOWS")
+    graph.create({}, {}, (0, remote, 1))
+    assert remote.properties == {}
+    local.bind(remote.uri)
+    local.push()
     assert remote.properties == remote.properties
