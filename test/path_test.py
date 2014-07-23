@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import neo4j, Node, Path, Rev, Relationship, JoinError, Rel
+from py2neo import neo4j, Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
 
 
 class TestPathConstruction(object):
@@ -330,6 +330,8 @@ def test_can_hydrate_path_into_existing_instance(graph):
     bob = Node("Person", name="Bob", age=44)
     dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
     path = Path(alice, "KNOWS", bob)
+    if "directions" not in dehydrated:
+        dehydrated["directions"] = ["->"]
     hydrated = Path.hydrate(dehydrated, inst=path)
     assert hydrated is path
 
@@ -404,3 +406,50 @@ def test_path_in_several_ways():
         assert True
     else:
         assert False
+
+
+def test_service_root_on_bound_path(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    graph.create(path)
+    assert path.service_root == ServiceRoot("http://localhost:7474/")
+    path[0].unbind()
+    assert path.service_root == ServiceRoot("http://localhost:7474/")
+
+
+def test_service_root_on_unbound_path():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    try:
+        assert path.service_root == ServiceRoot("http://localhost:7474/")
+    except BindError:
+        assert True
+    else:
+        assert False
+
+
+def test_graph(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path, = graph.create(Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave))
+    assert path.graph == Graph("http://localhost:7474/db/data/")
+
+
+def test_path_direction(graph):
+    cypher = """\
+    CREATE p=({name:'Alice'})-[:LOVES]->({name:'Bob'})<-[:HATES]-({name:'Carol'})-[:KNOWS]->
+             ({name:'Dave'})
+    RETURN p
+    """
+    path = graph.cypher.execute_one(cypher)
+    assert path[0] == Relationship({"name": "Alice"}, "LOVES", {"name": "Bob"})
+    assert path[1] == Relationship({"name": "Carol"}, "HATES", {"name": "Bob"})
+    assert path[2] == Relationship({"name": "Carol"}, "KNOWS", {"name": "Dave"})

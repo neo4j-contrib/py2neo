@@ -70,11 +70,11 @@ def test_cannot_get_node_by_id_when_id_does_not_exist(graph):
         assert False
 
 
-def test_bound_nodes_is_not_equal_to_unbound_node():
+def test_bound_node_equals_unbound_node_with_same_properties():
     alice_1 = Node(name="Alice")
     alice_1.bind("http://localhost:7474/db/data/node/1")
     alice_2 = Node(name="Alice")
-    assert alice_1 != alice_2
+    assert alice_1 == alice_2
 
 
 def test_bound_nodes_are_hashed_on_uri():

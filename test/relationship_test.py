@@ -391,3 +391,9 @@ def test_repr(graph):
     assert repr(ab) == "()-[r%s:KNOWS]->()" % ab._id
     ab.unbind()
     assert repr(ab) == "()-[:KNOWS]->()"
+
+
+def test_rel_never_equals_none():
+    rel = Rel("KNOWS")
+    none = None
+    assert rel != none

@@ -139,3 +139,13 @@ def test_can_unbind_relationship_if_not_cached(graph):
     Relationship.cache.clear()
     ab.unbind()
     assert not ab.bound
+
+
+def test_can_unbind_relationship_with_already_unbound_nodes(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    a.unbind()
+    b.unbind()
+    assert not a.bound
+    assert not b.bound
+    ab.unbind()
+    assert not ab.bound

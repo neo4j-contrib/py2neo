@@ -162,15 +162,16 @@ class JobResult(object):
 
     @classmethod
     def hydrate(cls, data, batch):
+        graph = getattr(batch, "graph", None)
         job_id = data["id"]
         uri = data["from"]
         status_code = data.get("status")
         location = data.get("location")
-        if batch.jobs[job_id].raw_result:
+        if graph is None or batch[job_id].raw_result:
             body = data.get("body")
         else:
             try:
-                body = batch.graph.hydrate(data.get("body"))
+                body = graph.hydrate(data.get("body"))
             except GraphError as error:
                 # TODO: pass batch context to error constructor
                 raise BatchError(error)
@@ -227,6 +228,9 @@ class Batch(object):
     def __init__(self, graph):
         self.graph = graph
         self.jobs = []
+
+    def __getitem__(self, index):
+        return self.jobs[index]
 
     def __len__(self):
         return len(self.jobs)

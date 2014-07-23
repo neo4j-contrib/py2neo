@@ -689,6 +689,21 @@ class Graph(Bindable):
                 else:
                     return Node.hydrate(data)
             elif "nodes" in data and "relationships" in data:
+                if "directions" not in data:
+                    from py2neo.batch import Job, Target
+                    node_uris = data["nodes"]
+                    relationship_uris = data["relationships"]
+                    jobs = [Job("GET", Target(uri)) for uri in relationship_uris]
+                    directions = []
+                    for i, result in enumerate(self.batch.submit(jobs)):
+                        rel_data = result.content
+                        start = rel_data["start"]
+                        end = rel_data["end"]
+                        if start == node_uris[i] and end == node_uris[i + 1]:
+                            directions.append("->")
+                        else:
+                            directions.append("<-")
+                    data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
                 from py2neo.cypher import CypherResults
@@ -1376,8 +1391,6 @@ class Node(PropertyContainer):
         other = Node.cast(other)
         if self.bound and other.bound:
             return self.resource == other.resource
-        elif self.bound or other.bound:
-            return False
         else:
             return (LabelSet.__eq__(self.labels, other.labels) and
                     PropertyContainer.__eq__(self, other))
@@ -1513,6 +1526,7 @@ class Node(PropertyContainer):
             pass
         PropertyContainer.unbind(self)
         self.__labels.unbind()
+        Bindable.unbind(self)
 
 
 class NodePointer(object):
@@ -1618,7 +1632,13 @@ class Rel(PropertyContainer):
         return repr(r)
 
     def __eq__(self, other):
-        return self.type == other.type and self.properties == other.properties
+        if other is None:
+            return False
+        other = Rel.cast(other)
+        if self.bound and other.bound:
+            return self.resource == other.resource
+        else:
+            return self.type == other.type and self.properties == other.properties
 
     def __pos__(self):
         return self
@@ -1691,6 +1711,7 @@ class Rel(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
+        Bindable.unbind(self)
 
 
 class Rev(Rel):
@@ -1736,18 +1757,20 @@ class Path(object):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        # TODO: fetch directions (Rel/Rev) as they cannot be lazily derived :-(
+        node_uris = data["nodes"]
+        relationship_uris = data["relationships"]
+        rel_rev = [Rel if direction == "->" else Rev for direction in data["directions"]]
         if inst is None:
-            nodes = [Node.hydrate({"self": uri}) for uri in data["nodes"]]
-            rels = [Rel.hydrate({"self": uri}) for uri in data["relationships"]]
+            nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
+            rels = [rel_rev[i].hydrate({"self": uri}) for i, uri in enumerate(relationship_uris)]
             inst = Path(*round_robin(nodes, rels))
         else:
             for i, node in enumerate(inst.nodes):
-                uri = data["nodes"][i]
+                uri = node_uris[i]
                 Node.hydrate({"self": uri}, node)
             for i, rel in enumerate(inst.rels):
-                uri = data["relationships"][i]
-                Rel.hydrate({"self": uri}, rel)
+                uri = relationship_uris[i]
+                rel_rev[i].hydrate({"self": uri}, rel)
         inst.__metadata = data
         return inst
 
@@ -1865,8 +1888,7 @@ class Path(object):
 
     @property
     def graph(self):
-        # TODO
-        return NotImplemented
+        return self.service_root.graph
 
     @property
     def nodes(self):
@@ -1907,8 +1929,12 @@ class Path(object):
 
     @property
     def service_root(self):
-        # TODO
-        return NotImplemented
+        for relationship in self:
+            try:
+                return relationship.service_root
+            except BindError:
+                pass
+        raise BindError("Local path is not bound to a remote path")
 
     @property
     def size(self):
@@ -2016,15 +2042,6 @@ class Relationship(Path):
         else:
             r.write_relationship(self)
         return repr(r)
-
-    def __eq__(self, other):
-        if self.bound:
-            return self.resource == other.resource
-        else:
-            return self.nodes == other.nodes and self.rels == other.rels
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __len__(self):
         return self.rel.__len__()
@@ -2144,7 +2161,10 @@ class Relationship(Path):
         self.rel.unbind()
         for node in [self.start_node, self.end_node]:
             if isinstance(node, Node):
-                node.unbind()
+                try:
+                    node.unbind()
+                except BindError:
+                    pass
 
     @property
     def uri(self):
