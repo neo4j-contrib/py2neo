@@ -22,7 +22,7 @@ rewrite - register a rewrite hook for a scheme://host:port
 
 Resource - local representation of a remote web resource
 ResourceTemplate - template for Resource generation based on a pattern
-Bindable - base class for objects that can be bound to remote resources
+ResourceWrapper - base class for objects that can be bound to remote resources
 ServiceRoot - root resource for a Neo4j server instance
 Graph - main graph resource class to bind to a remote graph database service
 Schema - schema index and constraint management resource
@@ -59,7 +59,7 @@ from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
 
 
-__all__ = ["authenticate", "rewrite", "Resource", "ResourceTemplate", "Bindable",
+__all__ = ["authenticate", "rewrite", "Resource", "ResourceTemplate", "ResourceWrapper",
            "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
            "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship"]
 
@@ -299,12 +299,31 @@ class ResourceTemplate(_ResourceTemplate):
 
 
 class Bindable(object):
+
+    __resource__ = None
+
+    def __bind__(self, uri, metadata=None):
+        if "{" in uri and "}" in uri:
+            if metadata:
+                raise ValueError("Initial metadata cannot be passed to a resource template")
+            self.__resource__ = ResourceTemplate(uri)
+        else:
+            self.__resource__ = Resource(uri, metadata)
+
+    def __unbind__(self):
+        self.__resource__ = None
+
+    def __bound__(self):
+        """ Returns :const:`True` if bound to a remote resource.
+        """
+        return self.__resource__ is not None
+
+
+class ResourceWrapper(Bindable):
     """ Base class for objects that can be bound to a remote resource.
     """
 
     error_class = GraphError
-
-    __resource = None
 
     def __init__(self, uri=None, metadata=None):
         if uri and not self.bound:
@@ -313,19 +332,12 @@ class Bindable(object):
     def bind(self, uri, metadata=None):
         """ Bind object to Resource or ResourceTemplate.
         """
-        if "{" in uri:
-            if metadata:
-                raise ValueError("Initial metadata cannot be passed to a resource template")
-            self.__resource = ResourceTemplate(uri)
-        else:
-            self.__resource = Resource(uri, metadata)
-        self.__resource.error_class = self.error_class
+        Bindable.__bind__(self, uri, metadata)
+        self.__resource__.error_class = self.error_class
 
     @property
     def bound(self):
-        """ Returns :const:`True` if bound to a remote resource.
-        """
-        return self.__resource is not None
+        return Bindable.__bound__(self)
 
     @property
     def graph(self):
@@ -340,7 +352,7 @@ class Bindable(object):
         """ Returns the :class:`Resource` to which this is bound.
         """
         if self.bound:
-            return self.__resource
+            return self.__resource__
         else:
             raise BindError("Local entity is not bound to a remote entity")
 
@@ -349,7 +361,7 @@ class Bindable(object):
         return self.resource.service_root
 
     def unbind(self):
-        self.__resource = None
+        Bindable.__unbind__(self)
 
     @property
     def uri(self):
@@ -398,7 +410,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graph(Bindable):
+class Graph(ResourceWrapper):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
     attaching to this service should need to be directly aware of; all further
@@ -867,7 +879,7 @@ class Graph(Bindable):
         return "transaction" in self.resource.metadata
 
 
-class Schema(Bindable):
+class Schema(ResourceWrapper):
 
     __instances = {}
 
@@ -940,13 +952,13 @@ class Schema(Bindable):
         ]
 
 
-class PropertySet(Bindable, dict):
+class PropertySet(ResourceWrapper, dict):
     """ A dict subclass that equates None with a non-existent key and can be
     bound to a remote *properties* resource.
     """
 
     def __init__(self, iterable=None, **kwargs):
-        Bindable.__init__(self)
+        ResourceWrapper.__init__(self)
         dict.__init__(self)
         self.update(iterable, **kwargs)
 
@@ -1007,12 +1019,12 @@ class PropertySet(Bindable, dict):
             self[key] = kwargs[key]
 
 
-class LabelSet(Bindable, set):
+class LabelSet(ResourceWrapper, set):
     """ A set subclass that can be bound to a remote *labels* resource.
     """
 
     def __init__(self, iterable=None):
-        Bindable.__init__(self)
+        ResourceWrapper.__init__(self)
         set.__init__(self)
         if iterable:
             self.update(iterable)
@@ -1042,13 +1054,13 @@ class LabelSet(Bindable, set):
         self.update(iterable)
 
 
-class PropertyContainer(Bindable):
+class PropertyContainer(ResourceWrapper):
     """ Base class for objects that contain a set of properties,
     i.e. :py:class:`Node` and :py:class:`Relationship`.
     """
 
     def __init__(self, **properties):
-        Bindable.__init__(self)
+        ResourceWrapper.__init__(self)
         self.__properties = PropertySet(properties)
         # Auto-sync will be removed in 2.1
         self.auto_sync_properties = Graph.auto_sync_properties
@@ -1079,7 +1091,7 @@ class PropertyContainer(Bindable):
         self.__push_if_bound()
 
     def bind(self, uri, metadata=None):
-        Bindable.bind(self, uri, metadata)
+        ResourceWrapper.bind(self, uri, metadata)
         self.__properties.bind(uri + "/properties")
 
     @property
@@ -1097,7 +1109,7 @@ class PropertyContainer(Bindable):
         self.__properties.push()
 
     def unbind(self):
-        Bindable.unbind(self)
+        ResourceWrapper.unbind(self)
         self.__properties.unbind()
 
     def __pull_if_bound(self):
@@ -1548,7 +1560,7 @@ class Rel(PropertyContainer):
     def __neg__(self):
         if self.pair is None:
             self.pair = self.pair_class()
-            self.pair._Bindable__resource = self._Bindable__resource
+            self.pair.__resource__ = self.__resource__
             self.pair._PropertyContainer__properties = self._PropertyContainer__properties
             self.pair._Rel__type = self.__type
             self.pair._Rel__stale = self.__stale
@@ -1573,8 +1585,8 @@ class Rel(PropertyContainer):
         if pair is not None:
             PropertyContainer.bind(pair, uri, metadata)
             # make sure we're using exactly the same resource object
-            # (maybe could write a Bindable.multi_bind classmethod
-            pair._Bindable__resource = self.resource
+            # (maybe could write a ResourceWrapper.multi_bind classmethod
+            pair.__resource__ = self.__resource__
             pair.cache[uri] = pair
 
     @property

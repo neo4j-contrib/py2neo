@@ -26,6 +26,7 @@ from py2neo.util import is_collection
 
 class Representation(object):
 
+    safe_first_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
     safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 
     def __init__(self):
@@ -38,7 +39,10 @@ class Representation(object):
         self.__buffer.append(json.dumps(value))
 
     def write_identifier(self, identifier):
-        safe = all(ch in self.safe_chars for ch in identifier)
+        if not identifier:
+            raise ValueError("Invalid identifier")
+        safe = (identifier[0] in self.safe_first_chars and
+                all(ch in self.safe_chars for ch in identifier[1:]))
         if not safe:
             self.__buffer.append("`")
             self.__buffer.append(identifier.replace("`", "``"))
@@ -126,3 +130,9 @@ class Representation(object):
             self.write_collection(obj)
         else:
             self.write_value(obj)
+
+
+def cypher_escape(identifier):
+    r = Representation()
+    r.write_identifier(identifier)
+    return repr(r)

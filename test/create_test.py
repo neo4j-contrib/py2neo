@@ -170,3 +170,12 @@ def test_cannot_create_entity_of_other_castable_type(graph):
         assert True
     else:
         assert False
+
+
+def test_node_pointer_must_point_to_a_node(graph):
+    try:
+        graph.create({}, {}, (0, "KNOWS", 1), (0, "KNOWS", 2))
+    except ValueError:
+        assert True
+    else:
+        assert False

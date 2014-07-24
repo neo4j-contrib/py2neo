@@ -38,11 +38,11 @@ from __future__ import division, unicode_literals
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo.core import Bindable, Resource, ServiceRoot
+from py2neo.core import ResourceWrapper, Resource, ServiceRoot
 from py2neo.util import numberise
 
 
-class Monitor(Bindable):
+class Monitor(ResourceWrapper):
 
     __instances = {}
 
@@ -62,7 +62,7 @@ class Monitor(Bindable):
             manager = Resource(service_root.resource.metadata["management"])
             monitor = Monitor(manager.metadata["services"]["monitor"])
             uri = monitor.resource.uri
-        Bindable.__init__(self, uri)
+        ResourceWrapper.__init__(self, uri)
 
     def fetch_latest_stats(self):
         """ Fetch the latest server statistics as a list of 2-tuples, each

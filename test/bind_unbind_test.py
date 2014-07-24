@@ -18,13 +18,13 @@
 
 import pytest
 
-from py2neo.core import Resource, Node, Rel, Rev, Relationship, Bindable
+from py2neo.core import Resource, Node, Rel, Rev, Relationship, ResourceWrapper
 from py2neo.error import BindError
 
 
 def test_can_create_bindable_with_initial_uri():
     uri = "http://localhost:7474/db/data/node/1"
-    bindable = Bindable(uri)
+    bindable = ResourceWrapper(uri)
     assert bindable.bound
     assert bindable.uri == uri
 
@@ -32,7 +32,7 @@ def test_can_create_bindable_with_initial_uri():
 def test_can_create_bindable_with_initial_uri_and_metadata():
     uri = "http://localhost:7474/db/data/node/1"
     metadata = {"foo": "bar"}
-    bindable = Bindable(uri, metadata)
+    bindable = ResourceWrapper(uri, metadata)
     assert bindable.bound
     assert bindable.uri == uri
     assert bindable.resource.metadata == metadata
@@ -40,7 +40,7 @@ def test_can_create_bindable_with_initial_uri_and_metadata():
 
 def test_can_create_bindable_with_initial_uri_template():
     uri = "http://localhost:7474/db/data/node/{node_id}"
-    bindable = Bindable(uri)
+    bindable = ResourceWrapper(uri)
     assert bindable.bound
     assert bindable.uri == uri
 
@@ -49,7 +49,7 @@ def test_cannot_create_bindable_with_initial_uri_template_and_metadata():
     uri = "http://localhost:7474/db/data/node/{node_id}"
     metadata = {"foo": "bar"}
     try:
-        _ = Bindable(uri, metadata)
+        _ = ResourceWrapper(uri, metadata)
     except ValueError:
         assert True
     else:

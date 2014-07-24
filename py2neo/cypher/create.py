@@ -17,6 +17,7 @@
 
 
 from py2neo.core import Node, NodePointer, Path, Relationship
+from py2neo.cypher.lang import cypher_escape
 from py2neo.util import ustr
 
 
@@ -28,6 +29,7 @@ class CreateStatement(object):
 
     def __init__(self, graph):
         self.graph = graph
+        self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.names = []
         self.start_clause = []
@@ -35,7 +37,11 @@ class CreateStatement(object):
         self.return_clause = []
         self.params = {}
 
-    def post(self):
+    def __repr__(self):
+        return self.string
+
+    @property
+    def string(self):
         clauses = []
         if self.start_clause:
             clauses.append("START " + ",".join(self.start_clause))
@@ -43,8 +49,10 @@ class CreateStatement(object):
             clauses.append("CREATE " + ",".join(self.create_clause))
         if self.return_clause:
             clauses.append("RETURN " + ",".join(self.return_clause))
-        statement = "\n".join(clauses)
-        return self.graph.cypher.post(statement, self.params)
+        return "\n".join(clauses)
+
+    def post(self):
+        return self.graph.cypher.post(self.string, self.params)
 
     def execute(self):
         if not self.entities:
@@ -79,39 +87,37 @@ class CreateStatement(object):
         elif isinstance(entity, Path):
             self.names.append(self.create_path(name, entity))
         else:
-            raise TypeError("Cannot create entity of type {}".format(type(entity).__name__))
+            raise TypeError("Cannot create entity of type %s" % type(entity).__name__)
         self.entities.append(entity)
 
     def create_node(self, name, node):
         if node.bound:
-            self.start_clause.append("{0}=node({{{0}}})".format(name))
+            self.start_clause.append("{name}=node({{{name}}})".format(name=name))
             self.params[name] = node._id
         else:
-            labels = ""
-            if self.graph.supports_node_labels:
-                labels = "".join(":`" + label.replace("`", "``") + "`"
-                                 for label in node.labels)
+            template = "{name}"
+            kwargs = {"name": name}
+            if node.labels and self.supports_node_labels:
+                template += "{labels}"
+                kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
             if node.properties:
-                template = "({0}{1} {{{0}}})"
+                template += " {{{name}}}"
                 self.params[name] = node.properties
-            else:
-                template = "({0}{1})"
-            self.create_clause.append(template.format(name, labels))
+            self.create_clause.append("(" + template.format(**kwargs) + ")")
         self.return_clause.append(name)
         return [name], []
 
     def create_rel(self, name, rel, *node_names):
         if rel.bound:
-            self.start_clause.append("{0}=relationship({{{0}}})".format(name))
+            self.start_clause.append("{name}=rel({{{name}}})".format(name=name))
             self.params[name] = rel._id
         else:
             if rel.properties:
-                template = "({0})-[{1}:`{2}` {{{1}}}]->({3})"
+                template = "({0})-[{1}:{2} {{{1}}}]->({3})"
                 self.params[name] = rel.properties
             else:
-                template = "({0})-[{1}:`{2}`]->({3})"
-            self.create_clause.append(template.format(node_names[0], name,
-                                          rel.type.replace("`", "``"), node_names[1]))
+                template = "({0})-[{1}:{2}]->({3})"
+            self.create_clause.append(template.format(node_names[0], name, cypher_escape(rel.type), node_names[1]))
         self.return_clause.append(name)
         return [], [name]
 
