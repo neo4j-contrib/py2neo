@@ -354,6 +354,32 @@ def test_type_of_unbound_relationship_is_mutable():
     assert ab.type == "LIKES"
 
 
+def test_changing_type_of_unbound_rel_mirrors_to_pair_rev():
+    rel = Rel("KNOWS")
+    assert rel.pair is None
+    rev = -rel
+    assert rel.pair is rev
+    assert rev.pair is rel
+    assert rel.type == "KNOWS"
+    assert rev.type == "KNOWS"
+    rel.type = "LIKES"
+    assert rel.type == "LIKES"
+    assert rev.type == "LIKES"
+
+
+def test_changing_type_of_unbound_rev_mirrors_to_pair_rel():
+    rev = Rev("KNOWS")
+    assert rev.pair is None
+    rel = -rev
+    assert rev.pair is rel
+    assert rel.pair is rev
+    assert rev.type == "KNOWS"
+    assert rel.type == "KNOWS"
+    rev.type = "LIKES"
+    assert rev.type == "LIKES"
+    assert rel.type == "LIKES"
+
+
 def test_service_root(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
     assert ab.service_root == ServiceRoot("http://localhost:7474/")

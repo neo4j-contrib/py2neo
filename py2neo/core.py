@@ -1337,7 +1337,7 @@ class Node(PropertyContainer):
             inst = cls.cache.setdefault(self, cls())
         cls.cache[self] = inst
         inst.bind(self, data)
-        inst.__stale = set()
+        inst.__stale.clear()
         if properties is None:
             inst.__stale.add("properties")
         else:
@@ -1526,7 +1526,6 @@ class Node(PropertyContainer):
             pass
         PropertyContainer.unbind(self)
         self.__labels.unbind()
-        Bindable.unbind(self)
 
 
 class NodePointer(object):
@@ -1549,6 +1548,8 @@ class Rel(PropertyContainer):
     """
 
     cache = WeakValueDictionary()
+    pair = None
+    pair_class = object
 
     @staticmethod
     def cast(*args, **kwargs):
@@ -1608,11 +1609,15 @@ class Rel(PropertyContainer):
         cls.cache[self] = inst
         inst.bind(self, data)
         inst.__type = type_
+        pair = inst.pair
+        if pair is not None:
+            pair._Rel__type = type_
         if properties is None:
-            inst.__stale = {"properties"}
+            inst.__stale.clear()
+            inst.__stale.add("properties")
         else:
             inst._PropertyContainer__properties.replace(properties)
-            inst.__stale = set()
+            inst.__stale.clear()
         return inst
 
     def __init__(self, *type_, **properties):
@@ -1644,12 +1649,14 @@ class Rel(PropertyContainer):
         return self
 
     def __neg__(self):
-        r = Rev()
-        r._Bindable__resource = self._Bindable__resource
-        r._PropertyContainer__properties = self._PropertyContainer__properties
-        r._Rel__type = self.__type
-        r._Rel__stale = self.__stale
-        return r
+        if self.pair is None:
+            self.pair = self.pair_class()
+            self.pair._Bindable__resource = self._Bindable__resource
+            self.pair._PropertyContainer__properties = self._PropertyContainer__properties
+            self.pair._Rel__type = self.__type
+            self.pair._Rel__stale = self.__stale
+            self.pair.pair = self
+        return self.pair
 
     def __abs__(self):
         return self
@@ -1665,6 +1672,13 @@ class Rel(PropertyContainer):
     def bind(self, uri, metadata=None):
         PropertyContainer.bind(self, uri, metadata)
         self.cache[uri] = self
+        pair = self.pair
+        if pair is not None:
+            PropertyContainer.bind(pair, uri, metadata)
+            # make sure we're using exactly the same resource object
+            # (maybe could write a Bindable.multi_bind classmethod
+            pair._Bindable__resource = self.resource
+            pair.cache[uri] = pair
 
     @property
     def exists(self):
@@ -1690,7 +1704,11 @@ class Rel(PropertyContainer):
 
     def pull(self):
         super(Rel, self).pull()
-        self.__type = self.resource.metadata["type"]
+        pulled_type = self.resource.metadata["type"]
+        self.__type = pulled_type
+        pair = self.pair
+        if pair is not None:
+            pair._Rel__type = pulled_type
         self.__stale.clear()
 
     @property
@@ -1704,6 +1722,9 @@ class Rel(PropertyContainer):
         if self.bound:
             raise AttributeError("The type of a bound Rel is immutable")
         self.__type = name
+        pair = self.pair
+        if pair is not None:
+            pair._Rel__type = name
 
     def unbind(self):
         try:
@@ -1711,24 +1732,24 @@ class Rel(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
-        Bindable.unbind(self)
+        pair = self.pair
+        if pair is not None:
+            try:
+                del pair.cache[pair.uri]
+            except KeyError:
+                pass
+            PropertyContainer.unbind(pair)
 
 
 class Rev(Rel):
 
-    def __pos__(self):
-        return self
-
-    def __neg__(self):
-        r = Rel()
-        r._Bindable__resource = self._Bindable__resource
-        r._PropertyContainer__properties = self._PropertyContainer__properties
-        r._Rel__type = self._Rel__type
-        r._Rel__stale = self._Rel__stale
-        return r
+    pair_class = Rel
 
     def __abs__(self):
         return self.__neg__()
+
+
+Rel.pair_class = Rev
 
 
 class Path(object):
@@ -1903,8 +1924,14 @@ class Path(object):
         return self.__order
 
     def pull(self):
-        # TODO
-        pass
+        from py2neo.batch.pull import PullBatch
+        batch = PullBatch(self.graph)
+        for relationship in self:
+            batch.append(relationship)
+        for rel in self.rels:
+            if isinstance(rel, Rev):
+                batch.append(rel)
+        batch.pull()
 
     def push(self):
         # TODO

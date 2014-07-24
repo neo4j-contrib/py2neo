@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo.core import Graph, Node, Rel
+from py2neo.core import Graph, Node, Rel, Rev, Path
 
 
 def test_can_pull_node(graph):
@@ -124,3 +124,29 @@ def test_can_push_relationship(graph):
     ab.push()
     local.pull()
     assert local.properties == remote.properties
+
+
+def test_can_pull_path(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    graph.create(path)
+    assert path[0].properties["amount"] is None
+    assert path[1].properties["amount"] is None
+    assert path[2].properties["since"] is None
+    assert path[0].rel.properties["amount"] is None
+    assert path[1].rel.properties["amount"] is None
+    assert path[2].rel.properties["since"] is None
+    graph.cypher.run("""\
+    START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
+    SET ab.amount = "lots", bc.amount = "some", cd.since = 1999
+    """, {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id})
+    path.pull()
+    assert path[0].properties["amount"] == "lots"
+    assert path[1].properties["amount"] == "some"
+    assert path[2].properties["since"] == 1999
+    assert path[0].rel.properties["amount"] == "lots"
+    assert path[1].rel.properties["amount"] == "some"
+    assert path[2].rel.properties["since"] == 1999
