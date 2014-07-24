@@ -527,9 +527,9 @@ class Graph(Bindable):
 
         supports_node_labels = self.supports_node_labels
 
-        START = []
-        CREATE = []
-        RETURN = []
+        start_clause = []
+        create_clause = []
+        return_clause = []
         params = {}
 
         def _(*args):
@@ -537,7 +537,7 @@ class Graph(Bindable):
 
         def create_node(name, node):
             if node.bound:
-                START.append("{0}=node({{{0}}})".format(name))
+                start_clause.append("{0}=node({{{0}}})".format(name))
                 params[name] = node._id
             else:
                 labels = ""
@@ -549,13 +549,13 @@ class Graph(Bindable):
                     params[name] = node.properties
                 else:
                     template = "({0}{1})"
-                CREATE.append(template.format(name, labels))
-            RETURN.append(name)
+                create_clause.append(template.format(name, labels))
+            return_clause.append(name)
             return [name], []
 
         def create_rel(name, rel, *node_names):
             if rel.bound:
-                START.append("{0}=relationship({{{0}}})".format(name))
+                start_clause.append("{0}=relationship({{{0}}})".format(name))
                 params[name] = rel._id
             else:
                 if rel.properties:
@@ -563,9 +563,9 @@ class Graph(Bindable):
                     params[name] = rel.properties
                 else:
                     template = "({0})-[{1}:`{2}`]->({3})"
-                CREATE.append(template.format(node_names[0], name,
+                create_clause.append(template.format(node_names[0], name,
                                               rel.type.replace("`", "``"), node_names[1]))
-            RETURN.append(name)
+            return_clause.append(name)
             return [], [name]
 
         def create_path(name, path):
@@ -599,12 +599,12 @@ class Graph(Bindable):
                 raise TypeError("Cannot create entity of type {}".format(type(entity).__name__))
 
         clauses = []
-        if START:
-            clauses.append("START " + ",".join(START))
-        if CREATE:
-            clauses.append("CREATE " + ",".join(CREATE))
-        if RETURN:
-            clauses.append("RETURN " + ",".join(RETURN))
+        if start_clause:
+            clauses.append("START " + ",".join(start_clause))
+        if create_clause:
+            clauses.append("CREATE " + ",".join(create_clause))
+        if return_clause:
+            clauses.append("RETURN " + ",".join(return_clause))
         if not clauses:
             return []
 
@@ -836,10 +836,11 @@ class Graph(Bindable):
             return None
 
     def merge(self, *entities):
-        """ Merge a number nodes, relationships and/or paths into the
+        """ Merge a number of nodes, relationships and/or paths into the
         graph using Cypher MERGE/CREATE UNIQUE.
         """
         # TODO (can't use batch)
+        pass
 
     @property
     def neo4j_version(self):
@@ -1928,14 +1929,14 @@ class Path(object):
         batch = PullBatch(self.graph)
         for relationship in self:
             batch.append(relationship)
-        for rel in self.rels:
-            if isinstance(rel, Rev):
-                batch.append(rel)
         batch.pull()
 
     def push(self):
-        # TODO
-        pass
+        from py2neo.batch.push import PushBatch
+        batch = PushBatch(self.graph)
+        for relationship in self:
+            batch.append(relationship)
+        batch.push()
 
     @property
     def rels(self):

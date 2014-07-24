@@ -150,3 +150,32 @@ def test_can_pull_path(graph):
     assert path[0].rel.properties["amount"] == "lots"
     assert path[1].rel.properties["amount"] == "some"
     assert path[2].rel.properties["since"] == 1999
+
+
+def test_can_push_path(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    graph.create(path)
+    path[0].properties["amount"] = "lots"
+    path[1].properties["amount"] = "some"
+    path[2].properties["since"] = 1999
+    results = graph.cypher.execute("""\
+    START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
+    RETURN ab.amount, bc.amount, cd.since
+    """, {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id})
+    ab_amount, bc_amount, cd_since = results[0]
+    assert ab_amount is None
+    assert bc_amount is None
+    assert cd_since is None
+    path.push()
+    results = graph.cypher.execute("""\
+    START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
+    RETURN ab.amount, bc.amount, cd.since
+    """, {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id})
+    ab_amount, bc_amount, cd_since = results[0]
+    assert ab_amount == "lots"
+    assert bc_amount == "some"
+    assert cd_since == 1999
