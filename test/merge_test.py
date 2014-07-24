@@ -22,6 +22,8 @@ from py2neo import Node
 
 
 def test_can_merge_on_label_only(graph):
+    if not graph.supports_node_labels:
+        return
     graph.delete(*graph.find("Person"))
     merged = list(graph.merge("Person"))
     assert len(merged) == 1
@@ -30,6 +32,8 @@ def test_can_merge_on_label_only(graph):
 
 
 def test_can_merge_on_label_and_property(graph):
+    if not graph.supports_node_labels:
+        return
     graph.delete(*graph.find("Person", "name", "Alice"))
     merged = list(graph.merge("Person", "name", "Alice"))
     assert len(merged) == 1
