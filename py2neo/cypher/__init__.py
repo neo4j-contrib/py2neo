@@ -21,6 +21,7 @@ from __future__ import unicode_literals
 import json
 import logging
 
+from py2neo.cypher.create import CreateStatement
 from py2neo.cypher.lang import Representation
 from py2neo.cypher.results import CypherResults, IterableCypherResults, Record, RecordProducer
 from py2neo.cypher.simple import CypherResource, CypherQuery
