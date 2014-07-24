@@ -16,30 +16,28 @@
 # limitations under the License.
 
 
-import pytest
-
-from py2neo import neo4j
-from py2neo.ext import ogm
-
 # TODO: rewrite with labels
 
-#class Person(object):
-#
-#    def __init__(self, email=None, name=None, age=None):
-#        self.email = email
-#        self.name = name
-#        self.age = age
-#
-#    def __eq__(self, other):
-#        return self.email == other.email
-#
-#    def __ne__(self, other):
-#        return self.email != other.email
-#
-#    def __repr__(self):
-#        return "{0} <{1}>".format(self.name, self.email)
-#
-#
+
+class Person(object):
+
+    __primarykey__ = "email"
+
+    def __init__(self, email=None, name=None, age=None):
+        self.email = email
+        self.name = name
+        self.age = age
+
+    def __eq__(self, other):
+        return self.email == other.email
+
+    def __ne__(self, other):
+        return self.email != other.email
+
+    def __repr__(self):
+        return "{0} <{1}>".format(self.name, self.email)
+
+
 #class TestExampleCode(object):
 #
 #    @pytest.fixture(autouse=True)

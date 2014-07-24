@@ -318,6 +318,7 @@ def _path_create(self, graph):
     """
     return _path__create(self, graph, unique=False)
 
+# TODO: maybe reinstate this
 @deprecated("Use Graph.merge(Path(...)) instead")
 def _path_get_or_create(self, graph):
     """ Construct a unique path within the specified `graph` from the

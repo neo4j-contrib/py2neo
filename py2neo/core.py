@@ -743,12 +743,20 @@ class Graph(ResourceWrapper):
         else:
             return None
 
-    def merge(self, *entities):
-        """ Merge a number of nodes, relationships and/or paths into the
-        graph using Cypher MERGE/CREATE UNIQUE.
+    def merge(self, label, property_key=None, property_value=None):
+        """ Create a node by label and optional property if none already exists
+        with those criteria, returning all nodes that match.
         """
-        # TODO (can't use batch)
-        pass
+        from py2neo.cypher.lang import cypher_escape
+        if property_key is None:
+            statement = "MERGE (n:%s) RETURN n" % cypher_escape(label)
+            results = self.cypher.execute(statement)
+        else:
+            statement = "MERGE (n:%s {%s:{v}}) RETURN n" % (
+                cypher_escape(label), cypher_escape(property_key))
+            results = self.cypher.execute(statement, {"v": property_value})
+        for result in results:
+            yield result[0]
 
     @property
     def neo4j_version(self):
