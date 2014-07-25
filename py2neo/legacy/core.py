@@ -24,13 +24,13 @@ from py2neo.cypher import CypherQuery
 from py2neo.packages.jsonstream import assembled
 
 
-__all__ = ["GraphDatabaseService", "LegacyNode"]
+__all__ = ["LegacyGraph", "LegacyNode"]
 
 
-class GraphDatabaseService(Graph):
+class LegacyGraph(Graph):
 
     def __init__(self, uri=None):
-        super(GraphDatabaseService, self).__init__(uri=uri)
+        super(LegacyGraph, self).__init__(uri=uri)
         self._indexes = {Node: {}, Relationship: {}}
 
     @property

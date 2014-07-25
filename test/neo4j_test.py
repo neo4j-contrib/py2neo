@@ -22,7 +22,7 @@ import pytest
 
 from py2neo import node
 from py2neo.core import authenticate, _get_headers, Graph, Node, Relationship
-from py2neo.legacy import GraphDatabaseService
+from py2neo.legacy import LegacyGraph
 
 
 logging.basicConfig(
@@ -158,7 +158,7 @@ class TestGraph(object):
         assert props[3]["number"] == 109
 
     def test_graph_class_aliases(self):
-        assert issubclass(GraphDatabaseService, Graph)
+        assert issubclass(LegacyGraph, Graph)
 
 
 class TestNewCreate(object):

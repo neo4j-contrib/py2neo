@@ -32,7 +32,7 @@ logging.basicConfig(
 def setup(request, graph):
     if request.instance:
         # Grab a handle to an index for linking to time data
-        service = legacy.GraphDatabaseService()
+        service = legacy.LegacyGraph()
         try:
             service.delete_index(neo4j.Node, "TIME")
         except LookupError:
@@ -78,7 +78,7 @@ class TestExampleCode(object):
         from py2neo import neo4j
         from py2neo.ext.calendar import GregorianCalendar
 
-        graph = legacy.GraphDatabaseService()
+        graph = legacy.LegacyGraph()
         time_index = graph.get_or_create_index(neo4j.Node, "TIME")
         calendar = GregorianCalendar(time_index)
 

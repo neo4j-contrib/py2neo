@@ -21,7 +21,7 @@ from logutils.colorize import ColorizingStreamHandler
 
 from py2neo import Graph
 from py2neo.cypher import Session
-from py2neo.legacy import GraphDatabaseService
+from py2neo.legacy import LegacyGraph
 
 
 DEFAULT_DB = "http://localhost:7474/db/data/"
@@ -118,7 +118,7 @@ def graph(request):
 
 @pytest.fixture
 def legacy_graph(request):
-    graph = GraphDatabaseService(DEFAULT_DB)
+    graph = LegacyGraph(DEFAULT_DB)
     return graph
 
 
