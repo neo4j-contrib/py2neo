@@ -433,6 +433,7 @@ class Graph(ResourceWrapper):
 
     __batch = None
     __cypher = None
+    __legacy = None
     __schema = None
     __node_labels = None
     __relationship_types = None
@@ -628,6 +629,13 @@ class Graph(ResourceWrapper):
             return type(data)(map(self.hydrate, data))
         else:
             return data
+
+    @property
+    def legacy(self):
+        if self.__legacy is None:
+            from py2neo.legacy import LegacyResource
+            self.__legacy = LegacyResource(self.uri.string)
+        return self.__legacy
 
     def match(self, start_node=None, rel_type=None, end_node=None,
               bidirectional=False, limit=None):

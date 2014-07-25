@@ -20,11 +20,11 @@
 The `calendar` module provides standardised date management functionality
 based on a calendar subgraph::
 
-    from py2neo import neo4j
-    from py2neo.calendar import GregorianCalendar
+    from py2neo import Graph
+    from py2neo.ext.calendar import GregorianCalendar
 
-    graph = neo4j.Graph()
-    time_index = graph.get_or_create_index(neo4j.Node, "TIME")
+    graph = Graph()
+    time_index = graph.legacy.get_or_create_index(neo4j.Node, "TIME")
     calendar = GregorianCalendar(time_index)
 
     graph.create(

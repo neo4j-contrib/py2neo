@@ -89,9 +89,9 @@ The code below shows an example of usage::
 
 from __future__ import unicode_literals
 
+from py2neo.batch import WriteBatch
 from py2neo.core import Node
 from py2neo.cypher import CypherQuery
-from py2neo.legacy import LegacyWriteBatch as WriteBatch
 
 
 class NotSaved(ValueError):
@@ -225,7 +225,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: a list of `cls` instances
         """
-        index = self.graph.get_index(Node, index_name)
+        index = self.graph.legacy.get_index(Node, index_name)
         nodes = index.get(key, value)
         return [self.load(cls, node) for node in nodes]
 
@@ -238,7 +238,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: as instance of `cls` containing the loaded data
         """
-        index = self.graph.get_index(Node, index_name)
+        index = self.graph.legacy.get_index(Node, index_name)
         nodes = index.get(key, value)
         if not nodes:
             return None
@@ -312,7 +312,7 @@ class Store(object):
         :param value: the index value
         :param subj: one or more objects to save
         """
-        index = self.graph.get_or_create_index(Node, index_name)
+        index = self.graph.legacy.get_or_create_index(Node, index_name)
         for subj in subj:
             index.add(key, value, self.save(self._get_node(subj)))
 
@@ -325,7 +325,7 @@ class Store(object):
         :param value: the index value
         :param subj: the object to save
         """
-        index = self.graph.get_or_create_index(Node, index_name)
+        index = self.graph.legacy.get_or_create_index(Node, index_name)
         node = index.get_or_create(key, value, {})
         self.save(subj, node)
 

@@ -15,29 +15,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 
 import pytest
 
-from py2neo import neo4j, legacy
+from py2neo import Graph, neo4j, legacy
 from py2neo.ext.calendar import GregorianCalendar
-
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    level=logging.DEBUG,
-)
 
 
 @pytest.fixture(autouse=True)
 def setup(request, graph):
     if request.instance:
         # Grab a handle to an index for linking to time data
-        service = legacy.LegacyGraph()
+        graph = Graph()
         try:
-            service.delete_index(neo4j.Node, "TIME")
+            graph.legacy.delete_index(neo4j.Node, "TIME")
         except LookupError:
             pass
-        time = service.get_or_create_index(neo4j.Node, "TIME")
+        time = graph.legacy.get_or_create_index(neo4j.Node, "TIME")
         request.instance.calendar = GregorianCalendar(time)
 
 
@@ -75,11 +69,11 @@ def test_can_create_year():
 
 class TestExampleCode(object):
     def test_example_code_runs(self):
-        from py2neo import neo4j
+        from py2neo import Graph
         from py2neo.ext.calendar import GregorianCalendar
 
-        graph = legacy.LegacyGraph()
-        time_index = graph.get_or_create_index(neo4j.Node, "TIME")
+        graph = Graph()
+        time_index = graph.legacy.get_or_create_index(neo4j.Node, "TIME")
         calendar = GregorianCalendar(time_index)
 
         alice, birth, death = graph.create(

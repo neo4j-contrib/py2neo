@@ -43,7 +43,7 @@ class LegacyReadBatch(ReadBatch):
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self.graph.get_or_create_index(content_type, str(index))
+            return self.graph.legacy.get_or_create_index(content_type, str(index))
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under a given key-value pair.
@@ -105,7 +105,7 @@ class LegacyWriteBatch(WriteBatch):
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self.graph.get_or_create_index(content_type, str(index))
+            return self.graph.legacy.get_or_create_index(content_type, str(index))
 
     def __init__(self, graph):
         super(LegacyWriteBatch, self).__init__(graph)
@@ -113,7 +113,7 @@ class LegacyWriteBatch(WriteBatch):
 
     @property
     def supports_index_uniqueness_modes(self):
-        return self.graph.supports_index_uniqueness_modes
+        return self.graph.legacy.supports_index_uniqueness_modes
 
     def _assert_can_create_or_fail(self):
         if not self.supports_index_uniqueness_modes:

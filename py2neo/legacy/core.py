@@ -19,26 +19,28 @@
 from __future__ import division, unicode_literals
 
 from py2neo.legacy.index import Index
-from py2neo.core import Graph, Node, Relationship, Resource, PropertyContainer
+from py2neo.core import Node, Relationship, Resource, PropertyContainer, ResourceWrapper
 from py2neo.cypher import CypherQuery
 from py2neo.packages.jsonstream import assembled
 
 
-__all__ = ["LegacyGraph", "LegacyNode"]
+__all__ = ["LegacyResource", "LegacyNode"]
 
 
-class LegacyGraph(Graph):
+class LegacyResource(ResourceWrapper):
 
-    def __init__(self, uri=None):
-        super(LegacyGraph, self).__init__(uri=uri)
-        self._indexes = {Node: {}, Relationship: {}}
+    __instances = {}
 
-    @property
-    def supports_index_uniqueness_modes(self):
-        """ Indicates whether the server supports `get_or_create` and
-        `create_or_fail` uniqueness modes on batched index methods.
-        """
-        return self.neo4j_version >= (1, 9)
+    def __new__(cls, uri):
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            inst = super(LegacyResource, cls).__new__(cls)
+            inst.bind(uri)
+            inst._indexes = {Node: {}, Relationship: {}}
+            inst.supports_index_uniqueness_modes = inst.graph.neo4j_version >= (1, 9)
+            cls.__instances[uri] = inst
+        return inst
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.

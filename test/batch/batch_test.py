@@ -53,8 +53,8 @@ class TestNodeCreation(object):
 class TestRelationshipCreation(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.batch = LegacyWriteBatch(legacy_graph)
+    def setup(self, graph):
+        self.batch = LegacyWriteBatch(graph)
 
     def test_can_create_relationship_with_new_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -68,13 +68,13 @@ class TestRelationshipCreation(object):
         assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
-    def test_can_create_relationship_with_new_indexed_nodes(self, legacy_graph):
+    def test_can_create_relationship_with_new_indexed_nodes(self, graph):
         try:
-            legacy_graph.delete_index(Node, "people")
+            graph.legacy.delete_index(Node, "people")
         except LookupError:
             pass
         try:
-            legacy_graph.delete_index(Relationship, "friendships")
+            graph.legacy.delete_index(Relationship, "friendships")
         except LookupError:
             pass
         self.batch.get_or_create_in_index(Node, "people", "name", "Alice", {"name": "Alice"})
@@ -347,14 +347,14 @@ class TestPropertyManagement(object):
 class TestIndexedNodeCreation(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
+    def setup(self, graph):
         try:
-            legacy_graph.delete_index(Node, "People")
+            graph.legacy.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = legacy_graph.get_or_create_index(Node, "People")
-        self.batch = LegacyWriteBatch(legacy_graph)
-        self.graph = legacy_graph
+        self.people = graph.legacy.get_or_create_index(Node, "People")
+        self.batch = LegacyWriteBatch(graph)
+        self.graph = graph
 
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
@@ -419,14 +419,14 @@ class TestIndexedNodeCreation(object):
 class TestIndexedNodeAddition(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
+    def setup(self, graph):
         try:
-            legacy_graph.delete_index(Node, "People")
+            graph.legacy.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = legacy_graph.get_or_create_index(Node, "People")
-        self.batch = LegacyWriteBatch(legacy_graph)
-        self.graph = legacy_graph
+        self.people = graph.legacy.get_or_create_index(Node, "People")
+        self.batch = LegacyWriteBatch(graph)
+        self.graph = graph
 
     def test_can_add_single_node(self):
         alice, = self.graph.create({"name": "Alice Smith"})
@@ -472,17 +472,17 @@ class TestIndexedNodeAddition(object):
 #class TestIndexedRelationshipCreation(object):
 #
 #    @pytest.fixture(autouse=True)
-#    def setup(self, legacy_graph):
+#    def setup(self, graph):
 #        try:
-#            legacy_graph.delete_index(Relationship, "friendships")
+#            graph.delete_index(Relationship, "friendships")
 #        except LookupError:
 #            pass
-#        self.friendships = legacy_graph.get_or_create_index(Relationship, "Friendships")
-#        self.alice, self.bob = legacy_graph.create({"name": "Alice"}, {"name": "Bob"})
-#        self.batch = LegacyWriteBatch(legacy_graph)
-#        self.graph = legacy_graph
+#        self.friendships = graph.get_or_create_index(Relationship, "Friendships")
+#        self.alice, self.bob = graph.create({"name": "Alice"}, {"name": "Bob"})
+#        self.batch = LegacyWriteBatch(graph)
+#        self.graph = graph
 #
-#    def test_can_create_single_indexed_relationship(self, legacy_graph):
+#    def test_can_create_single_indexed_relationship(self, graph):
 #        self.batch.get_or_create_indexed_relationship(
 #            self.friendships, "friends", "alice_&_bob",
 #            self.alice, "KNOWS", self.bob)
@@ -493,10 +493,10 @@ class TestIndexedNodeAddition(object):
 #        assert rels[0].type == "KNOWS"
 #        assert rels[0].end_node == self.bob
 #        assert rels[0].properties == {}
-#        legacy_graph.delete(rels)
-#        legacy_graph.delete(self.alice, self.bob)
+#        graph.delete(rels)
+#        graph.delete(self.alice, self.bob)
 #
-#    def test_can_get_or_create_uniquely_indexed_relationship(self, legacy_graph):
+#    def test_can_get_or_create_uniquely_indexed_relationship(self, graph):
 #        self.batch.get_or_create_indexed_relationship(
 #            self.friendships, "friends", "alice_&_bob",
 #            self.alice, "KNOWS", self.bob)
@@ -508,23 +508,23 @@ class TestIndexedNodeAddition(object):
 #        assert isinstance(rels[0], Relationship)
 #        assert isinstance(rels[1], Relationship)
 #        assert rels[0] == rels[1]
-#        legacy_graph.delete(rels)
-#        legacy_graph.delete(self.alice, self.bob)
+#        graph.delete(rels)
+#        graph.delete(self.alice, self.bob)
 
 
 class TestIndexedRelationshipAddition(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
+    def setup(self, graph):
         try:
-            legacy_graph.delete_index(Relationship, "Friendships")
+            graph.legacy.delete_index(Relationship, "Friendships")
         except LookupError:
             pass
-        self.friendships = legacy_graph.get_or_create_index(Relationship, "Friendships")
-        self.batch = LegacyWriteBatch(legacy_graph)
-        self.graph = legacy_graph
+        self.friendships = graph.legacy.get_or_create_index(Relationship, "Friendships")
+        self.batch = LegacyWriteBatch(graph)
+        self.graph = graph
 
-    def test_can_add_single_relationship(self, legacy_graph):
+    def test_can_add_single_relationship(self, graph):
         alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
         self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab)
         self.batch.run()
@@ -535,7 +535,7 @@ class TestIndexedRelationshipAddition(object):
         # done
         self.recycling = [ab, alice, bob]
 
-    def test_can_add_two_similar_relationships(self, legacy_graph):
+    def test_can_add_two_similar_relationships(self, graph):
         alice, bob, ab1, ab2 = self.graph.create(
             {"name": "Alice"}, {"name": "Bob"},
             (0, "KNOWS", 1), (0, "KNOWS", 1))
@@ -571,14 +571,14 @@ class TestIndexedRelationshipAddition(object):
 class TestIndexedNodeRemoval(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         try:
-            legacy_graph.delete_index(Node, "node_removal_test_index")
+            graph.legacy.delete_index(Node, "node_removal_test_index")
         except LookupError:
             pass
-        self.index = legacy_graph.get_or_create_index(Node, "node_removal_test_index")
-        self.fred, self.wilma, = legacy_graph.create(
+        self.index = graph.legacy.get_or_create_index(Node, "node_removal_test_index")
+        self.fred, self.wilma, = graph.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
         self.index.add("name", "Fred", self.fred)
@@ -587,7 +587,7 @@ class TestIndexedNodeRemoval(object):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-        self.batch = LegacyWriteBatch(legacy_graph)
+        self.batch = LegacyWriteBatch(graph)
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)

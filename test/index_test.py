@@ -35,8 +35,8 @@ logging.basicConfig(level=logging.DEBUG)
 class TestCreationAndDeletion(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_create_index_object_with_colon_in_name(self):
         uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
@@ -44,43 +44,43 @@ class TestCreationAndDeletion(object):
 
     def test_can_delete_create_and_delete_index(self):
         try:
-            self.graph.delete_index(neo4j.Node, "foo")
+            self.graph.legacy.delete_index(neo4j.Node, "foo")
         except LookupError:
             pass
-        foo = self.graph.get_index(neo4j.Node, "foo")
+        foo = self.graph.legacy.get_index(neo4j.Node, "foo")
         assert foo is None
-        foo = self.graph.get_or_create_index(neo4j.Node, "foo")
+        foo = self.graph.legacy.get_or_create_index(neo4j.Node, "foo")
         assert foo is not None
         assert isinstance(foo, neo4j.Index)
         assert foo.name == "foo"
         assert foo.content_type is neo4j.Node
-        self.graph.delete_index(neo4j.Node, "foo")
-        foo = self.graph.get_index(neo4j.Node, "foo")
+        self.graph.legacy.delete_index(neo4j.Node, "foo")
+        foo = self.graph.legacy.get_index(neo4j.Node, "foo")
         assert foo is None
 
     def test_can_delete_create_and_delete_index_with_colon_in_name(self):
         try:
-            self.graph.delete_index(neo4j.Node, "foo:bar")
+            self.graph.legacy.delete_index(neo4j.Node, "foo:bar")
         except LookupError:
             pass
-        foo = self.graph.get_index(neo4j.Node, "foo:bar")
+        foo = self.graph.legacy.get_index(neo4j.Node, "foo:bar")
         assert foo is None
-        foo = self.graph.get_or_create_index(neo4j.Node, "foo:bar")
+        foo = self.graph.legacy.get_or_create_index(neo4j.Node, "foo:bar")
         assert foo is not None
         assert isinstance(foo, neo4j.Index)
         assert foo.name == "foo:bar"
         assert foo.content_type is neo4j.Node
-        self.graph.delete_index(neo4j.Node, "foo:bar")
-        foo = self.graph.get_index(neo4j.Node, "foo:bar")
+        self.graph.legacy.delete_index(neo4j.Node, "foo:bar")
+        foo = self.graph.legacy.get_index(neo4j.Node, "foo:bar")
         assert foo is None
 
 
 class TestNodeIndex(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
-        self.index = self.graph.get_or_create_index(neo4j.Node, "node_test_index")
+    def setup(self, graph):
+        self.graph = graph
+        self.index = self.graph.legacy.get_or_create_index(neo4j.Node, "node_test_index")
 
     def test_add_existing_node_to_index(self):
         alice, = self.graph.create({"name": "Alice Smith"})
@@ -237,13 +237,13 @@ class TestNodeIndex(object):
 class TestRemoval(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         try:
-            self.graph.delete_index(neo4j.Node, "node_removal_test_index")
+            self.graph.legacy.delete_index(neo4j.Node, "node_removal_test_index")
         except LookupError:
             pass
-        self.index = self.graph.get_or_create_index(neo4j.Node, "node_removal_test_index")
+        self.index = self.graph.legacy.get_or_create_index(neo4j.Node, "node_removal_test_index")
         self.fred, self.wilma, = self.graph.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
@@ -291,25 +291,9 @@ class TestRemoval(object):
 
 class TestIndexedNode(object):
 
-    def test_get_or_create_indexed_node_with_int_property(self, legacy_graph):
-        fred = legacy_graph.get_or_create_indexed_node(index_name="person", key="name", value="Fred", properties={"level" : 1})
+    def test_get_or_create_indexed_node_with_int_property(self, graph):
+        fred = graph.legacy.get_or_create_indexed_node(
+            index_name="person", key="name", value="Fred", properties={"level" : 1})
         assert isinstance(fred, neo4j.Node)
         assert fred["level"] == 1
-        legacy_graph.delete(fred)
-
-
-class TestIndexConstructionTiming(object):
-
-    def test_time_of_creating_many_indexes(self, legacy_graph):
-        INDEX_COUNT = 1
-        indexes = dict.fromkeys(uuid4().hex for _ in range(INDEX_COUNT))
-        try:
-            t0 = time()
-            for index_name in indexes:
-                indexes[index_name] = legacy_graph.get_or_create_index(neo4j.Node, index_name)
-            t = time() - t0
-            print(t / INDEX_COUNT)
-        finally:
-            for index_name, index in indexes.items():
-                if index:
-                    legacy_graph.delete_index(neo4j.Node, index_name)
+        graph.delete(fred)

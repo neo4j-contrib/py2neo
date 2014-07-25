@@ -17,8 +17,5 @@
 
 
 from py2neo.legacy.batch import LegacyReadBatch, LegacyWriteBatch
-from py2neo.legacy.core import LegacyGraph, LegacyNode
+from py2neo.legacy.core import *
 from py2neo.legacy.index import Index
-
-
-__all__ = ["LegacyGraph", "Index", "LegacyNode", "LegacyReadBatch", "LegacyWriteBatch"]

@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import LegacyGraph, Node
+from py2neo import Graph, Node
 from py2neo.ext.ogm import Store
 
 
@@ -44,8 +44,8 @@ class Person(object):
 class TestExampleCode(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_execute_example_code(self):
 
@@ -59,7 +59,7 @@ class TestExampleCode(object):
             def __str__(self):
                 return self.name
 
-        graph = LegacyGraph()
+        graph = Graph()
         store = Store(graph)
 
         alice = Person("alice@example.com", "Alice", 34)
@@ -78,8 +78,8 @@ class TestExampleCode(object):
 class TestRelate(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_relate_to_other_object(self):
@@ -104,8 +104,8 @@ class TestRelate(object):
 class TestSeparate(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_separate_from_other_objects(self):
@@ -145,8 +145,8 @@ class TestSeparate(object):
 class TestLoadRelated(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_load_single_related_object(self):
@@ -190,8 +190,8 @@ class TestLoadRelated(object):
 class TestLoad(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_load(self):
@@ -209,16 +209,16 @@ class TestLoad(object):
 class TestLoadIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         try:
-            self.graph.delete_index(Node, "People")
+            self.graph.legacy.delete_index(Node, "People")
         except LookupError:
             pass
         self.store = Store(self.graph)
 
     def test_can_load(self):
-        people = self.graph.get_or_create_index(Node, "People")
+        people = self.graph.legacy.get_or_create_index(Node, "People")
         alice_node, bob_node = self.graph.create({
             "email": "alice@example.com",
             "name": "Alice Smith",
@@ -241,21 +241,23 @@ class TestLoadIndexed(object):
 class TestLoadUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         try:
-            self.graph.delete_index(Node, "People")
+            self.graph.legacy.delete_index(Node, "People")
         except LookupError:
             pass
-        self.graph.get_or_create_index(Node, "People")
+        self.graph.legacy.get_or_create_index(Node, "People")
         self.store = Store(self.graph)
 
     def test_can_load_simple_object(self):
-        alice_node = self.graph.get_or_create_indexed_node("People", "email", "alice@example.com", {
-            "email": "alice@example.com",
-            "name": "Alice Allison",
-            "age": 34,
-        })
+        alice_node = self.graph.legacy.get_or_create_indexed_node(
+            "People", "email", "alice@example.com", {
+                "email": "alice@example.com",
+                "name": "Alice Allison",
+                "age": 34,
+            }
+        )
         alice = self.store.load_unique("People", "email", "alice@example.com", Person)
         assert isinstance(alice, Person)
         assert hasattr(alice, "__node__")
@@ -267,11 +269,13 @@ class TestLoadUnique(object):
         assert alice.age == 34
 
     def test_can_load_object_with_relationships(self):
-        alice_node = self.graph.get_or_create_indexed_node("People", "email", "alice@example.com", {
-            "email": "alice@example.com",
-            "name": "Alice Allison",
-            "age": 34,
-        })
+        alice_node = self.graph.legacy.get_or_create_indexed_node(
+            "People", "email", "alice@example.com", {
+                "email": "alice@example.com",
+                "name": "Alice Allison",
+                "age": 34,
+            }
+        )
         path = alice_node.create_path("LIKES", {"name": "Bob Robertson"})
         bob_node = path.nodes[1]
         alice = self.store.load_unique("People", "email", "alice@example.com", Person)
@@ -303,8 +307,8 @@ class TestLoadUnique(object):
 class TestReload(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_reload(self):
@@ -323,8 +327,8 @@ class TestReload(object):
 class TestSave(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_save_simple_object(self):
@@ -344,10 +348,10 @@ class TestSave(object):
 class TestSaveIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         try:
-            self.graph.delete_index(Node, "People")
+            self.graph.legacy.delete_index(Node, "People")
         except LookupError:
             pass
         self.store = Store(self.graph)
@@ -356,7 +360,7 @@ class TestSaveIndexed(object):
         alice = Person("alice@example.com", "Alice Smith", 34)
         bob = Person("bob@example.org", "Bob Smith", 66)
         self.store.save_indexed("People", "family_name", "Smith", alice, bob)
-        people = self.graph.get_index(Node, "People")
+        people = self.graph.legacy.get_index(Node, "People")
         smiths = people.get("family_name", "Smith")
         assert len(smiths) == 2
         assert alice.__node__ in smiths
@@ -373,8 +377,8 @@ class TestSaveIndexed(object):
 class TestSaveUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_save_simple_object(self):
@@ -382,7 +386,8 @@ class TestSaveUnique(object):
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, Node)
-        assert alice.__node__ == self.graph.get_indexed_node("People", "email", "alice@example.com")
+        assert alice.__node__ == self.graph.legacy.get_indexed_node(
+            "People", "email", "alice@example.com")
 
     def test_can_save_object_with_rels(self):
         alice = Person("alice@example.com", "Alice Allison", 34)
@@ -394,7 +399,8 @@ class TestSaveUnique(object):
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, Node)
-        assert alice.__node__ == self.graph.get_indexed_node("People", "email", "alice@example.com")
+        assert alice.__node__ == self.graph.legacy.get_indexed_node(
+            "People", "email", "alice@example.com")
         friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
         assert len(friend_rels) == 1
         assert bob_node in (rel.end_node for rel in friend_rels)
@@ -409,8 +415,8 @@ class TestSaveUnique(object):
 class TestDelete(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
         self.store = Store(self.graph)
 
     def test_can_delete_object(self):

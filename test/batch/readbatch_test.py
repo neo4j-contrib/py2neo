@@ -24,15 +24,15 @@ from py2neo import neo4j
 class TestGetIndexedNode(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, legacy_graph):
-        self.graph = legacy_graph
+    def setup(self, graph):
+        self.graph = graph
 
     def test_can_retrieve_multiple_indexed_nodes(self):
         try:
-            self.graph.delete_index(neo4j.Node, "People")
+            self.graph.legacy.delete_index(neo4j.Node, "People")
         except LookupError:
             pass
-        people = self.graph.get_or_create_index(neo4j.Node, "People")
+        people = self.graph.legacy.get_or_create_index(neo4j.Node, "People")
         alice, bob, carol, dave, eve = self.graph.create(
             {"name": "Alice Smith"},
             {"name": "Bob Smith"},
