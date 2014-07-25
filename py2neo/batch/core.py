@@ -21,7 +21,7 @@ from __future__ import division, unicode_literals
 import json
 import logging
 
-from py2neo.core import NodePointer, ResourceWrapper
+from py2neo.core import NodePointer, Service
 from py2neo.cypher import CypherResults
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
@@ -40,7 +40,7 @@ class BatchError(Exception):
         self.__cause__ = error
 
 
-class BatchResource(ResourceWrapper):
+class BatchResource(Service):
 
     __instances = {}
 

@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from py2neo.core import ResourceWrapper
+from py2neo.core import Service
 from py2neo.cypher.error import CypherError
 from py2neo.cypher.results import IterableCypherResults
 
@@ -28,7 +28,7 @@ from py2neo.cypher.results import IterableCypherResults
 log = logging.getLogger("py2neo.cypher")
 
 
-class CypherResource(ResourceWrapper):
+class CypherResource(Service):
 
     error_class = CypherError
 

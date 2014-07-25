@@ -19,7 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo.legacy.batch import LegacyWriteBatch
-from py2neo.core import ResourceWrapper, Node, Relationship, Resource, ResourceTemplate
+from py2neo.core import Service, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -28,7 +28,7 @@ from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 __all__ = ["Index"]
 
 
-class Index(ResourceWrapper):
+class Index(Service):
     """ Searchable database index which can contain either nodes or
     relationships.
 
@@ -48,7 +48,7 @@ class Index(ResourceWrapper):
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
-        ResourceWrapper.__init__(self)
+        Service.__init__(self)
         self._content_type = content_type
         key_value_pos = uri.find("/{key}/{value}")
         if key_value_pos >= 0:

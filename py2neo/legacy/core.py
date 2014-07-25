@@ -19,7 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo.legacy.index import Index
-from py2neo.core import Node, Relationship, Resource, PropertyContainer, ResourceWrapper
+from py2neo.core import Node, Relationship, Resource, PropertyContainer, Service
 from py2neo.cypher import CypherQuery
 from py2neo.packages.jsonstream import assembled
 
@@ -27,7 +27,7 @@ from py2neo.packages.jsonstream import assembled
 __all__ = ["LegacyResource", "LegacyNode"]
 
 
-class LegacyResource(ResourceWrapper):
+class LegacyResource(Service):
 
     __instances = {}
 

@@ -16,9 +16,7 @@
 # limitations under the License.
 
 
-import pytest
-
-from py2neo.core import Graph, Node, Rel, Rev, Path
+from py2neo.core import Node, Rel, Rev, Path
 
 
 def test_can_pull_node(graph):

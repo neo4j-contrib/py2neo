@@ -22,7 +22,7 @@ rewrite - register a rewrite hook for a scheme://host:port
 
 Resource - local representation of a remote web resource
 ResourceTemplate - template for Resource generation based on a pattern
-ResourceWrapper - base class for objects that can be bound to remote resources
+Service - base class for objects that can be bound to remote resources
 ServiceRoot - root resource for a Neo4j server instance
 Graph - main graph resource class to bind to a remote graph database service
 Schema - schema index and constraint management resource
@@ -52,17 +52,18 @@ from py2neo.error import GraphError, BindError, JoinError
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
-from py2neo.packages.httpstream.numbers import NOT_FOUND, CONFLICT
-from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI, URITemplate
+from py2neo.packages.httpstream.numbers import NOT_FOUND
+from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
 
 
 __all__ = ["authenticate", "rewrite",
-           "Resource", "ResourceTemplate", "Bindable", "ResourceWrapper",
+           "Resource", "ResourceTemplate", "Service",
            "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
-           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship"]
+           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship",
+           "ServerPlugin", "UnmanagedExtension"]
 
 
 DEFAULT_SCHEME = "http"
@@ -299,46 +300,30 @@ class ResourceTemplate(_ResourceTemplate):
         return resource
 
 
-class Bindable(object):
+class Service(object):
+    """ Base class for objects that can be bound to a remote resource.
+    """
+
+    error_class = GraphError
 
     __resource__ = None
 
-    def __bind__(self, uri, metadata=None):
+    def bind(self, uri, metadata=None):
+        """ Bind object to Resource or ResourceTemplate.
+        """
         if "{" in uri and "}" in uri:
             if metadata:
                 raise ValueError("Initial metadata cannot be passed to a resource template")
             self.__resource__ = ResourceTemplate(uri)
         else:
             self.__resource__ = Resource(uri, metadata)
-
-    def __unbind__(self):
-        self.__resource__ = None
-
-    def __bound__(self):
-        """ Returns :const:`True` if bound to a remote resource.
-        """
-        return self.__resource__ is not None
-
-
-class ResourceWrapper(Bindable):
-    """ Base class for objects that can be bound to a remote resource.
-    """
-
-    error_class = GraphError
-
-    def __init__(self, uri=None, metadata=None):
-        if uri and not self.bound:
-            self.bind(uri, metadata)
-
-    def bind(self, uri, metadata=None):
-        """ Bind object to Resource or ResourceTemplate.
-        """
-        Bindable.__bind__(self, uri, metadata)
         self.__resource__.error_class = self.error_class
 
     @property
     def bound(self):
-        return Bindable.__bound__(self)
+        """ Returns :const:`True` if bound to a remote resource.
+        """
+        return self.__resource__ is not None
 
     @property
     def graph(self):
@@ -362,7 +347,7 @@ class ResourceWrapper(Bindable):
         return self.resource.service_root
 
     def unbind(self):
-        Bindable.__unbind__(self)
+        self.__resource__ = None
 
     @property
     def uri(self):
@@ -411,7 +396,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graph(ResourceWrapper):
+class Graph(Service):
     """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
     its base URI. Generally speaking, this is the only URI which a system
     attaching to this service should need to be directly aware of; all further
@@ -896,7 +881,7 @@ class Graph(ResourceWrapper):
         return "transaction" in self.resource.metadata
 
 
-class Schema(ResourceWrapper):
+class Schema(Service):
 
     __instances = {}
 
@@ -969,13 +954,13 @@ class Schema(ResourceWrapper):
         ]
 
 
-class PropertySet(ResourceWrapper, dict):
+class PropertySet(Service, dict):
     """ A dict subclass that equates None with a non-existent key and can be
     bound to a remote *properties* resource.
     """
 
     def __init__(self, iterable=None, **kwargs):
-        ResourceWrapper.__init__(self)
+        Service.__init__(self)
         dict.__init__(self)
         self.update(iterable, **kwargs)
 
@@ -1036,12 +1021,12 @@ class PropertySet(ResourceWrapper, dict):
             self[key] = kwargs[key]
 
 
-class LabelSet(ResourceWrapper, set):
+class LabelSet(Service, set):
     """ A set subclass that can be bound to a remote *labels* resource.
     """
 
     def __init__(self, iterable=None):
-        ResourceWrapper.__init__(self)
+        Service.__init__(self)
         set.__init__(self)
         if iterable:
             self.update(iterable)
@@ -1071,13 +1056,13 @@ class LabelSet(ResourceWrapper, set):
         self.update(iterable)
 
 
-class PropertyContainer(ResourceWrapper):
+class PropertyContainer(Service):
     """ Base class for objects that contain a set of properties,
     i.e. :py:class:`Node` and :py:class:`Relationship`.
     """
 
     def __init__(self, **properties):
-        ResourceWrapper.__init__(self)
+        Service.__init__(self)
         self.__properties = PropertySet(properties)
         # Auto-sync will be removed in 2.1
         self.auto_sync_properties = Graph.auto_sync_properties
@@ -1108,7 +1093,7 @@ class PropertyContainer(ResourceWrapper):
         self.__push_if_bound()
 
     def bind(self, uri, metadata=None):
-        ResourceWrapper.bind(self, uri, metadata)
+        Service.bind(self, uri, metadata)
         self.__properties.bind(uri + "/properties")
 
     @property
@@ -1126,7 +1111,7 @@ class PropertyContainer(ResourceWrapper):
         self.__properties.push()
 
     def unbind(self):
-        ResourceWrapper.unbind(self)
+        Service.unbind(self)
         self.__properties.unbind()
 
     def __pull_if_bound(self):
@@ -1602,7 +1587,7 @@ class Rel(PropertyContainer):
         if pair is not None:
             PropertyContainer.bind(pair, uri, metadata)
             # make sure we're using exactly the same resource object
-            # (maybe could write a ResourceWrapper.multi_bind classmethod
+            # (maybe could write a Service.multi_bind classmethod
             pair.__resource__ = self.__resource__
             pair.cache[uri] = pair
 
@@ -2124,6 +2109,23 @@ class Relationship(Path):
         """ The URI of this relationship, if bound.
         """
         return self.rel.uri
+
+
+class ServerPlugin(object):
+
+    def __init__(self, graph, name):
+        self.graph = graph
+        self.name = name
+        extensions = self.graph.resource.metadata["extensions"]
+        try:
+            self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
+        except KeyError:
+            raise LookupError("No plugin named %r found on graph <%s>" % (self.name, graph.uri))
+
+
+class UnmanagedExtension(object):
+
+    pass
 
 
 from py2neo.deprecated import *
