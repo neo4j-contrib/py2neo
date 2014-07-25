@@ -29,8 +29,14 @@ class Representation(object):
     safe_first_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
     safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 
-    def __init__(self):
+    default_sequence_separator = ","
+    default_key_value_separator = ":"
+
+    def __init__(self, **kwargs):
         self.__buffer = []
+        self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
+        self.key_value_separator = kwargs.get("key_value_separator",
+                                              self.default_key_value_separator)
 
     def __repr__(self):
         return "".join(self.__buffer)
@@ -56,18 +62,18 @@ class Representation(object):
         for value in collection:
             self.__buffer.append(link)
             self.write(value)
-            link = ","
+            link = self.sequence_separator
         self.__buffer.append("]")
 
     def write_mapping(self, mapping):
         self.__buffer.append("{")
         link = ""
-        for key, value in mapping.items():
+        for key, value in sorted(mapping.items()):
             self.__buffer.append(link)
             self.write_identifier(key)
-            self.__buffer.append(":")
+            self.__buffer.append(self.key_value_separator)
             self.write(value)
-            link = ","
+            link = self.sequence_separator
         self.__buffer.append("}")
 
     def write_node(self, node, name=None):
@@ -101,17 +107,17 @@ class Representation(object):
         else:
             self.__buffer.append("]->")
 
+    def write_relationship(self, relationship, name=None):
+        self.write_node(relationship.start_node)
+        self.write_rel(relationship.rel, name)
+        self.write_node(relationship.end_node)
+
     def write_path(self, path):
         nodes = path.nodes
         self.write_node(nodes[0])
         for i, rel in enumerate(path.rels):
             self.write_rel(rel)
             self.write_node(nodes[i + 1])
-
-    def write_relationship(self, relationship, name=None):
-        self.write_node(relationship.start_node)
-        self.write_rel(relationship.rel, name)
-        self.write_node(relationship.end_node)
 
     def write(self, obj):
         if obj is None:
@@ -120,10 +126,10 @@ class Representation(object):
             self.write_node(obj)
         elif isinstance(obj, Rel):
             self.write_rel(obj)
-        elif isinstance(obj, Path):
-            self.write_path(obj)
         elif isinstance(obj, Relationship):
             self.write_relationship(obj)
+        elif isinstance(obj, Path):
+            self.write_path(obj)
         elif isinstance(obj, dict):
             self.write_mapping(obj)
         elif is_collection(obj):

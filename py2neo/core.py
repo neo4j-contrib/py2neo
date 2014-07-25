@@ -59,7 +59,8 @@ from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
 
 
-__all__ = ["authenticate", "rewrite", "Resource", "ResourceTemplate", "ResourceWrapper",
+__all__ = ["authenticate", "rewrite",
+           "Resource", "ResourceTemplate", "Bindable", "ResourceWrapper",
            "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
            "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship"]
 
