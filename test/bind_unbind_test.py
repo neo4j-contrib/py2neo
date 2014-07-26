@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo.core import Resource, Node, Rel, Rev, Relationship, Service
+from py2neo.core import Resource, Node, Rel, Rev, Relationship, Service, Path
 from py2neo.error import BindError
 
 
@@ -65,6 +65,25 @@ def test_default_state_for_node_is_unbound():
     assert not node.bound
     with pytest.raises(BindError):
         _ = node.resource
+
+
+def test_bound_path_is_bound(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    graph.create(path)
+    assert path.bound
+
+
+def test_unbound_path_is_not_bound():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    assert not path.bound
 
 
 def test_can_bind_node_to_resource():
@@ -153,6 +172,27 @@ def test_can_unbind_relationship_with_already_unbound_nodes(graph):
     assert not b.bound
     ab.unbind()
     assert not ab.bound
+
+
+def test_can_unbind_bound_path(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    graph.create(path)
+    path.unbind()
+    assert not path.bound
+
+
+def test_can_unbind_unbound_path_without_error():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    dave = Node(name="Dave")
+    path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+    path.unbind()
+    assert not path.bound
 
 
 def test_unbinding_rel_also_unbinds_rev(graph):

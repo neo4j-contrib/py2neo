@@ -77,19 +77,19 @@ def test_bound_node_equals_unbound_node_with_same_properties():
     assert alice_1 == alice_2
 
 
-def test_bound_nodes_are_hashed_on_uri():
-    alice_1 = Node(name="Alice Smith")
+def test_bound_node_equality():
+    alice_1 = Node(name="Alice")
     alice_1.bind("http://localhost:7474/db/data/node/1")
     Node.cache.clear()
     alice_2 = Node(name="Alice")
     alice_2.bind(alice_1.uri)
-    assert hash(alice_1) == hash(alice_2)
+    assert alice_1 == alice_2
 
 
-def test_unbound_nodes_are_hashed_on_labels_and_properties():
+def test_unbound_node_equality():
     alice_1 = Node("Person", name="Alice")
     alice_2 = Node("Person", name="Alice")
-    assert hash(alice_1) == hash(alice_2)
+    assert alice_1 == alice_2
 
 
 def test_binding_node_if_labels_not_supported_casts_to_legacy_node():

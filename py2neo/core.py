@@ -454,6 +454,9 @@ class Graph(Service):
             cls.__instances[key] = inst
         return inst
 
+    def __hash__(self):
+        return hash(self.uri)
+
     def __len__(self):
         """ Return the size of this graph (i.e. the number of relationships).
         """
@@ -972,6 +975,12 @@ class PropertySet(Service, dict):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        value = 0
+        for item in self.items():
+            value ^= hash(item)
+        return value
+
     def __getitem__(self, key):
         return dict.get(self, key)
 
@@ -1039,6 +1048,12 @@ class LabelSet(Service, set):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        value = 0
+        for label in self:
+            value ^= hash(label)
+        return value
+
     def pull(self):
         """ Copy the set of remote labels onto the local set.
         """
@@ -1072,6 +1087,9 @@ class PropertyContainer(Service):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__properties)
 
     def __len__(self):
         return len(self.properties)
@@ -1307,11 +1325,10 @@ class Node(PropertyContainer):
                     PropertyContainer.__eq__(self, other))
 
     def __hash__(self):
+        value = super(Node, self).__hash__() ^ hash(self.labels)
         if self.bound:
-            hashable = self.resource.uri
-        else:
-            hashable = (tuple(sorted(self.properties.items())), tuple(sorted(self.labels)))
-        return hash(hashable)
+            value ^= hash(self.resource.uri)
+        return value
 
     def __add__(self, other):
         return Path(self, other)
@@ -1453,6 +1470,9 @@ class NodePointer(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.address)
+
 
 class Rel(PropertyContainer):
     """ A relationship with no start or end nodes.
@@ -1556,6 +1576,12 @@ class Rel(PropertyContainer):
         else:
             return self.type == other.type and self.properties == other.properties
 
+    def __hash__(self):
+        value = super(Rel, self).__hash__() ^ hash(self.type)
+        if self.bound:
+            value ^= hash(self.resource.uri)
+        return value
+
     def __pos__(self):
         return self
 
@@ -1658,6 +1684,9 @@ class Rev(Rel):
 
     def __abs__(self):
         return self.__neg__()
+
+    def __hash__(self):
+        return -(super(Rev, self).__hash__())
 
 
 Rel.pair_class = Rev
@@ -1775,6 +1804,12 @@ class Path(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        value = 0
+        for entity in self.rels + self.nodes:
+            value ^= hash(entity)
+        return value
+
     def __bool__(self):
         return bool(self.rels)
 
@@ -1815,6 +1850,15 @@ class Path(object):
         return Path(self, other)
 
     @property
+    def bound(self):
+        try:
+            _ = self.service_root
+        except BindError:
+            return False
+        else:
+            return True
+
+    @property
     def end_node(self):
         return self.__nodes[-1]
 
@@ -1849,12 +1893,6 @@ class Path(object):
         batch.push()
 
     @property
-    def rels(self):
-        """ Return a tuple of all the rels which make up this path.
-        """
-        return self.__rels
-
-    @property
     def relationships(self):
         """ Return a list of all the relationships which make up this path.
         """
@@ -1864,6 +1902,12 @@ class Path(object):
                 for i, rel in enumerate(self.rels)
             )
         return self.__relationships
+
+    @property
+    def rels(self):
+        """ Return a tuple of all the rels which make up this path.
+        """
+        return self.__rels
 
     @property
     def service_root(self):
@@ -1883,6 +1927,13 @@ class Path(object):
     @property
     def start_node(self):
         return self.__nodes[0]
+
+    def unbind(self):
+        for entity in self.rels + self.nodes:
+            try:
+                entity.unbind()
+            except BindError:
+                pass
 
 
 class Relationship(Path):
