@@ -92,15 +92,17 @@ class BatchResource(Service):
                 log.info("<<< %s", result)
                 results.append(result)
             return results
-        except ValueError as error:
+        except ValueError:
             # Here, we're looking to gracefully handle a Neo4j server bug
             # whereby a response is received with no content and
             # 'Content-Type: application/json'. Given that correct JSON
             # technically needs to contain {} at minimum, the JSON
             # parser fails with a ValueError.
             if response.content_length == 0:
+                from sys import exc_info
                 from traceback import extract_tb
-                for filename, line_number, function_name, text in extract_tb(error.__traceback__):
+                type_, value, traceback = exc_info()
+                for filename, line_number, function_name, text in extract_tb(traceback):
                     if "json" in filename and "decode" in function_name:
                         return []
             raise
