@@ -631,3 +631,12 @@ def test_can_use_return_values_as_references(graph):
     assert isinstance(ab, Relationship)
     assert ab.start_node["name"] == "Alice"
     assert ab.end_node["name"] == "Bob"
+
+
+def test_can_handle_json_response_with_no_content(graph):
+    # This example might fail if the server bug is fixed that returns
+    # a 200 response with application/json content-type and no content.
+    batch = WriteBatch(graph)
+    batch.create((0, "KNOWS", 1))
+    results = batch.submit()
+    assert results == []

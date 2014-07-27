@@ -92,6 +92,13 @@ class BatchResource(Service):
                 log.info("<<< %s", result)
                 results.append(result)
             return results
+        except ValueError as error:
+            content_length = response.content_length
+            message = error.args[0]
+            if content_length == 0 and message == "No JSON object could be decoded":
+                return []
+            else:
+                raise
         finally:
             response.close()
 
