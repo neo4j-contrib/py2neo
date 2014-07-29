@@ -19,15 +19,11 @@
 from __future__ import unicode_literals
 
 import logging
-import sys
-from time import time
 from uuid import uuid4
 
 import pytest
 from py2neo import neo4j
 
-
-PY3K = sys.version_info[0] >= 3
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -186,7 +182,6 @@ class TestNodeIndex(object):
             # subsequent calls fail as node already exists
             alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
             assert alice is None
-        self.graph.delete(alice)
 
     def test_add_node_if_none(self):
         self.graph.delete(*self.index.get("surname", "Smith"))

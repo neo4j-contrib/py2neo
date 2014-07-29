@@ -83,20 +83,20 @@ class CreateStatement(object):
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
-            self.names.append(self.create_node(name, entity))
+            self.names.append(self.create_node(entity, name))
         elif isinstance(entity, Path):
-            self.names.append(self.create_path(name, entity))
+            self.names.append(self.create_path(entity, name))
         else:
             raise TypeError("Cannot create entity of type %s" % type(entity).__name__)
         self.entities.append(entity)
 
-    def create_node(self, name, node):
+    def create_node(self, node, name):
+        kwargs = {"name": name}
         if node.bound:
-            self.start_clause.append("{name}=node({{{name}}})".format(name=name))
+            self.start_clause.append("{name}=node({{{name}}})".format(**kwargs))
             self.params[name] = node._id
         else:
             template = "{name}"
-            kwargs = {"name": name}
             if node.labels and self.supports_node_labels:
                 template += "{labels}"
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
@@ -107,26 +107,11 @@ class CreateStatement(object):
         self.return_clause.append(name)
         return [name], []
 
-    def create_rel(self, name, rel, *node_names):
-        if rel.bound:
-            self.start_clause.append("{name}=rel({{{name}}})".format(name=name))
-            self.params[name] = rel._id
-        else:
-            if rel.properties:
-                template = "({0})-[{1}:{2} {{{1}}}]->({3})"
-                self.params[name] = rel.properties
-            else:
-                template = "({0})-[{1}:{2}]->({3})"
-            self.create_clause.append(template.format(node_names[0], name, cypher_escape(rel.type), node_names[1]))
-        self.return_clause.append(name)
-        return [], [name]
-
-    def create_path(self, name, path):
-        node_names = [None] * len(path.nodes)
-        rel_names = [None] * len(path.rels)
+    def create_path(self, path, name):
+        node_names = []
         for i, node in enumerate(path.nodes):
             if isinstance(node, NodePointer):
-                node_names[i] = _(node.address)
+                node_names.append(_(node.address))
                 # Switch out node with object from elsewhere in entity list
                 nodes = list(path.nodes)
                 node = self.entities[node.address]
@@ -135,9 +120,24 @@ class CreateStatement(object):
                 nodes[i] = node
                 path.__nodes = tuple(nodes)
             else:
-                node_names[i] = name + "n" + ustr(i)
-                self.create_node(node_names[i], node)
+                node_name = name + "n" + ustr(i)
+                node_names.append(node_name)
+                self.create_node(node, node_name)
+        rel_names = []
         for i, rel in enumerate(path.rels):
-            rel_names[i] = name + "r" + ustr(i)
-            self.create_rel(rel_names[i], rel, node_names[i], node_names[i + 1])
+            rel_name = name + "r" + ustr(i)
+            rel_names.append(rel_name)
+            if rel.bound:
+                self.start_clause.append("{name}=rel({{{name}}})".format(name=rel_name))
+                self.params[rel_name] = rel._id
+            else:
+                if rel.properties:
+                    template = "({start})-[{name}:{type} {{{name}}}]->({end})"
+                    self.params[rel_name] = rel.properties
+                else:
+                    template = "({start})-[{name}:{type}]->({end})"
+                kwargs = {"start": node_names[i], "name": rel_name,
+                          "type": cypher_escape(rel.type), "end": node_names[i + 1]}
+                self.create_clause.append(template.format(**kwargs))
+            self.return_clause.append(rel_name)
         return node_names, rel_names

@@ -531,21 +531,13 @@ class Graph(Service):
         return statement.execute()
 
     def delete(self, *entities):
-        """ Delete one or more Nodes, Relationships and/or Paths. Note that
-        deleting a relationship or path will remove only the relationships,
-        not the nodes. These must be deleted explicitly *after* the relationships
-        have been deleted.
+        """ Delete one or more Nodes, Relationships and/or Paths.
         """
-        if entities:
-            from py2neo.batch import WriteBatch
-            batch = WriteBatch(self)
-            for entity in entities:
-                if isinstance(entity, Path):
-                    for rel in entity:
-                        batch.delete(rel)
-                elif entity is not None:
-                    batch.delete(entity)
-            batch.run()
+        from py2neo.cypher.delete import DeleteStatement
+        statement = DeleteStatement(self)
+        for entity in entities:
+            statement.delete(entity)
+        return statement.execute()
 
     def delete_all(self):
         """ Delete all nodes and relationships from the graph.
@@ -1861,6 +1853,10 @@ class Path(object):
     @property
     def end_node(self):
         return self.__nodes[-1]
+
+    @property
+    def exists(self):
+        return all(entity.exists for entity in self.nodes + self.rels)
 
     @property
     def graph(self):
