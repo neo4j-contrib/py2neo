@@ -24,7 +24,7 @@ import sys
 
 import pytest
 
-from py2neo import neo4j, Node, BindError, LegacyNode, GraphError
+from py2neo import neo4j, Node, BindError, LegacyNode, GraphError, Path
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -336,3 +336,23 @@ class TestNode(object):
 
     def tearDown(self):
         self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
+
+
+def test_node_degree(graph):
+    alice = Node("Person", name="Alice")
+    bob = Node("Person", name="Bob")
+    carol = Node("Person", name="Carol")
+    try:
+        _ = alice.degree
+    except BindError:
+        assert True
+    else:
+        assert False
+    graph.create(alice)
+    assert alice.degree == 0
+    graph.create(Path(alice, "KNOWS", bob))
+    assert alice.degree == 1
+    graph.create(Path(alice, "KNOWS", carol))
+    assert alice.degree == 2
+    graph.create(Path(carol, "KNOWS", alice))
+    assert alice.degree == 3

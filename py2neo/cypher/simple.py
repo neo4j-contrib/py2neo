@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from py2neo.core import Service
+from py2neo.core import Service, Node, Relationship
 from py2neo.cypher.error import CypherError
 from py2neo.cypher.results import IterableCypherResults
 
@@ -44,13 +44,15 @@ class CypherResource(Service):
         return inst
 
     def post(self, query, params=None):
-        if __debug__:
-            log.debug("Query: " + repr(query))
+        log.debug("Query: " + repr(query))
         payload = {"query": query}
         if params:
-            if __debug__:
-                log.debug("Params: " + repr(params))
-            payload["params"] = params
+            log.debug("Params: " + repr(params))
+            payload["params"] = {}
+            for key, value in params.items():
+                if isinstance(value, (Node, Relationship)):
+                    value = value._id
+                payload["params"][key] = value
         return self.resource.post(payload)
 
     def run(self, query, params=None):
@@ -64,11 +66,14 @@ class CypherResource(Service):
             response.close()
 
     def execute_one(self, query, params=None):
-        # TODO: make sure post response is closed
+        response = self.post(query, params)
+        results = self.graph.hydrate(response.content)
         try:
-            return self.execute(query, params).data[0][0]
+            return results.data[0][0]
         except IndexError:
             return None
+        finally:
+            response.close()
 
     def stream(self, query, params=None):
         """ Execute the query and return a result iterator.

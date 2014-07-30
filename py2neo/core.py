@@ -677,20 +677,20 @@ class Graph(Service):
             start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node._id}
+            params = {"A": start_node}
         elif start_node is None:
             query = "START b=node({B})"
             end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"B": end_node._id}
+            params = {"B": end_node}
         else:
             query = "START a=node({A}),b=node({B})"
             start_node = Node.cast(start_node)
             end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node._id, "B": end_node._id}
+            params = {"A": start_node, "B": end_node}
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
@@ -1350,6 +1350,11 @@ class Node(PropertyContainer):
             from py2neo.legacy.core import LegacyNode
             self.__class__ = LegacyNode
         self.cache[uri] = self
+
+    @property
+    def degree(self):
+        statement = "START n=node({n}) MATCH (n)-[r]-() RETURN count(r)"
+        return self.graph.cypher.execute_one(statement, {"n": self})
 
     @property
     def exists(self):
