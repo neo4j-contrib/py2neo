@@ -60,8 +60,9 @@ def test_repeated_graph_creation_needs_no_extra_responses():
         assert counter.response_count == 0
 
 
-def test_merge_needs_one_response():
-    graph = Graph()
+def test_merge_needs_one_response(graph):
+    if not graph.supports_node_labels:
+        return
     _ = graph.neo4j_version
     with HTTPCounter() as counter:
         count = 0
@@ -72,8 +73,9 @@ def test_merge_needs_one_response():
         assert counter.response_count == 1
 
 
-def test_find_needs_one_response():
-    graph = Graph()
+def test_find_needs_one_response(graph):
+    if not graph.supports_node_labels:
+        return
     _ = graph.neo4j_version
     graph.merge("Person", "name", "Alice")
     with HTTPCounter() as counter:
