@@ -556,17 +556,21 @@ class Graph(Service):
         """ Iterate through a set of labelled nodes, optionally filtering
         by property key and value
         """
-        uri = self.uri.resolve("/".join(["label", label, "nodes"]))
-        if property_key:
-            uri = uri.resolve("?" + percent_encode({property_key: json.dumps(property_value, ensure_ascii=False)}))
-        try:
-            for i, result in grouped(Resource(uri).get()):
-                yield Node.hydrate(assembled(result))
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
-                pass
-            else:
-                raise
+        if not label:
+            raise ValueError("Empty label")
+        from py2neo.cypher.lang import cypher_escape
+        if property_key is None:
+            statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
+            response = self.cypher.post(statement)
+        else:
+            statement = "MATCH (n:%s {%s:{v}}) RETURN n,labels(n)" % (
+                cypher_escape(label), cypher_escape(property_key))
+            response = self.cypher.post(statement, {"v": property_value})
+        for record in response.content["data"]:
+            dehydrated = record[0]
+            dehydrated["label_data"] = record[1]
+            yield self.hydrate(dehydrated)
+        response.close()
 
     def hydrate(self, data):
         """ Hydrate a dictionary of data into a Node, Relationship or other
@@ -736,16 +740,21 @@ class Graph(Service):
         """ Create a node by label and optional property if none already exists
         with those criteria, returning all nodes that match.
         """
+        if not label:
+            raise ValueError("Empty label")
         from py2neo.cypher.lang import cypher_escape
         if property_key is None:
-            statement = "MERGE (n:%s) RETURN n" % cypher_escape(label)
-            results = self.cypher.execute(statement)
+            statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
+            response = self.cypher.post(statement)
         else:
-            statement = "MERGE (n:%s {%s:{v}}) RETURN n" % (
+            statement = "MERGE (n:%s {%s:{v}}) RETURN n,labels(n)" % (
                 cypher_escape(label), cypher_escape(property_key))
-            results = self.cypher.execute(statement, {"v": property_value})
-        for result in results:
-            yield result[0]
+            response = self.cypher.post(statement, {"v": property_value})
+        for record in response.content["data"]:
+            dehydrated = record[0]
+            dehydrated["label_data"] = record[1]
+            yield self.hydrate(dehydrated)
+        response.close()
 
     @property
     def neo4j_version(self):

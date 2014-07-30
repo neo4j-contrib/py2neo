@@ -42,3 +42,14 @@ def test_can_merge_on_label_and_property(graph):
     assert isinstance(merged[0], Node)
     assert merged[0].labels == {label}
     assert merged[0].properties == {"foo": "bar"}
+
+
+def test_cannot_merge_empty_label(graph):
+    if not graph.supports_node_labels:
+        return
+    try:
+        _ = list(graph.merge(""))
+    except ValueError:
+        assert True
+    else:
+        assert False

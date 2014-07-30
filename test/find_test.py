@@ -22,8 +22,7 @@ except ImportError:
     from mock import patch, Mock
 from uuid import uuid4
 
-from py2neo import GraphError, Node
-from py2neo.packages.httpstream import Resource as _Resource
+from py2neo import Node
 
 
 def test_will_find_no_nodes_with_non_existent_label(graph):
@@ -49,25 +48,12 @@ def test_can_find_nodes_with_label_and_property(graph):
     assert alice in nodes
 
 
-def test_can_handle_not_found_error_as_no_nodes(graph):
-    with patch.object(_Resource, "get") as mocked:
-        error = GraphError("")
-        error.response = Mock()
-        error.response.status_code = 404
-        mocked.side_effect = error
-        nodes = list(graph.find(""))
-        assert nodes == []
-
-
-def test_will_raise_on_other_error(graph):
-    with patch.object(_Resource, "get") as mocked:
-        error = GraphError("")
-        error.response = Mock()
-        error.response.status_code = 500
-        mocked.side_effect = error
-        try:
-            nodes = list(graph.find(""))
-        except GraphError:
-            assert True
-        else:
-            assert False
+def test_cannot_find_empty_label(graph):
+    if not graph.supports_node_labels:
+        return
+    try:
+        _ = list(graph.find(""))
+    except ValueError:
+        assert True
+    else:
+        assert False
