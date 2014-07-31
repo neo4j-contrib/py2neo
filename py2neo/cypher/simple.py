@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import logging
 
-from py2neo.core import Service, Node, Relationship
+from py2neo.core import Service, Node, Rel, Relationship
 from py2neo.cypher.error import CypherError
 from py2neo.cypher.results import IterableCypherResults
 
@@ -57,15 +57,15 @@ class CypherResource(Service):
         return inst
 
     def post(self, query, params=None):
-        log.debug("Query: " + repr(query))
+        log.debug("Query: %r", query)
         payload = {"query": query}
         if params:
-            log.debug("Params: " + repr(params))
             payload["params"] = {}
             for key, value in params.items():
-                if isinstance(value, (Node, Relationship)):
+                if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
+            log.debug("Params: %r", payload["params"])
         return self.resource.post(payload)
 
     def run(self, query, params=None):
