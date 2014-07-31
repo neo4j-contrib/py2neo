@@ -234,7 +234,7 @@ class GregorianCalendar(object):
         else:
             raise ValueError("Either start or end date must be supplied "
                              "for a date range")
-        return self._graph.cypher.execute(query, params)
+        return self._graph.cypher.execute_one(query, params)
 
     def quarter(self, year, quarter):
         if quarter == 1:
