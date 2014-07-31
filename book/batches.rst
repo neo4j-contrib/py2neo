@@ -13,14 +13,14 @@ executed within a single transaction.
 Unfortunately, it is not practical to mix both read and write operations into
 a single batch due to restrictions within the underlying implementation. For
 this reason, py2neo provides two separate batch classes:
-:py:class:`ReadBatch <py2neo.neo4j.ReadBatch>` and
-:py:class:`WriteBatch <py2neo.neo4j.WriteBatch>`.
+:py:class:`ReadBatch <py2neo.batch.ReadBatch>` and
+:py:class:`WriteBatch <py2neo.batch.WriteBatch>`.
 The latter is the more comprehensive, as can be seen below.
 
-.. autoclass:: py2neo.neo4j.ReadBatch
+.. autoclass:: py2neo.batch.ReadBatch
     :members: clear, stream, submit, append_cypher, get_indexed_nodes
 
-.. autoclass:: py2neo.neo4j.WriteBatch
+.. autoclass:: py2neo.batch.WriteBatch
     :members: clear, run, stream, submit, append_cypher, create, create_path,
         delete, delete_properties, delete_property, get_or_create_path,
         set_properties, set_property, add_labels, remove_label, set_labels,

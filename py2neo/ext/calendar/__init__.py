@@ -48,8 +48,6 @@ from __future__ import unicode_literals
 
 from datetime import date as _date
 
-from py2neo.cypher import CypherQuery
-
 
 class GregorianCalendar(object):
 
@@ -236,7 +234,7 @@ class GregorianCalendar(object):
         else:
             raise ValueError("Either start or end date must be supplied "
                              "for a date range")
-        return CypherQuery(self._graph, query).execute_one(**params)
+        return self._graph.cypher.execute(query, params)
 
     def quarter(self, year, quarter):
         if quarter == 1:

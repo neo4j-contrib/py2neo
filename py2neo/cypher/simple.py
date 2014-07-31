@@ -25,10 +25,23 @@ from py2neo.cypher.error import CypherError
 from py2neo.cypher.results import IterableCypherResults
 
 
+__all__ = ["CypherResource"]
+
+
 log = logging.getLogger("py2neo.cypher")
 
 
 class CypherResource(Service):
+    """ Wrapper for the standard Cypher endpoint, providing
+    non-transactional Cypher execution capabilities. Instances
+    of this class will generally be created by and accessed via
+    the associated Graph object::
+
+        from py2neo import Graph
+        graph = Graph()
+        results = graph.cypher.execute("MATCH (n:Person) RETURN n")
+
+    """
 
     error_class = CypherError
 
@@ -79,44 +92,3 @@ class CypherResource(Service):
         """ Execute the query and return a result iterator.
         """
         return IterableCypherResults(self.graph, self.post(query, params))
-
-
-# TODO: rework to use Cypher resource
-class CypherQuery(object):
-    """ A reusable Cypher query. To create a new query object, a graph and the
-    query text need to be supplied::
-
-        >>> from py2neo import Graph
-        >>> from py2neo.cypher.simple import CypherQuery
-        >>> graph = Graph()
-        >>> query = CypherQuery(graph, "CREATE (a) RETURN a")
-
-    """
-
-    def __init__(self, graph, query):
-        self.graph = graph
-        self.query = query
-
-    def __repr__(self):
-        return self.query
-
-    @property
-    def string(self):
-        """ The text of the query.
-        """
-        return self.query
-
-    def post(self, **params):
-        return self.graph.cypher.post(self.query, params)
-
-    def run(self, **params):
-        self.graph.cypher.run(self.query, params)
-
-    def execute(self, **params):
-        return self.graph.cypher.execute(self.query, params)
-
-    def execute_one(self, **params):
-        return self.graph.cypher.execute_one(self.query, params)
-
-    def stream(self, **params):
-        return self.graph.cypher.stream(self.query, params)

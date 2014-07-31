@@ -91,7 +91,6 @@ from __future__ import unicode_literals
 
 from py2neo.batch import WriteBatch
 from py2neo.core import Node
-from py2neo.cypher import CypherQuery
 
 
 class NotSaved(ValueError):
@@ -285,10 +284,8 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            query = CypherQuery(self.graph, "START a=node({A}) "
-                                                     "MATCH (a)-[r]->(b) "
-                                                     "DELETE r")
-            query.execute(A=subj.__node__._id)
+            self.graph.cypher.run("START a=node({a}) MATCH (a)-[r]->(b) DELETE r",
+                                  {"a": subj.__node__})
         else:
             subj.__node__, = self.graph.create(props)
         # write rels
@@ -339,4 +336,4 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        CypherQuery(self.graph, self.__delete_query).execute(A=node._id)
+        self.graph.cypher.execute(self.__delete_query, {"A": node})

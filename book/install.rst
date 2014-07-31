@@ -13,7 +13,7 @@ Neo4j versions **1.9**, **2.0** and **2.1** are supported.
 
 Python
 ------
-Python versions **2.7**, **3.3** and **3.4** are supported.
+Python versions **2.7**, **3.3** and **3.4** are supported. Python **2.6** is no longer supported.
 
 Jython version **2.7** is also supported but has been less thoroughly tested.
 

@@ -42,7 +42,6 @@ Relationship - local graph relationship object that can be bound to a remote Neo
 from __future__ import division, unicode_literals
 
 import base64
-import json
 import re
 from warnings import warn
 from weakref import WeakValueDictionary
@@ -53,8 +52,7 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
-from py2neo.packages.jsonstream import assembled, grouped
+from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
 
@@ -397,22 +395,25 @@ class ServiceRoot(object):
 
 
 class Graph(Service):
-    """ An instance of a `Neo4j <http://neo4j.org/>`_ database identified by
-    its base URI. Generally speaking, this is the only URI which a system
-    attaching to this service should need to be directly aware of; all further
-    entity URIs will be discovered automatically from within response content
-    when possible (see `Hypermedia <http://en.wikipedia.org/wiki/Hypermedia>`_)
-    or will be derived from existing URIs.
+    """ Top-level wrapper around a Neo4j database service identified by
+    URI. To connect to a local server on the default URI, simply use::
 
-    The following code illustrates how to connect to a database server and
-    display its version number::
+        >>> from py2neo import Graph
+        >>> graph = Graph()
 
-        from py2neo import Graph
-        
-        graph = Graph()
-        print(graph.neo4j_version)
+    The server address can also be provided explicitly::
 
-    :param uri: the base URI of the database (defaults to <http://localhost:7474/db/data/>)
+        >>> other_graph = Graph("http://camelot:1138/db/data/")
+
+    If the database server is behind a proxy that requires HTTP
+    authorisation,
+    this can also be specified within the URI::
+
+        >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
+
+    Once obtained, the Graph object provides direct or indirect access
+    to most of the functionality available within py2neo.
+
     """
 
     __instances = {}
@@ -429,6 +430,9 @@ class Graph(Service):
 
     @staticmethod
     def cast(obj):
+        """ Cast an general Python object to a graph-specific entity,
+        such as a :class:`.Node` or a :class:`.Relationship`.
+        """
         if obj is None:
             return None
         elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev)):
@@ -458,8 +462,6 @@ class Graph(Service):
         return hash(self.uri)
 
     def __len__(self):
-        """ Return the size of this graph (i.e. the number of relationships).
-        """
         return self.size
 
     def __bool__(self):
@@ -473,6 +475,14 @@ class Graph(Service):
 
     @property
     def batch(self):
+        """ Batch execution resource for this graph. This attribute will
+        generally not be used directly.
+
+        .. seealso::
+           :class:`py2neo.batch.BatchResource`
+           :class:`py2neo.batch.WriteBatch`
+
+        """
         if self.__batch is None:
             from py2neo.batch import BatchResource
             self.__batch = BatchResource(self.uri.string + "batch")
@@ -480,48 +490,34 @@ class Graph(Service):
 
     @property
     def cypher(self):
+        """ Cypher execution resource for this graph (non-transactional).
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph()
+            >>> results = graph.cypher.execute("MATCH (n:Person) RETURN n")
+            >>> next(results)
+            (n7890:Person {name:'Alice'})
+
+        .. seealso::
+           :class:`py2neo.cypher.CypherResource`
+
+        """
         if self.__cypher is None:
             from py2neo.cypher import CypherResource
             self.__cypher = CypherResource(self.uri.string + "cypher")
         return self.__cypher
 
     def create(self, *entities):
-        """ Create multiple nodes and/or relationships as part of a single
-        batch.
-
-        The abstracts provided may use any accepted notation, as described in
-        the section on py2neo fundamentals.
-        For a node, simply pass a dictionary of properties; for a relationship, pass a tuple of
-        (start, type, end) or (start, type, end, data) where start and end
-        may be :py:class:`Node` instances or zero-based integral references
-        to other node entities within this batch::
-
-            # create a single node
-            alice, = graph.create({"name": "Alice"})
-
-            # create multiple nodes
-            people = graph.create(
-                {"name": "Alice", "age": 33}, {"name": "Bob", "age": 44},
-                {"name": "Carol", "age": 55}, {"name": "Dave", "age": 66},
-            )
-
-            # create two nodes with a connecting relationship
-            alice, bob, ab = graph.create(
-                {"name": "Alice"}, {"name": "Bob"},
-                (0, "KNOWS", 1, {"since": 2006})
-            )
-
-            # create a node plus a relationship to pre-existing node
-            bob, ab = graph.create({"name": "Bob"}, (alice, "PERSON", 0))
-
-        :return: list of :py:class:`Node` and/or :py:class:`Relationship`
-            instances
+        """ Create multiple nodes, relationships and/or paths in a
+        single transaction.
 
         .. warning::
-            This method will *always* return a list, even when only creating
-            a single node or relationship. To automatically unpack a list
-            containing a single item, append a trailing comma to the variable
-            name on the left of the assignment operation.
+            This method will *always* return a tuple, even when creating
+            only a single entity. To automatically unpack to a single
+            item, append a trailing comma to the variable name on the
+            left of the assignment operation.
 
         """
         from py2neo.cypher.create import CreateStatement
@@ -531,7 +527,7 @@ class Graph(Service):
         return statement.execute()
 
     def delete(self, *entities):
-        """ Delete one or more Nodes, Relationships and/or Paths.
+        """ Delete one or more nodes, relationships and/or paths.
         """
         from py2neo.cypher.delete import DeleteStatement
         statement = DeleteStatement(self)
@@ -617,13 +613,14 @@ class Graph(Service):
 
     @property
     def legacy(self):
+        """ Sub-resource providing access to legacy functionality.
+        """
         if self.__legacy is None:
             from py2neo.legacy import LegacyResource
             self.__legacy = LegacyResource(self.uri.string)
         return self.__legacy
 
-    def match(self, start_node=None, rel_type=None, end_node=None,
-              bidirectional=False, limit=None):
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Iterate through all relationships matching specified criteria.
 
         Examples are as follows::
@@ -712,8 +709,7 @@ class Graph(Service):
         finally:
             results.close()
 
-    def match_one(self, start_node=None, rel_type=None, end_node=None,
-                  bidirectional=False):
+    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Fetch a single relationship matching specified criteria.
 
         :param start_node: concrete start :py:class:`Node` to match or
@@ -854,6 +850,12 @@ class Graph(Service):
         return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
 
     @property
+    def supports_cypher_transactions(self):
+        """ Indicates whether the server supports explicit Cypher transactions.
+        """
+        return "transaction" in self.resource.metadata
+
+    @property
     def supports_foreach_pipe(self):
         """ Indicates whether the server supports pipe syntax for FOREACH.
         """
@@ -877,12 +879,6 @@ class Graph(Service):
         """ Indicates whether the server supports schema indexes.
         """
         return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_cypher_transactions(self):
-        """ Indicates whether the server supports explicit Cypher transactions.
-        """
-        return "transaction" in self.resource.metadata
 
 
 class Schema(Service):
@@ -1151,40 +1147,70 @@ class PropertyContainer(Service):
 
 
 class Node(PropertyContainer):
-    """ A node within a graph, identified by a URI. For example:
+    """ A Node instance represents a graph node and may exist purely
+    client-side or may be bound to a corresponding server node. Node
+    labels are fully integrated within py2neo 2.0 and therefore may
+    be provided along with properties on construction::
 
         >>> from py2neo import Node
         >>> alice = Node("Person", name="Alice")
+        >>> banana = Node("Fruit", "Food", colour="yellow", tasty=True)
+
+    All positional arguments are interpreted as labels and all
+    keyword arguments as properties. It is possible to construct Node
+    instances from other data types (such as a dictionary) by using
+    the :meth:`.cast` method::
+
+        >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
+
+    Labels and properties can be accessed and modified using the
+    :attr:`.labels` and :attr:`.properties` attributes respectively.
+    The *labels* attribute is an instance of :class:`.LabelSet` which
+    extends the built-in *set* class. Similarly, *properties* is an instance of
+    :class:`py2neo.PropertySet` which extends *dict*.
+
+        >>> alice.properties["name"]
+        'Alice'
+        >>> alice.labels
+        {'Person'}
+        >>> alice.labels.add("Employee")
+        >>> alice.properties["employee_no"] = 3456
         >>> alice
-        (:Person {name:"Alice"})
+        (:Employee:Person {employee_no:3456,name:"Alice"})
 
-    Typically, concrete nodes will not be constructed directly in this way
-    by client applications. Instead, methods such as
-    :py:func:`Graph.create` build node objects indirectly as
-    required. Once created, nodes can be treated like any other container type
-    so as to manage properties::
+    One of the core differences between a *PropertySet* and a standard dictionary is in how it handles
+    :const:`None` and missing values. As with Neo4j server nodes, missing values are treated as
+    equivalent to:const:`None` and vice versa.
 
-        # get the `name` property of `node`
-        name = node["name"]
+    To bind a new Node instance to a server node, use the :func:`py2neo.Graph.create` method::
 
-        # set the `name` property of `node` to `Alice`
-        node["name"] = "Alice"
+        >>> graph.create(alice, bob, {"name": "Carol", "employee_no": 9998})
+        ((n234:Employee:Person {employee_no:3456,name:"Alice"}),
+         (n235 {age:44,name:"Bob Robertson"}),
+         (n236 {employee_no:9998,name:"Carol"}))
 
-        # delete the `name` property from `node`
-        del node["name"]
+    The *create* method returns Node instances for each argument supplied. When the argument is itself
+    a Node, that same instance is bound and returned; in other cases, a new Node is created.
 
-        # determine the number of properties within `node`
-        count = len(node)
+    In older versions of py2neo, Node properties would be automatically synchronised when modified.
+    In some cases, this behaviour could lead to performance degradation through an excess of network
+    traffic. Py2neo 2.0 allows explicit control over this synchronisation (at the expense of a few
+    extra lines of code) by using the **push** and **pull** methods:
 
-        # determine existence of the `name` property within `node`
-        if "name" in node:
-            pass
+    .. code-block:: python
+       :emphasize-lines: 6-7
 
-        # iterate through property keys in `node`
-        for key in node:
-            value = node[key]
+       >>> from py2neo import watch
+       >>> watch("httpstream")
+       >>> bob.labels.add("Employee")
+       >>> bob.properties["employee_no"] = 42
+       >>> bob.push()
+       POST http://localhost:7474/db/data/batch [181]
+       200 OK [127]
 
-    :param uri: URI identifying this node
+    The **watch** function shown above can be used to monitor HTTP traffic between py2neo and the Neo4j
+    server. It adds a logging handler that dumps log records to standard output and - in this case -
+    shows that only one HTTP request is made to update both the label and the property.
     """
 
     cache = WeakValueDictionary()

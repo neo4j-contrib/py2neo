@@ -71,15 +71,12 @@ hr {
     background-color: #DDD;
 }
 pre {
-    font: 12px "Courier New", monospace;
+    font: 12px "DejaVu Sans Mono", "Monaco", "Consolas", monospace;
     background-color: #222;
     color: #fff;
     line-height: 140%;
-    padding: 6px 8px 6px 8px;
+    padding: 8px;
     overflow-x: auto;
-}
-pre code {
-    background-color:inherit;
 }
 blockquote {}
 ol {}
@@ -113,6 +110,10 @@ time {}
 code {
     font-family: "Courier New", monospace;
     background-color: #ECECE8;
+}
+pre code {
+    font: inherit;
+    background-color:inherit;
 }
 var {}
 samp {}

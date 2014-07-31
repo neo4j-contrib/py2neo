@@ -31,10 +31,6 @@ __all__ = []
 
 @deprecated("Use `pull` instead")
 def _graph_get_properties(self, *entities):
-    """ Fetch properties for multiple nodes and/or relationships as part
-    of a single batch; returns a list of dictionaries in the same order
-    as the supplied entities.
-    """
     self.pull(*entities)
     return [entity.properties for entity in entities]
 
@@ -44,36 +40,22 @@ Graph.get_properties = _graph_get_properties
 
 @deprecated("Use `properties` attribute instead")
 def _property_container_get_cached_properties(self):
-    """ Fetch last known properties without calling the server.
-
-    :return: dictionary of properties
-    """
     return self.properties
 
 @deprecated("Use `pull` method on `properties` attribute instead")
 def _property_container_get_properties(self):
-    """ Fetch all properties.
-
-    :return: dictionary of properties
-    """
     if self.bound:
         self.properties.pull()
     return self.properties
 
 @deprecated("Use `push` method on `properties` attribute instead")
 def _property_container_set_properties(self, properties):
-    """ Replace all properties with those supplied.
-
-    :param properties: dictionary of new properties
-    """
     self.properties.replace(properties)
     if self.bound:
         self.properties.push()
 
 @deprecated("Use `push` method on `properties` attribute instead")
 def _property_container_delete_properties(self):
-    """ Delete all properties.
-    """
     self.properties.clear()
     try:
         self.properties.push()
@@ -89,10 +71,6 @@ PropertyContainer.delete_properties = _property_container_delete_properties
 
 @deprecated("Use `add` or `update` method of `labels` property instead")
 def _node_add_labels(self, *labels):
-    """ Add one or more labels to this node.
-
-    :param labels: one or more text labels
-    """
     labels = [ustr(label) for label in set(flatten(labels))]
     self.labels.update(labels)
     try:
@@ -135,14 +113,10 @@ def _node_create_path(self, *items):
 
 @deprecated("Use Graph.delete instead")
 def _node_delete(self):
-    """ Delete this entity from the database.
-    """
     self.graph.delete(self)
 
 @deprecated("Use Cypher query instead")
 def _node_delete_related(self):
-    """ Delete this node along with all related nodes and relationships.
-    """
     if self.graph.supports_foreach_pipe:
         query = ("START a=node({a}) "
                  "MATCH (a)-[rels*0..]-(z) "
@@ -157,10 +131,6 @@ def _node_delete_related(self):
 
 @deprecated("Use `labels` property instead")
 def _node_get_labels(self):
-    """ Fetch all labels associated with this node.
-
-    :return: :py:class:`set` of text labels
-    """
     self.labels.pull()
     return self.labels
 
@@ -203,18 +173,11 @@ def _node_get_or_create_path(self, *items):
 
 @deprecated("Use Cypher query instead")
 def _node_isolate(self):
-    """ Delete all relationships connected to this node, both incoming and
-    outgoing.
-    """
     query = "START a=node({a}) MATCH a-[r]-b DELETE r"
     self.graph.cypher.post(query, {"a": self._id})
 
 @deprecated("Use `remove` method of `labels` property instead")
 def _node_remove_labels(self, *labels):
-    """ Remove one or more labels from this node.
-
-    :param labels: one or more text labels
-    """
     from py2neo.batch import WriteBatch
     labels = [ustr(label) for label in set(flatten(labels))]
     batch = WriteBatch(self.graph)
@@ -224,10 +187,6 @@ def _node_remove_labels(self, *labels):
 
 @deprecated("Use `clear` and `update` methods of `labels` property instead")
 def _node_set_labels(self, *labels):
-    """ Replace all labels on this node.
-
-    :param labels: one or more text labels
-    """
     labels = [ustr(label) for label in set(flatten(labels))]
     self.labels.clear()
     self.labels.add(*labels)
@@ -246,8 +205,6 @@ Node.set_labels = _node_set_labels
 
 @deprecated("Use graph.delete instead")
 def _rel_delete(self):
-    """ Delete this Rel from the database.
-    """
     self.resource.delete()
 
 
@@ -291,10 +248,10 @@ def _path__create_query(self, unique):
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
     else:
         clauses.append("CREATE p={0}".format("".join(path)))
-    #clauses.append("RETURN {0}".format(",".join(values)))
     clauses.append("RETURN p")
     query = " ".join(clauses)
     return query, params
+
 
 def _path__create(self, graph, unique):
     query, params = _path__create_query(self, unique=unique)
@@ -334,14 +291,10 @@ Path.get_or_create = _path_get_or_create
 
 @deprecated("Use Graph.delete instead")
 def _relationship_delete(self):
-    """ Delete this relationship from the database.
-    """
     self.graph.delete(self)
 
 @deprecated("Use `push` method on `properties` attribute instead")
 def _relationship_delete_properties(self):
-    """ Delete all properties.
-    """
     self.properties.clear()
     try:
         self.properties.push()
@@ -350,37 +303,22 @@ def _relationship_delete_properties(self):
 
 @deprecated("Use `properties` attribute instead")
 def _relationship_get_cached_properties(self):
-    """ Fetch last known properties without calling the server.
-
-    :return: dictionary of properties
-    """
     return self.properties
 
 @deprecated("Use `pull` method on `properties` attribute instead")
 def _relationship_get_properties(self):
-    """ Fetch all properties.
-
-    :return: dictionary of properties
-    """
     if self.bound:
         self.properties.pull()
     return self.properties
 
 @deprecated("Use `push` method on `properties` attribute instead")
 def _relationship_set_properties(self, properties):
-    """ Replace all properties with those supplied.
-
-    :param properties: dictionary of new properties
-    """
     self.properties.replace(properties)
     if self.bound:
         self.properties.push()
 
 @deprecated("Use properties.update and push instead")
 def _relationship_update_properties(self, properties):
-    """ Update the properties for this relationship with the values
-    supplied.
-    """
     if self.bound:
         query, params = ["START a=rel({A})"], {"A": self._id}
         for i, (key, value) in enumerate(properties.items()):

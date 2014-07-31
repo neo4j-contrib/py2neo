@@ -20,7 +20,6 @@ from __future__ import division, unicode_literals
 
 from py2neo.legacy.index import Index
 from py2neo.core import Node, Relationship, Resource, PropertyContainer, Service
-from py2neo.cypher import CypherQuery
 from py2neo.packages.jsonstream import assembled
 
 
@@ -203,7 +202,7 @@ class LegacyNode(Node):
         PropertyContainer.unbind(self)
 
     def pull(self):
-        CypherQuery(self.graph, "START a=node({a}) RETURN a").execute(a=self._id)
+        self.graph.cypher.execute("START a=node({a}) RETURN a", {"a": self})
         self._Node__stale.clear()
 
     def push(self):

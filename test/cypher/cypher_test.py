@@ -21,7 +21,6 @@ from __future__ import unicode_literals
 import pytest
 
 from py2neo.error import GraphError
-from py2neo.cypher import CypherQuery
 from py2neo.core import Node, Relationship, Path
 
 
@@ -36,7 +35,7 @@ def alice_and_bob(graph):
 def test_nonsense_query(graph):
     query = "SELECT z=nude(0) RETURNS x"
     try:
-        CypherQuery(graph, query).execute()
+        graph.cypher.execute(query)
     except GraphError:
         assert True
     else:
@@ -44,47 +43,28 @@ def test_nonsense_query(graph):
 
 
 def test_can_run(graph):
-    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
-                                        "RETURN a.name")
-    query.run()
+    graph.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
     assert True
 
 
 def test_can_execute(graph):
-    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
-                                        "RETURN a.name")
-    results = query.execute()
+    results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name")
     assert len(results) == 1
     assert len(results[0]) == 1
     assert results[0][0] == "Alice"
 
 
 def test_can_execute_one(graph):
-    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
-                                        "RETURN a.name")
-    result = query.execute_one()
+    result = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name")
     assert result == "Alice"
 
 
 def test_can_stream(graph):
-    query = CypherQuery(graph, "CREATE (a {name:'Alice'}) "
-                                        "RETURN a.name")
-    stream = query.stream()
+    stream = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name")
     results = list(stream)
     assert len(results) == 1
     assert len(results[0]) == 1
     assert results[0][0] == "Alice"
-
-
-def test_many_queries(graph):
-    node, = graph.create({})
-    query = "START z=node({0}) RETURN z".format(node._id)
-    for i in range(40):
-        with CypherQuery(graph, query).execute() as records:
-            for record in records:
-                assert record.columns == ("z",)
-                assert record.values == (node,)
-    graph.delete(node)
 
 
 class TestCypher(object):
