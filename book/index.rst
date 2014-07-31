@@ -16,17 +16,10 @@ Contents
 
    install
    core
-
-fundamentals
-graphs_nodes_relationships
-paths
-schema
-indexes
-batches
-cypher
-ogm
-calendar
-neotool
-deprecated_features
-cookbook
-neomodel
+   cypher
+   schema
+   batch
+   legacy
+   cli
+   cookbook
+   extensions

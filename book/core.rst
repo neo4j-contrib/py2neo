@@ -6,16 +6,13 @@ A handful of core classes lay at the heart of py2neo and are essential for almos
 application. Instances of these classes will often be constructed explicitly.
 
 
-Graph & Schema
-==============
+The Graph Object
+================
 
 The **Graph** class (named **GraphDatabaseService** in earlier versions of py2neo) provides a link
-to a local or remote Neo4j database service. A **Schema** instance is attached to each Graph and
-provides access to all schema-specific functionality.
+to a local or remote Neo4j database service.
 
 .. autoclass:: py2neo.Graph
-   :members:
-.. autoclass:: py2neo.Schema
    :members:
 
 

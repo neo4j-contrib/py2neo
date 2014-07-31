@@ -1,7 +1,7 @@
 Date Modelling
 ==============
 
-.. automodule:: py2neo.calendar
+.. automodule:: py2neo.ext.calendar
     :members:
     :undoc-members:
     :show-inheritance:

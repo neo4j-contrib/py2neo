@@ -6,6 +6,7 @@ python:
   - "3.4"
 
 env:
+  - NEO4J_VERSION="1.8.3"
   - NEO4J_VERSION="1.9.8"
   - NEO4J_VERSION="2.0.4"
   - NEO4J_VERSION="2.1.3"

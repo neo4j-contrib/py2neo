@@ -8,7 +8,7 @@ Requirements
 
 Neo4j
 -----
-Neo4j versions **1.9**, **2.0** and **2.1** are supported.
+The latest patch releases of Neo4j **1.8**, **1.9**, **2.0** and **2.1** are all supported.
 
 
 Python
