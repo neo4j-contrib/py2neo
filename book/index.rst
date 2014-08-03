@@ -15,7 +15,9 @@ Contents
    :maxdepth: 2
 
    install
-   core
+   graph
+   property_containers
+   paths_relationships
    cypher
    schema
    batch
