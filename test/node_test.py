@@ -356,3 +356,13 @@ def test_node_degree(graph):
     assert alice.degree == 2
     graph.create(Path(carol, "KNOWS", alice))
     assert alice.degree == 3
+
+
+def test_can_merge_unsaved_changes_when_querying_node(graph):
+    alice, _, _ = graph.create(Node("Person", name="Alice"), {}, (0, "KNOWS", 1))
+    assert alice.properties == {"name": "Alice"}
+    alice["age"] = 33
+    assert alice.properties == {"name": "Alice", "age": 33}
+    _ = list(alice.match_outgoing("KNOWS"))
+    assert alice.properties == {"name": "Alice", "age": 33}
+

@@ -1295,21 +1295,23 @@ class Node(PropertyContainer):
         properties passed in the "data" value.
         """
         self = data["self"]
-        properties = data.get("data")
-        labels = data.get("label_data")
         if inst is None:
             inst = cls.cache.setdefault(self, cls())
         cls.cache[self] = inst
         inst.bind(self, data)
         inst.__stale.clear()
-        if properties is None:
-            inst.__stale.add("properties")
-        else:
+        if "data" in data:
+            properties = data["data"]
+            properties.update(inst.properties)
             inst._PropertyContainer__properties.replace(properties)
-        if labels is None:
-            inst.__stale.add("labels")
         else:
+            inst.__stale.add("properties")
+        if "label_data" in data:
+            labels = set(data["label_data"])
+            labels.update(inst.labels)
             inst.__labels.replace(labels)
+        else:
+            inst.__stale.add("labels")
         return inst
 
     @classmethod
@@ -1409,7 +1411,7 @@ class Node(PropertyContainer):
         """ The set of labels attached to this Node.
         """
         if self.bound and "labels" in self.__stale:
-            self.pull()
+            self.refresh()
         return self.__labels
 
     def match(self, rel_type=None, other_node=None, limit=None):
@@ -1471,21 +1473,28 @@ class Node(PropertyContainer):
         """ The set of properties attached to this Node.
         """
         if self.bound and "properties" in self.__stale:
-            self.pull()
+            self.refresh()
         return super(Node, self).properties
 
     def pull(self):
-        query = "START a=node({a}) RETURN a,labels(a)"
-        content = self.graph.cypher.post(query, {"a": self._id}).content
-        dehydrated, label_data = content["data"][0]
-        dehydrated["label_data"] = label_data
-        Node.hydrate(dehydrated, self)
+        super(Node, self).properties.clear()
+        self.__labels.clear()
+        self.refresh()
 
     def push(self):
         from py2neo.batch.push import PushBatch
         batch = PushBatch(self.graph)
         batch.append(self)
         batch.push()
+
+    def refresh(self):
+        """ Non-destructive pull.
+        """
+        query = "START a=node({a}) RETURN a,labels(a)"
+        content = self.graph.cypher.post(query, {"a": self._id}).content
+        dehydrated, label_data = content["data"][0]
+        dehydrated["label_data"] = label_data
+        Node.hydrate(dehydrated, self)
 
     def unbind(self):
         try:
@@ -1573,22 +1582,22 @@ class Rel(PropertyContainer):
         and properties passed in the "data" value.
         """
         self = data["self"]
-        type_ = data.get("type")
-        properties = data.get("data")
         if inst is None:
             inst = cls.cache.setdefault(self, cls())
         cls.cache[self] = inst
         inst.bind(self, data)
-        inst.__type = type_
+        inst.__type = data.get("type")
         pair = inst.pair
         if pair is not None:
-            pair._Rel__type = type_
-        if properties is None:
-            inst.__stale.clear()
-            inst.__stale.add("properties")
-        else:
+            pair._Rel__type = inst.__type
+        if "data" in data:
+            properties = data["data"]
+            properties.update(inst.properties)
             inst._PropertyContainer__properties.replace(properties)
             inst.__stale.clear()
+        else:
+            inst.__stale.clear()
+            inst.__stale.add("properties")
         return inst
 
     def __init__(self, *type_, **properties):
@@ -1676,10 +1685,16 @@ class Rel(PropertyContainer):
         """ The set of properties attached to this Rel.
         """
         if self.bound and "properties" in self.__stale:
-            self.pull()
+            self.refresh()
         return super(Rel, self).properties
 
     def pull(self):
+        super(Rel, self).properties.clear()
+        self.refresh()
+
+    def refresh(self):
+        """ Non-destructive pull.
+        """
         super(Rel, self).pull()
         pulled_type = self.resource.metadata["type"]
         self.__type = pulled_type
