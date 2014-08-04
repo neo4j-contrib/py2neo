@@ -202,8 +202,13 @@ class LegacyNode(Node):
         PropertyContainer.unbind(self)
 
     def pull(self):
-        self.graph.cypher.execute("START a=node({a}) RETURN a", {"a": self})
-        self._Node__stale.clear()
+        self._PropertyContainer__properties.clear()
+        self.refresh()
 
     def push(self):
         PropertyContainer.push(self)
+
+    def refresh(self):
+        self.graph.cypher.execute("START a=node({a}) RETURN a", {"a": self})
+        self._Node__stale.clear()
+
