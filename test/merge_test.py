@@ -53,3 +53,17 @@ def test_cannot_merge_empty_label(graph):
         assert True
     else:
         assert False
+
+
+def test_can_merge_one_on_label_and_property(graph):
+    if not graph.supports_node_labels:
+        return
+    label = uuid4().hex
+    try:
+        merged = graph.merge_one(label, "foo", "bar")
+        assert isinstance(merged, Node)
+        assert merged.labels == {label}
+        assert merged.properties == {"foo": "bar"}
+    finally:
+        graph.delete(merged)
+

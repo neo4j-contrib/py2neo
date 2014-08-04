@@ -733,8 +733,8 @@ class Graph(Service):
             return None
 
     def merge(self, label, property_key=None, property_value=None):
-        """ Create a node by label and optional property if none already exists
-        with those criteria, returning all nodes that match.
+        """ Match or create a node by label and optional property and return
+        all matching nodes.
         """
         if not label:
             raise ValueError("Empty label")
@@ -751,6 +751,14 @@ class Graph(Service):
             dehydrated["label_data"] = record[1]
             yield self.hydrate(dehydrated)
         response.close()
+
+    def merge_one(self, label, property_key=None, property_value=None):
+        """ Match or create a node by label and optional property and return a
+        single matching node. This method is intended to be used with a unique
+        constraint and does not fail if more than one matching node is found.
+        """
+        for node in self.merge(label, property_key, property_value):
+            return node
 
     @property
     def neo4j_version(self):
