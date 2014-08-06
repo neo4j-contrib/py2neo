@@ -52,7 +52,6 @@ def do_setup(extensions=None):
             "py2neo.packages",
             "py2neo.packages.httpstream",
             "py2neo.packages.jsonstream",
-            "py2neo.packages.urimagic",
         ],
         install_requires=[
         ],
