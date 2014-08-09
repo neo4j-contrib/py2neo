@@ -26,21 +26,22 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 
 class Spatial(ServerPlugin):
-    """ An api to the contrib Neo4j Spatial Extension for creating, destroying
+    """ An API to the contrib Neo4j Spatial Extension for creating, destroying
     and querying Well Known Text (WKT) geometries over GIS map Layers.
 
     The Layer, which is a collection of geometries, is an rtree index within
     your graph, using the WKBGeometryEncoder for storing all geometry types as
-    byte[] properties of one node per geometry instance. A (leagacy) lucene index
-    is also created for each Layer, as not all queries will be geometrygraphical.
+    byte[] properties of one node per geometry instance. A (legacy) lucene
+    index is also created for each Layer because not all queries will be
+    geographical.
 
     .. note::
 
-        An OSMLayer is also quite possible but not implemented here.
+        An OSMLayer is also quite possible, but not implemented here.
 
-        Any data added through this api can be visualised by compiling the
+        Any data added through this API can be visualised by compiling the
         Neo4j Spatial Extension for Geoserver, and this is encouraged, because
-        it is tremendous fun; refer to the extensions documentation.
+        it is tremendous fun; refer to this extension's documentation.
 
     """
     def __init__(self, graph):
@@ -50,13 +51,13 @@ class Spatial(ServerPlugin):
         shape = wkt_from_string_loader(wkt_string)
         return shape
 
-    def _geometry_exists(self, shape, geometry_name, wkt_string):
+    def _geometry_exists(self, shape, geometry_name):
         graph = self.graph
         cypher = """ MATCH (n:{label} {{name:'{geometry_name}', wkt:'{wkt}'}})
                      RETURN n""".format(
             label=shape.type,
             geometry_name=geometry_name,
-            wkt=wkt_string
+            wkt=shape.wkt,
         )
 
         exists = graph.cypher.execute(cypher)
@@ -97,9 +98,8 @@ class Spatial(ServerPlugin):
 
             Internally this removes an index and all nodes that have
             been added to it. This is not a "cascade" delete, and will just
-            remove the immediate nodes, and, because of this, may leave orphaned
-            nodes behind. This is not a recommened call - know your graph before
-            calling this!   
+            remove the immediate nodes, and, because of this, may leave
+            orphaned nodes behind - know your graph before calling this!
 
         """
         if not self._layer_exists(layer_name):
@@ -161,6 +161,7 @@ class Spatial(ServerPlugin):
 
         :Raises:
             IndexNotFoundError if the index does not exist.
+            SomethingElseError if the WKT is invalid.
 
         """
         if not self._layer_exists(layer_name):
@@ -174,7 +175,7 @@ class Spatial(ServerPlugin):
 
         shape = self._get_shape(wkt_string)
 
-        if self._geometry_exists(shape, geometry_name, wkt_string):
+        if self._geometry_exists(shape, geometry_name):
             print(
                 '\n',
                 'geometry already exists.'
@@ -227,7 +228,7 @@ class Spatial(ServerPlugin):
             label=shape.type, geometry_name=geometry_name)
         )
 
-        # tidy up the index. at time of writing there is NO api for this,
+        # tidy up the index. at time of writing there is *no* api for this,
         # so we are forced to do this manually. This will remove the node,
         # it's bounding box node, and the relationship between them.
         graph.cypher.execute(
