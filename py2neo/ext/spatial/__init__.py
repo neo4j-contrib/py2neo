@@ -1,56 +1,59 @@
 # TODO: atomic operations
 # TODO: logging
-from shapely import wkt as wkt_lib
+# TODO: docs
+from shapely.wkt import loads as wkt_from_string_loader
 
 from py2neo import neo4j, ServerPlugin
 from py2neo.ext.spatial.exceptions import LayerNotFoundError
 
 
 EXTENSION_NAME = "SpatialPlugin"
+
 PROVIDER = 'spatial'
-
 WKT_PROPERTY = 'wkt'
-MULTIPOLYGON = 'MultiPolygon'
-POINT = 'Point'
-
 # compatible config for the contrib spatial extension
 WKT_CONFIG = {
     "provider": PROVIDER,
     "wkt": WKT_PROPERTY,
 }
 
-# a baseline so we can retieve all data added via this extension
+# shape identifiers
+MULTIPOLYGON = 'MultiPolygon'
+POINT = 'Point'
+
+# a baseline label so we can retieve all data added via this extension
 DEFAULT_LABEL = 'py2neo_spatial'
 
 
 class Spatial(ServerPlugin):
-    """ An api to the Neo4j Spatial Extension for creating, destroying
-    and querying Well Known Text (WKT) geometries over Spatial indexes
-    that represent GIS map Layers.
+    """ An api to the contrib Neo4j Spatial Extension for creating, destroying
+    and querying Well Known Text (WKT) geometries over GIS map Layers.
 
-    The Layer, which is a collection of geometries, uses the
-    WKBGeometryEncoder for storing all geometry types as byte[] properties
-    of one node per geometry instance.
+    The Layer, which is a collection of geometries, is an rtree index within
+    your graph, using the WKBGeometryEncoder for storing all geometry types as
+    byte[] properties of one node per geometry instance. A (leagacy) lucene index
+    is also created for each Layer, as not all queries will be geometrygraphical.
 
     .. note::
 
-        This data can also be visualised by compiling the Neo4j Spatial
-        Extension for Geoserver.
-
         An OSMLayer is also quite possible but not implemented here.
+
+        Any data added through this api can be visualised by compiling the
+        Neo4j Spatial Extension for Geoserver, and this is encouraged, because
+        it is tremendous fun; refer to the extensions documentation.
 
     """
     def __init__(self, graph):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
     def _get_shape(self, wkt_string):
-        shape = wkt_lib.loads(wkt_string)
+        shape = wkt_from_string_loader(wkt_string)
         return shape
 
     def _geometry_exists(self, shape, geometry_name, wkt_string):
         graph = self.graph
-        cypher = """MATCH (n:{label} {{name:'{geometry_name}', wkt:'{wkt}'}})
-                    RETURN n""".format(
+        cypher = """ MATCH (n:{label} {{name:'{geometry_name}', wkt:'{wkt}'}})
+                     RETURN n""".format(
             label=shape.type,
             geometry_name=geometry_name,
             wkt=wkt_string
@@ -61,8 +64,8 @@ class Spatial(ServerPlugin):
 
     def _layer_exists(self, layer_name):
         graph = self.graph
-        cypher = """MATCH (l {{ layer:'{layer_name}' }})<-[:LAYER]-()
-                    RETURN l""".format(layer_name=layer_name)
+        cypher = """ MATCH (l {{ layer:'{layer_name}' }})<-[:LAYER]-()
+                     RETURN l""".format(layer_name=layer_name)
 
         exists = graph.cypher.execute(cypher)
         return bool(exists)
@@ -88,10 +91,15 @@ class Spatial(ServerPlugin):
         requests.post(url, data=json.dumps(payload), headers=headers)
 
     def destroy_layer(self, layer_name, force=False):
-        """ Destroy a Layer and EVERYTHING on it iff `force` is True.
+        """ Destroy a Layer and all indexed nodes on it iff `force` is True.
 
-        Internally this removes an index and all nodes that have
-        been added to it - essentially an extremly dangerous CASCADE DELETE!
+        .. note::
+
+            Internally this removes an index and all nodes that have
+            been added to it. This is not a "cascade" delete, and will just
+            remove the immediate nodes, and, because of this, may leave orphaned
+            nodes behind. This is not a recommened call - know your graph before
+            calling this!   
 
         """
         if not self._layer_exists(layer_name):
@@ -127,7 +135,7 @@ class Spatial(ServerPlugin):
             graph.legacy.delete_index(neo4j.Node, layer_name)
 
         else:
-            # simply return what would be lost as this call is devastating.
+            # simply return what would be lost as this call can be devastating.
             print(
                 'nothing is going to be deleted.\n'
                 'use `force=True` to actually delete.\n'
@@ -182,7 +190,6 @@ class Spatial(ServerPlugin):
 
         node, = graph.create({
             WKT_PROPERTY: shape.wkt,
-            # required by this exr
             'name': geometry_name,
         })
 
@@ -204,22 +211,20 @@ class Spatial(ServerPlugin):
                 The name of the layer/index to remove the geometry from.
 
         """
-        graph = self.graph
-        index = graph.legacy.get_index(neo4j.Node, layer_name)
-        if not index:
+        if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
-                'Index Not Found: "{}"'.format(layer_name)
+                'Layer Not Found: "{}"'.format(layer_name)
             )
 
+        graph = self.graph
         shape = self._get_shape(wkt_string)
-        label = shape.type
 
         # remove the node from the graph
         graph.cypher.execute(
             """ MATCH (n:{label} {{ name:'{geometry_name}' }})
                 OPTIONAL MATCH n<-[r]-()
                 DELETE r, n""".format(
-            label=label, geometry_name=geometry_name)
+            label=shape.type, geometry_name=geometry_name)
         )
 
         # tidy up the index. at time of writing there is NO api for this,
