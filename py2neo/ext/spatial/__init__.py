@@ -4,7 +4,8 @@
 from shapely.wkt import loads as wkt_from_string_loader
 
 from py2neo import neo4j, ServerPlugin
-from py2neo.ext.spatial.exceptions import LayerNotFoundError
+from py2neo.ext.spatial.exceptions import (
+    GeometryExistsError, LayerNotFoundError)
 
 
 EXTENSION_NAME = "SpatialPlugin"
@@ -32,7 +33,7 @@ class Spatial(ServerPlugin):
     Each Layer, which is a collection of geometries, is an R-tree index within
     your graph, using the WKBGeometryEncoder for storing all geometry types as
     byte[] properties of one node per geometry instance. A (legacy) lucene
-    index is also created for each Layer because not all queries will be
+    index is also created for each Layer because not all your queries will be
     geographical.
 
     .. note::
@@ -177,14 +178,12 @@ class Spatial(ServerPlugin):
         shape = self._get_shape(wkt_string)
 
         if self._geometry_exists(shape, geometry_name):
-            print(
+            raise GeometryExistsError(
                 '\n',
                 'geometry already exists.'
                 '\n',
                 'ignoring request.'
             )
-
-            return
 
         graph = self.graph
         labels = labels or []
