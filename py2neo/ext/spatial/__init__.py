@@ -27,9 +27,9 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 class Spatial(ServerPlugin):
     """ An API to the contrib Neo4j Spatial Extension for creating, destroying
-    and querying Well Known Text (WKT) geometries over GIS map Layers.
+    and querying Well Known Text (WKT) geometries over your own GIS map Layers.
 
-    The Layer, which is a collection of geometries, is an rtree index within
+    Each Layer, which is a collection of geometries, is an R-tree index within
     your graph, using the WKBGeometryEncoder for storing all geometry types as
     byte[] properties of one node per geometry instance. A (legacy) lucene
     index is also created for each Layer because not all queries will be
@@ -41,7 +41,8 @@ class Spatial(ServerPlugin):
 
         Any data added through this API can be visualised by compiling the
         Neo4j Spatial Extension for Geoserver, and this is encouraged, because
-        it is tremendous fun; refer to this extension's documentation.
+        it is tremendous fun! Please refer to this extension's documentation
+        for basic guidance, however, these two projects are not coordinated.
 
     """
     def __init__(self, graph):
