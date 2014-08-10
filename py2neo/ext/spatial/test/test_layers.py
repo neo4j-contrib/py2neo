@@ -86,13 +86,7 @@ class TestLayers(object):
             geometry_name=geometry_name, wkt_string=GEOMETRY_A,
             layer_name=layer_name)
 
-        def geometry_exists():
-            resp = graph.find(
-                label=layer_name, property_key="name",
-                property_value=geometry_name)
-            return bool(resp)
-
-        assert geometry_exists()
+        assert self._geometry_exists(graph, geometry_name, layer_name)
 
     def test_geometry_uniqueness(self):
         geometry_name = "shape"
