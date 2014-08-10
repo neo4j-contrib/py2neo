@@ -94,14 +94,13 @@ class Spatial(ServerPlugin):
             Node, layer_name, config=WKT_CONFIG)
 
     def destroy_layer(self, layer_name, force=False):
-        """ Destroy a Layer and all indexed nodes on it iff `force` is True.
+        """ Destroy a Layer, iff `force` is True, otherwise a dry-run is
+        performed.
 
-        .. note::
-
-            Internally this removes an index and all nodes that have
-            been added to it. This is not a "cascade" delete, and will just
-            remove the immediate nodes, and, because of this, may leave
-            orphaned nodes behind - know your graph before calling this!
+        This operation removes the layer data from the R-tree, removes
+        the neo indexes (lucene and spatial) and removes the layer's label
+        from all nodes that exist on it. It does not want to destroy any
+        Nodes on the DB.
 
         """
         if not self._layer_exists(layer_name):
@@ -115,10 +114,9 @@ class Spatial(ServerPlugin):
         }
 
         if force:
-            # remvove all nodes on the layer
+            # remove labels on Nodes relating to this layer
             query = """ MATCH (n:{layer_name})
-                        OPTIONAL MATCH n-[r]-()
-                        DELETE r, n """.format(layer_name=layer_name)
+                        REMOVE n: {layer_name}""".format(layer_name=layer_name)
 
             graph.cypher.execute(query)
 
@@ -137,13 +135,8 @@ class Spatial(ServerPlugin):
 
         else:
             # simply return what would be lost as this call can be devastating.
-            query = """ MATCH (l { layer: {layer_name} })-\
-                        [r_layer:LAYER]-(),
-                        (metadata)<-[r_meta:RTREE_METADATA]-(l),
-                        (reference_node)-[r_ref:RTREE_REFERENCE]-\
-                        (bounding_box)-[r_root:RTREE_ROOT]-(l)
-                        RETURN r_meta, r_layer, r_ref, r_root,
-                        metadata, reference_node, bounding_box, l """
+            query = """ MATCH (n:{layer_name})
+                        RETURN n""".format(layer_name=layer_name)
 
             print(
                 'nothing is going to be deleted.\n'
