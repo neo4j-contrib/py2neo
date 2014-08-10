@@ -95,12 +95,12 @@ class Spatial(ServerPlugin):
 
     def destroy_layer(self, layer_name, force=False):
         """ Destroy a Layer, iff `force` is True, otherwise a dry-run is
-        performed.
+        performed because this operation is irreversible.
 
-        This operation removes the layer data from the R-tree, removes
+        The operation removes the layer data from the R-tree, removes
         the neo indexes (lucene and spatial) and removes the layer's label
         from all nodes that exist on it. It does not want to destroy any
-        Nodes on the DB.
+        Nodes on the DB - use the standard py2neo library for these actions.
 
         """
         if not self._layer_exists(layer_name):
@@ -128,20 +128,21 @@ class Spatial(ServerPlugin):
                         (bounding_box)-[r_root:RTREE_ROOT]-(l)
                         DELETE r_meta, r_layer, r_ref, r_root,
                         metadata, reference_node, bounding_box, l """
+
             graph.cypher.execute(query, params)
 
             # remove lucene index
             graph.legacy.delete_index(Node, layer_name)
 
         else:
-            # simply return what would be lost as this call can be devastating.
+            # simply return what would be lost
             query = """ MATCH (n:{layer_name})
                         RETURN n""".format(layer_name=layer_name)
 
             print(
-                'nothing is going to be deleted.\n'
-                'use `force=True` to actually delete.\n'
-                'doing dry run...'
+                'nothing is going to be destroyed.\n'
+                'use `force=True` to actually destroy this layer.\n'
+                'performing a dry run...'
             )
 
             results = graph.cypher.execute(query, params)
