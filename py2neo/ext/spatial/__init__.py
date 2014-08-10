@@ -34,10 +34,11 @@ class Spatial(ServerPlugin):
     index is also created for each Layer because not all your queries will be
     geographical.
 
-    Internally, the R-tree index uses the WKBGeometryEncoder for storing all
-    geometry types as byte[] properties of one node per geometry instance.
-
     .. note::
+
+        Internally, the R-tree index uses the WKBGeometryEncoder for storing
+        all geometry types as byte[] properties of one node per geometry
+        instance.
 
         An OSMLayer is also quite possible, but not implemented here.
 
@@ -45,9 +46,6 @@ class Spatial(ServerPlugin):
         Neo4j Spatial Extension for Geoserver, and this is encouraged, because
         it is tremendous fun! Please refer to this extension's documentation
         for basic guidance, however, these two projects are not coordinated.
-
-        The (legacy) lucene index is created for each Layer because not all
-        your queries will be geographical.
 
     """
     def __init__(self, graph):
