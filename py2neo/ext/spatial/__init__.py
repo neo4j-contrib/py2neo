@@ -1,9 +1,6 @@
-# TODO: atomic operations
-# TODO: logging
-# TODO: docs
 from shapely.wkt import loads as wkt_from_string_loader
 
-from py2neo import neo4j, ServerPlugin
+from py2neo import Node, ServerPlugin
 from py2neo.ext.spatial.exceptions import (
     GeometryExistsError, LayerNotFoundError)
 
@@ -30,15 +27,14 @@ class Spatial(ServerPlugin):
     """ An API to the contrib Neo4j Spatial Extension for creating, destroying
     and querying Well Known Text (WKT) geometries over your own GIS map Layers.
 
-    Each Layer (which are *all* yours) is a collection of your own geometry nodes
-    and is an R-tree (legacy) index within your applications neo datastore, quite
-    separate to what you may normally perceive as a "neo index".
+    Each Layer you create is a collection of geometry nodes which form an
+    R-tree index graph within your applications neo datastore - quite separate
+    to what you may normally perceive as a "neo index". A traditional lucene
+    index is also created for each Layer because not all your queries will be
+    geographical.
 
-    Internally this uses the WKBGeometryEncoder for storing all geometry types
-    as byte[] properties of one node per geometry instance.
-
-    A (legacy) lucene index is also created for each Layer because not all your
-    queries will be geographical.
+    Internally, the R-tree index uses the WKBGeometryEncoder for storing all
+    geometry types as byte[] properties of one node per geometry instance.
 
     .. note::
 
@@ -49,6 +45,9 @@ class Spatial(ServerPlugin):
         it is tremendous fun! Please refer to this extension's documentation
         for basic guidance, however, these two projects are not coordinated.
 
+        The (legacy) lucene index is created for each Layer because not all
+        your queries will be geographical.
+
     """
     def __init__(self, graph):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
@@ -58,23 +57,26 @@ class Spatial(ServerPlugin):
         return shape
 
     def _geometry_exists(self, shape, geometry_name):
-        graph = self.graph
-        cypher = """ MATCH (n:{label} {{name:'{geometry_name}', wkt:'{wkt}'}})
-                     RETURN n""".format(
-            label=shape.type,
-            geometry_name=geometry_name,
-            wkt=shape.wkt,
-        )
+        match = """ MATCH (n:{label} """.format(label=shape.type)
+        query = match + """ {name: {geometry_name}, wkt: {wkt}})
+                            RETURN n """
+        params = {
+            'geometry_name': geometry_name,
+            'wkt': shape.wkt,
+        }
 
-        exists = graph.cypher.execute(cypher)
+        exists = self.graph.cypher.execute(query, params)
         return bool(exists)
 
     def _layer_exists(self, layer_name):
-        graph = self.graph
-        cypher = """ MATCH (l {{ layer:'{layer_name}' }})<-[:LAYER]-()
-                     RETURN l""".format(layer_name=layer_name)
+        query = """ MATCH (l {layer: {layer_name}})<-[:LAYER]-()
+                    RETURN l """
 
-        exists = graph.cypher.execute(cypher)
+        params = {
+            'layer_name': layer_name,
+        }
+
+        exists = self.graph.cypher.execute(query, params)
         return bool(exists)
 
     def create_layer(self, layer_name):
@@ -84,18 +86,8 @@ class Spatial(ServerPlugin):
             This directly translates to a Spatial Index in Neo of type WKT.
 
         """
-        # TODO: use internal libraries
-        import requests
-        import json
-
-        headers = {'content-type': 'application/json'}
-        url = "http://localhost:7474/db/data/index/node/"
-        payload = {
-            "name": layer_name,
-            "config": WKT_CONFIG
-        }
-
-        requests.post(url, data=json.dumps(payload), headers=headers)
+        self.graph.legacy.get_or_create_index(
+            Node, layer_name, config=WKT_CONFIG)
 
     def destroy_layer(self, layer_name, force=False):
         """ Destroy a Layer and all indexed nodes on it iff `force` is True.
@@ -116,29 +108,29 @@ class Spatial(ServerPlugin):
         graph = self.graph
 
         if force:
-            # get all nodes on the layer, and destroy them.
-            graph.cypher.execute(
-                """ MATCH (n:{layer_name})
-                    OPTIONAL MATCH n-[r]-()
-                    DELETE r, n""".format(
-                layer_name=layer_name)
-            )
+            params = {
+                'layer_name': layer_name
+            }
 
-            # get the bounding box, metadata and root from the rtree index,
-            # and destroy them.
-            graph.cypher.execute(
-                """ MATCH (l {{ layer:'{layer_name}' }})-\
-                    [r_layer:LAYER]-(),
-                    (metadata)<-[r_meta:RTREE_METADATA]-(l),
-                    (reference_node)-[r_ref:RTREE_REFERENCE]-\
-                    (bounding_box)-[r_root:RTREE_ROOT]-(l)
-                    DELETE r_meta, r_layer, r_ref, r_root,
-                    metadata, reference_node, bounding_box, l""".format(
-                layer_name=layer_name)
-            )
+            # remvove all nodes on the layer
+            query = """ MATCH (n:{layer_name})
+                        OPTIONAL MATCH n-[r]-()
+                        DELETE r, n """.format(layer_name=layer_name)
+
+            graph.cypher.execute(query)
+
+            # remove the bounding box, metadata and root from the rtree index
+            query = """ MATCH (l { layer: {layer_name} })-\
+                        [r_layer:LAYER]-(),
+                        (metadata)<-[r_meta:RTREE_METADATA]-(l),
+                        (reference_node)-[r_ref:RTREE_REFERENCE]-\
+                        (bounding_box)-[r_root:RTREE_ROOT]-(l)
+                        DELETE r_meta, r_layer, r_ref, r_root,
+                        metadata, reference_node, bounding_box, l """
+            graph.cypher.execute(query, params)
 
             # remove lucene index - TODO: don't think this works
-            graph.legacy.delete_index(neo4j.Node, layer_name)
+            graph.legacy.delete_index(Node, layer_name)
 
         else:
             # simply return what would be lost as this call can be devastating.
@@ -192,16 +184,15 @@ class Spatial(ServerPlugin):
         graph = self.graph
         labels = labels or []
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
-
-        node, = graph.create({
+        params = {
             WKT_PROPERTY: shape.wkt,
             'name': geometry_name,
-        })
+        }
 
-        node.add_labels(*labels)
-        node.push()
+        node = Node(*labels, **params)
+        graph.create(node)
 
-        index = graph.legacy.get_index(neo4j.Node, layer_name)
+        index = graph.legacy.get_index(Node, layer_name)
         index.add(WKT_PROPERTY, shape.wkt, node)
 
     def destroy(self, geometry_name, wkt_string, layer_name):
@@ -225,19 +216,24 @@ class Spatial(ServerPlugin):
         shape = self._get_shape(wkt_string)
 
         # remove the node from the graph
-        graph.cypher.execute(
-            """ MATCH (n:{label} {{ name:'{geometry_name}' }})
-                OPTIONAL MATCH n<-[r]-()
-                DELETE r, n""".format(
-            label=shape.type, geometry_name=geometry_name)
-        )
+        match = """ MATCH (n:{label} """.format(label=shape.type)
+        query = match + """ { name: {geometry_name} })
+                            OPTIONAL MATCH n<-[r]-()
+                            DELETE r, n """
+        params = {
+            'label': shape.type,
+            'geometry_name': geometry_name,
+        }
+        graph.cypher.execute(query, params)
 
         # tidy up the index. at time of writing there is *no* api for this,
         # so we are forced to do this manually. This will remove the node,
         # it's bounding box node, and the relationship between them.
-        graph.cypher.execute(
-            """ MATCH (l {{ layer:'{layer_name}' }}),
-                (n {{ wkt:'{wkt}' }})-[ref:RTREE_REFERENCE]-()
-                DELETE ref, n""".format(
-            layer_name=layer_name, wkt=shape.wkt)
-        )
+        query = """ MATCH (l { layer: {layer_name} }),
+                    (n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-()
+                    DELETE ref, n """
+        params = {
+            'layer_name': layer_name,
+            'wkt': shape.wkt,
+        }
+        graph.cypher.execute(query, params)

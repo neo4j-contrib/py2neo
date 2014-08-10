@@ -4,4 +4,4 @@ class LayerNotFoundError(Exception):
 
 
 class GeometryExistsError(Exception):
-	pass
+    pass
