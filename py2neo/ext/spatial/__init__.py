@@ -28,11 +28,10 @@ class Spatial(ServerPlugin):
     """ An API to the contrib Neo4j Spatial Extension for creating, destroying
     and querying Well Known Text (WKT) geometries over your own GIS map Layers.
 
-    Each Layer you create is a collection of geometry nodes which form an
-    R-tree index graph within your applications neo datastore - quite separate
-    to what you may normally perceive as a "neo index". A traditional lucene
-    index is also created for each Layer because not all your queries will be
-    geographical.
+    Each Layer you create will be a collection of geographically aware nodes
+    which are silently also modelled by an R-tree graph within your
+    application's neo datastore. This graph has a "legacy" lucene index
+    (for your non geographical queries) and a magical bespoke "spatial" index.
 
     .. note::
 
