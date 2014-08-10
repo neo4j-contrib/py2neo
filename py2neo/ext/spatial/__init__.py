@@ -113,12 +113,11 @@ class Spatial(ServerPlugin):
             )
 
         graph = self.graph
+        params = {
+            'layer_name': layer_name
+        }
 
         if force:
-            params = {
-                'layer_name': layer_name
-            }
-
             # remvove all nodes on the layer
             query = """ MATCH (n:{layer_name})
                         OPTIONAL MATCH n-[r]-()
@@ -136,18 +135,31 @@ class Spatial(ServerPlugin):
                         metadata, reference_node, bounding_box, l """
             graph.cypher.execute(query, params)
 
-            # remove lucene index - TODO: don't think this works
+            # remove lucene index
             graph.legacy.delete_index(Node, layer_name)
 
         else:
             # simply return what would be lost as this call can be devastating.
+            query = """ MATCH (l { layer: {layer_name} })-\
+                        [r_layer:LAYER]-(),
+                        (metadata)<-[r_meta:RTREE_METADATA]-(l),
+                        (reference_node)-[r_ref:RTREE_REFERENCE]-\
+                        (bounding_box)-[r_root:RTREE_ROOT]-(l)
+                        RETURN r_meta, r_layer, r_ref, r_root,
+                        metadata, reference_node, bounding_box, l """
+
             print(
                 'nothing is going to be deleted.\n'
                 'use `force=True` to actually delete.\n'
                 'doing dry run...'
             )
 
-            # TODO: dry run results
+            results = graph.cypher.execute(query, params)
+            for record in results:
+                node = result.values[0]
+                print(node)
+
+            return results
 
     def create(
             self, geometry_name, wkt_string, layer_name, labels=None):
