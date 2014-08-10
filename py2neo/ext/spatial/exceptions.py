@@ -5,3 +5,7 @@ class LayerNotFoundError(Exception):
 
 class GeometryExistsError(Exception):
     pass
+
+
+class InvalidWKTError(Exception):
+	pass

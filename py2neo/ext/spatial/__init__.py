@@ -1,8 +1,9 @@
+from shapely.geos import ReadingError
 from shapely.wkt import loads as wkt_from_string_loader
 
 from py2neo import Node, ServerPlugin
-from py2neo.ext.spatial.exceptions import (
-    GeometryExistsError, LayerNotFoundError)
+from . exceptions import (
+    GeometryExistsError, LayerNotFoundError, InvalidWKTError)
 
 
 EXTENSION_NAME = "SpatialPlugin"
@@ -53,7 +54,13 @@ class Spatial(ServerPlugin):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
     def _get_shape(self, wkt_string):
-        shape = wkt_from_string_loader(wkt_string)
+        try:
+            shape = wkt_from_string_loader(wkt_string)
+        except ReadingError:
+            raise InvalidWKTError(
+                'Invalid WKT: {}'.format(wkt_string)
+            )
+
         return shape
 
     def _geometry_exists(self, shape, geometry_name):
@@ -159,7 +166,7 @@ class Spatial(ServerPlugin):
 
         :Raises:
             IndexNotFoundError if the index does not exist.
-            SomethingElseError if the WKT is invalid.
+            InvalidWKTError if the WKT cannot be read.
 
         """
         if not self._layer_exists(layer_name):
@@ -205,6 +212,9 @@ class Spatial(ServerPlugin):
                 A Well Known Text string of any geometry
             layer_name : str
                 The name of the layer/index to remove the geometry from.
+
+        :Raises:
+            InvalidWKTError if the WKT cannot be read.
 
         """
         if not self._layer_exists(layer_name):
