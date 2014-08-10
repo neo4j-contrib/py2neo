@@ -116,7 +116,13 @@ class Spatial(ServerPlugin):
         if force:
             # remove labels on Nodes relating to this layer
             query = """ MATCH (n:{layer_name})
-                        REMOVE n: {layer_name}""".format(layer_name=layer_name)
+                        REMOVE n: {default_label}
+                        REMOVE n: {layer_name}
+                        REMOVE n: {point_label}
+                        REMOVE n: {multipolygon_label}""".format(
+                layer_name=layer_name, default_label=DEFAULT_LABEL,
+                point_label=POINT, multipolygon_label=MULTIPOLYGON,
+            )
 
             graph.cypher.execute(query)
 
