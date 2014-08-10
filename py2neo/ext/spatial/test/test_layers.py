@@ -1,9 +1,11 @@
 import pytest
 
-from .. import Spatial
+from .. import Spatial, Node
 from .. exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
 
+
+LAYER_NAME = "geometry_layer"
 
 GEOMETRY_A = 'MULTIPOLYGON (((-1.253002 50.80102, -1.03137 50.69296,\
  -1.114103 50.61067, -1.307651 50.50555, -1.659074 50.62415,\
@@ -17,58 +19,53 @@ class TestLayers(object):
     @pytest.fixture(autouse=True)
     def spatial_api(self, graph):
         graph.delete_all()
-
-        indexes = graph.legacy._indexes
-        for key, _ in indexes.copy().items():
-            indexes[key] = {}
-
+        graph.legacy.delete_index(Node, LAYER_NAME)
         spatial = Spatial(graph)
         self.spatial = spatial
 
     @staticmethod
-    def _layer_exists(graph, layer_name):
+    def _layer_exists(graph, layer_name=LAYER_NAME):
         # layers created by the server extension are not labelled.
         results = graph.cypher.execute("MATCH (n) RETURN n")
         for result in results:
             node = result.values[0]
-            if node.properties.get('layer') == layer_name:
+            if node.properties.get('layer') == LAYER_NAME:
                 return True
         return False
 
     @staticmethod
-    def _geometry_exists(graph, geometry_name, layer_name):
+    def _geometry_exists(graph, geometry_name, LAYER_NAME):
         resp = graph.find(
-            label=layer_name, property_key="name",
+            label=LAYER_NAME, property_key="name",
             property_value=geometry_name)
         results = [r for r in resp]
 
         return len(results) == 1
 
     def test_create_layer(self, graph):
-        self.spatial.create_layer("test_layer")
-        assert self._layer_exists(graph, "test_layer")
+        self.spatial.create_layer(LAYER_NAME)
+        assert self._layer_exists(graph, LAYER_NAME)
 
     def test_layer_uniqueness(self, graph):
         spatial = self.spatial
-        layer_name = 'test_layer'
 
-        def count(layer_name):
+        def count(LAYER_NAME):
             # layers created by the server extension are not labelled.
             count = 0
             results = graph.cypher.execute("MATCH (n) RETURN n")
             for result in results:
                 node = result.values[0]
-                if node.properties.get('layer') == layer_name:
+                if node.properties.get('layer') == LAYER_NAME:
                     count += 1
             return count
 
-        assert count(layer_name) == 0
+        assert count(LAYER_NAME) == 0
 
-        spatial.create_layer("test_layer")
-        assert count(layer_name) == 1
+        spatial.create_layer(LAYER_NAME)
+        assert count(LAYER_NAME) == 1
 
-        spatial.create_layer("test_layer")
-        assert count(layer_name) == 1
+        spatial.create_layer(LAYER_NAME)
+        assert count(LAYER_NAME) == 1
 
     def test_cannot_create_geometry_if_layer_does_not_exist(self):
         with pytest.raises(LayerNotFoundError):
@@ -78,78 +75,72 @@ class TestLayers(object):
 
     def test_create_geometry(self, graph):
         geometry_name = "shape"
-        layer_name = "test_layer"
 
         spatial = self.spatial
-        spatial.create_layer(layer_name)
+        spatial.create_layer(LAYER_NAME)
         spatial.create(
             geometry_name=geometry_name, wkt_string=GEOMETRY_A,
-            layer_name=layer_name)
+            layer_name=LAYER_NAME)
 
-        assert self._geometry_exists(graph, geometry_name, layer_name)
+        assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
 
     def test_geometry_uniqueness(self):
         geometry_name = "shape"
-        layer_name = "test_layer"
 
         spatial = self.spatial
-        spatial.create_layer(layer_name)
+        spatial.create_layer(LAYER_NAME)
         spatial.create(
             geometry_name=geometry_name, wkt_string=GEOMETRY_A,
-            layer_name=layer_name)
+            layer_name=LAYER_NAME)
 
         with pytest.raises(GeometryExistsError):
             spatial.create(
                 geometry_name=geometry_name, wkt_string=GEOMETRY_A,
-                layer_name=layer_name)
+                layer_name=LAYER_NAME)
 
     def test_handle_bad_wkt(self):
         geometry_name = "shape"
-        layer_name = "test_layer"
         bad_geometry = 'isle of wight'
 
         spatial = self.spatial
-        spatial.create_layer(layer_name)
+        spatial.create_layer(LAYER_NAME)
 
         with pytest.raises(InvalidWKTError):
             spatial.create(
                 geometry_name=geometry_name, wkt_string=bad_geometry,
-                layer_name=layer_name)
+                layer_name=LAYER_NAME)
 
     def test_destroy_geometry(self, graph):
         geometry_name = "shape"
-        layer_name = "test_layer"
 
         spatial = self.spatial
-        spatial.create_layer(layer_name)
+        spatial.create_layer(LAYER_NAME)
         spatial.create(
             geometry_name=geometry_name, wkt_string=GEOMETRY_A,
-            layer_name=layer_name)
+            layer_name=LAYER_NAME)
 
-        assert self._geometry_exists(graph, geometry_name, layer_name)
+        assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
 
-        spatial.destroy(geometry_name, GEOMETRY_A, layer_name)
+        spatial.destroy(geometry_name, GEOMETRY_A, LAYER_NAME)
 
-        assert not self._geometry_exists(graph, geometry_name, layer_name)
+        assert not self._geometry_exists(graph, geometry_name, LAYER_NAME)
 
     def test_destroy_layer(self, graph):
-        layer_name = "test_layer"
-
         spatial = self.spatial
-        spatial.create_layer(layer_name)
+        spatial.create_layer(LAYER_NAME)
         spatial.create(
             geometry_name="shape_a", wkt_string=GEOMETRY_A,
-            layer_name=layer_name)
+            layer_name=LAYER_NAME)
         spatial.create(
             geometry_name="shape_b", wkt_string=GEOMETRY_B,
-            layer_name=layer_name)
+            layer_name=LAYER_NAME)
 
-        assert self._geometry_exists(graph, "shape_a", layer_name)
-        assert self._geometry_exists(graph, "shape_b", layer_name)
+        assert self._geometry_exists(graph, "shape_a", LAYER_NAME)
+        assert self._geometry_exists(graph, "shape_b", LAYER_NAME)
 
-        spatial.destroy_layer(layer_name, force=True)
+        spatial.destroy_layer(LAYER_NAME, force=True)
 
-        assert not self._geometry_exists(graph, "shape_a", layer_name)
-        assert not self._geometry_exists(graph, "shape_b", layer_name)
+        assert not self._geometry_exists(graph, "shape_a", LAYER_NAME)
+        assert not self._geometry_exists(graph, "shape_b", LAYER_NAME)
 
-        assert not self._layer_exists(graph, layer_name)
+        assert not self._layer_exists(graph, LAYER_NAME)
