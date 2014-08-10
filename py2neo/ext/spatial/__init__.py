@@ -84,7 +84,9 @@ class Spatial(ServerPlugin):
         return bool(exists)
 
     def create_layer(self, layer_name):
-        """ Create a Layer to add geometries to.
+        """ Create a Layer to add geometries to. If a Layer with the
+        name property value of ``layer_name`` already exists, nothing
+        happens.
 
         .. note::
             This directly translates to a Spatial Index in Neo of type WKT.
@@ -101,6 +103,9 @@ class Spatial(ServerPlugin):
         the neo indexes (lucene and spatial) and removes the layer's label
         from all nodes that exist on it. It does not want to destroy any
         Nodes on the DB - use the standard py2neo library for these actions.
+
+        :Raises:
+            LayerNotFoundError if the index does not exist.
 
         """
         if not self._layer_exists(layer_name):
@@ -174,16 +179,14 @@ class Spatial(ServerPlugin):
                 Optional list of Label names to apply to the geometry Node.
 
         :Raises:
-            IndexNotFoundError if the index does not exist.
+            LayerNotFoundError if the index does not exist.
             InvalidWKTError if the WKT cannot be read.
 
         """
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
-                '\n',
-                'Layer Not Found: "{0}".',
-                '\n',
-                'Use ``create_layer(layer_name="{0}"")`` first.'.format(
+                '\nLayer Not Found: "{0}".',
+                '\nUse ``create_layer(layer_name="{0}"")`` first.'.format(
                     layer_name)
             )
 
@@ -191,10 +194,8 @@ class Spatial(ServerPlugin):
 
         if self._geometry_exists(shape, geometry_name):
             raise GeometryExistsError(
-                '\n',
-                'geometry already exists.'
-                '\n',
-                'ignoring request.'
+                '\ngeometry already exists.'
+                '\nignoring request.'
             )
 
         graph = self.graph
@@ -214,7 +215,7 @@ class Spatial(ServerPlugin):
     def destroy(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
 
-        "Params:
+        :Params:
             geometry_name : str
                 The unique name of the geometry to delete.
             wkt_string : str
@@ -223,6 +224,7 @@ class Spatial(ServerPlugin):
                 The name of the layer/index to remove the geometry from.
 
         :Raises:
+            LayerNotFoundError if the index does not exist.
             InvalidWKTError if the WKT cannot be read.
 
         """
