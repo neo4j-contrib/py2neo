@@ -138,7 +138,7 @@ class TestLayers(object):
         assert self._geometry_exists(graph, "shape_a", LAYER_NAME)
         assert self._geometry_exists(graph, "shape_b", LAYER_NAME)
 
-        spatial.delete_layer(LAYER_NAME, force=True)
+        spatial.delete_layer(LAYER_NAME)
 
         assert not self._geometry_exists(graph, "shape_a", LAYER_NAME)
         assert not self._geometry_exists(graph, "shape_b", LAYER_NAME)

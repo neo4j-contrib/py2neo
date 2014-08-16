@@ -95,7 +95,7 @@ RETURN l"""
         self.graph.legacy.get_or_create_index(
             Node, layer_name, config=WKT_CONFIG)
 
-    def delete_layer(self, layer_name, force=False):
+    def delete_layer(self, layer_name):
         """ Remove a GIS map Layer.
 
         This will remove a representation of a GIS map Layer from the Neo4j
@@ -120,21 +120,20 @@ RETURN l"""
             'layer_name': layer_name
         }
 
-        if force:
-            # remove labels on Nodes relating to this layer
-            query = """MATCH (n:{layer_name})
+        # remove labels on Nodes relating to this layer
+        query = """MATCH (n:{layer_name})
 REMOVE n:{default_label}
 REMOVE n:{layer_name}
 REMOVE n:{point_label}
 REMOVE n:{multipolygon_label}""".format(
-                layer_name=layer_name, default_label=DEFAULT_LABEL,
-                point_label=POINT, multipolygon_label=MULTIPOLYGON,
-            )
+            layer_name=layer_name, default_label=DEFAULT_LABEL,
+            point_label=POINT, multipolygon_label=MULTIPOLYGON,
+        )
 
-            graph.cypher.execute(query)
+        graph.cypher.execute(query)
 
-            # remove the bounding box, metadata and root from the rtree index
-            query = """MATCH (l { layer:{layer_name} })-\
+        # remove the bounding box, metadata and root from the rtree index
+        query = """MATCH (l { layer:{layer_name} })-\
 [r_layer:LAYER]-(),
 (metadata)<-[r_meta:RTREE_METADATA]-(l),
 (reference_node)-[r_ref:RTREE_REFERENCE]-
@@ -142,28 +141,10 @@ REMOVE n:{multipolygon_label}""".format(
 DELETE r_meta, r_layer, r_ref, r_root,
 metadata, reference_node, bounding_box, l"""
 
-            graph.cypher.execute(query, params)
+        graph.cypher.execute(query, params)
 
-            # remove lucene index
-            graph.legacy.delete_index(Node, layer_name)
-
-        else:
-            # simply return what would be lost
-            query = """MATCH (n:{layer_name})
-RETURN n""".format(layer_name=layer_name)
-
-            print(
-                'nothing is going to be destroyed.\n'
-                'use `force=True` to actually destroy this layer.\n'
-                'performing a dry run...'
-            )
-
-            results = graph.cypher.execute(query, params)
-            for record in results:
-                node = result.values[0]
-                print(node)
-
-            return results
+        # remove lucene index
+        graph.legacy.delete_index(Node, layer_name)
 
     def create(
             self, geometry_name, wkt_string, layer_name, labels=None):
