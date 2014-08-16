@@ -110,7 +110,7 @@ class TestLayers(object):
                 geometry_name=geometry_name, wkt_string=bad_geometry,
                 layer_name=LAYER_NAME)
 
-    def test_destroy_geometry(self, graph):
+    def test_delete_geometry(self, graph):
         geometry_name = "shape"
 
         spatial = self.spatial
@@ -121,11 +121,11 @@ class TestLayers(object):
 
         assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
 
-        spatial.destroy(geometry_name, GEOMETRY_A, LAYER_NAME)
+        spatial.delete(geometry_name, GEOMETRY_A, LAYER_NAME)
 
         assert not self._geometry_exists(graph, geometry_name, LAYER_NAME)
 
-    def test_destroy_layer(self, graph):
+    def test_delete_layer(self, graph):
         spatial = self.spatial
         spatial.create_layer(LAYER_NAME)
         spatial.create(
@@ -138,7 +138,7 @@ class TestLayers(object):
         assert self._geometry_exists(graph, "shape_a", LAYER_NAME)
         assert self._geometry_exists(graph, "shape_b", LAYER_NAME)
 
-        spatial.destroy_layer(LAYER_NAME, force=True)
+        spatial.delete_layer(LAYER_NAME, force=True)
 
         assert not self._geometry_exists(graph, "shape_a", LAYER_NAME)
         assert not self._geometry_exists(graph, "shape_b", LAYER_NAME)

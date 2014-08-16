@@ -95,13 +95,15 @@ RETURN l"""
         self.graph.legacy.get_or_create_index(
             Node, layer_name, config=WKT_CONFIG)
 
-    def destroy_layer(self, layer_name, force=False):
-        """ Destroy a Layer, iff `force` is True, otherwise a dry-run is
-        performed because this operation is irreversible.
+    def delete_layer(self, layer_name, force=False):
+        """ Remove a GIS map Layer.
 
-        The operation removes the layer data from the R-tree, removes
-        the neo indexes (lucene and spatial) and removes the layer's label
-        from all nodes that exist on it. It does not want to destroy any
+        This will remove a representation of a GIS map Layer from the Neo4j
+        data store, it will not remove any nodes you may have added to it.
+
+        The operation removes the layer data from the internal GIS R-tree model,
+        removes the neo indexes (lucene and spatial) and removes the layer's
+        label from all nodes that exist on it. It does not want to destroy any
         Nodes on the DB - use the standard py2neo library for these actions.
 
         :Raises:
@@ -211,7 +213,7 @@ RETURN n""".format(layer_name=layer_name)
         index = graph.legacy.get_index(Node, layer_name)
         index.add(WKT_PROPERTY, shape.wkt, node)
 
-    def destroy(self, geometry_name, wkt_string, layer_name):
+    def delete(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
 
         :Params:
