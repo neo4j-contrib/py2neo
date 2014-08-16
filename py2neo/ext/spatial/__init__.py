@@ -55,15 +55,15 @@ class Spatial(ServerPlugin):
             shape = wkt_from_string_loader(wkt_string)
         except ReadingError:
             raise InvalidWKTError(
-                'Invalid WKT: {}'.format(wkt_string)
+                'Invalid WKT:{}'.format(wkt_string)
             )
 
         return shape
 
     def _geometry_exists(self, shape, geometry_name):
-        match = """ MATCH (n:{label} """.format(label=shape.type)
-        query = match + """ {name: {geometry_name}, wkt: {wkt}})
-                            RETURN n """
+        match = """MATCH (n:{label}""".format(label=shape.type)
+        query = match + """{name:{geometry_name}, wkt:{wkt}})
+RETURN n"""
         params = {
             'geometry_name': geometry_name,
             'wkt': shape.wkt,
@@ -73,8 +73,8 @@ class Spatial(ServerPlugin):
         return bool(exists)
 
     def _layer_exists(self, layer_name):
-        query = """ MATCH (l {layer: {layer_name}})<-[:LAYER]-()
-                    RETURN l """
+        query = """MATCH (l {layer:{layer_name}})<-[:LAYER]-()
+RETURN l"""
 
         params = {
             'layer_name': layer_name,
@@ -120,11 +120,11 @@ class Spatial(ServerPlugin):
 
         if force:
             # remove labels on Nodes relating to this layer
-            query = """ MATCH (n:{layer_name})
-                        REMOVE n: {default_label}
-                        REMOVE n: {layer_name}
-                        REMOVE n: {point_label}
-                        REMOVE n: {multipolygon_label}""".format(
+            query = """MATCH (n:{layer_name})
+REMOVE n:{default_label}
+REMOVE n:{layer_name}
+REMOVE n:{point_label}
+REMOVE n:{multipolygon_label}""".format(
                 layer_name=layer_name, default_label=DEFAULT_LABEL,
                 point_label=POINT, multipolygon_label=MULTIPOLYGON,
             )
@@ -132,13 +132,13 @@ class Spatial(ServerPlugin):
             graph.cypher.execute(query)
 
             # remove the bounding box, metadata and root from the rtree index
-            query = """ MATCH (l { layer: {layer_name} })-\
-                        [r_layer:LAYER]-(),
-                        (metadata)<-[r_meta:RTREE_METADATA]-(l),
-                        (reference_node)-[r_ref:RTREE_REFERENCE]-\
-                        (bounding_box)-[r_root:RTREE_ROOT]-(l)
-                        DELETE r_meta, r_layer, r_ref, r_root,
-                        metadata, reference_node, bounding_box, l """
+            query = """MATCH (l { layer:{layer_name} })-\
+[r_layer:LAYER]-(),
+(metadata)<-[r_meta:RTREE_METADATA]-(l),
+(reference_node)-[r_ref:RTREE_REFERENCE]-
+(bounding_box)-[r_root:RTREE_ROOT]-(l)
+DELETE r_meta, r_layer, r_ref, r_root,
+metadata, reference_node, bounding_box, l"""
 
             graph.cypher.execute(query, params)
 
@@ -147,8 +147,8 @@ class Spatial(ServerPlugin):
 
         else:
             # simply return what would be lost
-            query = """ MATCH (n:{layer_name})
-                        RETURN n""".format(layer_name=layer_name)
+            query = """MATCH (n:{layer_name})
+RETURN n""".format(layer_name=layer_name)
 
             print(
                 'nothing is going to be destroyed.\n'
@@ -185,8 +185,8 @@ class Spatial(ServerPlugin):
         """
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
-                '\nLayer Not Found: "{0}".',
-                '\nUse ``create_layer(layer_name="{0}"")`` first.'.format(
+                'Layer Not Found: "{0}".',
+                'Use ``create_layer(layer_name="{0}"")`` first.'.format(
                     layer_name)
             )
 
@@ -194,8 +194,7 @@ class Spatial(ServerPlugin):
 
         if self._geometry_exists(shape, geometry_name):
             raise GeometryExistsError(
-                '\ngeometry already exists.'
-                '\nignoring request.'
+                'geometry already exists. ignoring request.'
             )
 
         graph = self.graph
@@ -237,10 +236,10 @@ class Spatial(ServerPlugin):
         shape = self._get_shape(wkt_string)
 
         # remove the node from the graph
-        match = """ MATCH (n:{label} """.format(label=shape.type)
-        query = match + """ { name: {geometry_name} })
-                            OPTIONAL MATCH n<-[r]-()
-                            DELETE r, n """
+        match = """MATCH (n:{label}""".format(label=shape.type)
+        query = match + """{ name:{geometry_name} })
+OPTIONAL MATCH n<-[r]-()
+DELETE r, n"""
         params = {
             'label': shape.type,
             'geometry_name': geometry_name,
@@ -250,9 +249,9 @@ class Spatial(ServerPlugin):
         # tidy up the index. at time of writing there is *no* api for this,
         # so we are forced to do this manually. This will remove the node,
         # it's bounding box node, and the relationship between them.
-        query = """ MATCH (l { layer: {layer_name} }),
-                    (n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-()
-                    DELETE ref, n """
+        query = """MATCH (l { layer:{layer_name} }),
+(n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-()
+DELETE ref, n"""
         params = {
             'layer_name': layer_name,
             'wkt': shape.wkt,
