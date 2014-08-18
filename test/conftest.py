@@ -17,7 +17,6 @@ from decimal import Decimal
 import logging
 
 import pytest
-from logutils.colorize import ColorizingStreamHandler
 
 from py2neo import Graph
 from py2neo.cypher import Session

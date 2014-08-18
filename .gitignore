@@ -25,7 +25,6 @@ pip-log.txt
 
 # Unit test / coverage reports
 .coverage
-.tox
 nosetests.xml
 
 # Translations
@@ -50,3 +49,5 @@ book/_build
 venv
 
 .cache
+.bau
+.pip
