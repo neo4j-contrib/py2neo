@@ -18,21 +18,13 @@
 
 from __future__ import unicode_literals
 
-import pytest
-from py2neo import cypher
-
-try:
-    session = cypher.Session()
-except NotImplementedError:
-    supports_transactions = False
-else:
-    supports_transactions = True
+from py2neo.cypher.error import TransactionError, TransactionFinished
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_can_execute_single_statement_transaction():
-    tx = session.create_transaction()
+def test_can_execute_single_statement_transaction(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
     results = tx.commit()
@@ -44,10 +36,10 @@ def test_can_execute_single_statement_transaction():
     assert tx.finished
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_can_execute_multi_statement_transaction():
-    tx = session.create_transaction()
+def test_can_execute_multi_statement_transaction(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
     tx.append("CREATE (a) RETURN a")
@@ -61,10 +53,10 @@ def test_can_execute_multi_statement_transaction():
     assert tx.finished
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_can_execute_multi_execute_transaction():
-    tx = session.create_transaction()
+def test_can_execute_multi_execute_transaction(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     for i in range(10):
         assert not tx.finished
         tx.append("CREATE (a) RETURN a")
@@ -80,10 +72,10 @@ def test_can_execute_multi_execute_transaction():
     assert tx.finished
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_can_rollback_transaction():
-    tx = session.create_transaction()
+def test_can_rollback_transaction(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     for i in range(10):
         assert not tx.finished
         tx.append("CREATE (a) RETURN a")
@@ -99,36 +91,27 @@ def test_can_rollback_transaction():
     assert tx.finished
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_can_generate_transaction_error():
-    tx = session.create_transaction()
+def test_can_generate_transaction_error(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     try:
         tx.append("CRAETE (a) RETURN a")
         tx.commit()
-    except cypher.TransactionError as err:
+    except TransactionError as err:
         assert repr(err)
     else:
         assert False
 
 
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_cannot_append_after_transaction_finished():
-    tx = session.create_transaction()
+def test_cannot_append_after_transaction_finished(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    tx = graph.cypher.begin()
     tx.rollback()
     try:
         tx.append("CREATE (a) RETURN a")
-    except cypher.TransactionFinished as err:
+    except TransactionFinished as err:
         assert repr(err) == "Transaction finished"
     else:
         assert False
-
-
-@pytest.mark.skipif(not supports_transactions,
-                    reason="Transactions not supported by this server version")
-def test_single_execute():
-    result = session.execute("CREATE (a) RETURN a")
-    assert len(result) == 1
-    for record in result:
-        assert record.columns == ("a",)

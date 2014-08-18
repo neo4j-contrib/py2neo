@@ -485,7 +485,7 @@ class Graph(Service):
         """
         if self.__batch is None:
             from py2neo.batch import BatchResource
-            self.__batch = BatchResource(self.uri.string + "batch")
+            self.__batch = BatchResource(self.resource.metadata["batch"])
         return self.__batch
 
     @property
@@ -506,7 +506,8 @@ class Graph(Service):
         """
         if self.__cypher is None:
             from py2neo.cypher import CypherResource
-            self.__cypher = CypherResource(self.uri.string + "cypher")
+            metadata = self.resource.metadata
+            self.__cypher = CypherResource(metadata["cypher"], metadata.get("transaction"))
         return self.__cypher
 
     def create(self, *entities):

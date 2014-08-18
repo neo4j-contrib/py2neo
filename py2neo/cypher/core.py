@@ -19,63 +19,90 @@
 from __future__ import unicode_literals
 
 from collections import OrderedDict
+import logging
 
-from py2neo.core import Resource, ServiceRoot
-from py2neo.cypher.error import TransactionError, TransactionFinished
-from py2neo.cypher.results import RecordProducer
-from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.core import Service, Resource, Node, Rel, Relationship
+from py2neo.cypher.error import CypherError, TransactionError, TransactionFinished
+from py2neo.cypher.results import IterableCypherResults, RecordProducer
 
 
-class Session(object):
-    """ A Session is the base object from which Cypher transactions are
-    created and is instantiated using a root service URI. If unspecified, this
-    defaults to the `DEFAULT_URI`.
+__all__ = ["CypherResource"]
 
-    ::
 
-        >>> from py2neo import cypher
-        >>> session = cypher.Session("http://arthur:excalibur@camelot:9999")
+log = logging.getLogger("py2neo.cypher")
+
+
+class CypherResource(Service):
+    """ Wrapper for the standard Cypher endpoint, providing
+    non-transactional Cypher execution capabilities. Instances
+    of this class will generally be created by and accessed via
+    the associated Graph object::
+
+        from py2neo import Graph
+        graph = Graph()
+        results = graph.cypher.execute("MATCH (n:Person) RETURN n")
 
     """
 
-    def __init__(self, uri=None):
-        self._uri = URI(uri or ServiceRoot.DEFAULT_URI)
-        if self._uri.user_info:
-            service_root_uri = "{0}://{1}@{2}:{3}/".format(self._uri.scheme, self._uri.user_info, self._uri.host, self._uri.port)
-        else:
-            service_root_uri = "{0}://{1}:{2}/".format(self._uri.scheme, self._uri.host, self._uri.port)
-        self._service_root = ServiceRoot(service_root_uri)
-        self._graph = self._service_root.graph
+    error_class = CypherError
+
+    __instances = {}
+
+    def __new__(cls, uri, transaction_uri=None):
         try:
-            self._transaction_uri = self._graph.resource.metadata["transaction"]
+            inst = cls.__instances[uri]
         except KeyError:
-            raise NotImplementedError("Cypher transactions are not supported "
-                                      "by this server version")
+            inst = super(CypherResource, cls).__new__(cls)
+            inst.bind(uri)
+            inst.transaction_uri = transaction_uri
+            cls.__instances[uri] = inst
+        return inst
 
-    def create_transaction(self):
-        """ Create a new transaction object.
+    def post(self, query, params=None):
+        log.debug("Query: %r", query)
+        payload = {"query": query}
+        if params:
+            payload["params"] = {}
+            for key, value in params.items():
+                if isinstance(value, (Node, Rel, Relationship)):
+                    value = value._id
+                payload["params"][key] = value
+            log.debug("Params: %r", payload["params"])
+        return self.resource.post(payload)
 
-        ::
+    def run(self, query, params=None):
+        self.post(query, params).close()
 
-            >>> from py2neo import cypher
-            >>> session = cypher.Session()
-            >>> tx = session.create_transaction()
+    def execute(self, query, params=None):
+        response = self.post(query, params)
+        try:
+            return self.graph.hydrate(response.content)
+        finally:
+            response.close()
 
-        :return: new transaction object
-        :rtype: Transaction
+    def execute_one(self, query, params=None):
+        response = self.post(query, params)
+        results = self.graph.hydrate(response.content)
+        try:
+            return results.data[0][0]
+        except IndexError:
+            return None
+        finally:
+            response.close()
+
+    def stream(self, query, params=None):
+        """ Execute the query and return a result iterator.
         """
-        return Transaction(self._transaction_uri)
+        return IterableCypherResults(self.graph, self.post(query, params))
 
-    def execute(self, statement, parameters=None):
-        """ Execute a single statement and return the results.
-        """
-        tx = self.create_transaction()
-        tx.append(statement, parameters)
-        results = tx.commit()
-        return results[0]
+    def begin(self):
+        if self.transaction_uri:
+            return CypherTransaction(self.transaction_uri)
+        else:
+            raise NotImplementedError("Transaction support not available from this Neo4j server version")
 
 
-class Transaction(object):
+class CypherTransaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
     """

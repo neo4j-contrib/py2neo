@@ -24,8 +24,7 @@ import logging
 from py2neo.cypher.create import CreateStatement
 from py2neo.cypher.lang import Representation, cypher_escape
 from py2neo.cypher.results import CypherResults, IterableCypherResults, Record, RecordProducer
-from py2neo.cypher.simple import *
-from py2neo.cypher.tx import Session, Transaction, TransactionError, TransactionFinished
+from py2neo.cypher.core import *
 from py2neo.util import is_collection
 
 
