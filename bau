@@ -109,9 +109,7 @@ function neo4j_download {
     then
         if [ $ONLINE ]
         then
-            pushd "$DOWN" > /dev/null
             download "http://dist.neo4j.org/$ARCHIVE"
-            popd > /dev/null
         else
             echo "Cannot download necessary files while offline" >&2
             exit 1
