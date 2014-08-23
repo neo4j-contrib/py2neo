@@ -98,13 +98,8 @@ RETURN n"""
         return bool(exists)
 
     def _layer_exists(self, layer_name):
-        query = """MATCH (l {layer:{layer_name}})<-[:LAYER]-()
-RETURN l"""
-
-        params = {
-            'layer_name': layer_name,
-        }
-
+        query = """MATCH (l {layer:{layer_name}})<-[:LAYER]-() RETURN l"""
+        params = {'layer_name': layer_name}
         exists = self.graph.cypher.execute(query, params)
         return bool(exists)
 

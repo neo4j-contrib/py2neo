@@ -54,10 +54,10 @@ class TestLayers(Base):
         spatial.create_layer(LAYER_NAME)
         assert count(LAYER_NAME) == 1
 
-    def test_cannot_create_geometry_if_layer_does_not_exist(self, spatial, cornwall):
+    def test_cannot_create_geometry_if_layer_does_not_exist(self, spatial):
         with pytest.raises(LayerNotFoundError):
             spatial.create_geometry(
-                geometry_name="test", wkt_string=cornwall,
+                geometry_name="test", wkt_string='POINT (1,1)',
                 layer_name="missing")
 
     def test_handle_bad_wkt(self, spatial):
