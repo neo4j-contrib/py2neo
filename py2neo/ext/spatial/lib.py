@@ -1,4 +1,12 @@
-from shapely.geometry import MultiPolygon
+from shapely.geometry import MultiPolygon, Point
+
+
+def parse_lat_long(coords):
+    # WKT standard is: POINT (x y)
+    # WSG 84: http://spatialreference.org/ref/epsg/4326/
+    lat, lon = coords
+    point = Point(float(lon), float(lat))
+    return point
 
 
 def parse_poly(lines):
