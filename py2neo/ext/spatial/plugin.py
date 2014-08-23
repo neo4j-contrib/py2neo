@@ -27,12 +27,12 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 class Spatial(ServerPlugin):
     """ An API to the contrib Neo4j Spatial Extension for creating, destroying
-    and querying Well Known Text (WKT) geometries over your own GIS map Layers.
+    and querying Well Known Text (WKT) geometries over GIS map Layers.
 
-    Each Layer you create will be a collection of geographically aware nodes
-    which are silently also modelled by an R-tree graph within your
-    application's neo datastore. This graph has a "legacy" lucene index
-    (for your non geographical queries) and a magical bespoke "spatial" index.
+    Each Layer you create will create a sub-graph modelling geographically aware
+    nodes as an R-tree, which is your magical spatial index. You will also have
+    a standard Lucene index for this data because not all your queries will be
+    spatial.
 
     .. note::
 
@@ -49,26 +49,31 @@ class Spatial(ServerPlugin):
 
     """
     def __init__(self, graph):
-        """
+        """ An API extension to py2neo to take advantage of (some of) the REST
+        resources provided by the contrib neo4j spatial extension.
 
+        Implemented Resources are: ```addEditableLayer```, ```getLayer``` and
+        ```addGeometryWKTToLayer```.
 
-        addNodesToLayer
-
-
-
-
-        addCQLDynamicLayer
-        updateGeometryFromWKT
-        addNodeToLayer
-        findGeometriesInBBox
-        addSimplePointLayer
-        findClosestGeometries
-        addGeometryWKTToLayer
+        TODO: updateGeometryFromWKT, findGeometriesInBBox ,findClosestGeometries,
         findGeometriesWithinDistance
+
+        .. note::
+
+            For now, this api prefers WKT indexes and geometries. Because of this
+            the following are not implemented:
+
+                addSimplePointLayer
+                    - no plan to implement as WKT is preferred
+                addNodeToLayer
+                    - no plan to implement the point geometry type
+                addNodesToLayer
+                    - no plan to implement point geometry type or batch inserts
+                addCQLDynamicLayer
+                    - no idea what this is
 
         """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
-
 
     def _get_shape(self, wkt_string):
         try:
@@ -113,15 +118,15 @@ RETURN l"""
 
         """
         resource = self.resources['addEditableLayer']
-        payload = {'layer': layer_name}
-        payload.update(EXTENSION_CONFIG)
-        layer = resource.post(payload)
+        spatial_data = {'layer': layer_name}
+        spatial_data.update(EXTENSION_CONFIG)
+        layer = resource.post(spatial_data)
 
     def get_layer(self, layer_name):
         resource = self.resources['getLayer']
-        payload = {'layer': layer_name}
-        payload.update(EXTENSION_CONFIG)
-        layer = resource.post(payload)
+        spatial_data = {'layer': layer_name}
+        spatial_data.update(EXTENSION_CONFIG)
+        layer = resource.post(spatial_data)
         return layer
 
     def delete_layer(self, layer_name):
@@ -220,23 +225,20 @@ metadata, reference_node, bounding_box, l"""
             )
 
         graph = self.graph
+        resource = self.resources['addGeometryWKTToLayer']
+
         labels = labels or []
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
+
         params = {
             WKT_PROPERTY: shape.wkt,
             'name': geometry_name,
         }
-
         node = Node(*labels, **params)
         graph.create(node)
 
-        index = graph.legacy.get_index(Node, layer_name)
-        index.add(WKT_PROPERTY, shape.wkt, node)
-
-        # TODO compare this to:
-        #resource = Resource(ustr(URI(self.spatial_extension)) + u'/graphdb/addNodeToLayer')
-        #data = {"layer": self.name, "node": ustr(URI(node))}
-        #resource._post(compact(data))
+        spatial_data = {'geometry': shape.wkt, 'layer': layer_name}
+        resource.post(spatial_data)
 
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
