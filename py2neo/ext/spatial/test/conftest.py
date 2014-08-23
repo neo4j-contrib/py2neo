@@ -63,7 +63,7 @@ def spatial(graph):
 
 
 @pytest.fixture
-def cornwall(spatial):
+def cornwall_wkt(spatial):
     wkt = 'MULTIPOLYGON (((-4.653215 50.93101, -4.551301 50.92998, \
 -4.454097 50.93213, -4.457686 50.9153, -4.412353 50.86911, \
 -4.429763 50.86168, -4.439549 50.83183, -4.434862 50.81649, \
@@ -80,18 +80,11 @@ def cornwall(spatial):
 -4.168255 50.35779, -4.146631 50.35872, -4.161255 50.3353, \
 -4.186274 50.3328, -4.185941 50.31562, -6.539587 49.41615, \
 -6.852528 50.0848, -4.653215 50.93101)))'
-
-    spatial.create_layer(CORNWALL)
-    spatial.create_geometry(
-        geometry_name=CORNWALL, wkt_string=wkt,
-        layer_name=CORNWALL
-    )
-
     return wkt
 
 
 @pytest.fixture
-def devon(spatial):
+def devon_wkt(spatial):
     wkt = 'MULTIPOLYGON (((-4.57258 51.21081, -3.709391 51.28549, \
 -3.714396 51.17725, -3.826997 51.16611, -3.824625 51.14312, \
 -3.714637 51.09008, -3.590172 51.06422, -3.601886 51.01714, \
@@ -110,13 +103,24 @@ def devon(spatial):
 -4.341798 50.63572, -4.382257 50.73126, -4.462788 50.78225, \
 -4.451816 50.84964, -4.431014 50.86446, -4.472728 50.92142, \
 -4.752335 50.93162, -4.57258 51.21081)))'
+    return wkt
 
-    spatial.create_layer(DEVON)
+
+@pytest.fixture
+def cornwall(spatial, cornwall_wkt):
+    spatial.create_layer(CORNWALL)
     spatial.create_geometry(
-        geometry_name=DEVON, wkt_string=wkt, layer_name=DEVON
+        geometry_name=CORNWALL, wkt_string=cornwall_wkt,
+        layer_name=CORNWALL
     )
 
-    return wkt
+
+@pytest.fixture
+def devon(spatial, devon_wkt):
+    spatial.create_layer(DEVON)
+    spatial.create_geometry(
+        geometry_name=DEVON, wkt_string=devon_wkt, layer_name=DEVON
+    )
 
 
 @pytest.fixture
@@ -141,7 +145,7 @@ def devonshire_towns(spatial, devon):
 
 
 @pytest.fixture
-def england(spatial):
+def english_towns(spatial):
     bristol = Location('bristol', (51.454513 , -2.58791))
     manchester = Location('manchester', (53.479324 , -2.248485))
     oxford = Location('oxford', (51.752021 , -1.257726))
@@ -152,7 +156,7 @@ def england(spatial):
 
 
 @pytest.fixture
-def scotland(spatial):
+def scottish_towns(spatial):
     aberdeen = Location('aberdeen', (57.149717 , -2.094278))
     edinburgh = Location('edinburgh', (55.953252 , -3.188267))
     locations = [aberdeen, edinburgh]
@@ -160,6 +164,14 @@ def scotland(spatial):
 
 
 @pytest.fixture
-def big_ben(spatial):
+def towns(
+        cornish_towns, devonshire_towns, english_towns,
+        scottish_towns):
+
+    pass
+
+
+@pytest.fixture
+def features(spatial):
     ben = Location('bigben', (51.500728 , -0.124626))
     load_locations(spatial, [ben], ENGLAND)
