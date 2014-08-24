@@ -144,10 +144,12 @@ class TestGeometries(Base):
 class TestQueries(Base):
     def test_nearby(self, spatial, cornish_towns):
         tourist = (50.500000, -4.500000)
-        nearby_geometries = spatial.find_nearby("cornwall", tourist, 100)
+        nearby_geometries = spatial.find_closest_geometries(
+            "cornwall", tourist, 100)
         assert len(nearby_geometries) == len(cornish_towns)
 
     def test_nothing_nearby(self, spatial, cornwall_layer):
         tourist = (50.500000, -4.500000)
-        nearby_geometries = spatial.find_nearby("cornwall", tourist, 100)
+        nearby_geometries = spatial.find_closest_geometries(
+            "cornwall", tourist, 100)
         assert len(nearby_geometries) == 0

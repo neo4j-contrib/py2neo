@@ -1,1 +1,1 @@
-from . plugin import Spatial
+from .plugin import Spatial

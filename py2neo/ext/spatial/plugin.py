@@ -9,6 +9,7 @@ from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
 from .exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
+from util import parse_lat_long
 
 
 EXTENSION_NAME = "SpatialPlugin"
@@ -55,10 +56,10 @@ class Spatial(ServerPlugin):
         """ An API extension to py2neo to take advantage of (some of) the REST
         resources provided by the contrib neo4j spatial extension.
 
-        Implemented Resources are: ```addEditableLayer```, ```getLayer``` and
-        ```addGeometryWKTToLayer```.
+        Implemented end-points are: ```addEditableLayer```, ```getLayer```,
+        ```addGeometryWKTToLayer``` and ```findClosestGeometries```.
 
-        TODO: updateGeometryFromWKT, findGeometriesInBBox ,findClosestGeometries,
+        TODO: updateGeometryFromWKT, findGeometriesInBBox,
         findGeometriesWithinDistance
 
         .. note::
@@ -289,13 +290,36 @@ DELETE ref, n"""
         }
         graph.cypher.execute(query, params)
 
-    def find_nearby(self, layer, coords, distance):
+    def find_closest_geometries(self, layer_name, coords, distance):
+        """ Find the "closest" points of interest (poi) within a given 
+        distance from a lat-lon location coord.
+
+        TODO: what is the difference between "closest" and "find within"?
+
+        :Params:
+            layer_name : str
+                The name of the layer/index to remove the geometry from.
+            coords : tuple
+                WGS84 (EPSG 4326) lat, lon pair
+            distance : int
+                The radius of the search area in Kilometres (km)
+
+        :Raises:
+            LayerNotFoundError if the index does not exist.
+
+        """
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
         resource = self.resources['findClosestGeometries']
-        x, y = coords
+        shape = parse_lat_long(coords)
+
         spatial_data = {
-            'layer': layer,
-            'pointX': x, 
-            'pointY': y, 
+            'layer': layer_name,
+            'pointX': shape.x, 
+            'pointY': shape.y, 
             'distanceInKm': distance,
         }
 
@@ -309,3 +333,6 @@ DELETE ref, n"""
 
         nodes = map(Node.hydrate, assembled(json_stream))
         return nodes
+
+    def find_within_distance(self):
+        resource = self.resources['findGeometriesWithinDistance']
