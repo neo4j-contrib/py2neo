@@ -2,7 +2,7 @@ import pytest
 
 from .. exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
-from ..lib import parse_lat_long
+from ..util import parse_lat_long
 
 
 LAYER_NAME = "geometry_layer"

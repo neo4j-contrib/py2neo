@@ -25,7 +25,7 @@ def parse_poly(lines):
     in_ring = False
     coords = []
 
-    for (index, line) in enumerate(lines):
+    for index, line in enumerate(lines):
         if index == 0:
             # ignore meta/garbage.
             continue

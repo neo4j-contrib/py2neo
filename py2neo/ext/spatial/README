@@ -1,0 +1,3 @@
+Shapelly needs to be manually installed for this extension.
+
+use ``pip install -r py2neo/ext/spatial/requirements.txt``

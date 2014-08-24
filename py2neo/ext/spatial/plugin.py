@@ -1,10 +1,13 @@
-from shapely.geos import ReadingError
-from shapely.wkt import loads as wkt_from_string_loader
+try:
+    from shapely.geos import ReadingError
+    from shapely.wkt import loads as wkt_from_string_loader
+except ImportErrror:
+    print("Please install extension requirements. See README.")
 
 from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
-from . exceptions import (
+from .exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
 
 
@@ -86,7 +89,7 @@ class Spatial(ServerPlugin):
         return shape
 
     def _geometry_exists(self, shape, geometry_name):
-        match = """MATCH (n:{label}""".format(label=shape.type)
+        match = "MATCH (n:{label}".format(label=shape.type)
         query = match + """{name:{geometry_name}, wkt:{wkt}})
 RETURN n"""
         params = {
@@ -98,7 +101,7 @@ RETURN n"""
         return bool(exists)
 
     def _layer_exists(self, layer_name):
-        query = """MATCH (l {layer:{layer_name}})<-[:LAYER]-() RETURN l"""
+        query = "MATCH (l {layer:{layer_name}})<-[:LAYER]-() RETURN l"
         params = {'layer_name': layer_name}
         exists = self.graph.cypher.execute(query, params)
         return bool(exists)
@@ -113,16 +116,14 @@ RETURN n"""
 
         """
         resource = self.resources['addEditableLayer']
-        spatial_data = {'layer': layer_name}
-        spatial_data.update(EXTENSION_CONFIG)
+        spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
         layer = assembled(raw) 
         return layer
 
     def get_layer(self, layer_name):
         resource = self.resources['getLayer']
-        spatial_data = {'layer': layer_name}
-        spatial_data.update(EXTENSION_CONFIG)
+        spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
         layer = assembled(raw) 
         return layer
@@ -300,14 +301,11 @@ DELETE ref, n"""
 
         try:
             json_stream = resource.post(spatial_data)
-        except GraphError:
-            # no results throws a nasty Java strack trace.
-            return []
+        except GraphError as exc:
+            if 'NullPointerException' in exc.full_name:
+                # no results leads to a NullPointerException
+                return []
+            raise
 
-        response_list = assembled(json_stream)
-
-        nodes = []
-        for raw in response_list:
-            nodes.append(Node.hydrate(raw))
-
+        nodes = map(Node.hydrate, assembled(json_stream))
         return nodes

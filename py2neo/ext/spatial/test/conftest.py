@@ -5,7 +5,7 @@ import pytest
 from py2neo import Node
 from py2neo.core import Graph
 from .. import Spatial
-from ..lib import parse_lat_long
+from ..util import parse_lat_long
 
 
 DEFAULT_DB = "http://localhost:7474/db/data/"
