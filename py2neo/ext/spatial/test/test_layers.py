@@ -2,6 +2,7 @@ import pytest
 
 from .. exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
+from ..lib import parse_lat_long
 
 
 LAYER_NAME = "geometry_layer"
@@ -96,12 +97,26 @@ class TestLayers(Base):
 
 
 class TestGeometries(Base):
-    def test_create_geometry(self, spatial, cornwall_wkt):
+    def test_create_polygon(self, spatial, cornwall_wkt):
         graph = spatial.graph
         geometry_name = "shape"
         spatial.create_layer(LAYER_NAME)
         spatial.create_geometry(
             geometry_name=geometry_name, wkt_string=cornwall_wkt,
+            layer_name=LAYER_NAME)
+        
+        assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
+
+    def test_create_point(self, spatial):
+        graph = spatial.graph
+        geometry_name = "shape"
+        spatial.create_layer(LAYER_NAME)
+
+        shape = parse_lat_long((5.5, -4.5))
+        assert shape.type == 'Point'
+
+        spatial.create_geometry(
+            geometry_name=geometry_name, wkt_string=shape.wkt,
             layer_name=LAYER_NAME)
         
         assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
@@ -127,5 +142,12 @@ class TestGeometries(Base):
 
 
 class TestQueries(Base):
-    def test_contains(self, cornish_towns, devonshire_towns):
-        pass
+    def test_nearby(self, spatial, cornish_towns):
+        tourist = (50.500000, -4.500000)
+        nearby_geometries = spatial.find_nearby("cornwall", tourist, 100)
+        assert len(nearby_geometries) == len(cornish_towns)
+
+    def test_nothing_nearby(self, spatial, cornwall_layer):
+        tourist = (50.500000, -4.500000)
+        nearby_geometries = spatial.find_nearby("cornwall", tourist, 100)
+        assert len(nearby_geometries) == 0

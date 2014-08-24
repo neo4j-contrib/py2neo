@@ -107,8 +107,17 @@ def devon_wkt(spatial):
 
 
 @pytest.fixture
-def cornwall(spatial, cornwall_wkt):
+def cornwall_layer(spatial):
     spatial.create_layer(CORNWALL)
+
+
+@pytest.fixture
+def devon_layer(spatial):
+    spatial.create_layer(DEVON)
+
+
+@pytest.fixture
+def cornwall(spatial, cornwall_layer, cornwall_wkt):
     spatial.create_geometry(
         geometry_name=CORNWALL, wkt_string=cornwall_wkt,
         layer_name=CORNWALL
@@ -116,25 +125,26 @@ def cornwall(spatial, cornwall_wkt):
 
 
 @pytest.fixture
-def devon(spatial, devon_wkt):
-    spatial.create_layer(DEVON)
+def devon(spatial, devon_layer, devon_wkt):
     spatial.create_geometry(
-        geometry_name=DEVON, wkt_string=devon_wkt, layer_name=DEVON
+        geometry_name=DEVON, wkt_string=devon_wkt,
+        layer_name=DEVON
     )
 
 
 @pytest.fixture
-def cornish_towns(spatial, cornwall):
+def cornish_towns(spatial, cornwall_layer):
     falmouth = Location('falmouth', (50.152571 , -5.06627))
     bodmin = Location('bodmin', (50.468630 , -4.715114))
     penzance = Location('penzance', (50.118798 , -5.537592))
     truro = Location('truro', (50.263195 , -5.051041))
     locations = [falmouth, bodmin, penzance, truro]
     load_locations(spatial, locations, CORNWALL)
+    return locations
 
 
 @pytest.fixture
-def devonshire_towns(spatial, devon):
+def devonshire_towns(spatial, devon_layer):
     plymouth = Location('plymouth', (50.375456 , -4.142656))
     exeter = Location('exeter', (50.718412 , -3.533899))
     torquay = Location('torquay', (50.461921 , -3.525315))
@@ -142,6 +152,7 @@ def devonshire_towns(spatial, devon):
     axminster = Location('axminster', (50.782727 , -2.994937))
     locations = [plymouth, exeter, torquay, tiverton, axminster]
     load_locations(spatial, locations, DEVON)
+    return locations
 
 
 @pytest.fixture

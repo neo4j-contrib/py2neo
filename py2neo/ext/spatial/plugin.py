@@ -2,8 +2,8 @@ from shapely.geos import ReadingError
 from shapely.wkt import loads as wkt_from_string_loader
 
 from py2neo import Node, ServerPlugin
-from py2neo.packages.urimagic import URI
-from py2neo.util import ustr
+from py2neo.error import GraphError
+from py2neo.packages.jsonstream import assembled
 from . exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
 
@@ -29,8 +29,8 @@ class Spatial(ServerPlugin):
     """ An API to the contrib Neo4j Spatial Extension for creating, destroying
     and querying Well Known Text (WKT) geometries over GIS map Layers.
 
-    Each Layer you create will create a sub-graph modelling geographically aware
-    nodes as an R-tree, which is your magical spatial index. You will also have
+    Each Layer you create will build a sub-graph modelling geographically aware
+    nodes as an R-tree - which is your magical spatial index! You will also have
     a standard Lucene index for this data because not all your queries will be
     spatial.
 
@@ -115,13 +115,16 @@ RETURN n"""
         resource = self.resources['addEditableLayer']
         spatial_data = {'layer': layer_name}
         spatial_data.update(EXTENSION_CONFIG)
-        layer = resource.post(spatial_data)
+        raw = resource.post(spatial_data)
+        layer = assembled(raw) 
+        return layer
 
     def get_layer(self, layer_name):
         resource = self.resources['getLayer']
         spatial_data = {'layer': layer_name}
         spatial_data.update(EXTENSION_CONFIG)
-        layer = resource.post(spatial_data)
+        raw = resource.post(spatial_data)
+        layer = assembled(raw) 
         return layer
 
     def delete_layer(self, layer_name):
@@ -132,7 +135,7 @@ RETURN n"""
             use the core py2neo cypher api.
 
         This will remove a representation of a GIS map Layer from the Neo4j
-        data store, it will not remove any nodes you may have added to it.
+        data store - it will not remove any nodes you may have added to it.
 
         The operation removes the layer data from the internal GIS R-tree model,
         removes the neo indexes (lucene and spatial) and removes the layer's
@@ -284,3 +287,27 @@ DELETE ref, n"""
             'wkt': shape.wkt,
         }
         graph.cypher.execute(query, params)
+
+    def find_nearby(self, layer, coords, distance):
+        resource = self.resources['findClosestGeometries']
+        x, y = coords
+        spatial_data = {
+            'layer': layer,
+            'pointX': x, 
+            'pointY': y, 
+            'distanceInKm': distance,
+        }
+
+        try:
+            json_stream = resource.post(spatial_data)
+        except GraphError:
+            # no results throws a nasty Java strack trace.
+            return []
+
+        response_list = assembled(json_stream)
+
+        nodes = []
+        for raw in response_list:
+            nodes.append(Node.hydrate(raw))
+
+        return nodes
