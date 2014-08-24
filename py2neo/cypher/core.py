@@ -50,39 +50,40 @@ class CypherResource(Service):
     __instances = {}
 
     def __new__(cls, uri, transaction_uri=None):
+        key = (uri, transaction_uri)
         try:
-            inst = cls.__instances[uri]
+            inst = cls.__instances[key]
         except KeyError:
             inst = super(CypherResource, cls).__new__(cls)
             inst.bind(uri)
             inst.transaction_uri = transaction_uri
-            cls.__instances[uri] = inst
+            cls.__instances[key] = inst
         return inst
 
-    def post(self, query, params=None):
-        log.debug("Query: %r", query)
-        payload = {"query": query}
-        if params:
+    def post(self, statement, parameters=None):
+        log.debug("Statement: %r", statement)
+        payload = {"query": statement}
+        if parameters:
             payload["params"] = {}
-            for key, value in params.items():
+            for key, value in parameters.items():
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
             log.debug("Params: %r", payload["params"])
         return self.resource.post(payload)
 
-    def run(self, query, params=None):
-        self.post(query, params).close()
+    def run(self, statement, parameters=None):
+        self.post(statement, parameters).close()
 
-    def execute(self, query, params=None):
-        response = self.post(query, params)
+    def execute(self, statement, parameters=None):
+        response = self.post(statement, parameters)
         try:
             return self.graph.hydrate(response.content)
         finally:
             response.close()
 
-    def execute_one(self, query, params=None):
-        response = self.post(query, params)
+    def execute_one(self, statement, parameters=None):
+        response = self.post(statement, parameters)
         results = self.graph.hydrate(response.content)
         try:
             return results.data[0][0]
@@ -91,16 +92,17 @@ class CypherResource(Service):
         finally:
             response.close()
 
-    def stream(self, query, params=None):
+    def stream(self, statement, parameters=None):
         """ Execute the query and return a result iterator.
         """
-        return IterableCypherResults(self.graph, self.post(query, params))
+        return IterableCypherResults(self.graph, self.post(statement, parameters))
 
     def begin(self):
         if self.transaction_uri:
             return CypherTransaction(self.transaction_uri)
         else:
-            raise NotImplementedError("Transaction support not available from this Neo4j server version")
+            raise NotImplementedError("Transaction support not available from this "
+                                      "Neo4j server version")
 
 
 class CypherTransaction(object):
