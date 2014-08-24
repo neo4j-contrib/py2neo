@@ -24,6 +24,9 @@ from py2neo.core import Node, Rel, Rev, Path, Relationship
 from py2neo.util import is_collection
 
 
+__all__ = ["Representation", "cypher_escape", "cypher_repr"]
+
+
 class Representation(object):
 
     safe_first_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
@@ -141,4 +144,10 @@ class Representation(object):
 def cypher_escape(identifier):
     r = Representation()
     r.write_identifier(identifier)
+    return repr(r)
+
+
+def cypher_repr(obj):
+    r = Representation()
+    r.write(obj)
     return repr(r)
