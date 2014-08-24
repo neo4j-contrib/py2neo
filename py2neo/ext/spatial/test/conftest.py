@@ -9,15 +9,12 @@ from ..util import parse_lat_long
 
 
 DEFAULT_DB = "http://localhost:7474/db/data/"
-CORNWALL = "cornwall"
-DEVON = "devon"
-ENGLAND = "england"
-SCOTLAND = "scotland"
+DEFAULT_INDEX_NAME = "uk"
 
 Location = namedtuple('location', ['name', 'coords'])
 
 
-def load_locations(api, location_list, layer):
+def load_locations(api, location_list, layer=DEFAULT_INDEX_NAME):
     for location in location_list:
         shape = parse_lat_long(location.coords)
         api.create_geometry(location.name, shape.wkt, layer)
@@ -106,52 +103,46 @@ def devon_wkt(spatial):
     return wkt
 
 
-@pytest.fixture
-def cornwall_layer(spatial):
-    spatial.create_layer(CORNWALL)
+@pytest.fixture(autouse=True)
+def test_layer(spatial):
+    spatial.create_layer(DEFAULT_INDEX_NAME)
+    return DEFAULT_INDEX_NAME
 
 
 @pytest.fixture
-def devon_layer(spatial):
-    spatial.create_layer(DEVON)
-
-
-@pytest.fixture
-def cornwall(spatial, cornwall_layer, cornwall_wkt):
+def cornwall(spatial, test_layer, cornwall_wkt):
     spatial.create_geometry(
-        geometry_name=CORNWALL, wkt_string=cornwall_wkt,
-        layer_name=CORNWALL
+        geometry_name="cornwall", wkt_string=cornwall_wkt, layer_name=DEFAULT_INDEX_NAME
     )
 
 
 @pytest.fixture
-def devon(spatial, devon_layer, devon_wkt):
+def devon(spatial, test_layer, devon_wkt):
     spatial.create_geometry(
-        geometry_name=DEVON, wkt_string=devon_wkt,
-        layer_name=DEVON
+        geometry_name="devon", wkt_string=devon_wkt, layer_name=DEFAULT_INDEX_NAME
     )
 
 
 @pytest.fixture
-def cornish_towns(spatial, cornwall_layer):
+def cornish_towns(spatial, test_layer):
     falmouth = Location('falmouth', (50.152571 , -5.06627))
     bodmin = Location('bodmin', (50.468630 , -4.715114))
     penzance = Location('penzance', (50.118798 , -5.537592))
     truro = Location('truro', (50.263195 , -5.051041))
     locations = [falmouth, bodmin, penzance, truro]
-    load_locations(spatial, locations, CORNWALL)
+    load_locations(spatial, locations)
     return locations
 
 
 @pytest.fixture
-def devonshire_towns(spatial, devon_layer):
+def devonshire_towns(spatial, test_layer):
     plymouth = Location('plymouth', (50.375456 , -4.142656))
     exeter = Location('exeter', (50.718412 , -3.533899))
     torquay = Location('torquay', (50.461921 , -3.525315))
     tiverton = Location('tiverton', (50.902049 , -3.491207))
     axminster = Location('axminster', (50.782727 , -2.994937))
     locations = [plymouth, exeter, torquay, tiverton, axminster]
-    load_locations(spatial, locations, DEVON)
+    load_locations(spatial, locations)
     return locations
 
 
@@ -162,27 +153,53 @@ def english_towns(spatial):
     oxford = Location('oxford', (51.752021 , -1.257726))
     newcastle = Location('newcastle', (54.978252 , -1.61778))
     norwich = Location('norwich', (52.630886 , 1.297355))
-    locations = [bristol, manchester, oxford, newcastle, norwich]
-    load_locations(spatial, locations, ENGLAND)
+    #locations = [bristol, manchester, oxford, newcastle, norwich]
 
 
 @pytest.fixture
 def scottish_towns(spatial):
     aberdeen = Location('aberdeen', (57.149717 , -2.094278))
     edinburgh = Location('edinburgh', (55.953252 , -3.188267))
-    locations = [aberdeen, edinburgh]
-    load_locations(spatial, locations, SCOTLAND)
+    #locations = [aberdeen, edinburgh]
 
 
 @pytest.fixture
-def towns(
-        cornish_towns, devonshire_towns, english_towns,
-        scottish_towns):
+def london_features(spatial):
+    big_ben = Location('big_ben', (51.500728 , -0.124626))
+    buckingham_palace = Location('buckingham_palace', (51.501364 , -0.14189))
+    hampton_court = Location('hampton_court', (51.403613 , -0.337762))
+    st_pauls = Location('st_pauls', (51.513845 , -0.098351))
 
-    pass
+    features = [
+        big_ben, buckingham_palace, hampton_court, st_pauls
+    ]
+
+    load_locations(spatial, features, DEFAULT_INDEX_NAME)
+    return features
 
 
 @pytest.fixture
-def features(spatial):
-    ben = Location('bigben', (51.500728 , -0.124626))
-    load_locations(spatial, [ben], ENGLAND)
+def all_features(spatial, test_layer):
+    blackpool_tower = Location('blackpool_tower', (53.814620 , -3.05586))
+    lake_windermere = Location('lake_windermere', (54.369274 , -2.912605))
+    brighton_pier = Location('brighton_pier', (50.815218 , -0.137026))
+    cheddar_gorge = Location('cheddar_gorge', (51.286389 , -2.760278))
+    stonehenge = Location('stonehenge', (51.178882 , -1.826215))
+    windsor_castle = Location('windsor_castle', (51.483894 , -0.604403))
+    ben_nevis = Location('ben_nevis', (56.796854 , -5.003541))
+
+    features = [
+        blackpool_tower, lake_windermere, brighton_pier, cheddar_gorge, 
+        stonehenge, ben_nevis, windsor_castle 
+    ]
+
+    load_locations(spatial, features, DEFAULT_INDEX_NAME)
+    return features
+
+
+@pytest.fixture
+def hard_lat_long(spatial):
+    # this lat-long rounds to oblibion when parsed by Shapely
+    st_pauls = Location('st_pauls', (51.513845 , -0.098351))
+    load_locations(spatial, [st_pauls], DEFAULT_INDEX_NAME)
+    return st_pauls

@@ -1,6 +1,7 @@
 try:
     from shapely.geos import ReadingError
     from shapely.wkt import loads as wkt_from_string_loader
+    from shapely.wkt import dumps
 except ImportErrror:
     print("Please install extension requirements. See README.")
 
@@ -8,7 +9,8 @@ from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
 from .exceptions import (
-    GeometryExistsError, LayerNotFoundError, InvalidWKTError)
+    GeometryExistsError, IndexMissMatchError, InvalidWKTError,
+    LayerNotFoundError)
 from util import parse_lat_long
 
 
@@ -79,7 +81,51 @@ class Spatial(ServerPlugin):
         """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
-    def _get_shape(self, wkt_string):
+    def _find_geometries_from_point(self, shape, resource, layer_name, radius):
+        assert shape.type == POINT
+
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
+        spatial_data = {
+            'pointX': shape.x, 'pointY': shape.y,
+            'layer': layer_name, 'distanceInKm': radius,
+        }
+
+        try:
+            json_stream = resource.post(spatial_data)
+        except GraphError as exc:
+            if 'NullPointerException' in exc.full_name:
+                # no results leads to a NullPointerException
+                return []
+            raise
+
+        # this gives us the nodes from the R-tree
+        geometry_nodes = map(Node.hydrate, assembled(json_stream))
+        # now retrieve the application's nodes
+        wkts = [n.get_properties()['wkt'] for n in geometry_nodes]
+
+        match = "MATCH (n:{label})".format(label=layer_name)
+        query = match + "WHERE n.wkt IN {wkts} RETURN n"
+
+        params = {
+            'label': layer_name,
+            'wkts': wkts,
+        }
+
+        results = self.graph.cypher.execute(query, params)
+        nodes = [record[0] for record in results]
+
+        if len(geometry_nodes) > len(nodes):
+            raise IndexMissMatchError(
+                'Index "{}" contains lost nodes'.format(layer_name)
+            )
+
+        return nodes
+
+    def _get_shape_from_wkt(self, wkt_string):
         try:
             shape = wkt_from_string_loader(wkt_string)
         except ReadingError:
@@ -88,6 +134,15 @@ class Spatial(ServerPlugin):
             )
 
         return shape
+
+    def _get_wkt_from_shape(self, shape):
+        if shape.type == POINT:
+            # shapely float precision errors break cypher matches!
+            wkt = dumps(shape, rounding_precision=5)
+        else:
+            wkt = shape.wkt
+
+        return wkt
 
     def _geometry_exists(self, shape, geometry_name):
         match = "MATCH (n:{label}".format(label=shape.type)
@@ -217,7 +272,7 @@ metadata, reference_node, bounding_box, l"""
                     layer_name)
             )
 
-        shape = self._get_shape(wkt_string)
+        shape = self._get_shape_from_wkt(wkt_string)
 
         if self._geometry_exists(shape, geometry_name):
             raise GeometryExistsError(
@@ -229,15 +284,17 @@ metadata, reference_node, bounding_box, l"""
 
         labels = labels or []
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
+        wkt = self._get_wkt_from_shape(shape)
 
         params = {
-            WKT_PROPERTY: shape.wkt,
+            WKT_PROPERTY: wkt,
             'name': geometry_name,
         }
+
         node = Node(*labels, **params)
         graph.create(node)
 
-        spatial_data = {'geometry': shape.wkt, 'layer': layer_name}
+        spatial_data = {'geometry': wkt, 'layer': layer_name}
         resource.post(spatial_data)
 
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
@@ -266,10 +323,10 @@ metadata, reference_node, bounding_box, l"""
             )
 
         graph = self.graph
-        shape = self._get_shape(wkt_string)
+        shape = self._get_shape_from_wkt(wkt_string)
 
         # remove the node from the graph
-        match = """MATCH (n:{label}""".format(label=shape.type)
+        match = "MATCH (n:{label}".format(label=shape.type)
         query = match + """{ name:{geometry_name} })
 OPTIONAL MATCH n<-[r]-()
 DELETE r, n"""
@@ -290,6 +347,32 @@ DELETE ref, n"""
         }
         graph.cypher.execute(query, params)
 
+    def find_within_distance(self, layer_name, coords, distance):
+        """ Find all points of interest (poi) within a given distance from
+        a lat-lon location coord.
+
+        :Params:
+            layer_name : str
+                The name of the layer/index to remove the geometry from.
+            coords : tuple
+                WGS84 (EPSG 4326) lat, lon pair
+            distance : int
+                The radius of the search area in Kilometres (km)
+
+        :Raises:
+            LayerNotFoundError if the index does not exist.
+
+        :Returns:
+            a list of all matched nodes
+
+        """
+        resource = self.resources['findGeometriesWithinDistance']
+        shape = parse_lat_long(coords)
+
+        nodes = self._find_geometries_from_point(
+            shape=shape, resource=resource, layer_name=layer_name, radius=distance)
+        return nodes
+
     def find_closest_geometries(self, layer_name, coords, distance):
         """ Find the "closest" points of interest (poi) within a given 
         distance from a lat-lon location coord.
@@ -308,31 +391,9 @@ DELETE ref, n"""
             LayerNotFoundError if the index does not exist.
 
         """
-        if not self._layer_exists(layer_name):
-            raise LayerNotFoundError(
-                'Layer Not Found: "{}"'.format(layer_name)
-            )
-
         resource = self.resources['findClosestGeometries']
         shape = parse_lat_long(coords)
 
-        spatial_data = {
-            'layer': layer_name,
-            'pointX': shape.x, 
-            'pointY': shape.y, 
-            'distanceInKm': distance,
-        }
-
-        try:
-            json_stream = resource.post(spatial_data)
-        except GraphError as exc:
-            if 'NullPointerException' in exc.full_name:
-                # no results leads to a NullPointerException
-                return []
-            raise
-
-        nodes = map(Node.hydrate, assembled(json_stream))
+        nodes = self._find_geometries_from_point(
+            shape=shape, resource=resource, layer_name=layer_name, radius=distance)
         return nodes
-
-    def find_within_distance(self):
-        resource = self.resources['findGeometriesWithinDistance']
