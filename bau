@@ -59,14 +59,23 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
-        py.test --cov py2neo --cov-report term-missing --cov-report html $@
+        py.test -vx --cov py2neo --cov-report term-missing --cov-report html $@
+        EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
         rm -rf "$LOG/$NEO4J_VERSION/htmlcov"
         mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
         echo ""
+        if [ "$EXIT_CODE" != "0" ]
+        then
+            echo "Exiting on code $EXIT_CODE after test failure"
+            exit $EXIT_CODE
+        fi
     done
     popd > /dev/null
+    echo ""
+    echo "Test suite completed successfully"
+    echo ""
 }
 
 function download {
