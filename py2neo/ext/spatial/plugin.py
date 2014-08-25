@@ -18,7 +18,6 @@ from .util import parse_lat_long
 EXTENSION_NAME = "SpatialPlugin"
 WKT_PROPERTY = "wkt"
 NAME_PROPERTY = "_py2neo_geometry_name"
-LAYER_PROPERTY = "_py2neo_layer_name"
 
 # wkt index config for the contrib spatial extension
 EXTENSION_CONFIG = {
@@ -202,9 +201,9 @@ REMOVE n.{internal_name}""".format(
         # remove the bounding box, metadata and root from the rtree index
         query = """MATCH (l { layer:{layer_name} })-[r_layer:LAYER]-(),
 (metadata)<-[r_meta:RTREE_METADATA]-(l),
-()-[d:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-(bounding_box)-\
-[r_root:RTREE_ROOT]-(l)
-DELETE d, r_meta, r_layer, r_ref, r_root,
+()-[locate_rel:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-\
+(bounding_box)-[r_root:RTREE_ROOT]-(l)
+DELETE locate_rel, r_meta, r_layer, r_ref, r_root,
 metadata, geometry_node, bounding_box, l"""
 
         params = {
@@ -214,7 +213,7 @@ metadata, geometry_node, bounding_box, l"""
         graph.cypher.execute(query, params)
 
         # remove lucene index
-        #graph.legacy.delete_index(Node, layer_name)
+        graph.legacy.delete_index(Node, layer_name)
 
     def create_geometry(
             self, geometry_name, wkt_string, layer_name, labels=None,
@@ -305,8 +304,8 @@ metadata, geometry_node, bounding_box, l"""
 (geometry_node)-[r_ref:RTREE_REFERENCE]-(bbox),
 (application_node { _py2neo_geometry_name:{geometry_name} })
 WHERE geometry_node.wkt = {wkt}
-CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)
-"""
+CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)"""
+
         params = {
             'wkt': wkt,
             'layer_name': layer_name,
@@ -472,8 +471,8 @@ RETURN geometry_node, layer_node"""
         spatial_data = {
             'pointX': shape.x,
             'pointY': shape.y,
-            # this appears to be handled more like a 'tolerance', as increasing the
-            # value even slightly returns data from hundreds of kms away.
+            # this appears to be handled more like a 'tolerance', as increasing
+            # the value even slightly returns data from hundreds of kms away.
             'distanceInKm': 4,
         }
 
@@ -483,8 +482,8 @@ RETURN geometry_node, layer_node"""
             node_properties = node.get_properties()
             layer_name = node_properties['layer']
             spatial_data['layer'] = layer_name
-            geometry_nodes = self._execute_spatial_request(
-                resource, spatial_data)
+            geometry_nodes = self._execute_spatial_request(resource,
+                spatial_data)
             nodes = self._get_data_nodes(geometry_nodes)
             pois.extend(nodes)
 
