@@ -5,13 +5,7 @@ def parse_lat_long(coords):
     # WKT standard is: POINT (x y)
     # WSG 84: http://spatialreference.org/ref/epsg/4326/
     lat, lon = coords
-    data_lat, data_lon = float(lat), float(lon)
-
-    # avoid float rounding discrepencies poluting data. TODO: can i state a max precision?
-    assert str(lat) == str(data_lat)
-    assert str(lon) == str(data_lon)
-
-    point = Point(data_lat, data_lon)
+    point = Point(float(lat), float(lon))
     return point
 
 

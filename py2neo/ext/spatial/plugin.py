@@ -2,15 +2,14 @@ try:
     from shapely.geos import ReadingError
     from shapely.wkt import loads as wkt_from_string_loader
     from shapely.wkt import dumps
-except ImportErrror:
+except ImportError:
     print("Please install extension requirements. See README.")
 
 from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
 from .exceptions import (
-    GeometryExistsError, IndexMissMatchError, InvalidWKTError,
-    LayerNotFoundError)
+    GeometryExistsError, InvalidWKTError, LayerNotFoundError)
 from util import parse_lat_long
 
 
@@ -36,9 +35,9 @@ class Spatial(ServerPlugin):
     and querying Well Known Text (WKT) geometries over GIS map Layers.
 
     Each Layer you create will build a sub-graph modelling geographically aware
-    nodes as an R-tree - which is your magical spatial index! You will also have
-    a standard Lucene index for this data because not all your queries will be
-    spatial.
+    nodes as an R-tree - which is your magical spatial index! You will also
+    have a standard Lucene index for this data because not all your queries
+    will be spatial.
 
     .. note::
 
@@ -58,16 +57,19 @@ class Spatial(ServerPlugin):
         """ An API extension to py2neo to take advantage of (some of) the REST
         resources provided by the contrib neo4j spatial extension.
 
-        Implemented end-points are: ```addEditableLayer```, ```getLayer```,
-        ```addGeometryWKTToLayer``` and ```findClosestGeometries```.
+        Implemented end-points are:
+            ```addEditableLayer```
+            ```getLayer```,
+            ```addGeometryWKTToLayer```
+            ```findGeometriesWithinDistance```
+            ```findClosestGeometries```
 
         TODO: updateGeometryFromWKT, findGeometriesInBBox,
-        findGeometriesWithinDistance
 
         .. note::
 
-            For now, this api prefers WKT indexes and geometries. Because of this
-            the following are not implemented:
+            For now, this api prefers WKT indexes and geometries. Because of
+            this the following are not implemented:
 
                 addSimplePointLayer
                     - no plan to implement as WKT is preferred
@@ -82,8 +84,6 @@ class Spatial(ServerPlugin):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
     def _find_geometries_from_point(self, shape, resource, layer_name, radius):
-        assert shape.type == POINT
-
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
                 'Layer Not Found: "{}"'.format(layer_name)
@@ -107,21 +107,15 @@ class Spatial(ServerPlugin):
         # now retrieve the application's nodes
         wkts = [n.get_properties()['wkt'] for n in geometry_nodes]
 
-        match = "MATCH (n:{label})".format(label=layer_name)
+        match = "MATCH (n:{label}) ".format(label=layer_name)
         query = match + "WHERE n.wkt IN {wkts} RETURN n"
 
         params = {
-            'label': layer_name,
-            'wkts': wkts,
+            'label': layer_name, 'wkts': wkts,
         }
 
         results = self.graph.cypher.execute(query, params)
         nodes = [record[0] for record in results]
-
-        if len(geometry_nodes) > len(nodes):
-            raise IndexMissMatchError(
-                'Index "{}" contains lost nodes'.format(layer_name)
-            )
 
         return nodes
 
@@ -174,14 +168,14 @@ RETURN n"""
         resource = self.resources['addEditableLayer']
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
-        layer = assembled(raw) 
+        layer = assembled(raw)
         return layer
 
     def get_layer(self, layer_name):
         resource = self.resources['getLayer']
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
-        layer = assembled(raw) 
+        layer = assembled(raw)
         return layer
 
     def delete_layer(self, layer_name):
@@ -194,10 +188,11 @@ RETURN n"""
         This will remove a representation of a GIS map Layer from the Neo4j
         data store - it will not remove any nodes you may have added to it.
 
-        The operation removes the layer data from the internal GIS R-tree model,
-        removes the neo indexes (lucene and spatial) and removes the layer's
-        label from all nodes that exist on it. It does not want to destroy any
-        Nodes on the DB - use the standard py2neo library for these actions.
+        The operation removes the layer data from the internal GIS R-tree
+        model, removes the neo indexes (lucene and spatial) and removes the
+        layer's label from all nodes that exist on it. It does not want to
+        destroy any Nodes on the DB - use the standard py2neo library for
+        these actions.
 
         :Raises:
             LayerNotFoundError if the index does not exist.
@@ -370,30 +365,39 @@ DELETE ref, n"""
         shape = parse_lat_long(coords)
 
         nodes = self._find_geometries_from_point(
-            shape=shape, resource=resource, layer_name=layer_name, radius=distance)
+            shape=shape, resource=resource, layer_name=layer_name,
+            radius=distance)
+
         return nodes
 
-    def find_closest_geometries(self, layer_name, coords, distance):
-        """ Find the "closest" points of interest (poi) within a given 
-        distance from a lat-lon location coord.
-
-        TODO: what is the difference between "closest" and "find within"?
+    def find_closest_geometries(self, coords):
+        """ Find the "closest" points of interest (poi) accross *all* layers
+        from a given lat-lon location coord.
 
         :Params:
-            layer_name : str
-                The name of the layer/index to remove the geometry from.
             coords : tuple
                 WGS84 (EPSG 4326) lat, lon pair
-            distance : int
-                The radius of the search area in Kilometres (km)
 
-        :Raises:
-            LayerNotFoundError if the index does not exist.
+        :Returns:
+            a list of all matched nodes
 
         """
         resource = self.resources['findClosestGeometries']
         shape = parse_lat_long(coords)
+        query = "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n"
+        results = self.graph.cypher.execute(query)
 
-        nodes = self._find_geometries_from_point(
-            shape=shape, resource=resource, layer_name=layer_name, radius=distance)
-        return nodes
+        pois = []
+        for record in results:
+            node = record[0]
+            node_properties = node.get_properties()
+            layer_name = node_properties['layer']
+
+            pois.extend(
+                self._find_geometries_from_point(
+                    shape=shape, resource=resource, layer_name=layer_name,
+                    radius=4  # this appears to act more like a "tolerance"?
+                )
+            )
+
+        return pois

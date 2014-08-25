@@ -9,7 +9,3 @@ class GeometryExistsError(Exception):
 
 class InvalidWKTError(Exception):
     pass
-
-
-class IndexMissMatchError(Exception):
-	pass
