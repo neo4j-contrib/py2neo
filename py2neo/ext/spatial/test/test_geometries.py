@@ -3,7 +3,7 @@ import pytest
 from py2neo import Node
 
 from . import TestBase
-from ..exceptions import GeometryExistsError
+from ..exceptions import GeometryExistsError, NodeNotFoundError
 from ..plugin import NAME_PROPERTY
 from ..util import parse_lat_long
 
@@ -35,12 +35,18 @@ class TestGeometries(TestBase):
 
         assert self._geometry_exists(graph, geometry_name, "my_layer")
 
+    def test_geometry_node_label(self):
+        pass
+
+    def test_application_node_relationship(self):
+        pass
+
     def test_make_existing_node_spatially_aware(self, spatial):
         graph = spatial.graph
         node = Node(address="300 St John Street, London.")
         graph.create(node)
         node_id = int(node.uri.path.segments[-1])
-        coords = (51.528453 , -0.104489)
+        coords = (51.528453, -0.104489)
         shape = parse_lat_long(coords)
 
         spatial.create_layer("mylayer")
@@ -56,7 +62,7 @@ class TestGeometries(TestBase):
         properties = node.get_properties()
 
         assert labels == set(['py2neo_spatial', 'mylayer', 'Point'])
-        assert properties['wkt'] == shape.wkt
+        assert properties[NAME_PROPERTY] == "mygeom"
         assert properties['address'] == "300 St John Street, London."
 
     def test_geometry_uniqueness(self, spatial, cornwall_wkt):
@@ -78,6 +84,34 @@ class TestGeometries(TestBase):
         spatial.delete_geometry("cornwall", cornwall_wkt, "uk")
         assert not self._geometry_exists(graph, "cornwall", "uk")
 
-    def test_index_consistency(self):
-        # test that all in the index are in the application layer
-        pass
+    def test_update_geometry(self, spatial):
+        graph = spatial.graph
+
+        # bad data
+        bad_eiffel_tower = (57.322857, -4.424382)
+        bad_shape = parse_lat_long(bad_eiffel_tower)
+
+        spatial.create_layer("paris")
+        spatial.create_geometry(
+            geometry_name="eiffel_tower", wkt_string=bad_shape.wkt,
+            layer_name="paris")
+
+        assert self._geometry_exists(graph, "eiffel_tower", "paris")
+
+        # good data
+        eiffel_tower = (48.858370, 2.294481)
+        shape = parse_lat_long(eiffel_tower)
+
+        spatial.update_geometry("eiffel_tower", shape.wkt)
+
+        node = self.get_geometry_node(graph, "eiffel_tower")
+        node_properties = node.get_properties()
+
+        assert node_properties['wkt'] == shape.wkt
+
+    def test_update_geometry_not_found(self, spatial):
+        coords = (57.322857, -4.424382)
+        shape = parse_lat_long(coords)
+
+        with pytest.raises(NodeNotFoundError):
+            spatial.update_geometry("somewhere", shape.wkt)

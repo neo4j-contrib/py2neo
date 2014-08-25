@@ -30,3 +30,18 @@ class TestBase(object):
         for location in data:
             shape = parse_lat_long(location.coords)
             api.create_geometry(location.name, shape.wkt, layer)
+
+    @staticmethod
+    def get_geometry_node(api, geometry_name):
+        query = """MATCH (application_node {_py2neo_geometry_name:\
+{geometry_name}}),
+(application_node)<-[:LOCATES]-(geometry_node)
+RETURN geometry_node"""
+        params = {
+            'geometry_name': geometry_name,
+        }
+
+        result = api.graph.cypher.execute(query, params)
+        record = result[0]
+        geometry_node = record[0]
+        return geometry_node

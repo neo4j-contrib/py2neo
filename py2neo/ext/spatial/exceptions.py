@@ -4,7 +4,7 @@ class LayerNotFoundError(Exception):
 
 
 class NodeNotFoundError(Exception):
-	pass
+    pass
 
 
 class GeometryExistsError(Exception):

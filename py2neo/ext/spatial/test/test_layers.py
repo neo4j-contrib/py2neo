@@ -18,7 +18,8 @@ class TestLayers(TestBase):
         def count(layer_name):
             count = 0
             results = graph.cypher.execute(
-                "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n")
+                "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) \
+RETURN n")
 
             for record in results:
                 node = record[0]

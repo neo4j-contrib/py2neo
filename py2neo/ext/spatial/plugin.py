@@ -18,6 +18,7 @@ from .util import parse_lat_long
 EXTENSION_NAME = "SpatialPlugin"
 WKT_PROPERTY = "wkt"
 NAME_PROPERTY = "_py2neo_geometry_name"
+LAYER_PROPERTY = "_py2neo_layer_name"
 
 # wkt index config for the contrib spatial extension
 EXTENSION_CONFIG = {
@@ -58,30 +59,16 @@ class Spatial(ServerPlugin):
 
     """
     def __init__(self, graph):
-        """ An API extension to py2neo to take advantage of (some of) the REST
-        resources provided by the contrib neo4j spatial extension.
-
-        Implemented end-points are:
-            ```addEditableLayer```
-            ```getLayer```,
-            ```addGeometryWKTToLayer```
-            ```findGeometriesWithinDistance```
-            ```findClosestGeometries```
-            ```findGeometriesInBBox```
-
-        TODO: updateGeometryFromWKT,
-
-        """
+        """ An API extension to py2neo for WKT type GIS operations. """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
-    def _get_data_nodes(self, layer_name, geometry_nodes):
-        wkts = [n.get_properties()['wkt'] for n in geometry_nodes]
-        match = "MATCH (n:{label}) ".format(label=layer_name)
-        query = match + "WHERE n.wkt IN {wkts} RETURN n"
+    def _get_data_nodes(self, geometry_nodes):
+        ids = [n._id for n in geometry_nodes]
+        query = """MATCH (n)-[:LOCATES]->(data_node)
+WHERE id(n) IN {ids} RETURN data_node"""
 
         params = {
-            'label': layer_name,
-            'wkts': wkts,
+            'ids': ids,
         }
 
         results = self.graph.cypher.execute(query, params)
@@ -89,14 +76,20 @@ class Spatial(ServerPlugin):
 
         return nodes
 
-    def _get_geometry_nodes(self, resource, spatial_payload):
+    def _execute_spatial_request(self, resource, spatial_payload):
         try:
             json_stream = resource.post(spatial_payload)
         except GraphError as exc:
             if 'NullPointerException' in exc.full_name:
-                # no results leads to a NullPointerException
+                # no results leads to a NullPointerException.
+                # this is probably a bug on the Java side, but this
+                # happens with some resources and must be managed.
                 return []
             raise
+
+        if json_stream.status_code == 204:
+            # no content
+            return []
 
         geometry_nodes = map(Node.hydrate, assembled(json_stream))
 
@@ -122,8 +115,8 @@ class Spatial(ServerPlugin):
         return wkt
 
     def _geometry_exists(self, shape, geometry_name):
-        match = "MATCH (n:{label}".format(label=shape.type)
-        query = match + """{_py2neo_geometry_name:{geometry_name}, wkt:{wkt}})
+        match = "MATCH (n:{label} ".format(label=shape.type)
+        query = match + """{_py2neo_geometry_name:{geometry_name}})
 RETURN n"""
         params = {
             'geometry_name': geometry_name,
@@ -207,13 +200,12 @@ REMOVE n.{internal_name}""".format(
         graph.cypher.execute(query)
 
         # remove the bounding box, metadata and root from the rtree index
-        query = """MATCH (l { layer:{layer_name} })-\
-[r_layer:LAYER]-(),
+        query = """MATCH (l { layer:{layer_name} })-[r_layer:LAYER]-(),
 (metadata)<-[r_meta:RTREE_METADATA]-(l),
-(reference_node)-[r_ref:RTREE_REFERENCE]-
-(bounding_box)-[r_root:RTREE_ROOT]-(l)
-DELETE r_meta, r_layer, r_ref, r_root,
-metadata, reference_node, bounding_box, l"""
+()-[d:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-(bounding_box)-\
+[r_root:RTREE_ROOT]-(l)
+DELETE d, r_meta, r_layer, r_ref, r_root,
+metadata, geometry_node, bounding_box, l"""
 
         params = {
             'layer_name': layer_name
@@ -222,7 +214,7 @@ metadata, reference_node, bounding_box, l"""
         graph.cypher.execute(query, params)
 
         # remove lucene index
-        graph.legacy.delete_index(Node, layer_name)
+        #graph.legacy.delete_index(Node, layer_name)
 
     def create_geometry(
             self, geometry_name, wkt_string, layer_name, labels=None,
@@ -277,7 +269,6 @@ metadata, reference_node, bounding_box, l"""
         wkt = self._get_wkt_from_shape(shape)
 
         params = {
-            WKT_PROPERTY: wkt,
             NAME_PROPERTY: geometry_name,
         }
 
@@ -292,7 +283,6 @@ metadata, reference_node, bounding_box, l"""
 
             record = results[0]
             node = record[0]
-            node[WKT_PROPERTY] = wkt
             node[NAME_PROPERTY] = geometry_name
             node.add_labels(*tuple(labels))
             node.push()
@@ -301,8 +291,29 @@ metadata, reference_node, bounding_box, l"""
             node = Node(*labels, **params)
             graph.create(node)
 
-        spatial_data = {'geometry': wkt, 'layer': layer_name}
+        spatial_data = {
+            'geometry': wkt,
+            'layer': layer_name
+        }
+
         resource.post(spatial_data)
+
+        # now relate the geometry to our application node
+        query = """MATCH (l { layer:{layer_name} })<-[r_layer:LAYER]-\
+(root { name:"spatial_root" }),
+(bbox)-[r_root:RTREE_ROOT]-(l),
+(geometry_node)-[r_ref:RTREE_REFERENCE]-(bbox),
+(application_node { _py2neo_geometry_name:{geometry_name} })
+WHERE geometry_node.wkt = {wkt}
+CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)
+"""
+        params = {
+            'wkt': wkt,
+            'layer_name': layer_name,
+            'geometry_name': geometry_name,
+        }
+
+        graph.cypher.execute(query, params)
 
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
@@ -354,6 +365,51 @@ DELETE ref, n"""
         }
         graph.cypher.execute(query, params)
 
+    def update_geometry(self, geometry_name, wkt_string):
+        """ Update the geometry on a Node.
+
+        :Params:
+            wkt_string : str
+                A Well Known Text string of any geometry
+
+        :Raises:
+            InvalidWKTError if the WKT cannot be read.
+
+        """
+        graph = self.graph
+        resource = self.resources['updateGeometryFromWKT']
+        shape = self._get_shape_from_wkt(wkt_string)
+
+        query = """MATCH (application_node {_py2neo_geometry_name:\
+{geometry_name}}),
+(application_node)<-[:LOCATES]-(geometry_node)<-[:RTREE_REFERENCE]-\
+()<-[:RTREE_ROOT]-(layer_node)
+RETURN geometry_node, layer_node"""
+        params = {
+            'geometry_name': geometry_name,
+        }
+
+        result = graph.cypher.execute(query, params)
+        if not result:
+            raise NodeNotFoundError(
+                'Cannot update Node - Node not found: "{}"'.format(
+                    geometry_name)
+            )
+
+        records = result[0]
+        geometry_node, layer_node = records
+        geometry_node_id = int(geometry_node.uri.path.segments[-1])
+        geometry_layer = layer_node.get_properties()['layer']
+
+        spatial_data = {
+            'geometry': shape.wkt,
+            'geometryNodeId': geometry_node_id,
+            'layer': geometry_layer,
+        }
+
+        # update the geometry node
+        self._execute_spatial_request(resource, spatial_data)
+
     def find_within_distance(self, layer_name, coords, distance):
         """ Find all points of interest (poi) within a given distance from
         a lat-lon location coord.
@@ -389,8 +445,8 @@ DELETE ref, n"""
             'distanceInKm': distance,
         }
 
-        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
-        nodes = self._get_data_nodes(layer_name, geometry_nodes)
+        geometry_nodes = self._execute_spatial_request(resource, spatial_data)
+        nodes = self._get_data_nodes(geometry_nodes)
 
         return nodes
 
@@ -425,8 +481,9 @@ DELETE ref, n"""
             node_properties = node.get_properties()
             layer_name = node_properties['layer']
             spatial_data['layer'] = layer_name
-            geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
-            nodes = self._get_data_nodes(layer_name, geometry_nodes)
+            geometry_nodes = self._execute_spatial_request(
+                resource, spatial_data)
+            nodes = self._get_data_nodes(geometry_nodes)
             pois.extend(nodes)
 
         return pois
@@ -462,7 +519,7 @@ DELETE ref, n"""
             'maxy': maxy,
         }
 
-        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
-        nodes = self._get_data_nodes(layer_name, geometry_nodes)
+        geometry_nodes = self._execute_spatial_request(resource, spatial_data)
+        nodes = self._get_data_nodes(geometry_nodes)
 
         return nodes
