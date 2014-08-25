@@ -100,24 +100,6 @@ class Spatial(ServerPlugin):
 
         return geometry_nodes
 
-    def _find_geometries_from_point(self, shape, resource, layer_name, radius):
-        if not self._layer_exists(layer_name):
-            raise LayerNotFoundError(
-                'Layer Not Found: "{}"'.format(layer_name)
-            )
-
-        spatial_data = {
-            'pointX': shape.x,
-            'pointY': shape.y,
-            'layer': layer_name,
-            'distanceInKm': radius,
-        }
-
-        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
-        nodes = self._get_data_nodes(layer_name, geometry_nodes)
-
-        return nodes
-
     def _get_shape_from_wkt(self, wkt_string):
         try:
             shape = wkt_from_string_loader(wkt_string)
@@ -366,12 +348,22 @@ DELETE ref, n"""
             a list of all matched nodes
 
         """
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
         resource = self.resources['findGeometriesWithinDistance']
         shape = parse_lat_long(coords)
+        spatial_data = {
+            'pointX': shape.x,
+            'pointY': shape.y,
+            'layer': layer_name,
+            'distanceInKm': distance,
+        }
 
-        nodes = self._find_geometries_from_point(
-            shape=shape, resource=resource, layer_name=layer_name,
-            radius=distance)
+        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
+        nodes = self._get_data_nodes(layer_name, geometry_nodes)
 
         return nodes
 
@@ -394,18 +386,21 @@ DELETE ref, n"""
         query = "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n"
         results = self.graph.cypher.execute(query)
 
+        spatial_data = {
+            'pointX': shape.x,
+            'pointY': shape.y,
+            'distanceInKm': 4,
+        }
+
         pois = []
         for record in results:
             node = record[0]
             node_properties = node.get_properties()
             layer_name = node_properties['layer']
-
-            pois.extend(
-                self._find_geometries_from_point(
-                    shape=shape, resource=resource, layer_name=layer_name,
-                    radius=4  # this appears to act more like a "tolerance"?
-                )
-            )
+            spatial_data['layer'] = layer_name
+            geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
+            nodes = self._get_data_nodes(layer_name, geometry_nodes)
+            pois.extend(nodes)
 
         return pois
 
@@ -429,6 +424,7 @@ DELETE ref, n"""
                 longitude of the top-right corner
             minx : Decimal
                 latitude of the top-right corner
+
         """
         resource = self.resources['findGeometriesInBBox']
         spatial_data = {
