@@ -1,10 +1,11 @@
 import pytest
 
-from . import Base
+from . import TestBase
+from ..plugin import NAME_PROPERTY
 from ..exceptions import LayerNotFoundError
 
 
-class TestQueries(Base):
+class TestQueries(TestBase):
     def test_find_from_bad_layer(
             self, spatial, uk_features):
 
@@ -28,7 +29,6 @@ class TestQueries(Base):
 
     def test_find_only_within_london(
             self, spatial, uk_features, london_features):
-
         self.load(spatial, uk_features, "uk")
         self.load(spatial, london_features, "uk")
 
@@ -45,7 +45,7 @@ class TestQueries(Base):
 
         # check it really does
         expected_london_names = sorted([f.name for f in london_features])
-        returned_names = sorted([poi.get_properties()['name'] for poi in pois])
+        returned_names = sorted([poi.get_properties()[NAME_PROPERTY] for poi in pois])
         assert expected_london_names == returned_names
 
     def test_find_closest_geometries_single_layer(
@@ -58,7 +58,7 @@ class TestQueries(Base):
         assert len(pois) == len(cornish_towns)
 
         expected_towns = sorted([f.name for f in cornish_towns])
-        returned_towns = sorted([poi.get_properties()['name'] for poi in pois])
+        returned_towns = sorted([poi.get_properties()[NAME_PROPERTY] for poi in pois])
         assert expected_towns == returned_towns
 
     def test_find_closest_geometries_over_more_layers(
@@ -81,7 +81,7 @@ class TestQueries(Base):
         assert len(pois) == len(cornish_towns)
 
         expected_towns = sorted([f.name for f in cornish_towns])
-        returned_towns = sorted([poi.get_properties()['name'] for poi in pois])
+        returned_towns = sorted([poi.get_properties()[NAME_PROPERTY] for poi in pois])
         assert expected_towns == returned_towns
 
     def test_find_within_bounding_box(
@@ -96,5 +96,5 @@ class TestQueries(Base):
         assert len(pois) == len(london_features)
 
         expected_features = sorted([f.name for f in london_features])
-        actual_features = sorted([poi.get_properties()['name'] for poi in pois])
+        actual_features = sorted([poi.get_properties()[NAME_PROPERTY] for poi in pois])
         assert expected_features == actual_features

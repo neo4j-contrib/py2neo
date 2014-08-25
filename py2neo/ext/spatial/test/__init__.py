@@ -1,7 +1,8 @@
 from ..util import parse_lat_long
+from ..plugin import NAME_PROPERTY
 
 
-class Base(object):
+class TestBase(object):
     @staticmethod
     def _layer_exists(graph, layer_name):
         results = graph.cypher.execute(
@@ -14,10 +15,10 @@ class Base(object):
         return False
 
     @staticmethod
-    def _geometry_exists(graph, geometry_name, LAYER_NAME):
+    def _geometry_exists(graph, geometry_name, layer_name):
         # assert a geometry exists in the *application* graph
         resp = graph.find(
-            label=LAYER_NAME, property_key="name",
+            label=layer_name, property_key=NAME_PROPERTY,
             property_value=geometry_name)
         results = [r for r in resp]
 

@@ -1,14 +1,13 @@
 import pytest
 
-from . import Base
-from ..exceptions import (
-    GeometryExistsError, LayerNotFoundError, InvalidWKTError)
-from ..util import parse_lat_long
+from . import TestBase
+from ..exceptions import LayerNotFoundError, InvalidWKTError
+
 
 LAYER_NAME = "geometry_layer"
 
 
-class TestLayers(Base):
+class TestLayers(TestBase):
     def test_create_layer(self, spatial):
         spatial.create_layer(LAYER_NAME)
         assert self._layer_exists(spatial.graph, LAYER_NAME)
@@ -59,71 +58,20 @@ class TestLayers(Base):
 
     def test_delete_layer(self, spatial, cornwall_wkt, devon_wkt):
         graph = spatial.graph
-        spatial.create_layer(LAYER_NAME)
+        spatial.create_layer("mylayer")
         spatial.create_geometry(
             geometry_name="shape_a", wkt_string=cornwall_wkt,
-            layer_name=LAYER_NAME)
+            layer_name="mylayer")
         spatial.create_geometry(
             geometry_name="shape_b", wkt_string=devon_wkt,
-            layer_name=LAYER_NAME)
+            layer_name="mylayer")
 
-        assert self._geometry_exists(graph, "shape_a", LAYER_NAME)
-        assert self._geometry_exists(graph, "shape_b", LAYER_NAME)
+        assert self._geometry_exists(graph, "shape_a", "mylayer")
+        assert self._geometry_exists(graph, "shape_b", "mylayer")
 
-        spatial.delete_layer(LAYER_NAME)
+        spatial.delete_layer("mylayer")
 
-        assert not self._geometry_exists(graph, "shape_a", LAYER_NAME)
-        assert not self._geometry_exists(graph, "shape_b", LAYER_NAME)
+        assert not self._geometry_exists(graph, "shape_a", "mylayer")
+        assert not self._geometry_exists(graph, "shape_b", "mylayer")
 
-        assert not self._layer_exists(graph, LAYER_NAME)
-
-
-class TestGeometries(Base):
-    def test_create_polygon(self, spatial, cornwall_wkt):
-        graph = spatial.graph
-        geometry_name = "shape"
-        spatial.create_layer(LAYER_NAME)
-        spatial.create_geometry(
-            geometry_name=geometry_name,
-            wkt_string=cornwall_wkt,
-            layer_name=LAYER_NAME
-        )
-
-        assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
-
-    def test_create_point(self, spatial):
-        graph = spatial.graph
-        geometry_name = "shape"
-        spatial.create_layer(LAYER_NAME)
-
-        shape = parse_lat_long((5.5, -4.5))
-        assert shape.type == 'Point'
-
-        spatial.create_geometry(
-            geometry_name=geometry_name, wkt_string=shape.wkt,
-            layer_name=LAYER_NAME)
-
-        assert self._geometry_exists(graph, geometry_name, LAYER_NAME)
-
-    def test_geometry_uniqueness(self, spatial, cornwall_wkt):
-        geometry_name = "shape"
-
-        spatial.create_layer(LAYER_NAME)
-        spatial.create_geometry(
-            geometry_name=geometry_name, wkt_string=cornwall_wkt,
-            layer_name=LAYER_NAME)
-
-        with pytest.raises(GeometryExistsError):
-            spatial.create_geometry(
-                geometry_name=geometry_name, wkt_string=cornwall_wkt,
-                layer_name=LAYER_NAME)
-
-    def test_delete_geometry(self, spatial, cornwall, cornwall_wkt):
-        graph = spatial.graph
-        assert self._geometry_exists(graph, "cornwall", "uk")
-        spatial.delete_geometry("cornwall", cornwall_wkt, "uk")
-        assert not self._geometry_exists(graph, "cornwall", "uk")
-
-    def test_index_consistency(self):
-        # test that all in the index are in the application layer
-        pass
+        assert not self._layer_exists(graph, "mylayer")

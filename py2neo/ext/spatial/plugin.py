@@ -10,12 +10,14 @@ from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
 
 from .exceptions import (
-    GeometryExistsError, InvalidWKTError, LayerNotFoundError)
+    GeometryExistsError, InvalidWKTError, LayerNotFoundError,
+    NodeNotFoundError)
 from .util import parse_lat_long
 
 
 EXTENSION_NAME = "SpatialPlugin"
 WKT_PROPERTY = "wkt"
+NAME_PROPERTY = "_py2neo_geometry_name"
 
 # wkt index config for the contrib spatial extension
 EXTENSION_CONFIG = {
@@ -113,7 +115,7 @@ class Spatial(ServerPlugin):
     def _get_wkt_from_shape(self, shape):
         if shape.type == POINT:
             # shapely float precision errors break cypher matches!
-            wkt = dumps(shape, rounding_precision=5)
+            wkt = dumps(shape, rounding_precision=8)
         else:
             wkt = shape.wkt
 
@@ -121,7 +123,7 @@ class Spatial(ServerPlugin):
 
     def _geometry_exists(self, shape, geometry_name):
         match = "MATCH (n:{label}".format(label=shape.type)
-        query = match + """{name:{geometry_name}, wkt:{wkt}})
+        query = match + """{_py2neo_geometry_name:{geometry_name}, wkt:{wkt}})
 RETURN n"""
         params = {
             'geometry_name': geometry_name,
@@ -189,18 +191,17 @@ RETURN n"""
             )
 
         graph = self.graph
-        params = {
-            'layer_name': layer_name
-        }
 
-        # remove labels on Nodes relating to this layer
+        # remove labels and properties on Nodes relating to this layer
         query = """MATCH (n:{layer_name})
 REMOVE n:{default_label}
 REMOVE n:{layer_name}
 REMOVE n:{point_label}
-REMOVE n:{multipolygon_label}""".format(
+REMOVE n:{multipolygon_label}
+REMOVE n.{internal_name}""".format(
             layer_name=layer_name, default_label=DEFAULT_LABEL,
             point_label=POINT, multipolygon_label=MULTIPOLYGON,
+            internal_name=NAME_PROPERTY
         )
 
         graph.cypher.execute(query)
@@ -214,13 +215,18 @@ REMOVE n:{multipolygon_label}""".format(
 DELETE r_meta, r_layer, r_ref, r_root,
 metadata, reference_node, bounding_box, l"""
 
+        params = {
+            'layer_name': layer_name
+        }
+
         graph.cypher.execute(query, params)
 
         # remove lucene index
         graph.legacy.delete_index(Node, layer_name)
 
     def create_geometry(
-            self, geometry_name, wkt_string, layer_name, labels=None):
+            self, geometry_name, wkt_string, layer_name, labels=None,
+            node_id=None):
         """ Create a geometry of type Well Known Text (WKT).
 
         Internally this creates a node in your graph with a wkt property
@@ -237,12 +243,16 @@ metadata, reference_node, bounding_box, l"""
             labels : list
                 Optional list of Label names to apply to the geometry Node.
 
+            node_id : int
+                Optional - the internal ID used by neo4j to uniquely identify
+                a Node. When provided, an update operation in the application
+                graph will be carried out instead of the usual create, making
+                this Node spatially aware by adding a 'wkt' property to it.
+                It is then added to the Layer (indexed) as normal.
+
         :Raises:
             LayerNotFoundError if the index does not exist.
             InvalidWKTError if the WKT cannot be read.
-
-        TODO: accept an optional node id to add the geometry property to
-        so we can make existing nodes geographically aware.
 
         """
         if not self._layer_exists(layer_name):
@@ -268,11 +278,28 @@ metadata, reference_node, bounding_box, l"""
 
         params = {
             WKT_PROPERTY: wkt,
-            'name': geometry_name,
+            NAME_PROPERTY: geometry_name,
         }
 
-        node = Node(*labels, **params)
-        graph.create(node)
+        if node_id:
+            query = 'MATCH (n) WHERE id(n) = {node_id} RETURN n'
+            params = {'node_id': node_id}
+            results = graph.cypher.execute(query, params)
+            if not results:
+                raise NodeNotFoundError(
+                    'Node not found: "{}"'.format(node_id)
+                )
+
+            record = results[0]
+            node = record[0]
+            node[WKT_PROPERTY] = wkt
+            node[NAME_PROPERTY] = geometry_name
+            node.add_labels(*tuple(labels))
+            node.push()
+
+        else:
+            node = Node(*labels, **params)
+            graph.create(node)
 
         spatial_data = {'geometry': wkt, 'layer': layer_name}
         resource.post(spatial_data)
@@ -307,7 +334,7 @@ metadata, reference_node, bounding_box, l"""
 
         # remove the node from the graph
         match = "MATCH (n:{label}".format(label=shape.type)
-        query = match + """{ name:{geometry_name} })
+        query = match + """{ _py2neo_geometry_name:{geometry_name} })
 OPTIONAL MATCH n<-[r]-()
 DELETE r, n"""
         params = {

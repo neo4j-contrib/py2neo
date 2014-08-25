@@ -96,14 +96,9 @@ def devon_wkt(spatial):
     return wkt
 
 
-@pytest.fixture(autouse=True)
-def layer(spatial):
-    spatial.create_layer(DEFAULT_INDEX_NAME)
-    return DEFAULT_INDEX_NAME
-
-
 @pytest.fixture
-def cornwall(spatial, layer, cornwall_wkt):
+def cornwall(spatial, cornwall_wkt):
+    spatial.create_layer(DEFAULT_INDEX_NAME)
     spatial.create_geometry(
         geometry_name="cornwall", wkt_string=cornwall_wkt,
         layer_name=DEFAULT_INDEX_NAME
@@ -111,7 +106,8 @@ def cornwall(spatial, layer, cornwall_wkt):
 
 
 @pytest.fixture
-def devon(spatial, layer, devon_wkt):
+def devon(spatial, devon_wkt):
+    spatial.create_layer(DEFAULT_INDEX_NAME)
     spatial.create_geometry(
         geometry_name="devon", wkt_string=devon_wkt,
         layer_name=DEFAULT_INDEX_NAME
@@ -119,7 +115,7 @@ def devon(spatial, layer, devon_wkt):
 
 
 @pytest.fixture
-def cornish_towns(spatial, layer):
+def cornish_towns():
     falmouth = Location('falmouth', (50.152571, -5.06627))
     bodmin = Location('bodmin', (50.468630, -4.715114))
     penzance = Location('penzance', (50.118798, -5.537592))
@@ -129,7 +125,7 @@ def cornish_towns(spatial, layer):
 
 
 @pytest.fixture
-def devonshire_towns(spatial, layer):
+def devonshire_towns():
     plymouth = Location('plymouth', (50.375456, -4.142656))
     exeter = Location('exeter', (50.718412, -3.533899))
     torquay = Location('torquay', (50.461921, -3.525315))
@@ -140,7 +136,7 @@ def devonshire_towns(spatial, layer):
 
 
 @pytest.fixture
-def english_towns(spatial):
+def english_towns():
     bristol = Location('bristol', (51.454513, -2.58791))
     manchester = Location('manchester', (53.479324, -2.248485))
     oxford = Location('oxford', (51.752021, -1.257726))
@@ -164,7 +160,7 @@ def towns(english_towns, scottish_towns):
 
 
 @pytest.fixture
-def london_features(spatial):
+def london_features():
     big_ben = Location('big_ben', (51.500728, -0.124626))
     buckingham_palace = Location('buckingham_palace', (51.501364, -0.14189))
     hampton_court = Location('hampton_court', (51.403613, -0.337762))
@@ -196,7 +192,7 @@ def uk_features():
 
 
 @pytest.fixture
-def hard_lat_long(spatial):
+def hard_lat_long():
     # this lat-long rounds to oblivion when parsed by Shapely
     st_pauls = Location('st_pauls', (51.513845, -0.098351))
     return st_pauls
