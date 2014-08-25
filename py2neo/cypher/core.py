@@ -150,8 +150,8 @@ class CypherTransaction(object):
     def post(self, resource):
         self.__assert_unfinished()
         rs = resource.post({"statements": self.statements})
-        if rs.headers.has_key("Location"):
-            self.__execute = Resource(next(rs.headers.get("Location")))
+        if rs.headers.has_key("location"):
+            self.__execute = Resource(next(rs.headers.get("location")))
         j = rs.content
         rs.close()
         self.statements = []
