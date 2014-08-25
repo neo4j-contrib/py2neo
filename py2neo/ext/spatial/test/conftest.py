@@ -151,11 +151,16 @@ def english_towns(spatial):
 
 
 @pytest.fixture
-def scottish_towns(spatial):
+def scottish_towns():
     aberdeen = Location('aberdeen', (57.149717, -2.094278))
     edinburgh = Location('edinburgh', (55.953252, -3.188267))
     locations = [aberdeen, edinburgh]
     return locations
+
+
+@pytest.fixture
+def towns(english_towns, scottish_towns):
+    return english_towns + scottish_towns
 
 
 @pytest.fixture

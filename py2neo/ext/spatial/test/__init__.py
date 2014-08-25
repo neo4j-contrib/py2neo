@@ -1,4 +1,4 @@
-from .. util import parse_lat_long
+from ..util import parse_lat_long
 
 
 class Base(object):

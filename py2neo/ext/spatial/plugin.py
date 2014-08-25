@@ -72,6 +72,34 @@ class Spatial(ServerPlugin):
         """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
+    def _get_data_nodes(self, layer_name, geometry_nodes):
+        wkts = [n.get_properties()['wkt'] for n in geometry_nodes]
+        match = "MATCH (n:{label}) ".format(label=layer_name)
+        query = match + "WHERE n.wkt IN {wkts} RETURN n"
+
+        params = {
+            'label': layer_name,
+            'wkts': wkts,
+        }
+
+        results = self.graph.cypher.execute(query, params)
+        nodes = [record[0] for record in results]
+
+        return nodes
+
+    def _get_geometry_nodes(self, resource, spatial_payload):
+        try:
+            json_stream = resource.post(spatial_payload)
+        except GraphError as exc:
+            if 'NullPointerException' in exc.full_name:
+                # no results leads to a NullPointerException
+                return []
+            raise
+
+        geometry_nodes = map(Node.hydrate, assembled(json_stream))
+
+        return geometry_nodes
+
     def _find_geometries_from_point(self, shape, resource, layer_name, radius):
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
@@ -85,29 +113,8 @@ class Spatial(ServerPlugin):
             'distanceInKm': radius,
         }
 
-        try:
-            json_stream = resource.post(spatial_data)
-        except GraphError as exc:
-            if 'NullPointerException' in exc.full_name:
-                # no results leads to a NullPointerException
-                return []
-            raise
-
-        # this gives us the nodes from the R-tree
-        geometry_nodes = map(Node.hydrate, assembled(json_stream))
-        # now retrieve the application's nodes
-        wkts = [n.get_properties()['wkt'] for n in geometry_nodes]
-
-        match = "MATCH (n:{label}) ".format(label=layer_name)
-        query = match + "WHERE n.wkt IN {wkts} RETURN n"
-
-        params = {
-            'label': layer_name,
-            'wkts': wkts,
-        }
-
-        results = self.graph.cypher.execute(query, params)
-        nodes = [record[0] for record in results]
+        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
+        nodes = self._get_data_nodes(layer_name, geometry_nodes)
 
         return nodes
 
@@ -140,12 +147,14 @@ RETURN n"""
         }
 
         exists = self.graph.cypher.execute(query, params)
+
         return bool(exists)
 
     def _layer_exists(self, layer_name):
         query = "MATCH (l {layer:{layer_name}})<-[:LAYER]-() RETURN l"
         params = {'layer_name': layer_name}
         exists = self.graph.cypher.execute(query, params)
+
         return bool(exists)
 
     def create_layer(self, layer_name):
@@ -161,6 +170,7 @@ RETURN n"""
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
         layer = assembled(raw)
+
         return layer
 
     def get_layer(self, layer_name):
@@ -168,6 +178,7 @@ RETURN n"""
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
         layer = assembled(raw)
+
         return layer
 
     def delete_layer(self, layer_name):
@@ -343,6 +354,8 @@ DELETE ref, n"""
                 The name of the layer/index to remove the geometry from.
             coords : tuple
                 WGS84 (EPSG 4326) lat, lon pair
+                Latitude is a decimal number between -90.0 and 90.0
+                Longitude is a decimal number between -180.0 and 180.0
             distance : int
                 The radius of the search area in Kilometres (km)
 
@@ -369,6 +382,8 @@ DELETE ref, n"""
         :Params:
             coords : tuple
                 WGS84 (EPSG 4326) lat, lon pair
+                Latitude is a decimal number between -90.0 and 90.0
+                Longitude is a decimal number between -180.0 and 180.0
 
         :Returns:
             a list of all matched nodes
@@ -394,7 +409,37 @@ DELETE ref, n"""
 
         return pois
 
-    def find_within_bounding_box(self):
+    def find_within_bounding_box(self, layer_name, minx, miny, maxx, maxy):
+        """ Find the points of interest from a given layer enclosed by a
+        bounding box.
+
+        The bounding box is definded by the lat-longs of the bottom left and
+        the top right, essentially::
+
+            bbox = (min Longitude, min Latitude, max Longitude, max Latitude)
+
+        :Params:
+            layer_name : str
+                The name of the layer/index to remove the geometry from.
+            minx : Decimal
+                longitude of the bottom-left corner
+            miny : Decimal
+                latitude of the bottom-left corner
+            maxx : Decimal
+                longitude of the top-right corner
+            minx : Decimal
+                latitude of the top-right corner
+        """
         resource = self.resources['findGeometriesInBBox']
+        spatial_data = {
+            'layer': layer_name,
+            'minx': minx,
+            'maxx': maxx,
+            'miny': miny,
+            'maxy': maxy,
+        }
 
+        geometry_nodes = self._get_geometry_nodes(resource, spatial_data)
+        nodes = self._get_data_nodes(layer_name, geometry_nodes)
 
+        return nodes

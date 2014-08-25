@@ -83,3 +83,18 @@ class TestQueries(Base):
         expected_towns = sorted([f.name for f in cornish_towns])
         returned_towns = sorted([poi.get_properties()['name'] for poi in pois])
         assert expected_towns == returned_towns
+
+    def test_find_within_bounding_box(
+            self, spatial, london_features, uk_features, towns):
+
+        self.load(spatial, london_features, "uk")
+        london = (51.236220, -0.570409, 51.703000 , 0.244)
+        min_longitude, min_latitude, max_longitude, max_latitude = london
+        pois = spatial.find_within_bounding_box(
+            "uk", min_longitude, min_latitude, max_longitude, max_latitude)
+
+        assert len(pois) == len(london_features)
+
+        expected_features = sorted([f.name for f in london_features])
+        actual_features = sorted([poi.get_properties()['name'] for poi in pois])
+        assert expected_features == actual_features

@@ -5,7 +5,6 @@ from ..exceptions import (
     GeometryExistsError, LayerNotFoundError, InvalidWKTError)
 from ..util import parse_lat_long
 
-
 LAYER_NAME = "geometry_layer"
 
 
@@ -17,13 +16,14 @@ class TestLayers(Base):
     def test_layer_uniqueness(self, spatial):
         graph = spatial.graph
 
-        def count(LAYER_NAME):
-            # layers created by the server extension are not labelled.
+        def count(layer_name):
             count = 0
-            results = graph.cypher.execute("MATCH (n) RETURN n")
-            for result in results:
-                node = result.values[0]
-                if node.properties.get('layer') == LAYER_NAME:
+            results = graph.cypher.execute(
+                "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n")
+
+            for record in results:
+                node = record[0]
+                if node.properties['layer'] == layer_name:
                     count += 1
             return count
 
