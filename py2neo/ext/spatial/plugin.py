@@ -91,8 +91,9 @@ WHERE id(n) IN {ids} RETURN data_node"""
             return []
 
         geometry_nodes = map(Node.hydrate, assembled(json_stream))
+        nodes = self._get_data_nodes(geometry_nodes)
 
-        return geometry_nodes
+        return nodes
 
     def _get_shape_from_wkt(self, wkt_string):
         try:
@@ -444,9 +445,7 @@ RETURN geometry_node, layer_node"""
             'distanceInKm': distance,
         }
 
-        geometry_nodes = self._execute_spatial_request(resource, spatial_data)
-        nodes = self._get_data_nodes(geometry_nodes)
-
+        nodes = self._execute_spatial_request(resource, spatial_data)
         return nodes
 
     def find_closest_geometries(self, coords):
@@ -482,9 +481,7 @@ RETURN geometry_node, layer_node"""
             node_properties = node.get_properties()
             layer_name = node_properties['layer']
             spatial_data['layer'] = layer_name
-            geometry_nodes = self._execute_spatial_request(resource,
-                spatial_data)
-            nodes = self._get_data_nodes(geometry_nodes)
+            nodes = self._execute_spatial_request(resource, spatial_data)
             pois.extend(nodes)
 
         return pois
@@ -520,7 +517,5 @@ RETURN geometry_node, layer_node"""
             'maxy': maxy,
         }
 
-        geometry_nodes = self._execute_spatial_request(resource, spatial_data)
-        nodes = self._get_data_nodes(geometry_nodes)
-
+        nodes = self._execute_spatial_request(resource, spatial_data)
         return nodes
