@@ -472,6 +472,8 @@ RETURN geometry_node, layer_node"""
         spatial_data = {
             'pointX': shape.x,
             'pointY': shape.y,
+            # this appears to be handled more like a 'tolerance', as increasing the
+            # value even slightly returns data from hundreds of kms away.
             'distanceInKm': 4,
         }
 
