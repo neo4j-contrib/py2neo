@@ -8,9 +8,10 @@ except ImportError:
 from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
+
 from .exceptions import (
     GeometryExistsError, InvalidWKTError, LayerNotFoundError)
-from util import parse_lat_long
+from .util import parse_lat_long
 
 
 EXTENSION_NAME = "SpatialPlugin"
@@ -50,7 +51,8 @@ class Spatial(ServerPlugin):
         Any data added through this API can be visualised by compiling the
         Neo4j Spatial Extension for Geoserver, and this is encouraged, because
         it is tremendous fun! Please refer to this extension's documentation
-        for basic guidance, however, these two projects are not coordinated.
+        for basic guidance, however, note that these two projects are not
+        coordinated.
 
     """
     def __init__(self, graph):
@@ -63,22 +65,9 @@ class Spatial(ServerPlugin):
             ```addGeometryWKTToLayer```
             ```findGeometriesWithinDistance```
             ```findClosestGeometries```
+            ```findGeometriesInBBox```
 
-        TODO: updateGeometryFromWKT, findGeometriesInBBox,
-
-        .. note::
-
-            For now, this api prefers WKT indexes and geometries. Because of
-            this the following are not implemented:
-
-                addSimplePointLayer
-                    - no plan to implement as WKT is preferred
-                addNodeToLayer
-                    - no plan to implement the point geometry type
-                addNodesToLayer
-                    - no plan to implement point geometry type or batch inserts
-                addCQLDynamicLayer
-                    - no idea what this is
+        TODO: updateGeometryFromWKT,
 
         """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
@@ -90,8 +79,10 @@ class Spatial(ServerPlugin):
             )
 
         spatial_data = {
-            'pointX': shape.x, 'pointY': shape.y,
-            'layer': layer_name, 'distanceInKm': radius,
+            'pointX': shape.x,
+            'pointY': shape.y,
+            'layer': layer_name,
+            'distanceInKm': radius,
         }
 
         try:
@@ -111,7 +102,8 @@ class Spatial(ServerPlugin):
         query = match + "WHERE n.wkt IN {wkts} RETURN n"
 
         params = {
-            'label': layer_name, 'wkts': wkts,
+            'label': layer_name,
+            'wkts': wkts,
         }
 
         results = self.graph.cypher.execute(query, params)
@@ -401,3 +393,8 @@ DELETE ref, n"""
             )
 
         return pois
+
+    def find_within_bounding_box(self):
+        resource = self.resources['findGeometriesInBBox']
+
+
