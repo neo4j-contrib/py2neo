@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+import sys
+
 from py2neo.cypher.core import RecordProducer
 
 
@@ -35,8 +37,14 @@ def test_record_representation(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
     for record in graph.cypher.stream(statement):
         alice_id = record[0]._id
-        assert repr(record) == ("Record(columns=('a', 'a.name', 'a.age'), "
-                                "values=((n%s {age:33,name:\"Alice\"}), 'Alice', 33))" % alice_id)
+        if sys.version_info >= (3,):
+            assert repr(record) == ("Record(columns=('a', 'a.name', 'a.age'), "
+                                    "values=((n%s {age:33,name:\"Alice\"}), "
+                                    "'Alice', 33))" % alice_id)
+        else:
+            assert repr(record) == ("Record(columns=(u'a', u'a.name', u'a.age'), "
+                                    "values=((n%s {age:33,name:\"Alice\"}), "
+                                    "u'Alice', 33))" % alice_id)
 
 
 def test_producer_representation():
