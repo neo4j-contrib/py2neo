@@ -275,60 +275,49 @@ class IterableCypherResults(object):
     """
 
     def __init__(self, graph, response):
-        self.__graph = graph
-        self._response = response
-        self._redo_buffer = []
-        self._buffered = self._buffered_results()
-        self._columns = None
-        self._fetch_columns()
-        self._producer = RecordProducer(self._columns)
+        self.graph = graph
+        self.__response = response
+        self.__response_item = self.__response_iterator()
+        self.columns = next(self.__response_item)
 
-    def _fetch_columns(self):
-        redo = []
-        section = []
-        for key, value in self._buffered:
-            if key and key[0] == "columns":
-                section.append((key, value))
-            else:
-                redo.append((key, value))
-                if key and key[0] == "data":
-                    break
-        self._redo_buffer.extend(redo)
-        self._columns = tuple(assembled(section)["columns"])
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __response_iterator(self):
+        producer = None
+        columns = []
+        record_data = None
+        for key, value in self.__response:
+            key_len = len(key)
+            if key_len > 0:
+                section = key[0]
+                if section == "columns":
+                    if key_len > 1:
+                        columns.append(value)
+                elif section == "data":
+                    if key_len == 1:
+                        producer = RecordProducer(columns)
+                        yield tuple(columns)
+                    elif key_len == 2:
+                        if record_data is not None:
+                            yield producer.produce(self.graph.hydrate(assembled(record_data)))
+                        record_data = []
+                    else:
+                        record_data.append((key[2:], value))
+        if record_data is not None:
+            yield producer.produce(self.graph.hydrate(assembled(record_data)))
         self.close()
-        return False
-
-    def _buffered_results(self):
-        for result in self._response:
-            while self._redo_buffer:
-                yield self._redo_buffer.pop(0)
-            yield result
 
     def __iter__(self):
-        for key, section in grouped(self._buffered):
-            if key[0] == "data":
-                for i, row in grouped(section):
-                    yield self._producer.produce(self.__graph.hydrate(assembled(row)))
+        return self
 
-    @property
-    def graph(self):
-        return self.__graph
+    def __next__(self):
+        return next(self.__response_item)
 
-    @property
-    def columns(self):
-        """ Column names.
-        """
-        return self._columns
+    def next(self):
+        return self.__next__()
 
     def close(self):
         """ Close results and free resources.
         """
-        self._response.close()
+        self.__response.close()
 
 
 class Record(object):
@@ -376,10 +365,14 @@ class RecordProducer(object):
 
     def __init__(self, columns):
         self.__columns = tuple(columns)
+        self.__len = len(self.__columns)
         self.__column_indexes = dict((b, a) for a, b in enumerate(columns))
 
     def __repr__(self):
         return "RecordProducer(columns={0})".format(self.__columns)
+
+    def __len__(self):
+        return self.__len
 
     @property
     def columns(self):
