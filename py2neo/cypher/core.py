@@ -150,9 +150,8 @@ class CypherTransaction(object):
     def post(self, resource):
         self.__assert_unfinished()
         rs = resource.post({"statements": self.statements})
-        location = dict(rs.headers).get("location")
-        if location:
-            self.__execute = Resource(location)
+        if rs.headers.has_key("Location"):
+            self.__execute = Resource(next(rs.headers.get("Location")))
         j = rs.content
         rs.close()
         self.statements = []
@@ -240,12 +239,6 @@ class CypherResults(object):
             out += "\n({0} rows)\n".format(len(self.data))
         return out
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return False
-
     def __len__(self):
         return len(self.data)
 
@@ -326,23 +319,23 @@ class Record(object):
     """
 
     def __init__(self, producer, values):
-        self._producer = producer
-        self._values = tuple(values)
+        self.producer = producer
+        self.values = tuple(values)
 
     def __repr__(self):
-        return "Record(columns={0}, values={1})".format(self._producer.columns, self._values)
+        return "Record(columns=%r, values=%r)" % (self.producer.columns, self.values)
 
     def __getattr__(self, attr):
-        return self._values[self._producer.column_indexes[attr]]
+        return self.values[self.producer.column_indexes[attr]]
 
     def __getitem__(self, item):
         if isinstance(item, (int, slice)):
-            return self._values[item]
+            return self.values[item]
         else:
-            return self._values[self._producer.column_indexes[item]]
+            return self.values[self.producer.column_indexes[item]]
 
     def __len__(self):
-        return len(self._producer.columns)
+        return len(self.producer.columns)
 
     @property
     def columns(self):
@@ -350,15 +343,7 @@ class Record(object):
 
         :return: tuple of column names
         """
-        return self._producer.columns
-
-    @property
-    def values(self):
-        """ The values stored in this record.
-
-        :return: tuple of values
-        """
-        return self._values
+        return self.producer.columns
 
 
 class RecordProducer(object):
@@ -366,10 +351,10 @@ class RecordProducer(object):
     def __init__(self, columns):
         self.__columns = tuple(columns)
         self.__len = len(self.__columns)
-        self.__column_indexes = dict((b, a) for a, b in enumerate(columns))
+        self.__column_indexes = dict((name, i) for i, name in enumerate(columns))
 
     def __repr__(self):
-        return "RecordProducer(columns={0})".format(self.__columns)
+        return "RecordProducer(columns=%r)" % (self.__columns,)
 
     def __len__(self):
         return self.__len

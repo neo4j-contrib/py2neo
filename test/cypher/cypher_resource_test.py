@@ -117,15 +117,13 @@ def test_execute_one_with_no_results_returns_none(graph):
 
 
 def test_can_stream_cypher_statement(graph):
-    if graph.supports_node_labels:
-        results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
-    else:
-        results = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a")
-    result = next(results)[0]
-    assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
-    assert result.properties == {"name": "Alice"}
+    alice, = graph.create(Node(name="Alice"))
+    graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
+    results = graph.cypher.stream("START a=node({N}) MATCH (a)-[:KNOWS]->(x) RETURN x",
+                                  {"N": alice._id})
+    for row in results:
+        matched = row[0]
+        assert isinstance(matched, Node)
 
 
 def test_can_stream_parametrised_cypher_statement(graph):
@@ -134,6 +132,18 @@ def test_can_stream_parametrised_cypher_statement(graph):
     else:
         results = graph.cypher.stream("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
     result = next(results)[0]
+    assert isinstance(result, Node)
+    if graph.supports_node_labels:
+        assert result.labels == {"Person"}
+    assert result.properties == {"name": "Alice"}
+
+
+def test_can_stream_cypher_statement_using_next_method(graph):
+    if graph.supports_node_labels:
+        results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
+    else:
+        results = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a")
+    result = results.next()[0]
     assert isinstance(result, Node)
     if graph.supports_node_labels:
         assert result.labels == {"Person"}
