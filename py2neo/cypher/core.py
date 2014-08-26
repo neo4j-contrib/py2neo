@@ -123,6 +123,15 @@ class CypherTransaction(object):
             raise TransactionFinished()
 
     @property
+    def _id(self):
+        """ The internal server ID of this transaction, if available.
+        """
+        if self.__execute is None:
+            return None
+        else:
+            return int(self.__execute.uri.path.segments[-1])
+
+    @property
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is
         still open.
@@ -150,8 +159,9 @@ class CypherTransaction(object):
     def post(self, resource):
         self.__assert_unfinished()
         rs = resource.post({"statements": self.statements})
-        if rs.headers.has_key("location"):
-            self.__execute = Resource(next(rs.headers.get("location")))
+        location = rs.location
+        if location:
+            self.__execute = Resource(location)
         j = rs.content
         rs.close()
         self.statements = []

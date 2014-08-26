@@ -57,12 +57,14 @@ def test_can_execute_multi_execute_transaction(graph):
     if not graph.supports_cypher_transactions:
         return
     tx = graph.cypher.begin()
+    assert tx._id is None
     for i in range(10):
         assert not tx.finished
         tx.append("CREATE (a) RETURN a")
         tx.append("CREATE (a) RETURN a")
         tx.append("CREATE (a) RETURN a")
         results = tx.execute()
+        assert tx._id is not None
         assert len(results) == 3
         for result in results:
             assert len(result) == 1

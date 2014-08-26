@@ -639,6 +639,12 @@ class Response(object):
         return self.__response.getheader("Transfer-Encoding") == "chunked"
 
     @property
+    def location(self):
+        """ The value of the `Location` header, if available.
+        """
+        return self.__response.getheader("Location", None)
+
+    @property
     def content(self):
         """ Fetch and return all content.
         """
@@ -783,7 +789,10 @@ class JSONResponse(TextResponse):
     def __iter__(self):
         """ Iterate through the content as individual JSON values.
         """
-        from py2neo.packages.jsonstream import JSONStream
+        try:
+            from jsonstream import JSONStream
+        except ImportError:
+            from ..jsonstream import JSONStream
         return iter(JSONStream(self.chunks()))
 
 
