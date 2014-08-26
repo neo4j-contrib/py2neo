@@ -6,4 +6,4 @@ python:
   - "3.4"
 
 script:
-  - ./bau test
+  - ONLINE=1 ./bau test
