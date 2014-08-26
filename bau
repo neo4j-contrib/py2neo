@@ -23,14 +23,6 @@ LATEST_VERSION=$LATEST_2_1_VERSION
 
 SELF=$0
 COMMAND=$1
-if [ "$COMMAND" == "offline" ]
-then
-    ONLINE=""
-    shift
-    COMMAND=$1
-else
-    ONLINE="1"
-fi
 shift
 ARGS=$@
 
@@ -40,7 +32,7 @@ LOG="$HOME/.bau/log"
 RUN="$HOME/.bau/run"
 
 function install_test_dependencies {
-    if [ $ONLINE ]
+    if [ "$ONLINE" ]
     then
         echo "Ensuring testing dependencies are up to date"
         pip install --upgrade mock pytest pytest-cov
@@ -59,7 +51,7 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
-        py.test -vx --cov py2neo --cov-report term-missing --cov-report html $@
+        py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
@@ -116,7 +108,7 @@ function neo4j_download {
     neo4j_set_dist
     if [ ! -f "$DOWN/$ARCHIVE" ]
     then
-        if [ $ONLINE ]
+        if [ "$ONLINE" ]
         then
             download "http://dist.neo4j.org/$ARCHIVE"
         else
