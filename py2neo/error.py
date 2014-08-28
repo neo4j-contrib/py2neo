@@ -19,11 +19,16 @@
 from __future__ import unicode_literals
 
 
-__all__ = ["BindError", "GraphError", "JoinError"]
+__all__ = ["BindError", "JoinError", "GraphError", "ConstraintViolation"]
 
 
 class BindError(Exception):
     """ Raised when a local graph entity is not or cannot be bound to a remote graph entity.
+    """
+
+
+class JoinError(Exception):
+    """ Raised when two graph entities cannot be joined together.
     """
 
 
@@ -35,21 +40,26 @@ class GraphError(Exception):
 
     @classmethod
     def hydrate(cls, data):
+        full_name = data["fullname"]
         try:
-            exception = data["exception"]
-            try:
-                error_cls = type(exception, (cls,), {})
-            except TypeError:
-                # for Python 2.x
-                error_cls = type(str(exception), (cls,), {})
+            error_cls = static_error_classes[full_name]
         except KeyError:
-            error_cls = cls
+            try:
+                exception = data["exception"]
+                try:
+                    error_cls = type(exception, (cls,), {})
+                except TypeError:
+                    # for Python 2.x
+                    error_cls = type(str(exception), (cls,), {})
+            except KeyError:
+                error_cls = cls
         message = data.pop("message", None)
         return error_cls(message, **data)
 
     def __init__(self, message, **kwargs):
         Exception.__init__(self, message)
         self.message = message
+        self.exception = kwargs.get("exception")
         self.full_name = kwargs.get("fullname")
         self.request = kwargs.get("request")
         self.response = kwargs.get("response")
@@ -60,6 +70,10 @@ class GraphError(Exception):
             self.cause = None
 
 
-class JoinError(Exception):
-    """ Raised when two graph entities cannot be joined together.
-    """
+class ConstraintViolation(GraphError):
+    pass
+
+
+static_error_classes = {
+    "org.neo4j.graphdb.ConstraintViolationException": ConstraintViolation,
+}
