@@ -1,3 +1,5 @@
 Shapelly needs to be manually installed for this extension.
 
 use ``pip install -r py2neo/ext/spatial/requirements.txt``
+
+To compile the docs run 'make html' from inside the Spatial package (not the py2neo home/root)
