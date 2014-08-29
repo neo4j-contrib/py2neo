@@ -1,6 +1,6 @@
 import pytest
 
-from py2neo import Node
+from py2neo import Node, Relationship
 
 from . import TestBase
 from ..exceptions import GeometryExistsError, NodeNotFoundError
@@ -21,25 +21,51 @@ class TestGeometries(TestBase):
 
         assert self._geometry_exists(graph, geometry_name, "cornwall")
 
-    def test_create_point(self, spatial):
+    def test_create_points(self, spatial):
         graph = spatial.graph
-        geometry_name = "shape"
-        spatial.create_layer("my_layer")
+        layer_name = 'point_layer'
+        spatial.create_layer(layer_name)
 
-        shape = parse_lat_long((5.5, -4.5))
-        assert shape.type == 'Point'
+        points = [
+            ('a', (5.5, -4.5)), ('b', (2.5, -12.5)), ('c', (30.5, 10.5))
+        ]
 
-        spatial.create_geometry(
-            geometry_name=geometry_name, wkt_string=shape.wkt,
-            layer_name="my_layer")
+        for geometry_name, coords in points:
+            shape = parse_lat_long(coords)
+            assert shape.type == 'Point'
 
-        assert self._geometry_exists(graph, geometry_name, "my_layer")
+            spatial.create_geometry(
+                geometry_name=geometry_name, wkt_string=shape.wkt,
+                layer_name=layer_name)
 
-    def test_geometry_node_label(self):
-        pass
+            geometry_node = self.get_geometry_node(spatial, geometry_name)
+            assert geometry_node
 
-    def test_application_node_relationship(self):
-        pass
+            application_node = self.get_application_node(spatial, geometry_name)
+            assert application_node
+
+            # ensure it has been given a label
+            labels = application_node.get_labels()
+
+            assert 'Point' in labels
+            assert layer_name in labels
+
+            # ensure the internal name property is set
+            properties = application_node.get_properties()
+            assert properties[NAME_PROPERTY] == geometry_name
+
+            # check it's relation to the Rtree
+            query = """MATCH (an {_py2neo_geometry_name:{geometry_name}}),
+            (an)<-[r:LOCATES]-(gn) RETURN r""" 
+            params = {
+                'geometry_name': geometry_name,
+            }
+
+            result = graph.cypher.execute(query, params)
+            record = result[0]
+            relationship = record[0]
+
+            assert isinstance(relationship, Relationship)
 
     def test_make_existing_node_spatially_aware(self, spatial):
         graph = spatial.graph

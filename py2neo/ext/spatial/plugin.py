@@ -8,11 +8,10 @@ except ImportError:
 from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
-
-from .exceptions import (
+from py2neo.ext.spatial.exceptions import (
     GeometryExistsError, InvalidWKTError, LayerNotFoundError,
     NodeNotFoundError)
-from .util import parse_lat_long
+from py2neo.ext.spatial.util import parse_lat_long
 
 
 EXTENSION_NAME = "SpatialPlugin"
@@ -38,9 +37,7 @@ class Spatial(ServerPlugin):
     and querying Well Known Text (WKT) geometries over GIS map Layers.
 
     Each Layer you create will build a sub-graph modelling geographically aware
-    nodes as an R-tree - which is your magical spatial index! You will also
-    have a standard Lucene index for this data because not all your queries
-    will be spatial.
+    nodes as an R-tree - which is your magical spatial index!
 
     .. note::
 
@@ -169,10 +166,9 @@ RETURN n"""
         data store - it will not remove any nodes you may have added to it.
 
         The operation removes the layer data from the internal GIS R-tree
-        model, removes the neo indexes (lucene and spatial) and removes the
-        layer's label from all nodes that exist on it. It does not want to
-        destroy any Nodes on the DB - use the standard py2neo library for
-        these actions.
+        model and removes the layer's label from all nodes that exist on it.
+        It does not destroy any Nodes on the DB - use the standard py2neo
+        library for these actions.
 
         :Raises:
             LayerNotFoundError if the index does not exist.
@@ -212,9 +208,6 @@ metadata, geometry_node, bounding_box, l"""
         }
 
         graph.cypher.execute(query, params)
-
-        # remove lucene index
-        graph.legacy.delete_index(Node, layer_name)
 
     def create_geometry(
             self, geometry_name, wkt_string, layer_name, labels=None,

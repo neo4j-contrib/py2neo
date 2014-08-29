@@ -45,3 +45,16 @@ RETURN geometry_node"""
         record = result[0]
         geometry_node = record[0]
         return geometry_node
+
+    @staticmethod
+    def get_application_node(api, geometry_name):
+        query = """MATCH (application_node {_py2neo_geometry_name:\
+{geometry_name}}) RETURN application_node"""
+        params = {
+            'geometry_name': geometry_name,
+        }
+
+        result = api.graph.cypher.execute(query, params)
+        record = result[0]
+        application_node = record[0]
+        return application_node
