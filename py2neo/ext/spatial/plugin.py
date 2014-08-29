@@ -45,13 +45,9 @@ class Spatial(ServerPlugin):
         all geometry types as byte[] properties of one node per geometry
         instance.
 
-        An OSMLayer is also quite possible, but not implemented here.
-
-        Any data added through this API can be visualised by compiling the
-        Neo4j Spatial Extension for Geoserver, and this is encouraged, because
-        it is tremendous fun! Please refer to this extension's documentation
-        for basic guidance, however, note that these two projects are not
-        coordinated.
+        An OSMLayer (Open Street Map Layer ) is also possible, but because one
+        cannot be created over REST, only via the Java OSMImporter api, there
+        is no api to query or manipulate such a layer here.
 
     """
     def __init__(self, graph):
