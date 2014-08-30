@@ -40,7 +40,7 @@ class GraphError(Exception):
 
     @classmethod
     def hydrate(cls, data):
-        full_name = data["fullname"]
+        full_name = data.get("fullname")
         try:
             error_cls = static_error_classes[full_name]
         except KeyError:
