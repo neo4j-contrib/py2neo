@@ -23,7 +23,7 @@ from py2neo import Node, Relationship, Rev, Path
 
 def test_creating_nothing_does_nothing(graph):
     created = graph.create()
-    assert created == []
+    assert created == ()
 
 
 class TestGraphCreateNode(object):
