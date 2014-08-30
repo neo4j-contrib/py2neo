@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, NodePointer, Path, Relationship
+from py2neo.core import Graph, Node, NodePointer, Path, Relationship
 from py2neo.cypher.lang import cypher_escape
 from py2neo.util import ustr
 
@@ -36,7 +36,7 @@ class CreateStatement(object):
         self.create_clause = []
         self.create_unique_clause = []
         self.return_clause = []
-        self.params = {}
+        self.parameters = {}
 
     def __repr__(self):
         return self.string
@@ -55,7 +55,7 @@ class CreateStatement(object):
         return "\n".join(clauses)
 
     def post(self):
-        return self.graph.cypher.post(self.string, self.params)
+        return self.graph.cypher.post(self.string, self.parameters)
 
     def execute(self):
         if not self.entities:
@@ -82,7 +82,7 @@ class CreateStatement(object):
         return tuple(self.entities)
 
     def create(self, entity):
-        entity = self.graph.cast(entity)
+        entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
@@ -94,7 +94,7 @@ class CreateStatement(object):
         self.entities.append(entity)
 
     def create_unique(self, entity):
-        entity = self.graph.cast(entity)
+        entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Path):
@@ -107,7 +107,7 @@ class CreateStatement(object):
         kwargs = {"name": name}
         if node.bound:
             self.start_clause.append("{name}=node({{{name}}})".format(**kwargs))
-            self.params[name] = node._id
+            self.parameters[name] = node._id
         else:
             template = "{name}"
             if node.labels and self.supports_node_labels:
@@ -115,7 +115,7 @@ class CreateStatement(object):
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
             if node.properties:
                 template += " {{{name}}}"
-                self.params[name] = node.properties
+                self.parameters[name] = node.properties
             self.create_clause.append("(" + template.format(**kwargs) + ")")
         self.return_clause.append(name)
         return [name], []
@@ -134,7 +134,7 @@ class CreateStatement(object):
                 if not isinstance(node, Node):
                     raise ValueError("Pointer does not refer to a node")
                 nodes[i] = node
-                path.__nodes = tuple(nodes)
+                path._Path__nodes = tuple(nodes)
             else:
                 node_name = name + "n" + ustr(i)
                 node_names.append(node_name)
@@ -145,11 +145,11 @@ class CreateStatement(object):
             rel_names.append(rel_name)
             if rel.bound:
                 self.start_clause.append("{name}=rel({{{name}}})".format(name=rel_name))
-                self.params[rel_name] = rel._id
+                self.parameters[rel_name] = rel._id
             else:
                 if rel.properties:
                     template = "({start})-[{name}:{type} {{{name}}}]->({end})"
-                    self.params[rel_name] = rel.properties
+                    self.parameters[rel_name] = rel.properties
                 else:
                     template = "({start})-[{name}:{type}]->({end})"
                 kwargs = {"start": node_names[i], "name": rel_name,

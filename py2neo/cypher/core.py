@@ -347,6 +347,12 @@ class Record(object):
     def __len__(self):
         return len(self.producer.columns)
 
+    def __eq__(self, other):
+        return self.columns == other.columns and self.values == other.values
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def columns(self):
         """ The column names defined for this record.

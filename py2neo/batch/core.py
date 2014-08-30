@@ -229,10 +229,10 @@ class CypherJob(Job):
 
     target = Target("cypher")
 
-    def __init__(self, query, params=None):
-        body = {"query": ustr(query)}
-        if params:
-            body["params"] = dict(params)
+    def __init__(self, statement, parameters=None):
+        body = {"query": ustr(statement)}
+        if parameters:
+            body["params"] = dict(parameters)
         Job.__init__(self, "POST", self.target, body)
 
 
