@@ -64,7 +64,7 @@ class CypherResource(Service):
         return inst
 
     def post(self, statement, parameters=None):
-        log.debug("Statement: %r", statement)
+        log.info("Statement: %r", statement)
         payload = {"query": statement}
         if parameters:
             payload["params"] = {}
@@ -72,7 +72,7 @@ class CypherResource(Service):
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
-            log.debug("Parameters: %r", payload["params"])
+            log.info("Parameters: %r", payload["params"])
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
