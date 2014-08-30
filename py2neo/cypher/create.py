@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Graph, Node, NodePointer, Path, Relationship
+from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
 from py2neo.cypher.lang import cypher_escape
 from py2neo.util import ustr
 
@@ -103,24 +103,32 @@ class CreateStatement(object):
             raise TypeError("Cannot create unique entity of type %s" % type(entity).__name__)
         self.entities.append(entity)
 
-    def create_node(self, node, name):
+    def _has_entity(self, entity):
+        return any(e is entity for e in self.entities)
+
+    def _node_pattern(self, node, name, full):
+        template = "{name}"
         kwargs = {"name": name}
-        if node.bound:
-            self.start_clause.append("{name}=node({{{name}}})".format(**kwargs))
-            self.parameters[name] = node._id
-        else:
-            template = "{name}"
+        if full:
             if node.labels and self.supports_node_labels:
                 template += "{labels}"
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
             if node.properties:
                 template += " {{{name}}}"
                 self.parameters[name] = node.properties
-            self.create_clause.append("(" + template.format(**kwargs) + ")")
+        return "(" + template.format(**kwargs) + ")"
+
+    def create_node(self, node, name):
+        if node.bound:
+            kwargs = {"name": name}
+            self.start_clause.append("{name}=node({{{name}}})".format(**kwargs))
+            self.parameters[name] = node._id
+        else:
+            self.create_clause.append(self._node_pattern(node, name, full=True))
         self.return_clause.append(name)
         return [name], []
 
-    def _create_path(self, path, name, unique):
+    def _create_path_nodes(self, path, name, unique):
         node_names = []
         for i, node in enumerate(path.nodes):
             if isinstance(node, NodePointer):
@@ -135,10 +143,21 @@ class CreateStatement(object):
                     raise ValueError("Pointer does not refer to a node")
                 nodes[i] = node
                 path._Path__nodes = tuple(nodes)
+            elif self._has_entity(node):
+                node_name = _(self.entities.index(node))
+                node_names.append(node_name)
+            elif unique and not node.bound:
+                node_name = name + "n" + ustr(i)
+                node_names.append(node_name)
+                self.return_clause.append(node_name)
             else:
                 node_name = name + "n" + ustr(i)
                 node_names.append(node_name)
                 self.create_node(node, node_name)
+        return node_names
+
+    def _create_path(self, path, name, unique):
+        node_names = self._create_path_nodes(path, name, unique)
         rel_names = []
         for i, rel in enumerate(path.rels):
             rel_name = name + "r" + ustr(i)
@@ -148,12 +167,21 @@ class CreateStatement(object):
                 self.parameters[rel_name] = rel._id
             else:
                 if rel.properties:
-                    template = "({start})-[{name}:{type} {{{name}}}]->({end})"
+                    template = "{start}-[{name}:{type} {{{name}}}]->{end}"
                     self.parameters[rel_name] = rel.properties
                 else:
-                    template = "({start})-[{name}:{type}]->({end})"
-                kwargs = {"start": node_names[i], "name": rel_name,
-                          "type": cypher_escape(rel.type), "end": node_names[i + 1]}
+                    template = "{start}-[{name}:{type}]->{end}"
+                start_index, end_index = i, i + 1
+                if isinstance(rel,  Rev):
+                    start_index, end_index = end_index, start_index
+                start_node = path.nodes[start_index]
+                end_node = path.nodes[end_index]
+                start = self._node_pattern(start_node, node_names[start_index],
+                                           full=(unique and not start_node.bound and not self._has_entity(start_node)))
+                end = self._node_pattern(end_node, node_names[end_index],
+                                         full=(unique and not end_node.bound and not self._has_entity(end_node)))
+                kwargs = {"start": start, "name": rel_name,
+                          "type": cypher_escape(rel.type), "end": end}
                 if unique:
                     self.create_unique_clause.append(template.format(**kwargs))
                 else:
@@ -167,4 +195,6 @@ class CreateStatement(object):
     def create_unique_path(self, path, name):
         if len(path) == 0:
             raise ValueError("Cannot create unique path with zero length")
+        if not any(node.bound or self._has_entity(node) for node in path.nodes):
+            raise ValueError("At least one node must be bound to create a unique path")
         return self._create_path(path, name, unique=True)

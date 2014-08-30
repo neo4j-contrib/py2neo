@@ -241,6 +241,17 @@ def test_a_unique_relationship_is_really_unique(graph):
     assert bob.degree == 1
 
 
+def test_unique_path_creation_can_pick_up_existing_entities(graph):
+    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = next(results)
+    statement = CreateStatement(graph)
+    statement.create_unique(Relationship(alice, "KNOWS", Node()))
+    created = statement.execute()
+    assert created == (alice_knows_bob,)
+    assert alice_knows_bob.start_node == alice
+    assert alice_knows_bob.end_node == bob
+
+
 def test_unique_path_not_unique_exception(graph):
     results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b), (a)-[:KNOWS]->(b) RETURN a, ab, b")
     alice, alice_knows_bob, bob = next(results)
@@ -285,14 +296,18 @@ def test_can_create_an_entirely_new_path(graph):
 
 def test_can_create_a_path_with_existing_nodes(graph):
     alice = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a")
+    alice_id = alice._id
     bob = Node(name="Bob")
     carol = graph.cypher.execute_one("CREATE (c {name:'Carol'}) RETURN c")
+    carol_id = carol._id
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     statement = CreateStatement(graph)
     statement.create(path)
     created = statement.execute()
     assert created == (path,)
+    assert path.nodes[0]._id == alice_id
+    assert path.nodes[2]._id == carol_id
     assert bob.bound
     assert dave.bound
     ab, cb, cd = path.relationships
@@ -306,6 +321,17 @@ def test_can_create_a_path_with_existing_nodes(graph):
 
 def test_cannot_create_unique_zero_length_path(graph):
     path = Path(Node())
+    statement = CreateStatement(graph)
+    try:
+        statement.create_unique(path)
+    except ValueError:
+        assert True
+    else:
+        assert False
+
+
+def test_cannot_create_unique_path_with_no_bound_nodes(graph):
+    path = Path(Node(), "KNOWS", Node())
     statement = CreateStatement(graph)
     try:
         statement.create_unique(path)
