@@ -74,6 +74,11 @@ class ConstraintViolation(GraphError):
     pass
 
 
+class UniquePathNotUnique(GraphError):
+    pass
+
+
 static_error_classes = {
     "org.neo4j.graphdb.ConstraintViolationException": ConstraintViolation,
+    "org.neo4j.cypher.UniquePathNotUniqueException": UniquePathNotUnique,
 }

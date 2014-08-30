@@ -34,6 +34,7 @@ class CreateStatement(object):
         self.names = []
         self.start_clause = []
         self.create_clause = []
+        self.create_unique_clause = []
         self.return_clause = []
         self.params = {}
 
@@ -47,6 +48,8 @@ class CreateStatement(object):
             clauses.append("START " + ",".join(self.start_clause))
         if self.create_clause:
             clauses.append("CREATE " + ",".join(self.create_clause))
+        if self.create_unique_clause:
+            clauses.append("CREATE UNIQUE " + ",".join(self.create_unique_clause))
         if self.return_clause:
             clauses.append("RETURN " + ",".join(self.return_clause))
         return "\n".join(clauses)
@@ -90,6 +93,16 @@ class CreateStatement(object):
             raise TypeError("Cannot create entity of type %s" % type(entity).__name__)
         self.entities.append(entity)
 
+    def create_unique(self, entity):
+        entity = self.graph.cast(entity)
+        index = len(self.entities)
+        name = _(index)
+        if isinstance(entity, Path):
+            self.names.append(self.create_unique_path(entity, name))
+        else:
+            raise TypeError("Cannot create unique entity of type %s" % type(entity).__name__)
+        self.entities.append(entity)
+
     def create_node(self, node, name):
         kwargs = {"name": name}
         if node.bound:
@@ -107,7 +120,7 @@ class CreateStatement(object):
         self.return_clause.append(name)
         return [name], []
 
-    def create_path(self, path, name):
+    def _create_path(self, path, name, unique):
         node_names = []
         for i, node in enumerate(path.nodes):
             if isinstance(node, NodePointer):
@@ -141,6 +154,17 @@ class CreateStatement(object):
                     template = "({start})-[{name}:{type}]->({end})"
                 kwargs = {"start": node_names[i], "name": rel_name,
                           "type": cypher_escape(rel.type), "end": node_names[i + 1]}
-                self.create_clause.append(template.format(**kwargs))
+                if unique:
+                    self.create_unique_clause.append(template.format(**kwargs))
+                else:
+                    self.create_clause.append(template.format(**kwargs))
             self.return_clause.append(rel_name)
         return node_names, rel_names
+
+    def create_path(self, path, name):
+        return self._create_path(path, name, unique=False)
+
+    def create_unique_path(self, path, name):
+        if len(path) == 0:
+            raise ValueError("Cannot create unique path with zero length")
+        return self._create_path(path, name, unique=True)

@@ -18,6 +18,7 @@
 
 from py2neo.core import Node, Relationship, Path, Rel, Rev
 from py2neo.cypher.create import CreateStatement
+from py2neo.error import UniquePathNotUnique
 
 
 def test_statement_representation_returns_cypher(graph):
@@ -83,6 +84,17 @@ def test_can_create_node_with_label(graph):
     assert node.bound
 
 
+def test_cannot_create_unique_node(graph):
+    node = Node(name="Alice")
+    statement = CreateStatement(graph)
+    try:
+        statement.create_unique(node)
+    except TypeError:
+        assert True
+    else:
+        assert False
+
+
 def test_can_create_two_nodes_and_a_relationship(graph):
     alice = Node(name="Alice")
     bob = Node(name="Bob")
@@ -91,6 +103,23 @@ def test_can_create_two_nodes_and_a_relationship(graph):
     statement.create(alice)
     statement.create(bob)
     statement.create(alice_knows_bob)
+    created = statement.execute()
+    assert created == (alice, bob, alice_knows_bob)
+    assert alice.bound
+    assert bob.bound
+    assert alice_knows_bob.bound
+    assert alice_knows_bob.start_node is alice
+    assert alice_knows_bob.end_node is bob
+
+
+def test_can_create_two_nodes_and_a_unique_relationship(graph):
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    alice_knows_bob = Relationship(alice, "KNOWS", bob)
+    statement = CreateStatement(graph)
+    statement.create(alice)
+    statement.create(bob)
+    statement.create_unique(alice_knows_bob)
     created = statement.execute()
     assert created == (alice, bob, alice_knows_bob)
     assert alice.bound
@@ -201,6 +230,33 @@ def test_can_pass_entities_that_already_exist(graph):
     assert created == (alice, bob, alice_knows_bob)
 
 
+def test_a_unique_relationship_is_really_unique(graph):
+    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = next(results)
+    assert alice.degree == 1
+    assert bob.degree == 1
+    statement = CreateStatement(graph)
+    statement.create_unique(Relationship(alice, "KNOWS", bob))
+    statement.execute()
+    assert alice.degree == 1
+    assert bob.degree == 1
+
+
+def test_unique_path_not_unique_exception(graph):
+    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b), (a)-[:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = next(results)
+    assert alice.degree == 2
+    assert bob.degree == 2
+    statement = CreateStatement(graph)
+    statement.create_unique(Relationship(alice, "KNOWS", bob))
+    try:
+        statement.execute()
+    except UniquePathNotUnique:
+        assert True
+    else:
+        assert False
+
+
 def test_can_create_an_entirely_new_path(graph):
     alice = Node(name="Alice")
     bob = Node(name="Bob")
@@ -243,3 +299,14 @@ def test_can_create_a_path_with_existing_nodes(graph):
     assert cb.end_node is bob
     assert cd.start_node is carol
     assert cd.end_node is dave
+
+
+def test_cannot_create_unique_zero_length_path(graph):
+    path = Path(Node())
+    statement = CreateStatement(graph)
+    try:
+        statement.create_unique(path)
+    except ValueError:
+        assert True
+    else:
+        assert False

@@ -85,6 +85,19 @@ class TestGraphCreateRelationship(object):
         assert created.properties == properties
         assert created.bound
 
+    def test_can_create_unique_relationship_from_tuple(self, graph):
+        # given
+        nodes = graph.create({}, {})
+        type_ = "KNOWS"
+        properties = {"since": 1999}
+        # when
+        created, = graph.create_unique((nodes[0], (type_, properties), nodes[1]))
+        # then
+        assert isinstance(created, Relationship)
+        assert created.type == type_
+        assert created.properties == properties
+        assert created.bound
+
     def test_can_create_relationship_from_object(self, graph):
         # given
         nodes = graph.create({}, {})
