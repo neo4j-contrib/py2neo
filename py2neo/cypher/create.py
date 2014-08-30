@@ -56,7 +56,7 @@ class CreateStatement(object):
 
     def execute(self):
         if not self.entities:
-            return []
+            return ()
         raw = self.post().content
         columns = raw["columns"]
         data = raw["data"]
@@ -114,7 +114,10 @@ class CreateStatement(object):
                 node_names.append(_(node.address))
                 # Switch out node with object from elsewhere in entity list
                 nodes = list(path.nodes)
-                node = self.entities[node.address]
+                try:
+                    node = self.entities[node.address]
+                except IndexError:
+                    raise IndexError("Node pointer out of range")
                 if not isinstance(node, Node):
                     raise ValueError("Pointer does not refer to a node")
                 nodes[i] = node
