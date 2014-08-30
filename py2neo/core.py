@@ -527,6 +527,16 @@ class Graph(Service):
             statement.create(entity)
         return statement.execute()
 
+    def create_unique(self, *entities):
+        """ Create one or more unique paths or relationships in a
+        single transaction.
+        """
+        from py2neo.cypher.create import CreateStatement
+        statement = CreateStatement(self)
+        for entity in entities:
+            statement.create_unique(entity)
+        return statement.execute()
+
     def delete(self, *entities):
         """ Delete one or more nodes, relationships and/or paths.
         """
@@ -1096,9 +1106,6 @@ class PropertyContainer(Service):
 
     def __hash__(self):
         return hash(self.__properties)
-
-    def __len__(self):
-        return len(self.properties)
 
     def __contains__(self, key):
         self.__pull_if_bound()
@@ -2093,7 +2100,7 @@ class Relationship(Path):
         return repr(r)
 
     def __len__(self):
-        return self.rel.__len__()
+        return 1
 
     def __contains__(self, key):
         return self.rel.__contains__(key)

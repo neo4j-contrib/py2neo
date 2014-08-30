@@ -144,19 +144,19 @@ class TestRelationship(object):
         assert ab.start_node == alice
         assert ab.type == "KNOWS"
         assert ab.end_node == bob
-        assert len(ab) == 1
+        assert len(ab.properties) == 1
         assert ab["since"] == 1999
         assert ab.properties == {"since": 1999}
         ab["foo"] = "bar"
-        assert len(ab) == 2
+        assert len(ab.properties) == 2
         assert ab["foo"] == "bar"
         assert ab.properties == {"since": 1999, "foo": "bar"}
         del ab["foo"]
-        assert len(ab) == 1
+        assert len(ab.properties) == 1
         assert ab["since"] == 1999
         assert ab.properties == {"since": 1999}
         ab.properties.clear()
-        assert len(ab) == 0
+        assert len(ab.properties) == 0
         assert ab.properties == {}
 
 

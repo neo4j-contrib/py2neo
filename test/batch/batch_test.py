@@ -18,9 +18,10 @@
 
 import pytest
 
-from py2neo import node, rel, GraphError
+from py2neo import node, rel
 from py2neo.core import Node, Relationship
 from py2neo.batch import BatchError, WriteBatch
+from py2neo.error import UniquePathNotUnique
 from py2neo.legacy import LegacyWriteBatch
 
 
@@ -235,8 +236,7 @@ class TestUniqueRelationshipCreation(object):
             self.batch.submit()
         except BatchError as error:
             cause = error.__cause__
-            assert isinstance(cause, GraphError)
-            assert cause.__class__.__name__ == "UniquePathNotUniqueException"
+            assert isinstance(cause, UniquePathNotUnique)
         else:
             assert False
 

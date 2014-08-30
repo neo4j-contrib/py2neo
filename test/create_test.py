@@ -23,7 +23,7 @@ from py2neo import Node, Relationship, Rev, Path
 
 def test_creating_nothing_does_nothing(graph):
     created = graph.create()
-    assert created == []
+    assert created == ()
 
 
 class TestGraphCreateNode(object):
@@ -79,6 +79,19 @@ class TestGraphCreateRelationship(object):
         properties = {"since": 1999}
         # when
         created, = graph.create((nodes[0], (type_, properties), nodes[1]))
+        # then
+        assert isinstance(created, Relationship)
+        assert created.type == type_
+        assert created.properties == properties
+        assert created.bound
+
+    def test_can_create_unique_relationship_from_tuple(self, graph):
+        # given
+        nodes = graph.create({}, {})
+        type_ = "KNOWS"
+        properties = {"since": 1999}
+        # when
+        created, = graph.create_unique((nodes[0], (type_, properties), nodes[1]))
         # then
         assert isinstance(created, Relationship)
         assert created.type == type_

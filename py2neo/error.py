@@ -41,6 +41,8 @@ class GraphError(Exception):
     @classmethod
     def hydrate(cls, data):
         full_name = data.get("fullname")
+        if full_name is None:
+            full_name = data.get("exception")
         try:
             error_cls = static_error_classes[full_name]
         except KeyError:
@@ -74,6 +76,12 @@ class ConstraintViolation(GraphError):
     pass
 
 
+class UniquePathNotUnique(GraphError):
+    pass
+
+
 static_error_classes = {
     "org.neo4j.graphdb.ConstraintViolationException": ConstraintViolation,
+    "org.neo4j.cypher.UniquePathNotUniqueException": UniquePathNotUnique,
+    "UniquePathNotUniqueException": UniquePathNotUnique,
 }

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Path, Relationship
+from py2neo.core import Graph, Node, Path, Relationship
 from py2neo.util import ustr
 
 
@@ -33,7 +33,7 @@ class DeleteStatement(object):
         self.start_clause = []
         self.delete_rels_clause = []
         self.delete_nodes_clause = []
-        self.params = {}
+        self.parameters = {}
 
     def __repr__(self):
         return self.string
@@ -50,7 +50,7 @@ class DeleteStatement(object):
         return "\n".join(clauses)
 
     def post(self):
-        return self.graph.cypher.post(self.string, self.params)
+        return self.graph.cypher.post(self.string, self.parameters)
 
     def execute(self):
         if not self.string:
@@ -58,7 +58,7 @@ class DeleteStatement(object):
         self.post().close()
 
     def delete(self, entity):
-        entity = self.graph.cast(entity)
+        entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
@@ -73,13 +73,13 @@ class DeleteStatement(object):
         if node.bound:
             self.start_clause.append("{name}=node({{{name}}})".format(name=name))
             self.delete_nodes_clause.append(name)
-            self.params[name] = node._id
+            self.parameters[name] = node._id
 
     def delete_relationship(self, relationship, name):
         if relationship.bound:
             self.start_clause.append("{name}=rel({{{name}}})".format(name=name))
             self.delete_rels_clause.append(name)
-            self.params[name] = relationship._id
+            self.parameters[name] = relationship._id
 
     def delete_path(self, path, name):
         for i, rel in enumerate(path.relationships):
