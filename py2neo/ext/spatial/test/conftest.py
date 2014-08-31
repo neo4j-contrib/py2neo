@@ -34,14 +34,12 @@ def pytest_unconfigure(config):
     """
     db = Graph(DEFAULT_DB)
     db.delete_all()
-    db.legacy._indexes[Node] = {}
 
 
 @pytest.fixture
 def graph(request):
     graph = Graph(DEFAULT_DB)
     graph.delete_all()
-    graph.legacy._indexes[Node] = {}
     return graph
 
 
