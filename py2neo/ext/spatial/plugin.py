@@ -33,17 +33,9 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 
 class Spatial(ServerPlugin):
-    """ An API to the contrib Neo4j Spatial Extension for creating, destroying
-    and querying Well Known Text (WKT) geometries over GIS map Layers.
-
-    Each Layer you create will build a sub-graph modelling geographically aware
-    nodes as an R-tree - which is your magical spatial index!
+    """ An API extension to py2neo for WKT type GIS operations.
 
     .. note::
-
-        Internally, the R-tree index uses the WKBGeometryEncoder for storing
-        all geometry types as byte[] properties of one node per geometry
-        instance.
 
         An OSMLayer (Open Street Map Layer ) is also possible, but because one
         cannot be created over REST, only via the Java OSMImporter api, there
@@ -51,7 +43,6 @@ class Spatial(ServerPlugin):
 
     """
     def __init__(self, graph):
-        """ An API extension to py2neo for WKT type GIS operations. """
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
     def _get_data_nodes(self, geometry_nodes):
@@ -131,9 +122,6 @@ RETURN n"""
         """ Create a Layer to add geometries to. If a Layer with the
         name property value of ``layer_name`` already exists, nothing
         happens.
-
-        .. note::
-            This directly translates to a Spatial Index in Neo of type WKT.
 
         """
         resource = self.resources['addEditableLayer']
@@ -461,6 +449,7 @@ RETURN geometry_node, layer_node"""
             'pointY': shape.y,
             # this appears to be handled more like a 'tolerance', as increasing
             # the value even slightly returns data from hundreds of kms away.
+            # TODO: raise failing test PR with Spatial API.
             'distanceInKm': 4,
         }
 
