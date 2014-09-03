@@ -35,22 +35,22 @@ class GregorianCalendar(object):
                 inst.graph.schema.create_unique_constraint("Calendar", "name")
             except ConstraintViolation:
                 pass
-            inst.root_node = inst.graph.merge_one("Calendar", "name", "Gregorian")
+            inst.root = inst.graph.merge_one("Calendar", "name", "Gregorian")
             cls.__instances[graph] = inst
         return inst
 
-    def year_node(self, year):
+    def year(self, year):
         path = Path(self.root_node, "YEAR", Node("Year", year=year))
         self.graph.create_unique(path)
         return path.end_node
 
-    def month_node(self, year, month):
+    def month(self, year, month):
         path = Path(self.root_node, "YEAR", Node("Year", year=year),
                                     "MONTH", Node("Month", year=year, month=month))
         self.graph.create_unique(path)
         return path.end_node
 
-    def day_node(self, year, month, day):
+    def day(self, year, month, day):
         path = Path(self.root_node, "YEAR", Node("Year", year=year),
                                     "MONTH", Node("Month", year=year, month=month),
                                     "DAY", Node("Day", year=year, month=month, day=day))
