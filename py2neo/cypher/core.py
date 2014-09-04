@@ -86,9 +86,11 @@ class CypherResource(Service):
         response = self.post(statement, parameters)
         results = self.graph.hydrate(response.content)
         try:
-            return results.data[0][0]
+            column, value = results.data[0][0]
         except IndexError:
             return None
+        else:
+            return value
         finally:
             response.close()
 
@@ -228,8 +230,8 @@ class CypherResults(object):
 
     def __repr__(self):
         column_widths = list(map(len, self.columns))
-        for row in self.data:
-            for i, value in enumerate(row):
+        for record in self.data:
+            for i, value in enumerate(record.values):
                 column_widths[i] = max(column_widths[i], len(str(value)))
         out = [" " + " | ".join(
             column.ljust(column_widths[i])
@@ -239,9 +241,9 @@ class CypherResults(object):
             "-" * column_widths[i]
             for i, column in enumerate(self.columns)
         ) + "-"]
-        for row in self.data:
+        for record in self.data:
             out.append(" " + " | ".join(ustr(value).ljust(column_widths[i])
-                                        for i, value in enumerate(row)) + " ")
+                                        for i, value in enumerate(record.values)) + " ")
         out = "\n".join(out)
         if len(self.data) == 1:
             out += "\n(1 row)\n"
@@ -334,9 +336,6 @@ class Record(object):
 
     def __repr__(self):
         return "Record(columns=%r, values=%r)" % (self.producer.columns, self.values)
-
-    def __getattr__(self, attr):
-        return self.get(attr)
 
     def __getitem__(self, item):
         col = self.columns[item]

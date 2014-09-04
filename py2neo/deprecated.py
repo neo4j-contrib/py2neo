@@ -265,7 +265,7 @@ def _path__create(self, graph, unique):
         )
     else:
         for row in results:
-            return row[0]
+            return row.get("p")
 
 @deprecated("Use Graph.create(Path(...)) instead")
 def _path_create(self, graph):

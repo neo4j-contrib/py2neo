@@ -24,19 +24,17 @@ from py2neo.cypher.core import RecordProducer
 def test_record_field_access(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name as name,a.age as age"
     for record in graph.cypher.stream(statement):
-        alice = record[0]
-        assert record[1] == alice.properties["name"]
-        assert record[2] == alice.properties["age"]
-        assert record["name"] == alice.properties["name"]
-        assert record["age"] == alice.properties["age"]
-        assert record.name == alice.properties["name"]
-        assert record.age == alice.properties["age"]
+        alice = record.values[0]
+        assert record.values[1] == alice.properties["name"]
+        assert record.values[2] == alice.properties["age"]
+        assert record.get("name") == alice.properties["name"]
+        assert record.get("age") == alice.properties["age"]
 
 
 def test_record_representation(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
     for record in graph.cypher.stream(statement):
-        alice_id = record[0]._id
+        alice_id = record.values[0]._id
         if sys.version_info >= (3,):
             assert repr(record) == ("Record(columns=('a', 'a.name', 'a.age'), "
                                     "values=((n%s {age:33,name:\"Alice\"}), "

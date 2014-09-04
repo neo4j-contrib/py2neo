@@ -716,7 +716,7 @@ class Graph(Service):
         results = self.cypher.stream(query, params)
         try:
             for result in results:
-                yield result[0]
+                yield result.values[0]
         finally:
             results.close()
 

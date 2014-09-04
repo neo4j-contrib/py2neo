@@ -221,7 +221,7 @@ def test_can_create_a_relationship_to_two_existing_nodes(graph):
 
 def test_can_pass_entities_that_already_exist(graph):
     results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    alice, alice_knows_bob, bob = next(results).values
     statement = CreateStatement(graph)
     statement.create(alice)
     statement.create(bob)
@@ -232,7 +232,7 @@ def test_can_pass_entities_that_already_exist(graph):
 
 def test_a_unique_relationship_is_really_unique(graph):
     results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    alice, alice_knows_bob, bob = next(results).values
     assert alice.degree == 1
     assert bob.degree == 1
     statement = CreateStatement(graph)
@@ -244,7 +244,7 @@ def test_a_unique_relationship_is_really_unique(graph):
 
 def test_unique_path_not_unique_exception(graph):
     results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b), (a)-[:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    alice, alice_knows_bob, bob = next(results).values
     assert alice.degree == 2
     assert bob.degree == 2
     statement = CreateStatement(graph)
