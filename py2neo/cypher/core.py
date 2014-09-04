@@ -324,7 +324,7 @@ class IterableCypherResults(object):
 
 
 class Record(object):
-    """ A single row of a Cypher execution result, holding a sequence of named
+    """ A single row of a Cypher execution result, holding an ordered set of named
     values.
     """
 
@@ -336,13 +336,15 @@ class Record(object):
         return "Record(columns=%r, values=%r)" % (self.producer.columns, self.values)
 
     def __getattr__(self, attr):
-        return self.values[self.producer.column_indexes[attr]]
+        return self.get(attr)
 
     def __getitem__(self, item):
-        if isinstance(item, (int, slice)):
-            return self.values[item]
+        col = self.columns[item]
+        val = self.values[item]
+        if isinstance(item, slice):
+            return zip(col, val)
         else:
-            return self.values[self.producer.column_indexes[item]]
+            return col, val
 
     def __len__(self):
         return len(self.producer.columns)
@@ -360,6 +362,9 @@ class Record(object):
         :return: tuple of column names
         """
         return self.producer.columns
+
+    def get(self, column):
+        return self.values[self.producer.column_indexes[column]]
 
 
 class RecordProducer(object):
