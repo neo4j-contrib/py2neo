@@ -233,8 +233,8 @@ class CypherResults(object):
     def __repr__(self):
         column_widths = list(map(len, self.columns))
         for record in self.data:
-            for i, value in enumerate(record.values):
-                column_widths[i] = max(column_widths[i], len(str(value)))
+            for i, (column, value) in enumerate(record):
+                column_widths[i] = max(column_widths[i], len(ustr(value)))
         out = [" " + " | ".join(
             column.ljust(column_widths[i])
             for i, column in enumerate(self.columns)
@@ -245,12 +245,8 @@ class CypherResults(object):
         ) + "-"]
         for record in self.data:
             out.append(" " + " | ".join(ustr(value).ljust(column_widths[i])
-                                        for i, value in enumerate(record.values)) + " ")
+                                        for i, (column, value) in enumerate(record)) + " ")
         out = "\n".join(out)
-        if len(self.data) == 1:
-            out += "\n(1 row)\n"
-        else:
-            out += "\n({0} rows)\n".format(len(self.data))
         return out
 
     def __len__(self):
@@ -333,39 +329,42 @@ class Record(object):
     """
 
     def __init__(self, producer, values):
-        self.producer = producer
-        self.values = tuple(values)
+        self.__producer = producer
+        self.__columns = self.__producer.columns
+        self.__values = tuple(values)
+        self.__repr = None
 
     def __repr__(self):
-        return "Record(columns=%r, values=%r)" % (self.producer.columns, self.values)
+        if self.__repr is None:
+            lines = [[], [], []]
+            for i, column_width in enumerate(self.__producer.column_widths):
+                value = ustr(self.__values[i])
+                width = max(column_width, len(value))
+                lines[0].append(" %s " % self.__columns[i].ljust(width))
+                lines[1].append("-" * (width + 2))
+                lines[2].append(" %s " % value.ljust(width))
+            self.__repr = "\n".join("|+|"[i].join(line) for i, line in enumerate(lines)) + "\n"
+        return self.__repr
 
-    def __getitem__(self, item):
-        col = self.columns[item]
-        val = self.values[item]
-        if isinstance(item, slice):
+    def __getitem__(self, index):
+        col = self.__columns[index]
+        val = self.__values[index]
+        if isinstance(index, slice):
             return zip(col, val)
         else:
             return col, val
 
     def __len__(self):
-        return len(self.producer.columns)
+        return len(self.__columns)
 
     def __eq__(self, other):
-        return self.columns == other.columns and self.values == other.values
+        return list(self) == list(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
-    def columns(self):
-        """ The column names defined for this record.
-
-        :return: tuple of column names
-        """
-        return self.producer.columns
-
-    def get(self, column):
-        return self.values[self.producer.column_indexes[column]]
+    def __getattr__(self, name):
+        return self.values[self.__producer.column_indexes[column]]
 
 
 class RecordProducer(object):
@@ -373,7 +372,8 @@ class RecordProducer(object):
     def __init__(self, columns):
         self.__columns = tuple(columns)
         self.__len = len(self.__columns)
-        self.__column_indexes = dict((name, i) for i, name in enumerate(columns))
+        self.__column_indexes = dict((name, i) for i, name in enumerate(self.__columns))
+        self.__column_widths = tuple(len(column) for column in self.__columns)
 
     def __repr__(self):
         return "RecordProducer(columns=%r)" % (self.__columns,)
@@ -389,11 +389,14 @@ class RecordProducer(object):
     def column_indexes(self):
         return self.__column_indexes
 
+    @property
+    def column_widths(self):
+        return self.__column_widths
+
     def produce(self, values):
         """ Produce a record from a set of values.
         """
         return Record(self, values)
-
 
 class TransactionFinished(Exception):
     """ Raised when actions are attempted against a finished Transaction.
@@ -404,3 +407,4 @@ class TransactionFinished(Exception):
 
     def __repr__(self):
         return "Transaction finished"
+
