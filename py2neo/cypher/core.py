@@ -22,8 +22,8 @@ from collections import OrderedDict
 import logging
 
 from py2neo.core import Service, Resource, Node, Rel, Relationship
-from py2neo.cypher.error import CypherError, TransactionError, TransactionFinished
-from py2neo.packages.jsonstream import assembled, grouped
+from py2neo.cypher.error.core import CypherError, CypherTransactionError
+from py2neo.packages.jsonstream import assembled
 from py2neo.util import ustr
 
 __all__ = ["CypherResource", "CypherTransaction", "CypherResults", "IterableCypherResults",
@@ -69,7 +69,7 @@ class CypherResource(Service):
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
-            log.debug("Params: %r", payload["params"])
+            log.debug("Parameters: %r", payload["params"])
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
@@ -111,6 +111,8 @@ class CypherTransaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
     """
+
+    error_class = CypherTransactionError
 
     def __init__(self, uri):
         self.statements = []
@@ -173,7 +175,7 @@ class CypherTransaction(object):
             errors = j["errors"]
             if len(errors) >= 1:
                 error = errors[0]
-                raise TransactionError.new(error["code"], error["message"])
+                raise self.error_class.hydrate(error)
         out = []
         for result in j["results"]:
             producer = RecordProducer(result["columns"])
@@ -391,3 +393,14 @@ class RecordProducer(object):
         """ Produce a record from a set of values.
         """
         return Record(self, values)
+
+
+class TransactionFinished(Exception):
+    """ Raised when actions are attempted against a finished Transaction.
+    """
+
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return "Transaction finished"

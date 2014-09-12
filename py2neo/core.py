@@ -47,14 +47,15 @@ from warnings import warn
 from weakref import WeakValueDictionary
 
 from py2neo import __version__
-from py2neo.error import GraphError, BindError, JoinError
+from py2neo.error.client import BindError, JoinError
+from py2neo.error.server import GraphError
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple
+from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple, raise_from
 
 
 __all__ = ["authenticate", "rewrite",
@@ -226,12 +227,11 @@ class Resource(_Resource):
             response = self.__base.get(headers, redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
             if isinstance(error, JSONResponse):
-                content = error.content
-                content["request"] = error.request
-                content["response"] = error
-                raise self.error_class.hydrate(content)
+                content = dict(error.content, request=error.request, response=error)
             else:
-                raise
+                content = {}
+            message = content.pop("message", "HTTP GET returned response %s" % error.status_code)
+            raise_from(self.error_class(message, **content), error)
         else:
             self.__last_get_response = response
             return response
@@ -244,12 +244,11 @@ class Resource(_Resource):
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
             if isinstance(error, JSONResponse):
-                content = error.content
-                content["request"] = error.request
-                content["response"] = error
-                raise self.error_class.hydrate(content)
+                content = dict(error.content, request=error.request, response=error)
             else:
-                raise
+                content = {}
+            message = content.pop("message", "HTTP PUT returned response %s" % error.status_code)
+            raise_from(self.error_class(message, **content), error)
         else:
             return response
 
@@ -261,12 +260,11 @@ class Resource(_Resource):
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
             if isinstance(error, JSONResponse):
-                content = error.content
-                content["request"] = error.request
-                content["response"] = error
-                raise self.error_class.hydrate(content)
+                content = dict(error.content, request=error.request, response=error)
             else:
-                raise
+                content = {}
+            message = content.pop("message", "HTTP POST returned response %s" % error.status_code)
+            raise_from(self.error_class(message, **content), error)
         else:
             return response
 
@@ -278,12 +276,11 @@ class Resource(_Resource):
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:
             if isinstance(error, JSONResponse):
-                content = error.content
-                content["request"] = error.request
-                content["response"] = error
-                raise self.error_class.hydrate(content)
+                content = dict(error.content, request=error.request, response=error)
             else:
-                raise
+                content = {}
+            message = content.pop("message", "HTTP DELETE returned response %s" % error.status_code)
+            raise_from(self.error_class(message, **content), error)
         else:
             return response
 
@@ -612,7 +609,8 @@ class Graph(Service):
             elif "neo4j_version" in data:
                 return self
             elif "exception" in data and "stacktrace" in data:
-                raise GraphError.hydrate(data)
+                message = data.pop("message", "The server returned an error")
+                raise GraphError(message, **data)
             else:
                 warn("Map literals returned over the Neo4j REST interface are ambiguous "
                      "and may be hydrated as graph objects")
@@ -1406,8 +1404,8 @@ class Node(PropertyContainer):
         """
         try:
             self.resource.get()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
+        except GraphError as error:
+            if error.__cause__ and error.__cause__.status_code == NOT_FOUND:
                 return False
             else:
                 raise
@@ -1680,8 +1678,8 @@ class Rel(PropertyContainer):
         """
         try:
             self.resource.get()
-        except GraphError as err:
-            if err.response.status_code == NOT_FOUND:
+        except GraphError as error:
+            if error.__cause__ and error.__cause__.status_code == NOT_FOUND:
                 return False
             else:
                 raise

@@ -18,7 +18,8 @@
 
 from __future__ import unicode_literals
 
-from py2neo.cypher.error import TransactionError, TransactionFinished
+from py2neo.cypher.core import TransactionFinished
+from py2neo.cypher.error.statement import InvalidSyntax
 
 
 def test_can_execute_single_statement_transaction(graph):
@@ -100,7 +101,7 @@ def test_can_generate_transaction_error(graph):
     try:
         tx.append("CRAETE (a) RETURN a")
         tx.commit()
-    except TransactionError as err:
+    except InvalidSyntax as err:
         assert repr(err)
     else:
         assert False

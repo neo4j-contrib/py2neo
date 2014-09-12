@@ -22,19 +22,24 @@ except ImportError:
     from mock import patch
 
 from py2neo import Resource, GraphError
-from py2neo.packages.httpstream import ClientError, ServerError, Resource as _Resource
+from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
+    Resource as _Resource, Response as _Response
 
 
-class DodgyServerError(ServerError):
-    pass
+class DodgyServerError(_ServerError):
+
+    status_code = 599
 
 
 def test_can_handle_json_error_from_get():
     resource = Resource("http://localhost:7474/db/data/node/spam")
     try:
         resource.get()
-    except ClientError:
-        assert True
+    except GraphError as error:
+        cause = error.__cause__
+        assert isinstance(cause, _ClientError)
+        assert isinstance(cause, _Response)
+        assert cause.status_code == 404
     else:
         assert False
 
@@ -43,8 +48,11 @@ def test_can_handle_json_error_from_put(graph):
     node, = graph.create({})
     try:
         node.properties.resource.put(["foo"])
-    except GraphError:
-        assert True
+    except GraphError as error:
+        cause = error.__cause__
+        assert isinstance(cause, _ClientError)
+        assert isinstance(cause, _Response)
+        assert cause.status_code == 400
     else:
         assert False
 
@@ -53,8 +61,11 @@ def test_can_handle_json_error_from_post():
     new_node_resource = Resource("http://localhost:7474/db/data/node")
     try:
         new_node_resource.post(["foo"])
-    except GraphError:
-        assert True
+    except GraphError as error:
+        cause = error.__cause__
+        assert isinstance(cause, _ClientError)
+        assert isinstance(cause, _Response)
+        assert cause.status_code == 400
     else:
         assert False
 
@@ -64,8 +75,11 @@ def test_can_handle_json_error_from_delete(graph):
     non_existent_property = Resource(node.properties.resource.uri.string + "/foo")
     try:
         non_existent_property.delete()
-    except GraphError:
-        assert True
+    except GraphError as error:
+        cause = error.__cause__
+        assert isinstance(cause, _ClientError)
+        assert isinstance(cause, _Response)
+        assert cause.status_code == 404
     else:
         assert False
 
@@ -76,8 +90,8 @@ def test_can_handle_other_error_from_get():
         resource = Resource("http://localhost:7474/db/data/node/spam")
         try:
             resource.get()
-        except DodgyServerError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyServerError)
         else:
             assert False
 
@@ -88,8 +102,8 @@ def test_can_handle_other_error_from_put():
         resource = Resource("http://localhost:7474/db/data/node/spam")
         try:
             resource.put()
-        except DodgyServerError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyServerError)
         else:
             assert False
 
@@ -100,8 +114,8 @@ def test_can_handle_other_error_from_post():
         resource = Resource("http://localhost:7474/db/data/node/spam")
         try:
             resource.post()
-        except DodgyServerError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyServerError)
         else:
             assert False
 
@@ -112,7 +126,7 @@ def test_can_handle_other_error_from_delete():
         resource = Resource("http://localhost:7474/db/data/node/spam")
         try:
             resource.delete()
-        except DodgyServerError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyServerError)
         else:
             assert False

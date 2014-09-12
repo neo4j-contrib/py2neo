@@ -23,21 +23,32 @@ import logging
 
 from py2neo.core import NodePointer, Service
 from py2neo.cypher import CypherResults
-from py2neo.error import GraphError
+from py2neo.error.server import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
-from py2neo.util import pendulate, ustr
+from py2neo.util import pendulate, ustr, raise_from
 
 
 log = logging.getLogger("py2neo.batch")
 
 
-class BatchError(Exception):
+class BatchError(GraphError):
     """ Wraps a base `GraphError` within a batch context.
     """
 
-    def __init__(self, error):
-        self.__cause__ = error
+    batch = None
+    job_id = None
+    status_code = None
+    uri = None
+    location = None
+
+    def __init__(self, message, batch, job_id, status_code, uri, location=None, **kwargs):
+        GraphError.__init__(self, message, **kwargs)
+        self.batch = batch
+        self.job_id = job_id
+        self.status_code = status_code
+        self.uri = uri
+        self.location = location
 
 
 class BatchResource(Service):
@@ -184,11 +195,13 @@ class JobResult(object):
         if graph is None or batch[job_id].raw_result:
             body = data.get("body")
         else:
+            body = None
             try:
                 body = graph.hydrate(data.get("body"))
             except GraphError as error:
-                # TODO: pass batch context to error constructor
-                raise BatchError(error)
+                message = "Batch job %s failed with %s\n%s" % (
+                    job_id, error.__class__.__name__, ustr(error))
+                raise_from(BatchError(message, batch, job_id, status_code, uri, location), error)
             else:
                 # If Cypher results, reduce to single row or single value if possible
                 if isinstance(body, CypherResults):

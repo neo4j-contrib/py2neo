@@ -25,6 +25,7 @@ from __future__ import unicode_literals
 from itertools import cycle, islice
 import re
 import warnings
+import sys
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
@@ -185,3 +186,8 @@ def pendulate(collection):
         else:
             index = count - ((i + 1) // 2)
         yield index, collection[index]
+
+
+def raise_from(exception, cause):
+    exception.__cause__ = cause
+    raise exception

@@ -20,8 +20,8 @@ from __future__ import unicode_literals
 
 import pytest
 
-from py2neo.error import GraphError
 from py2neo.core import Node, Relationship, Path
+from py2neo.cypher import CypherError
 
 
 def alice_and_bob(graph):
@@ -33,10 +33,14 @@ def alice_and_bob(graph):
 
 
 def test_nonsense_query(graph):
-    query = "SELECT z=nude(0) RETURNS x"
+    statement = "SELECT z=nude(0) RETURNS x"
     try:
-        graph.cypher.execute(query)
-    except GraphError:
+        graph.cypher.execute(statement)
+    except CypherError as error:
+        assert error.exception == "SyntaxException"
+        assert error.fullname in [None, "org.neo4j.cypher.SyntaxException"]
+        assert error.statement == statement
+        assert error.parameters is None
         assert True
     else:
         assert False
@@ -74,7 +78,7 @@ class TestCypher(object):
         self.graph = graph
 
     def test_nonsense_query_with_error_handler(self):
-        with pytest.raises(GraphError):
+        with pytest.raises(CypherError):
             self.graph.cypher.execute("SELECT z=nude(0) RETURNS x")
 
     def test_query(self):

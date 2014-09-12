@@ -20,8 +20,7 @@ import pytest
 
 from py2neo import node, rel
 from py2neo.core import Node, Relationship
-from py2neo.batch import BatchError, WriteBatch
-from py2neo.error import UniquePathNotUnique
+from py2neo.batch import BatchError, WriteBatch, CypherJob
 from py2neo.legacy import LegacyWriteBatch
 
 
@@ -37,6 +36,12 @@ class TestNodeCreation(object):
         a, = self.batch.submit()
         assert isinstance(a, Node)
         assert a.properties == {}
+
+    def test_can_create_single_node_with_streaming(self):
+        self.batch.create(Node(name="Alice"))
+        for result in self.batch.stream():
+            assert isinstance(result, Node)
+            assert result.properties == {"name": "Alice"}
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -236,7 +241,7 @@ class TestUniqueRelationshipCreation(object):
             self.batch.submit()
         except BatchError as error:
             cause = error.__cause__
-            assert isinstance(cause, UniquePathNotUnique)
+            assert cause.__class__.__name__ == "UniquePathNotUniqueException"
         else:
             assert False
 
@@ -640,3 +645,35 @@ def test_can_handle_json_response_with_no_content(graph):
     batch.create((0, "KNOWS", 1))
     results = batch.submit()
     assert results == []
+
+
+def test_cypher_job_with_bad_syntax(graph):
+    batch = WriteBatch(graph)
+    batch.append(CypherJob("X"))
+    try:
+        batch.submit()
+    except BatchError as error:
+        assert error.batch is batch
+        assert error.job_id == 0
+        assert error.status_code == 400
+        assert error.uri == "cypher"
+    else:
+        assert False
+
+
+def test_cypher_job_with_non_existent_node_id(graph):
+    node = Node()
+    graph.create(node)
+    node_id = node._id
+    graph.delete(node)
+    batch = WriteBatch(graph)
+    batch.append(CypherJob("START n=node({N}) RETURN n", {"N": node_id}))
+    try:
+        batch.submit()
+    except BatchError as error:
+        assert error.batch is batch
+        assert error.job_id == 0
+        assert error.status_code == 400
+        assert error.uri == "cypher"
+    else:
+        assert False

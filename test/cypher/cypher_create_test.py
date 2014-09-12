@@ -17,8 +17,7 @@
 
 
 from py2neo.core import Node, Relationship, Path, Rel, Rev
-from py2neo.cypher.create import CreateStatement
-from py2neo.error import UniquePathNotUnique
+from py2neo.cypher import CreateStatement, CypherError
 
 
 def test_statement_representation_returns_cypher(graph):
@@ -251,8 +250,12 @@ def test_unique_path_not_unique_exception(graph):
     statement.create_unique(Relationship(alice, "KNOWS", bob))
     try:
         statement.execute()
-    except UniquePathNotUnique:
-        assert True
+    except CypherError as error:
+        assert error.exception == "UniquePathNotUniqueException"
+        assert error.fullname in [None, "org.neo4j.cypher.UniquePathNotUniqueException"]
+        assert error.statement == ("START _0n0=node({_0n0}),_0n1=node({_0n1})\n"
+                                   "CREATE UNIQUE (_0n0)-[_0r0:KNOWS]->(_0n1)\n"
+                                   "RETURN _0n0,_0n1,_0r0")
     else:
         assert False
 

@@ -117,8 +117,13 @@ def test_labels_constraints():
     a.push()
     b.labels.add(label_1)
     b.push()
-    with pytest.raises(ServerError):  # this is probably a bug
+    try:
         graph_db.schema.drop_index(label_1, "name")
+    except GraphError as error:
+        # this is probably a server bug
+        assert error.__cause__.status_code // 100 == 5
+    else:
+        assert False
     b.labels.remove(label_1)
     b.push()
     graph_db.schema.drop_unique_constraint(label_1, "name")
@@ -134,8 +139,8 @@ def test_drop_index_will_raise_non_404_errors(graph):
         mocked.side_effect = DodgyClientError
         try:
             graph.schema.drop_index("Person", "name")
-        except DodgyClientError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyClientError)
         else:
             assert False
 
@@ -147,7 +152,7 @@ def test_drop_unique_constraint_will_raise_non_404_errors(graph):
         mocked.side_effect = DodgyClientError
         try:
             graph.schema.drop_unique_constraint("Person", "name")
-        except DodgyClientError:
-            assert True
+        except GraphError as error:
+            assert isinstance(error.__cause__, DodgyClientError)
         else:
             assert False
