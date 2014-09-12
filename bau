@@ -84,21 +84,46 @@ function neo4j_set_dist {
         EDITION="community"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "" ]
-    then
-        VERSION=$LATEST_VERSION
-    elif [ "$VERSION" == "2.1" ]
+    if [ "$VERSION" == "2.1" ] || [ "$VERSION" == "" ]
     then
         VERSION=$LATEST_2_1_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.     .::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'       ::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'         ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: :: ::::::"
+        echo "                                 :::"
     elif [ "$VERSION" == "2.0" ]
     then
         VERSION=$LATEST_2_0_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.     ::::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'     ::  ::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ::  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
+        echo "                                 :::"
     elif [ "$VERSION" == "1.9" ]
     then
         VERSION=$LATEST_1_9_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''      .::       ::::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::      ':::::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::          ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
+        echo "                                 :::"
     elif [ "$VERSION" == "1.8" ]
     then
         VERSION=$LATEST_1_8_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''      .::       ::::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::       ::::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::      ::  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
+        echo "                                 :::"
     fi
     DIST="neo4j-$EDITION-$VERSION"
     ARCHIVE="$DIST-unix.tar.gz"
@@ -130,7 +155,6 @@ function neo4j_start {
 }
 
 function neo4j_stop {
-    neo4j_set_dist
     pushd "$RUN" > /dev/null
     $DIST/bin/neo4j stop
     popd > /dev/null
