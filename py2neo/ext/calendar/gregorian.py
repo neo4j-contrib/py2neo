@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, ConstraintViolation
+from py2neo import Node, Path, GraphError
 
 
 class GregorianCalendar(object):
@@ -33,26 +33,29 @@ class GregorianCalendar(object):
             inst.graph = graph
             try:
                 inst.graph.schema.create_unique_constraint("Calendar", "name")
-            except ConstraintViolation:
-                pass
+            except GraphError as error:
+                if error.__class__.__name__ == "ConstraintViolationException":
+                    pass
+                else:
+                    raise
             inst.root = inst.graph.merge_one("Calendar", "name", "Gregorian")
             cls.__instances[graph] = inst
         return inst
 
     def year(self, year):
-        path = Path(self.root_node, "YEAR", Node("Year", year=year))
+        path = Path(self.root, "YEAR", Node("Year", year=year))
         self.graph.create_unique(path)
         return path.end_node
 
     def month(self, year, month):
-        path = Path(self.root_node, "YEAR", Node("Year", year=year),
-                                    "MONTH", Node("Month", year=year, month=month))
+        path = Path(self.root, "YEAR", Node("Year", year=year),
+                               "MONTH", Node("Month", year=year, month=month))
         self.graph.create_unique(path)
         return path.end_node
 
     def day(self, year, month, day):
-        path = Path(self.root_node, "YEAR", Node("Year", year=year),
-                                    "MONTH", Node("Month", year=year, month=month),
-                                    "DAY", Node("Day", year=year, month=month, day=day))
+        path = Path(self.root, "YEAR", Node("Year", year=year),
+                               "MONTH", Node("Month", year=year, month=month),
+                               "DAY", Node("Day", year=year, month=month, day=day))
         self.graph.create_unique(path)
         return path.end_node
