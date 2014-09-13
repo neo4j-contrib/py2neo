@@ -24,30 +24,30 @@ from py2neo.cypher.core import RecordProducer
 def test_record_field_access(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name as name,a.age as age"
     for record in graph.cypher.stream(statement):
-        alice = record.values[0]
-        assert record.values[1] == alice.properties["name"]
-        assert record.values[2] == alice.properties["age"]
-        assert record.get("name") == alice.properties["name"]
-        assert record.get("age") == alice.properties["age"]
+        alice = record.a
+        assert record.name == alice.properties["name"]
+        assert record.age == alice.properties["age"]
+        assert record[1] == alice.properties["name"]
+        assert record[2] == alice.properties["age"]
+        assert record["name"] == alice.properties["name"]
+        assert record["age"] == alice.properties["age"]
+        try:
+            _ = record[object()]
+        except LookupError:
+            assert True
+        else:
+            assert False
 
 
 def test_record_representation(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
     for record in graph.cypher.stream(statement):
-        alice_id = record.values[0]._id
-        if sys.version_info >= (3,):
-            assert repr(record) == ("Record(columns=('a', 'a.name', 'a.age'), "
-                                    "values=((n%s {age:33,name:\"Alice\"}), "
-                                    "'Alice', 33))" % alice_id)
-        else:
-            assert repr(record) == ("Record(columns=(u'a', u'a.name', u'a.age'), "
-                                    "values=((n%s {age:33,name:\"Alice\"}), "
-                                    "u'Alice', 33))" % alice_id)
+        assert repr(record)
 
 
 def test_producer_representation():
     producer = RecordProducer(["apple", "banana", "carrot"])
-    assert repr(producer) == "RecordProducer(columns=('apple', 'banana', 'carrot'))"
+    assert repr(producer)
 
 
 def test_producer_length():
@@ -55,6 +55,22 @@ def test_producer_length():
     assert len(producer) == 3
 
 
-def test_producer_column_indexes():
-    producer = RecordProducer(["apple", "banana", "carrot"])
-    assert producer.column_indexes == {"apple": 0, "banana": 1, "carrot": 2}
+def test_record_equality(graph):
+    if graph.neo4j_version < (2,):
+        return
+    statement = "MERGE (a {name:'Superfly',age:55}) RETURN a,a.name,a.age"
+    results = graph.cypher.execute(statement)
+    r1 = results[0]
+    results = graph.cypher.execute(statement)
+    r2 = results[0]
+    assert r1 == r2
+
+
+def test_record_inequality(graph):
+    statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
+    results = graph.cypher.execute(statement)
+    r1 = results[0]
+    statement = "CREATE (a {name:'Bob',age:44}) RETURN a,a.name,a.age"
+    results = graph.cypher.execute(statement)
+    r2 = results[0]
+    assert r1 != r2

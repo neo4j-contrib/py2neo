@@ -62,7 +62,7 @@ def test_can_execute_cypher_statement(graph):
         results = graph.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
     else:
         results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a")
-    result = results[0].values[0]
+    result = results[0].a
     assert isinstance(result, Node)
     if graph.supports_node_labels:
         assert result.labels == {"Person"}
@@ -74,7 +74,7 @@ def test_can_execute_parametrised_cypher_statement(graph):
         results = graph.cypher.execute("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
     else:
         results = graph.cypher.execute("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
-    result = results[0].values[0]
+    result = results[0].a
     assert isinstance(result, Node)
     if graph.supports_node_labels:
         assert result.labels == {"Person"}
@@ -85,7 +85,7 @@ def test_can_execute_cypher_statement_with_node_parameter(graph):
     alice = Node(name="Alice")
     graph.create(alice)
     results = graph.cypher.execute("START a=node({N}) RETURN a", {"N": alice})
-    result = results[0].values[0]
+    result = results[0].a
     assert result is alice
 
 
@@ -122,7 +122,7 @@ def test_can_stream_cypher_statement(graph):
     results = graph.cypher.stream("START a=node({N}) MATCH (a)-[:KNOWS]->(x) RETURN x",
                                   {"N": alice._id})
     for row in results:
-        matched = row.values[0]
+        matched = row.x
         assert isinstance(matched, Node)
 
 
@@ -131,7 +131,7 @@ def test_can_stream_parametrised_cypher_statement(graph):
         results = graph.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
     else:
         results = graph.cypher.stream("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
-    result = next(results).values[0]
+    result = next(results).a
     assert isinstance(result, Node)
     if graph.supports_node_labels:
         assert result.labels == {"Person"}
@@ -143,7 +143,7 @@ def test_can_stream_cypher_statement_using_next_method(graph):
         results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
     else:
         results = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a")
-    result = results.next().values[0]
+    result = results.next().a
     assert isinstance(result, Node)
     if graph.supports_node_labels:
         assert result.labels == {"Person"}

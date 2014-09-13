@@ -39,7 +39,7 @@ def test_entity_not_found_raises_cypher_error(graph):
 def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher = graph.cypher
     results = cypher.execute("CREATE (a), (b) RETURN a, b")
-    parameters = {"A": results[0].get("a"), "B": results[0].get("b")}
+    parameters = {"A": results[0].a, "B": results[0].b}
     cypher.execute("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
     cypher.execute("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
     try:

@@ -52,23 +52,21 @@ def test_can_run(graph):
 
 
 def test_can_execute(graph):
-    results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name")
+    results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     assert len(results) == 1
-    assert len(results[0]) == 1
-    assert results[0].values[0] == "Alice"
+    assert results[0].name == "Alice"
 
 
 def test_can_execute_one(graph):
-    result = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name")
+    result = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     assert result == "Alice"
 
 
 def test_can_stream(graph):
-    stream = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name")
+    stream = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     results = list(stream)
     assert len(results) == 1
-    assert len(results[0]) == 1
-    assert results[0].values[0] == "Alice"
+    assert results[0].name == "Alice"
 
 
 class TestCypher(object):
@@ -86,22 +84,15 @@ class TestCypher(object):
         results = self.graph.cypher.execute((
             "start a=node({0}),b=node({1}) "
             "match a-[ab:KNOWS]->b "
-            "return a,b,ab,a.name,b.name"
+            "return a, b, ab, a.name AS a_name, b.name AS b_name"
         ).format(a._id, b._id))
         assert len(results) == 1
         for record in results:
-            assert len(record) == 5
-            assert isinstance(record.values[0], Node)
-            assert isinstance(record.values[1], Node)
-            assert isinstance(record.values[2], Relationship)
-            assert record.values[3] == "Alice"
-            assert record.values[4] == "Bob"
-        assert len(results.columns) == 5
-        assert results.columns[0] == "a"
-        assert results.columns[1] == "b"
-        assert results.columns[2] == "ab"
-        assert results.columns[3] == "a.name"
-        assert results.columns[4] == "b.name"
+            assert isinstance(record.a, Node)
+            assert isinstance(record.b, Node)
+            assert isinstance(record.ab, Relationship)
+            assert record.a_name == "Alice"
+            assert record.b_name == "Bob"
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -112,21 +103,18 @@ class TestCypher(object):
         ).format(a._id, b._id))
         assert len(results) == 1
         for record in results:
-            assert len(record) == 1
-            assert isinstance(record.values[0], Path)
-            assert len(record.values[0].nodes) == 2
-            assert record.values[0].nodes[0] == a
-            assert record.values[0].nodes[1] == b
-            assert record.values[0].relationships[0].type == "KNOWS"
-        assert len(results.columns) == 1
-        assert results.columns[0] == "p"
+            assert isinstance(record.p, Path)
+            assert len(record.p.nodes) == 2
+            assert record.p.nodes[0] == a
+            assert record.p.nodes[1] == b
+            assert record.p.relationships[0].type == "KNOWS"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
-        query = "START a = node({N}) RETURN collect(a);"
+        query = "START a=node({N}) RETURN collect(a) AS a_collection"
         params = {"N": node._id}
         results = self.graph.cypher.execute(query, params)
-        assert results[0].values[0] == [node]
+        assert results[0].a_collection == [node]
 
     def test_param_used_once(self):
         node, = self.graph.create({})
@@ -137,8 +125,7 @@ class TestCypher(object):
         params = {"X": node._id}
         results = self.graph.cypher.execute(query, params)
         record = results[0]
-        assert record.columns == ("a",)
-        assert record.values == (node,)
+        assert record.a == node
 
     def test_param_used_twice(self):
         node, = self.graph.create({})
@@ -149,8 +136,8 @@ class TestCypher(object):
         params = {"X": node._id}
         results = self.graph.cypher.execute(query, params)
         record = results[0]
-        assert record.columns == ("a", "b")
-        assert record.values == (node, node)
+        assert record.a == node
+        assert record.b == node
 
     def test_param_used_thrice(self):
         node, = self.graph.create({})
@@ -161,8 +148,9 @@ class TestCypher(object):
         params = {"X": node._id}
         results = self.graph.cypher.execute(query, params)
         record = results[0]
-        assert record.columns == ("a", "b", "c")
-        assert record.values == (node, node, node)
+        assert record.a == node
+        assert record.b == node
+        assert record.b == node
 
     def test_param_reused_once_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -178,7 +166,7 @@ class TestCypher(object):
         params = {"A": a._id, "min_age": 50}
         results = self.graph.cypher.execute(query, params)
         record = results[0]
-        assert record.values == (b,)
+        assert record.b == b
 
     def test_param_reused_twice_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
@@ -201,5 +189,4 @@ class TestCypher(object):
         params = {"A": a._id, "min_age": 50}
         results = self.graph.cypher.execute(query, params)
         record = results[0]
-        assert record.values == (c,)
-
+        assert record.c == c

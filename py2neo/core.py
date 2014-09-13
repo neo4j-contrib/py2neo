@@ -49,7 +49,7 @@ from weakref import WeakValueDictionary
 from py2neo import __version__
 from py2neo.error.client import BindError, JoinError
 from py2neo.error.server import GraphError
-from py2neo.packages.httpstream import http, ClientError, ServerError, \
+from py2neo.packages.httpstream import http, Response, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -714,7 +714,7 @@ class Graph(Service):
         results = self.cypher.stream(query, params)
         try:
             for result in results:
-                yield result.values[0]
+                yield result.r
         finally:
             results.close()
 
@@ -936,10 +936,11 @@ class Schema(Service):
         try:
             self._index_key_template.expand(label=label, property_key=property_key).delete()
         except ClientError as error:
-            if error.status_code == NOT_FOUND:
-                raise GraphError("No such schema index (label=%r, key=%r)" % (label, property_key))
-            else:
-                raise
+            if isinstance(error, Response):
+                if error.status_code == NOT_FOUND:
+                    raise GraphError("No such schema index (label=%r, key=%r)" % (
+                        label, property_key))
+            raise
 
     def drop_unique_constraint(self, label, property_key):
         """ Remove uniqueness constraint for a given property key.
@@ -948,11 +949,11 @@ class Schema(Service):
             self._uniqueness_constraint_key_template.expand(
                 label=label, property_key=property_key).delete()
         except ClientError as error:
-            if error.status_code == NOT_FOUND:
-                raise GraphError("No such unique constraint (label=%r, key=%r)" %
-                                 (label, property_key))
-            else:
-                raise
+            if isinstance(error, Response):
+                if error.status_code == NOT_FOUND:
+                    raise GraphError("No such unique constraint (label=%r, key=%r)" % (
+                        label, property_key))
+            raise
 
     def get_indexes(self, label):
         """ Fetch a list of indexed property keys for a label.

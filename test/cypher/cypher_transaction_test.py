@@ -33,7 +33,7 @@ def test_can_execute_single_statement_transaction(graph):
     for result in results:
         assert len(result) == 1
         for record in result:
-            assert record.columns == ("a",)
+            assert record.a
     assert tx.finished
 
 
@@ -50,7 +50,7 @@ def test_can_execute_multi_statement_transaction(graph):
     for result in results:
         assert len(result) == 1
         for record in result:
-            assert record.columns == ("a",)
+            assert record.a
     assert tx.finished
 
 
@@ -70,7 +70,7 @@ def test_can_execute_multi_execute_transaction(graph):
         for result in results:
             assert len(result) == 1
             for record in result:
-                assert record.columns == ("a",)
+                assert record.a
     tx.commit()
     assert tx.finished
 
@@ -89,7 +89,7 @@ def test_can_rollback_transaction(graph):
         for result in results:
             assert len(result) == 1
             for record in result:
-                assert record.columns == ("a",)
+                assert record.a
     tx.rollback()
     assert tx.finished
 

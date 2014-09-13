@@ -172,13 +172,13 @@ def test_can_push_path(graph):
     path[1].properties["amount"] = "some"
     path[2].properties["since"] = 1999
     results = graph.cypher.execute(query, params)
-    ab_amount, bc_amount, cd_since = results[0].values
+    ab_amount, bc_amount, cd_since = results[0]
     assert ab_amount is None
     assert bc_amount is None
     assert cd_since is None
     path.push()
     results = graph.cypher.execute(query, params)
-    ab_amount, bc_amount, cd_since = results[0].values
+    ab_amount, bc_amount, cd_since = results[0]
     assert ab_amount == "lots"
     assert bc_amount == "some"
     assert cd_since == 1999

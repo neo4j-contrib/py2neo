@@ -212,7 +212,7 @@ class JobResult(object):
                         body = body[0]
                         num_columns = len(body)
                         if num_columns == 1:
-                            body = body.values[0]
+                            body = body[0]
         return cls(batch, job_id, uri, status_code, location, body)
 
     def __init__(self, batch, job_id, uri, status_code=None, location=None, content=None):

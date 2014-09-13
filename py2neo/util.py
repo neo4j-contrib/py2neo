@@ -30,7 +30,7 @@ import sys
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "is_integer"]
+           "is_integer", "is_string", "is_numeric"]
 
 
 def numberise(n):
@@ -150,9 +150,21 @@ try:
 except NameError:
     # Python 3
     is_integer = lambda x: isinstance(x, int)
+    is_numeric = lambda x: isinstance(x, (int, float, complex))
 else:
     # Python 2
     is_integer = lambda x: isinstance(x, (int, long))
+    is_numeric = lambda x: isinstance(x, (int, float, long, complex))
+
+
+try:
+    unicode
+except NameError:
+    # Python 3
+    is_string = lambda x: isinstance(x, str)
+else:
+    # Python 2
+    is_string = lambda x: isinstance(x, (str, unicode))
 
 
 has_all = lambda iterable, items: all(item in iterable for item in items)

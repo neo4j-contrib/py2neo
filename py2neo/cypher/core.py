@@ -20,11 +20,14 @@ from __future__ import unicode_literals
 
 from collections import OrderedDict
 import logging
+import sys
 
 from py2neo.core import Service, Resource, Node, Rel, Relationship
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
-from py2neo.util import ustr
+from py2neo.packages.tart.tables import TextTable
+from py2neo.util import ustr, is_integer, is_string
+
 
 __all__ = ["CypherResource", "CypherTransaction", "CypherResults", "IterableCypherResults",
            "Record", "RecordProducer"]
@@ -86,11 +89,9 @@ class CypherResource(Service):
         response = self.post(statement, parameters)
         results = self.graph.hydrate(response.content)
         try:
-            column, value = results.data[0][0]
+            return results.data[0][0]
         except IndexError:
             return None
-        else:
-            return value
         finally:
             response.close()
 
@@ -231,23 +232,10 @@ class CypherResults(object):
         self.data = data
 
     def __repr__(self):
-        column_widths = list(map(len, self.columns))
-        for record in self.data:
-            for i, (column, value) in enumerate(record):
-                column_widths[i] = max(column_widths[i], len(ustr(value)))
-        out = [" " + " | ".join(
-            column.ljust(column_widths[i])
-            for i, column in enumerate(self.columns)
-        ) + " "]
-        out += ["-" + "-+-".join(
-            "-" * column_widths[i]
-            for i, column in enumerate(self.columns)
-        ) + "-"]
-        for record in self.data:
-            out.append(" " + " | ".join(ustr(value).ljust(column_widths[i])
-                                        for i, (column, value) in enumerate(record)) + " ")
-        out = "\n".join(out)
-        return out
+        table = TextTable([None] + self.columns)
+        for i, record in enumerate(self.data):
+            table.append([i + 1] + list(record))
+        return repr(table)
 
     def __len__(self):
         return len(self.data)
@@ -324,56 +312,51 @@ class IterableCypherResults(object):
 
 
 class Record(object):
-    """ A single row of a Cypher execution result, holding an ordered set of named
-    values.
+    """ A single row of a Cypher execution result.
     """
 
-    def __init__(self, producer, values):
-        self.__producer = producer
-        self.__columns = self.__producer.columns
-        self.__values = tuple(values)
-        self.__repr = None
+    __producer__ = None
+
+    def __init__(self, values):
+        columns = self.__producer__.columns
+        for i, column in enumerate(columns):
+            setattr(self, column, values[i])
 
     def __repr__(self):
-        if self.__repr is None:
-            lines = [[], [], []]
-            for i, column_width in enumerate(self.__producer.column_widths):
-                value = ustr(self.__values[i])
-                width = max(column_width, len(value))
-                lines[0].append(" %s " % self.__columns[i].ljust(width))
-                lines[1].append("-" * (width + 2))
-                lines[2].append(" %s " % value.ljust(width))
-            self.__repr = "\n".join("|+|"[i].join(line) for i, line in enumerate(lines)) + "\n"
-        return self.__repr
-
-    def __getitem__(self, index):
-        col = self.__columns[index]
-        val = self.__values[index]
-        if isinstance(index, slice):
-            return zip(col, val)
-        else:
-            return col, val
-
-    def __len__(self):
-        return len(self.__columns)
+        columns = self.__producer__.columns
+        table = TextTable(columns)
+        table.append([getattr(self, column) for column in columns])
+        return repr(table)
 
     def __eq__(self, other):
-        return list(self) == list(other)
+        return vars(self) == vars(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __getattr__(self, name):
-        return self.values[self.__producer.column_indexes[column]]
+    def __len__(self):
+        return self.__producer__.__len__()
+
+    def __getitem__(self, item):
+        if is_string(item):
+            return getattr(self, item)
+        elif is_integer(item):
+            return getattr(self, self.__producer__.columns[item])
+        else:
+            raise LookupError(item)
 
 
 class RecordProducer(object):
 
     def __init__(self, columns):
-        self.__columns = tuple(columns)
+        self.__columns = tuple(column for column in columns if not column.startswith("_"))
         self.__len = len(self.__columns)
-        self.__column_indexes = dict((name, i) for i, name in enumerate(self.__columns))
-        self.__column_widths = tuple(len(column) for column in self.__columns)
+        dct = dict.fromkeys(self.__columns)
+        dct["__producer__"] = self
+        if sys.version_info >= (3,):
+            self.__type = type("Record", (Record,), dct)
+        else:
+            self.__type = type(b"Record", (Record,), dct)
 
     def __repr__(self):
         return "RecordProducer(columns=%r)" % (self.__columns,)
@@ -385,18 +368,11 @@ class RecordProducer(object):
     def columns(self):
         return self.__columns
 
-    @property
-    def column_indexes(self):
-        return self.__column_indexes
-
-    @property
-    def column_widths(self):
-        return self.__column_widths
-
     def produce(self, values):
         """ Produce a record from a set of values.
         """
-        return Record(self, values)
+        return self.__type(values)
+
 
 class TransactionFinished(Exception):
     """ Raised when actions are attempted against a finished Transaction.
@@ -407,4 +383,3 @@ class TransactionFinished(Exception):
 
     def __repr__(self):
         return "Transaction finished"
-

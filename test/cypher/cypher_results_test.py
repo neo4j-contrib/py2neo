@@ -16,24 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node
-
-
 def test_can_output_correct_representation_with_one_row(graph):
     results = graph.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name,a.age")
     representation = repr(results)
-    assert representation == (" a.name | a.age \n"
-                              "--------+-------\n"
-                              " Alice  | 33    \n"
-                              "(1 row)\n")
-
-
-def test_can_output_correct_representation_with_no_rows(graph):
-    alice = Node(name="Alice")
-    graph.create(alice)
-    results = graph.cypher.execute("START a=node({A}) MATCH (a)-[:KNOWS]->(x) RETURN x",
-                                   {"A": alice})
-    representation = repr(results)
-    assert representation == (" x \n"
-                              "---\n"
-                              "(0 rows)\n")
+    assert len(representation.splitlines()) == 3
