@@ -39,7 +39,20 @@ function install_test_dependencies {
     fi
 }
 
+function check_license {
+    pushd "$HOME" > /dev/null
+    find py2neo -name '*.py' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    popd > /dev/null
+}
+
 function test {
+    UNLICENSED=`check_license`
+    if [ "$UNLICENSED" ]
+    then
+        echo "The following files do not contain Apache license details:"
+        echo "$UNLICENSED"
+        exit 1
+    fi
     echo "Running test suite"
     echo ""
     install_test_dependencies
@@ -188,6 +201,9 @@ case $COMMAND in
         ;;
     neo4j)
         neo4j $ARGS
+        ;;
+    check-license)
+        check_license
         ;;
     test)
         NEO4J_VERSIONS="1.8 1.9 2.0 2.1"
