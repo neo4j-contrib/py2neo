@@ -48,3 +48,8 @@ book/_build
 
 # Virtual environment
 venv
+
+.cache
+.bau
+.pip
+.ipython
