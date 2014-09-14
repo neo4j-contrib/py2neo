@@ -1,4 +1,0 @@
-Deprecated Features
-===================
-
-TODO
