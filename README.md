@@ -1,4 +1,6 @@
-To install, run:
+# Py2neo 1.6.4
+
+To install from PyPI, run:
 ```bash
 pip install py2neo
 ```
