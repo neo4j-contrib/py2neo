@@ -15,7 +15,7 @@ Py2neo is a comprehensive toolkit for working with Neo4j from within Python appl
 
 To install from GitHub, run:
 
-```bash
+```
 $ git clone git@github.com:nigelsmall/py2neo.git
 $ cd py2neo
 $ git checkout beta/2.0
@@ -27,7 +27,7 @@ $ pip install .
 
 The simplest way to try out a connection to the Neo4j server is via a Python console. Within a new session, enter the following:
 
-```python
+```
 >>> from py2neo import Graph
 >>> graph = Graph()
 ```
@@ -36,7 +36,7 @@ This code imports the `Graph` class from py2neo and creates a new instance for t
 
 To connect to a server at an alternative address, simply pass in the URI value as a string argument to the `Graph` constructor:
 
-```python
+```
 >>> remote_graph = Graph("http://remotehost.com:6789/db/data/")
 ```
 
@@ -44,7 +44,7 @@ To connect to a server at an alternative address, simply pass in the URI value a
 
 For a database behind a secure proxy, a user name and password can also be supplied to the constructor URI. These credentials will then be applied to any subsequent HTTP requests made to the host and port combination specified.
 
-```python
+```
 >>> secure_graph = Graph("https://arthur:excalibur@camelot:1150/db/data/")
 ```
 
@@ -56,7 +56,7 @@ The Graph object provides a basis for most of the interaction with a Neo4j serve
 Nodes and relationships are the fundamental data containers in Neo4j and both have a corresponding class in py2neo. Assuming we've already established a connection to the server (as above) let's build a simple graph with two nodes and one relationship:
 
 
-```python
+```
 >>> from py2neo import Node, Relationship
 >>> alice = Node("Person", name="Alice")
 >>> bob = Node("Person", name="Bob")
@@ -77,7 +77,7 @@ Client-server communication over [REST](http://neo4j.com/docs/2.1.4/rest-api/) c
 
 To illustrate synchronisation, let's give Alice and Bob an *age* property each. Longhand, this is done as follows:
 
-```python
+```
 >>> alice.properties["age"] = 33
 >>> bob.properties["age"] = 44
 >>> alice.push()
@@ -86,7 +86,7 @@ To illustrate synchronisation, let's give Alice and Bob an *age* property each. 
 
 Here, we add a new property to each of the two nodes and `push` each in turn, resulting in two separate HTTP calls being made. These calls can be seen more clearly with the debugging function, `watch`:
 
-```python
+```
 >>> from py2neo import watch
 >>> watch("httpstream")
 >>> alice.push()
@@ -101,7 +101,7 @@ Here, we add a new property to each of the two nodes and `push` each in turn, re
 
 To squash these two separate `push` operations into one, use the `Graph.push` method instead:
 
-```python
+```
 >>> graph.push(alice, bob)
 > POST http://localhost:7474/db/data/batch [289]
 < 200 OK [237]
@@ -116,7 +116,7 @@ Pulling updates from server to client is similar: either call the `pull` method 
 
 Neo4j has a built-in data query and manipulation language called [Cypher](http://neo4j.com/guides/basic-cypher/). To execute Cypher from within py2neo, simply use the `cypher` attribute of a `Graph` instance and call the `execute` method:
 
-```python
+```
 >>> graph.cypher.execute("CREATE (c:Person {name:'Carol'}) RETURN c")
    │ c
 ───┼───────────────────────────────
@@ -126,7 +126,7 @@ Neo4j has a built-in data query and manipulation language called [Cypher](http:/
 
 The object returned from an `execute` call is a `RecordList` which is represented as a table of results. A `RecordList` operates like a read-only list object where each item is a `Record` instance.
 
-```python
+```
 >>> for record in graph.cypher.execute("CREATE (d:Person {name:'Dave'}) RETURN d"):
 ...     print(record)
 ...
@@ -138,7 +138,7 @@ The object returned from an `execute` call is a `RecordList` which is represente
 
 Each `Record` exposes its values through both named attributes and numeric indexes. Therefore, if a Cypher query returns a column called `name`, that column can be accessed through the record attribute called `name`:
 
-```python
+```
 >>> for record in graph.cypher.execute("MATCH (p:Person) RETURN p.name AS name"):
 ...     print(record.name)
 ...
