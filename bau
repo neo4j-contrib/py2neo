@@ -41,7 +41,7 @@ function install_test_dependencies {
 
 function check_license {
     pushd "$HOME" > /dev/null
-    find py2neo -name '*.py' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    find py2neo -name '*.py' | grep -v packages | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
     popd > /dev/null
 }
 
