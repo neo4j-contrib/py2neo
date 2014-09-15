@@ -29,7 +29,7 @@ from py2neo.packages.tart.tables import TextTable
 from py2neo.util import ustr, is_integer, is_string
 
 
-__all__ = ["CypherResource", "CypherTransaction", "CypherResults", "IterableCypherResults",
+__all__ = ["CypherResource", "CypherTransaction", "RecordList", "RecordStream",
            "Record", "RecordProducer"]
 
 
@@ -98,7 +98,7 @@ class CypherResource(Service):
     def stream(self, statement, parameters=None):
         """ Execute the query and return a result iterator.
         """
-        return IterableCypherResults(self.graph, self.post(statement, parameters))
+        return RecordStream(self.graph, self.post(statement, parameters))
 
     def begin(self):
         if self.transaction_uri:
@@ -216,8 +216,8 @@ class CypherTransaction(object):
             self.__finished = True
 
 
-class CypherResults(object):
-    """ A static set of results from a Cypher query.
+class RecordList(object):
+    """ A list of records returned from the execution of a Cypher statement.
     """
 
     @classmethod
@@ -247,13 +247,12 @@ class CypherResults(object):
         return iter(self.data)
 
 
-class IterableCypherResults(object):
-    """ An iterable set of results from a Cypher query.
+class RecordStream(object):
+    """ An accessor for a sequence of records yielded by a streamed Cypher statement.
 
     ::
 
-        query = graph.cypher.query("START n=node(*) RETURN n LIMIT 10")
-        for record in query.stream():
+        for record in graph.cypher.stream("START n=node(*) RETURN n LIMIT 10")
             print record[0]
 
     Each record returned is cast into a :py:class:`namedtuple` with names

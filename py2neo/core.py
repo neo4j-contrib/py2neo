@@ -604,8 +604,8 @@ class Graph(Service):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import CypherResults
-                return CypherResults.hydrate(data, self)
+                from py2neo.cypher import RecordList
+                return RecordList.hydrate(data, self)
             elif "neo4j_version" in data:
                 return self
             elif "exception" in data and "stacktrace" in data:

@@ -22,7 +22,7 @@ import json
 import logging
 
 from py2neo.core import NodePointer, Service
-from py2neo.cypher import CypherResults
+from py2neo.cypher import RecordList
 from py2neo.error.server import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -204,7 +204,7 @@ class JobResult(object):
                 raise_from(BatchError(message, batch, job_id, status_code, uri, location), error)
             else:
                 # If Cypher results, reduce to single row or single value if possible
-                if isinstance(body, CypherResults):
+                if isinstance(body, RecordList):
                     num_rows = len(body)
                     if num_rows == 0:
                         body = None
