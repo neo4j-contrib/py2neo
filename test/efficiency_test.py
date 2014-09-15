@@ -29,7 +29,7 @@ class TestHandler(logging.Handler):
         self.counter.responses = []
 
     def emit(self, record):
-        if record.msg.startswith("<<<"):
+        if record.msg.startswith("< "):
             self.counter.responses.append(record.args)
 
 

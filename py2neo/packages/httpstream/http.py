@@ -19,6 +19,9 @@
 from __future__ import unicode_literals
 
 from base64 import b64encode
+from datetime import datetime
+from .tardis import timezone, datetime_to_timestamp
+from email.utils import formatdate, parsedate_tz, mktime_tz
 import errno
 try:
     from http.client import (BadStatusLine, CannotSendRequest,
@@ -53,10 +56,9 @@ from .numbers import *
 __all__ = ["NetworkAddressError", "SocketError", "RedirectionError", "Request",
            "Response", "TextResponse", "JSONResponse", "XMLResponse",
            "Redirection", "ClientError", "ServerError", "Resource",
-           "ResourceTemplate", "head", "get", "put", "patch", "post", "delete"]
+           "ResourceTemplate"]
 
-json_content_types = ("application/javascript", "application/json", "application/x-javascript",
-                      "text/javascript", "text/json")
+json_content_types = ("application/json", "text/json")
 
 socket_timeout = 30
 
@@ -156,7 +158,7 @@ def user_agent(product=None):
 class Loggable(object):
 
     def __init__(self, cls, message):
-        log.error("!!! %s: %s", cls.__name__, message)
+        log.error("! %s: %s", cls.__name__, message)
 
 
 class NetworkAddressError(Loggable, IOError):
@@ -294,18 +296,18 @@ def submit(method, uri, body, headers):
 
     def send(reconnect=None):
         if reconnect:
-            log.info("<~> Reconnecting (%s)", reconnect)
+            log.info("~ Reconnecting (%s)", reconnect)
             http.close()
             http.connect()
         if method in ("GET", "DELETE") and not body:
-            log.info(">>> %s %s", method, uri.string)
+            log.info("> %s %s", method, uri.string)
         elif body:
-            log.info(">>> %s %s [%s]", method, uri.string, len(body))
+            log.info("> %s %s [%s]", method, uri.string, len(body))
         else:
-            log.info(">>> %s %s [%s]", method, uri.string, 0)
+            log.info("> %s %s [%s]", method, uri.string, 0)
         if __debug__:
             for key, value in headers.items():
-                log.debug(">>> %s: %s", key, value)
+                log.debug("> %s: %s", key, value)
         http.request(method, uri.absolute_path_reference, body, headers)
         if supports_buffering:
             return http.getresponse(buffering=True)
@@ -423,7 +425,10 @@ class Request(object):
                 redirection = Redirection(http, uri, self, rs, **response_kwargs)
                 if redirect_limit:
                     redirect_limit -= 1
-                    location = URI.resolve(uri, rs.getheader("Location"))
+                    location_string = rs.getheader("Location", None)
+                    if location_string is None:
+                        return redirection
+                    location = URI.resolve(uri, location_string)
                     if location == uri:
                         raise RedirectionError("Circular redirection")
                     if rs.status in (MOVED_PERMANENTLY, PERMANENT_REDIRECT):
@@ -495,10 +500,10 @@ class Response(object):
             content_length = "chunked"
         else:
             content_length = self.content_length
-        log.info("<<< %s %s [%s]", self.status_code, self.reason, content_length)
+        log.info("< %s %s [%s]", self.status_code, self.reason, content_length)
         if __debug__:
             for key, value in self.__response.getheaders():
-                log.debug("<<< %s: %s", key, value)
+                log.debug("< %s: %s", key, value)
 
     def __del__(self):
         self.close()
@@ -599,6 +604,19 @@ class Response(object):
         return self.__headers
 
     @property
+    def content(self):
+        """ Fetch and return all content.
+        """
+        if self.status_code == NO_CONTENT:
+            return None
+        elif self.__consumed and self.cache:
+            if isinstance(self.__cached, bytearray):
+                self.__cached = bytes(self.__cached)
+            return self.__cached
+        else:
+            return self.read()
+
+    @property
     def content_length(self):
         """ The length of content as provided by the `Content-Length` header
         field. If the content is chunked, this returns :py:const:`None`.
@@ -620,6 +638,12 @@ class Response(object):
         return content_type[0]
 
     @property
+    def date(self):
+        """ The value of the `Date` header, if available.
+        """
+        return self._get_date_header("Date")
+
+    @property
     def encoding(self):
         """ The content character set encoding.
         """
@@ -633,29 +657,43 @@ class Response(object):
         return content_type.get("charset", default_encoding)
 
     @property
+    def expires(self):
+        """ The value of the `Expires` header, if available.
+        """
+        return self._get_date_header("Expires")
+
+    @property
+    def filename(self):
+        """ The suggested filename from the `Content-Disposition` header field
+        or the final segment of the path name if no such header is available.
+        """
+        default_filename = self.uri.path.segments[-1]
+        try:
+            content_type = dict(
+                _.strip().partition("=")[0::2]
+                for _ in self.__response.getheader("Content-Disposition").split(";")
+            )
+        except AttributeError:
+            return default_filename
+        return content_type.get("filename", default_filename)
+
+    @property
     def is_chunked(self):
         """ Indicates whether or not the content is chunked.
         """
         return self.__response.getheader("Transfer-Encoding") == "chunked"
 
     @property
+    def last_modified(self):
+        """ The value of the `Last-Modified` header, if available.
+        """
+        return self._get_date_header("Last-Modified")
+
+    @property
     def location(self):
         """ The value of the `Location` header, if available.
         """
         return self.__response.getheader("Location", None)
-
-    @property
-    def content(self):
-        """ Fetch and return all content.
-        """
-        if self.status_code == NO_CONTENT:
-            return None
-        elif self.__consumed and self.cache:
-            if isinstance(self.__cached, bytearray):
-                self.__cached = bytes(self.__cached)
-            return self.__cached
-        else:
-            return self.read()
 
     def read(self, size=None):
         """ Fetch some or all of the response content as raw bytes.
@@ -676,6 +714,17 @@ class Response(object):
         finally:
             if self.__consumed:
                 self.close()
+
+    def _get_date_header(self, name):
+        """ Get the value of the specified header interpreted as an HTTP date and return
+        as an aware Python `datetime` instance, or `None` if the header is unavailable.
+        """
+        date = self.__response.getheader(name, None)
+        if date:
+            return datetime.fromtimestamp(mktime_tz(parsedate_tz(date)), timezone.utc)
+        else:
+            return None
+
 
 
 class Redirection(Response):
@@ -868,13 +917,21 @@ class Resource(object):
         """
         return Resource(self.uri.resolve(reference, strict))
 
-    def head(self, headers=None, redirect_limit=5, **kwargs):
-        """ Issue a ``HEAD`` request to this resource.
+    def __get_or_head(self, method, if_modified_since=None, headers=None, redirect_limit=5, **kwargs):
+        """ Issue a ``GET`` or ``HEAD`` request to this resource.
         """
-        rq = Request("HEAD", self.uri, None, headers)
+        headers = dict(headers or {})
+        if if_modified_since:
+            headers["If-Modified-Since"] = formatdate(datetime_to_timestamp(if_modified_since), usegmt=True)
+        rq = Request(method, self.uri, None, headers)
         return rq.submit(redirect_limit=redirect_limit, **kwargs)
 
-    def get(self, headers=None, redirect_limit=5, **kwargs):
+    def head(self, if_modified_since=None, headers=None, redirect_limit=5, **kwargs):
+        """ Issue a ``HEAD`` request to this resource.
+        """
+        return self.__get_or_head("HEAD", if_modified_since, headers, redirect_limit, **kwargs)
+
+    def get(self, if_modified_since=None, headers=None, redirect_limit=5, **kwargs):
         """ Issue a ``GET`` request to this resource.
 
         :param headers: headers to be included in the request (optional)
@@ -890,8 +947,7 @@ class Resource(object):
         :return: file-like :py:class:`Response <httpstream.http.Response>`
             object from which content can be read
         """
-        rq = Request("GET", self.uri, None, headers)
-        return rq.submit(redirect_limit=redirect_limit, **kwargs)
+        return self.__get_or_head("GET", if_modified_since, headers, redirect_limit, **kwargs)
 
     def put(self, body=None, headers=None, **kwargs):
         """ Issue a ``PUT`` request to this resource.
@@ -955,84 +1011,3 @@ class ResourceTemplate(object):
         """ Expand this template into a full URI using the values provided.
         """
         return Resource(self._uri_template.expand(**values))
-
-
-def head(uri, headers=None, redirect_limit=5, **kwargs):
-    """ Issue an HTTP ``HEAD`` request to a given `uri`.
-
-    :param uri: target URI for the request
-    :param headers: dictionary of extra headers to send (optional)
-    :param redirect_limit: maximum number of redirects to follow (optional, default=5)
-    :param kwargs: see :func:`get <httpstream.get>` for other keyword arguments
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).head(headers, redirect_limit, **kwargs)
-
-
-def get(uri, headers=None, redirect_limit=5, **kwargs):
-    """ Issue an HTTP ``GET`` request to a given `uri`.
-
-    :param uri: target URI for the request
-    :param headers: dictionary of extra headers to send (optional)
-    :param redirect_limit: maximum number of redirects to follow (optional, default=5)
-    :param product: name or (name, version) tuple to be passed in the ``User-Agent``
-        header (optional)
-    :param chunk_size: number of bytes to retrieve per chunk (optional, default=4096)
-    :param cache: boolean flag to allow caching so response content can be stored
-        for multiple reads (optional)
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).get(headers, redirect_limit, **kwargs)
-
-
-def put(uri, body=None, headers=None, **kwargs):
-    """ Issue an HTTP ``PUT`` request to a given `uri`, optionally with a payload.
-
-    :param uri: target URI for the request
-    :param body: payload to be sent with the request (optional)
-    :param headers: dictionary of extra headers to send (optional)
-    :param kwargs: see :func:`get <httpstream.get>` for other keyword arguments
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).put(body, headers, **kwargs)
-
-
-def patch(uri, body=None, headers=None, **kwargs):
-    """ Issue an HTTP ``PUT`` request to a given `uri`, optionally with a payload.
-
-    :param uri: target URI for the request
-    :param body: payload to be sent with the request (optional)
-    :param headers: dictionary of extra headers to send (optional)
-    :param kwargs: see :func:`get <httpstream.get>` for other keyword arguments
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).patch(body, headers, **kwargs)
-
-
-def post(uri, body=None, headers=None, **kwargs):
-    """ Issue an HTTP ``POST`` request to a given `uri`, optionally with a payload.
-
-    :param uri: target URI for the request
-    :param body: payload to be sent with the request (optional)
-    :param headers: dictionary of extra headers to send (optional)
-    :param kwargs: see :func:`get <httpstream.get>` for other keyword arguments
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).post(body, headers, **kwargs)
-
-
-def delete(uri, headers=None, **kwargs):
-    """ Issue an HTTP ``DELETE`` request to a given `uri`.
-
-    :param uri: target URI for the request
-    :param headers: dictionary of extra headers to send (optional)
-    :param kwargs: see :func:`get <httpstream.get>` for other keyword arguments
-    :return: file-like :class:`Response <httpstream.Response>` object from which
-        content can be read
-    """
-    return Resource(uri).delete(headers, **kwargs)

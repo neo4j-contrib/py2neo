@@ -224,7 +224,7 @@ class Resource(_Resource):
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT, cache=True)
         try:
-            response = self.__base.get(headers, redirect_limit, **kwargs)
+            response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
