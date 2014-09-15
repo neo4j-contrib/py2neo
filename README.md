@@ -69,11 +69,11 @@ When first created, `Node` and `Relationship` objects exist only in the client; 
 
 ## Pushing & Pulling
 
-Client-server communication over REST can be chatty if not carried out in a considered way. Whenever possible, py2neo attempts to minimise the amount of chatter between the client and the server by batching and lazily retrieving data. Most read and write operations are explicit, allowing the Python application developer a high degree of control over network traffic.
+Client-server communication over [REST](http://neo4j.com/docs/2.1.4/rest-api/) can be chatty if not carried out in a considered way. Whenever possible, py2neo attempts to minimise the amount of chatter between the client and the server by batching and lazily retrieving data. Most read and write operations are explicit, allowing the Python application developer a high degree of control over network traffic.
 
 **Note: Previous versions of py2neo have synchronised data between client and server automatically, such as when setting a single property value. Py2neo 2.0 will not carry out updates to client or server objects until this is explicitly requested.**
 
-To illustrate synchronisation, let's give Alice and Bob an age property each. Longhand, this is done as follows:
+To illustrate synchronisation, let's give Alice and Bob an *age* property each. Longhand, this is done as follows:
 
 ```python
 >>> alice.properties["age"] = 33
@@ -95,7 +95,7 @@ Here, we add a new property to each of the two nodes and `push` each in turn, re
 < 200 OK [119]
 ```
 
-**Note: The watch function comes with the embedded httpstream library and simply dumps log entries to standard output.**
+**Note: The watch function comes with the embedded [httpstream](http://github.com/nigelsmall/httpstream) library and simply dumps log entries to standard output.**
 
 To squash these two separate `push` operations into one, use the `Graph.push` method instead:
 
@@ -105,7 +105,58 @@ To squash these two separate `push` operations into one, use the `Graph.push` me
 < 200 OK [237]
 ```
 
-This not only reduces the activity down to a single HTTP call but wraps both updates in a single atomic transaction.
+Not only does this method reduce the activity down to a single HTTP call but it wraps both updates in a single atomic transaction.
 
 Pulling updates from server to client is similar: either call the `pull` method on an individual entity or batch together several updates by using `Graph.pull`.
 
+
+## Cypher
+
+Neo4j has a built-in data query and manipulation language called [Cypher](http://neo4j.com/guides/basic-cypher/). To execute Cypher from within py2neo, simply use the `cypher` attribute of a `Graph` instance and call the `execute` method:
+
+```python
+>>> graph.cypher.execute("CREATE (c:Person {name:'Carol'}) RETURN c")
+   │ c
+───┼───────────────────────────────
+ 1 │ (n2:Person {name:"Carol"})
+
+```
+
+The object returned from an `execute` call is a `RecordList` which is represented as a table of results. A `RecordList` operates like a read-only list object where each item is a `Record` instance.
+
+```python
+>>> for record in graph.cypher.execute("CREATE (d:Person {name:'Dave'}) RETURN d"):
+...     print(record)
+...
+ d
+───────────────────────────────
+ (n3:Person {name:"Dave"})
+
+```
+
+Each `Record` exposes its values through both named attributes and numeric indexes. Therefore, if a Cypher query returns a column called `name`, that column can be accessed through the record attribute called `name`:
+
+```python
+>>> for record in graph.cypher.execute("MATCH (p:Person) RETURN p.name AS name"):
+...     print(record.name)
+...
+Alice
+Bob
+Carol
+Dave
+```
+
+
+## Cypher Transactions
+
+*TODO*
+
+
+## Unique Nodes
+
+*TODO*
+
+
+## Unique Paths
+
+*TODO*
