@@ -34,15 +34,10 @@ package_metadata = {
     "name": __package__,
     "version": __version__,
     "description": "Python client library and toolkit for Neo4j",
-    # TODO: rewrite long description for 2.0
-    "long_description": "Py2neo is a simple and pragmatic Python library that "
-                        "provides access to the popular graph database Neo4j via "
-                        "its RESTful web service interface. With no external "
-                        "dependencies, installation is straightforward and "
-                        "getting started with coding is easy. The library is "
-                        "actively maintained on GitHub, regularly updated in the "
-                        "Python Package Index and is built uniquely for Neo4j in "
-                        "close association with its team and community.",
+    "long_description": "Py2neo is a comprehensive toolkit for working with Neo4j from within "
+                        "Python applications or from the command line. The library has no "
+                        "external dependencies and has been carefully designed to be easy and "
+                        "intuitive to use.",
     "author": __author__,
     "author_email": __email__,
     "url": "http://nigelsmall.com/py2neo",
