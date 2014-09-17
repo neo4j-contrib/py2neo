@@ -19,10 +19,10 @@
 import sys
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
     from setuptools.extension import Extension
 except ImportError:
-    from distutils.core import setup
+    from distutils.core import setup, find_packages
     from distutils.extension import Extension
 
 from py2neo import __author__, __email__, __license__, __package__, __version__
@@ -30,6 +30,7 @@ from py2neo import __author__, __email__, __license__, __package__, __version__
 
 python_2 = sys.version_info < (3,)
 
+packages = find_packages(exclude=("test", "test.*"))
 package_metadata = {
     "name": __package__,
     "version": __version__,
@@ -44,26 +45,7 @@ package_metadata = {
     "scripts": [
         "scripts/neotool",
     ],
-    "packages": [
-        "py2neo",
-        "py2neo.batch",
-        "py2neo.cypher",
-        "py2neo.cypher.error",
-        "py2neo.error",
-        "py2neo.ext",
-        "py2neo.ext.admin",
-        "py2neo.ext.calendar",
-        "py2neo.ext.gremlin",
-        "py2neo.ext.ogm",
-        "py2neo.legacy",
-        "py2neo.packages",
-        "py2neo.packages.httpstream",
-        "py2neo.packages.httpstream.packages",
-        "py2neo.packages.httpstream.packages.urimagic",
-        "py2neo.packages.jsonstream",
-        "py2neo.packages.tart",
-        "py2neo.tool",
-    ],
+    "packages": packages,
     "license": __license__,
     "classifiers": [
         "Development Status :: 5 - Production/Stable",
