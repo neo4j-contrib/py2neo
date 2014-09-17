@@ -117,7 +117,7 @@ Pulling updates from server to client is similar: either call the `pull` method 
 Neo4j has a built-in data query and manipulation language called [Cypher](http://neo4j.com/guides/basic-cypher/). To execute Cypher from within py2neo, simply use the `cypher` attribute of a `Graph` instance and call the `execute` method:
 
 ```
->>> graph.cypher.execute("CREATE (c:Person {name:'Carol'}) RETURN c")
+>>> graph.cypher.execute("CREATE (c:Person {name:{N}}) RETURN c", {"N": Carol})
    │ c
 ───┼───────────────────────────────
  1 │ (n2:Person {name:"Carol"})
@@ -151,7 +151,23 @@ Dave
 
 ## Cypher Transactions
 
-*TODO*
+Neo4j 2.0 extended the REST interface to allow multiple Cypher statements to be sent to the server as part of a single transaction. To use this endpoint, firstly call the `begin` method on the graph's `cypher` resource to create a transaction, then use the methods listed below on the `CypherTransaction` object:
+
+- `execute(statement, [parameters])` - add a statement to the queue of statements to be executed (does not get passed to the server immediately)
+- `flush()` - push all queued statements to the server for execution (returns results from all queued statements)
+- `commit()` - commit the transaction (returns results from all queued statements)
+- `rollback()` - roll the transaction back
+
+For example:
+
+```
+>>> tx = graph.cypher.begin()
+>>> statement = "MATCH (a {name:{A}}), (b {name:{B}}) CREATE (a)-[:KNOWS]->(b)"
+>>> for person_a, person_b in [("Alice", "Bob"), ("Bob", "Dave"), ("Alice", "Carol")]:
+...     tx.execute(statement, {"A": person_a, "B": person_b})
+...
+>>> tx.commit()
+```
 
 
 ## Unique Nodes

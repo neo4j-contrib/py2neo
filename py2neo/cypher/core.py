@@ -89,7 +89,7 @@ class CypherResource(Service):
         response = self.post(statement, parameters)
         results = self.graph.hydrate(response.content)
         try:
-            return results.data[0][0]
+            return results[0][0]
         except IndexError:
             return None
         finally:
@@ -122,6 +122,7 @@ class CypherTransaction(object):
         self.__execute = None
         self.__commit = None
         self.__finished = False
+        self.graph = self.__begin.graph
 
     def __assert_unfinished(self):
         if self.__finished:
@@ -146,8 +147,8 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def append(self, statement, parameters=None):
-        """ Append a statement to the current queue of statements to be
+    def execute(self, statement, parameters=None):
+        """ Add a statement to the current queue of statements to be
         executed.
 
         :param statement: the statement to execute
@@ -177,16 +178,15 @@ class CypherTransaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise self.error_class.hydrate(error)
-        out = []
+        out = RecordListList()
         for result in j["results"]:
-            producer = RecordProducer(result["columns"])
-            out.append([
-                producer.produce(self.__begin.service_root.graph.hydrate(r["rest"]))
-                for r in result["data"]
-            ])
+            columns = result["columns"]
+            producer = RecordProducer(columns)
+            out.append(RecordList(columns, [producer.produce(self.graph.hydrate(r["rest"]))
+                                            for r in result["data"]]))
         return out
 
-    def execute(self):
+    def flush(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
 
@@ -216,6 +216,18 @@ class CypherTransaction(object):
             self.__finished = True
 
 
+class RecordListList(list):
+    """ Container for multiple RecordList instances that presents a more
+    consistent representation.
+    """
+
+    def __repr__(self):
+        out = []
+        for i in self:
+            out.append(repr(i))
+        return "\n".join(out)
+
+
 class RecordList(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
@@ -227,24 +239,27 @@ class RecordList(object):
         producer = RecordProducer(columns)
         return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
 
-    def __init__(self, columns, data):
+    def __init__(self, columns, records):
         self.columns = columns
-        self.data = data
+        self.records = records
 
     def __repr__(self):
-        table = TextTable([None] + self.columns)
-        for i, record in enumerate(self.data):
-            table.append([i + 1] + list(record))
-        return repr(table)
+        if self.columns:
+            table = TextTable([None] + self.columns)
+            for i, record in enumerate(self.records):
+                table.append([i + 1] + list(record))
+            return repr(table)
+        else:
+            return ""
 
     def __len__(self):
-        return len(self.data)
+        return len(self.records)
 
     def __getitem__(self, item):
-        return self.data[item]
+        return self.records[item]
 
     def __iter__(self):
-        return iter(self.data)
+        return iter(self.records)
 
 
 class RecordStream(object):
@@ -323,9 +338,12 @@ class Record(object):
 
     def __repr__(self):
         columns = self.__producer__.columns
-        table = TextTable(columns)
-        table.append([getattr(self, column) for column in columns])
-        return repr(table)
+        if columns:
+            table = TextTable(columns)
+            table.append([getattr(self, column) for column in columns])
+            return repr(table)
+        else:
+            return ""
 
     def __eq__(self, other):
         return vars(self) == vars(other)
