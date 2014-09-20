@@ -45,6 +45,7 @@ import base64
 import re
 from warnings import warn
 from weakref import WeakValueDictionary
+import webbrowser
 
 from py2neo import __version__
 from py2neo.error.client import BindError, JoinError
@@ -455,6 +456,9 @@ class Graph(Service):
             cls.__instances[key] = inst
         return inst
 
+    def __repr__(self):
+        return "Graph(%r)" % self.uri.string
+
     def __hash__(self):
         return hash(self.uri)
 
@@ -798,6 +802,12 @@ class Graph(Service):
         if self.__node_labels is None:
             self.__node_labels = Resource(self.uri.string + "labels")
         return frozenset(self.__node_labels.get().content)
+
+    def open_browser(self):
+        """ Open a page in the default system web browser pointing at
+        the Neo4j browser application for this Graph.
+        """
+        webbrowser.open(self.service_root.resource.uri.string)
 
     @property
     def order(self):
