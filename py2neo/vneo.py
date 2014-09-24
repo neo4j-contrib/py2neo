@@ -222,6 +222,24 @@ def main(script, *args):
                 vneo.get_server(name).store.drop()
             else:
                 usage(script)
+        elif command == "load":
+            if len(args) == 2:
+                name, path = args
+                vneo.get_server(name).store.load(path)
+            elif len(args) == 3 and args[2] == "force":
+                name, path, _ = args
+                vneo.get_server(name).store.load(path, force=True)
+            else:
+                usage(script)
+        elif command == "save":
+            if len(args) == 2:
+                name, path = args
+                vneo.get_server(name).store.save(path)
+            elif len(args) == 3 and args[2] == "force":
+                name, path, _ = args
+                vneo.get_server(name).store.save(path, force=True)
+            else:
+                usage(script)
         else:
             print("Unknown command %r" % command)
             sys.exit(1)

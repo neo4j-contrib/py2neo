@@ -17,7 +17,7 @@
 
 
 import os
-from shutil import rmtree
+from shutil import copytree, rmtree
 
 
 class GraphStore(object):
@@ -37,7 +37,24 @@ class GraphStore(object):
         return os.path.isfile(os.path.join(self.path, "lock"))
 
     def drop(self, force=False):
-        if not force and self.locked:
-            raise RuntimeError("Refusing to drop database store while in use")
+        if force or not self.locked:
+            rmtree(self.path, ignore_errors=force)
         else:
-            rmtree(self.path, ignore_errors=True)
+            raise RuntimeError("Refusing to drop database store while in use")
+
+    def load(self, path, force=False):
+        if force or not self.locked:
+            if os.path.isfile(path):
+                # unzip to temporary dir
+                # change path to point to temporary dir
+                pass
+            rmtree(self.path, ignore_errors=force)
+            copytree(path, self.path)
+        else:
+            raise RuntimeError("Refusing to load database store while in use")
+
+    def save(self, path, force=False):
+        if force or not self.locked:
+            copytree(self.path, path)
+        else:
+            raise RuntimeError("Refusing to save database store while in use")
