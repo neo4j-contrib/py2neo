@@ -44,10 +44,8 @@ class GraphStore(object):
 
     def load(self, path, force=False):
         if force or not self.locked:
-            if os.path.isfile(path):
-                # unzip to temporary dir
-                # change path to point to temporary dir
-                pass
+            if not os.path.isdir(path):
+                raise ValueError("Load source %r is not a directory" % path)
             rmtree(self.path, ignore_errors=force)
             copytree(path, self.path)
         else:

@@ -147,110 +147,94 @@ class VNeo(object):
         self._assign_port(new_name, port)
 
 
-def usage(script):
+def _help(script):
     print(USAGE.format(os.path.basename(script)))
 
 
-def main(script, *args):
-    if args:
-        command, args = args[0], args[1:]
-        vneo = VNeo()
-        if command == "help":
-            usage(script)
-        elif command == "list":
-            if len(args) == 0:
-                template = "{name}"
-            elif len(args) == 1 and args[0] in ("paths", "pids", "ports"):
-                template = "{name} {%s}" % args[0][:-1]
-            else:
-                template = None
-            if template:
-                server_list = vneo.server_list()
-                if server_list:
-                    server_paths = [vneo.server_home(name) for name in sorted(server_list.keys())]
-                    max_name_length = max(map(len, list(server_list.keys())))
-                    for i, (name, webserver_port) in enumerate(sorted(server_list.items())):
-                        webserver_https_port = webserver_port + 1
-                        path = server_paths[i]
-                        print(template.format(name=name.ljust(max_name_length), path=path,
-                                              pid=(vneo.get_server(name).pid or ""),
-                                              port=("%s %s" % (webserver_port, webserver_https_port))))
-            else:
-                usage(script)
-        elif command == "make":
-            if len(args) == 3:
-                name, edition, version = args
-                vneo.make_server(name, edition, version)
-                server_list = vneo.server_list()
-                webserver_port = server_list[name]
-                webserver_https_port = webserver_port + 1
-                print("Created server instance %r configured on ports %s and %s" % (
-                    name, webserver_port, webserver_https_port))
-            else:
-                usage(script)
-        elif command == "remove":
-            if len(args) == 1:
-                name, = args
-                vneo.remove_server(name)
-            elif len(args) == 2 and args[1] == "force":
-                name, _ = args
-                vneo.remove_server(name, force=True)
-            else:
-                usage(script)
-        elif command == "rename":
-            if len(args) == 2:
-                name, new_name = args
-                vneo.rename_server(name, new_name)
-            else:
-                usage(script)
-        elif command == "start":
-            if len(args) == 1:
-                name, = args
-                ps = vneo.get_server(name).start()
-                print(ps.service_root.uri)
-            else:
-                usage(script)
-        elif command == "stop":
-            if len(args) == 1:
-                name, = args
-                vneo.get_server(name).stop()
-            else:
-                usage(script)
-        elif command == "drop":
-            if len(args) == 1:
-                name, = args
-                vneo.get_server(name).store.drop()
-            else:
-                usage(script)
-        elif command == "load":
-            if len(args) == 2:
-                name, path = args
-                vneo.get_server(name).store.load(path)
-            elif len(args) == 3 and args[2] == "force":
-                name, path, _ = args
-                vneo.get_server(name).store.load(path, force=True)
-            else:
-                usage(script)
-        elif command == "save":
-            if len(args) == 2:
-                name, path = args
-                vneo.get_server(name).store.save(path)
-            elif len(args) == 3 and args[2] == "force":
-                name, path, _ = args
-                vneo.get_server(name).store.save(path, force=True)
-            else:
-                usage(script)
-        else:
-            print("Unknown command %r" % command)
-            sys.exit(1)
+def _list(*args):
+    vneo = VNeo()
+    if len(args) == 0:
+        template = "{name}"
+    elif len(args) == 1 and args[0] in ("paths", "pids", "ports"):
+        template = "{name} {%s}" % args[0][:-1]
     else:
-        usage(script)
+        template = None
+    if template:
+        server_list = vneo.server_list()
+        if server_list:
+            server_paths = [vneo.server_home(name) for name in sorted(server_list.keys())]
+            max_name_length = max(map(len, list(server_list.keys())))
+            for i, (name, webserver_port) in enumerate(sorted(server_list.items())):
+                webserver_https_port = webserver_port + 1
+                path = server_paths[i]
+                print(template.format(name=name.ljust(max_name_length), path=path,
+                                      pid=(vneo.get_server(name).pid or ""),
+                                      port=("%s %s" % (webserver_port, webserver_https_port))))
+    else:
+        raise ValueError("Bad arguments")
 
 
-if __name__ == "__main__":
+def main():
+    script, args = sys.argv[0], sys.argv[1:]
     try:
-        main(*sys.argv)
+        if args:
+            command, args = args[0], args[1:]
+            if command == "help":
+                _help(script)
+            elif command == "list":
+                _list(*args)
+            else:
+                vneo = VNeo()
+                name, args = args[0], args[1:]
+                if command == "make":
+                    edition, version = args
+                    vneo.make_server(name, edition, version)
+                    server_list = vneo.server_list()
+                    webserver_port = server_list[name]
+                    webserver_https_port = webserver_port + 1
+                    print("Created server instance %r configured on ports %s and %s" % (
+                        name, webserver_port, webserver_https_port))
+                elif command == "remove" and args == ():
+                    vneo.remove_server(name)
+                elif command == "remove" and args == ("force",):
+                    vneo.remove_server(name, force=True)
+                elif command == "rename":
+                    new_name, = args
+                    vneo.rename_server(name, new_name)
+                elif command == "start":
+                    ps = vneo.get_server(name).start()
+                    print(ps.service_root.uri)
+                elif command == "stop":
+                    vneo.get_server(name).stop()
+                elif command == "drop" and args == ():
+                    vneo.get_server(name).store.drop()
+                elif command == "drop" and args == ("force",):
+                    vneo.get_server(name).store.drop(force=True)
+                elif command == "load":
+                    path, args = args[0], args[1:]
+                    if args == ():
+                        vneo.get_server(name).store.load(path)
+                    elif args == ("force",):
+                        vneo.get_server(name).store.load(path, force=True)
+                    else:
+                        raise ValueError("Bad command or arguments")
+                elif command == "save":
+                    path, args = args[0], args[1:]
+                    if args == ():
+                        vneo.get_server(name).store.save(path)
+                    elif args == ("force",):
+                        vneo.get_server(name).store.save(path, force=True)
+                    else:
+                        raise ValueError("Bad command or arguments")
+                else:
+                    raise ValueError("Bad command or arguments")
+        else:
+            _help(script)
     except Exception as error:
         sys.stderr.write(ustr(error))
         sys.stderr.write("\n")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

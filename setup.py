@@ -42,6 +42,11 @@ package_metadata = {
     "author": __author__,
     "author_email": __email__,
     "url": "http://nigelsmall.com/py2neo",
+    "entry_points": {
+        "console_scripts": [
+            "vneo = py2neo.vneo:main",
+        ],
+    },
     "scripts": [
         "scripts/neotool",
     ],
