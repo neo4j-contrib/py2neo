@@ -53,7 +53,7 @@ def test_node_hydrate_with_properties():
     assert hydrated.resource.uri == dehydrated["self"]
 
 
-def test_full_node_hydrate():
+def test_full_node_hydrate_without_labels():
     dehydrated = {
         "extensions": {
         },
@@ -78,6 +78,39 @@ def test_full_node_hydrate():
     hydrated = Node.hydrate(dehydrated)
     assert isinstance(hydrated, Node)
     assert hydrated.properties == dehydrated["data"]
+    assert hydrated.bound
+    assert hydrated.resource.uri == dehydrated["self"]
+
+
+def test_full_node_hydrate_with_labels():
+    dehydrated = {
+        "extensions": {
+        },
+        "paged_traverse": "http://localhost:7474/db/data/node/0/paged/traverse/{returnType}{?pageSize,leaseTime}",
+        "labels": "http://localhost:7474/db/data/node/0/labels",
+        "outgoing_relationships": "http://localhost:7474/db/data/node/0/relationships/out",
+        "traverse": "http://localhost:7474/db/data/node/0/traverse/{returnType}",
+        "all_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/all/{-list|&|types}",
+        "property": "http://localhost:7474/db/data/node/0/properties/{key}",
+        "all_relationships": "http://localhost:7474/db/data/node/0/relationships/all",
+        "self": "http://localhost:7474/db/data/node/0",
+        "outgoing_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/out/{-list|&|types}",
+        "properties": "http://localhost:7474/db/data/node/0/properties",
+        "incoming_relationships": "http://localhost:7474/db/data/node/0/relationships/in",
+        "incoming_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/in/{-list|&|types}",
+        "create_relationship": "http://localhost:7474/db/data/node/0/relationships",
+        "data": {
+            "name": "Alice",
+            "age": 33,
+        },
+        "metadata": {
+            "labels": ["Person", "Employee"],
+        },
+    }
+    hydrated = Node.hydrate(dehydrated)
+    assert isinstance(hydrated, Node)
+    assert hydrated.properties == dehydrated["data"]
+    assert hydrated.labels == set(dehydrated["metadata"]["labels"])
     assert hydrated.bound
     assert hydrated.resource.uri == dehydrated["self"]
 

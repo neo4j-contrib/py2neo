@@ -576,7 +576,7 @@ class Graph(Service):
             response = self.cypher.post(statement, {"v": property_value})
         for record in response.content["data"]:
             dehydrated = record[0]
-            dehydrated["label_data"] = record[1]
+            dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
         response.close()
 
@@ -761,7 +761,7 @@ class Graph(Service):
             response = self.cypher.post(statement, {"v": property_value})
         for record in response.content["data"]:
             dehydrated = record[0]
-            dehydrated["label_data"] = record[1]
+            dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
         response.close()
 
@@ -1323,8 +1323,9 @@ class Node(PropertyContainer):
             inst._PropertyContainer__properties.replace(properties)
         else:
             inst.__stale.add("properties")
-        if "label_data" in data:
-            labels = set(data["label_data"])
+        if "metadata" in data:
+            metadata = data["metadata"]
+            labels = set(metadata["labels"])
             labels.update(inst.labels)
             inst.__labels.replace(labels)
         else:
@@ -1509,8 +1510,8 @@ class Node(PropertyContainer):
         """
         query = "START a=node({a}) RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
-        dehydrated, label_data = content["data"][0]
-        dehydrated["label_data"] = label_data
+        dehydrated, label_metadata = content["data"][0]
+        dehydrated.setdefault("metadata", {})["labels"] = label_metadata
         Node.hydrate(dehydrated, self)
 
     def unbind(self):
