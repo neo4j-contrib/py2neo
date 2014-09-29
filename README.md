@@ -7,7 +7,7 @@ pip install py2neo
 
 If cloning from GitHub, run
 ```bash
-git clone git@github.com:nigelsmall/py2neo.git
+git clone https://github.com/nigelsmall/py2neo.git
 git checkout release/1.6.4
 ```
 
