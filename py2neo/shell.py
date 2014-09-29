@@ -30,6 +30,8 @@ from py2neo.util import ustr
 # TODO: use ! prefix for meta-commands and everything else is cypher
 
 
+# TODO: !ITERATE «format» «parameter-file» «cypher»
+# TODO: !ITERATE CSV people.csv "CREATE (p:Person {name:{N}}) RETURN p"
 SHELL_HELP = """\
 The Neotool Shell allows you to run Cypher queries from an interactive prompt.
 Queries may be entered directly or run from files using the EXECUTE command. To
@@ -491,8 +493,9 @@ def main():
     script, args = sys.argv[0], sys.argv[1:]
     try:
         # TODO command line args
-        # TODO neosh -c "CREATE (n) RETURN n"
-        shell = Shell(Graph())
+        # TODO neosh -x "CREATE (n) RETURN n"
+        uri = "http://localhost:7474/db/data/"
+        shell = Shell(Graph(uri))
         shell.repl()
     except Exception as err:
         sys.stderr.write(ustr(err))
