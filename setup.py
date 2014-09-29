@@ -44,8 +44,10 @@ package_metadata = {
     "url": "http://nigelsmall.com/py2neo",
     "entry_points": {
         "console_scripts": [
-            "neoget = py2neo.dist:main",
             "neobox = py2neo.box:main",
+            "neoget = py2neo.dist:main",
+            # neoload - load2neo
+            "neosh = py2neo.shell:main",
         ],
     },
     "scripts": [
