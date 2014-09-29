@@ -164,13 +164,11 @@ class Loggable(object):
 class NetworkAddressError(Loggable, IOError):
 
     def __init__(self, message, host_port=None):
-        self._host_port = host_port
+        self.host_port = host_port
+        if host_port:
+            message = "%s: %s" % (message, self.host_port)
         IOError.__init__(self, message)
         Loggable.__init__(self, self.__class__, message)
-
-    @property
-    def host_port(self):
-        return self._host_port
 
 
 class SocketError(Loggable, IOError):
