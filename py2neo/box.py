@@ -31,20 +31,20 @@ from py2neo.util import ustr
 
 USAGE = """\
 Usage:
-    vneo list [paths|pids|ports]
-    vneo make «name» «edition» «version»
-    vneo remove «name» [force]
-    vneo rename «name» «new_name»
-    vneo start «name»
-    vneo stop «name»
-    vneo drop «name»
+    {0} list [paths|pids|ports]
+    {0} make «name» «edition» «version»
+    {0} remove «name» [force]
+    {0} rename «name» «new_name»
+    {0} start «name»
+    {0} stop «name»
+    {0} drop «name»
 """
 
 
-class VNeo(object):
+class NeoBox(object):
 
     def __init__(self, home=None):
-        self.home = home or os.getenv("VNEO_HOME") or os.path.expanduser("~/.vneo")
+        self.home = home or os.getenv("NEOBOX_HOME") or os.path.expanduser("~/.neobox")
 
     def inst_path(self, name):
         return os.path.join(self.home, "inst", name)
@@ -152,7 +152,7 @@ def _help(script):
 
 
 def _list(*args):
-    vneo = VNeo()
+    box = NeoBox()
     if len(args) == 0:
         template = "{name}"
     elif len(args) == 1 and args[0] in ("paths", "pids", "ports"):
@@ -160,15 +160,15 @@ def _list(*args):
     else:
         template = None
     if template:
-        server_list = vneo.server_list()
+        server_list = box.server_list()
         if server_list:
-            server_paths = [vneo.server_home(name) for name in sorted(server_list.keys())]
+            server_paths = [box.server_home(name) for name in sorted(server_list.keys())]
             max_name_length = max(map(len, list(server_list.keys())))
             for i, (name, webserver_port) in enumerate(sorted(server_list.items())):
                 webserver_https_port = webserver_port + 1
                 path = server_paths[i]
                 print(template.format(name=name.ljust(max_name_length), path=path,
-                                      pid=(vneo.get_server(name).pid or ""),
+                                      pid=(box.get_server(name).pid or ""),
                                       port=("%s %s" % (webserver_port, webserver_https_port))))
     else:
         raise ValueError("Bad arguments")
@@ -184,46 +184,46 @@ def main():
             elif command == "list":
                 _list(*args)
             else:
-                vneo = VNeo()
+                box = NeoBox()
                 name, args = args[0], args[1:]
                 if command == "make":
                     edition, version = args
-                    vneo.make_server(name, edition, version)
-                    server_list = vneo.server_list()
+                    box.make_server(name, edition, version)
+                    server_list = box.server_list()
                     webserver_port = server_list[name]
                     webserver_https_port = webserver_port + 1
                     print("Created server instance %r configured on ports %s and %s" % (
                         name, webserver_port, webserver_https_port))
                 elif command == "remove" and args == ():
-                    vneo.remove_server(name)
+                    box.remove_server(name)
                 elif command == "remove" and args == ("force",):
-                    vneo.remove_server(name, force=True)
+                    box.remove_server(name, force=True)
                 elif command == "rename":
                     new_name, = args
-                    vneo.rename_server(name, new_name)
+                    box.rename_server(name, new_name)
                 elif command == "start":
-                    ps = vneo.get_server(name).start()
+                    ps = box.get_server(name).start()
                     print(ps.service_root.uri)
                 elif command == "stop":
-                    vneo.get_server(name).stop()
+                    box.get_server(name).stop()
                 elif command == "drop" and args == ():
-                    vneo.get_server(name).store.drop()
+                    box.get_server(name).store.drop()
                 elif command == "drop" and args == ("force",):
-                    vneo.get_server(name).store.drop(force=True)
+                    box.get_server(name).store.drop(force=True)
                 elif command == "load":
                     path, args = args[0], args[1:]
                     if args == ():
-                        vneo.get_server(name).store.load(path)
+                        box.get_server(name).store.load(path)
                     elif args == ("force",):
-                        vneo.get_server(name).store.load(path, force=True)
+                        box.get_server(name).store.load(path, force=True)
                     else:
                         raise ValueError("Bad command or arguments")
                 elif command == "save":
                     path, args = args[0], args[1:]
                     if args == ():
-                        vneo.get_server(name).store.save(path)
+                        box.get_server(name).store.save(path)
                     elif args == ("force",):
-                        vneo.get_server(name).store.save(path, force=True)
+                        box.get_server(name).store.save(path, force=True)
                     else:
                         raise ValueError("Bad command or arguments")
                 else:
@@ -233,6 +233,7 @@ def main():
     except Exception as error:
         sys.stderr.write(ustr(error))
         sys.stderr.write("\n")
+        _help(script)
         sys.exit(1)
 
 

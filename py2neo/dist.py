@@ -50,28 +50,30 @@ def download(edition, version, path="."):
     return filename
 
 
-def usage(script):
+def _help(script):
     print(USAGE.format(os.path.basename(script)))
 
 
-def main(script, *args):
-    if args:
-        if len(args) == 3:
-            edition, version, path = args
-            download(edition, version, path)
-        elif len(args) == 2:
-            edition, version = args
-            download(edition, version)
-        else:
-            usage(script)
-    else:
-        usage(script)
-
-
-if __name__ == "__main__":
+def main():
+    script, args = sys.argv[0], sys.argv[1:]
     try:
-        main(*sys.argv)
+        if args:
+            if len(args) == 3:
+                edition, version, path = args
+                download(edition, version, path)
+            elif len(args) == 2:
+                edition, version = args
+                download(edition, version)
+            else:
+                _help(script)
+        else:
+            _help(script)
     except Exception as error:
         sys.stderr.write(ustr(error))
         sys.stderr.write("\n")
+        _help(script)
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
