@@ -46,13 +46,10 @@ package_metadata = {
         "console_scripts": [
             "neobox = py2neo.box:main",
             "neoget = py2neo.dist:main",
-            # neoload - load2neo
+            "neoload = py2neo.ext.load:main",
             "neosh = py2neo.shell:main",
         ],
     },
-    "scripts": [
-        "scripts/neotool",
-    ],
     "packages": packages,
     "license": __license__,
     "classifiers": [
