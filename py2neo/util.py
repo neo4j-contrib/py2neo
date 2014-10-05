@@ -120,7 +120,8 @@ def version_tuple(string):
         extra = string
     while len(version) < 3:
         version += [0]
-    version += [extra]
+    if extra:
+        version += [extra]
     return tuple(version)
 
 
