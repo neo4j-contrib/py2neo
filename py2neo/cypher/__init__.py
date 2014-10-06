@@ -18,18 +18,12 @@
 
 from __future__ import unicode_literals
 
-import codecs
 import logging
-import os
-import sys
 
-from py2neo.core import ServiceRoot
 from py2neo.cypher.create import CreateStatement
 from py2neo.cypher.error.core import *
 from py2neo.cypher.lang import *
 from py2neo.cypher.core import *
-from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.util import is_collection, ustr
 
 
 log = logging.getLogger("cypher")
@@ -44,6 +38,8 @@ def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
     :param separators:
     :return:
     """
+
+    from py2neo.util import is_collection
 
     def dump_mapping(obj):
         buffer = ["{"]
@@ -103,6 +99,7 @@ class CypherPipeline(object):
         self.parameter_filename = filename
 
     def execute(self, statement):
+        import codecs
         if self.parameter_filename:
             columns = None
             with codecs.open(self.parameter_filename, encoding="utf-8") as f:
@@ -124,8 +121,13 @@ class CypherPipeline(object):
 
 
 def main():
+    import os
+    import sys
+    from py2neo.core import ServiceRoot
+    from py2neo.packages.httpstream.packages.urimagic import URI
+    from py2neo.util import ustr
     script, args = sys.argv[0], sys.argv[1:]
-    uri = URI(os.getenv("NEO4J_URI", "http://localhost:7474")).resolve("/")
+    uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
     service_root = ServiceRoot(uri.string)
     human_readable = False
     pipeline = CypherPipeline(service_root.graph)
