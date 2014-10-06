@@ -80,7 +80,7 @@ class TestGraph(object):
         version = self.graph.neo4j_version
         print(version)
         assert isinstance(version, tuple)
-        assert len(version) == 4
+        assert 3 <= len(version) <= 4
         assert isinstance(version[0], int)
         assert isinstance(version[1], int)
         assert isinstance(version[2], int)
