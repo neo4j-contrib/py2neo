@@ -2253,7 +2253,14 @@ class ServerPlugin(object):
 
 class UnmanagedExtension(object):
 
-    pass
+    def __init__(self, graph, path):
+        self.graph = graph
+        self.resource = Resource(graph.service_root.uri.resolve(path))
+        try:
+            self.resource.get()
+        except GraphError:
+            raise NotImplementedError("No extension found at path %r on "
+                                      "graph <%s>" % (path, graph.uri))
 
 
 from py2neo.deprecated import *
