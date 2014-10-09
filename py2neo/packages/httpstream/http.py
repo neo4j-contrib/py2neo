@@ -62,6 +62,11 @@ json_content_types = ("application/json", "text/json")
 
 socket_timeout = 30
 
+if sys.version_info >= (3,):
+    is_unicode = lambda x: isinstance(x, str)
+else:
+    is_unicode = lambda x: isinstance(x, unicode)
+
 
 class HTTPConnection(_HTTPConnection):
     """ Patched class to avoid Nagle's algorithm:
@@ -370,11 +375,19 @@ class Request(object):
         self.__headers = dict(headers or {})
         if isinstance(body, (set, frozenset)):
             body = list(body)
-        if isinstance(body, (dict, list, tuple)):
-            self.__body = json.dumps(body, cls=JSONEncoder, separators=",:")
-            self.__headers.setdefault("Content-Type", "application/json")
-        else:
+        if body is None:
             self.__body = body
+        elif isinstance(body, (dict, list, tuple)):
+            self.__headers.setdefault("Content-Type", "application/json")
+            self.__body = json.dumps(body, cls=JSONEncoder, separators=",:")
+        elif is_unicode(body):
+            self.__headers.setdefault("Content-Type", "text/plain; charset=UTF-8")
+            self.__body = body.encode("utf-8")
+        elif isinstance(body, bytes):
+            self.__headers.setdefault("Content-Type", "application/octet-stream")
+            self.__body = body
+        else:
+            raise ValueError("Unsupported type for request body: %s" % body.__class__.__name__)
 
     def __repr__(self):
         body = self.body
