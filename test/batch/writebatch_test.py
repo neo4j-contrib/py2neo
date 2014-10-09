@@ -197,6 +197,7 @@ def test_can_add_labels_to_node_in_same_batch(graph):
     batch.add_labels(a, "human", "female")
     results = batch.submit()
     alice = results[batch.find(a)]
+    alice.pull()
     assert alice.labels == {"human", "female"}
 
 
@@ -220,6 +221,7 @@ def test_can_add_and_remove_labels_on_node_in_same_batch(graph):
     batch.remove_label(alice, "female")
     results = batch.submit()
     alice = results[batch.find(alice)]
+    alice.pull()
     assert alice.labels == {"human"}
 
 
@@ -243,4 +245,5 @@ def test_can_set_labels_on_node_in_same_batch(graph):
     batch.set_labels(0, "mystery", "badger")
     results = batch.submit()
     alice = results[0]
+    alice.pull()
     assert alice.labels == {"mystery", "badger"}
