@@ -1876,7 +1876,10 @@ class Path(object):
         return repr(r)
 
     def __eq__(self, other):
-        return self.nodes == other.nodes and self.rels == other.rels
+        try:
+            return self.nodes == other.nodes and self.rels == other.rels
+        except AttributeError:
+            return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
