@@ -245,7 +245,7 @@ class RecordList(object):
 
     def __repr__(self):
         if self.columns:
-            table = TextTable([None] + self.columns)
+            table = TextTable(["#"] + self.columns, border=True)
             for i, record in enumerate(self.records):
                 table.append([i + 1] + list(record))
             return repr(table)

@@ -44,7 +44,7 @@ package_metadata = {
     "url": "http://nigelsmall.com/py2neo",
     "entry_points": {
         "console_scripts": [
-            "cypher = py2neo.cypher:main",
+            "cypher = py2neo.cypher.__main__:main",
             "neobox = py2neo.box:main",
             "neoget = py2neo.dist:main",
             "neoload = py2neo.ext.load.__main__:main",

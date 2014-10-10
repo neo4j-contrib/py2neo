@@ -118,9 +118,9 @@ Neo4j has a built-in data query and manipulation language called [Cypher](http:/
 
 ```
 >>> graph.cypher.execute("CREATE (c:Person {name:{N}}) RETURN c", {"N": Carol})
-   │ c
-───┼───────────────────────────────
- 1 │ (n2:Person {name:"Carol"})
+ # | c
+---+----------------------------
+ 1 | (n2:Person {name:"Carol"})
 
 ```
 
@@ -131,7 +131,7 @@ The object returned from an `execute` call is a `RecordList` which is represente
 ...     print(record)
 ...
  d
-───────────────────────────────
+---------------------------
  (n3:Person {name:"Dave"})
 
 ```

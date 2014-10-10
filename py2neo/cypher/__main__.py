@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright 2011-2014, Nigel Small
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+from __future__ import unicode_literals
+
+import json
+import os
+import sys
+
+from py2neo.cypher.error import CypherError, CypherTransactionError
+from py2neo.cypher.lang import cypher_repr
+
+
+HELP = """\
+Usage: {script} [«options»] «statement»
+
+Execute a Cypher statement against a Neo4j database.
+
+Options:
+  -p
+
+Environment:
+  NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
+
+Report bugs to nigel@py2neo.org
+"""
+
+
+def _help(script):
+    sys.stderr.write(HELP.format(script=os.path.basename(script)))
+    sys.stderr.write("\n")
+
+
+class CypherCommandLine(object):
+
+    def __init__(self, graph):
+        self.parameters = {}
+        self.parameter_filename = None
+        self.graph = graph
+        self.tx = None
+
+    def begin(self):
+        self.tx = self.graph.cypher.begin()
+
+    def set_parameter(self, key, value):
+        try:
+            self.parameters[key] = json.loads(value)
+        except ValueError:
+            self.parameters[key] = value
+
+    def set_parameter_filename(self, filename):
+        self.parameter_filename = filename
+
+    def execute(self, statement):
+        import codecs
+        if self.parameter_filename:
+            columns = None
+            with codecs.open(self.parameter_filename, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if columns is None:
+                        columns = line.split(",")
+                    elif line:
+                        values = json.loads("[" + line + "]")
+                        p = dict(self.parameters)
+                        p.update(zip(columns, values))
+                        self.tx.execute(statement, p)
+        else:
+            self.tx.execute(statement, self.parameters)
+        return self.tx.flush()
+
+    def commit(self):
+        self.tx.commit()
+
+
+def main():
+    import os
+    import sys
+    from py2neo.core import ServiceRoot
+    from py2neo.packages.httpstream.packages.urimagic import URI
+    script, args = sys.argv[0], sys.argv[1:]
+    uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
+    service_root = ServiceRoot(uri.string)
+    command_line = CypherCommandLine(service_root.graph)
+    command_line.begin()
+    while args:
+        arg = args.pop(0)
+        if arg.startswith("-"):
+            if arg in ("-p", "--parameter"):
+                key = args.pop(0)
+                value = args.pop(0)
+                command_line.set_parameter(key, value)
+            elif arg in ("-f",):
+                command_line.set_parameter_filename(args.pop(0))
+            else:
+                raise ValueError("Unrecognised option %s" % arg)
+        else:
+            try:
+                results = command_line.execute(arg)
+            except CypherError as error:
+                sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
+            else:
+                for result in results:
+                    sys.stdout.write(repr(result))
+                    sys.stdout.write("\n")
+    try:
+        command_line.commit()
+    except CypherTransactionError as error:
+        sys.stderr.write(error.args[0])
+        sys.stderr.write("\n")
+
+
+if __name__ == "__main__":
+    main()

@@ -55,33 +55,39 @@ else:
     is_numeric = lambda x: isinstance(x, (int, float, long, complex))
 
 
-def autojust(value, size):
-    if is_numeric(value):
-        return ustr(value).rjust(size)
-    else:
-        return ustr(value).ljust(size)
-
-
 class TextTable(object):
 
-    def __init__(self, header):
+    @classmethod
+    def cell(cls, value, size):
+        if value == "#" or is_numeric(value):
+            text = ustr(value).rjust(size)
+        else:
+            text = ustr(value).ljust(size)
+        return text
+
+    def __init__(self, header, border=False):
         self.__header = list(map(ustr, header))
         self.__rows = []
         self.__widths = list(map(len, self.__header))
         self.__repr = None
+        self.border = border
 
     def __repr__(self):
         if self.__repr is None:
             widths = self.__widths
-            lines = [
-                " " + " │ ".join(value.ljust(widths[i])
-                                 for i, value in enumerate(self.__header)) + "\n",
-                "─" + "─┼─".join("─" * widths[i]
-                                 for i, value in enumerate(self.__header)) + "─\n",
-            ]
-            for row in self.__rows:
-                lines.append(" " + " │ ".join(autojust(value, widths[i])
-                                              for i, value in enumerate(row)) + "\n")
+            if self.border:
+                lines = [
+                    " " + " | ".join(self.cell(value, widths[i]) for i, value in enumerate(self.__header)) + "\n",
+                    "-" + "-+-".join("-" * widths[i] for i, value in enumerate(self.__header)) + "-\n",
+                ]
+                for row in self.__rows:
+                    lines.append(" " + " | ".join(self.cell(value, widths[i]) for i, value in enumerate(row)) + "\n")
+            else:
+                lines = [
+                    " ".join(self.cell(value, widths[i]) for i, value in enumerate(self.__header)) + "\n",
+                ]
+                for row in self.__rows:
+                    lines.append(" ".join(self.cell(value, widths[i]) for i, value in enumerate(row)) + "\n")
             self.__repr = "".join(lines)
             if sys.version_info < (3,):
                 self.__repr = self.__repr.encode("utf-8")
