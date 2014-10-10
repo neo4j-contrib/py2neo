@@ -22,18 +22,25 @@ import json
 import os
 import sys
 
-from py2neo.core import PropertyContainer, Relationship, Node, Path
+from py2neo.core import Relationship, Node, Path
 from py2neo.cypher.error import CypherError, CypherTransactionError
-from py2neo.util import ustr, compact
+from py2neo.util import compact
 
 
 HELP = """\
-Usage: {script} [«options»] «statement»
+Usage: {script} [«options»] «statement» [ [«options»] «statement» ... ]
 
 Execute a Cypher statement against a Neo4j database.
 
-Options:
-  -p
+Formatting Options:
+  -c --csv    write output as comma separated values
+  -h --human  write output as human-readable text
+  -j --json   write output as JSON
+  -t --tsv    write output as tab separated values
+
+Parameter Options:
+  -f «parameter-file»
+  -p «name» «value»
 
 Environment:
   NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
@@ -119,6 +126,9 @@ def main():
     from py2neo.core import ServiceRoot
     from py2neo.packages.httpstream.packages.urimagic import URI
     script, args = sys.argv[0], sys.argv[1:]
+    if not args:
+        _help(script)
+        sys.exit(0)
     uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
     service_root = ServiceRoot(uri.string)
     out = sys.stdout
@@ -134,10 +144,14 @@ def main():
                 command_line.set_parameter(key, value)
             elif arg in ("-f",):
                 command_line.set_parameter_filename(args.pop(0))
-            elif arg in ("-t", "--text"):
+            elif arg in ("-h", "--human"):
                 output_format = None
             elif arg in ("-j", "--json"):
                 output_format = "json"
+            elif arg in ("-c", "--csv"):
+                output_format = "csv"
+            elif arg in ("-t", "--tsv"):
+                output_format = "tsv"
             else:
                 raise ValueError("Unrecognised option %s" % arg)
         else:
@@ -152,6 +166,19 @@ def main():
                                    for record in result]
                         out.write(json.dumps(records, ensure_ascii=False, sort_keys=True, indent=2))
                         out.write("\n")
+                    elif output_format in ("csv", "tsv"):
+                        separator = "," if output_format == "csv" else "\t"
+                        out.write(separator.join(json.dumps(column, separators=",:",
+                                                            ensure_ascii=False)
+                                                 for column in result.columns))
+                        out.write("\n")
+                        for record in result:
+                            out.write(separator.join(json.dumps(dehydrate(value),
+                                                                separators=",:",
+                                                                ensure_ascii=False,
+                                                                sort_keys=True)
+                                                     for value in record))
+                            out.write("\n")
                     else:
                         out.write(repr(result))
                     out.write("\n")
