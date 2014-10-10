@@ -1396,6 +1396,10 @@ class Node(PropertyContainer):
         """
         return int(self.uri.path.segments[-1])
 
+    @property
+    def ref(self):
+        return "node/%s" % self._id
+
     def bind(self, uri, metadata=None):
         PropertyContainer.bind(self, uri, metadata)
         if self.graph.supports_node_labels:
@@ -2127,6 +2131,10 @@ class Relationship(Path):
     @property
     def _id(self):
         return self.rel._id
+
+    @property
+    def ref(self):
+        return "relationship/%s" % self._id
 
     def bind(self, uri, metadata=None):
         """ Bind to a remote relationship. The relationship start and end
