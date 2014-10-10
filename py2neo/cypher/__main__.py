@@ -22,8 +22,9 @@ import json
 import os
 import sys
 
+from py2neo.core import PropertyContainer, Relationship, Node, Path
 from py2neo.cypher.error import CypherError, CypherTransactionError
-from py2neo.cypher.lang import cypher_repr
+from py2neo.util import ustr, compact
 
 
 HELP = """\
@@ -88,6 +89,30 @@ class CypherCommandLine(object):
         self.tx.commit()
 
 
+def dehydrate(value):
+    if isinstance(value, list):
+        out = list(map(dehydrate, value))
+    elif isinstance(value, Node):
+        out = {
+            "self": value.ref,
+            "properties": value.properties,
+            "labels": list(value.labels),
+        }
+    elif isinstance(value, Relationship):
+        out = {
+            "self": value.ref,
+            "properties": value.properties,
+            "start": value.start_node.ref,
+            "type": value.type,
+            "end": value.end_node.ref,
+        }
+    elif isinstance(value, Path):
+        out = [dehydrate(relationship) for relationship in value.relationships]
+    else:
+        out = value
+    return out
+
+
 def main():
     import os
     import sys
@@ -96,6 +121,8 @@ def main():
     script, args = sys.argv[0], sys.argv[1:]
     uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
     service_root = ServiceRoot(uri.string)
+    out = sys.stdout
+    output_format = None
     command_line = CypherCommandLine(service_root.graph)
     command_line.begin()
     while args:
@@ -107,6 +134,10 @@ def main():
                 command_line.set_parameter(key, value)
             elif arg in ("-f",):
                 command_line.set_parameter_filename(args.pop(0))
+            elif arg in ("-t", "--text"):
+                output_format = None
+            elif arg in ("-j", "--json"):
+                output_format = "json"
             else:
                 raise ValueError("Unrecognised option %s" % arg)
         else:
@@ -116,8 +147,14 @@ def main():
                 sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
             else:
                 for result in results:
-                    sys.stdout.write(repr(result))
-                    sys.stdout.write("\n")
+                    if output_format == "json":
+                        records = [compact(dict(zip(result.columns, map(dehydrate, record))))
+                                   for record in result]
+                        out.write(json.dumps(records, ensure_ascii=False, sort_keys=True, indent=2))
+                        out.write("\n")
+                    else:
+                        out.write(repr(result))
+                    out.write("\n")
     try:
         command_line.commit()
     except CypherTransactionError as error:

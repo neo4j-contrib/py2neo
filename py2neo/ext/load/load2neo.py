@@ -37,7 +37,7 @@ class LoadedSubgraph(object):
     def __getitem__(self, item):
         return self.graph.node(self.__data[item])
 
-    def get_reference(self, item):
+    def get_ref(self, item):
         return "node/%s" % self.__data[item]
 
     def keys(self):

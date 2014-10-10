@@ -78,7 +78,7 @@ def main():
             for result in results:
                 max_key_len = max(map(len, result.keys()))
                 for key in sorted(result):
-                    reference = result.get_reference(key)
+                    reference = result.get_ref(key)
                     print("%s %s" % (key.ljust(max_key_len), reference))
             print("")
     except Exception as error:
