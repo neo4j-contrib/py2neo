@@ -43,6 +43,24 @@ class CypherWriter(Writer):
         self.key_value_separator = \
             kwargs.get("key_value_separator", self.default_key_value_separator)
 
+    def write(self, obj):
+        if obj is None:
+            pass
+        elif isinstance(obj, Node):
+            self.write_node(obj)
+        elif isinstance(obj, Rel):
+            self.write_rel(obj)
+        elif isinstance(obj, Relationship):
+            self.write_relationship(obj)
+        elif isinstance(obj, Path):
+            self.write_path(obj)
+        elif isinstance(obj, dict):
+            self.write_mapping(obj)
+        elif is_collection(obj):
+            self.write_collection(obj)
+        else:
+            self.write_value(obj)
+
     def write_value(self, value):
         self.file.write(json.dumps(value))
 
@@ -120,24 +138,6 @@ class CypherWriter(Writer):
         for i, rel in enumerate(path.rels):
             self.write_rel(rel)
             self.write_node(nodes[i + 1])
-
-    def write(self, obj):
-        if obj is None:
-            pass
-        elif isinstance(obj, Node):
-            self.write_node(obj)
-        elif isinstance(obj, Rel):
-            self.write_rel(obj)
-        elif isinstance(obj, Relationship):
-            self.write_relationship(obj)
-        elif isinstance(obj, Path):
-            self.write_path(obj)
-        elif isinstance(obj, dict):
-            self.write_mapping(obj)
-        elif is_collection(obj):
-            self.write_collection(obj)
-        else:
-            self.write_value(obj)
 
 
 def cypher_escape(identifier):
