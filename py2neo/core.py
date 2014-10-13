@@ -42,6 +42,7 @@ Relationship - local graph relationship object that can be bound to a remote Neo
 from __future__ import division, unicode_literals
 
 import base64
+from io import StringIO
 import re
 from warnings import warn
 from weakref import WeakValueDictionary
@@ -1361,13 +1362,14 @@ class Node(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.cypher import Representation
-        r = Representation()
+        from py2neo.cypher import CypherWriter
+        string = StringIO()
+        writer = CypherWriter(string)
         if self.bound:
-            r.write_node(self, "n" + ustr(self._id))
+            writer.write_node(self, "n" + ustr(self._id))
         else:
-            r.write_node(self)
-        return repr(r)
+            writer.write_node(self)
+        return string.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1630,13 +1632,14 @@ class Rel(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.cypher import Representation
-        r = Representation()
+        from py2neo.cypher import CypherWriter
+        string = StringIO()
+        writer = CypherWriter(string)
         if self.bound:
-            r.write_rel(self, "r" + ustr(self._id))
+            writer.write_rel(self, "r" + ustr(self._id))
         else:
-            r.write_rel(self)
-        return repr(r)
+            writer.write_rel(self)
+        return string.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1870,10 +1873,11 @@ class Path(object):
         self.__metadata = None
 
     def __repr__(self):
-        from py2neo.cypher import Representation
-        r = Representation()
-        r.write_path(self)
-        return repr(r)
+        from py2neo.cypher import CypherWriter
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_path(self)
+        return string.getvalue()
 
     def __eq__(self, other):
         try:
@@ -2108,13 +2112,14 @@ class Relationship(Path):
         self.rel.properties.update(properties)
 
     def __repr__(self):
-        from py2neo.cypher import Representation
-        r = Representation()
+        from py2neo.cypher import CypherWriter
+        string = StringIO()
+        writer = CypherWriter(string)
         if self.bound:
-            r.write_relationship(self, "r" + ustr(self._id))
+            writer.write_relationship(self, "r" + ustr(self._id))
         else:
-            r.write_relationship(self)
-        return repr(r)
+            writer.write_relationship(self)
+        return string.getvalue()
 
     def __len__(self):
         return 1

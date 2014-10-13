@@ -16,35 +16,41 @@
 # limitations under the License.
 
 
+from io import StringIO
+
 from py2neo.core import Node, Relationship, Rel, Rev, Path
-from py2neo.cypher.lang import Representation
+from py2neo.cypher.lang import CypherWriter
 
 
 def test_can_write_simple_identifier():
-    r = Representation()
-    r.write_identifier("foo")
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write_identifier("foo")
+    written = string.getvalue()
     assert written == "foo"
 
 
 def test_can_write_identifier_with_odd_chars():
-    r = Representation()
-    r.write_identifier("foo bar")
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write_identifier("foo bar")
+    written = string.getvalue()
     assert written == "`foo bar`"
 
 
 def test_can_write_identifier_containing_back_ticks():
-    r = Representation()
-    r.write_identifier("foo `bar`")
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write_identifier("foo `bar`")
+    written = string.getvalue()
     assert written == "`foo ``bar```"
 
 
 def test_cannot_write_empty_identifier():
-    r = Representation()
+    string = StringIO()
+    writer = CypherWriter(string)
     try:
-        r.write_identifier("")
+        writer.write_identifier("")
     except ValueError:
         assert True
     else:
@@ -52,9 +58,10 @@ def test_cannot_write_empty_identifier():
 
 
 def test_cannot_write_none_identifier():
-    r = Representation()
+    string = StringIO()
+    writer = CypherWriter(string)
     try:
-        r.write_identifier(None)
+        writer.write_identifier(None)
     except ValueError:
         assert True
     else:
@@ -62,85 +69,97 @@ def test_cannot_write_none_identifier():
 
 
 def test_can_write_simple_node():
-    r = Representation()
-    r.write(Node())
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Node())
+    written = string.getvalue()
     assert written == "()"
 
 
 def test_can_write_node_with_labels():
-    r = Representation()
-    r.write(Node("Dark Brown", "Chicken"))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Node("Dark Brown", "Chicken"))
+    written = string.getvalue()
     assert written == '(:Chicken:`Dark Brown`)'
 
 
 def test_can_write_node_with_properties():
-    r = Representation()
-    r.write(Node(name="Gertrude", age=3))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Node(name="Gertrude", age=3))
+    written = string.getvalue()
     assert written == '({age:3,name:"Gertrude"})'
 
 
 def test_can_write_node_with_labels_and_properties():
-    r = Representation()
-    r.write(Node("Dark Brown", "Chicken", name="Gertrude", age=3))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Node("Dark Brown", "Chicken", name="Gertrude", age=3))
+    written = string.getvalue()
     assert written == '(:Chicken:`Dark Brown` {age:3,name:"Gertrude"})'
 
 
 def test_can_write_simple_relationship():
-    r = Representation()
-    r.write(Relationship({}, "KNOWS", {}))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Relationship({}, "KNOWS", {}))
+    written = string.getvalue()
     assert written == "()-[:KNOWS]->()"
 
 
 def test_can_write_relationship_with_properties():
-    r = Representation()
-    r.write(Relationship(
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Relationship(
         {"name": "Fred"}, ("LIVES WITH", {"place": "Bedrock"}), {"name": "Wilma"}))
-    written = repr(r)
+    written = string.getvalue()
     assert written == '({name:"Fred"})-[:`LIVES WITH` {place:"Bedrock"}]->({name:"Wilma"})'
 
 
 def test_can_write_simple_rel():
-    r = Representation()
-    r.write(Rel("KNOWS"))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Rel("KNOWS"))
+    written = string.getvalue()
     assert written == "-[:KNOWS]->"
 
 
 def test_can_write_simple_rev():
-    r = Representation()
-    r.write(Rev("KNOWS"))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Rev("KNOWS"))
+    written = string.getvalue()
     assert written == "<-[:KNOWS]-"
 
 
 def test_can_write_simple_path():
-    r = Representation()
-    r.write(Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {}))
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {}))
+    written = string.getvalue()
     assert written == "()-[:LOVES]->()<-[:HATES]-()-[:KNOWS]->()"
 
 
 def test_can_write_array():
-    r = Representation()
-    r.write([1, 1, 2, 3, 5, 8, 13])
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write([1, 1, 2, 3, 5, 8, 13])
+    written = string.getvalue()
     assert written == "[1,1,2,3,5,8,13]"
 
 
 def test_can_write_mapping():
-    r = Representation()
-    r.write({"one": "eins", "two": "zwei", "three": "drei"})
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write({"one": "eins", "two": "zwei", "three": "drei"})
+    written = string.getvalue()
     assert written == '{one:"eins",three:"drei",two:"zwei"}'
 
 
 def test_writing_none_writes_nothing():
-    r = Representation()
-    r.write(None)
-    written = repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(None)
+    written = string.getvalue()
     assert written == ""

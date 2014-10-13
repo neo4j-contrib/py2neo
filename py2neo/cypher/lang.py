@@ -18,16 +18,18 @@
 
 from __future__ import unicode_literals
 
+from io import StringIO
 import json
 
 from py2neo.core import Node, Rel, Rev, Path, Relationship
+from py2neo.lang import Writer
 from py2neo.util import is_collection
 
 
-__all__ = ["Representation", "cypher_escape", "cypher_repr"]
+__all__ = ["CypherWriter", "cypher_escape", "cypher_repr"]
 
 
-class Representation(object):
+class CypherWriter(Writer):
 
     safe_first_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
     safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
@@ -35,17 +37,14 @@ class Representation(object):
     default_sequence_separator = ","
     default_key_value_separator = ":"
 
-    def __init__(self, **kwargs):
-        self.__buffer = []
+    def __init__(self, file, **kwargs):
+        Writer.__init__(self, file)
         self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
-        self.key_value_separator = kwargs.get("key_value_separator",
-                                              self.default_key_value_separator)
-
-    def __repr__(self):
-        return "".join(self.__buffer)
+        self.key_value_separator = \
+            kwargs.get("key_value_separator", self.default_key_value_separator)
 
     def write_value(self, value):
-        self.__buffer.append(json.dumps(value))
+        self.file.write(json.dumps(value))
 
     def write_identifier(self, identifier):
         if not identifier:
@@ -53,62 +52,62 @@ class Representation(object):
         safe = (identifier[0] in self.safe_first_chars and
                 all(ch in self.safe_chars for ch in identifier[1:]))
         if not safe:
-            self.__buffer.append("`")
-            self.__buffer.append(identifier.replace("`", "``"))
-            self.__buffer.append("`")
+            self.file.write("`")
+            self.file.write(identifier.replace("`", "``"))
+            self.file.write("`")
         else:
-            self.__buffer.append(identifier)
+            self.file.write(identifier)
 
     def write_collection(self, collection):
-        self.__buffer.append("[")
+        self.file.write("[")
         link = ""
         for value in collection:
-            self.__buffer.append(link)
+            self.file.write(link)
             self.write(value)
             link = self.sequence_separator
-        self.__buffer.append("]")
+        self.file.write("]")
 
     def write_mapping(self, mapping):
-        self.__buffer.append("{")
+        self.file.write("{")
         link = ""
         for key, value in sorted(mapping.items()):
-            self.__buffer.append(link)
+            self.file.write(link)
             self.write_identifier(key)
-            self.__buffer.append(self.key_value_separator)
+            self.file.write(self.key_value_separator)
             self.write(value)
             link = self.sequence_separator
-        self.__buffer.append("}")
+        self.file.write("}")
 
     def write_node(self, node, name=None):
-        self.__buffer.append("(")
+        self.file.write("(")
         if name:
             self.write_identifier(name)
         if node is not None:
             for label in sorted(node.labels):
-                self.__buffer.append(":")
+                self.file.write(":")
                 self.write_identifier(label)
             if node.properties:
                 if name or node.labels:
-                    self.__buffer.append(" ")
+                    self.file.write(" ")
                 self.write_mapping(node.properties)
-        self.__buffer.append(")")
+        self.file.write(")")
 
     def write_rel(self, rel, name=None):
         if isinstance(rel, Rev):
-            self.__buffer.append("<-[")
+            self.file.write("<-[")
         else:
-            self.__buffer.append("-[")
+            self.file.write("-[")
         if name:
             self.write_identifier(name)
-        self.__buffer.append(":")
+        self.file.write(":")
         self.write_identifier(rel.type)
         if rel.properties:
-            self.__buffer.append(" ")
+            self.file.write(" ")
             self.write_mapping(rel.properties)
         if isinstance(rel, Rev):
-            self.__buffer.append("]-")
+            self.file.write("]-")
         else:
-            self.__buffer.append("]->")
+            self.file.write("]->")
 
     def write_relationship(self, relationship, name=None):
         self.write_node(relationship.start_node)
@@ -142,12 +141,14 @@ class Representation(object):
 
 
 def cypher_escape(identifier):
-    r = Representation()
-    r.write_identifier(identifier)
-    return repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write_identifier(identifier)
+    return string.getvalue()
 
 
 def cypher_repr(obj):
-    r = Representation()
-    r.write(obj)
-    return repr(r)
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(obj)
+    return string.getvalue()
