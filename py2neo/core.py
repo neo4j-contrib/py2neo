@@ -62,7 +62,7 @@ from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tu
 __all__ = ["authenticate", "rewrite",
            "Resource", "ResourceTemplate", "Service",
            "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
-           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship",
+           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship", "Subgraph",
            "ServerPlugin", "UnmanagedExtension"]
 
 
@@ -2248,6 +2248,104 @@ class Relationship(Path):
         """ The URI of this relationship, if bound.
         """
         return self.rel.uri
+
+
+class Subgraph(object):
+
+    def __init__(self, *entities):
+        self.__nodes = set()
+        self.__relationships = set()
+        for entity in entities:
+            entity = Graph.cast(entity)
+            if isinstance(entity, Node):
+                self.__nodes.add(entity)
+            elif isinstance(entity, Relationship):
+                self.__nodes.add(entity.start_node)
+                self.__nodes.add(entity.end_node)
+                self.__relationships.add(entity)
+            elif isinstance(entity, (Path, Subgraph)):
+                for node in entity.nodes:
+                    self.__nodes.add(node)
+                for relationship in entity.relationships:
+                    self.__relationships.add(relationship)
+            else:
+                raise ValueError("Cannot add %s to Subgraph" % entity.__class__.__name__)
+
+    def __repr__(self):
+        return "Subgraph()"
+
+    def __eq__(self, other):
+        return self.nodes == other.nodes and self.relationships == other.relationships
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for entity in self.__nodes | self.__relationships:
+            value ^= hash(entity)
+        return value
+
+    def __bool__(self):
+        return bool(self.__relationships)
+
+    def __nonzero__(self):
+        return bool(self.__relationships)
+
+    def __len__(self):
+        return self.size
+
+    def __iter__(self):
+        return iter(self.__relationships)
+
+    @property
+    def bound(self):
+        try:
+            _ = self.service_root
+        except BindError:
+            return False
+        else:
+            return True
+
+    @property
+    def exists(self):
+        return all(entity.exists for entity in self.__nodes | self.__relationships)
+
+    @property
+    def graph(self):
+        return self.service_root.graph
+
+    @property
+    def nodes(self):
+        return frozenset(self.__nodes)
+
+    @property
+    def order(self):
+        return len(self.__nodes)
+
+    @property
+    def relationships(self):
+        return frozenset(self.__relationships)
+
+    @property
+    def service_root(self):
+        for relationship in self:
+            try:
+                return relationship.service_root
+            except BindError:
+                pass
+        raise BindError("Local path is not bound to a remote path")
+
+    @property
+    def size(self):
+        return len(self.__relationships)
+
+    def unbind(self):
+        for entity in self.__nodes | self.__relationships:
+            try:
+                entity.unbind()
+            except BindError:
+                pass
 
 
 class ServerPlugin(object):
