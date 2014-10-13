@@ -22,7 +22,7 @@ from collections import OrderedDict
 import logging
 import sys
 
-from py2neo.core import Service, Resource, Node, Rel, Relationship, Subgraph
+from py2neo.core import Service, Resource, Node, Rel, Relationship, Subgraph, Path
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
@@ -264,14 +264,12 @@ class RecordList(object):
     def to_subgraph(self):
         """ Convert a RecordList into a Subgraph.
         """
-        subgraph = Subgraph()
+        entities = []
         for record in self.records:
             for value in record:
-                try:
-                    subgraph.add(value)
-                except ValueError:
-                    pass
-        return subgraph
+                if isinstance(value, (Node, Path)):
+                    entities.append(value)
+        return Subgraph(entities)
 
 
 class RecordStream(object):
@@ -351,7 +349,7 @@ class Record(object):
     def __repr__(self):
         columns = self.__producer__.columns
         if columns:
-            table = TextTable(columns)
+            table = TextTable(columns, border=True)
             table.append([getattr(self, column) for column in columns])
             return repr(table)
         else:
