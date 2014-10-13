@@ -2255,8 +2255,7 @@ class Subgraph(object):
     def __init__(self, *entities):
         self.__nodes = set()
         self.__relationships = set()
-
-        def add(entity):
+        for entity in entities:
             entity = Graph.cast(entity)
             if isinstance(entity, Node):
                 self.__nodes.add(entity)
@@ -2269,15 +2268,8 @@ class Subgraph(object):
                     self.__nodes.add(node)
                 for relationship in entity.relationships:
                     self.__relationships.add(relationship)
-            else:
+            elif entity is not None:
                 raise ValueError("Cannot add %s to Subgraph" % entity.__class__.__name__)
-
-        for value in entities:
-            if is_collection(value):
-                for item in value:
-                    add(item)
-            else:
-                add(value)
 
     def __repr__(self):
         return "<Subgraph with %s nodes and %s relationships>" % (self.order, self.size)

@@ -22,19 +22,32 @@ from py2neo import Subgraph, Node
 def test_empty_subgraph():
     s = Subgraph()
     assert len(s) == 0
-    assert len(s.nodes) == 0
-    assert len(s.relationships) == 0
+    assert s.order == 0
+    assert s.size == 0
 
 
 def test_subgraph_with_single_node():
     s = Subgraph(Node("Person", name="Alice"))
     assert len(s) == 0
-    assert len(s.nodes) == 1
-    assert len(s.relationships) == 0
+    assert s.order == 1
+    assert s.size == 0
 
 
 def test_subgraph_with_single_relationship():
     s = Subgraph(({"name": "Alice"}, "KNOWS", {"name": "Bob"}))
     assert len(s) == 1
-    assert len(s.nodes) == 2
-    assert len(s.relationships) == 1
+    assert s.order == 2
+    assert s.size == 1
+
+
+def test_converting_cypher_results_to_subgraph(graph):
+    r = graph.cypher.execute(
+        "CREATE (a:Person {name:'Alice'})-[ab:KNOWS]->(b:Person {name:'Bob'}) RETURN a, ab, b")
+    a, ab, b = r[0]
+    s = r.to_subgraph()
+    assert len(s) == 1
+    assert s.order == 2
+    assert s.size == 1
+    assert a in s
+    assert ab in s
+    assert b in s

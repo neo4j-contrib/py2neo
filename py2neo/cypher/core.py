@@ -269,7 +269,7 @@ class RecordList(object):
             for value in record:
                 if isinstance(value, (Node, Path)):
                     entities.append(value)
-        return Subgraph(entities)
+        return Subgraph(*entities)
 
 
 class RecordStream(object):
