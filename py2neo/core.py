@@ -1002,10 +1002,13 @@ class PropertySet(Service, dict):
         return not self.__eq__(other)
 
     def __hash__(self):
-        value = 0
-        for item in self.items():
-            value ^= hash(item)
-        return value
+        x = 0
+        for key, value in self.items():
+            if isinstance(value, list):
+                x ^= hash((key, tuple(value)))
+            else:
+                x ^= hash((key, value))
+        return x
 
     def __getitem__(self, key):
         return dict.get(self, key)
