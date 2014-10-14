@@ -782,17 +782,18 @@ class Graph(Service):
         return version_tuple(self.resource.metadata["neo4j_version"])
 
     def node(self, id_):
-        """ Fetch a node by ID.
+        """ Fetch a node by ID. This method creates an object representing the
+        remote node with the ID specified but fetches no data from the server.
+        For this reason, there is no guarantee that the entity returned
+        actually exists.
         """
         resource = self.resource.resolve("node/%s" % id_)
         uri_string = resource.uri.string
         try:
             return Node.cache[uri_string]
         except KeyError:
-            try:
-                return Node.cache.setdefault(uri_string, Node.hydrate(resource.get().content))
-            except ClientError:
-                raise ValueError("Node with ID {} not found".format(id_))
+            data = {"self": uri_string}
+            return Node.cache.setdefault(uri_string, Node.hydrate(data))
 
     @property
     def node_labels(self):
@@ -839,18 +840,18 @@ class Graph(Service):
             batch.push()
 
     def relationship(self, id_):
-        """ Fetch a relationship by ID.
+        """ Fetch a relationship by ID. This method creates an object
+        representing the remote relationship with the ID specified but
+        fetches no data from the server. For this reason, there is no
+        guarantee that the entity returned actually exists.
         """
         resource = self.resource.resolve("relationship/" + str(id_))
         uri_string = resource.uri.string
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            try:
-                return Relationship.cache.setdefault(uri_string,
-                                                     Relationship.hydrate(resource.get().content))
-            except ClientError:
-                raise ValueError("Relationship with ID {} not found".format(id_))
+            data = {"self": uri_string}
+            return Relationship.cache.setdefault(uri_string, Relationship.hydrate(data))
 
     @property
     def relationship_types(self):
