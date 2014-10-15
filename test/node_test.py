@@ -57,17 +57,13 @@ def test_can_get_node_by_id_when_not_cached(graph):
     assert got._id == node._id
 
 
-def test_cannot_get_node_by_id_when_id_does_not_exist(graph):
+def test_can_get_node_by_id_even_when_id_does_not_exist(graph):
     node, = graph.create({})
     node_id = node._id
     graph.delete(node)
     Node.cache.clear()
-    try:
-        _ = graph.node(node_id)
-    except ValueError:
-        assert True
-    else:
-        assert False
+    node = graph.node(node_id)
+    assert not node.exists
 
 
 def test_bound_node_equals_unbound_node_with_same_properties():

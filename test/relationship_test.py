@@ -293,21 +293,6 @@ def test_rel_cannot_have_multiple_types():
         assert False
 
 
-def test_unbound_rel_representation():
-    likes = Rel("LIKES")
-    assert repr(likes) == "-[:LIKES]->"
-
-
-def test_unbound_rev_representation():
-    likes = Rev("LIKES")
-    assert repr(likes) == "<-[:LIKES]-"
-
-
-def test_bound_rel_representation(graph):
-    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
-    assert repr(ab.rel) == "-[r%s:KNOWS]->" % ab._id
-
-
 def test_relationship_exists_will_raise_non_404_errors(graph):
     with patch.object(_Resource, "get") as mocked:
         error = GraphError("bad stuff happened")
@@ -410,13 +395,6 @@ def test_graph(graph):
         assert True
     else:
         assert False
-
-
-def test_repr(graph):
-    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
-    assert repr(ab) == "()-[r%s:KNOWS]->()" % ab._id
-    ab.unbind()
-    assert repr(ab) == "()-[:KNOWS]->()"
 
 
 def test_rel_never_equals_none():

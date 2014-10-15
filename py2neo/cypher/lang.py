@@ -23,7 +23,7 @@ import json
 
 from py2neo.core import Node, Rel, Rev, Path, Relationship
 from py2neo.lang import Writer
-from py2neo.util import is_collection
+from py2neo.util import is_collection, ustr
 
 
 __all__ = ["CypherWriter", "cypher_escape", "cypher_repr"]
@@ -62,11 +62,12 @@ class CypherWriter(Writer):
             self.write_value(obj)
 
     def write_value(self, value):
-        self.file.write(json.dumps(value))
+        self.file.write(ustr(json.dumps(value, ensure_ascii=False)))
 
     def write_identifier(self, identifier):
         if not identifier:
             raise ValueError("Invalid identifier")
+        identifier = ustr(identifier)
         safe = (identifier[0] in self.safe_first_chars and
                 all(ch in self.safe_chars for ch in identifier[1:]))
         if not safe:

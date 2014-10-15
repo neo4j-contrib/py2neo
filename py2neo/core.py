@@ -57,7 +57,8 @@ from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple, raise_from
+from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple, \
+    raise_from, xstr
 
 
 __all__ = ["authenticate", "rewrite",
@@ -458,7 +459,7 @@ class Graph(Service):
         return inst
 
     def __repr__(self):
-        return "Graph(%r)" % self.uri.string
+        return "<Graph uri=%r>" % self.uri.string
 
     def __hash__(self):
         return hash(self.uri)
@@ -840,18 +841,18 @@ class Graph(Service):
             batch.push()
 
     def relationship(self, id_):
-        """ Fetch a relationship by ID. This method creates an object
-        representing the remote relationship with the ID specified but
-        fetches no data from the server. For this reason, there is no
-        guarantee that the entity returned actually exists.
+        """ Fetch a relationship by ID.
         """
         resource = self.resource.resolve("relationship/" + str(id_))
         uri_string = resource.uri.string
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            data = {"self": uri_string}
-            return Relationship.cache.setdefault(uri_string, Relationship.hydrate(data))
+            try:
+                return Relationship.cache.setdefault(
+                    uri_string, Relationship.hydrate(resource.get().content))
+            except ClientError:
+                raise ValueError("Relationship with ID %s not found" % id_)
 
     @property
     def relationship_types(self):
@@ -1366,6 +1367,27 @@ class Node(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
+        s = [self.__class__.__name__]
+        if self.bound:
+            s.append("graph=%r" % self.graph.uri.string)
+            s.append("ref=%r" % self.ref)
+            if "labels" in self.__stale:
+                s.append("labels=?")
+            else:
+                s.append("labels=%r" % set(self.labels))
+            if "properties" in self.__stale:
+                s.append("properties=?")
+            else:
+                s.append("properties=%r" % self.properties)
+        else:
+            s.append("labels=%r" % set(self.labels))
+            s.append("properties=%r" % self.properties)
+        return "<" + " ".join(s) + ">"
+
+    def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -1636,6 +1658,24 @@ class Rel(PropertyContainer):
         self.__stale = set()
 
     def __repr__(self):
+        s = [self.__class__.__name__]
+        if self.bound:
+            s.append("graph=%r" % self.graph.uri.string)
+            s.append("ref=%r" % self.ref)
+            if "type" in self.__stale:
+                s.append("type=?")
+            else:
+                s.append("type=%r" % self.type)
+            if "properties" in self.__stale:
+                s.append("properties=?")
+            else:
+                s.append("properties=%r" % self.properties)
+        else:
+            s.append("type=%r" % type)
+            s.append("properties=%r" % self.properties)
+        return "<" + " ".join(s) + ">"
+
+    def __str__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -1683,6 +1723,10 @@ class Rel(PropertyContainer):
         :return: integer ID of this entity within the database.
         """
         return int(self.uri.path.segments[-1])
+
+    @property
+    def ref(self):
+        return "relationship/%s" % self._id
 
     def bind(self, uri, metadata=None):
         PropertyContainer.bind(self, uri, metadata)
@@ -1877,6 +1921,16 @@ class Path(object):
         self.__metadata = None
 
     def __repr__(self):
+        s = [self.__class__.__name__]
+        if self.bound:
+            s.append("graph=%r" % self.graph.uri.string)
+            s.append("start=%r" % self.start_node.ref)
+            s.append("end=%r" % self.end_node.ref)
+        s.append("order=%r" % self.order)
+        s.append("size=%r" % self.size)
+        return "<" + " ".join(s) + ">"
+
+    def __str__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -2116,6 +2170,26 @@ class Relationship(Path):
         self.rel.properties.update(properties)
 
     def __repr__(self):
+        s = [self.__class__.__name__]
+        if self.bound:
+            s.append("graph=%r" % self.graph.uri.string)
+            s.append("ref=%r" % self.ref)
+            s.append("start=%r" % self.start_node.ref)
+            s.append("end=%r" % self.end_node.ref)
+            if "type" in self.rel._Rel__stale:
+                s.append("type=?")
+            else:
+                s.append("type=%r" % self.type)
+            if "properties" in self.rel._Rel__stale:
+                s.append("properties=?")
+            else:
+                s.append("properties=%r" % self.properties)
+        else:
+            s.append("type=%r" % self.type)
+            s.append("properties=%r" % self.properties)
+        return "<" + " ".join(s) + ">"
+
+    def __str__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -2281,7 +2355,7 @@ class Subgraph(object):
                 raise ValueError("Cannot add %s to Subgraph" % entity.__class__.__name__)
 
     def __repr__(self):
-        return "<Subgraph with %s nodes and %s relationships>" % (self.order, self.size)
+        return "<Subgraph order=%s size=%s>" % (self.order, self.size)
 
     def __eq__(self, other):
         return self.nodes == other.nodes and self.relationships == other.relationships
