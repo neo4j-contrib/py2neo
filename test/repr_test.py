@@ -36,16 +36,20 @@ def test_graph_repr(graph):
 def test_node_repr(graph):
     node = Node("Person", name="Alice")
     if PY2:
-        assert repr(node) == "<Node labels=set([u'Person']) properties={'name': u'Alice'}>"
+        assert repr(node) == ("<%s labels=set([u'Person']) properties={'name': u'Alice'}>" %
+                              node.__class__.__name__)
     else:
-        assert repr(node) == "<Node labels={'Person'} properties={'name': 'Alice'}>"
+        assert repr(node) == ("<%s labels={'Person'} properties={'name': 'Alice'}>" %
+                              node.__class__.__name__)
     graph.create(node)
     if PY2:
-        assert repr(node) == ("<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                              "labels=set([u'Person']) properties={'name': u'Alice'}>" % node.ref)
+        assert repr(node) == ("<%s graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                              "labels=set([u'Person']) properties={'name': u'Alice'}>" %
+                              (node.__class__.__name__, node.ref))
     else:
-        assert repr(node) == ("<Node graph='http://localhost:7474/db/data/' ref='%s' "
-                              "labels={'Person'} properties={'name': 'Alice'}>" % node.ref)
+        assert repr(node) == ("<%s graph='http://localhost:7474/db/data/' ref='%s' "
+                              "labels={'Person'} properties={'name': 'Alice'}>" %
+                              (node.__class__.__name__, node.ref))
 
 
 def test_node_pointer_repr():

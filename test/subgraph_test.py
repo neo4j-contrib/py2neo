@@ -27,7 +27,7 @@ def test_empty_subgraph():
 
 
 def test_subgraph_with_single_node():
-    s = Subgraph(Node("Person", name="Alice"))
+    s = Subgraph(Node(name="Alice"))
     assert len(s) == 0
     assert s.order == 1
     assert s.size == 0
@@ -42,7 +42,7 @@ def test_subgraph_with_single_relationship():
 
 def test_converting_cypher_results_to_subgraph(graph):
     r = graph.cypher.execute(
-        "CREATE (a:Person {name:'Alice'})-[ab:KNOWS]->(b:Person {name:'Bob'}) RETURN a, ab, b")
+        "CREATE (a {name:'Alice'})-[ab:KNOWS]->(b {name:'Bob'}) RETURN a, ab, b")
     a, ab, b = r[0]
     s = r.to_subgraph()
     assert len(s) == 1
