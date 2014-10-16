@@ -48,7 +48,6 @@ package_metadata = {
             "neobox = py2neo.box:main",
             "neoget = py2neo.dist:main",
             "neoload = py2neo.ext.load.__main__:main",
-            "neosh = py2neo.shell:main",
         ],
     },
     "packages": packages,
