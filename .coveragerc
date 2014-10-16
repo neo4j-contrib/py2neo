@@ -1,5 +1,7 @@
 [run]
 branch = True
 omit =
+    */__main__.py
+    py2neo/ext/*
     py2neo/packages/*
     test/*
