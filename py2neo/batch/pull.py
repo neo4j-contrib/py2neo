@@ -22,14 +22,6 @@ from py2neo.core import Node, Path, Rel
 from py2neo.batch.core import Batch, Job, Target
 
 
-class PullPropertyJob(Job):
-
-    raw_result = True
-
-    def __init__(self, entity, key):
-        Job.__init__(self, "GET", Target(entity, "properties", key))
-
-
 class PullPropertiesJob(Job):
 
     raw_result = True
@@ -82,5 +74,3 @@ class PullBatch(Batch):
                 entity.labels.replace(result.content)
             elif isinstance(job, PullRelationshipJob):
                 entity.__class__.hydrate(result.content, entity)
-            else:
-                raise TypeError("Unsupported job type")

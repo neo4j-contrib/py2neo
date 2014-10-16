@@ -21,35 +21,43 @@ import pytest
 from py2neo import neo4j
 
 
-class TestGetIndexedNode(object):
+def test_can_retrieve_multiple_indexed_nodes(graph):
+    try:
+        graph.legacy.delete_index(neo4j.Node, "People")
+    except LookupError:
+        pass
+    people = graph.legacy.get_or_create_index(neo4j.Node, "People")
+    alice, bob, carol, dave, eve = graph.create(
+        {"name": "Alice Smith"},
+        {"name": "Bob Smith"},
+        {"name": "Carol Smith"},
+        {"name": "Dave Jones"},
+        {"name": "Eve Jones"},
+    )
+    people.add("family_name", "Smith", alice)
+    people.add("family_name", "Smith", bob)
+    people.add("family_name", "Smith", carol)
+    people.add("family_name", "Jones", dave)
+    people.add("family_name", "Jones", eve)
+    batch = neo4j.LegacyReadBatch(graph)
+    batch.get_indexed_nodes("People", "family_name", "Smith")
+    batch.get_indexed_nodes("People", "family_name", "Jones")
+    data = batch.submit()
+    smiths = data[0]
+    joneses = data[1]
+    assert smiths == [alice, bob, carol]
+    assert joneses == [dave, eve]
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
 
-    def test_can_retrieve_multiple_indexed_nodes(self):
-        try:
-            self.graph.legacy.delete_index(neo4j.Node, "People")
-        except LookupError:
-            pass
-        people = self.graph.legacy.get_or_create_index(neo4j.Node, "People")
-        alice, bob, carol, dave, eve = self.graph.create(
-            {"name": "Alice Smith"},
-            {"name": "Bob Smith"},
-            {"name": "Carol Smith"},
-            {"name": "Dave Jones"},
-            {"name": "Eve Jones"},
-        )
-        people.add("family_name", "Smith", alice)
-        people.add("family_name", "Smith", bob)
-        people.add("family_name", "Smith", carol)
-        people.add("family_name", "Jones", dave)
-        people.add("family_name", "Jones", eve)
-        batch = neo4j.LegacyReadBatch(self.graph)
-        batch.get_indexed_nodes("People", "family_name", "Smith")
-        batch.get_indexed_nodes("People", "family_name", "Jones")
-        data = batch.submit()
-        smiths = data[0]
-        joneses = data[1]
-        assert smiths == [alice, bob, carol]
-        assert joneses == [dave, eve]
+def test_can_stream_results(graph):
+    try:
+        graph.legacy.delete_index(neo4j.Node, "People")
+    except LookupError:
+        pass
+    people = graph.legacy.get_or_create_index(neo4j.Node, "People")
+    alice, = graph.create({"name": "Alice"})
+    people.add("name", "Alice", alice)
+    batch = neo4j.LegacyReadBatch(graph)
+    batch.get_indexed_nodes("People", "name", "Alice")
+    for result in batch.stream():
+        assert result == [alice]

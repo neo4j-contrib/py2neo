@@ -70,18 +70,18 @@ class BatchResource(Service):
         """
         num_jobs = len(batch)
         plural = "" if num_jobs == 1 else "s"
-        log.info(">>> Sending batch request with %s job%s", num_jobs, plural)
+        log.info("> Sending batch request with %s job%s", num_jobs, plural)
         data = []
         for i, job in enumerate(batch):
-            log.info(">>> {%s} %s", i, job)
+            log.info("> {%s} %s", i, job)
             data.append(dict(job, id=i))
         response = self.resource.post(data)
-        log.info("<<< Received batch response for %s job%s", num_jobs, plural)
+        log.info("< Received batch response for %s job%s", num_jobs, plural)
         return response
 
     def run(self, batch):
         response = self.post(batch)
-        log.info("<<< Discarding batch response")
+        log.info("< Discarding batch response")
         response.close()
 
     def stream(self, batch):
@@ -89,7 +89,7 @@ class BatchResource(Service):
         try:
             for i, result_data in grouped(response):
                 result = JobResult.hydrate(assembled(result_data), batch)
-                log.info("<<< %s", result)
+                log.info("< %s", result)
                 yield result
         finally:
             response.close()
@@ -100,7 +100,7 @@ class BatchResource(Service):
             results = []
             for result_data in response.content:
                 result = JobResult.hydrate(result_data, batch)
-                log.info("<<< %s", result)
+                log.info("< %s", result)
                 results.append(result)
             return results
         except ValueError:

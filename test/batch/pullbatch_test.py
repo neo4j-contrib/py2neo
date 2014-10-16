@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Job
 from py2neo.batch.pull import PullBatch
 
 
@@ -81,3 +81,13 @@ def test_can_pull_path(graph):
     batch.append(path)
     batch.pull()
     assert path.rels[0].properties["since"] == 1999
+
+
+def test_cannot_pull_none(graph):
+    batch = PullBatch(graph)
+    try:
+        batch.append(None)
+    except TypeError:
+        assert True
+    else:
+        assert False

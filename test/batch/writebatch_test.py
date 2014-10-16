@@ -22,7 +22,17 @@ from py2neo.batch.write import WriteBatch
 def test_cannot_create_with_bad_type(graph):
     batch = WriteBatch(graph)
     try:
-        batch.create("this is not creatable")
+        batch.create("")
+    except TypeError:
+        assert True
+    else:
+        assert False
+
+
+def test_cannot_create_with_none(graph):
+    batch = WriteBatch(graph)
+    try:
+        batch.create(None)
     except TypeError:
         assert True
     else:
