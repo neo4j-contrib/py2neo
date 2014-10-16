@@ -34,7 +34,6 @@ Execute a Cypher statement against a Neo4j database.
 
 Formatting Options:
   -c --csv    write output as comma separated values
-     --gexf   write output as GEXF (See http://gexf.net)
   -h --human  write output as human-readable text
   -j --json   write output as JSON (See http://json.org)
   -t --tsv    write output as tab separated values
@@ -153,8 +152,6 @@ def main():
                 output_format = "csv"
             elif arg in ("-t", "--tsv"):
                 output_format = "tsv"
-            elif arg in ("--gexf",):
-                output_format = "gexf"
             else:
                 raise ValueError("Unrecognised option %s" % arg)
         else:
