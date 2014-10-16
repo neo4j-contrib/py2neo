@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from mock import patch
+
 from py2neo import Graph
 
 
@@ -78,3 +80,9 @@ def test_supports(graph):
     assert isinstance(graph.supports_optional_match, bool)
     assert isinstance(graph.supports_schema_indexes, bool)
     assert isinstance(graph.supports_cypher_transactions, bool)
+
+
+def test_can_open_browser(graph):
+    with patch("webbrowser.open") as mocked:
+        graph.open_browser()
+        assert mocked.called_once_with(graph.service_root.resource.uri.string)
