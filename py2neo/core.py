@@ -1561,6 +1561,12 @@ class NodePointer(object):
         self.address = address
 
     def __repr__(self):
+        return "<NodePointer address=%s>" % self.address
+
+    def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
         return "{%s}" % self.address
 
     def __eq__(self, other):
@@ -1676,6 +1682,9 @@ class Rel(PropertyContainer):
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -1931,6 +1940,9 @@ class Path(object):
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
@@ -2190,6 +2202,9 @@ class Relationship(Path):
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
         from py2neo.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
