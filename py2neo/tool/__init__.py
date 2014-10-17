@@ -26,7 +26,6 @@ import json
 import locale
 import logging
 import os
-import readline
 import sys
 
 from py2neo import __version__, __copyright__
@@ -34,7 +33,7 @@ from py2neo.core import authenticate, ServiceRoot, Node
 from py2neo.error import GraphError
 from py2neo.ext import geoff
 from py2neo.util import ustr
-from py2neo.xmlutil import xml_to_cypher, xml_to_geoff
+from py2neo.ext.load.xmlutil import xml_to_cypher, xml_to_geoff
 
 
 PY3 = sys.version > '3'

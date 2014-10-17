@@ -28,10 +28,15 @@ from py2neo.packages.httpstream.packages.urimagic import URI
 
 
 HELP = """\
-Usage: {script} csv|geoff «data»
-       {script} csv|geoff -f «file»
+Usage: {script} «format» «data»
+       {script} «format» -f «file»
 
 Load data into Neo4j from raw data, optionally read from a file.
+
+Formats:
+  csv
+  geoff
+  xml
 
 Environment:
   NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
@@ -56,8 +61,14 @@ def main():
     service_root = ServiceRoot(uri.string)
 
     loader = GraphLoader(service_root.graph)
-    if format_ == "geoff":
+    if format_ == "csv":
+        # TODO
+        sys.stderr.write("CSV support has not yet been implemented\n")
+        sys.exit(1)
+    elif format_ == "geoff":
         load = loader.load_geoff
+    elif format_ == "xml":
+        load = loader.load_xml
     else:
         sys.stderr.write("Unsupported format %r\n" % format_)
         sys.exit(1)
@@ -75,12 +86,15 @@ def main():
                     raise ValueError("Unknown option %s" % arg)
             else:
                 results = load(arg)
-            for result in results:
-                max_key_len = max(map(len, result.keys()))
-                for key in sorted(result):
-                    reference = result.get_ref(key)
-                    print("%s %s" % (key.ljust(max_key_len), reference))
-            print("")
+            try:
+                for result in results:
+                    max_key_len = max(map(len, result.keys()))
+                    for key in sorted(result):
+                        reference = result.get_ref(key)
+                        print("%s %s" % (key.ljust(max_key_len), reference))
+                print("")
+            except TypeError:
+                pass
     except Exception as error:
         sys.stderr.write(error.args[0])
         sys.stderr.write("\n")
