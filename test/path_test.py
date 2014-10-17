@@ -384,6 +384,7 @@ def test_path_inequality():
     path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     path_2 = Path(alice, "KNOWS", carol, Rev("KNOWS"), dave)
     assert path_1 != path_2
+    assert path_1 != ""
 
 
 def test_path_in_several_ways():
