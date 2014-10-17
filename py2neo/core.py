@@ -61,11 +61,10 @@ from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tu
     raise_from, xstr
 
 
-__all__ = ["authenticate", "rewrite",
-           "Resource", "ResourceTemplate", "Service",
-           "ServiceRoot", "Graph", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
-           "Node", "NodePointer", "Rel", "Rev", "Path", "Relationship", "Subgraph",
-           "ServerPlugin", "UnmanagedExtension"]
+__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
+           "ServiceRoot", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
+           "authenticate", "rewrite", "ServerPlugin", "UnmanagedExtension",
+           "Service", "Resource", "ResourceTemplate"]
 
 
 DEFAULT_SCHEME = "http"

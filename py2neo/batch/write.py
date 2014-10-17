@@ -23,6 +23,11 @@ from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
 
+__all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUniquePathJob",
+           "DeleteEntityJob", "DeletePropertyJob", "DeletePropertiesJob",
+           "AddNodeLabelsJob", "RemoveNodeLabelJob", "WriteBatch"]
+
+
 # TODO: find a better home for this method
 def _create_query(p, unique=False):
     nodes, path, values, params = [], [], [], {}

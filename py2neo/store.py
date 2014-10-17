@@ -20,6 +20,9 @@ import os
 from shutil import copytree, rmtree
 
 
+__all__ = ["GraphStore"]
+
+
 class GraphStore(object):
 
     # TODO: instances

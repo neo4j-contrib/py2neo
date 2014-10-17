@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Job
-from py2neo.batch.pull import PullBatch
+from py2neo import Node, Relationship
+from py2neo.batch import PullBatch
 
 
 def test_can_pull_node(graph):

@@ -20,6 +20,9 @@ from py2neo.core import Graph, Node, Path, Relationship
 from py2neo.util import ustr
 
 
+__all__ = ["DeleteStatement"]
+
+
 def _(*args):
     return "".join("_" + ustr(arg) for arg in args)
 

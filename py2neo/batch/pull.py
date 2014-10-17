@@ -22,6 +22,9 @@ from py2neo.core import Node, Path, Rel
 from py2neo.batch.core import Batch, Job, Target
 
 
+__all__ = ["PullPropertiesJob", "PullNodeLabelsJob", "PullRelationshipJob", "PullBatch"]
+
+
 class PullPropertiesJob(Job):
 
     raw_result = True

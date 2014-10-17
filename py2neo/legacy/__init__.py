@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
-from py2neo.legacy.batch import LegacyReadBatch, LegacyWriteBatch
+from py2neo.legacy.batch import *
 from py2neo.legacy.core import *
-from py2neo.legacy.index import Index
+from py2neo.legacy.index import *
+
+
+__all__ = ["LegacyResource", "LegacyNode", "Index", "LegacyReadBatch", "LegacyWriteBatch"]

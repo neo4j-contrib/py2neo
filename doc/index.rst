@@ -211,5 +211,6 @@ Further Reading
 .. toctree::
    :maxdepth: 2
 
-.. image:: https://travis-ci.org/nigelsmall/py2neo.svg?branch=beta%2F2.0
-    :target: https://travis-ci.org/nigelsmall/py2neo
+   core
+   cypher
+   server

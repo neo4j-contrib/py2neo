@@ -21,6 +21,9 @@ from __future__ import division, unicode_literals
 from py2neo.batch.core import Batch
 
 
+__all__ = ["ReadBatch"]
+
+
 class ReadBatch(Batch):
     """ Generic batch execution facility for data read requests,
     """

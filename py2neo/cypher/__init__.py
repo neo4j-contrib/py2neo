@@ -15,10 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Cypher is the built-in query language for Neo4j.
+"""
+
 
 from __future__ import unicode_literals
 
-from py2neo.cypher.create import CreateStatement
+from py2neo.cypher.create import *
+from py2neo.cypher.delete import *
 from py2neo.cypher.error.core import *
 from py2neo.cypher.lang import *
 from py2neo.cypher.core import *
+
+__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
+           "Record", "RecordProducer", "TransactionFinished", "CypherWriter", "cypher_escape",
+           "cypher_repr", "CreateStatement", "DeleteStatement"]

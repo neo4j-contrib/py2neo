@@ -19,6 +19,10 @@
 """ Client Errors
 """
 
+
+__all__ = ["BindError", "JoinError"]
+
+
 class BindError(Exception):
     """ Raised when a local graph entity is not or cannot be bound to a remote graph entity.
     """

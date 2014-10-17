@@ -24,13 +24,20 @@ __package__ = "py2neo"
 __version__ = "2.0.beta"  # TODO: update this before release
 
 
-from py2neo.batch import *
 from py2neo.core import *
-from py2neo.cypher import *
 from py2neo.error import *
-from py2neo.lang import *
-from py2neo.legacy import *
+from py2neo.legacy import LegacyNode
 from py2neo.packages.httpstream.watch import watch
+
+
+__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
+           "ServiceRoot", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
+           "authenticate", "rewrite", "ServerPlugin", "UnmanagedExtension",
+           "Service", "Resource", "ResourceTemplate",
+           "BindError", "GraphError", "JoinError",
+           "LegacyNode", "node", "rel",
+           "watch",
+]
 
 
 node = Node.cast

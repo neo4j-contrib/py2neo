@@ -29,6 +29,9 @@ from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, ustr, raise_from
 
 
+__all__ = ["BatchError", "BatchResource", "Target", "Job", "JobResult", "CypherJob", "Batch"]
+
+
 log = logging.getLogger("py2neo.batch")
 
 

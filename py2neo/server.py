@@ -31,6 +31,8 @@ from py2neo.env import NEO4J_HOME
 from py2neo.store import GraphStore
 
 
+__all__ = ["GraphServerProcess", "GraphServer"]
+
 number_in_brackets = re.compile("\[(\d+)\]")
 
 

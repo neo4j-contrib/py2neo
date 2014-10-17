@@ -22,7 +22,8 @@ except ImportError:
 
 import pytest
 
-from py2neo import Graph, Relationship, WriteBatch, Rel, Rev, GraphError, ServiceRoot, BindError
+from py2neo import Graph, Relationship, Rel, Rev, GraphError, ServiceRoot, BindError
+from py2neo.batch import WriteBatch
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
