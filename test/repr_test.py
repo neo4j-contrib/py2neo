@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import sys
 
-from py2neo import Node, NodePointer, Relationship, Path
+from py2neo import Node, NodePointer, Relationship, Path, Rel, Rev
 
 
 PY2 = sys.version_info < (3,)
@@ -52,6 +52,16 @@ def test_node_repr(graph):
                               (node.__class__.__name__, node.ref))
 
 
+def test_stale_node_repr():
+    node = Node.hydrate({"self": "http://localhost:7474/db/data/node/0"})
+    if PY2:
+        assert repr(node) == ("<%s graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                              "labels=? properties=?>" % (node.__class__.__name__, node.ref))
+    else:
+        assert repr(node) == ("<%s graph='http://localhost:7474/db/data/' ref='%s' "
+                              "labels=? properties=?>" % (node.__class__.__name__, node.ref))
+
+
 def test_node_pointer_repr():
     pointer = NodePointer(3456)
     assert repr(pointer) == "<NodePointer address=3456>"
@@ -76,6 +86,28 @@ def test_relationship_repr(graph):
                                       "properties={}>" % (relationship.ref, alice.ref, bob.ref))
 
 
+def test_stale_relationship_repr():
+    relationship = Relationship.hydrate({"self": "http://localhost:7474/db/data/relationship/0",
+                                         "start": "http://localhost:7474/db/data/node/0",
+                                         "end": "http://localhost:7474/db/data/node/1"})
+    if PY2:
+        assert repr(relationship) == ("<Relationship graph=u'http://localhost:7474/db/data/' "
+                                      "ref=u'relationship/0' start=u'node/0' end=u'node/1' "
+                                      "type=? properties=?>")
+    else:
+        assert repr(relationship) == ("<Relationship graph='http://localhost:7474/db/data/' "
+                                      "ref='relationship/0' start='node/0' end='node/1' "
+                                      "type=? properties=?>")
+
+
+def test_unbound_rel_repr():
+    rel = Rel("KNOWS", since=1999)
+    if PY2:
+        assert repr(rel) == "<Rel type=u'KNOWS' properties={'since': 1999}>"
+    else:
+        assert repr(rel) == "<Rel type='KNOWS' properties={'since': 1999}>"
+
+
 def test_rel_repr(graph):
     alice = Node("Person", name="Alice")
     bob = Node("Person", name="Bob")
@@ -90,6 +122,24 @@ def test_rel_repr(graph):
                              "type='KNOWS' properties={}>" % rel.ref)
 
 
+def test_stale_rel_repr():
+    rel = Rel.hydrate({"self": "http://localhost:7474/db/data/relationship/0"})
+    if PY2:
+        assert repr(rel) == ("<Rel graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                             "type=? properties=?>" % rel.ref)
+    else:
+        assert repr(rel) == ("<Rel graph='http://localhost:7474/db/data/' ref='%s' "
+                             "type=? properties=?>" % rel.ref)
+
+
+def test_unbound_rev_repr():
+    rev = Rev("KNOWS", since=1999)
+    if PY2:
+        assert repr(rev) == "<Rev type=u'KNOWS' properties={'since': 1999}>"
+    else:
+        assert repr(rev) == "<Rev type='KNOWS' properties={'since': 1999}>"
+
+
 def test_rev_repr(graph):
     alice = Node("Person", name="Alice")
     bob = Node("Person", name="Bob")
@@ -102,6 +152,16 @@ def test_rev_repr(graph):
     else:
         assert repr(rev) == ("<Rev graph='http://localhost:7474/db/data/' ref='%s' "
                              "type='KNOWS' properties={}>" % rev.ref)
+
+
+def test_stale_rev_repr():
+    rev = Rev.hydrate({"self": "http://localhost:7474/db/data/relationship/0"})
+    if PY2:
+        assert repr(rev) == ("<Rev graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                             "type=? properties=?>" % rev.ref)
+    else:
+        assert repr(rev) == ("<Rev graph='http://localhost:7474/db/data/' ref='%s' "
+                             "type=? properties=?>" % rev.ref)
 
 
 def test_path_repr(graph):

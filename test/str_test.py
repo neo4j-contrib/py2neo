@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from py2neo import Node, NodePointer, Relationship, Path
+from py2neo import Node, NodePointer, Rel, Rev, Relationship, Path
 
 
 def test_node_str(graph):
@@ -52,6 +52,11 @@ def test_rel_str(graph):
     assert str(rel) == '-[r%s:KNOWS]->' % rel._id
 
 
+def test_unbound_rel_str():
+    rel = Rel("KNOWS", since=1999)
+    assert str(rel) == '-[:KNOWS {since:1999}]->'
+
+
 def test_rev_str(graph):
     alice = Node("Person", name="Alice")
     bob = Node("Person", name="Bob")
@@ -59,6 +64,11 @@ def test_rev_str(graph):
     graph.create(relationship)
     rev = -relationship.rel
     assert str(rev) == '<-[r%s:KNOWS]-' % rev._id
+
+
+def test_unbound_rev_str():
+    rev = Rev("KNOWS", since=1999)
+    assert str(rev) == '<-[:KNOWS {since:1999}]-'
 
 
 def test_path_str(graph):

@@ -1670,7 +1670,7 @@ class Rel(PropertyContainer):
         if self.bound:
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
-            if "type" in self.__stale:
+            if self.__type is None:
                 s.append("type=?")
             else:
                 s.append("type=%r" % self.type)
@@ -1679,7 +1679,7 @@ class Rel(PropertyContainer):
             else:
                 s.append("properties=%r" % self.properties)
         else:
-            s.append("type=%r" % type)
+            s.append("type=%r" % self.type)
             s.append("properties=%r" % self.properties)
         return "<" + " ".join(s) + ">"
 
@@ -2177,11 +2177,11 @@ class Relationship(Path):
 
     def __init__(self, start_node, rel, end_node, **properties):
         cast_rel = Rel.cast(rel)
+        cast_rel._PropertyContainer__properties.update(properties)
         if isinstance(cast_rel, Rev):  # always forwards
             Path.__init__(self, end_node, -cast_rel, start_node)
         else:
             Path.__init__(self, start_node, cast_rel, end_node)
-        self.rel.properties.update(properties)
 
     def __repr__(self):
         s = [self.__class__.__name__]
@@ -2190,7 +2190,7 @@ class Relationship(Path):
             s.append("ref=%r" % self.ref)
             s.append("start=%r" % self.start_node.ref)
             s.append("end=%r" % self.end_node.ref)
-            if "type" in self.rel._Rel__stale:
+            if self.rel._Rel__type is None:
                 s.append("type=?")
             else:
                 s.append("type=%r" % self.type)
