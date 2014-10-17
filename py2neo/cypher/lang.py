@@ -23,10 +23,10 @@ import json
 
 from py2neo.core import Node, Rel, Rev, Path, Relationship
 from py2neo.lang import Writer
-from py2neo.util import is_collection, ustr
+from py2neo.util import is_collection, ustr, xstr
 
 
-__all__ = ["CypherWriter", "cypher_escape", "cypher_repr"]
+__all__ = list(map(xstr, ["CypherWriter", "cypher_escape", "cypher_repr"]))
 
 
 class CypherWriter(Writer):

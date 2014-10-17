@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 from py2neo.legacy.batch import LegacyWriteBatch
 from py2neo.core import Service, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped

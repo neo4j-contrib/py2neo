@@ -15,25 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The neo4j module provides the main `Neo4j <http://neo4j.org/>`_ client
-functionality and will be the starting point for most applications. The main
-classes provided are:
-
-- :py:class:`Graph` - an instance of a Neo4j database server,
-  providing a number of graph-global methods for handling nodes and
-  relationships
-- :py:class:`Node` - a representation of a database node
-- :py:class:`Relationship` - a representation of a relationship between two
-  database nodes
-- :py:class:`Path` - a sequence of alternating nodes and relationships
-- :py:class:`ReadBatch` - a batch of read requests to be carried out within a
-  single transaction
-- :py:class:`WriteBatch` - a batch of write requests to be carried out within
-  a single transaction
-"""
-
-
-from __future__ import division, unicode_literals
 
 from collections import namedtuple
 from datetime import datetime

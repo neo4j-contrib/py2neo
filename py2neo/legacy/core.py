@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 from py2neo.legacy.index import Index
 from py2neo.core import Node, Relationship, Resource, PropertyContainer, Service
 from py2neo.packages.jsonstream import assembled

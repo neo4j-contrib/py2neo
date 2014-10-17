@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 from py2neo.batch.core import Batch
 
 

@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 from py2neo.batch import ReadBatch, WriteBatch, Job, Target
 from py2neo.core import Node, Relationship, NodePointer
 from py2neo.packages.httpstream.packages.urimagic import percent_encode

@@ -83,6 +83,16 @@ function test {
     echo ""
 }
 
+function build_doc {
+    if [ "$ONLINE" ]
+    then
+        echo "Ensuring doc dependencies are up to date"
+        pip install --upgrade sphinx
+    fi
+    make -C $HOME/doc html
+    xdg-open $HOME/doc/_build/html/index.html
+}
+
 function download {
     mkdir -p "$DOWN" 2> /dev/null
     pushd "$DOWN" > /dev/null
@@ -196,6 +206,9 @@ function neo4j {
 }
 
 case $COMMAND in
+    doc)
+        build_doc
+        ;;
     download)
         download $ARGS
         ;;

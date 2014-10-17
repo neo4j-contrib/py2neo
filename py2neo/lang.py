@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
+__all__ = ["Writer"]
+
+
 class Writer(object):
 
     def __init__(self, file):

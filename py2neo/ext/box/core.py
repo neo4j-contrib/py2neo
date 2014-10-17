@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import print_function
-
 import os
 from subprocess import check_output
 from shutil import rmtree

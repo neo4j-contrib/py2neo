@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import unicode_literals
-
 from py2neo.core import LabelSet, Node, Path, PropertySet, Rel
 from py2neo.batch.core import Batch, Job, Target
 

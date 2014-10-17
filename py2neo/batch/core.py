@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
-
 import json
 import logging
 
