@@ -1,4 +1,4 @@
-image:https://travis-ci.org/nigelsmall/py2neo.svg?branch=beta%2F2.0["Build Status", link="https://travis-ci.org/nigelsmall/py2neo"]
+[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=beta%2F2.0)](https://travis-ci.org/nigelsmall/py2neo)
 
 Py2neo 2.0.beta
 ===============
