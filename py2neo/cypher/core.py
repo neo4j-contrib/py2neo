@@ -20,13 +20,12 @@ from __future__ import unicode_literals
 
 from collections import OrderedDict
 import logging
-import sys
 
 from py2neo.core import Service, Resource, Node, Rel, Relationship, Subgraph, Path
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string
+from py2neo.util import is_integer, is_string, xstr
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordList", "RecordStream",
@@ -244,13 +243,13 @@ class RecordList(object):
         self.records = records
 
     def __repr__(self):
+        out = ""
         if self.columns:
             table = TextTable([None] + self.columns, border=True)
             for i, record in enumerate(self.records):
                 table.append([i + 1] + list(record))
-            return repr(table)
-        else:
-            return ""
+            out = repr(table)
+        return out
 
     def __len__(self):
         return len(self.records)
@@ -347,13 +346,13 @@ class Record(object):
             setattr(self, column, values[i])
 
     def __repr__(self):
+        out = ""
         columns = self.__producer__.columns
         if columns:
             table = TextTable(columns, border=True)
             table.append([getattr(self, column) for column in columns])
-            return repr(table)
-        else:
-            return ""
+            out = repr(table)
+        return out
 
     def __eq__(self, other):
         return vars(self) == vars(other)
@@ -380,10 +379,7 @@ class RecordProducer(object):
         self.__len = len(self.__columns)
         dct = dict.fromkeys(self.__columns)
         dct["__producer__"] = self
-        if sys.version_info >= (3,):
-            self.__type = type("Record", (Record,), dct)
-        else:
-            self.__type = type(b"Record", (Record,), dct)
+        self.__type = type(xstr("Record"), (Record,), dct)
 
     def __repr__(self):
         return "RecordProducer(columns=%r)" % (self.__columns,)
