@@ -435,7 +435,7 @@ class Graph(Service):
         """
         if obj is None:
             return None
-        elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev)):
+        elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev, Subgraph)):
             return obj
         elif isinstance(obj, dict):
             return Node.cast(obj)
@@ -2363,19 +2363,20 @@ class Subgraph(object):
                 self.__nodes.add(entity.start_node)
                 self.__nodes.add(entity.end_node)
                 self.__relationships.add(entity)
-            elif isinstance(entity, (Path, Subgraph)):
+            else:
                 for node in entity.nodes:
                     self.__nodes.add(node)
                 for relationship in entity.relationships:
                     self.__relationships.add(relationship)
-            elif entity is not None:
-                raise ValueError("Cannot add %s to Subgraph" % entity.__class__.__name__)
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)
 
     def __eq__(self, other):
-        return self.nodes == other.nodes and self.relationships == other.relationships
+        try:
+            return self.nodes == other.nodes and self.relationships == other.relationships
+        except AttributeError:
+            return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -2407,7 +2408,7 @@ class Subgraph(object):
                     return False
             return True
         else:
-            raise False
+            return False
 
     @property
     def bound(self):

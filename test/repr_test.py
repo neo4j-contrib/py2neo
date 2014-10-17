@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 import sys
 
-from py2neo import Node, NodePointer, Relationship, Path, Rel, Rev
+from py2neo import Node, NodePointer, Relationship, Path, Rel, Rev, Subgraph
 
 
 PY2 = sys.version_info < (3,)
@@ -176,3 +176,9 @@ def test_path_repr(graph):
     else:
         assert repr(path) == ("<Path graph='http://localhost:7474/db/data/' "
                               "start='%s' end='%s' order=2 size=1>" % (alice.ref, bob.ref))
+
+
+def test_subgraph_repr():
+    alice = Node("Person", name="Alice")
+    subgraph = Subgraph(alice)
+    assert repr(subgraph) == "<Subgraph order=1 size=0>"
