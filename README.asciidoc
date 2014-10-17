@@ -120,7 +120,8 @@ Here, we add a new property to each of the two nodes and `push` each in turn, re
 separate HTTP calls being made. These calls can be seen more clearly with the debugging function,
 `watch`:
 
-```
+[source,python]
+----
 >>> from py2neo import watch
 >>> watch("httpstream")
 >>> alice.push()
@@ -129,7 +130,7 @@ separate HTTP calls being made. These calls can be seen more clearly with the de
 >>> bob.push()
 > POST http://localhost:7474/db/data/batch [146]
 < 200 OK [119]
-```
+----
 
 Note: The watch function comes with the embedded http://github.com/nigelsmall/httpstream[httpstream]
       library and simply dumps log entries to standard output.
@@ -213,21 +214,24 @@ graph's `cypher` resource to create a transaction, then use the methods listed b
 
 For example:
 
-```
+[source,python]
+----
 >>> tx = graph.cypher.begin()
 >>> statement = "MATCH (a {name:{A}}), (b {name:{B}}) CREATE (a)-[:KNOWS]->(b)"
 >>> for person_a, person_b in [("Alice", "Bob"), ("Bob", "Dave"), ("Alice", "Carol")]:
 ...     tx.execute(statement, {"A": person_a, "B": person_b})
 ...
 >>> tx.commit()
-```
+----
 
 
-## Unique Nodes
+Unique Nodes
+------------
 
 *TODO*
 
 
-## Unique Paths
+Unique Paths
+------------
 
 *TODO*
