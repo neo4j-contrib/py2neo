@@ -22,8 +22,8 @@ import os
 from subprocess import check_output
 from shutil import rmtree
 
-from py2neo.ext.dist.core import download, dist_archive_name
-from py2neo.ext.dist.env import DIST_HOST
+from py2neo.ext.distro.core import download, dist_archive_name
+from py2neo.ext.distro.env import DIST_HOST
 from py2neo.packages.httpstream import NetworkAddressError
 from py2neo.server import GraphServer
 
