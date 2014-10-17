@@ -99,6 +99,13 @@ class TestPropertySet(object):
         # then
         assert p["name"] == "Alice"
 
+    def test_property_set_hash_match(self):
+        # given
+        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        # then
+        assert hash(p) == hash(q)
+
 
 class TestPropertyContainer(object):
 
