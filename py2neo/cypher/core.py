@@ -28,8 +28,8 @@ from py2neo.packages.tart.tables import TextTable
 from py2neo.util import is_integer, is_string, xstr
 
 
-__all__ = ["CypherResource", "CypherTransaction", "RecordList", "RecordStream",
-           "Record", "RecordProducer"]
+__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
+           "Record", "RecordProducer", "TransactionFinished"]
 
 
 log = logging.getLogger("py2neo.cypher")

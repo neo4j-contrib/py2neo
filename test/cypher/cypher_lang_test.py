@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.core import Node, Relationship, Rel, Rev, Path
-from py2neo.cypher.lang import CypherWriter
+from py2neo.cypher.lang import CypherWriter, cypher_repr
 
 
 def test_can_write_simple_identifier():
@@ -163,3 +163,8 @@ def test_writing_none_writes_nothing():
     writer.write(None)
     written = string.getvalue()
     assert written == ""
+
+
+def test_can_write_with_wrapper_function():
+    written = cypher_repr(Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {}))
+    assert written == "()-[:LOVES]->()<-[:HATES]-()-[:KNOWS]->()"

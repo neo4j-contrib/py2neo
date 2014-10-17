@@ -22,7 +22,7 @@ import json
 import re
 from xml.etree import ElementTree
 
-from py2neo import cypher
+from py2neo import cypher_repr
 
 
 SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")
@@ -33,7 +33,7 @@ def jsonify(obj, ensure_ascii=True):
 
 
 def cyphify(obj, ensure_ascii=True):
-    return cypher.dumps(obj, separators=(",", ":"), ensure_ascii=ensure_ascii)
+    return cypher_repr(obj)
 
 
 def _convert_xml(src, prefixes=None, verb=None, method=jsonify,

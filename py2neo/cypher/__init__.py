@@ -18,61 +18,7 @@
 
 from __future__ import unicode_literals
 
-import logging
-
 from py2neo.cypher.create import CreateStatement
 from py2neo.cypher.error.core import *
 from py2neo.cypher.lang import *
 from py2neo.cypher.core import *
-
-
-log = logging.getLogger("cypher")
-
-
-# TODO keep in __init__ as wrapper
-# TODO: add support for Node, NodePointer, Path, Rel, Relationship and Rev
-def dumps(obj, separators=(", ", ": "), ensure_ascii=True):
-    """ Dumps an object as a Cypher expression string.
-
-    :param obj:
-    :param separators:
-    :return:
-    """
-
-    from py2neo.util import is_collection
-
-    def dump_mapping(obj):
-        buffer = ["{"]
-        link = ""
-        for key, value in obj.items():
-            buffer.append(link)
-            if " " in key:
-                buffer.append("`")
-                buffer.append(key.replace("`", "``"))
-                buffer.append("`")
-            else:
-                buffer.append(key)
-            buffer.append(separators[1])
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("}")
-        return "".join(buffer)
-
-    def dump_collection(obj):
-        buffer = ["["]
-        link = ""
-        for value in obj:
-            buffer.append(link)
-            buffer.append(dumps(value, separators=separators,
-                                ensure_ascii=ensure_ascii))
-            link = separators[0]
-        buffer.append("]")
-        return "".join(buffer)
-
-    if isinstance(obj, dict):
-        return dump_mapping(obj)
-    elif is_collection(obj):
-        return dump_collection(obj)
-    else:
-        return json.dumps(obj, ensure_ascii=ensure_ascii)
