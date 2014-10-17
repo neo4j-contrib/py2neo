@@ -75,8 +75,8 @@ and automatically binds each local object to its remote counterpart. Within py2n
 process of applying a URI to a client object, which allows future synchonisation operations to
 occur.
 
-NOTE: Entity binding can be managed directly by using the `bind` and `unbind` methods and
-      observed through the `bound` boolean property.
+.. note:: Entity binding can be managed directly by using the `bind` and `unbind` methods and
+    observed through the `bound` boolean property.
 
 
 Pushing & Pulling
@@ -87,9 +87,9 @@ not used sensibly. Whenever possible, py2neo attempts to minimise the amount of 
 client and the server by batching and lazily retrieving data. Most read and write operations are
 explicit, allowing the Python application developer a high degree of control over network traffic.
 
-Note: Previous versions of py2neo have synchronised data between client and server automatically,
-      such as when setting a single property value. Py2neo 2.0 will not carry out updates to client
-      or server objects until this is explicitly requested.
+.. note:: Previous versions of py2neo have synchronised data between client and server automatically,
+    such as when setting a single property value. Py2neo 2.0 will not carry out updates to client
+    or server objects until this is explicitly requested.
 
 To illustrate synchronisation, let's give Alice and Bob an *age* property each. Longhand, this is
 done as follows::
@@ -112,8 +112,8 @@ separate HTTP calls being made. These calls can be seen more clearly with the de
     > POST http://localhost:7474/db/data/batch [146]
     < 200 OK [119]
 
-Note: The watch function comes with the embedded `httpstream <http://github.com/nigelsmall/httpstream>`_
-library and simply dumps log entries to standard output.
+.. note:: The watch function comes with the embedded `httpstream <http://github.com/nigelsmall/httpstream>`_
+    library and simply dumps log entries to standard output.
 
 To squash these two separate `push` operations into one, we can use the `Graph.push` method
 instead::
