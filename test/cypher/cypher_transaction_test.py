@@ -29,6 +29,7 @@ def test_can_execute_single_statement_transaction(graph):
     assert not tx.finished
     tx.execute("CREATE (a) RETURN a")
     results = tx.commit()
+    assert repr(results)
     assert len(results) == 1
     for result in results:
         assert len(result) == 1
