@@ -948,9 +948,10 @@ class Schema(Service):
         """
         try:
             self._index_key_template.expand(label=label, property_key=property_key).delete()
-        except ClientError as error:
-            if isinstance(error, Response):
-                if error.status_code == NOT_FOUND:
+        except GraphError as error:
+            cause = error.__cause__
+            if isinstance(cause, Response):
+                if cause.status_code == NOT_FOUND:
                     raise GraphError("No such schema index (label=%r, key=%r)" % (
                         label, property_key))
             raise
@@ -961,9 +962,10 @@ class Schema(Service):
         try:
             self._uniqueness_constraint_key_template.expand(
                 label=label, property_key=property_key).delete()
-        except ClientError as error:
-            if isinstance(error, Response):
-                if error.status_code == NOT_FOUND:
+        except GraphError as error:
+            cause = error.__cause__
+            if isinstance(cause, Response):
+                if cause.status_code == NOT_FOUND:
                     raise GraphError("No such unique constraint (label=%r, key=%r)" % (
                         label, property_key))
             raise

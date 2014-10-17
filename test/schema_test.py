@@ -27,7 +27,11 @@ from uuid import uuid4
 import pytest
 
 from py2neo import neo4j, GraphError, Node
-from py2neo.packages.httpstream import ClientError, ServerError, Resource as _Resource
+from py2neo.packages.httpstream import ClientError, Resource as _Resource
+
+
+class NotFoundError(ClientError):
+    status_code = 404
 
 
 class DodgyClientError(ClientError):
@@ -132,7 +136,20 @@ def test_labels_constraints():
     graph_db.delete(a, b)
 
 
-def test_drop_index_will_raise_non_404_errors(graph):
+def test_drop_index_handles_404_errors_correctly(graph):
+    if not graph.supports_node_labels:
+        return
+    with patch.object(_Resource, "delete") as mocked:
+        mocked.side_effect = NotFoundError
+        try:
+            graph.schema.drop_index("Person", "name")
+        except GraphError:
+            assert True
+        else:
+            assert False
+
+
+def test_drop_index_handles_non_404_errors_correctly(graph):
     if not graph.supports_node_labels:
         return
     with patch.object(_Resource, "delete") as mocked:
@@ -145,7 +162,20 @@ def test_drop_index_will_raise_non_404_errors(graph):
             assert False
 
 
-def test_drop_unique_constraint_will_raise_non_404_errors(graph):
+def test_drop_unique_constraint_handles_404_errors_correctly(graph):
+    if not graph.supports_node_labels:
+        return
+    with patch.object(_Resource, "delete") as mocked:
+        mocked.side_effect = NotFoundError
+        try:
+            graph.schema.drop_unique_constraint("Person", "name")
+        except GraphError:
+            assert True
+        else:
+            assert False
+
+
+def test_drop_unique_constraint_handles_non_404_errors_correctly(graph):
     if not graph.supports_node_labels:
         return
     with patch.object(_Resource, "delete") as mocked:
