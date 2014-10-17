@@ -20,8 +20,6 @@ Cypher is the built-in query language for Neo4j.
 """
 
 
-from __future__ import unicode_literals
-
 from py2neo.cypher.create import *
 from py2neo.cypher.delete import *
 from py2neo.cypher.error.core import *
