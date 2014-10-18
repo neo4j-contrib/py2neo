@@ -91,7 +91,7 @@ function build_doc {
     fi
     rm -rf $HOME/doc/_build
     make -C $HOME/doc html
-    xdg-open $HOME/doc/_build/html/index.html
+    xdg-open $HOME/doc/_build/html/index.html 2> /dev/null
 }
 
 function download {
