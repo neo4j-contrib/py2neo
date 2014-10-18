@@ -28,5 +28,5 @@ from py2neo.cypher.core import *
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
-           "Record", "RecordProducer", "TransactionFinished", "CypherWriter", "cypher_escape",
-           "cypher_repr", "CreateStatement", "DeleteStatement"]
+           "Record", "RecordProducer", "CypherWriter", "cypher_escape", "cypher_repr",
+           "CreateStatement", "DeleteStatement"]

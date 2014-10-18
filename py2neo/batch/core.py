@@ -21,7 +21,7 @@ import logging
 
 from py2neo.core import NodePointer, Service
 from py2neo.cypher import RecordList
-from py2neo.error.server import GraphError
+from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, ustr, raise_from

@@ -19,7 +19,7 @@
 from collections import OrderedDict
 import logging
 
-from py2neo.core import Service, Resource, Node, Rel, Relationship, Subgraph, Path
+from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
@@ -27,7 +27,7 @@ from py2neo.util import is_integer, is_string, xstr
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
-           "Record", "RecordProducer", "TransactionFinished"]
+           "Record", "RecordProducer"]
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -123,7 +123,7 @@ class CypherTransaction(object):
 
     def __assert_unfinished(self):
         if self.__finished:
-            raise TransactionFinished()
+            raise Finished(self)
 
     @property
     def _id(self):
@@ -393,14 +393,3 @@ class RecordProducer(object):
         """ Produce a record from a set of values.
         """
         return self.__type(values)
-
-
-class TransactionFinished(Exception):
-    """ Raised when actions are attempted against a finished Transaction.
-    """
-
-    def __init__(self):
-        pass
-
-    def __repr__(self):
-        return "Transaction finished"

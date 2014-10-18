@@ -19,7 +19,7 @@
 from importlib import import_module
 import json
 
-from py2neo.error.server import GraphError
+from py2neo.error import GraphError
 
 
 class CypherError(GraphError):

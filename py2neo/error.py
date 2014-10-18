@@ -16,32 +16,25 @@
 # limitations under the License.
 
 
-""" Server error hierarchy
-
-+ NeoError
-|
-+--- BadRequest (HTTP 400)
-|
-+--- NotFound (HTTP 404)
-|
-+--- Conflict (HTTP 409)
-|
-+--- BatchError (wraps other NeoError from batch submission)
-|
-+--- CypherError (returned by classic cypher calls)
-|
-+--- ClientError
-|
-+--- DatabaseError
-|
-+--- TransientError
+__all__ = ["BindError", "Finished", "GraphError", "JoinError"]
 
 
+class BindError(Exception):
+    """ Raised when a local graph entity is not or cannot be bound
+    to a remote graph entity.
+    """
 
-"""
 
+class Finished(Exception):
+    """ Raised when actions are attempted against a finished object
+    that is no longer available for use.
+    """
 
-__all__ = ["GraphError"]
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __repr__(self):
+        return "%s finished" % self.obj.__class__.__name__
 
 
 class GraphError(Exception):
@@ -72,3 +65,8 @@ class GraphError(Exception):
         Exception.__init__(self, *args)
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+
+class JoinError(Exception):
+    """ Raised when two graph entities cannot be joined together.
+    """

@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from py2neo.cypher.core import TransactionFinished
+from py2neo import Finished
 from py2neo.cypher.error.statement import InvalidSyntax
 
 
@@ -115,7 +115,7 @@ def test_cannot_append_after_transaction_finished(graph):
     tx.rollback()
     try:
         tx.execute("CREATE (a) RETURN a")
-    except TransactionFinished as err:
-        assert repr(err) == "Transaction finished"
+    except Finished as error:
+        assert error.obj is tx
     else:
         assert False

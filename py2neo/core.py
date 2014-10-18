@@ -49,8 +49,7 @@ from weakref import WeakValueDictionary
 import webbrowser
 
 from py2neo import __version__
-from py2neo.error.client import BindError, JoinError
-from py2neo.error.server import GraphError
+from py2neo.error import BindError, GraphError, JoinError
 from py2neo.packages.httpstream import http, Response, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
@@ -394,23 +393,27 @@ class ServiceRoot(object):
 
 
 class Graph(Service):
-    """ Top-level wrapper around a Neo4j database service identified by
-    URI. To connect to a local server on the default URI, simply use::
+    """ The `Graph` class provides a wrapper around the
+    `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
+    by a running Neo4j database server and is identified by the base URI
+    of the graph database. If no URI is specified, a default value of
+    `http://localhost:7474/db/data/` is assumed; therefore, to connect to a
+    local server with default configuration, simply use::
 
         >>> from py2neo import Graph
         >>> graph = Graph()
 
-    The server address can also be provided explicitly::
+    An explicitly specified graph database URI can be passed to the constructor
+    as a string::
 
         >>> other_graph = Graph("http://camelot:1138/db/data/")
 
-    If the database server is behind a proxy that requires HTTP
-    authorisation,
-    this can also be specified within the URI::
+    If the database server is behind a proxy that requires HTTP authorisation,
+    the relevant criteria can also be specified within the URI::
 
         >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
 
-    Once obtained, the Graph object provides direct or indirect access
+    Once obtained, the `Graph` instance provides direct or indirect access
     to most of the functionality available within py2neo.
 
     """
@@ -477,13 +480,11 @@ class Graph(Service):
 
     @property
     def batch(self):
-        """ Batch execution resource for this graph. This attribute will
-        generally not be used directly.
-
-        .. seealso::
-           :class:`py2neo.batch.BatchResource`
-           :class:`py2neo.batch.WriteBatch`
-
+        """ A :class:`py2neo.batch.BatchResource` instance attached to this
+        graph. This resource exposes methods for submitting iterable
+        collections of :class:`py2neo.batch.Job` objects to the server and
+        will often be used indirectly via classes such as
+        :class:`py2neo.batch.PullBatch` or :class:`py2neo.batch.PushBatch`.
         """
         if self.__batch is None:
             from py2neo.batch import BatchResource
@@ -492,15 +493,15 @@ class Graph(Service):
 
     @property
     def cypher(self):
-        """ Cypher execution resource for this graph (non-transactional).
+        """ The Cypher execution resource for this graph providing access to
+        all Cypher functionality for the underlying database, both simple
+        and transactional.
 
         ::
 
             >>> from py2neo import Graph
             >>> graph = Graph()
-            >>> results = graph.cypher.execute("MATCH (n:Person) RETURN n")
-            >>> next(results)
-            (n7890:Person {name:'Alice'})
+            >>> tx = graph.cypher.begin()
 
         .. seealso::
            :class:`py2neo.cypher.CypherResource`
