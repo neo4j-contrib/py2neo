@@ -14,7 +14,10 @@ Contents
    batch
    legacy
    server
-   cli
-
-
-**TODO**: ext packages
+   ext/box
+   ext/calendar
+   ext/distro
+   ext/geoff
+   ext/gremlin
+   ext/load
+   ext/ogm
