@@ -485,6 +485,9 @@ class Graph(Service):
         collections of :class:`py2neo.batch.Job` objects to the server and
         will often be used indirectly via classes such as
         :class:`py2neo.batch.PullBatch` or :class:`py2neo.batch.PushBatch`.
+
+        :rtype: :class:`py2neo.cypher.BatchResource`
+
         """
         if self.__batch is None:
             from py2neo.batch import BatchResource
@@ -501,10 +504,9 @@ class Graph(Service):
 
             >>> from py2neo import Graph
             >>> graph = Graph()
-            >>> tx = graph.cypher.begin()
+            >>> graph.cypher.execute("CREATE (a:Person {name:{N}})", {"N": "Alice"})
 
-        .. seealso::
-           :class:`py2neo.cypher.CypherResource`
+        :rtype: :class:`py2neo.cypher.CypherResource`
 
         """
         if self.__cypher is None:
@@ -514,8 +516,43 @@ class Graph(Service):
         return self.__cypher
 
     def create(self, *entities):
-        """ Create multiple nodes, relationships and/or paths in a
-        single transaction.
+        """ Create one or more remote nodes, relationships or paths in a
+        single transaction. The entity values provided must be either
+        existing entity objects (such as nodes or relationships) or values
+        that can be cast to them. For example::
+
+            >>> from py2neo import Graph, Node
+            >>> graph = Graph()
+            >>> # Construct a local node object with one label and one property
+            ... alice = Node("Person", name="Alice")
+            >>> alice
+            <Node labels={'Person'} properties={'name': 'Alice'}>
+            >>> alice.bound
+            False
+            >>> # Create a remote copy of the node and bind the local object to it
+            ... graph.create(alice)
+            (<Node graph='http://localhost:7474/db/data/' ref='node/1' labels={'Person'} properties={'name': 'Alice'}>,)
+            >>> alice.uri
+            URI('http://localhost:7474/db/data/node/1')
+            >>> # Create a second node and a relationship connecting both nodes. The zero
+            ... # value in the relationship tuple references the zeroth item created within
+            ... # that transaction, i.e. the "German" node
+            ... german, speaks = graph.create({"name": "German"}, (alice, "SPEAKS", 0))
+            >>> german
+            <Node graph='http://localhost:7474/db/data/' ref='node/2' labels=set() properties={'name': 'German'}>
+            >>> speaks
+            <Relationship graph='http://localhost:7474/db/data/' ref='relationship/23' start='node/1' end='node/2' type='SPEAKS' properties={}>
+
+        .. note::
+            If an object is passed to this method that is already bound to
+            a remote entity, that argument will be ignored and nothing will
+            be created.
+
+        :arg entities: One or more existing graph entities or values that
+                       can be cast to entities.
+        :return: A tuple of all entities created (or ignored) of the same
+                 length and order as the arguments passed in.
+        :rtype: tuple
 
         .. warning::
             This method will *always* return a tuple, even when creating
@@ -531,8 +568,10 @@ class Graph(Service):
         return statement.execute()
 
     def create_unique(self, *entities):
-        """ Create one or more unique paths or relationships in a
-        single transaction.
+        """ Create one or more unique paths or relationships in a single
+        transaction. This is similar to :meth:`create` but uses a Cypher
+        `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
+        clause to ensure that only relationships that do not already exist are created.
         """
         from py2neo.cypher.create import CreateStatement
         statement = CreateStatement(self)
