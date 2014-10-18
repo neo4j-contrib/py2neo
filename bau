@@ -89,6 +89,7 @@ function build_doc {
         echo "Ensuring doc dependencies are up to date"
         pip install --upgrade sphinx
     fi
+    rm -rf $HOME/doc/_build
     make -C $HOME/doc html
     xdg-open $HOME/doc/_build/html/index.html
 }
