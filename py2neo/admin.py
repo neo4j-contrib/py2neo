@@ -19,7 +19,7 @@
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo.core import Service, Resource, ServiceRoot
+from py2neo import Service, Resource, ServiceRoot
 from py2neo.util import numberise
 
 
