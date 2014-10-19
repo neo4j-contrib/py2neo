@@ -2,28 +2,9 @@
 Introduction to Py2neo
 ======================
 
-Py2neo is a comprehensive toolkit for working with Neo4j from within Python applications or from
-the command line. The library has no external dependencies and has been carefully designed to be
-easy and intuitive to use.
-
 In this introduction, you will see how to get connected to a Neo4j graph database and how to carry
 out basic operations. You will also be introduced to the core concepts needed when working with
 py2neo.
-
-
-Requirements
-============
-
-- Python 2.7, 3.3 or 3.4
-- Neo4j 1.8, 1.9, 2.0 or 2.1 (latest point release of each version is recommended)
-
-
-Installation
-============
-
-To install from GitHub, run::
-
-    $ pip install git+git://github.com/nigelsmall/py2neo.git@beta/2.0#egg=py2neo
 
 
 Getting Connected

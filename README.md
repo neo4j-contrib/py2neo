@@ -7,9 +7,25 @@ Py2neo is a comprehensive toolkit for working with Neo4j from within Python appl
 the command line. The library has no external dependencies and has been carefully designed to be
 easy and intuitive to use.
 
+
+Requirements
+------------
+
+- Python 2.7, 3.3 or 3.4
+- Neo4j 1.8, 1.9, 2.0 or 2.1 (latest point release of each version is recommended)
+
+
+Installation
+------------
+
+To install, run the following::
+
+    $ pip install git+git://github.com/nigelsmall/py2neo.git@beta/2.0#egg=py2neo
+
+
 For more information, read through the [full introduction](doc/intro.rst).
 
-To get in touch, contact me via [email](mailto:nigel@neotechnology.com) or on
+To get in touch, contact me via [email](mailto:nigel@nigelsmall.com) or on
 [Twitter](https://twitter.com/neonige).
 
 For the current stable release, check out the [release/1.6.4 branch](https://github.com/nigelsmall/py2neo/tree/release/1.6.4).
