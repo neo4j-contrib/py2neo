@@ -27,7 +27,7 @@ import webbrowser
 
 from py2neo import __version__
 from py2neo.error import BindError, GraphError, JoinError
-from py2neo.packages.httpstream import http, Response, ClientError, ServerError, \
+from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -38,7 +38,7 @@ from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tu
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
+           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "rewrite", "ServerPlugin", "UnmanagedExtension",
            "Service", "Resource", "ResourceTemplate"]
 
@@ -882,13 +882,14 @@ class Graph(Service):
 
     @property
     def schema(self):
-        """ The Schema resource for this graph.
+        """ The SchemaResource resource for this graph.
 
         .. seealso::
-            :py:func:`Schema <py2neo.neo4j.Schema>`
+            :py:func:`SchemaResource <py2neo.neo4j.SchemaResource>`
         """
         if self.__schema is None:
-            self.__schema = Schema(self.uri.string + "schema")
+            from py2neo.schema import SchemaResource
+            self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 
     @property
@@ -927,85 +928,6 @@ class Graph(Service):
         """ Indicates whether the server supports schema indexes.
         """
         return self.neo4j_version >= (2, 0)
-
-
-class Schema(Service):
-    """ The schema resource attached to a `Graph` instance.
-    """
-
-    __instances = {}
-
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(Schema, cls).__new__(cls)
-            inst.bind(uri)
-            if not inst.graph.supports_schema_indexes:
-                raise NotImplementedError("Schema index support requires version 2.0 or above")
-            inst._index_template = ResourceTemplate(uri + "/index/{label}")
-            inst._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
-            inst._uniqueness_constraint_template = \
-                ResourceTemplate(uri + "/constraint/{label}/uniqueness")
-            inst._uniqueness_constraint_key_template = \
-                ResourceTemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
-            cls.__instances[uri] = inst
-        return inst
-
-    def create_index(self, label, property_key):
-        """ Create a schema index for a label and property
-        key combination.
-        """
-        self._index_template.expand(label=label).post({"property_keys": [property_key]})
-
-    def create_uniqueness_constraint(self, label, property_key):
-        """ Create an uniqueness constraint for a label.
-        """
-        self._uniqueness_constraint_template.expand(label=label).post(
-            {"property_keys": [property_key]})
-
-    def drop_index(self, label, property_key):
-        """ Remove label index for a given property key.
-        """
-        try:
-            self._index_key_template.expand(label=label, property_key=property_key).delete()
-        except GraphError as error:
-            cause = error.__cause__
-            if isinstance(cause, Response):
-                if cause.status_code == NOT_FOUND:
-                    raise GraphError("No such schema index (label=%r, key=%r)" % (
-                        label, property_key))
-            raise
-
-    def drop_uniqueness_constraint(self, label, property_key):
-        """ Remove uniqueness constraint for a given property key.
-        """
-        try:
-            self._uniqueness_constraint_key_template.expand(
-                label=label, property_key=property_key).delete()
-        except GraphError as error:
-            cause = error.__cause__
-            if isinstance(cause, Response):
-                if cause.status_code == NOT_FOUND:
-                    raise GraphError("No such unique constraint (label=%r, key=%r)" % (
-                        label, property_key))
-            raise
-
-    def get_indexes(self, label):
-        """ Fetch a list of indexed property keys for a label.
-        """
-        return [
-            indexed["property_keys"][0]
-            for indexed in self._index_template.expand(label=label).get().content
-        ]
-
-    def get_uniqueness_constraints(self, label):
-        """ Fetch a list of unique constraints for a label.
-        """
-        return [
-            unique["property_keys"][0]
-            for unique in self._uniqueness_constraint_template.expand(label=label).get().content
-        ]
 
 
 class PropertySet(Service, dict):

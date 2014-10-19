@@ -12,7 +12,7 @@ Service Wrappers
 .. autoclass:: py2neo.Graph
    :members:
 
-.. autoclass:: py2neo.Schema
+.. autoclass:: py2neo.SchemaResource
    :members:
 
 .. autoclass:: py2neo.ServiceRoot
