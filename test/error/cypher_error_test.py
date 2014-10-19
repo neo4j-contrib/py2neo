@@ -1,6 +1,6 @@
 
 
-from py2neo.cypher import CypherError
+from py2neo.cypher import CypherError, CypherTransactionError
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 
@@ -11,6 +11,8 @@ def test_invalid_syntax_raises_cypher_error(graph):
     cypher = graph.cypher
     try:
         cypher.execute("X")
+    except CypherTransactionError as error:
+        assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
     except CypherError as error:
         assert_error(
             error, (CypherError, GraphError), "org.neo4j.cypher.SyntaxException",
@@ -24,6 +26,8 @@ def test_entity_not_found_raises_cypher_error(graph):
     cypher = graph.cypher
     try:
         cypher.execute("START n=node({N}) RETURN n", {"N": node_id})
+    except CypherTransactionError as error:
+        assert error.code == "Neo.ClientError.Statement.EntityNotFound"
     except CypherError as error:
         if graph.neo4j_version >= (1, 9):
             fullname = "org.neo4j.cypher.EntityNotFoundException"
@@ -44,6 +48,8 @@ def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher.execute("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
     try:
         cypher.execute("START a=node({A}), b=node({B}) CREATE UNIQUE (a)-[:KNOWS]->(b)", parameters)
+    except CypherTransactionError as error:
+        assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
     except CypherError as error:
         assert_error(
             error, (CypherError, GraphError), "org.neo4j.cypher.UniquePathNotUniqueException",

@@ -73,24 +73,44 @@ class CypherResource(Service):
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
-        self.post(statement, parameters).close()
+        if self.transaction_uri:
+            tx = CypherTransaction(self.transaction_uri)
+            tx.execute(statement, parameters)
+            tx.commit()
+        else:
+            self.post(statement, parameters).close()
 
     def execute(self, statement, parameters=None):
-        response = self.post(statement, parameters)
-        try:
-            return self.graph.hydrate(response.content)
-        finally:
-            response.close()
+        if self.transaction_uri:
+            tx = CypherTransaction(self.transaction_uri)
+            tx.execute(statement, parameters)
+            results = tx.commit()
+            return results[0]
+        else:
+            response = self.post(statement, parameters)
+            try:
+                return self.graph.hydrate(response.content)
+            finally:
+                response.close()
 
     def execute_one(self, statement, parameters=None):
-        response = self.post(statement, parameters)
-        results = self.graph.hydrate(response.content)
-        try:
-            return results[0][0]
-        except IndexError:
-            return None
-        finally:
-            response.close()
+        if self.transaction_uri:
+            tx = CypherTransaction(self.transaction_uri)
+            tx.execute(statement, parameters)
+            results = tx.commit()
+            try:
+                return results[0][0][0]
+            except IndexError:
+                return None
+        else:
+            response = self.post(statement, parameters)
+            results = self.graph.hydrate(response.content)
+            try:
+                return results[0][0]
+            except IndexError:
+                return None
+            finally:
+                response.close()
 
     def stream(self, statement, parameters=None):
         """ Execute the query and return a result iterator.
@@ -151,11 +171,18 @@ class CypherTransaction(object):
         :param statement: the statement to execute
         :param parameters: a dictionary of execution parameters
         """
+        # TODO: logging
         self.__assert_unfinished()
+        p = {}
+        if parameters:
+            for key, value in parameters.items():
+                if isinstance(value, (Node, Rel, Relationship)):
+                    value = value._id
+                p[key] = value
         # OrderedDict is used here to avoid statement/parameters ordering bug
         self.statements.append(OrderedDict([
             ("statement", statement),
-            ("parameters", dict(parameters or {})),
+            ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))
 

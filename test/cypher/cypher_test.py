@@ -21,7 +21,12 @@ from __future__ import unicode_literals
 import pytest
 
 from py2neo.core import Node, Relationship, Path
-from py2neo.cypher import CypherError
+from py2neo.cypher import CypherResource, CypherError, CypherTransactionError
+
+
+@pytest.fixture
+def vanilla_cypher(graph):
+    return CypherResource(graph.resource.metadata["cypher"])
 
 
 def alice_and_bob(graph):
@@ -36,12 +41,13 @@ def test_nonsense_query(graph):
     statement = "SELECT z=nude(0) RETURNS x"
     try:
         graph.cypher.execute(statement)
+    except CypherTransactionError as error:
+        assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
     except CypherError as error:
         assert error.exception == "SyntaxException"
         assert error.fullname in [None, "org.neo4j.cypher.SyntaxException"]
         assert error.statement == statement
         assert error.parameters is None
-        assert True
     else:
         assert False
 
@@ -51,8 +57,45 @@ def test_can_run(graph):
     assert True
 
 
+def test_can_run_through_vanilla_endpoint(vanilla_cypher):
+    vanilla_cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
+    assert True
+
+
 def test_can_execute(graph):
     results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+    assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_can_execute_with_parameter(graph):
+    results = graph.cypher.execute("CREATE (a {name:{N}}) RETURN a.name AS name", {"N": "Alice"})
+    assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_can_execute_with_entity_parameter(graph):
+    alice, = graph.create({"name": "Alice"})
+    results = graph.cypher.execute("START a=node({N}) RETURN a.name AS name", {"N": alice})
+    assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_can_execute_through_vanilla_endpoint(vanilla_cypher):
+    results = vanilla_cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+    assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_can_execute_through_vanilla_endpoint_with_parameter(vanilla_cypher):
+    results = vanilla_cypher.execute("CREATE (a {name:{N}}) RETURN a.name AS name", {"N": "Alice"})
+    assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_can_execute_through_vanilla_endpoint_with_entity_parameter(graph, vanilla_cypher):
+    alice, = graph.create({"name": "Alice"})
+    results = vanilla_cypher.execute("START a=node({N}) RETURN a.name AS name", {"N": alice})
     assert len(results) == 1
     assert results[0].name == "Alice"
 
@@ -62,11 +105,37 @@ def test_can_execute_one(graph):
     assert result == "Alice"
 
 
+def test_can_execute_one_where_none_returned(graph):
+    result = graph.cypher.execute_one("START a=node(*) "
+                                      "WHERE 2 + 2 = 5 "
+                                      "RETURN a.name AS name")
+    assert result is None
+
+
+def test_can_execute_one_through_vanilla_endpoint(vanilla_cypher):
+    result = vanilla_cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+    assert result == "Alice"
+
+
+def test_can_execute_one_through_vanilla_endpoint_where_none_returned(vanilla_cypher):
+    result = vanilla_cypher.execute_one("START a=node(*) "
+                                        "WHERE 2 + 2 = 5 "
+                                        "RETURN a.name AS name")
+    assert result is None
+
+
 def test_can_stream(graph):
     stream = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     results = list(stream)
     assert len(results) == 1
     assert results[0].name == "Alice"
+
+
+def test_can_convert_to_subgraph(graph):
+    results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    subgraph = results.to_subgraph()
+    assert subgraph.order == 2
+    assert subgraph.size == 1
 
 
 class TestCypher(object):

@@ -41,7 +41,10 @@ class CypherError(GraphError):
 class CypherTransactionError(CypherError):
     """ 
     """
-        
+
+    code = None
+    message = None
+
     @classmethod
     def hydrate(cls, data):
         code = data["code"]
