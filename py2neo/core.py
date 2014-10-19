@@ -15,29 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" Core objects and functionality for py2neo.
-
-authenticate - register authentication details for a host:port
-rewrite - register a rewrite hook for a scheme://host:port
-
-Resource - local representation of a remote web resource
-ResourceTemplate - template for Resource generation based on a pattern
-Service - base class for objects that can be bound to remote resources
-ServiceRoot - root resource for a Neo4j server instance
-Graph - main graph resource class to bind to a remote graph database service
-Schema - schema index and constraint management resource
-PropertySet - dict subclass that equates None and missing values for storing properties
-LabelSet - set subclass for storing labels
-PropertyContainer - base class for Node and Relationship classes
-Node - local graph node object that can be bound to a remote Neo4j node
-NodePointer - reference to a node object defined elsewhere
-Rel - forward relationship without start and end node information
-Rev - reverse relationship without start and end node information
-Path - local graph path object that represents a remote Neo4j path
-Relationship - local graph relationship object that can be bound to a remote Neo4j relationship
-
-"""
-
 
 from __future__ import division, unicode_literals
 
