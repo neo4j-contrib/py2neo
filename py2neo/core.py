@@ -287,6 +287,8 @@ class Resource(_Resource):
 
 
 class ResourceTemplate(_ResourceTemplate):
+    """ Neo4j-specific resource template.
+    """
 
     error_class = GraphError
 
@@ -951,6 +953,8 @@ class Graph(Service):
 
 
 class Schema(Service):
+    """ The schema resource attached to a `Graph` instance.
+    """
 
     __instances = {}
 
@@ -1597,6 +1601,8 @@ class Node(PropertyContainer):
 
 
 class NodePointer(object):
+    """ Pointer to a :class:`Node` object.
+    """
 
     def __init__(self, address):
         self.address = address
@@ -1857,6 +1863,8 @@ class Rel(PropertyContainer):
 
 
 class Rev(Rel):
+    """ A reversed :class:`Rel`.
+    """
 
     pair_class = Rel
 
@@ -2390,6 +2398,8 @@ class Relationship(Path):
 
 
 class Subgraph(object):
+    """ A collection of :class:`Node` and :class:`Relationship` objects.
+    """
 
     def __init__(self, *entities):
         self.__nodes = set()
@@ -2500,6 +2510,8 @@ class Subgraph(object):
 
 
 class ServerPlugin(object):
+    """ Base class for server plugins.
+    """
 
     def __init__(self, graph, name):
         self.graph = graph
@@ -2512,6 +2524,8 @@ class ServerPlugin(object):
 
 
 class UnmanagedExtension(object):
+    """ Base class for unmanaged extensions.
+    """
 
     def __init__(self, graph, path):
         self.graph = graph

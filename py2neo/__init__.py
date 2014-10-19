@@ -15,11 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-The `py2neo` top-level package contains the functions and classes that are used directly and
-ubiquitously across the whole library.
-"""
-
 
 __author__ = "Nigel Small <nigel@nigelsmall.com>"
 __copyright__ = "2011-2014, Nigel Small"
@@ -37,11 +32,10 @@ from py2neo.packages.httpstream.watch import watch
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "Schema", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "rewrite", "ServerPlugin", "UnmanagedExtension",
-           "Service", "Resource", "ResourceTemplate",
+           "authenticate", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError",
+           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",
            "LegacyNode", "node", "rel",
-           "watch",
 ]
 
 
