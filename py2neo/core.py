@@ -976,11 +976,12 @@ class Schema(Service):
         return inst
 
     def create_index(self, label, property_key):
-        """ Index a property key for a label.
+        """ Create a schema index for a label and property
+        key combination.
         """
         self._index_template.expand(label=label).post({"property_keys": [property_key]})
 
-    def create_unique_constraint(self, label, property_key):
+    def create_uniqueness_constraint(self, label, property_key):
         """ Create an uniqueness constraint for a label.
         """
         self._uniqueness_constraint_template.expand(label=label).post(
@@ -999,7 +1000,7 @@ class Schema(Service):
                         label, property_key))
             raise
 
-    def drop_unique_constraint(self, label, property_key):
+    def drop_uniqueness_constraint(self, label, property_key):
         """ Remove uniqueness constraint for a given property key.
         """
         try:
@@ -1021,7 +1022,7 @@ class Schema(Service):
             for indexed in self._index_template.expand(label=label).get().content
         ]
 
-    def get_unique_constraints(self, label):
+    def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
         return [

@@ -32,7 +32,7 @@ class GregorianCalendar(object):
             inst = super(GregorianCalendar, cls).__new__(cls)
             inst.graph = graph
             try:
-                inst.graph.schema.create_unique_constraint("Calendar", "name")
+                inst.graph.schema.create_uniqueness_constraint("Calendar", "name")
             except GraphError as error:
                 if error.__class__.__name__ == "ConstraintViolationException":
                     pass

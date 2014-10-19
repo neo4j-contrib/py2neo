@@ -43,8 +43,8 @@ def get_clean_database():
     graph = neo4j.Graph()
     if graph.supports_node_labels:
         for label in graph.node_labels:
-            for key in graph.schema.get_unique_constraints(label):
-                graph.schema.drop_unique_constraint(label, key)
+            for key in graph.schema.get_uniqueness_constraints(label):
+                graph.schema.drop_uniqueness_constraint(label, key)
             for key in graph.schema.get_indexes(label):
                 graph.schema.drop_index(label, key)
     return graph
@@ -98,8 +98,8 @@ def test_unique_constraint():
         return
     label_1 = uuid4().hex
     borough, = graph.create(Node(label_1, name="Taufkirchen"))
-    graph.schema.create_unique_constraint(label_1, "name")
-    constraints = graph.schema.get_unique_constraints(label_1)
+    graph.schema.create_uniqueness_constraint(label_1, "name")
+    constraints = graph.schema.get_uniqueness_constraints(label_1)
     assert "name" in constraints
     with pytest.raises(GraphError):
         graph.create(Node(label_1, name="Taufkirchen"))
@@ -113,10 +113,10 @@ def test_labels_constraints():
     label_1 = uuid4().hex
     a, b = graph_db.create(Node(label_1, name="Alice"), Node(label_1, name="Alice"))
     with pytest.raises(GraphError):
-        graph_db.schema.create_unique_constraint(label_1, "name")
+        graph_db.schema.create_uniqueness_constraint(label_1, "name")
     b.labels.remove(label_1)
     b.push()
-    graph_db.schema.create_unique_constraint(label_1, "name")
+    graph_db.schema.create_uniqueness_constraint(label_1, "name")
     a.labels.remove(label_1)
     a.push()
     b.labels.add(label_1)
@@ -130,9 +130,9 @@ def test_labels_constraints():
         assert False
     b.labels.remove(label_1)
     b.push()
-    graph_db.schema.drop_unique_constraint(label_1, "name")
+    graph_db.schema.drop_uniqueness_constraint(label_1, "name")
     with pytest.raises(GraphError):
-        graph_db.schema.drop_unique_constraint(label_1, "name")
+        graph_db.schema.drop_uniqueness_constraint(label_1, "name")
     graph_db.delete(a, b)
 
 
@@ -168,7 +168,7 @@ def test_drop_unique_constraint_handles_404_errors_correctly(graph):
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = NotFoundError
         try:
-            graph.schema.drop_unique_constraint("Person", "name")
+            graph.schema.drop_uniqueness_constraint("Person", "name")
         except GraphError:
             assert True
         else:
@@ -181,7 +181,7 @@ def test_drop_unique_constraint_handles_non_404_errors_correctly(graph):
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = DodgyClientError
         try:
-            graph.schema.drop_unique_constraint("Person", "name")
+            graph.schema.drop_uniqueness_constraint("Person", "name")
         except GraphError as error:
             assert isinstance(error.__cause__, DodgyClientError)
         else:
