@@ -83,14 +83,14 @@ function test {
     echo ""
 }
 
-function build_doc {
+function build_book {
     if [ "$ONLINE" ]
     then
-        echo "Ensuring doc dependencies are up to date"
+        echo "Ensuring book dependencies are up to date"
         pip install --upgrade sphinx
     fi
-    SPHINXOPTS="-E" make -C $HOME/doc html
-    xdg-open $HOME/doc/_build/html/index.html 2> /dev/null
+    SPHINXOPTS="-E" make -C $HOME/book html
+    xdg-open $HOME/book/_build/html/index.html 2> /dev/null
 }
 
 function download {
@@ -206,8 +206,8 @@ function neo4j {
 }
 
 case $COMMAND in
-    doc)
-        build_doc
+    book)
+        build_book
         ;;
     download)
         download $ARGS
