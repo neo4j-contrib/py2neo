@@ -10,42 +10,55 @@ Service Wrappers
 ================
 
 .. autoclass:: py2neo.Graph
+   :members:
 
 .. autoclass:: py2neo.Schema
+   :members:
 
 .. autoclass:: py2neo.ServiceRoot
+   :members:
 
 
 Entities
 ========
 
 .. autoclass:: py2neo.Node
+   :members:
 
 .. autoclass:: py2neo.Relationship
+   :members:
 
 .. autoclass:: py2neo.Rel
+   :members:
 
 .. autoclass:: py2neo.Rev
+   :members:
 
 .. autoclass:: py2neo.PropertyContainer
+   :members:
 
 .. autoclass:: py2neo.PropertySet
+   :members:
 
 .. autoclass:: py2neo.LabelSet
+   :members:
 
 
 Structures
 ==========
 
 .. autoclass:: py2neo.Path
+   :members:
 
 .. autoclass:: py2neo.Subgraph
+   :members:
 
 
 Helpers
 =======
 
 .. autoclass:: py2neo.NodePointer
+   :members:
 
 .. autofunction:: py2neo.authenticate
 
@@ -58,9 +71,13 @@ Exceptions
 ==========
 
 .. autoexception:: py2neo.BindError
+   :members:
 
 .. autoexception:: py2neo.Finished
+   :members:
 
 .. autoexception:: py2neo.GraphError
+   :members:
 
 .. autoexception:: py2neo.JoinError
+   :members:
