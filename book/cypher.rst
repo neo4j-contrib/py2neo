@@ -255,4 +255,11 @@ therefore be enclosed in double quotes. For the example above, the file would lo
 By default, statements will be executed against the server at ``http://localhost:7474/db/data/``.
 To change the database used, set the ``NEO4J_URI`` environment variable prior to execution.
 
-To specify an alternative output format... **TODO**
+As well as plain text, there are several other formats available for query output. The full list
+of formats is below.
+
+- Comma-separated values (``-c``, ``--csv``)
+- Geoff (``-g``, ``--geoff``)
+- Human-readable text (``-h``, ``--human``)
+- JSON (``-j``, ``--json``)
+- Tab-separated values (``-t``, ``--tsv``)
