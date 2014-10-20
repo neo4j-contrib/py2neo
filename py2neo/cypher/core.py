@@ -34,10 +34,16 @@ log = logging.getLogger("py2neo.cypher")
 
 
 class CypherResource(Service):
-    """ Wrapper for the standard Cypher endpoint, providing
-    non-transactional Cypher execution capabilities. Instances
-    of this class will generally be created by and accessed via
-    the associated Graph object::
+    """ Service wrapper for all Cypher functionality, providing access
+    to transactions (if available) as well as single statement execution
+    and streaming. If the server supports Cypher transactions, these
+    will be used for single statement execution; if not, the vanilla
+    Cypher endpoint will be used.
+
+    This class will usually be instantiated via a :class:`py2neo.Graph`
+    object and will be made available through the
+    :attr:`py2neo.Graph.cypher` attribute. Therefore, for single
+    statement execution, simply use the :func:`execute` method::
 
         from py2neo import Graph
         graph = Graph()
@@ -61,6 +67,13 @@ class CypherResource(Service):
         return inst
 
     def post(self, statement, parameters=None):
+        """ Post a Cypher statement to this resource, optionally with
+        parameters.
+
+        :param statement: A Cypher statement to execute.
+        :param parameters: A dictionary of parameters.
+        :rtype: :class:`httpstream.Response`
+        """
         log.info("Statement: %r", statement)
         payload = {"query": statement}
         if parameters:
@@ -73,6 +86,11 @@ class CypherResource(Service):
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
+        """ Execute a single Cypher statement, ignoring any return value.
+
+        :param statement: A Cypher statement to execute.
+        :param parameters: A dictionary of parameters.
+        """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
             tx.execute(statement, parameters)
@@ -81,6 +99,12 @@ class CypherResource(Service):
             self.post(statement, parameters).close()
 
     def execute(self, statement, parameters=None):
+        """ Execute a single Cypher statement.
+
+        :param statement: A Cypher statement to execute.
+        :param parameters: A dictionary of parameters.
+        :rtype: :class:`py2neo.cypher.RecordList`
+        """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
             tx.execute(statement, parameters)
@@ -94,6 +118,13 @@ class CypherResource(Service):
                 response.close()
 
     def execute_one(self, statement, parameters=None):
+        """ Execute a single Cypher statement and return the value from
+        the first column of the first record returned.
+
+        :param statement: A Cypher statement to execute.
+        :param parameters: A dictionary of parameters.
+        :return: Single return value or :const:`None`.
+        """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
             tx.execute(statement, parameters)
@@ -114,10 +145,18 @@ class CypherResource(Service):
 
     def stream(self, statement, parameters=None):
         """ Execute the query and return a result iterator.
+
+        :param statement: A Cypher statement to execute.
+        :param parameters: A dictionary of parameters.
+        :rtype: :class:`py2neo.cypher.RecordStream`
         """
         return RecordStream(self.graph, self.post(statement, parameters))
 
     def begin(self):
+        """ Begin a new transaction.
+
+        :rtype: :class:`py2neo.cypher.CypherTransaction`
+        """
         if self.transaction_uri:
             return CypherTransaction(self.transaction_uri)
         else:
