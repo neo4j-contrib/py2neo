@@ -54,7 +54,7 @@ class SchemaResource(Service):
         self._index_template.expand(label=label).post({"property_keys": [property_key]})
 
     def create_uniqueness_constraint(self, label, property_key):
-        """ Create an uniqueness constraint for a label.
+        """ Create a uniqueness constraint for a label.
         """
         self._uniqueness_constraint_template.expand(label=label).post(
             {"property_keys": [property_key]})
@@ -73,7 +73,7 @@ class SchemaResource(Service):
             raise
 
     def drop_uniqueness_constraint(self, label, property_key):
-        """ Remove uniqueness constraint for a given property key.
+        """ Remove the uniqueness constraint for a given property key.
         """
         try:
             self._uniqueness_constraint_key_template.expand(

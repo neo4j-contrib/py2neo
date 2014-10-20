@@ -28,11 +28,10 @@ from py2neo.core import *
 from py2neo.error import *
 from py2neo.legacy import LegacyNode
 from py2neo.packages.httpstream.watch import watch
-from py2neo.schema import *
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "SchemaResource", "PropertySet", "LabelSet", "PropertyContainer",
+           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError",
            "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",

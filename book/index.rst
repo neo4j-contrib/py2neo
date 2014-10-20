@@ -31,6 +31,7 @@ Contents
    intro
    core
    cypher
+   schema
    batch
    legacy
    server

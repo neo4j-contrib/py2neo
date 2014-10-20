@@ -882,10 +882,9 @@ class Graph(Service):
 
     @property
     def schema(self):
-        """ The SchemaResource resource for this graph.
+        """ The schema resource for this graph.
 
-        .. seealso::
-            :py:func:`SchemaResource <py2neo.neo4j.SchemaResource>`
+        :rtype: :class:`SchemaResource <py2neo.schema.SchemaResource>`
         """
         if self.__schema is None:
             from py2neo.schema import SchemaResource
