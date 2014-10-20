@@ -24,6 +24,11 @@ __all__ = ["GraphStore"]
 
 
 class GraphStore(object):
+    """ A physical database store on disk.
+    """
+
+    #: The full file path of this store.
+    path = None
 
     # TODO: instances
 
@@ -35,11 +40,21 @@ class GraphStore(object):
     def __init__(self, path):
         self.path = path
 
+    def __repr__(self):
+        return "<GraphStore path=%r>" % self.path
+
     @property
     def locked(self):
+        """ Returns :const:`True` if store is currently in use,
+        :const:`False` otherwise.
+        """
         return os.path.isfile(os.path.join(self.path, "lock"))
 
     def drop(self, force=False):
+        """ Delete this store directory.
+
+        :param force:
+        """
         if force or not self.locked:
             rmtree(self.path, ignore_errors=force)
         else:

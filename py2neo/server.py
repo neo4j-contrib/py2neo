@@ -37,6 +37,8 @@ number_in_brackets = re.compile("\[(\d+)\]")
 
 
 class GraphServerProcess(object):
+    """ A Neo4j server process.
+    """
 
     def __init__(self, server, service_root, **kwargs):
         self.server = server
@@ -53,6 +55,8 @@ class GraphServerProcess(object):
 
 
 class GraphServer(object):
+    """ Represents a Neo4j server installation on disk.
+    """
 
     # TODO: __instances
 
@@ -60,10 +64,12 @@ class GraphServer(object):
         self.home = home
 
     def __repr__(self):
-        return "GraphServer(%r)" % self.home
+        return "<GraphServer home=%r>" % self.home
 
     @property
     def script(self):
+        """ The file name of the control script for this server installation.
+        """
         return os.path.join(self.home, "bin", "neo4j")
 
     @property
@@ -71,6 +77,10 @@ class GraphServer(object):
         return GraphStore.for_server(self)
 
     def start(self):
+        """ Start the server.
+
+        :rtype: :class:`py2neo.server.GraphServerProcess`
+        """
         try:
             out = check_output("%s start" % self.script, shell=True)
         except CalledProcessError as error:
@@ -79,7 +89,8 @@ class GraphServer(object):
             elif error.returncode == 512:
                 raise OSError("Another server process is already running")
             else:
-                raise OSError("An error occurred while trying to start the server [%s]" % error.returncode)
+                raise OSError("An error occurred while trying to start "
+                              "the server [%s]" % error.returncode)
         else:
             uri = None
             kwargs = {}
@@ -97,17 +108,24 @@ class GraphServer(object):
             return GraphServerProcess(self, ServiceRoot(uri), **kwargs)
 
     def stop(self):
+        """ Stop the server.
+        """
         try:
             _ = check_output(("%s stop" % self.script), shell=True)
         except CalledProcessError as error:
-            raise OSError("An error occurred while trying to stop the server [%s]" % error.returncode)
+            raise OSError("An error occurred while trying to stop "
+                          "the server [%s]" % error.returncode)
 
     def restart(self):
+        """ Restart the server.
+        """
         self.stop()
         self.start()
 
     @property
     def pid(self):
+        """ The PID of the current executing process for this server,
+        """
         try:
             out = check_output(("%s status" % self.script), shell=True)
         except CalledProcessError as error:
@@ -124,12 +142,36 @@ class GraphServer(object):
             return p
 
     @property
-    def jvm_arguments(self):
-        pass  # info
-
-    @property
-    def jvm_classpath(self):
-        pass  # info
+    def info(self):
+        """ Dictionary of server information.
+        """
+        try:
+            out = check_output("%s info" % self.script, shell=True)
+        except CalledProcessError as error:
+            if error.returncode == 3:
+                return None
+            else:
+                raise OSError("An error occurred while trying to fetch "
+                              "server info [%s]" % error.returncode)
+        else:
+            data = {}
+            for line in out.decode("utf-8").splitlines(keepends=False):
+                try:
+                    colon = line.index(":")
+                except ValueError:
+                    pass
+                else:
+                    key = line[:colon]
+                    value = line[colon+1:].lstrip()
+                    if key.endswith("_PORT"):
+                        try:
+                            value = int(value)
+                        except ValueError:
+                            pass
+                    elif key == "CLASSPATH":
+                        value = value.split(":")
+                    data[key] = value
+            return data
 
     def update_server_properties(self, **properties):
         properties = {"org.neo4j.server." + key.replace("_", "."): value
@@ -140,3 +182,11 @@ class GraphServer(object):
                 if line.startswith(key + "="):
                     line = "%s=%s\n" % (key, value)
             sys.stdout.write(line)
+
+    @property
+    def service_root(self):
+        return ServiceRoot("http://localhost:%s" % self.info["NEO4J_SERVER_PORT"])
+
+    @property
+    def graph(self):
+        return self.service_root.graph
