@@ -498,29 +498,23 @@ class Graph(Service):
         """ Create one or more remote nodes, relationships or paths in a
         single transaction. The entity values provided must be either
         existing entity objects (such as nodes or relationships) or values
-        that can be cast to them. For example::
+        that can be cast to them.
 
-            >>> from py2neo import Graph, Node
-            >>> graph = Graph()
-            >>> # Construct a local node object with one label and one property
-            ... alice = Node("Person", name="Alice")
-            >>> alice
-            <Node labels={'Person'} properties={'name': 'Alice'}>
-            >>> alice.bound
-            False
-            >>> # Create a remote copy of the node and bind the local object to it
-            ... graph.create(alice)
-            (<Node graph='http://localhost:7474/db/data/' ref='node/1' labels={'Person'} properties={'name': 'Alice'}>,)
-            >>> alice.uri
-            URI('http://localhost:7474/db/data/node/1')
-            >>> # Create a second node and a relationship connecting both nodes. The zero
-            ... # value in the relationship tuple references the zeroth item created within
-            ... # that transaction, i.e. the "German" node
-            ... german, speaks = graph.create({"name": "German"}, (alice, "SPEAKS", 0))
-            >>> german
-            <Node graph='http://localhost:7474/db/data/' ref='node/2' labels=set() properties={'name': 'German'}>
-            >>> speaks
-            <Relationship graph='http://localhost:7474/db/data/' ref='relationship/23' start='node/1' end='node/2' type='SPEAKS' properties={}>
+        For example, to create a remote node from a local :class:`Node` object::
+
+            from py2neo import Graph, Node
+            graph = Graph()
+            alice = Node("Person", name="Alice")
+            graph.create(alice)
+
+        Then, create a second node and a relationship connecting both nodes::
+
+            german, speaks = graph.create({"name": "German"}, (alice, "SPEAKS", 0))
+
+        This second example shows how :class:`dict` and :class:`tuple` objects
+        can also be used to create nodes and relationships respectively. The
+        zero value in the relationship tuple references the zeroth item created
+        within that transaction, i.e. the "German" node.
 
         .. note::
             If an object is passed to this method that is already bound to
@@ -602,7 +596,8 @@ class Graph(Service):
 
     def hydrate(self, data):
         """ Hydrate a dictionary of data into a Node, Relationship or other
-        graph object.
+        graph object. The dictionary formats expected are those produced
+        by the REST API representations.
         """
         if isinstance(data, dict):
             if "self" in data:
@@ -647,6 +642,8 @@ class Graph(Service):
     @property
     def legacy(self):
         """ Sub-resource providing access to legacy functionality.
+
+        :rtype: :class:`py2neo.legacy.LegacyResource`
         """
         if self.__legacy is None:
             from py2neo.legacy import LegacyResource
@@ -656,46 +653,18 @@ class Graph(Service):
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Iterate through all relationships matching specified criteria.
 
-        Examples are as follows::
+        For example, to find all of Alice's friends::
 
-            # all relationships from the graph database
-            # ()-[r]-()
-            rels = list(graph.match())
+            for rel in graph.match(start_node=alice, rel_type="FRIEND"):
+                print(rel.end_node.properties["name"])
 
-            # all relationships outgoing from `alice`
-            # (alice)-[r]->()
-            rels = list(graph.match(start_node=alice))
-
-            # all relationships incoming to `alice`
-            # ()-[r]->(alice)
-            rels = list(graph.match(end_node=alice))
-
-            # all relationships attached to `alice`, regardless of direction
-            # (alice)-[r]-()
-            rels = list(graph.match(start_node=alice, bidirectional=True))
-
-            # all relationships from `alice` to `bob`
-            # (alice)-[r]->(bob)
-            rels = list(graph.match(start_node=alice, end_node=bob))
-
-            # all relationships outgoing from `alice` of type "FRIEND"
-            # (alice)-[r:FRIEND]->()
-            rels = list(graph.match(start_node=alice, rel_type="FRIEND"))
-
-            # up to three relationships outgoing from `alice` of type "FRIEND"
-            # (alice)-[r:FRIEND]->()
-            rels = list(graph.match(start_node=alice, rel_type="FRIEND", limit=3))
-
-        :param start_node: concrete start :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param rel_type: type of relationships to match or :py:const:`None` if
-            any
-        :param end_node: concrete end :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param bidirectional: :py:const:`True` if reversed relationships should
-            also be included
-        :param limit: maximum number of relationships to match or
-            :py:const:`None` if no limit
+        :param start_node: :attr:`~py2neo.Node.bound` start :class:`~py2neo.Node` to match or
+                           :const:`None` if any
+        :param rel_type: type of relationships to match or :const:`None` if any
+        :param end_node: :attr:`~py2neo.Node.bound` end :class:`~py2neo.Node` to match or
+                         :const:`None` if any
+        :param bidirectional: :const:`True` if reversed relationships should also be included
+        :param limit: maximum number of relationships to match or :const:`None` if no limit
         :return: matching relationships
         :rtype: generator
         """
@@ -745,18 +714,16 @@ class Graph(Service):
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Fetch a single relationship matching specified criteria.
 
-        :param start_node: concrete start :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param rel_type: type of relationships to match or :py:const:`None` if
-            any
-        :param end_node: concrete end :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param bidirectional: :py:const:`True` if reversed relationships should
-            also be included
-        :return: a matching :py:class:`Relationship` or :py:const:`None`
+        :param start_node: :attr:`~py2neo.Node.bound` start :class:`~py2neo.Node` to match or
+                           :const:`None` if any
+        :param rel_type: type of relationships to match or :const:`None` if any
+        :param end_node: :attr:`~py2neo.Node.bound` end :class:`~py2neo.Node` to match or
+                         :const:`None` if any
+        :param bidirectional: :const:`True` if reversed relationships should also be included
+        :return: a matching :class:`Relationship` or :const:`None`
 
         .. seealso::
-           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
+           :func:`~py2neo.Graph.match`
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
