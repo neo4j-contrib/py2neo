@@ -83,7 +83,7 @@ class LegacyWriteBatch(WriteBatch):
         elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            uri = resource.relative_uri.string
+            uri = resource.ref
         if segments:
             if not uri.endswith("/"):
                 uri += "/"

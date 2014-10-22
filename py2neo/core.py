@@ -86,11 +86,13 @@ def authenticate(host_port, user_name, password):
     """ Set HTTP basic authentication values for specified `host_port`. The
     code below shows a simple example::
 
+        from py2neo import authenticate, Graph
+
         # set up authentication parameters
-        neo4j.authenticate("camelot:7474", "arthur", "excalibur")
+        authenticate("camelot:7474", "arthur", "excalibur")
 
         # connect to authenticated graph database
-        graph = neo4j.Graph("http://camelot:7474/db/data/")
+        graph = Graph("http://camelot:7474/db/data/")
 
     Note: a `host_port` can be either a server name or a server name and port
     number but must match exactly that used within the Graph
@@ -113,9 +115,10 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
 
     As an example::
 
+        from py2neo import rewrite
         # implicitly convert all URIs beginning with <http://localhost:7474>
         # to instead use <https://dbserver:9999>
-        neo4j.rewrite(("http", "localhost", 7474), ("https", "dbserver", 9999))
+        rewrite(("http", "localhost", 7474), ("https", "dbserver", 9999))
 
     If `to_scheme_host_port` is :py:const:`None` then any rewrite rule for
     `from_scheme_host_port` is removed.
@@ -167,18 +170,26 @@ class Resource(_Resource):
             self.__service_root = self
         else:
             self.__service_root = ServiceRoot(service_root_uri)
-        self.__relative_uri = NotImplemented
+        self.__ref = NotImplemented
 
     @property
     def graph(self):
+        """ The graph to which this resource belongs.
+
+        :rtype: :class:`.Graph`
+        """
         return self.__service_root.graph
 
     @property
     def headers(self):
+        """ The HTTP headers sent with this resource.
+        """
         return self.__headers
 
     @property
     def metadata(self):
+        """ Metadata received in last HTTP response.
+        """
         if self.__last_get_response is None:
             if self.__initial_metadata is not None:
                 return self.__initial_metadata
@@ -186,15 +197,22 @@ class Resource(_Resource):
         return self.__last_get_response.content
 
     @property
-    def relative_uri(self):
-        if self.__relative_uri is NotImplemented:
+    def ref(self):
+        """ The URI of this resource relative to the base graph URI,
+        returned as a string value.
+        """
+        if self.__ref is NotImplemented:
             self_uri = self.uri.string
             graph_uri = self.graph.uri.string
-            self.__relative_uri = URI(self_uri[len(graph_uri):])
-        return self.__relative_uri
+            self.__ref = self_uri[len(graph_uri):]
+        return self.__ref
 
     @property
     def service_root(self):
+        """ The service root ancestor resource of this resource.
+
+        :rtype: :class:`.ServiceRoot`
+        """
         return self.__service_root
 
     def get(self, headers=None, redirect_limit=5, **kwargs):
@@ -302,11 +320,18 @@ class Service(object):
 
     @property
     def graph(self):
+        """ The graph associated with this service.
+
+        :rtype: :class:`.Graph`
+        """
         return self.service_root.graph
 
     @property
-    def relative_uri(self):
-        return self.resource.relative_uri
+    def ref(self):
+        """ The URI of this resource relative to the graph URI,
+        returned as a string.
+        """
+        return self.resource.ref
 
     @property
     def resource(self):
@@ -319,13 +344,21 @@ class Service(object):
 
     @property
     def service_root(self):
+        """ The service root associated with this service.
+
+        :rtype: :class:`.ServiceRoot`
+        """
         return self.resource.service_root
 
     def unbind(self):
+        """ Detach this object from any remote counterpart.
+        """
         self.__resource__ = None
 
     @property
     def uri(self):
+        """ The full URI of this resource.
+        """
         if isinstance(self.resource, ResourceTemplate):
             return self.resource.uri_template
         else:
@@ -358,12 +391,20 @@ class ServiceRoot(object):
 
     @property
     def graph(self):
+        """ The graph resource exposed by this service.
+
+        :rtype: :class:`py2neo.Graph`
+        """
         if self.__graph is None:
             self.__graph = Graph(self.resource.metadata["data"])
         return self.__graph
 
     @property
     def resource(self):
+        """ The underlying resource object for this instance.
+
+        :rtype: :class:`py2neo.Resource`
+        """
         return self.__resource
 
     @property
@@ -1109,7 +1150,7 @@ class Node(PropertyContainer):
     :attr:`.labels` and :attr:`.properties` attributes respectively.
     The *labels* attribute is an instance of :class:`.LabelSet` which
     extends the built-in *set* class. Similarly, *properties* is an instance of
-    :class:`py2neo.PropertySet` which extends *dict*.
+    :class:`.PropertySet` which extends *dict*.
 
         >>> alice.properties["name"]
         'Alice'
@@ -1118,41 +1159,11 @@ class Node(PropertyContainer):
         >>> alice.labels.add("Employee")
         >>> alice.properties["employee_no"] = 3456
         >>> alice
-        (:Employee:Person {employee_no:3456,name:"Alice"})
+        <Node labels={'Employee', 'Person'} properties={'employee_no': 3456, 'name': 'Alice'}>
 
-    One of the core differences between a *PropertySet* and a standard dictionary is in how it handles
-    :const:`None` and missing values. As with Neo4j server nodes, missing values are treated as
-    equivalent to:const:`None` and vice versa.
-
-    To bind a new Node instance to a server node, use the :func:`py2neo.Graph.create` method::
-
-        >>> graph.create(alice, bob, {"name": "Carol", "employee_no": 9998})
-        ((n234:Employee:Person {employee_no:3456,name:"Alice"}),
-         (n235 {age:44,name:"Bob Robertson"}),
-         (n236 {employee_no:9998,name:"Carol"}))
-
-    The *create* method returns Node instances for each argument supplied. When the argument is itself
-    a Node, that same instance is bound and returned; in other cases, a new Node is created.
-
-    In older versions of py2neo, Node properties would be automatically synchronised when modified.
-    In some cases, this behaviour could lead to performance degradation through an excess of network
-    traffic. Py2neo 2.0 allows explicit control over this synchronisation (at the expense of a few
-    extra lines of code) by using the **push** and **pull** methods:
-
-    .. code-block:: python
-       :emphasize-lines: 6-7
-
-       >>> from py2neo import watch
-       >>> watch("httpstream")
-       >>> bob.labels.add("Employee")
-       >>> bob.properties["employee_no"] = 42
-       >>> bob.push()
-       POST http://localhost:7474/db/data/batch [181]
-       200 OK [127]
-
-    The **watch** function shown above can be used to monitor HTTP traffic between py2neo and the Neo4j
-    server. It adds a logging handler that dumps log records to standard output and - in this case -
-    shows that only one HTTP request is made to update both the label and the property.
+    One of the core differences between a *PropertySet* and a standard dictionary is in how it
+    handles :const:`None` and missing values. As with Neo4j server nodes, missing values are
+    treated as equivalent to:const:`None` and vice versa.
     """
 
     cache = WeakValueDictionary()
@@ -1256,8 +1267,6 @@ class Node(PropertyContainer):
 
     @classmethod
     def join(cls, n, m):
-        """ Attempt to coalesce two equivalent nodes into a single node.
-        """
         if not cls.__joinable(n) or not cls.__joinable(m):
             raise TypeError("Can only join Node, NodePointer, Job or None")
         if n is None:
@@ -2199,17 +2208,17 @@ class Relationship(Path):
         self.rel.push()
 
     @property
-    def rel(self):
-        """ The :class:`py2neo.Rel` object within this relationship.
-        """
-        return self.rels[0]
-
-    @property
-    def relative_uri(self):
-        """ The URI of this relationship, relative to the graph
+    def ref(self):
+        """ The URI of this relationship relative to the graph
         database root, if bound.
         """
-        return self.rel.relative_uri
+        return self.rel.ref
+
+    @property
+    def rel(self):
+        """ The :class:`.Rel` object within this relationship.
+        """
+        return self.rels[0]
 
     @property
     def resource(self):

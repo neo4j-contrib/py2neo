@@ -29,12 +29,13 @@ Contents
    :maxdepth: 2
 
    intro
-   core
+   essentials
    cypher
    schema
    batch
    legacy
    server
+   behind
    ext/box
    ext/calendar
    ext/distro

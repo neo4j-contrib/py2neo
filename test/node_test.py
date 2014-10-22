@@ -212,14 +212,14 @@ class TestConcreteNode(object):
 
     def test_relative_uri_of_bound_node(self):
         node, = self.graph.create({})
-        relative_uri_string = node.relative_uri.string
+        relative_uri_string = node.ref
         assert node.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
 
     def test_relative_uri_of_unbound_node(self):
         node = Node()
         try:
-            _ = node.relative_uri
+            _ = node.ref
         except BindError:
             assert True
         else:

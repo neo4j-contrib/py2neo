@@ -136,7 +136,7 @@ class Target(object):
             uri_string = "{{{0}}}".format(self.entity.address)
         else:
             try:
-                uri_string = self.entity.relative_uri.string
+                uri_string = self.entity.ref
             except AttributeError:
                 uri_string = ustr(self.entity)
         if self.offsets:
