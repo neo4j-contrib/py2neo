@@ -1148,7 +1148,9 @@ class PropertyContainer(Service):
 
     @property
     def properties(self):
-        """ The set of properties attached to this entity.
+        """ The set of properties attached to this entity. Properties
+        can also be read from and written to any :class:`PropertyContainer`
+        by using the index syntax directly.
         """
         return self.__properties
 
@@ -1488,7 +1490,14 @@ class Node(PropertyContainer):
 
     @property
     def properties(self):
-        """ The set of properties attached to this Node.
+        """ The set of properties attached to this node. Properties
+        can also be read from and written to any :class:`Node`
+        by using the index syntax directly. This means
+        the following statements are equivalent::
+
+            node.properties["name"] = "Alice"
+            node["name"] = "Alice"
+
         """
         if self.bound and "properties" in self.__stale:
             self.refresh()
@@ -1749,7 +1758,14 @@ class Rel(PropertyContainer):
 
     @property
     def properties(self):
-        """ The set of properties attached to this relationship.
+        """ The set of properties attached to this relationship. Properties
+        can also be read from and written to any :class:`Rel`
+        by using the index syntax directly. This means
+        the following statements are equivalent::
+
+            rel.properties["since"] = 1999
+            rel["since"] = 1999
+
         """
         if self.bound and "properties" in self.__stale:
             self.refresh()
@@ -2301,6 +2317,15 @@ class Relationship(Path):
 
     @property
     def properties(self):
+        """ The set of properties attached to this relationship. Properties
+        can also be read from and written to any :class:`Rel`
+        by using the index syntax directly. This means
+        the following statements are equivalent::
+
+            relationship.properties["since"] = 1999
+            relationship["since"] = 1999
+
+        """
         return self.rel.properties
 
     def pull(self):
