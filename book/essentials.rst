@@ -11,7 +11,7 @@ Graph
 
 .. autoclass:: py2neo.Graph
    :members:
-   :undoc-members:
+   :inherited-members:
 
 
 Entities
@@ -19,12 +19,10 @@ Entities
 
 .. autoclass:: py2neo.Node
    :members:
-   :undoc-members:
    :inherited-members:
 
 .. autoclass:: py2neo.Relationship
    :members:
-   :undoc-members:
    :inherited-members:
 
 
@@ -33,12 +31,10 @@ Structures
 
 .. autoclass:: py2neo.Path
    :members:
-   :undoc-members:
    :inherited-members:
 
 .. autoclass:: py2neo.Subgraph
    :members:
-   :undoc-members:
    :inherited-members:
 
 

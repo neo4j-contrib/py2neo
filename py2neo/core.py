@@ -174,7 +174,7 @@ class Resource(_Resource):
 
     @property
     def graph(self):
-        """ The graph to which this resource belongs.
+        """ The parent graph of this resource.
 
         :rtype: :class:`.Graph`
         """
@@ -198,8 +198,9 @@ class Resource(_Resource):
 
     @property
     def ref(self):
-        """ The URI of this resource relative to the base graph URI,
-        returned as a string value.
+        """ The URI of this resource relative to its graph.
+
+        :rtype: str
         """
         if self.__ref is NotImplemented:
             self_uri = self.uri.string
@@ -209,9 +210,9 @@ class Resource(_Resource):
 
     @property
     def service_root(self):
-        """ The service root ancestor resource of this resource.
+        """ The root service associated with this resource.
 
-        :rtype: :class:`.ServiceRoot`
+        :return: :class:`.ServiceRoot`
         """
         return self.__service_root
 
@@ -314,13 +315,14 @@ class Service(object):
 
     @property
     def bound(self):
-        """ Returns :const:`True` if bound to a remote resource.
+        """ :const:`True` if this entity is bound to a remote counterpart,
+        :const:`False` otherwise.
         """
         return self.__resource__ is not None
 
     @property
     def graph(self):
-        """ The graph associated with this service.
+        """ The graph associated with this entity.
 
         :rtype: :class:`.Graph`
         """
@@ -328,8 +330,9 @@ class Service(object):
 
     @property
     def ref(self):
-        """ The URI of this resource relative to the graph URI,
-        returned as a string.
+        """ The URI of this entity relative to its graph.
+
+        :rtype: str
         """
         return self.resource.ref
 
@@ -344,14 +347,14 @@ class Service(object):
 
     @property
     def service_root(self):
-        """ The service root associated with this service.
+        """ The root service associated with this entity.
 
-        :rtype: :class:`.ServiceRoot`
+        :return: :class:`.ServiceRoot`
         """
         return self.resource.service_root
 
     def unbind(self):
-        """ Detach this object from any remote counterpart.
+        """ Detach this entity from any remote counterpart.
         """
         self.__resource__ = None
 
@@ -391,9 +394,9 @@ class ServiceRoot(object):
 
     @property
     def graph(self):
-        """ The graph resource exposed by this service.
+        """ The graph exposed by this service.
 
-        :rtype: :class:`py2neo.Graph`
+        :rtype: :class:`.Graph`
         """
         if self.__graph is None:
             self.__graph = Graph(self.resource.metadata["data"])
@@ -845,8 +848,7 @@ class Graph(Service):
         return self.cypher.execute_one("START n=node(*) RETURN count(n)")
 
     def pull(self, *entities):
-        """ Update one or more local entities by pulling data from
-        their remote counterparts.
+        """ Pull data to one or more entities from their remote counterparts.
         """
         if entities:
             from py2neo.batch.pull import PullBatch
@@ -856,8 +858,7 @@ class Graph(Service):
             batch.pull()
 
     def push(self, *entities):
-        """ Update one or more remote entities by pushing data from
-        their local counterparts.
+        """ Push data from one or more entities to their remote counterparts.
         """
         if entities:
             from py2neo.batch.push import PushBatch
@@ -1096,19 +1097,25 @@ class PropertyContainer(Service):
 
     @property
     def properties(self):
-        """ The set of properties attached to this object.
+        """ The set of properties attached to this entity.
         """
         return self.__properties
 
     def pull(self):
+        """ Pull data to this entity from its remote counterpart.
+        """
         self.resource.get()
         properties = self.resource.metadata["data"]
         self.__properties.replace(properties or {})
 
     def push(self):
+        """ Push data from this entity to its remote counterpart.
+        """
         self.__properties.push()
 
     def unbind(self):
+        """ Detach this entity from any remote counterpart.
+        """
         Service.unbind(self)
         self.__properties.unbind()
 
@@ -1170,40 +1177,25 @@ class Node(PropertyContainer):
 
     @staticmethod
     def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :py:class:`neo4j.Node`. The
-        following general combinations are possible:
+        """ Cast the arguments provided to a :class:`.Node`. The
+        following combinations of arguments are possible::
 
-        >>> Node.cast(None)
-        >>> Node.cast()
-        ()
-        >>> Node.cast("Person")
-        (:Person)
-        >>> Node.cast(name="Alice")
-        ({name:"Alice"})
-        >>> Node.cast("Person", name="Alice")
-        (:Person {name:"Alice"})
-
-
-        - ``node()``
-        - ``node(node_instance)``
-        - ``node(property_dict)``
-        - ``node(**properties)``
-        - ``node(int)`` -> NodePointer(int)
-        - ``node(None)`` -> None
-
-        If :py:const:`None` is passed as the only argument, :py:const:`None` is
-        returned instead of a ``Node`` instance.
-
-        Examples::
-
-            node()
-            node(Node("http://localhost:7474/db/data/node/1"))
-            node({"name": "Alice"})
-            node(name="Alice")
-
-        Other representations::
-
-            {"name": "Alice"}
+            >>> Node.cast(None)
+            >>> Node.cast()
+            <Node labels=set() properties={}>
+            >>> Node.cast("Person")
+            <Node labels={'Person'} properties={}>
+            >>> Node.cast(name="Alice")
+            <Node labels=set() properties={'name': 'Alice'}>
+            >>> Node.cast("Person", name="Alice")
+            <Node labels={'Person'} properties={'name': 'Alice'}>
+            >>> Node.cast(123)
+            <NodePointer address=123>
+            >>> Node.cast({"name": "Alice"})
+            <Node labels=set() properties={'name': 'Alice'}>
+            >>> node = Node("Person", name="Alice")
+            >>> Node.cast(node)
+            <Node labels={'Person'} properties={'name': 'Alice'}>
 
         """
         if len(args) == 1 and not kwargs:
@@ -1267,6 +1259,7 @@ class Node(PropertyContainer):
 
     @classmethod
     def join(cls, n, m):
+        # Attempt to join two nodes together as single node.
         if not cls.__joinable(n) or not cls.__joinable(m):
             raise TypeError("Can only join Node, NodePointer, Job or None")
         if n is None:
@@ -1338,14 +1331,16 @@ class Node(PropertyContainer):
 
     @property
     def _id(self):
-        """ Return the internal ID for this entity.
-
-        :return: integer ID of this entity within the database.
+        """ The internal ID of this node within the database.
         """
         return int(self.uri.path.segments[-1])
 
     @property
     def ref(self):
+        """ The URI of this node relative to its graph.
+
+        :rtype: str
+        """
         return "node/%s" % self._id
 
     def bind(self, uri, metadata=None):
@@ -1364,7 +1359,8 @@ class Node(PropertyContainer):
 
     @property
     def exists(self):
-        """ Detects whether this Node still exists in the database.
+        """ :const:`True` if this node exists in the database,
+        :const:`False` otherwise.
         """
         try:
             self.resource.get()
@@ -1447,11 +1443,15 @@ class Node(PropertyContainer):
         return super(Node, self).properties
 
     def pull(self):
+        """ Pull data to this node from its remote counterpart.
+        """
         super(Node, self).properties.clear()
         self.__labels.clear()
         self.refresh()
 
     def push(self):
+        """ Push data from this node to its remote counterpart.
+        """
         from py2neo.batch.push import PushBatch
         batch = PushBatch(self.graph)
         batch.append(self)
@@ -1467,6 +1467,8 @@ class Node(PropertyContainer):
         Node.hydrate(dehydrated, self)
 
     def unbind(self):
+        """ Detach this node from any remote counterpart.
+        """
         try:
             del self.cache[self.uri]
         except KeyError:
@@ -1511,21 +1513,27 @@ class Rel(PropertyContainer):
 
     @staticmethod
     def cast(*args, **kwargs):
-        """ Cast the arguments provided to a Rel object.
+        """ Cast the arguments provided to a :class:`.Rel`. The
+        following combinations of arguments are possible::
 
-        >>> Rel.cast('KNOWS')
-        -[:KNOWS]->
-        >>> Rel.cast(('KNOWS',))
-        -[:KNOWS]->
-        >>> Rel.cast('KNOWS', {'since': 1999})
-        -[:KNOWS {since:1999}]->
-        >>> Rel.cast(('KNOWS', {'since': 1999}))
-        -[:KNOWS {since:1999}]->
-        >>> Rel.cast('KNOWS', since=1999)
-        -[:KNOWS {since:1999}]->
+            >>> Rel.cast(None)
+            >>> Rel.cast()
+            <Rel type=None properties={}>
+            >>> Rel.cast("KNOWS")
+            <Rel type='KNOWS' properties={}>
+            >>> Rel.cast("KNOWS", since=1999)
+            <Rel type='KNOWS' properties={'since': 1999}>
+            >>> Rel.cast("KNOWS", {"since": 1999})
+            <Rel type='KNOWS' properties={'since': 1999}>
+            >>> Rel.cast(("KNOWS",))
+            <Rel type='KNOWS' properties={}>
+            >>> Rel.cast(("KNOWS", {"since": 1999}))
+            <Rel type='KNOWS' properties={'since': 1999}>
+            >>> rel = Rel("KNOWS", since=1999)
+            >>> Rel.cast(rel)
+            <Rel type='KNOWS' properties={'since': 1999}>
 
         """
-
         if len(args) == 1 and not kwargs:
             from py2neo.batch import Job
             arg = args[0]
@@ -1649,14 +1657,16 @@ class Rel(PropertyContainer):
 
     @property
     def _id(self):
-        """ Return the internal ID for this Rel.
-
-        :return: integer ID of this entity within the database.
+        """ The internal ID of this relationship within the database.
         """
         return int(self.uri.path.segments[-1])
 
     @property
     def ref(self):
+        """ The URI of this relationship relative to its graph.
+
+        :rtype: str
+        """
         return "relationship/%s" % self._id
 
     def bind(self, uri, metadata=None):
@@ -1672,7 +1682,8 @@ class Rel(PropertyContainer):
 
     @property
     def exists(self):
-        """ Detects whether this Rel still exists in the database.
+        """ :const:`True` if this rel exists in the database,
+        :const:`False` otherwise.
         """
         try:
             self.resource.get()
@@ -1686,19 +1697,20 @@ class Rel(PropertyContainer):
 
     @property
     def properties(self):
-        """ The set of properties attached to this Rel.
+        """ The set of properties attached to this relationship.
         """
         if self.bound and "properties" in self.__stale:
             self.refresh()
         return super(Rel, self).properties
 
     def pull(self):
+        """ Pull data to this relationship from its remote counterpart.
+        """
         super(Rel, self).properties.clear()
         self.refresh()
 
     def refresh(self):
-        """ Non-destructive pull.
-        """
+        # Non-destructive pull.
         super(Rel, self).pull()
         pulled_type = self.resource.metadata["type"]
         self.__type = pulled_type
@@ -1709,12 +1721,16 @@ class Rel(PropertyContainer):
 
     @property
     def type(self):
+        """ The type of this relationship.
+        """
         if self.bound and self.__type is None:
             self.pull()
         return self.__type
 
     @type.setter
     def type(self, name):
+        """ Set the type of this relationship (only possible if not bound).
+        """
         if self.bound:
             raise AttributeError("The type of a bound Rel is immutable")
         self.__type = name
@@ -1723,6 +1739,8 @@ class Rel(PropertyContainer):
             pair._Rel__type = name
 
     def unbind(self):
+        """ Detach this relationship from any remote counterpart.
+        """
         try:
             del self.cache[self.uri]
         except KeyError:
@@ -1929,6 +1947,9 @@ class Path(object):
 
     @property
     def bound(self):
+        """ :const:`True` if this path is bound to a remote counterpart,
+        :const:`False` otherwise.
+        """
         try:
             _ = self.service_root
         except BindError:
@@ -1938,29 +1959,42 @@ class Path(object):
 
     @property
     def end_node(self):
+        """ The end node of this path.
+
+        :return: :class:`.Node`
+        """
         return self.__nodes[-1]
 
     @property
     def exists(self):
+        """ :const:`True` if this path exists in the database,
+        :const:`False` otherwise.
+        """
         return all(entity.exists for entity in self.nodes + self.rels)
 
     @property
     def graph(self):
+        """ The parent graph of this path.
+
+        :rtype: :class:`.Graph`
+        """
         return self.service_root.graph
 
     @property
     def nodes(self):
-        """ Return a tuple of all the nodes which make up this path.
+        """ A tuple of all nodes in this path.
         """
         return self.__nodes
 
     @property
     def order(self):
-        """ The number of nodes within this path.
+        """ The number of nodes in this path.
         """
         return self.__order
 
     def pull(self):
+        """ Pull data to all entities in this path from their remote counterparts.
+        """
         from py2neo.batch.pull import PullBatch
         batch = PullBatch(self.graph)
         for relationship in self:
@@ -1968,6 +2002,8 @@ class Path(object):
         batch.pull()
 
     def push(self):
+        """ Push data from all entities in this path to their remote counterparts.
+        """
         from py2neo.batch.push import PushBatch
         batch = PushBatch(self.graph)
         for relationship in self:
@@ -1976,7 +2012,7 @@ class Path(object):
 
     @property
     def relationships(self):
-        """ Return a list of all the relationships which make up this path.
+        """ A tuple of all relationships in this path.
         """
         if self.__relationships is None:
             self.__relationships = tuple(
@@ -1987,12 +2023,16 @@ class Path(object):
 
     @property
     def rels(self):
-        """ Return a tuple of all the rels which make up this path.
+        """ A tuple of all rels in this path.
         """
         return self.__rels
 
     @property
     def service_root(self):
+        """ The root service associated with this path.
+
+        :return: :class:`.ServiceRoot`
+        """
         for relationship in self:
             try:
                 return relationship.service_root
@@ -2002,15 +2042,22 @@ class Path(object):
 
     @property
     def size(self):
-        """ The number of relationships within this path.
+        """ The number of relationships in this path.
         """
         return self.__size
 
     @property
     def start_node(self):
+        """ The start node of this path.
+
+        :return: :class:`.Node`
+        """
         return self.__nodes[0]
 
     def unbind(self):
+        """ Detach all entities in this path
+        from any remote counterparts.
+        """
         for entity in self.rels + self.nodes:
             try:
                 entity.unbind()
@@ -2028,6 +2075,7 @@ class Relationship(Path):
 
     @staticmethod
     def cast(*args, **kwargs):
+        # TODO: docstring
         """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
         following general combinations are possible:
 
@@ -2155,11 +2203,9 @@ class Relationship(Path):
 
     @property
     def _id(self):
+        """ The internal ID of this relationship within the database.
+        """
         return self.rel._id
-
-    @property
-    def ref(self):
-        return "relationship/%s" % self._id
 
     def bind(self, uri, metadata=None):
         """ Bind to a remote relationship. The relationship start and end
@@ -2181,20 +2227,24 @@ class Relationship(Path):
 
     @property
     def bound(self):
-        """ Flag to indicate if this relationship is bound to a remote
-        relationship.
+        """ :const:`True` if this relationship is bound to a remote counterpart,
+        :const:`False` otherwise.
         """
         return self.rel.bound
 
     @property
     def exists(self):
-        """ Flag to indicate if this relationship exists in the
-        database, if bound.
+        """ :const:`True` if this relationship exists in the database,
+        :const:`False` otherwise.
         """
         return self.rel.exists
 
     @property
     def graph(self):
+        """ The parent graph of this relationship.
+
+        :rtype: :class:`.Graph`
+        """
         return self.service_root.graph
 
     @property
@@ -2202,15 +2252,20 @@ class Relationship(Path):
         return self.rel.properties
 
     def pull(self):
+        """ Pull data to this relationship from its remote counterpart.
+        """
         self.rel.pull()
 
     def push(self):
+        """ Push data from this relationship to its remote counterpart.
+        """
         self.rel.push()
 
     @property
     def ref(self):
-        """ The URI of this relationship relative to the graph
-        database root, if bound.
+        """ The URI of this relationship relative to its graph.
+
+        :rtype: str
         """
         return self.rel.ref
 
@@ -2229,6 +2284,10 @@ class Relationship(Path):
 
     @property
     def service_root(self):
+        """ The root service associated with this relationship.
+
+        :return: :class:`.ServiceRoot`
+        """
         try:
             return self.rel.service_root
         except BindError:
@@ -2245,13 +2304,15 @@ class Relationship(Path):
 
     @type.setter
     def type(self, name):
+        """ Set the type of this relationship (only possible if not bound).
+        """
         if self.rel.bound:
             raise AttributeError("The type of a bound Relationship is immutable")
         self.rel.type = name
 
     def unbind(self):
-        """ Unbind this relationship and its start and end
-        nodes, if bound.
+        """ Detach this relationship and its start and end
+        nodes from any remote counterparts.
         """
         try:
             del self.cache[self.uri]
@@ -2336,6 +2397,9 @@ class Subgraph(object):
 
     @property
     def bound(self):
+        """ :const:`True` if all entities in this subgraph are bound to remote counterparts,
+        :const:`False` otherwise.
+        """
         try:
             _ = self.service_root
         except BindError:
@@ -2345,26 +2409,43 @@ class Subgraph(object):
 
     @property
     def exists(self):
+        """ :const:`True` if this subgraph exists in the database,
+        :const:`False` otherwise.
+        """
         return all(entity.exists for entity in self.__nodes | self.__relationships)
 
     @property
     def graph(self):
+        """ The parent graph of this subgraph.
+
+        :rtype: :class:`.Graph`
+        """
         return self.service_root.graph
 
     @property
     def nodes(self):
+        """ The set of all nodes in this subgraph.
+        """
         return frozenset(self.__nodes)
 
     @property
     def order(self):
+        """ The number of nodes in this subgraph.
+        """
         return len(self.__nodes)
 
     @property
     def relationships(self):
+        """ The set of all relationships in this subgraph.
+        """
         return frozenset(self.__relationships)
 
     @property
     def service_root(self):
+        """ The root service associated with this subgraph.
+
+        :return: :class:`.ServiceRoot`
+        """
         for relationship in self:
             try:
                 return relationship.service_root
@@ -2374,9 +2455,14 @@ class Subgraph(object):
 
     @property
     def size(self):
+        """ The number of relationships in this subgraph.
+        """
         return len(self.__relationships)
 
     def unbind(self):
+        """ Detach all entities in this subgraph
+        from any remote counterparts.
+        """
         for entity in self.__nodes | self.__relationships:
             try:
                 entity.unbind()
