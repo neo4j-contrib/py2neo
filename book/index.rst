@@ -35,7 +35,7 @@ Contents
    batch
    legacy
    server
-   behind
+   internals
    ext/box
    ext/calendar
    ext/distro
@@ -43,3 +43,4 @@ Contents
    ext/gremlin
    ext/load
    ext/ogm
+   cookbook

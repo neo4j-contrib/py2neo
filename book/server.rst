@@ -1,6 +1,6 @@
-=======================
-Servers, Stores & Admin
-=======================
+============================
+API: Servers, Stores & Admin
+============================
 
 .. automodule:: py2neo.server
    :members:

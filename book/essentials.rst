@@ -1,6 +1,6 @@
-==============
-The Essentials
-==============
+===================
+API: The Essentials
+===================
 
 The ``py2neo`` top-level package contains the functions and classes that are used directly and
 ubiquitously across the whole library.

@@ -1,6 +1,6 @@
-======
-Cypher
-======
+===========
+API: Cypher
+===========
 
 
 Core Classes

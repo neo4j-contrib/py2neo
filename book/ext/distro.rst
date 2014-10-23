@@ -1,6 +1,6 @@
-==================================
-Extension: Distribution Management
-==================================
+=============================
+Extension: Distribution Tools
+=============================
 
 .. automodule:: py2neo.ext.distro
    :members:
