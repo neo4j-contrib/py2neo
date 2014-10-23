@@ -137,10 +137,10 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
 
 
 class Resource(_Resource):
-    """ Variant of HTTPStream Resource that passes extra headers and product
-    detail.
+    """ Base class for all local resources mapped to remote counterparts.
     """
 
+    #: The class of error raised by failure responses from this resource.
     error_class = GraphError
 
     def __init__(self, uri, metadata=None):
@@ -188,7 +188,7 @@ class Resource(_Resource):
 
     @property
     def metadata(self):
-        """ Metadata received in last HTTP response.
+        """ Metadata received in the last HTTP response.
         """
         if self.__last_get_response is None:
             if self.__initial_metadata is not None:
@@ -200,7 +200,7 @@ class Resource(_Resource):
     def ref(self):
         """ The URI of this resource relative to its graph.
 
-        :rtype: str
+        :rtype: string
         """
         if self.__ref is NotImplemented:
             self_uri = self.uri.string
@@ -217,6 +217,14 @@ class Resource(_Resource):
         return self.__service_root
 
     def get(self, headers=None, redirect_limit=5, **kwargs):
+        """ Perform an HTTP GET to this resource.
+
+        :param headers: Extra headers to pass in the request.
+        :param redirect_limit: Maximum number of times to follow redirects.
+        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :rtype: :class:`httpstream.Response`
+        :raises: :class:`py2neo.GraphError`
+        """
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT, cache=True)
@@ -234,6 +242,14 @@ class Resource(_Resource):
             return response
 
     def put(self, body=None, headers=None, **kwargs):
+        """ Perform an HTTP PUT to this resource.
+
+        :param body: The payload of this request.
+        :param headers: Extra headers to pass in the request.
+        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :rtype: :class:`httpstream.Response`
+        :raises: :class:`py2neo.GraphError`
+        """
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
@@ -250,6 +266,14 @@ class Resource(_Resource):
             return response
 
     def post(self, body=None, headers=None, **kwargs):
+        """ Perform an HTTP POST to this resource.
+
+        :param body: The payload of this request.
+        :param headers: Extra headers to pass in the request.
+        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :rtype: :class:`httpstream.Response`
+        :raises: :class:`py2neo.GraphError`
+        """
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
@@ -266,6 +290,13 @@ class Resource(_Resource):
             return response
 
     def delete(self, headers=None, **kwargs):
+        """ Perform an HTTP DELETE to this resource.
+
+        :param headers: Extra headers to pass in the request.
+        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :rtype: :class:`httpstream.Response`
+        :raises: :class:`py2neo.GraphError`
+        """
         headers = dict(headers or {})
         headers.update(self.__headers)
         kwargs.update(product=PRODUCT)
@@ -283,27 +314,40 @@ class Resource(_Resource):
 
 
 class ResourceTemplate(_ResourceTemplate):
-    """ Neo4j-specific resource template.
+    """ A factory class for producing :class:`.Resource` objects dynamically
+    based on a template URI.
     """
 
+    #: The class of error raised by failure responses from resources produced by this template.
     error_class = GraphError
 
     def expand(self, **values):
+        """ Produce a resource instance by substituting values into the
+        stored template URI.
+
+        :param values: A set of named values to plug into the template URI.
+        :rtype: :class:`.Resource`
+        """
         resource = Resource(self.uri_template.expand(**values))
         resource.error_class = self.error_class
         return resource
 
 
 class Service(object):
-    """ Base class for objects that can be bound to a remote resource.
+    """ Base class for objects that can be optionally bound to a remote resource. This
+    class is essentially a container for a :class:`.Resource` instance.
     """
 
+    #: The class of error raised by failure responses from the contained resource.
     error_class = GraphError
 
     __resource__ = None
 
     def bind(self, uri, metadata=None):
-        """ Bind object to Resource or ResourceTemplate.
+        """ Attach this service to a remote :class:`.Resource`.
+
+        :param uri: The URI identifying the remote resource to which to bind.
+        :param metadata: Dictionary of initial metadata to attach to the contained resource.
         """
         if "{" in uri and "}" in uri:
             if metadata:
@@ -315,14 +359,14 @@ class Service(object):
 
     @property
     def bound(self):
-        """ :const:`True` if this entity is bound to a remote counterpart,
+        """ :const:`True` if this service is bound to a remote resource,
         :const:`False` otherwise.
         """
         return self.__resource__ is not None
 
     @property
     def graph(self):
-        """ The graph associated with this entity.
+        """ The graph associated with the contained resource.
 
         :rtype: :class:`.Graph`
         """
@@ -330,15 +374,18 @@ class Service(object):
 
     @property
     def ref(self):
-        """ The URI of this entity relative to its graph.
+        """ The URI of the contained resource relative to its graph.
 
-        :rtype: str
+        :rtype: string
         """
         return self.resource.ref
 
     @property
     def resource(self):
-        """ Returns the :class:`Resource` to which this is bound.
+        """ The resource to which this service is bound.
+
+        :rtype: :class:`.Resource`
+        :raises: :class:`py2neo.BindError`
         """
         if self.bound:
             return self.__resource__
@@ -347,20 +394,20 @@ class Service(object):
 
     @property
     def service_root(self):
-        """ The root service associated with this entity.
+        """ The root service associated with the contained resource.
 
         :return: :class:`.ServiceRoot`
         """
         return self.resource.service_root
 
     def unbind(self):
-        """ Detach this entity from any remote counterpart.
+        """ Detach this service from any remote resource.
         """
         self.__resource__ = None
 
     @property
     def uri(self):
-        """ The full URI of this resource.
+        """ The full URI of the contained resource.
         """
         if isinstance(self.resource, ResourceTemplate):
             return self.resource.uri_template
@@ -369,9 +416,11 @@ class Service(object):
 
 
 class ServiceRoot(object):
-    """ Neo4j REST API service root resource.
+    """ Wrapper for the base REST resource exposed by a running Neo4j
+    server, corresponding to the ``/`` URI.
     """
 
+    #: The URI for a Neo4j service with default configuration.
     DEFAULT_URI = "{0}://{1}/".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
 
     __instances = {}
@@ -404,7 +453,7 @@ class ServiceRoot(object):
 
     @property
     def resource(self):
-        """ The underlying resource object for this instance.
+        """ The contained resource object for this instance.
 
         :rtype: :class:`py2neo.Resource`
         """
@@ -412,6 +461,8 @@ class ServiceRoot(object):
 
     @property
     def uri(self):
+        """ The full URI of the contained resource.
+        """
         return self.resource.uri
 
 
@@ -1339,7 +1390,7 @@ class Node(PropertyContainer):
     def ref(self):
         """ The URI of this node relative to its graph.
 
-        :rtype: str
+        :rtype: string
         """
         return "node/%s" % self._id
 
@@ -1665,7 +1716,7 @@ class Rel(PropertyContainer):
     def ref(self):
         """ The URI of this relationship relative to its graph.
 
-        :rtype: str
+        :rtype: string
         """
         return "relationship/%s" % self._id
 
@@ -2265,7 +2316,7 @@ class Relationship(Path):
     def ref(self):
         """ The URI of this relationship relative to its graph.
 
-        :rtype: str
+        :rtype: string
         """
         return self.rel.ref
 

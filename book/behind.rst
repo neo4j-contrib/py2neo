@@ -11,6 +11,7 @@ Service Root
 
 .. autoclass:: py2neo.ResourceTemplate
    :members:
+   :inherited-members:
 
 .. autoclass:: py2neo.Service
    :members:
