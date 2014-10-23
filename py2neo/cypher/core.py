@@ -399,7 +399,23 @@ class RecordStream(object):
 
 
 class Record(object):
-    """ A single row of a Cypher execution result.
+    """ A simple object containing values from a single row of a Cypher
+    result. Each value can be retrieved by column position or name,
+    supplied as either an index key or an attribute name.
+
+    Consider the record below::
+
+           | person                     | name
+        ---+----------------------------+-------
+         1 | (n1:Person {name:"Alice"}) | Alice
+
+    If this record is named ``r``, the following expressions
+    are equivalent and will return the value ``'Alice'``::
+
+        r[1]
+        r["name"]
+        r.name
+
     """
 
     __producer__ = None

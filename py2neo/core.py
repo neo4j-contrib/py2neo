@@ -1200,12 +1200,12 @@ class Node(PropertyContainer):
     All positional arguments are interpreted as labels and all
     keyword arguments as properties. It is possible to construct Node
     instances from other data types (such as a dictionary) by using
-    the :meth:`.cast` method::
+    the :meth:`.Node.cast` class method::
 
         >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
-    :attr:`.labels` and :attr:`.properties` attributes respectively.
+    :attr:`.labels` and :attr:`~py2neo.Node.properties` attributes respectively.
     The *labels* attribute is an instance of :class:`.LabelSet` which
     extends the built-in *set* class. Similarly, *properties* is an instance of
     :class:`.PropertySet` which extends *dict*.
@@ -1228,8 +1228,9 @@ class Node(PropertyContainer):
 
     @staticmethod
     def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Node`. The
-        following combinations of arguments are possible::
+        """ Cast the arguments provided to a :class:`.Node` (or
+        :class:`.NodePointer`). The following combinations of
+        arguments are possible::
 
             >>> Node.cast(None)
             >>> Node.cast()

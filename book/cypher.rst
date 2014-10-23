@@ -3,11 +3,15 @@ API: Cypher
 ===========
 
 
-Core Classes
-============
+Cypher Resource
+===============
 
 .. autoclass:: py2neo.cypher.CypherResource
    :members:
+
+
+Transaction
+===========
 
 .. autoclass:: py2neo.cypher.CypherTransaction
    :members:
@@ -20,9 +24,6 @@ Records
    :members:
 
 .. autoclass:: py2neo.cypher.RecordList
-   :members:
-
-.. autoclass:: py2neo.cypher.RecordListList
    :members:
 
 .. autoclass:: py2neo.cypher.RecordStream
