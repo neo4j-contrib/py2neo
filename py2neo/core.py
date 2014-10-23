@@ -2318,7 +2318,7 @@ class Relationship(Path):
     @property
     def properties(self):
         """ The set of properties attached to this relationship. Properties
-        can also be read from and written to any :class:`Rel`
+        can also be read from and written to any :class:`Relationship`
         by using the index syntax directly. This means
         the following statements are equivalent::
 
