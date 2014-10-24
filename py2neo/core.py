@@ -344,9 +344,9 @@ class Service(object):
     __resource__ = None
 
     def bind(self, uri, metadata=None):
-        """ Attach this service to a remote :class:`.Resource`.
+        """ Attach this object to a remote resource.
 
-        :param uri: The URI identifying the remote resource to which to bind.
+        :param uri: The URI identifying the remote :class:`.Resource` to which to bind.
         :param metadata: Dictionary of initial metadata to attach to the contained resource.
         """
         if "{" in uri and "}" in uri:
@@ -359,14 +359,14 @@ class Service(object):
 
     @property
     def bound(self):
-        """ :const:`True` if this service is bound to a remote resource,
+        """ :const:`True` if this object is bound to a remote resource,
         :const:`False` otherwise.
         """
         return self.__resource__ is not None
 
     @property
     def graph(self):
-        """ The graph associated with the contained resource.
+        """ The graph associated with the remote resource.
 
         :rtype: :class:`.Graph`
         """
@@ -374,7 +374,7 @@ class Service(object):
 
     @property
     def ref(self):
-        """ The URI of the contained resource relative to its graph.
+        """ The URI of the remote resource relative to its graph.
 
         :rtype: string
         """
@@ -382,7 +382,7 @@ class Service(object):
 
     @property
     def resource(self):
-        """ The resource to which this service is bound.
+        """ The remote resource to which this object is bound.
 
         :rtype: :class:`.Resource`
         :raises: :class:`py2neo.BindError`
@@ -394,20 +394,20 @@ class Service(object):
 
     @property
     def service_root(self):
-        """ The root service associated with the contained resource.
+        """ The root service associated with the remote resource.
 
         :return: :class:`.ServiceRoot`
         """
         return self.resource.service_root
 
     def unbind(self):
-        """ Detach this service from any remote resource.
+        """ Detach this object from any remote resource.
         """
         self.__resource__ = None
 
     @property
     def uri(self):
-        """ The full URI of the contained resource.
+        """ The full URI of the remote resource.
         """
         if isinstance(self.resource, ResourceTemplate):
             return self.resource.uri_template
@@ -809,7 +809,7 @@ class Graph(Service):
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
-        specified criteria. See :meth:`.match` for
+        specified criteria. See :meth:`~py2neo.Graph.match` for
         argument details.
         """
         rels = list(self.match(start_node, rel_type, end_node,
