@@ -17,4 +17,4 @@
 
 
 DIST_SCHEME = "http"
-DIST_HOST = "distro.neo4j.org"
+DIST_HOST = "dist.neo4j.org"
