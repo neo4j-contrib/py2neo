@@ -14,12 +14,16 @@ Graph
    :inherited-members:
 
 
-Entities
-========
+Node
+====
 
 .. autoclass:: py2neo.Node
    :members:
    :inherited-members:
+
+
+Relationship
+============
 
 .. autoclass:: py2neo.Relationship
    :members:

@@ -20,7 +20,7 @@
 """
 
 
-from py2neo.core import *
+from py2neo.core import Graph, PropertyContainer, Node, Rel, Path, Relationship
 from py2neo.error import BindError, GraphError
 from py2neo.packages.httpstream.numbers import BAD_REQUEST
 from py2neo.util import deprecated, flatten, ustr
@@ -83,31 +83,6 @@ def _node_add_labels(self, *labels):
 
 @deprecated("Use graph.create(Path(node, ...)) instead")
 def _node_create_path(self, *items):
-    """ Create a new path, starting at this node and chaining together the
-    alternating relationships and nodes provided::
-
-        (self)-[rel_0]->(node_0)-[rel_1]->(node_1) ...
-               |-----|  |------| |-----|  |------|
-         item:    0        1        2        3
-
-    Each relationship may be specified as one of the following:
-
-    - an existing Relationship instance
-    - a string holding the relationship type, e.g. "KNOWS"
-    - a (`str`, `dict`) tuple holding both the relationship type and
-      its properties, e.g. ("KNOWS", {"since": 1999})
-
-    Nodes can be any of the following:
-
-    - an existing Node instance
-    - an integer containing the ID of an existing node
-    - a `dict` holding a set of properties for a new node
-    - :py:const:`None`, representing an unspecified node that will be
-      created as required
-
-    :param items: alternating relationships and nodes
-    :return: `Path` object representing the newly-created path
-    """
     path = Path(self, *items)
     return _path_create(path, self.graph)
 
@@ -134,40 +109,8 @@ def _node_get_labels(self):
     self.labels.pull()
     return self.labels
 
-@deprecated("Use graph.merge(Path(node, ...)) instead")
+@deprecated("Use graph.create_unique(Path(node, ...)) instead")
 def _node_get_or_create_path(self, *items):
-    """ Identical to `create_path` except will reuse parts of the path
-    which already exist.
-
-    Some examples::
-
-        # add dates to calendar, starting at calendar_root
-        christmas_day = calendar_root.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12},
-            "DAY",   {"number": 25},
-        )
-        # `christmas_day` will now contain a `Path` object
-        # containing the nodes and relationships used:
-        # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
-
-        # adding a second, overlapping path will reuse
-        # nodes and relationships wherever possible
-        christmas_eve = calendar_root.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12},
-            "DAY",   {"number": 24},
-        )
-        # `christmas_eve` will contain the same year and month nodes
-        # as `christmas_day` but a different (new) day node:
-        # (CAL)-[:YEAR]->(2000)-[:MONTH]->(12)-[:DAY]->(25)
-        #                                  |
-        #                                [:DAY]
-        #                                  |
-        #                                  v
-        #                                 (24)
-
-    """
     path = Path(self, *items)
     return _path_get_or_create(path, self.graph)
 
@@ -269,19 +212,10 @@ def _path__create(self, graph, unique):
 
 @deprecated("Use Graph.create(Path(...)) instead")
 def _path_create(self, graph):
-    """ Construct a path within the specified `graph` from the nodes
-    and relationships within this :py:class:`Path` instance. This makes
-    use of Cypher's ``CREATE`` clause.
-    """
     return _path__create(self, graph, unique=False)
 
-# TODO: maybe reinstate this
-@deprecated("Use Graph.merge(Path(...)) instead")
+@deprecated("Use Graph.create_unique(Path(...)) instead")
 def _path_get_or_create(self, graph):
-    """ Construct a unique path within the specified `graph` from the
-    nodes and relationships within this :py:class:`Path` instance. This
-    makes use of Cypher's ``CREATE UNIQUE`` clause.
-    """
     return _path__create(self, graph, unique=True)
 
 

@@ -746,7 +746,8 @@ class Graph(Service):
         return self.__legacy
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
-        """ Iterate through all relationships matching specified criteria.
+        """ Return an iterator for all relationships matching the
+        specified criteria.
 
         For example, to find all of Alice's friends::
 
@@ -807,18 +808,9 @@ class Graph(Service):
             results.close()
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
-        """ Fetch a single relationship matching specified criteria.
-
-        :param start_node: :attr:`~py2neo.Node.bound` start :class:`~py2neo.Node` to match or
-                           :const:`None` if any
-        :param rel_type: type of relationships to match or :const:`None` if any
-        :param end_node: :attr:`~py2neo.Node.bound` end :class:`~py2neo.Node` to match or
-                         :const:`None` if any
-        :param bidirectional: :const:`True` if reversed relationships should also be included
-        :return: a matching :class:`Relationship` or :const:`None`
-
-        .. seealso::
-           :func:`~py2neo.Graph.match`
+        """ Return a single relationship matching the
+        specified criteria. See :meth:`.match` for
+        argument details.
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
@@ -1190,27 +1182,26 @@ class PropertyContainer(Service):
 
 
 class Node(PropertyContainer):
-    """ A Node instance represents a graph node and may exist purely
-    client-side or may be bound to a corresponding server node. Node
-    labels are fully integrated within py2neo 2.0 and therefore may
-    be provided along with properties on construction::
+    """ A graph node that may optionally be bound to a remote counterpart
+    in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
+    may have one or more :attr:`.labels` applied to them::
 
         >>> from py2neo import Node
         >>> alice = Node("Person", name="Alice")
         >>> banana = Node("Fruit", "Food", colour="yellow", tasty=True)
 
-    All positional arguments are interpreted as labels and all
-    keyword arguments as properties. It is possible to construct Node
-    instances from other data types (such as a dictionary) by using
-    the :meth:`.Node.cast` class method::
+    All positional arguments passed to the constructor are interpreted
+    as labels and all keyword arguments as properties. It is also possible to
+    construct Node instances from other data types (such as a dictionary)
+    by using the :meth:`.Node.cast` class method::
 
         >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
     :attr:`.labels` and :attr:`~py2neo.Node.properties` attributes respectively.
-    The *labels* attribute is an instance of :class:`.LabelSet` which
-    extends the built-in *set* class. Similarly, *properties* is an instance of
-    :class:`.PropertySet` which extends *dict*.
+    The former is an instance of :class:`.LabelSet`, which extends the
+    built-in :class:`set` class, and the latter is an instance of
+    :class:`.PropertySet` which extends :class:`dict`.
 
         >>> alice.properties["name"]
         'Alice'
@@ -1221,9 +1212,9 @@ class Node(PropertyContainer):
         >>> alice
         <Node labels={'Employee', 'Person'} properties={'employee_no': 3456, 'name': 'Alice'}>
 
-    One of the core differences between a *PropertySet* and a standard dictionary is in how it
-    handles :const:`None` and missing values. As with Neo4j server nodes, missing values are
-    treated as equivalent to:const:`None` and vice versa.
+    One of the core differences between a :class:`.PropertySet` and a standard
+    dictionary is in how it handles :const:`None` and missing values. As with Neo4j
+    server nodes, missing values and those equal to :const:`None` are equivalent.
     """
 
     cache = WeakValueDictionary()
@@ -1281,9 +1272,9 @@ class Node(PropertyContainer):
     @classmethod
     def hydrate(cls, data, inst=None):
         """ Create a new Node instance from a serialised representation held
-        within a dictionary. It is expected there is at least a "self" key
+        within a dictionary. It is expected there is at least a ``self`` key
         pointing to a URI for this Node; there may also optionally be
-        properties passed in the "data" value.
+        properties passed in the ``data`` value.
         """
         self = data["self"]
         if inst is None:
@@ -1408,6 +1399,8 @@ class Node(PropertyContainer):
 
     @property
     def degree(self):
+        """ The number of relationships attached to this node.
+        """
         statement = "START n=node({n}) MATCH (n)-[r]-() RETURN count(r)"
         return self.graph.cypher.execute_one(statement, {"n": self})
 
@@ -1428,63 +1421,30 @@ class Node(PropertyContainer):
 
     @property
     def labels(self):
-        """ The set of labels attached to this Node.
+        """ The set of labels attached to this node.
         """
         if self.bound and "labels" in self.__stale:
             self.refresh()
         return self.__labels
 
     def match(self, rel_type=None, other_node=None, limit=None):
-        """ Iterate through matching relationships attached to this node,
-        regardless of direction.
-
-        :param rel_type: type of relationships to match or :py:const:`None` if
-            any
-        :param other_node: concrete :py:class:`Node` to match for other end of
-            relationship or :py:const:`None` if any
-        :param limit: maximum number of relationships to match or
-            :py:const:`None` if no limit
-        :return: matching relationships
-        :rtype: generator
-
-        .. seealso::
-           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
+        """ Return an iterator for all relationships attached to this node
+        that match the specified criteria. See :meth:`.Graph.match` for
+        argument details.
         """
         return self.graph.match(self, rel_type, other_node, True, limit)
 
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        """ Iterate through matching relationships where this node is the end
-        node.
-
-        :param rel_type: type of relationships to match or :py:const:`None` if
-            any
-        :param start_node: concrete start :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param limit: maximum number of relationships to match or
-            :py:const:`None` if no limit
-        :return: matching relationships
-        :rtype: generator
-
-        .. seealso::
-           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
+        """ Return an iterator for all incoming relationships to this node
+        that match the specified criteria. See :meth:`.Graph.match` for
+        argument details.
         """
         return self.graph.match(start_node, rel_type, self, False, limit)
 
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        """ Iterate through matching relationships where this node is the start
-        node.
-
-        :param rel_type: type of relationships to match or :py:const:`None` if
-            any
-        :param end_node: concrete end :py:class:`Node` to match or
-            :py:const:`None` if any
-        :param limit: maximum number of relationships to match or
-            :py:const:`None` if no limit
-        :return: matching relationships
-        :rtype: generator
-
-        .. seealso::
-           :py:func:`Graph.match <py2neo.neo4j.Graph.match>`
+        """ Return an iterator for all outgoing relationships from this node
+        that match the specified criteria. See :meth:`.Graph.match` for
+        argument details.
         """
         return self.graph.match(self, rel_type, end_node, False, limit)
 
@@ -1504,14 +1464,16 @@ class Node(PropertyContainer):
         return super(Node, self).properties
 
     def pull(self):
-        """ Pull data to this node from its remote counterpart.
+        """ Pull data to this node from its remote counterpart. Consider
+        using :meth:`.Graph.pull` instead for batches of nodes.
         """
         super(Node, self).properties.clear()
         self.__labels.clear()
         self.refresh()
 
     def push(self):
-        """ Push data from this node to its remote counterpart.
+        """ Push data from this node to its remote counterpart. Consider
+        using :meth:`.Graph.push` instead for batches of nodes.
         """
         from py2neo.batch.push import PushBatch
         batch = PushBatch(self.graph)
@@ -1519,8 +1481,7 @@ class Node(PropertyContainer):
         batch.push()
 
     def refresh(self):
-        """ Non-destructive pull.
-        """
+        # Non-destructive pull.
         query = "START a=node({a}) RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
         dehydrated, label_metadata = content["data"][0]
