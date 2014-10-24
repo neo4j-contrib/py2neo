@@ -349,3 +349,32 @@ epub_exclude_files = ['search.html']
 
 # If false, no index is generated.
 #epub_use_index = True
+
+
+def get_class_name(full_module_name):
+    """
+    Pull out the class name from the full_module_name
+    """
+    #split the full_module_name by "."'s
+    return full_module_name.split('.')[1]
+
+
+def process_docstring(app, what, name, obj, options, lines):
+    names = name.split(".")
+    module_name = names[0]
+    try:
+        class_name = names[1]
+    except IndexError:
+        class_name = None
+    try:
+        attr_name = names[2]
+    except IndexError:
+        attr_name = None
+    for i, line in enumerate(lines):
+        lines[i] = (line
+                    .replace('«class»', class_name)
+                    .replace('«class.lower»', class_name.lower()))
+
+
+def setup(app):
+    app.connect('autodoc-process-docstring', process_docstring)

@@ -1988,7 +1988,7 @@ class Path(object):
 
     @property
     def end_node(self):
-        """ The end node of this path.
+        """ The end node of this «class.lower».
 
         :return: :class:`.Node`
         """
@@ -2011,13 +2011,13 @@ class Path(object):
 
     @property
     def nodes(self):
-        """ A tuple of all nodes in this path.
+        """ A tuple of all nodes in this «class.lower».
         """
         return self.__nodes
 
     @property
     def order(self):
-        """ The number of nodes in this path.
+        """ The number of nodes in this «class.lower».
         """
         return self.__order
 
@@ -2041,7 +2041,7 @@ class Path(object):
 
     @property
     def relationships(self):
-        """ A tuple of all relationships in this path.
+        """ A tuple of all relationships in this «class.lower».
         """
         if self.__relationships is None:
             self.__relationships = tuple(
@@ -2052,7 +2052,7 @@ class Path(object):
 
     @property
     def rels(self):
-        """ A tuple of all rels in this path.
+        """ A tuple of all rels in this «class.lower».
         """
         return self.__rels
 
@@ -2071,13 +2071,13 @@ class Path(object):
 
     @property
     def size(self):
-        """ The number of relationships in this path.
+        """ The number of relationships in this «class.lower».
         """
         return self.__size
 
     @property
     def start_node(self):
-        """ The start node of this path.
+        """ The start node of this «class.lower».
 
         :return: :class:`.Node`
         """
