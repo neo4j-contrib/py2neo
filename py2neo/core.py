@@ -880,7 +880,7 @@ class Graph(Service):
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
-        the Neo4j browser application for this Graph.
+        the Neo4j browser application for this graph.
         """
         webbrowser.open(self.service_root.resource.uri.string)
 
@@ -1213,8 +1213,8 @@ class Node(PropertyContainer):
         <Node labels={'Employee', 'Person'} properties={'employee_no': 3456, 'name': 'Alice'}>
 
     One of the core differences between a :class:`.PropertySet` and a standard
-    dictionary is in how it handles :const:`None` and missing values. As with Neo4j
-    server nodes, missing values and those equal to :const:`None` are equivalent.
+    dictionary is in how it handles :const:`None` and missing values. As with actual Neo4j
+    properties, missing values and those equal to :const:`None` are equivalent.
     """
 
     cache = WeakValueDictionary()
@@ -2095,42 +2095,36 @@ class Path(object):
 
 
 class Relationship(Path):
-    """ A relationship within a graph, identified by a URI.
-
-    :param uri: URI identifying this relationship
+    """ A graph relationship that may optionally be bound to a remote counterpart
+    in a Neo4j database. Relationships require a type name and may contain a set
+    of named :attr:`~py2neo.Node.properties`.
     """
 
     cache = WeakValueDictionary()
 
     @staticmethod
     def cast(*args, **kwargs):
-        # TODO: docstring
-        """ Cast the arguments provided to a :py:class:`neo4j.Relationship`. The
-        following general combinations are possible:
+        """ Cast the arguments provided to a :class:`.Relationship`. The
+        following combinations of arguments are possible::
 
-        - ``rel(relationship_instance)``
-        - ``rel((start_node, type, end_node))``
-        - ``rel((start_node, type, end_node, properties))``
-        - ``rel((start_node, (type, properties), end_node))``
-        - ``rel(start_node, (type, properties), end_node)``
-        - ``rel(start_node, type, end_node, properties)``
-        - ``rel(start_node, type, end_node, **properties)``
-
-        Examples::
-
-            rel(Relationship("http://localhost:7474/db/data/relationship/1"))
-            rel((alice, "KNOWS", bob))
-            rel((alice, "KNOWS", bob, {"since": 1999}))
-            rel((alice, ("KNOWS", {"since": 1999}), bob))
-            rel(alice, ("KNOWS", {"since": 1999}), bob)
-            rel(alice, "KNOWS", bob, {"since": 1999})
-            rel(alice, "KNOWS", bob, since=1999)
-
-        Other representations::
-
-            (alice, "KNOWS", bob)
-            (alice, "KNOWS", bob, {"since": 1999})
-            (alice, ("KNOWS", {"since": 1999}), bob)
+            >>> Relationship.cast(Node(), "KNOWS", Node())
+            <Relationship type='KNOWS' properties={}>
+            >>> Relationship.cast((Node(), "KNOWS", Node()))
+            <Relationship type='KNOWS' properties={}>
+            >>> Relationship.cast(Node(), "KNOWS", Node(), since=1999)
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast(Node(), "KNOWS", Node(), {"since": 1999})
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast((Node(), "KNOWS", Node(), {"since": 1999}))
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast(Node(), ("KNOWS", {"since": 1999}), Node())
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast((Node(), ("KNOWS", {"since": 1999}), Node()))
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast(Node(), Rel("KNOWS", since=1999), Node())
+            <Relationship type='KNOWS' properties={'since': 1999}>
+            >>> Relationship.cast((Node(), Rel("KNOWS", since=1999), Node()))
+            <Relationship type='KNOWS' properties={'since': 1999}>
 
         """
         if len(args) == 1 and not kwargs:
@@ -2238,7 +2232,7 @@ class Relationship(Path):
 
     def bind(self, uri, metadata=None):
         """ Bind to a remote relationship. The relationship start and end
-        nodes will also become bound to their corresponding remote nodes.
+        nodes will also be bound to their corresponding remote nodes.
         """
         self.rel.bind(uri, metadata)
         self.cache[uri] = self
