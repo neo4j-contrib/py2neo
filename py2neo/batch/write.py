@@ -26,7 +26,6 @@ __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUni
            "AddNodeLabelsJob", "RemoveNodeLabelJob", "WriteBatch"]
 
 
-# TODO: find a better home for this method
 def _create_query(p, unique=False):
     nodes, path, values, params = [], [], [], {}
 
@@ -285,6 +284,3 @@ class WriteBatch(Batch):
         :return: batch request object
         """
         return self.append(PushNodeLabelsJob(self.resolve(node), labels))
-
-    # TODO: PullBatch
-    # TODO: PushBatch
