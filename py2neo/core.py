@@ -2329,6 +2329,14 @@ class Relationship(Path):
                 return self.end_node.service_root
 
     @property
+    def size(self):
+        """ The number of relationships in this relationship. This property
+        always equals 1 for a :class:`Relationship` and is inherited from
+        the more general parent class, :class:`Path`.
+        """
+        return super(Relationship, self).size
+
+    @property
     def type(self):
         """ The type of this relationship.
         """
