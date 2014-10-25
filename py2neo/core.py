@@ -98,10 +98,10 @@ def authenticate(host_port, user_name, password):
     number but must match exactly that used within the Graph
     URI.
 
-    :param host_port: the host and optional port requiring authentication
+    :arg host_port: the host and optional port requiring authentication
         (e.g. "bigserver", "camelot:7474")
-    :param user_name: the user name to authenticate as
-    :param password: the password
+    :arg user_name: the user name to authenticate as
+    :arg password: the password
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = "Basic " + base64.b64encode(credentials).decode("ASCII")
@@ -219,9 +219,9 @@ class Resource(_Resource):
     def get(self, headers=None, redirect_limit=5, **kwargs):
         """ Perform an HTTP GET to this resource.
 
-        :param headers: Extra headers to pass in the request.
-        :param redirect_limit: Maximum number of times to follow redirects.
-        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :arg headers: Extra headers to pass in the request.
+        :arg redirect_limit: Maximum number of times to follow redirects.
+        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
@@ -244,9 +244,9 @@ class Resource(_Resource):
     def put(self, body=None, headers=None, **kwargs):
         """ Perform an HTTP PUT to this resource.
 
-        :param body: The payload of this request.
-        :param headers: Extra headers to pass in the request.
-        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :arg body: The payload of this request.
+        :arg headers: Extra headers to pass in the request.
+        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
@@ -268,9 +268,9 @@ class Resource(_Resource):
     def post(self, body=None, headers=None, **kwargs):
         """ Perform an HTTP POST to this resource.
 
-        :param body: The payload of this request.
-        :param headers: Extra headers to pass in the request.
-        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :arg body: The payload of this request.
+        :arg headers: Extra headers to pass in the request.
+        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
@@ -292,8 +292,8 @@ class Resource(_Resource):
     def delete(self, headers=None, **kwargs):
         """ Perform an HTTP DELETE to this resource.
 
-        :param headers: Extra headers to pass in the request.
-        :param kwargs: Other arguments to pass to the underlying `httpstream` method.
+        :arg headers: Extra headers to pass in the request.
+        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
@@ -325,7 +325,7 @@ class ResourceTemplate(_ResourceTemplate):
         """ Produce a resource instance by substituting values into the
         stored template URI.
 
-        :param values: A set of named values to plug into the template URI.
+        :arg values: A set of named values to plug into the template URI.
         :rtype: :class:`.Resource`
         """
         resource = Resource(self.uri_template.expand(**values))
@@ -346,8 +346,8 @@ class Service(object):
     def bind(self, uri, metadata=None):
         """ Attach this object to a remote resource.
 
-        :param uri: The URI identifying the remote :class:`.Resource` to which to bind.
-        :param metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg uri: The URI identifying the remote :class:`.Resource` to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
         """
         if "{" in uri and "}" in uri:
             if metadata:
@@ -690,9 +690,13 @@ class Graph(Service):
         response.close()
 
     def hydrate(self, data):
-        """ Hydrate a dictionary of data into a Node, Relationship or other
-        graph object. The dictionary formats expected are those produced
-        by the REST API representations.
+        """ Hydrate a dictionary of data to produce a :class:`.Node`,
+        :class:`.Relationship` or other graph object instance. The
+        data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api.html>`__.
+
+        :arg data: dictionary of data to hydrate
+        
         """
         if isinstance(data, dict):
             if "self" in data:
@@ -754,13 +758,13 @@ class Graph(Service):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node.properties["name"])
 
-        :param start_node: :attr:`~py2neo.Node.bound` start :class:`~py2neo.Node` to match or
+        :arg start_node: :attr:`~py2neo.Node.bound` start :class:`~py2neo.Node` to match or
                            :const:`None` if any
-        :param rel_type: type of relationships to match or :const:`None` if any
-        :param end_node: :attr:`~py2neo.Node.bound` end :class:`~py2neo.Node` to match or
+        :arg rel_type: type of relationships to match or :const:`None` if any
+        :arg end_node: :attr:`~py2neo.Node.bound` end :class:`~py2neo.Node` to match or
                          :const:`None` if any
-        :param bidirectional: :const:`True` if reversed relationships should also be included
-        :param limit: maximum number of relationships to match or :const:`None` if no limit
+        :arg bidirectional: :const:`True` if reversed relationships should also be included
+        :arg limit: maximum number of relationships to match or :const:`None` if no limit
         :return: matching relationships
         :rtype: generator
         """
@@ -1271,10 +1275,14 @@ class Node(PropertyContainer):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        """ Create a new Node instance from a serialised representation held
-        within a dictionary. It is expected there is at least a ``self`` key
-        pointing to a URI for this Node; there may also optionally be
-        properties passed in the ``data`` value.
+        """ Hydrate a dictionary of data to produce a :class:`.Node` instance.
+        The data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api-nodes.html#rest-api-get-node>`__
+        although only the ``self`` value is required.
+
+        :arg data: dictionary of data to hydrate
+        :arg inst: an existing :class:`.Node` instance to overwrite with new values
+
         """
         self = data["self"]
         if inst is None:
@@ -1584,10 +1592,14 @@ class Rel(PropertyContainer):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        """ Create a new Rel instance from a serialised representation held
-        within a dictionary. It is expected there is at least a "self" key
-        pointing to a URI for this Rel; there may also optionally be a "type"
-        and properties passed in the "data" value.
+        """ Hydrate a dictionary of data to produce a :class:`.«class»` instance.
+        The data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api-relationships.html#rest-api-get-relationship-by-id>`__
+        although only the ``self`` value is required.
+
+        :arg data: dictionary of data to hydrate
+        :arg inst: an existing :class:`.«class»` instance to overwrite with new values
+
         """
         self = data["self"]
         if inst is None:
@@ -1801,31 +1813,49 @@ Rel.pair_class = Rev
 
 
 class Path(object):
-    """ A chain of relationships.
+    """ A sequence of nodes connected by relationships that may
+    optionally be bound to remote counterparts in a Neo4j database.
 
         >>> from py2neo import Node, Path, Rev
         >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
         >>> abc = Path(alice, "KNOWS", bob, Rev("KNOWS"), carol)
         >>> abc
-        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})<-[:KNOWS]-({name:"Carol"})
+        <Path order=3 size=2>
         >>> abc.nodes
-        (({name:"Alice"}), ({name:"Bob"}), ({name:"Carol"}))
+        (<Node labels=set() properties={'name': 'Alice'}>,
+         <Node labels=set() properties={'name': 'Bob'}>,
+         <Node labels=set() properties={'name': 'Carol'}>)
         >>> abc.rels
-        (-[:KNOWS]->, <-[:KNOWS]-)
+        (<Rel type='KNOWS' properties={}>, <Rev type='KNOWS' properties={}>)
         >>> abc.relationships
-        (({name:"Alice"})-[:KNOWS]->({name:"Bob"}), ({name:"Carol"})-[:KNOWS]->({name:"Bob"}))
+        (<Relationship type='KNOWS' properties={}>,
+         <Relationship type='KNOWS' properties={}>)
         >>> dave, eve = Node(name="Dave"), Node(name="Eve")
         >>> de = Path(dave, "KNOWS", eve)
         >>> de
-        ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
+        <Path order=2 size=1>
         >>> abcde = Path(abc, "KNOWS", de)
         >>> abcde
-        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})<-[:KNOWS]-({name:"Carol"})-[:KNOWS]->({name:"Dave"})-[:KNOWS]->({name:"Eve"})
+        <Path order=5 size=4>
+        >>> for relationship in abcde.relationships:
+        ...     print(relationship)
+        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})
+        ({name:"Carol"})-[:KNOWS]->({name:"Bob"})
+        ({name:"Carol"})-[:KNOWS]->({name:"Dave"})
+        ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
 
     """
 
     @classmethod
     def hydrate(cls, data, inst=None):
+        """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
+        The data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api-graph-algos.html#rest-api-find-one-of-the-shortest-paths>`__.
+
+        :arg data: dictionary of data to hydrate
+        :arg inst: an existing :class:`.Path` instance to overwrite with new values
+
+        """
         node_uris = data["nodes"]
         relationship_uris = data["relationships"]
         rel_rev = [Rel if direction == "->" else Rev for direction in data["directions"]]
@@ -2153,8 +2183,13 @@ class Relationship(Path):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        """ Create a new Relationship instance from a serialised representation
-        held within a dictionary.
+        """ Hydrate a dictionary of data to produce a :class:`.Relationship` instance.
+        The data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api-relationships.html#rest-api-get-relationship-by-id>`__.
+
+        :arg data: dictionary of data to hydrate
+        :arg inst: an existing :class:`.Relationship` instance to overwrite with new values
+
         """
         self = data["self"]
         if inst is None:
