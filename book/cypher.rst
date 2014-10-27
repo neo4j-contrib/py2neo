@@ -33,6 +33,14 @@ Records
    :members:
 
 
+Subgraph
+========
+
+.. autoclass:: py2neo.Subgraph
+   :members:
+   :inherited-members:
+
+
 Builders
 ========
 

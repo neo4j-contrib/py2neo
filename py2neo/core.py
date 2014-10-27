@@ -344,10 +344,11 @@ class Service(object):
     __resource__ = None
 
     def bind(self, uri, metadata=None):
-        """ Attach this object to a remote resource.
+        """ Associate this «class.lower» with a remote resource.
 
-        :arg uri: The URI identifying the remote :class:`.Resource` to which to bind.
+        :arg uri: The URI identifying the remote resource to which to bind.
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
         """
         if "{" in uri and "}" in uri:
             if metadata:
@@ -1139,31 +1140,37 @@ class PropertyContainer(Service):
         self.__push_if_bound()
 
     def bind(self, uri, metadata=None):
+        """ Associate this «class.lower» with a remote resource.
+
+        :arg uri: The URI identifying the remote resource to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
+        """
         Service.bind(self, uri, metadata)
         self.__properties.bind(uri + "/properties")
 
     @property
     def properties(self):
-        """ The set of properties attached to this entity. Properties
+        """ The set of properties attached to this «class.lower». Properties
         can also be read from and written to any :class:`PropertyContainer`
         by using the index syntax directly.
         """
         return self.__properties
 
     def pull(self):
-        """ Pull data to this entity from its remote counterpart.
+        """ Pull data to this «class.lower» from its remote counterpart.
         """
         self.resource.get()
         properties = self.resource.metadata["data"]
         self.__properties.replace(properties or {})
 
     def push(self):
-        """ Push data from this entity to its remote counterpart.
+        """ Push data from this «class.lower» to its remote counterpart.
         """
         self.__properties.push()
 
     def unbind(self):
-        """ Detach this entity from any remote counterpart.
+        """ Detach this «class.lower» from any remote counterpart.
         """
         Service.unbind(self)
         self.__properties.unbind()
@@ -1397,6 +1404,12 @@ class Node(PropertyContainer):
         return "node/%s" % self._id
 
     def bind(self, uri, metadata=None):
+        """ Associate this node with a remote node.
+
+        :arg uri: The URI identifying the remote node to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
+        """
         PropertyContainer.bind(self, uri, metadata)
         if self.graph.supports_node_labels:
             self.__labels.bind(uri + "/labels")
@@ -1539,29 +1552,29 @@ class Rel(PropertyContainer):
 
     cache = WeakValueDictionary()
     pair = None
-    pair_class = object
+    _pair_class = object
 
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a :class:`.Rel`. The
         following combinations of arguments are possible::
 
-            >>> Rel.cast(None)
-            >>> Rel.cast()
-            <Rel type=None properties={}>
-            >>> Rel.cast("KNOWS")
-            <Rel type='KNOWS' properties={}>
-            >>> Rel.cast("KNOWS", since=1999)
-            <Rel type='KNOWS' properties={'since': 1999}>
-            >>> Rel.cast("KNOWS", {"since": 1999})
-            <Rel type='KNOWS' properties={'since': 1999}>
-            >>> Rel.cast(("KNOWS",))
-            <Rel type='KNOWS' properties={}>
-            >>> Rel.cast(("KNOWS", {"since": 1999}))
-            <Rel type='KNOWS' properties={'since': 1999}>
-            >>> rel = Rel("KNOWS", since=1999)
-            >>> Rel.cast(rel)
-            <Rel type='KNOWS' properties={'since': 1999}>
+            >>> «class».cast(None)
+            >>> «class».cast()
+            <«class» type=None properties={}>
+            >>> «class».cast("KNOWS")
+            <«class» type='KNOWS' properties={}>
+            >>> «class».cast("KNOWS", since=1999)
+            <«class» type='KNOWS' properties={'since': 1999}>
+            >>> «class».cast("KNOWS", {"since": 1999})
+            <«class» type='KNOWS' properties={'since': 1999}>
+            >>> «class».cast(("KNOWS",))
+            <«class» type='KNOWS' properties={}>
+            >>> «class».cast(("KNOWS", {"since": 1999}))
+            <«class» type='KNOWS' properties={'since': 1999}>
+            >>> «class.lower» = «class»("KNOWS", since=1999)
+            >>> «class».cast(«class.lower»)
+            <«class» type='KNOWS' properties={'since': 1999}>
 
         """
         if len(args) == 1 and not kwargs:
@@ -1678,7 +1691,7 @@ class Rel(PropertyContainer):
 
     def __neg__(self):
         if self.pair is None:
-            self.pair = self.pair_class()
+            self.pair = self._pair_class()
             self.pair.__resource__ = self.__resource__
             self.pair._PropertyContainer__properties = self._PropertyContainer__properties
             self.pair._Rel__type = self.__type
@@ -1704,6 +1717,12 @@ class Rel(PropertyContainer):
         return "relationship/%s" % self._id
 
     def bind(self, uri, metadata=None):
+        """ Associate this object with a remote relationship.
+
+        :arg uri: The URI identifying the remote relationship to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
+        """
         PropertyContainer.bind(self, uri, metadata)
         self.cache[uri] = self
         pair = self.pair
@@ -1716,7 +1735,7 @@ class Rel(PropertyContainer):
 
     @property
     def exists(self):
-        """ :const:`True` if this rel exists in the database,
+        """ :const:`True` if this relationship exists in the database,
         :const:`False` otherwise.
         """
         try:
@@ -1800,7 +1819,7 @@ class Rev(Rel):
     """ A reversed :class:`Rel`.
     """
 
-    pair_class = Rel
+    _pair_class = Rel
 
     def __abs__(self):
         return self.__neg__()
@@ -1809,7 +1828,7 @@ class Rev(Rel):
         return -(super(Rev, self).__hash__())
 
 
-Rel.pair_class = Rev
+Rel._pair_class = Rev
 
 
 class Path(object):
@@ -2266,8 +2285,12 @@ class Relationship(Path):
         return self.rel._id
 
     def bind(self, uri, metadata=None):
-        """ Bind to a remote relationship. The relationship start and end
-        nodes will also be bound to their corresponding remote nodes.
+        """ Associate this relationship with a remote relationship. The start and
+        end nodes will also be associated with their corresponding remote nodes.
+
+        :arg uri: The URI identifying the remote relationship to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
         """
         self.rel.bind(uri, metadata)
         self.cache[uri] = self

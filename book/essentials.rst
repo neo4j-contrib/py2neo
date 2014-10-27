@@ -29,17 +29,31 @@ Relationship
    :members:
    :inherited-members:
 
+.. autoclass:: py2neo.Rel
+   :members:
+   :inherited-members:
 
-Structures
-==========
+.. autoclass:: py2neo.Rev
+   :members:
+   :inherited-members:
+
+
+Path
+====
 
 .. autoclass:: py2neo.Path
    :members:
    :inherited-members:
 
-.. autoclass:: py2neo.Subgraph
+
+Labels & Properties
+===================
+
+.. autoclass:: py2neo.LabelSet
    :members:
-   :inherited-members:
+
+.. autoclass:: py2neo.PropertySet
+   :members:
 
 
 Exceptions
