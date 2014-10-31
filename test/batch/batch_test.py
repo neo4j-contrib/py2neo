@@ -100,7 +100,7 @@ class TestRelationshipCreation(object):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.create((alice, "KNOWS", bob))
         knows, = self.batch.submit()
         assert isinstance(knows, Relationship)
@@ -113,7 +113,7 @@ class TestRelationshipCreation(object):
     def test_can_create_relationship_with_existing_start_node(self):
         self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.create({"name": "Bob"})
         self.batch.create((alice, "KNOWS", 0))
         bob, knows = self.batch.submit()
@@ -127,7 +127,7 @@ class TestRelationshipCreation(object):
     def test_can_create_relationship_with_existing_end_node(self):
         self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.create({"name": "Alice"})
         self.batch.create((0, "KNOWS", bob))
         alice, knows = self.batch.submit()
@@ -205,7 +205,7 @@ class TestUniqueRelationshipCreation(object):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
         path, = self.batch.submit()
@@ -221,7 +221,7 @@ class TestUniqueRelationshipCreation(object):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         alice, bob = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
         self.batch.get_or_create_path(
@@ -235,7 +235,7 @@ class TestUniqueRelationshipCreation(object):
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((0, "KNOWS", 1))
         alice, bob, k1, k2 = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", bob)
         try:
             self.batch.submit()
@@ -248,7 +248,7 @@ class TestUniqueRelationshipCreation(object):
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})
         bob, = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.get_or_create_path(None, "KNOWS", bob)
         path, = self.batch.submit()
         knows = path.relationships[0]
@@ -262,7 +262,7 @@ class TestUniqueRelationshipCreation(object):
     def test_can_create_relationship_and_end_node(self):
         self.batch.create({"name": "Alice"})
         alice, = self.batch.submit()
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", None)
         path, = self.batch.submit()
         knows = path.relationships[0]
@@ -288,7 +288,7 @@ class TestDeletion(object):
         assert alice.exists
         assert bob.exists
         assert ab.exists
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         self.batch.delete(ab)
         self.batch.delete(alice)
         self.batch.delete(bob)
@@ -380,7 +380,7 @@ class TestIndexedNodeCreation(object):
         alice, alice_index_entry = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice.properties == alice_props
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         # create Bob
         bob_props = {"name": "Bob Smith"}
         # need to execute a pair of commands as "create in index" not available
@@ -404,7 +404,7 @@ class TestIndexedNodeCreation(object):
         alice, = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice.properties == alice_props
-        self.batch.jobs.clear()
+        self.batch.jobs = []
         # create Bob
         bob_props = {"name": "Bob Smith"}
         self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", bob_props)
