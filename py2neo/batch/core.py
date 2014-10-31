@@ -34,7 +34,7 @@ log = logging.getLogger("py2neo.batch")
 
 
 class BatchError(GraphError):
-    """ Wraps a base `GraphError` within a batch context.
+    """ Wraps a base :class:`py2neo.GraphError` within a batch context.
     """
 
     batch = None
@@ -53,6 +53,8 @@ class BatchError(GraphError):
 
 
 class BatchResource(Service):
+    """ Resource for batch execution.
+    """
 
     __instances = {}
 
@@ -66,8 +68,12 @@ class BatchResource(Service):
         return inst
 
     def post(self, batch):
-        """ Post a batch to the server batch endpoint and return an
-        HTTPStream response.
+        """ Post a batch of jobs to the server and receive a raw
+        response.
+
+        :arg batch: A :class:`.Batch` of jobs.
+        :rtype: :class:`httpstream.Response`
+
         """
         num_jobs = len(batch)
         plural = "" if num_jobs == 1 else "s"
@@ -81,11 +87,22 @@ class BatchResource(Service):
         return response
 
     def run(self, batch):
+        """ Execute a collection of jobs and discard any response.
+
+        :arg batch: A :class:`.Batch` of jobs.
+
+        """
         response = self.post(batch)
         log.info("< Discarding batch response")
         response.close()
 
     def stream(self, batch):
+        """ Execute a collection of jobs and yield results as received.
+
+        :arg batch: A :class:`.Batch` of jobs.
+        :rtype: generator
+
+        """
         response = self.post(batch)
         try:
             for i, result_data in grouped(response):
@@ -96,6 +113,12 @@ class BatchResource(Service):
             response.close()
 
     def submit(self, batch):
+        """ Execute a collection of jobs and return all results.
+
+        :arg batch: A :class:`.Batch` of jobs.
+        :rtype: :class:`list`
+
+        """
         response = self.post(batch)
         try:
             results = []
@@ -123,13 +146,27 @@ class BatchResource(Service):
 
 
 class Target(object):
+    """ A callable target for a batch job. This may refer directly to a URI
+    or to an object that can be resolved to a URI, such as a :class:`py2neo.Node`.
+    """
 
-    def __init__(self, entity, *offsets):
+    #: The entity behind this target.
+    entity = None
+
+    #: Additional path segments to append to the resolved URI.
+    segments = None
+
+    def __init__(self, entity, *segments):
         self.entity = entity
-        self.offsets = offsets
+        self.segments = segments
 
     @property
     def uri_string(self):
+        """ The fully resolved URI string for this target.
+
+        :rtype: string
+
+        """
         if isinstance(self.entity, int):
             uri_string = "{{{0}}}".format(self.entity)
         elif isinstance(self.entity, NodePointer):
@@ -139,15 +176,20 @@ class Target(object):
                 uri_string = self.entity.ref
             except AttributeError:
                 uri_string = ustr(self.entity)
-        if self.offsets:
+        if self.segments:
             if not uri_string.endswith("/"):
                 uri_string += "/"
-            uri_string += "/".join(map(percent_encode, self.offsets))
+            uri_string += "/".join(map(percent_encode, self.segments))
         return uri_string
 
 
 class Job(object):
-    """ Individual batch request.
+    """ A single request for inclusion within a :class:`.Batch`.
+
+    :arg method: The HTTP method for the request.
+    :arg target: A :class:`.Target` object used to determine the destination URI.
+    :arg body: The request payload (optional).
+
     """
 
     # Indicates whether or not the result should be
@@ -183,7 +225,8 @@ class Job(object):
 
 
 class JobResult(object):
-    """ Individual batch response.
+    """ The result returned from the server for a single
+    :class:`.Job` following a :class:`.Batch` submission.
     """
 
     @classmethod
@@ -216,6 +259,24 @@ class JobResult(object):
                             body = body[0]
         return cls(batch, job_id, uri, status_code, location, body)
 
+    #: The :class:`.Batch` from which this result was returned.
+    batch = None
+
+    #: The unique ID for this job within the batch.
+    job_id = None
+
+    #: The URI destination of the original job.
+    uri = None
+
+    #: The status code returned for this job.
+    status_code = None
+
+    #: The ``Location`` header returned for this job (if included).
+    location = None
+
+    #: The response content for this job.
+    content = None
+
     def __init__(self, batch, job_id, uri, status_code=None, location=None, content=None):
         self.batch = batch
         self.job_id = job_id
@@ -232,14 +293,26 @@ class JobResult(object):
 
     @property
     def graph(self):
+        """ The corresponding graph for this result.
+
+        :rtype: :class:`py2neo.Graph`
+
+        """
         return self.batch.graph
 
     @property
     def job(self):
+        """ The original job behind this result.
+
+        :rtype: :class:`.Job`
+
+        """
         return self.batch[self.job_id]
 
 
 class CypherJob(Job):
+    """ Cypher execution job.
+    """
 
     target = Target("cypher")
 
@@ -250,8 +323,10 @@ class CypherJob(Job):
         Job.__init__(self, "POST", self.target, body)
 
 
-# TODO: make single-use
 class Batch(object):
+    """ A single-use collection of :class:`.Job` objects that can be
+    submitted to a :class:`.BatchResource`.
+    """
 
     def __init__(self, graph):
         self.graph = graph
@@ -279,13 +354,14 @@ class Batch(object):
             return node
 
     def append(self, job):
+        """ Add a job to this batch.
+
+        :param job: A :class:`.Job` object to add to this batch.
+        :rtype: :class:`.Job`
+
+        """
         self.jobs.append(job)
         return job
-
-    def clear(self):
-        """ Clear all jobs from this batch.
-        """
-        self.jobs = []
 
     def find(self, job):
         """ Find the position of a job within this batch.

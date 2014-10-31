@@ -21,3 +21,39 @@ from py2neo.batch.pull import *
 from py2neo.batch.push import *
 from py2neo.batch.read import *
 from py2neo.batch.write import *
+
+
+__all__ = [
+
+    "BatchResource",
+
+    "Batch",
+    "WriteBatch",
+    "PullBatch",
+    "PushBatch",
+    "ReadBatch",
+
+    "Job",
+    "JobResult",
+    "Target",
+
+    "AddNodeLabelsJob",
+    "CreateNodeJob",
+    "CreatePathJob",
+    "CreateRelationshipJob",
+    "CreateUniquePathJob",
+    "CypherJob",
+    "DeleteEntityJob",
+    "DeletePropertiesJob",
+    "DeletePropertyJob",
+    "PullNodeLabelsJob",
+    "PullPropertiesJob",
+    "PullRelationshipJob",
+    "PushNodeLabelsJob",
+    "PushPropertiesJob",
+    "PushPropertyJob",
+    "RemoveNodeLabelJob",
+
+    "BatchError",
+
+]

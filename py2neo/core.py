@@ -1521,8 +1521,12 @@ class Node(PropertyContainer):
 
 
 class NodePointer(object):
-    """ Pointer to a :class:`Node` object.
+    """ Pointer to a :class:`Node` object. This can be used in a batch
+    context to point to a node not yet created.
     """
+
+    #: The address or index to which this pointer points.
+    address = None
 
     def __init__(self, address):
         self.address = address

@@ -48,11 +48,18 @@ class PullRelationshipJob(Job):
 
 
 class PullBatch(Batch):
+    """ A batch of pull jobs.
+    """
 
     def __init__(self, graph):
         Batch.__init__(self, graph)
 
     def append(self, entity):
+        """ Append an entity to the list to be pulled.
+
+        :param entity: An entity such as a :class:`py2neo.Node`.
+
+        """
         if isinstance(entity, Node):
             self.jobs.append(PullPropertiesJob(entity))
             if entity.graph.supports_node_labels:
@@ -66,6 +73,9 @@ class PullBatch(Batch):
             raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
 
     def pull(self):
+        """ Pull details to all entities in this batch from their
+        remote counterparts.
+        """
         for i, result in enumerate(self.graph.batch.submit(self)):
             job = self.jobs[i]
             entity = job.target.entity

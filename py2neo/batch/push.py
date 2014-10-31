@@ -42,11 +42,18 @@ class PushNodeLabelsJob(Job):
 
 
 class PushBatch(Batch):
+    """ A batch of push jobs.
+    """
 
     def __init__(self, graph):
         Batch.__init__(self, graph)
 
     def append(self, entity):
+        """ Append an entity to the list to be pushed.
+
+        :param entity: An entity such as a :class:`py2neo.Node`.
+
+        """
         if isinstance(entity, Node):
             self.jobs.append(PushPropertiesJob(entity, entity.properties))
             if entity.graph.supports_node_labels:
@@ -60,4 +67,7 @@ class PushBatch(Batch):
             raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
 
     def push(self):
+        """ Push details from all entities in this batch to their
+        remote counterparts.
+        """
         self.graph.batch.run(self)
