@@ -34,6 +34,12 @@ class GraphStore(object):
 
     @classmethod
     def for_server(cls, server):
+        """ Return the store object for the given server.
+
+        :arg server: A :class:`py2neo.server.GraphServer` object.
+        :rtype: :class:`.GraphStore`
+
+        """
         # TODO: actually sniff config files for the true path
         return GraphStore(os.path.join(server.home, "data", "graph.db"))
 
@@ -54,6 +60,7 @@ class GraphStore(object):
         """ Delete this store directory.
 
         :param force:
+
         """
         if force or not self.locked:
             rmtree(self.path, ignore_errors=force)

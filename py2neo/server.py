@@ -16,9 +16,6 @@
 # limitations under the License.
 
 
-""" Linux only!
-"""
-
 import fileinput
 import re
 import os
@@ -31,7 +28,7 @@ from py2neo.env import NEO4J_HOME
 from py2neo.store import GraphStore
 
 
-__all__ = ["GraphServerProcess", "GraphServer"]
+__all__ = ["GraphServer", "GraphServerProcess"]
 
 number_in_brackets = re.compile("\[(\d+)\]")
 
@@ -40,6 +37,18 @@ class GraphServerProcess(object):
     """ A Neo4j server process.
     """
 
+    #: The server installation behind this process.
+    server = None
+
+    #: The service root exposed by this server process.
+    service_root = None
+
+    #: The PID of this process.
+    pid = None
+
+    #: The JVM arguments with which this process was started.
+    jvm_arguments = None
+
     def __init__(self, server, service_root, **kwargs):
         self.server = server
         self.service_root = service_root
@@ -47,10 +56,17 @@ class GraphServerProcess(object):
         self.jvm_arguments = kwargs.get("jvm_arguments")
 
     def stop(self):
+        """ Stop this server process.
+        """
         self.server.stop()
 
     @property
     def graph(self):
+        """ The graph exposed by this server process.
+
+        :rtype: :class:`py2neo.Graph`
+
+        """
         return self.service_root.graph
 
 
@@ -58,7 +74,9 @@ class GraphServer(object):
     """ Represents a Neo4j server installation on disk.
     """
 
-    # TODO: __instances
+    #: The base directory of this server installation (defaults
+    #: to the value of the ``NEO4J_HOME`` environment variable).
+    home = None
 
     def __init__(self, home=NEO4J_HOME):
         self.home = home
@@ -74,12 +92,18 @@ class GraphServer(object):
 
     @property
     def store(self):
+        """ The store for this server.
+
+        :rtype: :class:`py2neo.store.GraphStore`
+
+        """
         return GraphStore.for_server(self)
 
     def start(self):
         """ Start the server.
 
         :rtype: :class:`py2neo.server.GraphServerProcess`
+
         """
         try:
             out = check_output("%s start" % self.script, shell=True)
@@ -185,8 +209,18 @@ class GraphServer(object):
 
     @property
     def service_root(self):
+        """ The service root exposed by this server.
+
+        :return: :class:`py2neo.ServiceRoot`
+
+        """
         return ServiceRoot("http://localhost:%s" % self.info["NEO4J_SERVER_PORT"])
 
     @property
     def graph(self):
+        """ The graph exposed by this server.
+
+        :return: :class:`py2neo.Graph`
+
+        """
         return self.service_root.graph
