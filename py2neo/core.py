@@ -1547,7 +1547,14 @@ class NodePointer(object):
 
 
 class Rel(PropertyContainer):
-    """ A relationship with no start or end nodes.
+    """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
+    store information about the nodes to which it is attached. This class
+    is used internally to bundle relationship type and property details
+    for :class:`.Relationship` and :class:`.Path` objects but may be used
+    to denote an explicit forward relationship within a path.
+
+    .. seealso:: :class:`.Rev`
+
     """
 
     cache = WeakValueDictionary()
@@ -1556,7 +1563,7 @@ class Rel(PropertyContainer):
 
     @staticmethod
     def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Rel`. The
+        """ Cast the arguments provided to a :class:`.«class»`. The
         following combinations of arguments are possible::
 
             >>> «class».cast(None)
@@ -1769,6 +1776,11 @@ class Rel(PropertyContainer):
         super(Rel, self).properties.clear()
         self.refresh()
 
+    def push(self):
+        """ Push data from this relationship to its remote counterpart.
+        """
+        super(Rel, self).push()
+
     def refresh(self):
         # Non-destructive pull.
         super(Rel, self).pull()
@@ -1816,7 +1828,19 @@ class Rel(PropertyContainer):
 
 
 class Rev(Rel):
-    """ A reversed :class:`Rel`.
+    """ A :class:`.Rev` is identical to a :class:`.Rel` but denotes a
+    reversed relationship rather than a forward one. The following
+    example shows how to build a :class:`.Path` with one forward and
+    one reversed relationship::
+
+        >>> path = Path(Node(name="A"), Rel("TO"), Node(name="B"), Rev("TO"), Node(name="C"))
+        >>> for relationship in path.relationships:
+        ...     print(relationship)
+        ({name:"A"})-[:TO]->({name:"B"})
+        ({name:"C"})-[:TO]->({name:"B"})
+
+    .. seealso:: :class:`.Rel`
+
     """
 
     _pair_class = Rel
