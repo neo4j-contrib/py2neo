@@ -1,6 +1,6 @@
-======================
-Introduction to Py2neo
-======================
+==========================
+Introduction to Py2neo 2.0
+==========================
 
 In this introduction, you will see how to get connected to a Neo4j graph database and how to carry
 out basic operations. You will also be introduced to the core concepts needed when working with

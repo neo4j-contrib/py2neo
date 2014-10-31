@@ -1,6 +1,6 @@
-===================
-The Py2neo Handbook
-===================
+=======================
+The Py2neo 2.0 Handbook
+=======================
 
 Py2neo is a comprehensive toolkit for working with Neo4j from within Python applications and from
 the command line. The library has no external dependencies and has been carefully designed to be
