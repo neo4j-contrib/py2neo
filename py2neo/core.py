@@ -1550,10 +1550,10 @@ class Rel(PropertyContainer):
     """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
     store information about the nodes to which it is attached. This class
     is used internally to bundle relationship type and property details
-    for :class:`.Relationship` and :class:`.Path` objects but may be used
-    to denote an explicit forward relationship within a path.
+    for :class:`.Relationship` and :class:`.Path` objects but may also be
+    used to denote an explicit forward relationship within a :class:`.Path`.
 
-    .. seealso:: :class:`.Rev`
+    .. seealso:: :class:`py2neo.Rev`
 
     """
 
@@ -1839,7 +1839,7 @@ class Rev(Rel):
         ({name:"A"})-[:TO]->({name:"B"})
         ({name:"C"})-[:TO]->({name:"B"})
 
-    .. seealso:: :class:`.Rel`
+    .. seealso:: :class:`py2neo.Rel`
 
     """
 
@@ -2171,6 +2171,11 @@ class Relationship(Path):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a type name and may contain a set
     of named :attr:`~py2neo.Node.properties`.
+
+    .. seealso::
+       :class:`py2neo.Rel`
+       :class:`py2neo.Rev`
+
     """
 
     cache = WeakValueDictionary()
