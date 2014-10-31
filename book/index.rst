@@ -6,6 +6,9 @@ Py2neo is a comprehensive toolkit for working with Neo4j from within Python appl
 the command line. The library has no external dependencies and has been carefully designed to be
 easy and intuitive to use.
 
+.. note::
+   Documentation for py2neo 1.6 is available `here </1.6/>`_.
+
 
 Requirements
 ============
