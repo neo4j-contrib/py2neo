@@ -45,7 +45,7 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "cypher = py2neo.cypher.__main__:main",
-            "neobox = py2neo.ext.box.__main__:main",
+            "neobox = py2neo.ext.neobox.__main__:main",
             "neoget = py2neo.ext.distro.__main__:main",
             "neoload = py2neo.ext.load.__main__:main",
         ],

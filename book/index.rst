@@ -36,11 +36,11 @@ Contents
    legacy
    server
    internals
-   ext/box
    ext/calendar
    ext/distro
    ext/geoff
    ext/gremlin
    ext/load
+   ext/neobox
    ext/ogm
    cookbook

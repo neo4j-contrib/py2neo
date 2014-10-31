@@ -21,18 +21,37 @@ from __future__ import print_function
 import os
 import sys
 
-from py2neo.ext.box.core import NeoBox
+from py2neo.ext.neobox.core import Warehouse
 from py2neo.util import ustr
 
 
 HELP = """\
-Usage: {script} list [paths|pids|ports]
-       {script} make «name» «edition» «version»
+Usage: {script} list
+       {script} install «name» «edition» «version»
        {script} remove «name» [force]
        {script} rename «name» «new_name»
        {script} start «name»
        {script} stop «name»
-       {script} drop «name»
+       {script} open «name»
+       {script} drop «name» [force]
+
+Manager for multiple Neo4j server installations (boxes), each running on
+its own unique port.
+
+Commands:
+  list     List all installed boxes
+  install  Install Neo4j into a box
+  remove   Remove a box
+  rename   Rename a box
+  start    Start a database server
+  stop     Stop a database server
+  open     Open the browser for a running server
+  drop     Drop a database store
+
+Environment:
+  NEOBOX_HOME - base directory for installed boxes
+
+Report bugs to nigel@py2neo.org
 """
 
 
@@ -41,26 +60,9 @@ def _help(script):
 
 
 def _list(*args):
-    box = NeoBox()
-    if len(args) == 0:
-        template = "{name}"
-    elif len(args) == 1 and args[0] in ("paths", "pids", "ports"):
-        template = "{name} {%s}" % args[0][:-1]
-    else:
-        template = None
-    if template:
-        server_list = box.server_list()
-        if server_list:
-            server_paths = [box.server_home(name) for name in sorted(server_list.keys())]
-            max_name_length = max(map(len, list(server_list.keys())))
-            for i, (name, webserver_port) in enumerate(sorted(server_list.items())):
-                webserver_https_port = webserver_port + 1
-                path = server_paths[i]
-                print(template.format(name=name.ljust(max_name_length), path=path,
-                                      pid=(box.get_server(name).pid or ""),
-                                      port=("%s %s" % (webserver_port, webserver_https_port))))
-    else:
-        raise ValueError("Bad arguments")
+    warehouse = Warehouse()
+    for box in warehouse.boxes():
+        print(box.name)
 
 
 def main():
@@ -73,46 +75,51 @@ def main():
             elif command == "list":
                 _list(*args)
             else:
-                box = NeoBox()
+                warehouse = Warehouse()
                 name, args = args[0], args[1:]
-                if command == "make":
+                box = warehouse.box(name)
+                if command == "install":
                     edition, version = args
-                    box.make_server(name, edition, version)
-                    server_list = box.server_list()
-                    webserver_port = server_list[name]
+                    box.install(edition, version)
+                    webserver_port = warehouse._ports[name]
                     webserver_https_port = webserver_port + 1
                     print("Created server instance %r configured on ports %s and %s" % (
                         name, webserver_port, webserver_https_port))
-                elif command == "remove" and args == ():
-                    box.remove_server(name)
-                elif command == "remove" and args == ("force",):
-                    box.remove_server(name, force=True)
+                elif command == "remove" and not args:
+                    box.remove()
+                elif command == "remove" and args[0] == "force":
+                    box.remove(force=True)
                 elif command == "rename":
                     new_name, = args
-                    box.rename_server(name, new_name)
+                    box.rename(new_name)
                 elif command == "start":
-                    ps = box.get_server(name).start()
+                    ps = box.server.start()
                     print(ps.service_root.uri)
                 elif command == "stop":
-                    box.get_server(name).stop()
-                elif command == "drop" and args == ():
-                    box.get_server(name).store.drop()
-                elif command == "drop" and args == ("force",):
-                    box.get_server(name).store.drop(force=True)
+                    box.server.stop()
+                elif command == "open":
+                    if box.server:
+                        box.server.graph.open_browser()
+                    else:
+                        raise RuntimeError("Server %r is not running" % name)
+                elif command == "drop" and not args:
+                    box.server.store.drop()
+                elif command == "drop" and args[0] == "force":
+                    box.server.store.drop(force=True)
                 elif command == "load":
                     path, args = args[0], args[1:]
-                    if args == ():
-                        box.get_server(name).store.load(path)
-                    elif args == ("force",):
-                        box.get_server(name).store.load(path, force=True)
+                    if not args:
+                        box.server.store.load(path)
+                    elif args[0] == "force":
+                        box.server.store.load(path, force=True)
                     else:
                         raise ValueError("Bad command or arguments")
                 elif command == "save":
                     path, args = args[0], args[1:]
-                    if args == ():
-                        box.get_server(name).store.save(path)
-                    elif args == ("force",):
-                        box.get_server(name).store.save(path, force=True)
+                    if not args:
+                        box.server.store.save(path)
+                    elif args[0] == "force":
+                        box.server.store.save(path, force=True)
                     else:
                         raise ValueError("Bad command or arguments")
                 else:
@@ -122,7 +129,6 @@ def main():
     except Exception as error:
         sys.stderr.write(ustr(error))
         sys.stderr.write("\n")
-        _help(script)
         sys.exit(1)
 
 
