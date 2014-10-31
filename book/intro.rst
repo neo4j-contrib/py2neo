@@ -171,6 +171,21 @@ For example::
     >>> tx.commit()
 
 
+Command Line
+------------
+
+Py2neo also provides a convenient command line tool for executing Cypher statements::
+
+    $ cypher -p N Alice "MATCH (p:Person {name:{N}}) RETURN p"
+       | p
+    ---+----------------------------
+     1 | (n1:Person {name:"Alice"})
+
+
+This tool uses the ``NEO4J_URI`` environment variable to determine the location of the underlying
+graph database. Support is also provided for a variety of output formats.
+
+
 Unique Nodes
 ============
 
