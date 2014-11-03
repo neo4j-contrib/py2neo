@@ -81,7 +81,7 @@ class CypherResource(Service):
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
-        log.info("execute %r %r", payload["query"], payload["params"])
+        log.info("execute %r %r", payload["query"], payload.get("params", {}))
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
