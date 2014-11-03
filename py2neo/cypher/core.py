@@ -93,7 +93,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.enqueue(statement, parameters)
             tx.commit()
         else:
             self.post(statement, parameters).close()
@@ -107,7 +107,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.enqueue(statement, parameters)
             results = tx.commit()
             return results[0]
         else:
@@ -127,7 +127,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.enqueue(statement, parameters)
             results = tx.commit()
             try:
                 return results[0][0][0]
@@ -203,11 +203,11 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def execute(self, statement, parameters=None):
+    def enqueue(self, statement, parameters=None):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :param statement: the statement to execute
+        :param statement: the statement to enqueue
         :param parameters: a dictionary of execution parameters
         """
         # TODO: logging
@@ -249,7 +249,7 @@ class CypherTransaction(object):
                                             for r in result["data"]]))
         return out
 
-    def flush(self):
+    def process(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
 
