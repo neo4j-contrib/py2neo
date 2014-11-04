@@ -325,10 +325,8 @@ class CypherJob(Job):
 
 class Batch(object):
     """ A collection of :class:`.Job` objects that can be submitted
-    to a :class:`.BatchResource`. Batches can only be used once and
-    are marked as `finished` after submission. References to previous
-    jobs are only valid **within the same batch** and will not work
-    across batches.
+    to a :class:`.BatchResource`. References to previous jobs are only
+    valid **within the same batch** and will not work across batches.
     """
 
     #: The graph with which this batch is associated
