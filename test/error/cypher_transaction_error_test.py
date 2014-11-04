@@ -11,14 +11,14 @@ def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(g
     if not graph.supports_cypher_transactions:
         return
     tx = graph.cypher.begin()
-    tx.execute("CREATE (a), (b) RETURN a, b")
-    results = tx.flush()
+    tx.append("CREATE (a), (b) RETURN a, b")
+    results = tx.process()
     result = results[0]
     record = result[0]
     parameters = {"A": record.a._id, "B": record.b._id}
-    tx.execute("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
-    tx.execute("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
-    tx.execute("START a=node({A}), b=node({B}) CREATE UNIQUE (a)-[:KNOWS]->(b)", parameters)
+    tx.append("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
+    tx.append("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
+    tx.append("START a=node({A}), b=node({B}) CREATE UNIQUE (a)-[:KNOWS]->(b)", parameters)
     try:
         tx.commit()
     except CypherTransactionError as error:

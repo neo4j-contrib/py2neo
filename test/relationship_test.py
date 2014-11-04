@@ -402,3 +402,8 @@ def test_rel_never_equals_none():
     rel = Rel("KNOWS")
     none = None
     assert rel != none
+
+
+def test_only_one_relationship_in_a_relationship():
+    rel = Relationship({}, "KNOWS", {})
+    assert rel.size == 1

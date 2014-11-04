@@ -74,7 +74,6 @@ class CypherResource(Service):
         :param parameters: A dictionary of parameters.
         :rtype: :class:`httpstream.Response`
         """
-        log.info("Statement: %r", statement)
         payload = {"query": statement}
         if parameters:
             payload["params"] = {}
@@ -82,7 +81,7 @@ class CypherResource(Service):
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
-            log.info("Parameters: %r", payload["params"])
+        log.info("execute %r %r", payload["query"], payload.get("params", {}))
         return self.resource.post(payload)
 
     def run(self, statement, parameters=None):
@@ -93,7 +92,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.append(statement, parameters)
             tx.commit()
         else:
             self.post(statement, parameters).close()
@@ -107,7 +106,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.append(statement, parameters)
             results = tx.commit()
             return results[0]
         else:
@@ -127,7 +126,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.execute(statement, parameters)
+            tx.append(statement, parameters)
             results = tx.commit()
             try:
                 return results[0][0][0]
@@ -172,6 +171,7 @@ class CypherTransaction(object):
     error_class = CypherTransactionError
 
     def __init__(self, uri):
+        log.info("begin")
         self.statements = []
         self.__begin = Resource(uri)
         self.__begin_commit = Resource(uri + "/commit")
@@ -179,6 +179,12 @@ class CypherTransaction(object):
         self.__commit = None
         self.__finished = False
         self.graph = self.__begin.graph
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.commit()
 
     def __assert_unfinished(self):
         if self.__finished:
@@ -203,14 +209,13 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def execute(self, statement, parameters=None):
+    def append(self, statement, parameters=None):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :param statement: the statement to execute
+        :param statement: the statement to append
         :param parameters: a dictionary of execution parameters
         """
-        # TODO: logging
         self.__assert_unfinished()
         p = {}
         if parameters:
@@ -219,6 +224,7 @@ class CypherTransaction(object):
                     value = value._id
                 p[key] = value
         # OrderedDict is used here to avoid statement/parameters ordering bug
+        log.info("append %r %r", statement, p)
         self.statements.append(OrderedDict([
             ("statement", statement),
             ("parameters", p),
@@ -249,12 +255,13 @@ class CypherTransaction(object):
                                             for r in result["data"]]))
         return out
 
-    def flush(self):
+    def process(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
 
         :return: list of results from pending statements
         """
+        log.info("process")
         return self.post(self.__execute or self.__begin)
 
     def commit(self):
@@ -263,6 +270,7 @@ class CypherTransaction(object):
 
         :return: list of results from pending statements
         """
+        log.info("commit")
         try:
             return self.post(self.__commit or self.__begin_commit)
         finally:
@@ -272,6 +280,7 @@ class CypherTransaction(object):
         """ Rollback the current transaction.
         """
         self.__assert_unfinished()
+        log.info("rollback")
         try:
             if self.__execute:
                 self.__execute.delete()
@@ -303,6 +312,7 @@ class RecordList(object):
         return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
 
     def __init__(self, columns, records):
+        log.info("result %r %r", columns, len(records))
         self.columns = columns
         self.records = records
 
@@ -357,6 +367,7 @@ class RecordStream(object):
         self.__response = response
         self.__response_item = self.__response_iterator()
         self.columns = next(self.__response_item)
+        log.info("stream %r", self.columns)
 
     def __response_iterator(self):
         producer = None

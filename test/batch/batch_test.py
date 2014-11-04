@@ -18,9 +18,9 @@
 
 import pytest
 
-from py2neo import node, rel
+from py2neo import node, rel, Finished
 from py2neo.core import Node, Relationship
-from py2neo.batch import BatchError, WriteBatch, CypherJob
+from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
 from py2neo.legacy import LegacyWriteBatch
 
 
@@ -675,5 +675,17 @@ def test_cypher_job_with_non_existent_node_id(graph):
         assert error.job_id == 0
         assert error.status_code == 400
         assert error.uri == "cypher"
+    else:
+        assert False
+
+
+def test_cannot_resubmit_finished_job(graph):
+    batch = Batch(graph)
+    batch.append(CypherJob("CREATE (a)"))
+    graph.batch.submit(batch)
+    try:
+        graph.batch.submit(batch)
+    except Finished:
+        assert True
     else:
         assert False

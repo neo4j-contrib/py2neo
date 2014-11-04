@@ -670,7 +670,7 @@ class Graph(Service):
         batch.append(CypherJob("START n=node(*) DELETE n"))
         batch.run()
 
-    def find(self, label, property_key=None, property_value=None):
+    def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
         by property key and value
         """
@@ -679,16 +679,27 @@ class Graph(Service):
         from py2neo.cypher.lang import cypher_escape
         if property_key is None:
             statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
-            response = self.cypher.post(statement)
+            parameters = {}
         else:
-            statement = "MATCH (n:%s {%s:{v}}) RETURN n,labels(n)" % (
+            statement = "MATCH (n:%s {%s:{V}}) RETURN n,labels(n)" % (
                 cypher_escape(label), cypher_escape(property_key))
-            response = self.cypher.post(statement, {"v": property_value})
+            parameters = {"V": property_value}
+        if limit:
+            statement += " LIMIT %s" % limit
+        response = self.cypher.post(statement, parameters)
         for record in response.content["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
         response.close()
+
+    def find_one(self, label, property_key=None, property_value=None):
+        """ Find a single node by label and optional property. This method is
+        intended to be used with a unique constraint and does not fail if more
+        than one matching node is found.
+        """
+        for node in self.find(label, property_key, property_value, limit=1):
+            return node
 
     def hydrate(self, data):
         """ Hydrate a dictionary of data to produce a :class:`.Node`,
@@ -824,7 +835,7 @@ class Graph(Service):
         else:
             return None
 
-    def merge(self, label, property_key=None, property_value=None):
+    def merge(self, label, property_key=None, property_value=None, limit=None):
         """ Match or create a node by label and optional property and return
         all matching nodes.
         """
@@ -833,11 +844,14 @@ class Graph(Service):
         from py2neo.cypher.lang import cypher_escape
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
-            response = self.cypher.post(statement)
+            parameters = {}
         else:
-            statement = "MERGE (n:%s {%s:{v}}) RETURN n,labels(n)" % (
+            statement = "MERGE (n:%s {%s:{V}}) RETURN n,labels(n)" % (
                 cypher_escape(label), cypher_escape(property_key))
-            response = self.cypher.post(statement, {"v": property_value})
+            parameters = {"V": property_value}
+        if limit:
+            statement += " LIMIT %s" % limit
+        response = self.cypher.post(statement, parameters)
         for record in response.content["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
@@ -849,7 +863,7 @@ class Graph(Service):
         single matching node. This method is intended to be used with a unique
         constraint and does not fail if more than one matching node is found.
         """
-        for node in self.merge(label, property_key, property_value):
+        for node in self.merge(label, property_key, property_value, limit=1):
             return node
 
     @property
