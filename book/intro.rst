@@ -54,7 +54,7 @@ process of applying a URI to a client object, which allows future synchonisation
 occur.
 
 .. note:: Entity binding can be managed directly by using the `bind` and `unbind` methods and
-    observed through the `bound` boolean property.
+    observed through the `bound` boolean attribute.
 
 
 Pushing & Pulling
