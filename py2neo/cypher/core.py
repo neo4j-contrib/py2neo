@@ -92,7 +92,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.enqueue(statement, parameters)
+            tx.append(statement, parameters)
             tx.commit()
         else:
             self.post(statement, parameters).close()
@@ -106,7 +106,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.enqueue(statement, parameters)
+            tx.append(statement, parameters)
             results = tx.commit()
             return results[0]
         else:
@@ -126,7 +126,7 @@ class CypherResource(Service):
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.enqueue(statement, parameters)
+            tx.append(statement, parameters)
             results = tx.commit()
             try:
                 return results[0][0][0]
@@ -209,11 +209,11 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def enqueue(self, statement, parameters=None):
+    def append(self, statement, parameters=None):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :param statement: the statement to enqueue
+        :param statement: the statement to append
         :param parameters: a dictionary of execution parameters
         """
         self.__assert_unfinished()
@@ -224,7 +224,7 @@ class CypherTransaction(object):
                     value = value._id
                 p[key] = value
         # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("enqueue %r %r", statement, p)
+        log.info("append %r %r", statement, p)
         self.statements.append(OrderedDict([
             ("statement", statement),
             ("parameters", p),
