@@ -156,8 +156,8 @@ as part of a single transaction. To use this endpoint, firstly call the `begin` 
 graph's `cypher` resource to create a transaction, then use the methods listed below on the
 `CypherTransaction` object:
 
-- `execute(statement, [parameters])` - add a statement to the queue of statements to be executed (does not get passed to the server immediately)
-- `flush()` - push all queued statements to the server for execution (returns results from all queued statements)
+- `append(statement, [parameters])` - add a statement to the queue of statements to be executed (does not get passed to the server immediately)
+- `process()` - push all queued statements to the server for execution (returns results from all queued statements)
 - `commit()` - commit the transaction (returns results from all queued statements)
 - `rollback()` - roll the transaction back
 
@@ -166,7 +166,7 @@ For example::
     >>> tx = graph.cypher.begin()
     >>> statement = "MATCH (a {name:{A}}), (b {name:{B}}) CREATE (a)-[:KNOWS]->(b)"
     >>> for person_a, person_b in [("Alice", "Bob"), ("Bob", "Dave"), ("Alice", "Carol")]:
-    ...     tx.execute(statement, {"A": person_a, "B": person_b})
+    ...     tx.append(statement, {"A": person_a, "B": person_b})
     ...
     >>> tx.commit()
 

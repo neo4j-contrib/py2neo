@@ -27,7 +27,7 @@ def test_can_execute_single_statement_transaction(graph):
         return
     tx = graph.cypher.begin()
     assert not tx.finished
-    tx.execute("CREATE (a) RETURN a")
+    tx.append("CREATE (a) RETURN a")
     results = tx.commit()
     assert repr(results)
     assert len(results) == 1
@@ -38,14 +38,23 @@ def test_can_execute_single_statement_transaction(graph):
     assert tx.finished
 
 
+def test_can_execute_transaction_as_with_statement(graph):
+    if not graph.supports_cypher_transactions:
+        return
+    with graph.cypher.begin() as tx:
+        assert not tx.finished
+        tx.append("CREATE (a) RETURN a")
+    assert tx.finished
+
+
 def test_can_execute_multi_statement_transaction(graph):
     if not graph.supports_cypher_transactions:
         return
     tx = graph.cypher.begin()
     assert not tx.finished
-    tx.execute("CREATE (a) RETURN a")
-    tx.execute("CREATE (a) RETURN a")
-    tx.execute("CREATE (a) RETURN a")
+    tx.append("CREATE (a) RETURN a")
+    tx.append("CREATE (a) RETURN a")
+    tx.append("CREATE (a) RETURN a")
     results = tx.commit()
     assert len(results) == 3
     for result in results:
@@ -62,10 +71,10 @@ def test_can_execute_multi_execute_transaction(graph):
     assert tx._id is None
     for i in range(10):
         assert not tx.finished
-        tx.execute("CREATE (a) RETURN a")
-        tx.execute("CREATE (a) RETURN a")
-        tx.execute("CREATE (a) RETURN a")
-        results = tx.flush()
+        tx.append("CREATE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
+        results = tx.process()
         assert tx._id is not None
         assert len(results) == 3
         for result in results:
@@ -82,10 +91,10 @@ def test_can_rollback_transaction(graph):
     tx = graph.cypher.begin()
     for i in range(10):
         assert not tx.finished
-        tx.execute("CREATE (a) RETURN a")
-        tx.execute("CREATE (a) RETURN a")
-        tx.execute("CREATE (a) RETURN a")
-        results = tx.flush()
+        tx.append("CREATE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
+        results = tx.process()
         assert len(results) == 3
         for result in results:
             assert len(result) == 1
@@ -100,7 +109,7 @@ def test_can_generate_transaction_error(graph):
         return
     tx = graph.cypher.begin()
     try:
-        tx.execute("CRAETE (a) RETURN a")
+        tx.append("CRAETE (a) RETURN a")
         tx.commit()
     except InvalidSyntax as err:
         assert repr(err)
@@ -114,7 +123,7 @@ def test_cannot_append_after_transaction_finished(graph):
     tx = graph.cypher.begin()
     tx.rollback()
     try:
-        tx.execute("CREATE (a) RETURN a")
+        tx.append("CREATE (a) RETURN a")
     except Finished as error:
         assert error.obj is tx
     else:
