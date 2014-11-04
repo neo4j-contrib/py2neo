@@ -21,7 +21,7 @@ import logging
 
 from py2neo.core import NodePointer, Service
 from py2neo.cypher import RecordList
-from py2neo.error import GraphError
+from py2neo.error import GraphError, Finished
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, ustr, raise_from
@@ -80,6 +80,10 @@ class BatchResource(Service):
         log.info("> Sending batch request with %s job%s", num_jobs, plural)
         data = []
         for i, job in enumerate(batch):
+            if job.finished:
+                raise Finished(job)
+            else:
+                job.finished = True
             log.info("> {%s} %s", i, job)
             data.append(dict(job, id=i))
         response = self.resource.post(data)
@@ -199,6 +203,9 @@ class Job(object):
 
     #: The request payload.
     body = None
+
+    #: Indicates whether the job has been submitted.
+    finished = False
 
     def __init__(self, method, target, body=None):
         self.method = method
