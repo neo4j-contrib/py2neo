@@ -410,10 +410,11 @@ class Service(object):
     def uri(self):
         """ The full URI of the remote resource.
         """
-        if isinstance(self.resource, ResourceTemplate):
-            return self.resource.uri_template
-        else:
-            return self.resource.uri
+        resource = self.resource
+        try:
+            return resource.uri
+        except AttributeError:
+            return resource.uri_template
 
 
 class ServiceRoot(object):
@@ -1244,6 +1245,8 @@ class Node(PropertyContainer):
 
     cache = WeakValueDictionary()
 
+    __id = None
+
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a :class:`.Node` (or
@@ -1407,7 +1410,9 @@ class Node(PropertyContainer):
     def _id(self):
         """ The internal ID of this node within the database.
         """
-        return int(self.uri.path.segments[-1])
+        if self.__id is None:
+            self.__id = int(self.uri.path.segments[-1])
+        return self.__id
 
     @property
     def ref(self):
@@ -1532,6 +1537,7 @@ class Node(PropertyContainer):
             pass
         PropertyContainer.unbind(self)
         self.__labels.unbind()
+        self.__id = None
 
 
 class NodePointer(object):
@@ -1578,6 +1584,8 @@ class Rel(PropertyContainer):
     cache = WeakValueDictionary()
     pair = None
     _pair_class = object
+
+    __id = None
 
     @staticmethod
     def cast(*args, **kwargs):
@@ -1731,7 +1739,9 @@ class Rel(PropertyContainer):
     def _id(self):
         """ The internal ID of this relationship within the database.
         """
-        return int(self.uri.path.segments[-1])
+        if self.__id is None:
+            self.__id = int(self.uri.path.segments[-1])
+        return self.__id
 
     @property
     def ref(self):
@@ -1836,6 +1846,7 @@ class Rel(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
+        self.__id = None
         pair = self.pair
         if pair is not None:
             try:
@@ -2198,6 +2209,8 @@ class Relationship(Path):
 
     cache = WeakValueDictionary()
 
+    __id = None
+
     @staticmethod
     def cast(*args, **kwargs):
         """ Cast the arguments provided to a :class:`.Relationship`. The
@@ -2329,7 +2342,9 @@ class Relationship(Path):
     def _id(self):
         """ The internal ID of this relationship within the database.
         """
-        return self.rel._id
+        if self.__id is None:
+            self.__id = self.rel._id
+        return self.__id
 
     def bind(self, uri, metadata=None):
         """ Associate this relationship with a remote relationship. The start and
@@ -2470,6 +2485,7 @@ class Relationship(Path):
                     node.unbind()
                 except BindError:
                     pass
+        self.__id = None
 
     @property
     def uri(self):
