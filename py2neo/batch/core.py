@@ -185,18 +185,21 @@ class Target(object):
 
 class Job(object):
     """ A single request for inclusion within a :class:`.Batch`.
-
-    :arg method: The HTTP method for the request.
-    :arg target: A :class:`.Target` object used to determine the destination URI.
-    :arg body: The request payload (optional).
-
     """
 
-    # Indicates whether or not the result should be
-    # interpreted as raw data.
+    #: Indicates whether or not the result should be
+    #: interpreted as raw data.
     raw_result = False
 
-    # TODO: comment
+    #: The HTTP method for the request.
+    method = None
+
+    #: A :class:`.Target` object used to determine the destination URI.
+    target = None
+
+    #: The request payload.
+    body = None
+
     def __init__(self, method, target, body=None):
         self.method = method
         self.target = target
