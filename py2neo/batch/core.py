@@ -324,9 +324,15 @@ class CypherJob(Job):
 
 
 class Batch(object):
-    """ A single-use collection of :class:`.Job` objects that can be
-    submitted to a :class:`.BatchResource`.
+    """ A collection of :class:`.Job` objects that can be submitted
+    to a :class:`.BatchResource`. Batches can only be used once and
+    are marked as `finished` after submission. References to previous
+    jobs are only valid **within the same batch** and will not work
+    across batches.
     """
+
+    #: The graph with which this batch is associated
+    graph = None
 
     def __init__(self, graph):
         self.graph = graph
@@ -337,6 +343,9 @@ class Batch(object):
 
     def __len__(self):
         return len(self.jobs)
+
+    def __bool__(self):
+        return bool(self.jobs)
 
     def __nonzero__(self):
         return bool(self.jobs)
