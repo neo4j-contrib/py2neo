@@ -681,7 +681,7 @@ def test_cypher_job_with_non_existent_node_id(graph):
 
 def test_cannot_resubmit_finished_job(graph):
     batch = Batch(graph)
-    batch.append(CypherJob("MATCH (a) RETURN a LIMIT 1"))
+    batch.append(CypherJob("CREATE (a)"))
     graph.batch.submit(batch)
     try:
         graph.batch.submit(batch)
