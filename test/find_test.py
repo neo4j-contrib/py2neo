@@ -57,3 +57,13 @@ def test_cannot_find_empty_label(graph):
         assert True
     else:
         assert False
+
+
+def test_can_find_one_node_with_label_and_property(graph):
+    if not graph.supports_node_labels:
+        return
+    name = uuid4().hex
+    thing = Node("Thing", name=name)
+    graph.create(thing)
+    found = graph.find_one("Thing", "name", name)
+    assert found is thing
