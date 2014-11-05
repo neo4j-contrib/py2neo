@@ -25,6 +25,16 @@ if sys.version_info >= (3,):
     is_numeric = lambda x: isinstance(x, (int, float, complex))
     is_string = lambda x: isinstance(x, str)
 
+    def bstr(s, encoding="utf-8"):
+        if isinstance(s, bytes):
+            return s
+        elif isinstance(s, bytearray):
+            return bytes(s)
+        elif isinstance(s, str):
+            return bytes(s, encoding)
+        else:
+            return bytes(str(s), encoding)
+
     def ustr(s, encoding="utf-8"):
         """ Convert argument to unicode string.
         """
@@ -45,6 +55,16 @@ else:
     is_integer = lambda x: isinstance(x, (int, long))
     is_numeric = lambda x: isinstance(x, (int, float, long, complex))
     is_string = lambda x: isinstance(x, (str, unicode))
+
+    def bstr(s, encoding="utf-8"):
+        if isinstance(s, bytes):
+            return s
+        elif isinstance(s, bytearray):
+            return bytes(s)
+        elif isinstance(s, unicode):
+            return s.encode(encoding)
+        else:
+            return str(s)
 
     def ustr(s, encoding="utf-8"):
         """ Convert argument to unicode string.

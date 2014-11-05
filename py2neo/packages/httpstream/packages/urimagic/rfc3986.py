@@ -32,7 +32,7 @@ except ImportError:
     from urllib import quote
 
 from .kvlist import KeyValueList
-from .util import ustr, is_string
+from .util import bstr, ustr
 
 
 __all__ = ["general_delimiters", "subcomponent_delimiters",
@@ -69,11 +69,7 @@ def percent_encode(data, safe=None):
             key + "=" + percent_encode(value, safe=safe)
             for key, value in data.items()
         )
-    if not is_string(data):
-        data = ustr(data)
-    if not safe:
-        safe = b""
-    return quote(data, safe)
+    return quote(bstr(data), safe or b"")
 
 
 def percent_decode(data):
