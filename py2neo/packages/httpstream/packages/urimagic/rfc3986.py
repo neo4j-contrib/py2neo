@@ -27,12 +27,12 @@ from __future__ import unicode_literals
 
 import re
 try:
-    from urllib.parse import quote
+    from urllib.parse import quote, unquote
 except ImportError:
-    from urllib import quote
+    from urllib import quote, unquote
 
 from .kvlist import KeyValueList
-from .util import bstr, ustr
+from .util import bstr, ustr, xstr
 
 
 __all__ = ["general_delimiters", "subcomponent_delimiters",
@@ -78,20 +78,7 @@ def percent_decode(data):
     """
     if data is None:
         return None
-    percent_code = re.compile(r"(%[0-9A-Fa-f]{2}|\+)")
-    try:
-        bits = percent_code.split(data)
-    except TypeError:
-        bits = percent_code.split(ustr(data))
-    out = bytearray()
-    for bit in bits:
-        if bit.startswith("%"):
-            out.extend(bytearray([int(bit[1:], 16)]))
-        elif bit == "+":
-            out.append(32)
-        else:
-            out.extend(bytearray(bit, "utf-8"))
-    return out.decode("utf-8")
+    return unquote(xstr(data))
 
 
 class Part(object):
@@ -150,6 +137,8 @@ class Part(object):
 
 class ParameterString(Part):
 
+    __string = NotImplemented
+
     def __init__(self, string, separator):
         super(ParameterString, self).__init__()
         self.__separator = separator
@@ -159,8 +148,7 @@ class ParameterString(Part):
             bits = string.split(self.__separator)
             for bit in bits:
                 if "=" in bit:
-                    key, value = map(percent_decode,
-                                     bit.partition("=")[0::2])
+                    key, value = map(percent_decode, bit.partition("=")[0::2])
                 else:
                     key, value = percent_decode(bit), None
                 self.__parameters.append(key, value)
@@ -212,15 +200,18 @@ class ParameterString(Part):
 
     @property
     def string(self):
-        if self.__none:
-            return None
-        bits = []
-        for key, value in self.__parameters:
-            if value is None:
-                bits.append(percent_encode(key))
+        if self.__string is NotImplemented:
+            if self.__none:
+                self.__string = None
             else:
-                bits.append(percent_encode(key) + "=" + percent_encode(value))
-        return self.__separator.join(bits)
+                bits = []
+                for key, value in self.__parameters:
+                    if value is None:
+                        bits.append(percent_encode(key))
+                    else:
+                        bits.append(percent_encode(key) + "=" + percent_encode(value))
+                self.__string = self.__separator.join(bits)
+        return self.__string
 
 
 class Authority(Part):
@@ -237,27 +228,35 @@ class Authority(Part):
 
     @classmethod
     def _parse_host_port(cls, string):
-        if ":" in string:
-            host, port = string.rpartition(":")[0::2]
-            port = int(port)
+        host, colon, port = string.rpartition(":")
+        if colon:
+            return host, int(port)
         else:
-            host = string
-            port = None
-        return host, port
+            return host, None
+
+    __instances = {}
+
+    def __new__(cls, string):
+        try:
+            inst = cls.__instances[string]
+        except KeyError:
+            inst = super(Authority, cls).__new__(cls)
+            if string is not None:
+                user_info, at, host_port = string.rpartition("@")
+                if at:
+                    inst.__user_info = percent_decode(user_info)
+                inst.__host, inst.__port = cls._parse_host_port(host_port)
+            cls.__instances[string] = inst
+        return inst
+
+    __user_info = None
+    __host = None
+    __port = None
+
+    __string = NotImplemented
 
     def __init__(self, string):
         super(Authority, self).__init__()
-        if string is None:
-            self.__user_info = None
-            self.__host = None
-            self.__port = None
-        else:
-            if "@" in string:
-                self.__user_info, string = string.rpartition("@")[0::2]
-                self.__user_info = percent_decode(self.__user_info)
-            else:
-                self.__user_info = None
-            self.__host, self.__port = self._parse_host_port(string)
 
     def __hash__(self):
         return hash(self.string)
@@ -359,15 +358,18 @@ class Authority(Part):
 
         :return:
         """
-        if self.__host is None:
-            return None
-        u = []
-        if self.__user_info is not None:
-            u += [percent_encode(self.__user_info), "@"]
-        u += [self.__host]
-        if self.__port is not None:
-            u += [":", ustr(self.__port)]
-        return "".join(u)
+        if self.__string is NotImplemented:
+            if self.__host is None:
+                self.__string = None
+            else:
+                u = []
+                if self.__user_info is not None:
+                    u += [percent_encode(self.__user_info), "@"]
+                u += [self.__host]
+                if self.__port is not None:
+                    u += [":", ustr(self.__port)]
+                self.__string = "".join(u)
+        return self.__string
         
     @property
     def user_info(self):
@@ -396,28 +398,32 @@ class Authority(Part):
 
 class Path(Part):
 
+    __segments = None
+    __string = NotImplemented
+
     def __init__(self, string):
         super(Path, self).__init__()
-        if string is None:
-            self.__segments = None
-        else:
-            self.__segments = list(map(percent_decode, string.split("/")))
+        if string is not None:
+            self.__segments = tuple(map(percent_decode, string.split("/")))
 
     def __hash__(self):
         return hash(self.string)
 
     @property
     def string(self):
-        if self.__segments is None:
-            return None
-        return "/".join(map(percent_encode, self.__segments))
+        if self.__string is NotImplemented:
+            if self.__segments is None:
+                self.__string = None
+            else:
+                self.__string = "/".join(map(percent_encode, self.__segments))
+        return self.__string
 
     @property
     def segments(self):
         if self.__segments is None:
-            return []
+            return ()
         else:
-            return list(self.__segments)
+            return self.__segments
 
     def __iter__(self):
         return iter(self.__segments)
@@ -528,43 +534,30 @@ class URI(Part):
 
     @classmethod
     def _partition_fragment(cls, value):
-        if "#" in value:
-            value, fragment = value.partition("#")[0::2]
-            fragment = percent_decode(fragment)
+        value, hash, fragment = value.partition("#")
+        if fragment:
+            return value, percent_decode(fragment)
         else:
-            fragment = None
-        return value, fragment
+            return value, None
 
     @classmethod
     def _partition_query(cls, value):
-        if "?" in value:
-            value, query = value.partition("?")[0::2]
-            query = Query(query)
+        value, question_mark, query = value.partition("?")
+        if query:
+            return value, Query(query)
         else:
-            query = None
-        return value, query
+            return value, None
 
     @classmethod
     def _parse_hierarchical_part(cls, value):
         if value.startswith("//"):
-            value = value[2:]
-            slash = value.find("/")
-            if slash >= 0:
-                authority = Authority(value[:slash])
-                path = Path(value[slash:])
+            authority, slash, path = value[2:].partition("/")
+            if slash:
+                return Authority(authority), Path(slash + path)
             else:
-                authority = Authority(value)
-                path = Path("")
+                return Authority(authority), Path("")
         else:
-            authority = None
-            path = Path(value)
-        return authority, path
-
-    __scheme = None
-    __authority = None
-    __path = None
-    __query = None
-    __fragment = None
+            return None, Path(value)
 
     def __new__(cls, value):
         if isinstance(value, cls):
@@ -588,12 +581,20 @@ class URI(Part):
         else:
             inst.__scheme = None
         # fragment
-        value, inst.__fragment = inst._partition_fragment(value)
+        value, inst.__fragment = cls._partition_fragment(value)
         # query
-        value, inst.__query = inst._partition_query(value)
+        value, inst.__query = cls._partition_query(value)
         # hierarchical part
-        inst.__authority, inst.__path = inst._parse_hierarchical_part(value)
+        inst.__authority, inst.__path = cls._parse_hierarchical_part(value)
         return inst
+
+    __scheme = None
+    __authority = None
+    __path = None
+    __query = None
+    __fragment = None
+
+    __string = NotImplemented
 
     def __init__(self, value):
         Part.__init__(self)
@@ -699,19 +700,22 @@ class URI(Part):
             string, even when the URI is undefined; in this case, an empty
             string is returned instead of :py:const:`None`.
         """
-        if self.__path is None:
-            return None
-        u = []
-        if self.__scheme is not None:
-            u += [percent_encode(self.__scheme), ":"]
-        if self.__authority is not None:
-            u += ["//", ustr(self.__authority)]
-        u += [ustr(self.__path)]
-        if self.__query is not None:
-            u += ["?", ustr(self.__query)]
-        if self.__fragment is not None:
-            u += ["#", percent_encode(self.__fragment)]
-        return "".join(u)
+        if self.__string is NotImplemented:
+            if self.__path is None:
+                self.__string = None
+            else:
+                u = []
+                if self.__scheme is not None:
+                    u += [percent_encode(self.__scheme), ":"]
+                if self.__authority is not None:
+                    u += ["//", ustr(self.__authority)]
+                u += [ustr(self.__path)]
+                if self.__query is not None:
+                    u += ["?", ustr(self.__query)]
+                if self.__fragment is not None:
+                    u += ["#", percent_encode(self.__fragment)]
+                self.__string = "".join(u)
+        return self.__string
 
     @property
     def scheme(self):
@@ -970,8 +974,7 @@ class URI(Part):
         if self.__authority is not None and not self.__path:
             return Path("/" + ustr(relative_path_reference))
         elif "/" in self.__path.string:
-            segments = self.__path.segments
-            segments[-1] = ""
+            segments = self.__path.segments[:-1] + ("",)
             return Path("/".join(segments) + ustr(relative_path_reference))
         else:
             return relative_path_reference
