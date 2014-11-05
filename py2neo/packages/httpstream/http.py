@@ -286,7 +286,6 @@ class ConnectionPool(object):
 def submit(method, uri, body, headers):
     """ Submit one HTTP request.
     """
-    uri = URI(uri)
     headers["Host"] = uri.host_port
     if uri.user_info:
         credentials = uri.user_info.encode("UTF-8")
@@ -426,7 +425,7 @@ class Request(object):
         """ Submit this request and return a
         :py:class:`Response <httpstream.Response>` object.
         """
-        uri = URI(self.uri)
+        uri = self.uri
         headers = dict(self.headers)
         headers.setdefault("User-Agent", user_agent(product))
         while True:
@@ -492,10 +491,7 @@ class Response(object):
 
     def __init__(self, http, uri, request, response, **kwargs):
         self.__http = http
-        if isinstance(uri, URI):
-            self.__uri = uri
-        else:
-            self.__uri = URI(uri)
+        self.__uri = uri
         self.__request = request
         self.__response = response
         self.__consumed = False
@@ -579,12 +575,14 @@ class Response(object):
 
     @property
     def __uri__(self):
-        return self.__uri
+        return self.uri
 
     @property
     def uri(self):
         """ The URI from which the response came.
         """
+        if not isinstance(self.__uri, URI):
+            self.__uri = URI(self.__uri)
         return self.__uri
 
     @property
@@ -735,7 +733,6 @@ class Response(object):
             return datetime.fromtimestamp(mktime_tz(parsedate_tz(date)), timezone.utc)
         else:
             return None
-
 
 
 class Redirection(Response):
