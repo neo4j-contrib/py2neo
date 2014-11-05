@@ -26,9 +26,13 @@ See: http://www.ietf.org/rfc/rfc3986.txt
 from __future__ import unicode_literals
 
 import re
+try:
+    from urllib.parse import quote
+except ImportError:
+    from urllib import quote
 
 from .kvlist import KeyValueList
-from .util import ustr
+from .util import ustr, is_string
 
 
 __all__ = ["general_delimiters", "subcomponent_delimiters",
@@ -65,17 +69,11 @@ def percent_encode(data, safe=None):
             key + "=" + percent_encode(value, safe=safe)
             for key, value in data.items()
         )
+    if not is_string(data):
+        data = ustr(data)
     if not safe:
-        safe = ""
-    try:
-        chars = list(data)
-    except TypeError:
-        chars = list(ustr(data))
-    for i, char in enumerate(chars):
-        if char == "%" or (char not in unreserved and char not in safe):
-            chars[i] = "".join("%" + hex(b)[2:].upper().zfill(2)
-                               for b in bytearray(char, "utf-8"))
-    return "".join(chars)
+        safe = b""
+    return quote(data, safe)
 
 
 def percent_decode(data):
