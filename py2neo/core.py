@@ -29,7 +29,7 @@ from py2neo import __version__
 from py2neo.error import BindError, GraphError, JoinError
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
-from py2neo.packages.httpstream.http import JSONResponse
+from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
@@ -56,7 +56,10 @@ SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 http.default_encoding = "UTF-8"
 
 _headers = {
-    None: [("X-Stream", "true")],
+    None: [
+        ("User-Agent", user_agent(PRODUCT)),
+        ("X-Stream", "true"),
+    ],
 }
 
 _http_rewrites = {}
@@ -227,7 +230,7 @@ class Resource(_Resource):
         """
         headers = dict(headers or {})
         headers.update(self.__headers)
-        kwargs.update(product=PRODUCT, cache=True)
+        kwargs.update(cache=True)
         try:
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
@@ -252,7 +255,6 @@ class Resource(_Resource):
         """
         headers = dict(headers or {})
         headers.update(self.__headers)
-        kwargs.update(product=PRODUCT)
         try:
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -276,7 +278,6 @@ class Resource(_Resource):
         """
         headers = dict(headers or {})
         headers.update(self.__headers)
-        kwargs.update(product=PRODUCT)
         try:
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -299,7 +300,6 @@ class Resource(_Resource):
         """
         headers = dict(headers or {})
         headers.update(self.__headers)
-        kwargs.update(product=PRODUCT)
         try:
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:

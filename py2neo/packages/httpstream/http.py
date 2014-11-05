@@ -135,7 +135,10 @@ if hasattr(errno, "ECONNABORTED"):
 if hasattr(errno, "ECONNRESET"):
     retry_codes[errno.ECONNRESET] = "connection reset"
 
-supports_buffering = ((2, 7) <= sys.version_info < (2, 8))
+if (2, 7) <= sys.version_info < (2, 8):
+    getresponse_args = {"buffering": True}
+else:
+    getresponse_args = {}
 
 
 def make_uri(uri):
@@ -301,20 +304,16 @@ def submit(method, uri, body, headers):
             log.info("~ Reconnecting (%s)", reconnect)
             http.close()
             http.connect()
-        if method in ("GET", "DELETE") and not body:
+        if (method == "GET" or method == "DELETE") and not body:
             log.info("> %s %s", method, uri.string)
         elif body:
             log.info("> %s %s [%s]", method, uri.string, len(body))
         else:
             log.info("> %s %s [%s]", method, uri.string, 0)
-        if __debug__:
-            for key, value in headers.items():
-                log.debug("> %s: %s", key, value)
+        for key, value in headers.items():
+            log.debug("> %s: %s", key, value)
         http.request(method, uri.absolute_path_reference, body, headers)
-        if supports_buffering:
-            return http.getresponse(buffering=True)
-        else:
-            return http.getresponse()
+        return http.getresponse(**getresponse_args)
 
     try:
         try:
@@ -421,15 +420,15 @@ class Request(object):
         """
         return self.__headers
 
-    def submit(self, redirect_limit=0, product=None, **response_kwargs):
-        """ Submit this request and return a
-        :py:class:`Response <httpstream.Response>` object.
+    def submit(self, redirect_limit=0, **response_kwargs):
+        """ Submit this HTTP request.
+
+        :rtype: :class:`httpstream.Response`
+
         """
         uri = self.uri
-        headers = dict(self.headers)
-        headers.setdefault("User-Agent", user_agent(product))
         while True:
-            http, rs = submit(self.method, uri, self.body, headers)
+            http, rs = submit(self.method, uri, self.body, self.headers)
             status_class = rs.status // 100
             if status_class == 3:
                 redirection = Redirection(http, uri, self, rs, **response_kwargs)
