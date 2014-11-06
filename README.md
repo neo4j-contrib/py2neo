@@ -23,7 +23,7 @@ To install, run the following::
     $ pip install git+git://github.com/nigelsmall/py2neo.git@beta/2.0#egg=py2neo
 
 
-For more information, read through the [full introduction](doc/intro.rst).
+For more information, read through the [full introduction](book/intro.rst).
 
 To get in touch, contact me via [email](mailto:nigel@nigelsmall.com) or on
 [Twitter](https://twitter.com/neonige).
