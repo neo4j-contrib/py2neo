@@ -30,8 +30,6 @@ class GraphStore(object):
     #: The full file path of this store.
     path = None
 
-    # TODO: instances
-
     @classmethod
     def for_server(cls, server):
         """ Return the store object for the given server.
@@ -40,8 +38,8 @@ class GraphStore(object):
         :rtype: :class:`.GraphStore`
 
         """
-        # TODO: actually sniff config files for the true path
-        return GraphStore(os.path.join(server.home, "data", "graph.db"))
+        database_location = server.conf.get("neo4j-server", "org.neo4j.server.database.location")
+        return GraphStore(os.path.join(server.home, database_location))
 
     def __init__(self, path):
         self.path = path

@@ -23,6 +23,7 @@ Utility module
 from __future__ import unicode_literals
 
 from itertools import cycle, islice
+import os
 import re
 import warnings
 import sys
@@ -205,3 +206,45 @@ def pendulate(collection):
 def raise_from(exception, cause):
     exception.__cause__ = cause
     raise exception
+
+
+try:
+    from configparser import SafeConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser
+
+if sys.version_info >= (3,):
+
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            with open(filename) as f:
+                data = f.read()
+            self.read_string("[%s]\n%s" % (section, data), filename)
+
+else:
+
+    import codecs
+    from io import StringIO
+
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            data = StringIO()
+            data.write("[%s]\n" % section)
+            with codecs.open(filename, encoding="utf-8") as f:
+                data.write(f.read())
+            data.seek(0, os.SEEK_SET)
+            self.readfp(data)

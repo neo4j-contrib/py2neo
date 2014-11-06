@@ -26,6 +26,7 @@ import sys
 from py2neo import ServiceRoot
 from py2neo.env import NEO4J_HOME
 from py2neo.store import GraphStore
+from py2neo.util import PropertiesParser
 
 
 __all__ = ["GraphServer", "GraphServerProcess"]
@@ -78,11 +79,23 @@ class GraphServer(object):
     #: to the value of the ``NEO4J_HOME`` environment variable).
     home = None
 
+    #: Configuration read from 'properties' files.
+    conf = None
+
     def __init__(self, home=NEO4J_HOME):
         self.home = home
+        self.reload_conf()
 
     def __repr__(self):
         return "<GraphServer home=%r>" % self.home
+
+    def reload_conf(self):
+        """ Reload configuration from properties files.
+        """
+        self.conf = PropertiesParser()
+        self.conf.read_properties(os.path.join(self.home, "conf", "neo4j-server.properties"))
+        tuning_properties = self.conf.get("neo4j-server", "org.neo4j.server.db.tuning.properties")
+        self.conf.read_properties(os.path.join(self.home, tuning_properties))
 
     @property
     def script(self):
