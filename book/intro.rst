@@ -241,4 +241,24 @@ method.
 Unique Paths
 ============
 
-*TODO*
+When it comes to building unique relationships, the :func:`Graph.create_unique <py2neo.Graph.create_unique>`
+method is a handy wrapper for the Cypher `CREATE UNIQUE <http://neo4j.com/docs/stable/query-create-unique.html>`_ clause.
+This method can accept one or more :class:`Path <py2neo.Path>` objects, including
+:class:`Relationship <py2neo.Relationship>` objects (which are simply a subclass of
+:class:`Path <py2neo.Path>`).
+
+Let's assume we want to pick up two nodes based on their email address properties and ensure they
+are connected by a ``KNOWS`` relationship::
+
+    >>> alice = graph.merge_one("Person", "email", "alice@example.com")
+    >>> bob = graph.merge_one("Person", "email", "bob@email.net")
+    >>> graph.create_unique(Relationship(alice, "KNOWS", bob))
+
+We could of course extend this to create a unique chain of relationships::
+
+    >>> carol = graph.merge_one("Person", "email", "carol@foo.us")
+    >>> dave = graph.merge_one("Person", "email", "dave@dave.co.uk")
+    >>> graph.create_unique(Path(alice, "KNOWS", bob, "KNOWS", carol, "KNOWS", dave))
+
+Here, only relationships that do not already exist will be created although the whole path will be
+returned.
