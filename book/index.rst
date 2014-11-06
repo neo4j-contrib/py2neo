@@ -35,10 +35,10 @@ Contents
    essentials
    cypher
    schema
+   internals
+   server
    batch
    legacy
-   server
-   internals
    ext/calendar
    ext/distro
    ext/geoff
