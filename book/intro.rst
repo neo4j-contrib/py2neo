@@ -174,10 +174,14 @@ Transactions
 ------------
 
 Neo4j 2.0 extended the REST interface to allow multiple Cypher statements to be sent to the server
-as part of a single transaction. To use this endpoint, firstly call the
-:func:`begin <py2neo.cypher.CypherResource.begin>` method on the
-:attr:`Graph.cypher <py2neo.Graph.cypher>` resource to create a transaction, then use the methods
-listed below on the new :class:`CypherTransaction <py2neo.cypher.CypherTransaction>` object:
+as part of a single transaction. Transactions such as these allow far more control over the
+logical grouping of statements and can also offer vastly better performance compared to individual
+statements by submitting multiple statements in a single HTTP request.
+
+To use this endpoint, firstly call the :func:`begin <py2neo.cypher.CypherResource.begin>` method on
+the :attr:`Graph.cypher <py2neo.Graph.cypher>` resource to create a transaction, then use the
+methods listed below on the new :class:`CypherTransaction <py2neo.cypher.CypherTransaction>`
+object:
 
 - :func:`append(statement, [parameters]) <py2neo.cypher.CypherTransaction.append>` - add a
   statement to the queue of statements to be executed (this does not pass any statements to the

@@ -257,7 +257,26 @@ class CypherTransaction(object):
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
-        the transaction open for further statements.
+        the transaction open for further statements. Along with
+        :meth:`append <.CypherTransaction.append>`, this method can be used to
+        batch up a number of individual statements into a single HTTP request::
+
+            from py2neo import Graph
+
+            graph = Graph()
+            statement = "MERGE (n:Person {name:{N}}) RETURN n"
+
+            tx = graph.cypher.begin()
+
+            def add_names(*names):
+                for name in names:
+                    tx.append(statement, {"N": name})
+                tx.process()
+
+            add_names("Homer", "Marge", "Bart", "Lisa", "Maggie")
+            add_names("Peter", "Lois", "Chris", "Meg", "Stewie")
+
+            tx.commit()
 
         :return: list of results from pending statements
         """
