@@ -37,6 +37,7 @@ Contents
    schema
    internals
    server
+   store
    batch
    legacy
    ext/calendar

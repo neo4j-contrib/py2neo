@@ -15,6 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+.. note::
+   This module has been designed to work on Linux and may not operate
+   correctly - or at all - on other platforms.
+
+The ``store`` module provides a class for working with a Neo4j data store, typically contained
+within the ``data/graph.db`` directory.
+"""
+
 
 import os
 from shutil import copytree, rmtree

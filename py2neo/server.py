@@ -15,6 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+.. note::
+   This module has been designed to work on Linux and may not operate
+   correctly - or at all - on other platforms.
+
+The ``server`` module provides classes for working with a Neo4j server installation as
+files on disk.
+"""
+
 
 import fileinput
 import re
@@ -79,8 +88,7 @@ class GraphServer(object):
     #: to the value of the ``NEO4J_HOME`` environment variable).
     home = None
 
-    #: Configuration read from 'properties' files.
-    conf = None
+    __conf = None
 
     def __init__(self, home=NEO4J_HOME):
         self.home = home
@@ -89,10 +97,24 @@ class GraphServer(object):
     def __repr__(self):
         return "<GraphServer home=%r>" % self.home
 
-    def reload_conf(self):
-        """ Reload configuration from properties files.
+    @property
+    def conf(self):
+        """ Server configuration read from Java `properties` files. This is
+        returned in a (slightly modified) :class:`SafeConfigParser` instance
+        and can be queried as per the standard library version of this class::
+
+            >>> from py2neo.server import GraphServer
+            >>> server = GraphServer("/home/nigel/opt/neo4j")
+            >>> server.conf.get("neo4j-server", "org.neo4j.server.webadmin.data.uri")
+            '/db/data/'
+
         """
-        self.conf = PropertiesParser()
+        return self.__conf
+
+    def reload_conf(self):
+        """ Reload configuration from `properties` files.
+        """
+        self.__conf = PropertiesParser()
         self.conf.read_properties(os.path.join(self.home, "conf", "neo4j-server.properties"))
         tuning_properties = self.conf.get("neo4j-server", "org.neo4j.server.db.tuning.properties")
         self.conf.read_properties(os.path.join(self.home, tuning_properties))
