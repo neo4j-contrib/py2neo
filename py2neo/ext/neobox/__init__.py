@@ -17,8 +17,9 @@
 
 
 """
-.. attention:: Neobox is designed to work on Linux and may not operate
-               correctly - or at all - on other platforms.
+.. note::
+   Neobox has been written to work on Linux and may not operate
+   correctly - or at all - on other platforms.
 
 Neobox is a command line tool and API for managing multiple Neo4j server
 installations (boxes), each running on its own unique port. The command
