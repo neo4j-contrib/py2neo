@@ -21,20 +21,18 @@ import os
 import sys
 
 from py2neo.core import ServiceRoot
-from py2neo.ext.load.core import GraphLoader
 from py2neo.packages.httpstream.packages.urimagic import URI
+
+from py2neo.ext.geoff import GeoffLoader
 
 
 HELP = """\
-Usage: {script} «format» «data»
-       {script} «format» -f «file»
+Usage: {script} load «geoff-data»
+       {script} load -f «geoff-file»
+       {script} load -x «xml-data»
+       {script} load -x -f «xml-file»
 
-Load data into Neo4j from raw data, optionally read from a file.
-
-Formats:
-  csv
-  geoff
-  xml
+Load data into Neo4j from Geoff (or XML) data, optionally read from a file.
 
 Environment:
   NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
@@ -58,18 +56,9 @@ def main():
     uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
     service_root = ServiceRoot(uri.string)
 
-    loader = GraphLoader(service_root.graph)
-    if format_ == "csv":
-        # TODO
-        sys.stderr.write("CSV support has not yet been implemented\n")
-        sys.exit(1)
-    elif format_ == "geoff":
-        load = loader.load_geoff
-    elif format_ == "xml":
-        load = loader.load_xml
-    else:
-        sys.stderr.write("Unsupported format %r\n" % format_)
-        sys.exit(1)
+    loader = GeoffLoader(service_root.graph)
+    load = loader.load
+    results = []
 
     try:
         while args:
@@ -80,6 +69,8 @@ def main():
                     with codecs.open(filename, encoding="utf-8") as f:
                         data = f.read()
                     results = load(data)
+                elif arg in ("-x", "--xml"):
+                    load = loader.load_xml
                 else:
                     raise ValueError("Unknown option %s" % arg)
             else:
@@ -90,7 +81,6 @@ def main():
                     for key in sorted(result):
                         reference = result.get_ref(key)
                         print("%s %s" % (key.ljust(max_key_len), reference))
-                print("")
             except TypeError:
                 pass
     except Exception as error:

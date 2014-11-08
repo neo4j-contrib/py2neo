@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from __future__ import unicode_literals
-
 from base64 import b64encode
 from datetime import datetime
 from .tardis import timezone, datetime_to_timestamp
@@ -46,6 +44,7 @@ import sys
 from xml.dom.minidom import parseString
 
 from .packages.urimagic import URI, URITemplate
+from .packages.urimagic.util import xstr
 from .packages.urimagic.kvlist import KeyValueList  # no point in another copy
 
 from . import __version__
@@ -289,7 +288,10 @@ class ConnectionPool(object):
 def submit(method, uri, body, headers):
     """ Submit one HTTP request.
     """
-    headers["Host"] = uri.host_port
+    for key, value in headers.items():
+        del headers[key]
+        headers[xstr(key)] = xstr(value)
+    headers["Host"] = xstr(uri.host_port)
     if uri.user_info:
         credentials = uri.user_info.encode("UTF-8")
         value = "Basic " + b64encode(credentials).decode("ASCII")
@@ -312,7 +314,7 @@ def submit(method, uri, body, headers):
             log.info("> %s %s [%s]", method, uri.string, 0)
         for key, value in headers.items():
             log.debug("> %s: %s", key, value)
-        http.request(method, uri.absolute_path_reference, body, headers)
+        http.request(xstr(method), xstr(uri.absolute_path_reference), body, headers)
         return http.getresponse(**getresponse_args)
 
     try:

@@ -23,6 +23,9 @@ from py2neo.lang import Writer
 from py2neo.util import is_collection, ustr
 
 
+__all__ = ["GeoffWriter"]
+
+
 class GeoffWriter(Writer):
 
     safe_chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"

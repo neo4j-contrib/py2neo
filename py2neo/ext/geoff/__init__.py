@@ -16,4 +16,5 @@
 # limitations under the License.
 
 
-from py2neo.ext.geoff.core import GeoffWriter
+from py2neo.ext.geoff.loader import *
+from py2neo.ext.geoff.writer import *

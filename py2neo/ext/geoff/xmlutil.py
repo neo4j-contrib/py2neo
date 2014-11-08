@@ -23,6 +23,7 @@ import re
 from xml.etree import ElementTree
 
 from py2neo.cypher import cypher_repr
+from py2neo.util import xstr
 
 
 SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")
@@ -83,7 +84,7 @@ def _convert_xml(src, prefixes=None, verb=None, method=jsonify,
             except ValueError:
                 return value
 
-    walk(None, ElementTree.fromstring(src))
+    walk(None, ElementTree.fromstring(xstr(src)))
     for i, node in enumerate(nodes):
         properties = {}
         for child in node:

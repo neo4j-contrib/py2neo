@@ -21,6 +21,11 @@ import json
 from py2neo.core import Resource, UnmanagedExtension
 from py2neo.util import version_tuple
 
+from py2neo.ext.geoff.xmlutil import xml_to_geoff
+
+
+__all__ = ["GeoffLoader", "LoadedSubgraph"]
+
 
 class LoadedSubgraph(object):
 
@@ -50,17 +55,22 @@ class LoadedSubgraph(object):
         return self.__data.items()
 
 
-class Load2Neo(UnmanagedExtension):
+class GeoffLoader(UnmanagedExtension):
 
-    def __init__(self, graph):
-        UnmanagedExtension.__init__(self, graph, "/load2neo/")
+    DEFAULT_PATH = "/load2neo/"
+
+    def __init__(self, graph, path=DEFAULT_PATH):
+        UnmanagedExtension.__init__(self, graph, path)
         self.geoff_loader = Resource(self.resource.metadata["geoff_loader"])
 
     @property
     def load2neo_version(self):
         return version_tuple(self.resource.metadata["load2neo_version"])
 
-    def load_geoff(self, string):
+    def load(self, string):
         rs = self.geoff_loader.post(string)
         return [LoadedSubgraph(self.graph, json.loads(line))
-                for line in rs.content.splitlines(keepends=False)]
+                for line in rs.content.splitlines(False)]
+
+    def load_xml(self, string):
+        return self.load(xml_to_geoff(string))

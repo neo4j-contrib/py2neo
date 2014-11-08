@@ -44,7 +44,6 @@ Contents
    ext/distro
    ext/geoff
    ext/gremlin
-   ext/load
    ext/neobox
    ext/ogm
    cookbook
