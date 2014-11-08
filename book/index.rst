@@ -41,7 +41,6 @@ Contents
    batch
    legacy
    ext/calendar
-   ext/distro
    ext/geoff
    ext/gremlin
    ext/neobox

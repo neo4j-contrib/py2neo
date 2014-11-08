@@ -22,5 +22,8 @@ from py2neo import ServiceRoot
 from py2neo.packages.httpstream.packages.urimagic import URI
 
 
+DIST_SCHEME = os.getenv("NEO4J_DIST_SCHEME", "http")
+DIST_HOST = os.getenv("NEO4J_DIST_HOST", "dist.neo4j.org")
+
 NEO4J_HOME = os.getenv("NEO4J_HOME", ".")
 NEO4J_URI = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI))

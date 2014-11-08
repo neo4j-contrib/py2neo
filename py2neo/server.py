@@ -20,8 +20,7 @@
    This module has been designed to work on Linux and may not operate
    correctly - or at all - on other platforms.
 
-The ``server`` module provides classes for working with a Neo4j server installation as
-files on disk.
+The ``server`` module provides classes for downloading and working with Neo4j server installations.
 """
 
 
@@ -33,14 +32,45 @@ import shlex
 import sys
 
 from py2neo import ServiceRoot
-from py2neo.env import NEO4J_HOME
+from py2neo.env import DIST_SCHEME, DIST_HOST, NEO4J_HOME
+from py2neo.packages.httpstream import download as _download
 from py2neo.store import GraphStore
 from py2neo.util import PropertiesParser
 
 
-__all__ = ["GraphServer", "GraphServerProcess"]
+__all__ = ["dist_name", "dist_archive_name", "download", "GraphServer", "GraphServerProcess"]
+
+HELP = """\
+Usage: {script} «edition» «version» [«path»]
+
+Download a Neo4j server distribution.
+
+Report bugs to nigel@py2neo.org
+"""
 
 number_in_brackets = re.compile("\[(\d+)\]")
+
+
+def dist_name(edition, version):
+    """ Get the full Neo4j distribution name for the given edition and version.
+    """
+    return "neo4j-%s-%s" % (edition, version)
+
+
+def dist_archive_name(edition, version):
+    """ Get the full Neo4j archive name for the given edition and version.
+    """
+    return "%s-unix.tar.gz" % dist_name(edition, version)
+
+
+def download(edition, version, path="."):
+    """ Download the Neo4j server archive for the given edition and version.
+    """
+    archive_name = dist_archive_name(edition, version)
+    uri = "%s://%s/%s" % (DIST_SCHEME, DIST_HOST, archive_name)
+    filename = os.path.join(os.path.abspath(path), archive_name)
+    _download(uri, filename)
+    return filename
 
 
 class GraphServerProcess(object):
@@ -259,3 +289,32 @@ class GraphServer(object):
 
         """
         return self.service_root.graph
+
+
+def _help(script):
+    print(HELP.format(script=os.path.basename(script)))
+
+
+def main():
+    script, args = sys.argv[0], sys.argv[1:]
+    try:
+        if args:
+            if len(args) == 3:
+                edition, version, path = args
+                download(edition, version, path)
+            elif len(args) == 2:
+                edition, version = args
+                download(edition, version)
+            else:
+                _help(script)
+        else:
+            _help(script)
+    except Exception as error:
+        sys.stderr.write(ustr(error))
+        sys.stderr.write("\n")
+        _help(script)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
