@@ -22,16 +22,23 @@ Utility module
 
 from __future__ import unicode_literals
 
+try:
+    from configparser import SafeConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser
 from itertools import cycle, islice
 import os
 import re
-import warnings
 import sys
+from threading import local
+import warnings
+from weakref import WeakValueDictionary
 
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "pendulate",
-           "is_integer", "is_string", "is_numeric", "ustr", "xstr"]
+           "is_integer", "is_string", "is_numeric", "ustr", "xstr",
+           "PropertiesParser", "ThreadLocalWeakValueDictionary"]
 
 
 def numberise(n):
@@ -208,11 +215,6 @@ def raise_from(exception, cause):
     raise exception
 
 
-try:
-    from configparser import SafeConfigParser
-except ImportError:
-    from ConfigParser import SafeConfigParser
-
 if sys.version_info >= (3,):
 
     class PropertiesParser(SafeConfigParser):
@@ -248,3 +250,7 @@ else:
                 data.write(f.read())
             data.seek(0, os.SEEK_SET)
             self.readfp(data)
+
+
+class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):
+    pass

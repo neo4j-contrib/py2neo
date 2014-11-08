@@ -49,6 +49,28 @@ def test_can_get_relationship_by_id_when_not_cached(graph):
     assert got._id == relationship._id
 
 
+def test_rel_and_relationship_caches_are_thread_local(graph):
+    import threading
+    _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
+    assert relationship.uri in Rel.cache
+    assert relationship.uri in Relationship.cache
+    other_rel_cache_keys = []
+    other_relationship_cache_keys = []
+
+    def check_cache():
+        other_rel_cache_keys.extend(Rel.cache.keys())
+        other_relationship_cache_keys.extend(Relationship.cache.keys())
+
+    thread = threading.Thread(target=check_cache)
+    thread.start()
+    thread.join()
+
+    assert relationship.uri in Rel.cache
+    assert relationship.uri in Relationship.cache
+    assert relationship.uri not in other_rel_cache_keys
+    assert relationship.uri not in other_relationship_cache_keys
+
+
 def test_cannot_get_relationship_by_id_when_id_does_not_exist(graph):
     _, _, relationship = graph.create({}, {}, (0, "KNOWS", 1))
     rel_id = relationship._id

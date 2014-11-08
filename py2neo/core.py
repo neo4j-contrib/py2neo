@@ -22,7 +22,6 @@ import base64
 from io import StringIO
 import re
 from warnings import warn
-from weakref import WeakValueDictionary
 import webbrowser
 
 from py2neo import __version__
@@ -34,7 +33,7 @@ from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple, \
-    raise_from, xstr
+    raise_from, xstr, ThreadLocalWeakValueDictionary
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
@@ -1243,7 +1242,7 @@ class Node(PropertyContainer):
     properties, missing values and those equal to :const:`None` are equivalent.
     """
 
-    cache = WeakValueDictionary()
+    cache = ThreadLocalWeakValueDictionary()
 
     __id = None
 
@@ -1581,7 +1580,7 @@ class Rel(PropertyContainer):
 
     """
 
-    cache = WeakValueDictionary()
+    cache = ThreadLocalWeakValueDictionary()
     pair = None
     _pair_class = object
 
@@ -2207,7 +2206,7 @@ class Relationship(Path):
 
     """
 
-    cache = WeakValueDictionary()
+    cache = ThreadLocalWeakValueDictionary()
 
     __id = None
 

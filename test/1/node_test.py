@@ -46,6 +46,7 @@ class DodgyClientError(ClientError):
 
 def test_can_get_node_by_id_when_cached(graph):
     node, = graph.create({})
+    assert node.uri in Node.cache
     got = graph.node(node._id)
     assert got is node
 
@@ -53,8 +54,26 @@ def test_can_get_node_by_id_when_cached(graph):
 def test_can_get_node_by_id_when_not_cached(graph):
     node, = graph.create({})
     Node.cache.clear()
+    assert node.uri not in Node.cache
     got = graph.node(node._id)
     assert got._id == node._id
+
+
+def test_node_cache_is_thread_local(graph):
+    import threading
+    node, = graph.create({})
+    assert node.uri in Node.cache
+    other_cache_keys = []
+
+    def check_cache():
+        other_cache_keys.extend(Node.cache.keys())
+
+    thread = threading.Thread(target=check_cache)
+    thread.start()
+    thread.join()
+
+    assert node.uri in Node.cache
+    assert node.uri not in other_cache_keys
 
 
 def test_can_get_node_by_id_even_when_id_does_not_exist(graph):
