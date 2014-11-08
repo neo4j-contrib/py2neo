@@ -18,7 +18,7 @@
 
 import logging
 
-from py2neo import Graph
+from py2neo import Graph, Node
 
 
 class TestHandler(logging.Handler):
@@ -35,17 +35,22 @@ class TestHandler(logging.Handler):
 
 class HTTPCounter(object):
 
-    handler = None
-    logger = logging.getLogger("httpstream")
-    responses = []
+    def __init__(self):
+        self.handler = TestHandler(self, logging.INFO)
+        self.logger = logging.getLogger("httpstream")
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(logging.DEBUG)
+        self.responses = []
 
     def __enter__(self):
-        self.handler = TestHandler(self, logging.INFO)
-        self.logger.addHandler(self.handler)
+        self.reset()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.handler = None
+
+    def reset(self):
+        self.responses = []
 
     @property
     def response_count(self):
@@ -84,4 +89,21 @@ def test_find_needs_one_response(graph):
             assert "Person" in node.labels
             assert node.properties["name"] == "Alice"
             count += 1
+        assert counter.response_count == 1
+
+
+def test_relationship_hydration_does_not_make_nodes_stale(graph):
+    if not graph.supports_node_labels:
+        return
+    alice, bob = graph.create(Node("Person", name="Alice"), Node("Person", name="Bob"))
+    with HTTPCounter() as counter:
+        friendship = graph.cypher.execute_one("START a=node({A}),b=node({B}) "
+                                              "CREATE (a)-[ab:KNOWS]->(b) "
+                                              "RETURN ab", {"A": alice, "B": bob})
+        assert counter.response_count == 1
+        assert alice.labels == {"Person"}
+        assert alice.properties == {"name": "Alice"}
+        assert bob.labels == {"Person"}
+        assert bob.properties == {"name": "Bob"}
+        assert friendship.type == "KNOWS"
         assert counter.response_count == 1

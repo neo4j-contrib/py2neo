@@ -1309,23 +1309,22 @@ class Node(PropertyContainer):
         """
         self = data["self"]
         if inst is None:
-            inst = cls.cache.setdefault(self, cls())
+            new_inst = cls()
+            new_inst.__stale.update({"labels", "properties"})
+            inst = cls.cache.setdefault(self, new_inst)
         cls.cache[self] = inst
         inst.bind(self, data)
-        inst.__stale.clear()
         if "data" in data:
+            inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
             inst._PropertyContainer__properties.replace(properties)
-        else:
-            inst.__stale.add("properties")
         if "metadata" in data:
+            inst.__stale.discard("labels")
             metadata = data["metadata"]
             labels = set(metadata["labels"])
             labels.update(inst.labels)
             inst.__labels.replace(labels)
-        else:
-            inst.__stale.add("labels")
         return inst
 
     @classmethod
@@ -1648,7 +1647,9 @@ class Rel(PropertyContainer):
         """
         self = data["self"]
         if inst is None:
-            inst = cls.cache.setdefault(self, cls())
+            new_inst = cls()
+            new_inst.__stale.update({"properties"})
+            inst = cls.cache.setdefault(self, new_inst)
         cls.cache[self] = inst
         inst.bind(self, data)
         inst.__type = data.get("type")
@@ -1656,13 +1657,10 @@ class Rel(PropertyContainer):
         if pair is not None:
             pair._Rel__type = inst.__type
         if "data" in data:
+            inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
             inst._PropertyContainer__properties.replace(properties)
-            inst.__stale.clear()
-        else:
-            inst.__stale.clear()
-            inst.__stale.add("properties")
         return inst
 
     def __init__(self, *type_, **properties):
