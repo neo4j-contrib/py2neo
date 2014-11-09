@@ -70,7 +70,12 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
-        py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core $@
+        if [ "$1" == "" ]
+        then
+            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
+        else
+            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+        fi
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
