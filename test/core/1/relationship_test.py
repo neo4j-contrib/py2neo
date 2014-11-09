@@ -268,7 +268,7 @@ class TestRelate(object):
         rel3 = alice.get_or_create_path(("KNOWS", {"since": 2006}), bob).relationships[0]
         assert rel1 == rel3
 
-    # disabled test known to fail due to server issues
+    # disabled spatial known to fail due to server issues
     #
     #def test_relate_with_list_data(self):
     #    alice, bob = self.graph.create(
