@@ -211,4 +211,4 @@ def test_full_relationship_hydrate():
     assert hydrated.resource.uri == dehydrated["self"]
 
 
-# TODO: spatial hydration with supplied inst
+# TODO: test hydration with supplied inst
