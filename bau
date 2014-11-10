@@ -31,17 +31,23 @@ DOWN="$HOME/.bau/down"
 LOG="$HOME/.bau/log"
 RUN="$HOME/.bau/run"
 
-function install_test_dependencies {
+function install_dependencies {
     if [ "$ONLINE" ]
     then
-        echo "Ensuring testing dependencies are up to date"
-        pip install --upgrade mock pytest pytest-cov
+        echo "Ensuring dependencies are up to date"
+        pip install --upgrade $(find . -name requirements.txt | xargs cat)
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" != "0" ]
+        then
+            echo "Exiting on code $EXIT_CODE after failure to install dependencies"
+            exit $EXIT_CODE
+        fi
     fi
 }
 
 function check_license {
     pushd "$HOME" > /dev/null
-    find py2neo -name '*.py' | grep -v packages | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    find py2neo -name '*.py' | grep -v -e '^py2neo/ext/' -e '/packages/' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
     popd > /dev/null
 }
 
@@ -55,7 +61,7 @@ function test {
     fi
     echo "Running test suite"
     echo ""
-    install_test_dependencies
+    install_dependencies
     pushd "$HOME" > /dev/null
     for NEO4J_VERSION in $NEO4J_VERSIONS
     do
@@ -64,7 +70,12 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
-        py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+        if [ "$1" == "" ]
+        then
+            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
+        else
+            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+        fi
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
