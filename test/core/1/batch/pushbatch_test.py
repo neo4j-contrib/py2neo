@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
@@ -16,16 +16,24 @@
 # limitations under the License.
 
 
-import sys
+from py2neo import Rel
 
 
-__all__ = ["Writer"]
+def test_can_push_rel(graph):
+    a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
+    rel = ab.rel
+    rel.properties["since"] = 1999
+    graph.push(rel)
+    rel_id = rel._id
+    Rel.cache.clear()
+    rel = graph.relationship(rel_id).rel
+    assert rel.properties["since"] == 1999
 
 
-class Writer(object):
-
-    def __init__(self, file=None):
-        self.file = file or sys.stdout
-
-    def write(self, obj):
-        raise NotImplementedError("Method not implemented")
+def test_cannot_push_none(graph):
+    try:
+        graph.push(None)
+    except TypeError:
+        assert True
+    else:
+        assert False
