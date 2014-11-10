@@ -45,4 +45,5 @@ Contents
    ext/gremlin
    ext/neobox
    ext/ogm
+   ext/spatial
    cookbook
