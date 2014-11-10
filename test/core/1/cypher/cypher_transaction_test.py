@@ -126,5 +126,6 @@ def test_cannot_append_after_transaction_finished(graph):
         tx.append("CREATE (a) RETURN a")
     except Finished as error:
         assert error.obj is tx
+        assert repr(error) == "CypherTransaction finished"
     else:
         assert False
