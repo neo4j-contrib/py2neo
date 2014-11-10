@@ -37,7 +37,7 @@ class CypherWriter(Writer):
     default_sequence_separator = ","
     default_key_value_separator = ":"
 
-    def __init__(self, file, **kwargs):
+    def __init__(self, file=None, **kwargs):
         Writer.__init__(self, file)
         self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
         self.key_value_separator = \

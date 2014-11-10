@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
@@ -16,16 +16,14 @@
 # limitations under the License.
 
 
-import sys
+from py2neo.lang import Writer
 
 
-__all__ = ["Writer"]
-
-
-class Writer(object):
-
-    def __init__(self, file=None):
-        self.file = file or sys.stdout
-
-    def write(self, obj):
-        raise NotImplementedError("Method not implemented")
+def test_base_writer_cannot_write():
+    writer = Writer()
+    try:
+        writer.write(None)
+    except NotImplementedError:
+        assert True
+    else:
+        assert False
