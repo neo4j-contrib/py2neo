@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+#/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
 #
@@ -16,17 +16,20 @@
 # limitations under the License.
 
 
-import os
-
-from py2neo import ServiceRoot
-from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.env import DIST_SCHEME, DIST_HOST, NEO4J_HOME, NEO4J_URI
 
 
-__all__ = ["DIST_SCHEME", "DIST_HOST", "NEO4J_HOME", "NEO4J_URI"]
+def test_default_dist_scheme():
+    assert DIST_SCHEME == "http"
 
 
-DIST_SCHEME = os.getenv("NEO4J_DIST_SCHEME", "http")
-DIST_HOST = os.getenv("NEO4J_DIST_HOST", "dist.neo4j.org")
+def test_default_dist_host():
+    assert DIST_HOST == "dist.neo4j.org"
 
-NEO4J_HOME = os.getenv("NEO4J_HOME", ".")
-NEO4J_URI = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI))
+
+def test_default_neo4j_home():
+    assert NEO4J_HOME == "."
+
+
+def test_default_neo4j_uri():
+    assert NEO4J_URI == "http://localhost:7474/"
