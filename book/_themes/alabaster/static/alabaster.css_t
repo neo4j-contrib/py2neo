@@ -260,12 +260,17 @@ div.note {
 }
 
 div.seealso {
-    background-color: #ffc;
-    border: 1px solid #ff6;
+    background-color: #cdf;
+    border: 1px solid #67f;
 }
 
 div.topic {
     background-color: #eee;
+}
+
+div.warning {
+    background-color: #ffc;
+    border: 1px solid #ff6;
 }
 
 p.admonition-title {
