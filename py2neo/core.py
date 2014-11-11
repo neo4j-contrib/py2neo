@@ -25,11 +25,11 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
-from py2neo.error import BindError, GraphError, JoinError
+from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
-from py2neo.packages.httpstream.numbers import NOT_FOUND
+from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
@@ -84,7 +84,7 @@ def _get_headers(host_port):
     return uri_headers
 
 
-def authenticate(host_port, user_name, password):
+def authenticate(host_port, user_name, password, realm=None):
     """ Set HTTP basic authentication values for specified `host_port`. The
     code below shows a simple example::
 
@@ -104,9 +104,14 @@ def authenticate(host_port, user_name, password):
         (e.g. "bigserver", "camelot:7474")
     :arg user_name: the user name to authenticate as
     :arg password: the password
+    :arg realm: the authentication realm
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
-    value = "Basic " + base64.b64encode(credentials).decode("ASCII")
+    if realm:
+        value = 'Basic realm="' + realm + '" '
+    else:
+        value = 'Basic '
+    value += base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
 
 
@@ -250,6 +255,8 @@ class Resource(_Resource):
         try:
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -274,6 +281,8 @@ class Resource(_Resource):
         try:
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -297,6 +306,8 @@ class Resource(_Resource):
         try:
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -319,6 +330,8 @@ class Resource(_Resource):
         try:
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -452,6 +465,7 @@ class ServiceRoot(object):
 
     __instances = {}
 
+    __authentication = None
     __graph = None
 
     def __new__(cls, uri=None):
@@ -481,13 +495,39 @@ class ServiceRoot(object):
         return hash(self.uri)
 
     @property
+    def authentication(self):
+        """ The authentication resource for this service.
+
+        :rtype: :class:`.Authentication`
+        """
+        if self.__authentication is None:
+            try:
+                uri = self.resource.metadata["authentication"]
+            except KeyError:
+                self.__authentication = NotImplemented
+            else:
+                self.__authentication = Authentication(uri)
+        if self.__authentication is NotImplemented:
+            raise NotImplementedError("No authentication required")
+        else:
+            return self.__authentication
+
+    @property
     def graph(self):
         """ The graph exposed by this service.
 
         :rtype: :class:`.Graph`
         """
         if self.__graph is None:
-            self.__graph = Graph(self.resource.metadata["data"])
+            try:
+                uri = self.resource.metadata["data"]
+            except KeyError:
+                if "authentication" in self.resource.metadata:
+                    raise Unauthorized(self.uri)
+                else:
+                    raise GraphError("No graph available for service <%s>" % self.uri)
+            else:
+                self.__graph = Graph(uri)
         return self.__graph
 
     @property
@@ -503,6 +543,12 @@ class ServiceRoot(object):
         """ The full URI of the contained resource.
         """
         return self.resource.uri
+
+
+class Authentication(Service):
+
+    def __init__(self, uri):
+        pass
 
 
 class Graph(Service):
