@@ -36,7 +36,7 @@ class CreateStatement(object):
     graph = None
 
     #: The parameters to inject into this statement.
-    parameters = {}
+    parameters = None
 
     def __init__(self, graph):
         self.graph = graph
@@ -47,6 +47,7 @@ class CreateStatement(object):
         self.create_clause = []
         self.create_unique_clause = []
         self.return_clause = []
+        self.parameters = {}
 
     def __repr__(self):
         return self.string
@@ -110,7 +111,7 @@ class CreateStatement(object):
     def create(self, entity):
         """ Append an entity to the CREATE clause of this statement.
 
-        :arg entity: The entity to add.
+        :arg entity: The entity to create.
 
         """
         entity = Graph.cast(entity)
