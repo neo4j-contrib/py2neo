@@ -605,7 +605,14 @@ class Response(object):
         if self.__reason:
             return self.__reason
         else:
-            return responses[self.status_code]
+            try:
+                return responses[self.status_code]
+            except KeyError:
+                if self.status_code == 422:
+                    return "Unprocessable Entity"
+                else:
+                    raise SystemError("HTTP status code %s is not known by the "
+                                      "Python standard library" % self.status_code)
 
     @property
     def headers(self):
