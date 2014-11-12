@@ -177,7 +177,7 @@ def cypher_escape(identifier):
 
         >>> cypher_escape("this is a `label`")
         '`this is a ``label```'
-    
+
     """
     string = StringIO()
     writer = CypherWriter(string)
