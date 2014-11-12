@@ -53,7 +53,7 @@ Instead of providing data inline, a file name can be specified instead using the
 XML files can also be passed using the ``-x`` option. These will be converted to Geoff before
 loading::
 
-    $ geoff load -x -f test/2/ext/files/abba.xml
+    $ geoff load -x -f abba.xml
     abba     node/1668
     agnetha  node/1669
     benny    node/1670
