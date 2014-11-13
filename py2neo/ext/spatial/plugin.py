@@ -47,8 +47,10 @@ class Spatial(ServerPlugin):
 
     def _get_data_nodes(self, geometry_nodes):
         ids = [n._id for n in geometry_nodes]
-        query = """MATCH (n)-[:LOCATES]->(data_node)
-WHERE id(n) IN {ids} RETURN data_node"""
+        query = (
+            "MATCH (n)-[:LOCATES]->(data_node) "
+            "WHERE id(n) IN {ids} RETURN data_node "
+        )
 
         params = {
             'ids': ids,
@@ -100,8 +102,7 @@ WHERE id(n) IN {ids} RETURN data_node"""
 
     def _geometry_exists(self, shape, geometry_name):
         match = "MATCH (n:{label} ".format(label=shape.type)
-        query = match + """{_py2neo_geometry_name:{geometry_name}})
-RETURN n"""
+        query = match + "{_py2neo_geometry_name:{geometry_name}}) RETURN n"
         params = {
             'geometry_name': geometry_name,
             'wkt': shape.wkt,
@@ -166,26 +167,29 @@ RETURN n"""
         graph = self.graph
 
         # remove labels and properties on Nodes relating to this layer
-        query = """MATCH (n:{layer_name})
-REMOVE n:{default_label}
-REMOVE n:{layer_name}
-REMOVE n:{point_label}
-REMOVE n:{multipolygon_label}
-REMOVE n.{internal_name}""".format(
-            layer_name=layer_name, default_label=DEFAULT_LABEL,
-            point_label=POINT, multipolygon_label=MULTIPOLYGON,
-            internal_name=NAME_PROPERTY
-        )
+        query = (
+            "MATCH (n:{layer_name}) "
+            "REMOVE n:{default_label} "
+            "REMOVE n:{layer_name} "
+            "REMOVE n:{point_label} "
+            "REMOVE n:{multipolygon_label} "
+            "REMOVE n.{internal_name}".format(
+                layer_name=layer_name, default_label=DEFAULT_LABEL,
+                point_label=POINT, multipolygon_label=MULTIPOLYGON,
+                internal_name=NAME_PROPERTY
+        ))
 
         graph.cypher.execute(query)
 
         # remove the bounding box, metadata and root from the rtree index
-        query = """MATCH (l { layer:{layer_name} })-[r_layer:LAYER]-(),
-(metadata)<-[r_meta:RTREE_METADATA]-(l),
-()-[locate_rel:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-\
-(bounding_box)-[r_root:RTREE_ROOT]-(l)
-DELETE locate_rel, r_meta, r_layer, r_ref, r_root,
-metadata, geometry_node, bounding_box, l"""
+        query = (
+            "MATCH (l { layer:{layer_name} })-[r_layer:LAYER]-(), "
+            "(metadata)<-[r_meta:RTREE_METADATA]-(l), "
+            "()-[locate_rel:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-"
+            "(bounding_box)-[r_root:RTREE_ROOT]-(l) "
+            "DELETE locate_rel, r_meta, r_layer, r_ref, r_root, "
+            "metadata, geometry_node, bounding_box, l"
+        )
 
         params = {
             'layer_name': layer_name
@@ -276,13 +280,15 @@ metadata, geometry_node, bounding_box, l"""
         resource.post(spatial_data)
 
         # now relate the geometry to our application node
-        query = """MATCH (l { layer:{layer_name} })<-[r_layer:LAYER]-\
-(root { name:"spatial_root" }),
-(bbox)-[r_root:RTREE_ROOT]-(l),
-(geometry_node)-[r_ref:RTREE_REFERENCE]-(bbox),
-(application_node { _py2neo_geometry_name:{geometry_name} })
-WHERE geometry_node.wkt = {wkt}
-CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)"""
+        query = (
+            "MATCH (l { layer:{layer_name} })<-[r_layer:LAYER]-"
+            "(root { name:'spatial_root' }), "
+            "(bbox)-[r_root:RTREE_ROOT]-(l), "
+            "(geometry_node)-[r_ref:RTREE_REFERENCE]-(bbox), "
+            "(application_node { _py2neo_geometry_name:{geometry_name} }) "
+            "WHERE geometry_node.wkt = {wkt} "
+            "CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)"
+        )
 
         params = {
             'wkt': wkt,
@@ -322,9 +328,11 @@ CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)"""
 
         # remove the node from the graph
         match = "MATCH (n:{label}".format(label=shape.type)
-        query = match + """{ _py2neo_geometry_name:{geometry_name} })
-OPTIONAL MATCH n<-[r]-()
-DELETE r, n"""
+        query = match + (
+            "{ _py2neo_geometry_name:{geometry_name} }) "
+            "OPTIONAL MATCH n<-[r]-() "
+            "DELETE r, n"
+        )
         params = {
             'label': shape.type,
             'geometry_name': geometry_name,
@@ -333,9 +341,11 @@ DELETE r, n"""
 
         # tidy up the index. This will remove the node,
         # it's bounding box node, and the relationship between them.
-        query = """MATCH (l { layer:{layer_name} }),
-(n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-()
-DELETE ref, n"""
+        query = (
+            "MATCH (l { layer:{layer_name} }), "
+            "(n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-() "
+            "DELETE ref, n"
+        )
         params = {
             'layer_name': layer_name,
             'wkt': shape.wkt,
@@ -357,11 +367,12 @@ DELETE ref, n"""
         resource = self.resources['updateGeometryFromWKT']
         shape = self._get_shape_from_wkt(wkt_string)
 
-        query = """MATCH (application_node {_py2neo_geometry_name:\
-{geometry_name}}),
-(application_node)<-[:LOCATES]-(geometry_node)<-[:RTREE_REFERENCE]-\
-()<-[:RTREE_ROOT]-(layer_node)
-RETURN geometry_node, layer_node"""
+        query = (
+            "MATCH (application_node {_py2neo_geometry_name:{geometry_name}}),"
+            "(application_node)<-[:LOCATES]-(geometry_node)"
+            "<-[:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-(layer_node) "
+            "RETURN geometry_node, layer_node"
+        )
         params = {
             'geometry_name': geometry_name,
         }
