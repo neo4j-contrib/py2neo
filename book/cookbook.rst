@@ -3,12 +3,27 @@ Cookbook
 ========
 
 
-Better Performance
-==================
-
-
 Monitoring Client-Server Interaction
 ====================================
+
+The :func:`py2neo.watch` function dumps log messages to standard output for various operations
+within the library.
+
+To watch HTTP traffic::
+
+    >>> from py2neo import watch
+    >>> watch("httpstream")
+
+To watch Cypher traffic::
+
+    >>> from py2neo import watch
+    >>> watch("py2neo.cypher")
+
+To watch batch traffic::
+
+    >>> from py2neo import watch
+    >>> watch("py2neo.batch")
+
 
 .. autofunction:: py2neo.watch
 
