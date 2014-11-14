@@ -43,7 +43,7 @@ package_metadata = {
                         "designed to be easy and intuitive to use.",
     "author": __author__,
     "author_email": __email__,
-    "url": "http://nigelsmall.com/py2neo",
+    "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
             "cypher = py2neo.cypher.__main__:main",
