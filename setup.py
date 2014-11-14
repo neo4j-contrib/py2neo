@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+import os
 import sys
 
 try:
@@ -30,15 +31,16 @@ from py2neo import __author__, __email__, __license__, __package__, __version__
 
 python_2 = sys.version_info < (3,)
 
-packages = find_packages(exclude=("test", "test.*"))
+home = os.path.dirname(__file__)
+packages = find_packages(where=home, exclude=("book", "test", "test.*"))
 package_metadata = {
     "name": __package__,
     "version": __version__,
     "description": "Python client library and toolkit for Neo4j",
-    "long_description": "Py2neo is a comprehensive toolkit for working with Neo4j from within "
-                        "Python applications or from the command line. The library has no "
-                        "external dependencies and has been carefully designed to be easy and "
-                        "intuitive to use.",
+    "long_description": "Py2neo is a client library and comprehensive toolkit for working with "
+                        "Neo4j from within Python applications and from the command line. The "
+                        "core library has no external dependencies and has been carefully "
+                        "designed to be easy and intuitive to use.",
     "author": __author__,
     "author_email": __email__,
     "url": "http://nigelsmall.com/py2neo",
