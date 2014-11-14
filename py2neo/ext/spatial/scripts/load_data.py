@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 sys.path.insert(1, '../py2neo/')
 
@@ -35,7 +37,7 @@ def load(server_url, geometry_name, wkt_string, layer_name):
     spatial = Spatial(graph)
     spatial.create_layer(layer_name)
     spatial.create_geometry(geometry_name, wkt_string, layer_name)
-    print 'done'
+    print('done')
 
 
 if __name__ == '__main__':
