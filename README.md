@@ -25,7 +25,7 @@ To install, run the following::
 
 For more information, read through the [full introduction](http://py2neo.org/2.0/intro.html).
 
-To get in touch, contact me via [email](mailto:nigel@nigelsmall.com) or on
+To get in touch, contact me via [email](mailto:nigel@py2neo.org) or on
 [Twitter](https://twitter.com/neonige).
 
 For the previous stable release, check out the [release/1.6.4 branch](https://github.com/nigelsmall/py2neo/tree/release/1.6.4).
