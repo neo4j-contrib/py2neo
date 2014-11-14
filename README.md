@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=beta%2F2.0)](https://travis-ci.org/nigelsmall/py2neo)
+[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=release%2F2.0)](https://travis-ci.org/nigelsmall/py2neo)
 
 Py2neo 2.0
 ==========
@@ -20,7 +20,7 @@ Installation
 
 To install, run the following::
 
-    $ pip install git+git://github.com/nigelsmall/py2neo.git@beta/2.0#egg=py2neo
+    $ pip install py2neo
 
 
 For more information, read through the [full introduction](http://py2neo.org/2.0/intro.html).

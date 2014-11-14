@@ -22,7 +22,7 @@ Installation
 
 To install, run the following::
 
-    $ pip install git+git://github.com/nigelsmall/py2neo.git@beta/2.0#egg=py2neo
+    $ pip install py2neo
 
 
 Contents

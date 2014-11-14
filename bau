@@ -95,11 +95,7 @@ function test {
 }
 
 function build_book {
-    if [ "$ONLINE" ]
-    then
-        echo "Ensuring book dependencies are up to date"
-        pip install --upgrade sphinx
-    fi
+    install_dependencies
     make -C $HOME/book html
     xdg-open $HOME/book/_build/html/index.html 2> /dev/null
 }
