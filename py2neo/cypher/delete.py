@@ -17,7 +17,7 @@
 
 
 from py2neo.core import Graph, Node, Path, Relationship
-from py2neo.util import ustr
+from py2neo.util import ustr, xstr
 
 
 __all__ = ["DeleteStatement"]
@@ -28,6 +28,14 @@ def _(*args):
 
 
 class DeleteStatement(object):
+    """ Builder for a Cypher DELETE statement.
+    """
+
+    #: The graph against which this statement is to be executed.
+    graph = None
+
+    #: The parameters to inject into this statement.
+    parameters = None
 
     def __init__(self, graph):
         self.graph = graph
@@ -41,8 +49,19 @@ class DeleteStatement(object):
     def __repr__(self):
         return self.string
 
+    def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
+        return self.string
+
+    def __contains__(self, entity):
+        return any(e is entity for e in self.entities)
+
     @property
     def string(self):
+        """ The full Cypher statement as a string.
+        """
         clauses = []
         if self.start_clause:
             clauses.append("START " + ",".join(self.start_clause))
@@ -56,36 +75,42 @@ class DeleteStatement(object):
         return self.graph.cypher.post(self.string, self.parameters)
 
     def execute(self):
-        if not self.string:
-            return []
-        self.post().close()
+        """ Execute this statement.
+        """
+        if self.string:
+            self.post().close()
 
     def delete(self, entity):
+        """ Append an entity to the DELETE clause of this statement.
+
+        :arg entity: The entity to delete.
+
+        """
         entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
-            self.delete_node(entity, name)
+            self._delete_node(entity, name)
         elif isinstance(entity, Relationship):
-            self.delete_relationship(entity, name)
+            self._delete_relationship(entity, name)
         elif isinstance(entity, Path):
-            self.delete_path(entity, name)
+            self._delete_path(entity, name)
         self.entities.append(entity)
 
-    def delete_node(self, node, name):
+    def _delete_node(self, node, name):
         if node.bound:
             self.start_clause.append("{name}=node({{{name}}})".format(name=name))
             self.delete_nodes_clause.append(name)
             self.parameters[name] = node._id
 
-    def delete_relationship(self, relationship, name):
+    def _delete_relationship(self, relationship, name):
         if relationship.bound:
             self.start_clause.append("{name}=rel({{{name}}})".format(name=name))
             self.delete_rels_clause.append(name)
             self.parameters[name] = relationship._id
 
-    def delete_path(self, path, name):
+    def _delete_path(self, path, name):
         for i, rel in enumerate(path.relationships):
-            self.delete_relationship(rel, name + "r" + ustr(i))
+            self._delete_relationship(rel, name + "r" + ustr(i))
         for i, node in enumerate(path.nodes):
-            self.delete_node(node, name + "n" + ustr(i))
+            self._delete_node(node, name + "n" + ustr(i))

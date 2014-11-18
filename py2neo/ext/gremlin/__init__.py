@@ -19,11 +19,19 @@
 from py2neo import ServerPlugin
 
 
+__all__ = ["Gremlin"]
+
+
 class Gremlin(ServerPlugin):
+    """ Extension for Gremlin script execution. This requires the
+    Gremlin server plugin.
+    """
 
     def __init__(self, graph):
         super(Gremlin, self).__init__(graph, "GremlinPlugin")
 
     def execute(self, script):
+        """ Execute a Gremlin script.
+        """
         response = self.resources["execute_script"].post({"script": script})
         return self.graph.hydrate(response.content)

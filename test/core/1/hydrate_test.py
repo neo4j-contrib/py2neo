@@ -209,6 +209,3 @@ def test_full_relationship_hydrate():
     assert hydrated.properties == dehydrated["data"]
     assert hydrated.bound
     assert hydrated.resource.uri == dehydrated["self"]
-
-
-# TODO: test hydration with supplied inst

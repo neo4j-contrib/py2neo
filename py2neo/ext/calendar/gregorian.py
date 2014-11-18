@@ -19,7 +19,16 @@
 from py2neo import Node, Path, GraphError
 
 
+__all__ = ["GregorianCalendar", "GregorianDate"]
+
+
 class GregorianCalendar(object):
+    """ A Gregorian calendar stored in a graph as a tree
+    of ``(year)->(month)->(day)``.
+    """
+
+    #: The graph associated with this calendar.
+    graph = None
 
     __instances = {}
 
@@ -42,20 +51,60 @@ class GregorianCalendar(object):
             cls.__instances[graph] = inst
         return inst
 
-    def year(self, year):
-        path = Path(self.root, "YEAR", Node("Year", year=year))
-        self.graph.create_unique(path)
-        return path.end_node
+    def date(self, year, month=1, day=1):
+        """ Pick a date from this calendar.
 
-    def month(self, year, month):
-        path = Path(self.root, "YEAR", Node("Year", year=year),
-                               "MONTH", Node("Month", year=year, month=month))
-        self.graph.create_unique(path)
-        return path.end_node
+        :rtype: :class:`.GregorianDate`
 
-    def day(self, year, month, day):
-        path = Path(self.root, "YEAR", Node("Year", year=year),
-                               "MONTH", Node("Month", year=year, month=month),
-                               "DAY", Node("Day", year=year, month=month, day=day))
-        self.graph.create_unique(path)
-        return path.end_node
+        """
+        return GregorianDate(self, year, month, day)
+
+
+class GregorianDate(object):
+    """ A date picked from a :class:`.GregorianCalendar`.
+    """
+
+    #: The calendar from which this date was picked.
+    calendar = None
+
+    #: The graph associated with this date.
+    graph = None
+
+    #: Full :class:`Path <py2neo.Path>` representing this date.
+    path = None
+
+    def __init__(self, calendar, year, month=1, day=1):
+        self.calendar = calendar
+        self.graph = self.calendar.graph
+        self.path = Path(self.calendar.root,
+                         "YEAR", Node("Year", key='%04d' % year, year=year),
+                         "MONTH", Node("Month", key='%04d-%02d' % (year, month), year=year, month=month),
+                         "DAY", Node("Day", key='%04d-%02d-%02d' % (year, month, day), year=year, month=month, day=day))
+        self.graph.create_unique(self.path)
+
+    @property
+    def year(self):
+        """ The year node for this date.
+
+        :rtype: :class:`py2neo.Node`
+
+        """
+        return self.path.nodes[1]
+
+    @property
+    def month(self):
+        """ The month node for this date.
+
+        :rtype: :class:`py2neo.Node`
+
+        """
+        return self.path.nodes[2]
+
+    @property
+    def day(self):
+        """ The day node for this date.
+
+        :rtype: :class:`py2neo.Node`
+
+        """
+        return self.path.nodes[3]
