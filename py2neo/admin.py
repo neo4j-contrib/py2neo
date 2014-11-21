@@ -19,9 +19,7 @@
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo import Service, Resource, ServiceRoot, GraphError
-from py2neo.env import NEO4J_URI
-from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
+from py2neo import Service, Resource, ServiceRoot
 from py2neo.util import numberise
 
 
@@ -69,14 +67,3 @@ class Monitor(Service):
             )),
         )
         return data
-
-
-def set_password(old_password, new_password, user="neo4j"):
-    resource = Resource(NEO4J_URI.resolve("/user/neo4j/password"))
-    response = resource.post({"password": old_password, "new_password": new_password})
-    return response.content
-
-
-def set_api_key(value, user="neo4j"):
-    pass
-

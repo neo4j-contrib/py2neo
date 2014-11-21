@@ -445,6 +445,7 @@ class ServiceRoot(object):
     def __new__(cls, uri=None):
         if uri is None:
             uri = cls.DEFAULT_URI
+        uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
         try:
@@ -456,23 +457,8 @@ class ServiceRoot(object):
             cls.__instances[uri] = inst
         return inst
 
-    @property
-    def authentication(self):
-        """ The authentication resource for this service.
-
-        :rtype: :class:`.Authentication`
-        """
-        if self.__authentication is None:
-            try:
-                uri = self.resource.metadata["authentication"]
-            except KeyError:
-                self.__authentication = NotImplemented
-            else:
-                self.__authentication = Authentication(uri)
-        if self.__authentication is NotImplemented:
-            raise NotImplementedError("No authentication required")
-        else:
-            return self.__authentication
+    def __repr__(self):
+        return "<ServiceRoot uri=%r>" % self.uri.string
 
     @property
     def graph(self):
@@ -505,12 +491,6 @@ class ServiceRoot(object):
         """ The full URI of the contained resource.
         """
         return self.resource.uri
-
-
-class Authentication(Service):
-
-    def __init__(self, uri):
-        pass
 
 
 class Graph(Service):
