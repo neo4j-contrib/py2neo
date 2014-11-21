@@ -471,6 +471,7 @@ class ServiceRoot(object):
     def __new__(cls, uri=None):
         if uri is None:
             uri = cls.DEFAULT_URI
+        uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
         try:
@@ -482,6 +483,9 @@ class ServiceRoot(object):
             cls.__instances[uri] = inst
         return inst
 
+    def __repr__(self):
+        return "<ServiceRoot uri=%r>" % self.uri.string
+    
     def __eq__(self, other):
         try:
             return self.uri == other.uri
@@ -543,12 +547,6 @@ class ServiceRoot(object):
         """ The full URI of the contained resource.
         """
         return self.resource.uri
-
-
-class Authentication(Service):
-
-    def __init__(self, uri):
-        pass
 
 
 class Graph(Service):
