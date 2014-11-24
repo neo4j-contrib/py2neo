@@ -72,9 +72,9 @@ function test {
         neo4j_start
         if [ "$1" == "" ]
         then
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
+            py.test -v --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
         else
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+            py.test -v --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
         fi
         EXIT_CODE=$?
         trap - SIGINT SIGTERM

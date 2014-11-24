@@ -665,9 +665,12 @@ class Graph(Service):
             from the graph and cannot be undone.
         """
         from py2neo.batch import WriteBatch, CypherJob
+        from py2neo.cypher.util import StartOrMatchClause
         batch = WriteBatch(self)
-        batch.append(CypherJob("START r=rel(*) DELETE r"))
-        batch.append(CypherJob("START n=node(*) DELETE n"))
+        statement = StartOrMatchClause(self).relationship("r", "*").string + "DELETE r"
+        batch.append(CypherJob(statement))
+        statement = StartOrMatchClause(self).node("n", "*").string + "DELETE n"
+        batch.append(CypherJob(statement))
         batch.run()
 
     def find(self, label, property_key=None, property_value=None, limit=None):
@@ -907,7 +910,9 @@ class Graph(Service):
     def order(self):
         """ The number of nodes in this graph.
         """
-        return self.cypher.execute_one("START n=node(*) RETURN count(n)")
+        from py2neo.cypher.util import StartOrMatchClause
+        statement = StartOrMatchClause(self).node("n", "*").string + "RETURN count(n)"
+        return self.cypher.execute_one(statement)
 
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
@@ -966,7 +971,9 @@ class Graph(Service):
     def size(self):
         """ The number of relationships in this graph.
         """
-        return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
+        from py2neo.cypher.util import StartOrMatchClause
+        statement = StartOrMatchClause(self).relationship("r", "*").string + "RETURN count(r)"
+        return self.cypher.execute_one(statement)
 
     @property
     def supports_cypher_transactions(self):
@@ -998,6 +1005,12 @@ class Graph(Service):
         """ Indicates whether the server supports schema indexes.
         """
         return self.neo4j_version >= (2, 0)
+
+    @property
+    def supports_start_clause(self):
+        """ Indicates whether the server supports the Cypher START clause.
+        """
+        return self.neo4j_version < (2, 2)
 
 
 class PropertySet(Service, dict):
@@ -1439,7 +1452,9 @@ class Node(PropertyContainer):
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        statement = "START n=node({n}) MATCH (n)-[r]-() RETURN count(r)"
+        from py2neo.cypher.util import StartOrMatchClause
+        statement = (StartOrMatchClause(self).node("n", "{n}").string +
+                     "MATCH (n)-[r]-() RETURN count(r)")
         return self.graph.cypher.execute_one(statement, {"n": self})
 
     @property
@@ -1520,7 +1535,8 @@ class Node(PropertyContainer):
 
     def refresh(self):
         # Non-destructive pull.
-        query = "START a=node({a}) RETURN a,labels(a)"
+        from py2neo.cypher.util import StartOrMatchClause
+        query = StartOrMatchClause(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
         dehydrated, label_metadata = content["data"][0]
         dehydrated.setdefault("metadata", {})["labels"] = label_metadata
