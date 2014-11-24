@@ -23,7 +23,7 @@ from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, F
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string, xstr
+from py2neo.util import is_integer, is_string, xstr, ustr
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -70,8 +70,8 @@ class CypherResource(Service):
         """ Post a Cypher statement to this resource, optionally with
         parameters.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :rtype: :class:`httpstream.Response`
         """
         payload = {"query": statement}
@@ -87,8 +87,8 @@ class CypherResource(Service):
     def run(self, statement, parameters=None):
         """ Execute a single Cypher statement, ignoring any return value.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
@@ -100,8 +100,8 @@ class CypherResource(Service):
     def execute(self, statement, parameters=None):
         """ Execute a single Cypher statement.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.RecordList`
         """
         if self.transaction_uri:
@@ -120,8 +120,8 @@ class CypherResource(Service):
         """ Execute a single Cypher statement and return the value from
         the first column of the first record returned.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
         if self.transaction_uri:
@@ -145,8 +145,8 @@ class CypherResource(Service):
     def stream(self, statement, parameters=None):
         """ Execute the query and return a result iterator.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.RecordStream`
         """
         return RecordStream(self.graph, self.post(statement, parameters))
@@ -213,20 +213,31 @@ class CypherTransaction(object):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :param statement: the statement to append
-        :param parameters: a dictionary of execution parameters
+        :arg statement: the statement to append
+        :arg parameters: a dictionary of execution parameters
         """
         self.__assert_unfinished()
+
+        s = ustr(statement)
         p = {}
-        if parameters:
-            for key, value in parameters.items():
-                if isinstance(value, (Node, Rel, Relationship)):
-                    value = value._id
-                p[key] = value
+
+        def add_parameters(params):
+            if params:
+                for key, value in params.items():
+                    if isinstance(value, (Node, Rel, Relationship)):
+                        value = value._id
+                    p[key] = value
+
+        try:
+            add_parameters(statement.parameters)
+        except AttributeError:
+            pass
+        add_parameters(parameters)
+
         # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("append %r %r", statement, p)
+        log.info("append %r %r", s, p)
         self.statements.append(OrderedDict([
-            ("statement", statement),
+            ("statement", s),
             ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))

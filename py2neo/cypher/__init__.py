@@ -27,6 +27,7 @@ from py2neo.cypher.lang import *
 from py2neo.cypher.core import *
 
 
-__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
-           "Record", "RecordProducer", "CypherWriter", "cypher_escape", "cypher_repr",
+__all__ = ["CypherResource", "CypherStatement", "CypherTransaction",
+           "RecordListList", "RecordList", "RecordStream", "Record", "RecordProducer",
+           "CypherWriter", "cypher_escape", "cypher_repr",
            "CreateStatement", "DeleteStatement"]
