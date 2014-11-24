@@ -40,7 +40,7 @@ class StartOrMatchClause(object):
                     s.append("%s=node(%s)" % (name, selector))
                 for name, selector in self.relationships:
                     s.append("%s=rel(%s)" % (name, selector))
-                return "START " + ", ".join(s) + "\n"
+                return "START " + ",".join(s) + "\n"
             else:
                 s = []
                 for name, selector in self.nodes:

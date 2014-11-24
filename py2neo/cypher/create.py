@@ -44,7 +44,6 @@ class CreateStatement(object):
         self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.names = []
-        # self.start_clause = []
         self.start_or_match_clause = StartOrMatchClause(self.graph)
         self.create_clause = []
         self.create_unique_clause = []
@@ -67,17 +66,14 @@ class CreateStatement(object):
     def string(self):
         """ The full Cypher statement as a string.
         """
-        clauses = []
-        # if self.start_clause:
-        #     clauses.append("START " + ",".join(self.start_clause))
-        clauses.append(self.start_or_match_clause.string)
+        clauses = [self.start_or_match_clause.string]
         if self.create_clause:
             clauses.append("CREATE " + ",".join(self.create_clause))
         if self.create_unique_clause:
             clauses.append("CREATE UNIQUE " + ",".join(self.create_unique_clause))
         if self.return_clause:
             clauses.append("RETURN " + ",".join(self.return_clause))
-        return "\n".join(clauses)
+        return "\n".join(clauses).strip()
 
     def post(self):
         return self.graph.cypher.post(self.string, self.parameters)
@@ -161,8 +157,6 @@ class CreateStatement(object):
 
     def _create_node(self, node, name):
         if node.bound:
-            # kwargs = {"name": name}
-            # self.start_clause.append("{name}=node({{{name}}})".format(**kwargs))
             self.start_or_match_clause.node(name, "{" + name + "}")
             self.parameters[name] = node._id
         else:
@@ -205,7 +199,6 @@ class CreateStatement(object):
             rel_name = name + "r" + ustr(i)
             rel_names.append(rel_name)
             if rel.bound:
-                # self.start_clause.append("{name}=rel({{{name}}})".format(name=rel_name))
                 self.start_or_match_clause.relationship(rel_name, "{" + rel_name + "}")
                 self.parameters[rel_name] = rel._id
             else:

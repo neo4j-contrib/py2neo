@@ -783,28 +783,29 @@ class Graph(Service):
         :return: matching relationships
         :rtype: generator
         """
+        from py2neo.cypher.util import StartOrMatchClause
         if start_node is None and end_node is None:
-            query = "START a=node(*)"
-            params = {}
+            statement = StartOrMatchClause(self).node("a", "*").string
+            parameters = {}
         elif end_node is None:
-            query = "START a=node({A})"
+            statement = StartOrMatchClause(self).node("a", "{A}").string
             start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node}
+            parameters = {"A": start_node}
         elif start_node is None:
-            query = "START b=node({B})"
+            statement = StartOrMatchClause(self).node("b", "{B}").string
             end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"B": end_node}
+            parameters = {"B": end_node}
         else:
-            query = "START a=node({A}),b=node({B})"
+            statement = StartOrMatchClause(self).node("a", "{A}").node("b", "{B}").string
             start_node = Node.cast(start_node)
             end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node, "B": end_node}
+            parameters = {"A": start_node, "B": end_node}
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
@@ -814,12 +815,12 @@ class Graph(Service):
         else:
             rel_clause = ":`{0}`".format(rel_type)
         if bidirectional:
-            query += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+            statement += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
         else:
-            query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
+            statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
-            query += " LIMIT {0}".format(int(limit))
-        results = self.cypher.stream(query, params)
+            statement += " LIMIT {0}".format(int(limit))
+        results = self.cypher.stream(statement, parameters)
         try:
             for result in results:
                 yield result.r
@@ -1453,7 +1454,7 @@ class Node(PropertyContainer):
         """ The number of relationships attached to this node.
         """
         from py2neo.cypher.util import StartOrMatchClause
-        statement = (StartOrMatchClause(self).node("n", "{n}").string +
+        statement = (StartOrMatchClause(self.graph).node("n", "{n}").string +
                      "MATCH (n)-[r]-() RETURN count(r)")
         return self.graph.cypher.execute_one(statement, {"n": self})
 
