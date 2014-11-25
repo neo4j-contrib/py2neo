@@ -38,25 +38,6 @@ def test_invalid_syntax_raises_cypher_error(graph):
         assert False
 
 
-def test_other_cypher_error(graph):
-    cypher = graph.cypher
-    try:
-        statement = StartOrMatch(graph).node("n", "*").string + "RETURN n LIMIT -1"
-        cypher.execute(statement)
-    except CypherTransactionError as error:
-        assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
-    except CypherError as error:
-        if graph.neo4j_version >= (1, 9):
-            fullname = "org.neo4j.cypher.EntityNotFoundException"
-        else:
-            fullname = "org.neo4j.cypher.BadInputException"
-        assert_error(
-            error, (CypherError, GraphError), fullname,
-            (_ClientError, _Response), 400)
-    else:
-        assert False
-
-
 def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher = graph.cypher
     results = cypher.execute("CREATE (a), (b) RETURN a, b")
