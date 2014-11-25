@@ -16,12 +16,20 @@
 # limitations under the License.
 
 
+from py2neo.error import GraphError
+
+
 class StartOrMatchClause(object):
 
     def __init__(self, graph):
+        if graph is None:
+            raise GraphError("All auto-generated Cypher statements require a Graph instance")
         self.graph = graph
         self.nodes = []
         self.relationships = []
+
+    def __len__(self):
+        return len(self.nodes) + len(self.relationships)
 
     def node(self, name, selector):
         self.nodes.append((name, selector))

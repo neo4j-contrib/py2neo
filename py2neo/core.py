@@ -561,7 +561,7 @@ class Graph(Service):
         will often be used indirectly via classes such as
         :class:`py2neo.batch.PullBatch` or :class:`py2neo.batch.PushBatch`.
 
-        :rtype: :class:`py2neo.cypher.BatchResource`
+        :rtype: :class:`py2neo.batch.BatchResource`
 
         """
         if self.__batch is None:
