@@ -20,6 +20,7 @@ import pytest
 
 from py2neo import node, rel, Finished
 from py2neo.core import Node, Relationship
+from py2neo.cypher.util import StartOrMatch
 from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
 from py2neo.legacy import LegacyWriteBatch
 
@@ -667,7 +668,8 @@ def test_cypher_job_with_non_existent_node_id(graph):
     node_id = node._id
     graph.delete(node)
     batch = WriteBatch(graph)
-    batch.append(CypherJob("START n=node({N}) RETURN n", {"N": node_id}))
+    statement = StartOrMatch(graph).node("n", "{N}").string + "RETURN n"
+    batch.append(CypherJob(statement, {"N": node_id}))
     try:
         batch.submit()
     except BatchError as error:
