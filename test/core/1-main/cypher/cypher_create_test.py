@@ -264,9 +264,6 @@ def test_unique_path_not_unique_exception(graph):
     except CypherError as error:
         assert error.exception == "UniquePathNotUniqueException"
         assert error.fullname in [None, "org.neo4j.cypher.UniquePathNotUniqueException"]
-        assert error.statement == ("START _0n0=node({_0n0}),_0n1=node({_0n1})\n"
-                                   "CREATE UNIQUE (_0n0)-[_0r0:KNOWS]->(_0n1)\n"
-                                   "RETURN _0n0,_0n1,_0r0")
     else:
         assert False
 

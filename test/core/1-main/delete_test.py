@@ -32,7 +32,10 @@ def test_can_delete_node(graph):
     assert alice.exists
     statement = DeleteStatement(graph)
     statement.delete(alice)
-    assert repr(statement) == "START _0=node({_0})\nDELETE _0"
+    assert repr(statement) in [
+        "START _0=node({_0})\nDELETE _0",
+        "MATCH (_0) WHERE id(_0)={_0}\nDELETE _0",
+    ]
     graph.delete(alice)
     assert not alice.exists
 

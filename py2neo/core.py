@@ -587,7 +587,7 @@ class Graph(Service):
         will often be used indirectly via classes such as
         :class:`py2neo.batch.PullBatch` or :class:`py2neo.batch.PushBatch`.
 
-        :rtype: :class:`py2neo.cypher.BatchResource`
+        :rtype: :class:`py2neo.batch.BatchResource`
 
         """
         if self.__batch is None:
@@ -691,9 +691,12 @@ class Graph(Service):
             from the graph and cannot be undone.
         """
         from py2neo.batch import WriteBatch, CypherJob
+        from py2neo.cypher.util import StartOrMatch
         batch = WriteBatch(self)
-        batch.append(CypherJob("START r=rel(*) DELETE r"))
-        batch.append(CypherJob("START n=node(*) DELETE n"))
+        statement = StartOrMatch(self).relationship("r", "*").string + "DELETE r"
+        batch.append(CypherJob(statement))
+        statement = StartOrMatch(self).node("n", "*").string + "DELETE n"
+        batch.append(CypherJob(statement))
         batch.run()
 
     def find(self, label, property_key=None, property_value=None, limit=None):
@@ -806,28 +809,29 @@ class Graph(Service):
         :return: matching relationships
         :rtype: generator
         """
+        from py2neo.cypher.util import StartOrMatch
         if start_node is None and end_node is None:
-            query = "START a=node(*)"
-            params = {}
+            statement = StartOrMatch(self).node("a", "*").string
+            parameters = {}
         elif end_node is None:
-            query = "START a=node({A})"
+            statement = StartOrMatch(self).node("a", "{A}").string
             start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node}
+            parameters = {"A": start_node}
         elif start_node is None:
-            query = "START b=node({B})"
+            statement = StartOrMatch(self).node("b", "{B}").string
             end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"B": end_node}
+            parameters = {"B": end_node}
         else:
-            query = "START a=node({A}),b=node({B})"
+            statement = StartOrMatch(self).node("a", "{A}").node("b", "{B}").string
             start_node = Node.cast(start_node)
             end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
-            params = {"A": start_node, "B": end_node}
+            parameters = {"A": start_node, "B": end_node}
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
@@ -837,12 +841,12 @@ class Graph(Service):
         else:
             rel_clause = ":`{0}`".format(rel_type)
         if bidirectional:
-            query += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+            statement += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
         else:
-            query += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
+            statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
-            query += " LIMIT {0}".format(int(limit))
-        results = self.cypher.stream(query, params)
+            statement += " LIMIT {0}".format(int(limit))
+        results = self.cypher.stream(statement, parameters)
         try:
             for result in results:
                 yield result.r
@@ -933,7 +937,9 @@ class Graph(Service):
     def order(self):
         """ The number of nodes in this graph.
         """
-        return self.cypher.execute_one("START n=node(*) RETURN count(n)")
+        from py2neo.cypher.util import StartOrMatch
+        statement = StartOrMatch(self).node("n", "*").string + "RETURN count(n)"
+        return self.cypher.execute_one(statement)
 
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
@@ -992,7 +998,9 @@ class Graph(Service):
     def size(self):
         """ The number of relationships in this graph.
         """
-        return self.cypher.execute_one("START r=rel(*) RETURN count(r)")
+        from py2neo.cypher.util import StartOrMatch
+        statement = StartOrMatch(self).relationship("r", "*").string + "RETURN count(r)"
+        return self.cypher.execute_one(statement)
 
     @property
     def supports_cypher_transactions(self):
@@ -1024,6 +1032,12 @@ class Graph(Service):
         """ Indicates whether the server supports schema indexes.
         """
         return self.neo4j_version >= (2, 0)
+
+    @property
+    def supports_start_clause(self):
+        """ Indicates whether the server supports the Cypher START clause.
+        """
+        return self.neo4j_version < (2, 2)
 
 
 class PropertySet(Service, dict):
@@ -1465,7 +1479,9 @@ class Node(PropertyContainer):
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        statement = "START n=node({n}) MATCH (n)-[r]-() RETURN count(r)"
+        from py2neo.cypher.util import StartOrMatch
+        statement = (StartOrMatch(self.graph).node("n", "{n}").string +
+                     "MATCH (n)-[r]-() RETURN count(r)")
         return self.graph.cypher.execute_one(statement, {"n": self})
 
     @property
@@ -1546,7 +1562,8 @@ class Node(PropertyContainer):
 
     def refresh(self):
         # Non-destructive pull.
-        query = "START a=node({a}) RETURN a,labels(a)"
+        from py2neo.cypher.util import StartOrMatch
+        query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
         dehydrated, label_metadata = content["data"][0]
         dehydrated.setdefault("metadata", {})["labels"] = label_metadata
