@@ -117,10 +117,10 @@ class Authentication(Service):
             return auth_metadata.get("authorization_token")
 
 
-def change_password(service_root, user_name, password, new_password):
+def change_password(uri, user_name, password, new_password):
     """ Change the password for a user and retrieve an auth token.
 
-    :arg service_root: The :class:`py2neo.ServiceRoot` object requiring authentication.
+    :arg uri: The root URI for the service requiring authentication.
     :arg user_name: Name of user to authenticate as.
     :arg password: The current password for this user.
     :arg new_password: A new password (must not match the current password).
@@ -129,21 +129,21 @@ def change_password(service_root, user_name, password, new_password):
     :raise ValueError: If the new password value is invalid.
 
     """
-    auth = Authentication(service_root)
+    auth = Authentication(ServiceRoot(uri))
     return auth.change_password(user_name, password, new_password)
 
 
-def authenticate(service_root, user_name, password):
+def authenticate(uri, user_name, password):
     """ Authenticate to retrieve an auth token.
 
-    :arg service_root: The :class:`py2neo.ServiceRoot` object requiring authentication.
+    :arg uri: The root URI for the service requiring authentication.
     :arg user_name: Name of user to authenticate as.
     :arg password: The current password for this user.
     :return: A valid auth token.
     :raise AuthenticationError: If the user cannot be authenticated.
 
     """
-    auth = Authentication(service_root)
+    auth = Authentication(ServiceRoot(uri))
     return auth.authenticate(user_name, password)
 
 
@@ -155,13 +155,12 @@ def main():
     script, args = sys.argv[0], sys.argv[1:]
     try:
         if args:
-            service_root = ServiceRoot(NEO4J_URI)
             if len(args) == 3:
                 user_name, password, new_password = args
-                print(change_password(service_root, user_name, password, new_password))
+                print(change_password(NEO4J_URI, user_name, password, new_password))
             elif len(args) == 2:
                 user_name, password = args
-                print(authenticate(service_root, user_name, password))
+                print(authenticate(NEO4J_URI, user_name, password))
             else:
                 _help(script)
         else:
