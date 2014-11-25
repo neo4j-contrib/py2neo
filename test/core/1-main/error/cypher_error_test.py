@@ -38,14 +38,13 @@ def test_invalid_syntax_raises_cypher_error(graph):
         assert False
 
 
-def test_entity_not_found_raises_cypher_error(graph):
-    node_id = get_non_existent_node_id(graph)
+def test_other_cypher_error(graph):
     cypher = graph.cypher
     try:
-        statement = StartOrMatch(graph).node("n", "{N}").string + "RETURN n"
-        cypher.execute(statement, {"N": node_id})
+        statement = StartOrMatch(graph).node("n", "*").string + "RETURN n LIMIT -1"
+        cypher.execute(statement)
     except CypherTransactionError as error:
-        assert error.code == "Neo.ClientError.Statement.EntityNotFound"
+        assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
     except CypherError as error:
         if graph.neo4j_version >= (1, 9):
             fullname = "org.neo4j.cypher.EntityNotFoundException"

@@ -662,14 +662,10 @@ def test_cypher_job_with_bad_syntax(graph):
         assert False
 
 
-def test_cypher_job_with_non_existent_node_id(graph):
-    node = Node()
-    graph.create(node)
-    node_id = node._id
-    graph.delete(node)
+def test_cypher_job_with_other_error(graph):
     batch = WriteBatch(graph)
-    statement = StartOrMatch(graph).node("n", "{N}").string + "RETURN n"
-    batch.append(CypherJob(statement, {"N": node_id}))
+    statement = StartOrMatch(graph).node("n", "*").string + "RETURN n LIMIT -1"
+    batch.append(CypherJob(statement))
     try:
         batch.submit()
     except BatchError as error:
