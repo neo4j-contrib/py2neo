@@ -325,6 +325,17 @@ class TestPathIterationAndReversal(object):
         ]
 
 
+def test_can_hydrate_path(graph):
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    if "directions" not in dehydrated:
+        dehydrated["directions"] = ["->"]
+    hydrated = Path.hydrate(dehydrated)
+    assert isinstance(hydrated, Path)
+    assert hydrated.order == 2
+    assert hydrated.size == 1
+    assert hydrated.relationships[0].type == "KNOWS"
+
+
 def test_can_hydrate_path_into_existing_instance(graph):
     alice = Node("Person", name="Alice", age=33)
     bob = Node("Person", name="Bob", age=44)
@@ -334,6 +345,21 @@ def test_can_hydrate_path_into_existing_instance(graph):
         dehydrated["directions"] = ["->"]
     hydrated = Path.hydrate(dehydrated, inst=path)
     assert hydrated is path
+
+
+def test_can_hydrate_path_without_directions(graph):
+    statement = "CREATE p=()-[:LIKES]->()<-[:DISLIKES]-() RETURN p"
+    dehydrated = graph.cypher.post(statement).content["data"][0][0]
+    try:
+        del dehydrated["directions"]
+    except KeyError:
+        pass
+    hydrated = graph.hydrate(dehydrated)
+    assert isinstance(hydrated, Path)
+    assert hydrated.order == 3
+    assert hydrated.size == 2
+    assert hydrated.relationships[0].type == "LIKES"
+    assert hydrated.relationships[1].type == "DISLIKES"
 
 
 def test_can_join_compatible_paths():
