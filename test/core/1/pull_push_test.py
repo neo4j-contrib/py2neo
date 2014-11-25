@@ -17,6 +17,7 @@
 
 
 from py2neo.core import Node, Rel, Rev, Path
+from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_pull_node(graph):
@@ -137,10 +138,13 @@ def test_can_pull_path(graph):
     assert path[0].rel.properties["amount"] is None
     assert path[1].rel.properties["amount"] is None
     assert path[2].rel.properties["since"] is None
-    graph.cypher.run("""\
-    START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
-    SET ab.amount = "lots", bc.amount = "some", cd.since = 1999
-    """, {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id})
+    statement = (StartOrMatch(graph)
+                 .relationship("ab", "{ab}")
+                 .relationship("bc", "{bc}")
+                 .relationship("cd", "{cd}").string +
+                 "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
+    parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
+    graph.cypher.run(statement, parameters)
     path.pull()
     assert path[0].properties["amount"] == "lots"
     assert path[1].properties["amount"] == "some"
@@ -157,27 +161,25 @@ def test_can_push_path(graph):
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     graph.create(path)
+    statement = (StartOrMatch(graph)
+                 .relationship("ab", "{ab}")
+                 .relationship("bc", "{bc}")
+                 .relationship("cd", "{cd}").string)
     if graph.neo4j_version >= (2, 0, 0):
-        query = """\
-        START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
-        RETURN ab.amount, bc.amount, cd.since
-        """
+        statement += "RETURN ab.amount, bc.amount, cd.since"
     else:
-        query = """\
-        START ab=rel({ab}), bc=rel({bc}), cd=rel({cd})
-        RETURN ab.amount?, bc.amount?, cd.since?
-        """
-    params = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
+        statement += "RETURN ab.amount?, bc.amount?, cd.since?"
+    parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
     path[0].properties["amount"] = "lots"
     path[1].properties["amount"] = "some"
     path[2].properties["since"] = 1999
-    results = graph.cypher.execute(query, params)
+    results = graph.cypher.execute(statement, parameters)
     ab_amount, bc_amount, cd_since = results[0]
     assert ab_amount is None
     assert bc_amount is None
     assert cd_since is None
     path.push()
-    results = graph.cypher.execute(query, params)
+    results = graph.cypher.execute(statement, parameters)
     ab_amount, bc_amount, cd_since = results[0]
     assert ab_amount == "lots"
     assert bc_amount == "some"

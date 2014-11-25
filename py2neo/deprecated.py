@@ -92,17 +92,16 @@ def _node_delete(self):
 
 @deprecated("Use Cypher query instead")
 def _node_delete_related(self):
-    if self.graph.supports_foreach_pipe:
-        query = ("START a=node({a}) "
-                 "MATCH (a)-[rels*0..]-(z) "
-                 "FOREACH(r IN rels| DELETE r) "
-                 "DELETE a, z")
-    else:
-        query = ("START a=node({a}) "
-                 "MATCH (a)-[rels*0..]-(z) "
-                 "FOREACH(r IN rels: DELETE r) "
-                 "DELETE a, z")
-    self.graph.cypher.post(query, {"a": self._id})
+    from py2neo.cypher.util import StartOrMatch
+    graph = self.graph
+    foreach_symbol = "|" if graph.supports_foreach_pipe else ":"
+    statement = (
+        StartOrMatch(graph).node("a", "{a}").string +
+        "MATCH (a)-[rels*0..]-(z) "
+        "FOREACH(r IN rels %s DELETE r) "
+        "DELETE a, z" % foreach_symbol
+    )
+    graph.cypher.post(statement, {"a": self._id})
 
 @deprecated("Use `labels` property instead")
 def _node_get_labels(self):
@@ -116,8 +115,10 @@ def _node_get_or_create_path(self, *items):
 
 @deprecated("Use Cypher query instead")
 def _node_isolate(self):
-    query = "START a=node({a}) MATCH a-[r]-b DELETE r"
-    self.graph.cypher.post(query, {"a": self._id})
+    from py2neo.cypher.util import StartOrMatch
+    graph = self.graph
+    query = StartOrMatch(graph).node("a", "{a}").string + "MATCH a-[r]-b DELETE r"
+    graph.cypher.post(query, {"a": self._id})
 
 @deprecated("Use `remove` method of `labels` property instead")
 def _node_remove_labels(self, *labels):
@@ -154,8 +155,10 @@ def _rel_delete(self):
 Rel.delete = _rel_delete
 
 
-def _path__create_query(self, unique):
-    nodes, path, values, params = [], [], [], {}
+def _path__create_query(self, graph, unique):
+    from py2neo.cypher.util import StartOrMatch
+    start_or_match_clause = StartOrMatch(graph)
+    path, values, params = [], [], {}
 
     def append_node(i, node):
         if node is None:
@@ -163,7 +166,7 @@ def _path__create_query(self, unique):
             values.append("n{0}".format(i))
         elif node.bound:
             path.append("(n{0})".format(i))
-            nodes.append("n{0}=node({{i{0}}})".format(i))
+            start_or_match_clause.node("n%s" % i, "{i%s}" % i)
             params["i{0}".format(i)] = node._id
             values.append("n{0}".format(i))
         else:
@@ -185,19 +188,19 @@ def _path__create_query(self, unique):
         append_rel(i, rel)
         append_node(i + 1, self._Path__nodes[i + 1])
     clauses = []
-    if nodes:
-        clauses.append("START {0}".format(",".join(nodes)))
+    if len(start_or_match_clause) > 0:
+        clauses.append(start_or_match_clause.string)
     if unique:
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
     else:
         clauses.append("CREATE p={0}".format("".join(path)))
     clauses.append("RETURN p")
-    query = " ".join(clauses)
+    query = "\n".join(clauses)
     return query, params
 
 
 def _path__create(self, graph, unique):
-    query, params = _path__create_query(self, unique=unique)
+    query, params = _path__create_query(self, graph, unique=unique)
     try:
         results = graph.cypher.execute(query, params)
     except GraphError:
@@ -254,13 +257,16 @@ def _relationship_set_properties(self, properties):
 @deprecated("Use properties.update and push instead")
 def _relationship_update_properties(self, properties):
     if self.bound:
-        query, params = ["START a=rel({A})"], {"A": self._id}
+        from py2neo.cypher.lang import cypher_escape
+        from py2neo.cypher.util import StartOrMatch
+        graph = self.graph
+        query, params = [StartOrMatch(graph).node("a", "{A}").string], {"A": self._id}
         for i, (key, value) in enumerate(properties.items()):
             value_tag = "V" + str(i)
-            query.append("SET a.`" + key + "`={" + value_tag + "}")
+            query.append("SET a.%s={" + value_tag + "}" % cypher_escape(key))
             params[value_tag] = value
         query.append("RETURN a")
-        rel = self.graph.cypher.execute_one(" ".join(query), params)
+        rel = graph.cypher.execute_one("\n".join(query), params)
         self._properties = rel.__metadata__["data"]
     else:
         self._properties.update(properties)
