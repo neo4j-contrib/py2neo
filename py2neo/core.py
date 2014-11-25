@@ -665,11 +665,11 @@ class Graph(Service):
             from the graph and cannot be undone.
         """
         from py2neo.batch import WriteBatch, CypherJob
-        from py2neo.cypher.util import StartOrMatchClause
+        from py2neo.cypher.util import StartOrMatch
         batch = WriteBatch(self)
-        statement = StartOrMatchClause(self).relationship("r", "*").string + "DELETE r"
+        statement = StartOrMatch(self).relationship("r", "*").string + "DELETE r"
         batch.append(CypherJob(statement))
-        statement = StartOrMatchClause(self).node("n", "*").string + "DELETE n"
+        statement = StartOrMatch(self).node("n", "*").string + "DELETE n"
         batch.append(CypherJob(statement))
         batch.run()
 
@@ -783,24 +783,24 @@ class Graph(Service):
         :return: matching relationships
         :rtype: generator
         """
-        from py2neo.cypher.util import StartOrMatchClause
+        from py2neo.cypher.util import StartOrMatch
         if start_node is None and end_node is None:
-            statement = StartOrMatchClause(self).node("a", "*").string
+            statement = StartOrMatch(self).node("a", "*").string
             parameters = {}
         elif end_node is None:
-            statement = StartOrMatchClause(self).node("a", "{A}").string
+            statement = StartOrMatch(self).node("a", "{A}").string
             start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
-            statement = StartOrMatchClause(self).node("b", "{B}").string
+            statement = StartOrMatch(self).node("b", "{B}").string
             end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
-            statement = StartOrMatchClause(self).node("a", "{A}").node("b", "{B}").string
+            statement = StartOrMatch(self).node("a", "{A}").node("b", "{B}").string
             start_node = Node.cast(start_node)
             end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
@@ -911,8 +911,8 @@ class Graph(Service):
     def order(self):
         """ The number of nodes in this graph.
         """
-        from py2neo.cypher.util import StartOrMatchClause
-        statement = StartOrMatchClause(self).node("n", "*").string + "RETURN count(n)"
+        from py2neo.cypher.util import StartOrMatch
+        statement = StartOrMatch(self).node("n", "*").string + "RETURN count(n)"
         return self.cypher.execute_one(statement)
 
     def pull(self, *entities):
@@ -972,8 +972,8 @@ class Graph(Service):
     def size(self):
         """ The number of relationships in this graph.
         """
-        from py2neo.cypher.util import StartOrMatchClause
-        statement = StartOrMatchClause(self).relationship("r", "*").string + "RETURN count(r)"
+        from py2neo.cypher.util import StartOrMatch
+        statement = StartOrMatch(self).relationship("r", "*").string + "RETURN count(r)"
         return self.cypher.execute_one(statement)
 
     @property
@@ -1453,8 +1453,8 @@ class Node(PropertyContainer):
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        from py2neo.cypher.util import StartOrMatchClause
-        statement = (StartOrMatchClause(self.graph).node("n", "{n}").string +
+        from py2neo.cypher.util import StartOrMatch
+        statement = (StartOrMatch(self.graph).node("n", "{n}").string +
                      "MATCH (n)-[r]-() RETURN count(r)")
         return self.graph.cypher.execute_one(statement, {"n": self})
 
@@ -1536,8 +1536,8 @@ class Node(PropertyContainer):
 
     def refresh(self):
         # Non-destructive pull.
-        from py2neo.cypher.util import StartOrMatchClause
-        query = StartOrMatchClause(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
+        from py2neo.cypher.util import StartOrMatch
+        query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
         dehydrated, label_metadata = content["data"][0]
         dehydrated.setdefault("metadata", {})["labels"] = label_metadata

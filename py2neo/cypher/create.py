@@ -18,7 +18,7 @@
 
 from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
 from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 from py2neo.util import ustr, xstr
 
 
@@ -44,7 +44,7 @@ class CreateStatement(object):
         self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.names = []
-        self.start_or_match_clause = StartOrMatchClause(self.graph)
+        self.start_or_match_clause = StartOrMatch(self.graph)
         self.create_clause = []
         self.create_unique_clause = []
         self.return_clause = []

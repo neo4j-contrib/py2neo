@@ -207,8 +207,8 @@ class LegacyNode(Node):
         PropertyContainer.push(self)
 
     def refresh(self):
-        from py2neo.cypher.util import StartOrMatchClause
+        from py2neo.cypher.util import StartOrMatch
         graph = self.graph
-        statement = StartOrMatchClause(graph).node("a", "{a}").string + "RETURN a"
+        statement = StartOrMatch(graph).node("a", "{a}").string + "RETURN a"
         graph.cypher.execute(statement, {"a": self})
         self._Node__stale.clear()

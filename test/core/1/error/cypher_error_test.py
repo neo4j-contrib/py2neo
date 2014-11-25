@@ -17,7 +17,7 @@
 
 
 from py2neo.cypher import CypherError, CypherTransactionError
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 
@@ -42,7 +42,7 @@ def test_entity_not_found_raises_cypher_error(graph):
     node_id = get_non_existent_node_id(graph)
     cypher = graph.cypher
     try:
-        statement = StartOrMatchClause(graph).node("n", "{N}").string + "RETURN n"
+        statement = StartOrMatch(graph).node("n", "{N}").string + "RETURN n"
         cypher.execute(statement, {"N": node_id})
     except CypherTransactionError as error:
         assert error.code == "Neo.ClientError.Statement.EntityNotFound"
@@ -62,12 +62,12 @@ def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher = graph.cypher
     results = cypher.execute("CREATE (a), (b) RETURN a, b")
     parameters = {"A": results[0].a, "B": results[0].b}
-    statement = (StartOrMatchClause(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
                  "CREATE (a)-[:KNOWS]->(b)")
     cypher.execute(statement, parameters)
     cypher.execute(statement, parameters)
     try:
-        statement = (StartOrMatchClause(graph).node("a", "{A}").node("b", "{B}").string +
+        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
         cypher.execute(statement, parameters)
     except CypherTransactionError as error:

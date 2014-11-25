@@ -17,7 +17,7 @@
 
 
 from py2neo.core import Node, Rel, Rev, Path
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_pull_node(graph):
@@ -138,7 +138,7 @@ def test_can_pull_path(graph):
     assert path[0].rel.properties["amount"] is None
     assert path[1].rel.properties["amount"] is None
     assert path[2].rel.properties["since"] is None
-    statement = (StartOrMatchClause(graph)
+    statement = (StartOrMatch(graph)
                  .relationship("ab", "{ab}")
                  .relationship("bc", "{bc}")
                  .relationship("cd", "{cd}").string +
@@ -161,7 +161,7 @@ def test_can_push_path(graph):
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     graph.create(path)
-    statement = (StartOrMatchClause(graph)
+    statement = (StartOrMatch(graph)
                  .relationship("ab", "{ab}")
                  .relationship("bc", "{bc}")
                  .relationship("cd", "{cd}").string)

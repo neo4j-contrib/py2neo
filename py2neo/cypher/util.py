@@ -19,7 +19,7 @@
 from py2neo.error import GraphError
 
 
-class StartOrMatchClause(object):
+class StartOrMatch(object):
 
     def __init__(self, graph):
         if graph is None:

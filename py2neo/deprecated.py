@@ -92,11 +92,11 @@ def _node_delete(self):
 
 @deprecated("Use Cypher query instead")
 def _node_delete_related(self):
-    from py2neo.cypher.util import StartOrMatchClause
+    from py2neo.cypher.util import StartOrMatch
     graph = self.graph
     foreach_symbol = "|" if graph.supports_foreach_pipe else ":"
     statement = (
-        StartOrMatchClause(graph).node("a", "{a}").string +
+        StartOrMatch(graph).node("a", "{a}").string +
         "MATCH (a)-[rels*0..]-(z) "
         "FOREACH(r IN rels %s DELETE r) "
         "DELETE a, z" % foreach_symbol
@@ -115,9 +115,9 @@ def _node_get_or_create_path(self, *items):
 
 @deprecated("Use Cypher query instead")
 def _node_isolate(self):
-    from py2neo.cypher.util import StartOrMatchClause
+    from py2neo.cypher.util import StartOrMatch
     graph = self.graph
-    query = StartOrMatchClause(graph).node("a", "{a}").string + "MATCH a-[r]-b DELETE r"
+    query = StartOrMatch(graph).node("a", "{a}").string + "MATCH a-[r]-b DELETE r"
     graph.cypher.post(query, {"a": self._id})
 
 @deprecated("Use `remove` method of `labels` property instead")
@@ -156,8 +156,8 @@ Rel.delete = _rel_delete
 
 
 def _path__create_query(self, graph, unique):
-    from py2neo.cypher.util import StartOrMatchClause
-    start_or_match_clause = StartOrMatchClause(graph)
+    from py2neo.cypher.util import StartOrMatch
+    start_or_match_clause = StartOrMatch(graph)
     path, values, params = [], [], {}
 
     def append_node(i, node):
@@ -258,9 +258,9 @@ def _relationship_set_properties(self, properties):
 def _relationship_update_properties(self, properties):
     if self.bound:
         from py2neo.cypher.lang import cypher_escape
-        from py2neo.cypher.util import StartOrMatchClause
+        from py2neo.cypher.util import StartOrMatch
         graph = self.graph
-        query, params = [StartOrMatchClause(graph).node("a", "{A}").string], {"A": self._id}
+        query, params = [StartOrMatch(graph).node("a", "{A}").string], {"A": self._id}
         for i, (key, value) in enumerate(properties.items()):
             value_tag = "V" + str(i)
             query.append("SET a.%s={" + value_tag + "}" % cypher_escape(key))

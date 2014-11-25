@@ -17,7 +17,7 @@
 
 
 from py2neo.core import Graph, Node, Path, Relationship
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 from py2neo.util import ustr, xstr
 
 
@@ -42,7 +42,7 @@ class DeleteStatement(object):
         self.graph = graph
         self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
-        self.start_or_match_clause = StartOrMatchClause(self.graph)
+        self.start_or_match_clause = StartOrMatch(self.graph)
         self.delete_rels_clause = []
         self.delete_nodes_clause = []
         self.parameters = {}

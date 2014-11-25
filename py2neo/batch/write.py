@@ -19,7 +19,7 @@
 from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUniquePathJob",
@@ -28,7 +28,7 @@ __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUni
 
 
 def _create_query(graph, p, unique=False):
-    start_or_match_clause = StartOrMatchClause(graph)
+    start_or_match_clause = StartOrMatch(graph)
     path, values, params = [], [], {}
 
     def append_node(i, node):

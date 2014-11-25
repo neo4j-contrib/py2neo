@@ -20,7 +20,7 @@ from __future__ import unicode_literals
 
 from py2neo.batch import WriteBatch
 from py2neo.core import Node
-from py2neo.cypher.util import StartOrMatchClause
+from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["Store", "NotSaved"]
@@ -41,13 +41,13 @@ class Store(object):
         self.graph = graph
         if self.graph.supports_optional_match:
             self.__delete_query = (
-                StartOrMatchClause(self.graph).node("a", "{A}").string +
+                StartOrMatch(self.graph).node("a", "{A}").string +
                 "OPTIONAL MATCH a-[r]-b "
                 "DELETE r, a"
             )
         else:
             self.__delete_query = (
-                StartOrMatchClause(self.graph).node("a", "{A}").string +
+                StartOrMatch(self.graph).node("a", "{A}").string +
                 "MATCH a-[r?]-b "
                 "DELETE r, a"
             )
@@ -224,7 +224,7 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            self.graph.cypher.run(StartOrMatchClause(self.graph).node("a", "{a}").string +
+            self.graph.cypher.run(StartOrMatch(self.graph).node("a", "{a}").string +
                                   "MATCH (a)-[r]->(b) DELETE r",
                                   {"a": subj.__node__})
         else:
