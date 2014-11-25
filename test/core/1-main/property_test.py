@@ -99,6 +99,20 @@ class TestPropertySet(object):
         # then
         assert p["name"] == "Alice"
 
+    def test_property_set_equality(self):
+        # given
+        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        # then
+        assert p == q
+
+    def test_property_set_inequality(self):
+        # given
+        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySet(name="Bob", age="44", colours=["purple", "pink", "orange"])
+        # then
+        assert p != q
+
     def test_property_set_hash_match(self):
         # given
         p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
