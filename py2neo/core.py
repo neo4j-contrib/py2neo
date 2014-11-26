@@ -38,7 +38,7 @@ from py2neo.util import bstr, is_collection, is_integer, round_robin, ustr, vers
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "rewrite", "ServerPlugin", "UnmanagedExtension",
+           "authenticate", "set_auth_token", "rewrite", "ServerPlugin", "UnmanagedExtension",
            "Service", "Resource", "ResourceTemplate"]
 
 
@@ -113,6 +113,16 @@ def authenticate(host_port, user_name, password, realm=None):
         value = 'Basic '
     value += base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
+
+
+def set_auth_token(host_port, token):
+    """ Set the auth token for the specified `host_port`. This only applies
+    to server version 2.2 and above when authentication is turned on.
+
+    :arg host_port: the host and optional port requiring authentication
+    :arg token: a valid auth token
+    """
+    authenticate(host_port, "", token, "Neo4j")
 
 
 def rewrite(from_scheme_host_port, to_scheme_host_port):
@@ -471,6 +481,7 @@ class ServiceRoot(object):
                 uri = self.resource.metadata["data"]
             except KeyError:
                 if "authentication" in self.resource.metadata:
+                    # TODO: clear metadata
                     raise Unauthorized(self.uri)
                 else:
                     raise GraphError("No graph available for service <%s>" % self.uri)
