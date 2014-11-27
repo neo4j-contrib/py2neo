@@ -35,6 +35,12 @@ def test_node_cast():
     assert Node.cast(("Person", "Employee", {"name": "Alice", "age": 33})) == alice
     assert Node.cast(42) == NodePointer(42)
     assert Node.cast(NodePointer(42)) == NodePointer(42)
+    try:
+        Node.cast(3.14)
+    except TypeError:
+        assert True
+    else:
+        assert False
 
 
 def test_rel_cast():

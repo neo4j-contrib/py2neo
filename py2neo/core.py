@@ -32,7 +32,7 @@ from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import is_collection, is_integer, round_robin, ustr, version_tuple, \
+from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
     raise_from, xstr, ThreadLocalWeakValueDictionary
 
 
@@ -1167,6 +1167,9 @@ class PropertyContainer(Service):
         self.properties.__delitem__(key)
         self.__push_if_bound()
 
+    def __iter__(self):
+        raise TypeError("%r object is not iterable" % self.__class__.__name__)
+
     def bind(self, uri, metadata=None):
         """ Associate this «class.lower» with a remote resource.
 
@@ -1302,8 +1305,10 @@ class Node(PropertyContainer):
             elif is_collection(x):
                 for item in x:
                     apply(item)
-            else:
+            elif is_string(x):
                 inst.labels.add(ustr(x))
+            else:
+                raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
 
         for arg in args:
             apply(arg)
@@ -2088,7 +2093,24 @@ class Path(object):
         return iter(reversed(self.relationships))
 
     def __add__(self, other):
-        return Path(self, other)
+        try:
+            return Path(self, *other)
+        except TypeError:
+            return Path(self, other)
+
+    def __radd__(self, other):
+        try:
+            return self.prepend(*other)
+        except TypeError:
+            return self.prepend(other)
+
+    def append(self, *others):
+        """ Join another path or relationship to the end of this path to form a new path.
+
+        :arg others: Entities to join to the end of this path
+        :rtype: :class:`.Path`
+        """
+        return Path(self, *others)
 
     @property
     def bound(self):
@@ -2136,6 +2158,16 @@ class Path(object):
         """ The number of nodes in this «class.lower».
         """
         return self.__order
+
+    def prepend(self, *others):
+        """ Join another path or relationship to the start of this path to form a new path.
+
+        :arg others: Entities to join to the start of this path
+        :rtype: :class:`.Path`
+        """
+        p = Path(*others)
+        p = p.append(self)
+        return p
 
     def pull(self):
         """ Pull data to all entities in this path from their remote counterparts.
