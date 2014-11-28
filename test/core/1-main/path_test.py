@@ -362,6 +362,26 @@ def test_can_hydrate_path_without_directions(graph):
     assert hydrated.relationships[1].type == "DISLIKES"
 
 
+def test_can_append_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = path_1.append(path_2)
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_prepend_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = path_2.prepend(path_1)
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
 def test_can_join_compatible_paths():
     alice = Node(name="Alice")
     bob = Node(name="Bob")
@@ -370,6 +390,32 @@ def test_can_join_compatible_paths():
     path_2 = bob + "KNOWS" + carol
     path_3 = path_1 + path_2
     assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_add_node_to_path():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = path_1 + bob
+    assert path_2 == Path(alice, "KNOWS", bob)
+
+
+def test_can_reverse_join_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = list(path_1) + path_2
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_radd_node_to_path():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = path_1.__radd__(alice)
+    assert path_2 == Path(alice, "KNOWS", bob)
 
 
 def test_cannot_join_incompatible_paths():
