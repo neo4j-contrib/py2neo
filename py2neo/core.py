@@ -499,24 +499,6 @@ class ServiceRoot(object):
         return hash(self.uri)
 
     @property
-    def authentication(self):
-        """ The authentication resource for this service.
-
-        :rtype: :class:`.Authentication`
-        """
-        if self.__authentication is None:
-            try:
-                uri = self.resource.metadata["authentication"]
-            except KeyError:
-                self.__authentication = NotImplemented
-            else:
-                self.__authentication = Authentication(uri)
-        if self.__authentication is NotImplemented:
-            raise NotImplementedError("No authentication required")
-        else:
-            return self.__authentication
-
-    @property
     def graph(self):
         """ The graph exposed by this service.
 
