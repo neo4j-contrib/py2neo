@@ -54,3 +54,4 @@ venv
 .ipython
 .mozilla
 .nv
+.ipynb_checkpoints
