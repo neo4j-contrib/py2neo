@@ -25,6 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
+from py2neo.env import NEO4J_URI
 from py2neo.error import BindError, GraphError, JoinError
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
@@ -41,11 +42,6 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "authenticate", "familiar", "rewrite", "ServerPlugin", "UnmanagedExtension",
            "Service", "Resource", "ResourceTemplate"]
 
-
-DEFAULT_SCHEME = "http"
-DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 7474
-DEFAULT_HOST_PORT = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
 
 PRODUCT = ("py2neo", __version__)
 
@@ -447,16 +443,14 @@ class ServiceRoot(object):
     server, corresponding to the ``/`` URI.
     """
 
-    #: The URI for a Neo4j service with default configuration.
-    DEFAULT_URI = "{0}://{1}/".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
-
     __instances = {}
 
     __graph = None
 
     def __new__(cls, uri=None):
         if uri is None:
-            uri = cls.DEFAULT_URI
+            uri = NEO4J_URI
+        uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
         try:
