@@ -159,6 +159,7 @@ def get_auth_token(uri, user_name, password, new_password=None):
     :arg new_password: A new password (optional, must not match the current password).
     :return: A valid auth token.
     :raise AuthenticationError: If the user cannot be authenticated.
+    :raise ValueError: If the new password value is invalid.
 
     """
     auth = Authentication.for_service(ServiceRoot(uri))
