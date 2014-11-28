@@ -32,7 +32,7 @@ from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import bstr, is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
+from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
     raise_from, xstr, ThreadLocalWeakValueDictionary
 
 
