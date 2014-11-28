@@ -40,3 +40,23 @@ def test_same_uri_gives_same_instance():
     service_root_1 = ServiceRoot(uri)
     service_root_2 = ServiceRoot(uri)
     assert service_root_1 is service_root_2
+
+
+def test_service_root_equality():
+    uri = "http://localhost:7474/"
+    service_root_1 = ServiceRoot(uri)
+    service_root_2 = ServiceRoot(uri)
+    assert service_root_1 == service_root_2
+
+
+def test_service_root_inequality():
+    uri = "http://localhost:7474/"
+    service_root_1 = ServiceRoot(uri)
+    service_root_2 = ServiceRoot("http://remotehost:7474/")
+    assert service_root_1 != service_root_2
+
+
+def test_service_root_is_not_equal_to_non_service_root():
+    uri = "http://localhost:7474/"
+    service_root = ServiceRoot(uri)
+    assert service_root != object()

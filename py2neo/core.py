@@ -38,8 +38,8 @@ from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr,
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "set_auth_token", "rewrite", "ServerPlugin", "UnmanagedExtension",
-           "Service", "Resource", "ResourceTemplate"]
+           "authenticate", "familiar", "set_auth_token", "rewrite", 
+           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate"]
 
 
 DEFAULT_SCHEME = "http"
@@ -113,16 +113,6 @@ def authenticate(host_port, user_name, password, realm=None):
         value = 'Basic '
     value += base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
-
-
-def set_auth_token(host_port, token):
-    """ Set the auth token for the specified `host_port`. This only applies
-    to server version 2.2 and above when authentication is turned on.
-
-    :arg host_port: the host and optional port requiring authentication
-    :arg token: a valid auth token
-    """
-    authenticate(host_port, "", token, "Neo4j")
 
 
 def rewrite(from_scheme_host_port, to_scheme_host_port):
@@ -365,6 +355,15 @@ class Service(object):
 
     __resource__ = None
 
+    def __eq__(self, other):
+        try:
+            return self.bound and other.bound and self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def bind(self, uri, metadata=None):
         """ Associate this «class.lower» with a remote resource.
 
@@ -466,6 +465,18 @@ class ServiceRoot(object):
             inst.__graph = None
             cls.__instances[uri] = inst
         return inst
+
+    def __eq__(self, other):
+        try:
+            return self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.uri)
 
     def __repr__(self):
         return "<ServiceRoot uri=%r>" % self.uri.string
