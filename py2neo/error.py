@@ -70,3 +70,8 @@ class GraphError(Exception):
 class JoinError(Exception):
     """ Raised when two graph entities cannot be joined together.
     """
+
+
+class Unauthorized(GraphError):
+    """ Raised when a request is made to Neo4j without required credentials.
+    """

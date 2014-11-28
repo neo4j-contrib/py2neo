@@ -25,11 +25,11 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
-from py2neo.error import BindError, GraphError, JoinError
+from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
-from py2neo.packages.httpstream.numbers import NOT_FOUND
+from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
 from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
@@ -38,8 +38,8 @@ from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr,
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "familiar", "rewrite", "ServerPlugin", "UnmanagedExtension",
-           "Service", "Resource", "ResourceTemplate"]
+           "authenticate", "familiar", "set_auth_token", "rewrite", 
+           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate"]
 
 
 DEFAULT_SCHEME = "http"
@@ -84,7 +84,7 @@ def _get_headers(host_port):
     return uri_headers
 
 
-def authenticate(host_port, user_name, password):
+def authenticate(host_port, user_name, password, realm=None):
     """ Set HTTP basic authentication values for specified `host_port`. The
     code below shows a simple example::
 
@@ -104,27 +104,15 @@ def authenticate(host_port, user_name, password):
         (e.g. "bigserver", "camelot:7474")
     :arg user_name: the user name to authenticate as
     :arg password: the password
+    :arg realm: the authentication realm
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
-    value = "Basic " + base64.b64encode(credentials).decode("ASCII")
+    if realm:
+        value = 'Basic realm="' + realm + '" '
+    else:
+        value = 'Basic '
+    value += base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
-
-
-def familiar(*objects):
-    """ Check all objects belong to the same remote service.
-
-    :arg objects: Bound objects to compare.
-    :return: :const:`True` if all objects belong to the same remote service,
-             :const:`False` otherwise.
-    """
-    service_roots = set()
-    for obj in objects:
-        if not obj.bound:
-            raise ValueError("Can only determine familiarity of bound objects")
-        service_roots.add(obj.service_root)
-        if len(service_roots) > 1:
-            return False
-    return True
 
 
 def rewrite(from_scheme_host_port, to_scheme_host_port):
@@ -250,6 +238,8 @@ class Resource(_Resource):
         try:
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -274,6 +264,8 @@ class Resource(_Resource):
         try:
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -297,6 +289,8 @@ class Resource(_Resource):
         try:
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -319,6 +313,8 @@ class Resource(_Resource):
         try:
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:
+            if error.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -452,11 +448,13 @@ class ServiceRoot(object):
 
     __instances = {}
 
+    __authentication = None
     __graph = None
 
     def __new__(cls, uri=None):
         if uri is None:
             uri = cls.DEFAULT_URI
+        uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
         try:
@@ -480,6 +478,9 @@ class ServiceRoot(object):
     def __hash__(self):
         return hash(self.uri)
 
+    def __repr__(self):
+        return "<ServiceRoot uri=%r>" % self.uri.string
+
     @property
     def graph(self):
         """ The graph exposed by this service.
@@ -487,7 +488,16 @@ class ServiceRoot(object):
         :rtype: :class:`.Graph`
         """
         if self.__graph is None:
-            self.__graph = Graph(self.resource.metadata["data"])
+            try:
+                uri = self.resource.metadata["data"]
+            except KeyError:
+                if "authentication" in self.resource.metadata:
+                    # TODO: clear metadata
+                    raise Unauthorized(self.uri)
+                else:
+                    raise GraphError("No graph available for service <%s>" % self.uri)
+            else:
+                self.__graph = Graph(uri)
         return self.__graph
 
     @property
