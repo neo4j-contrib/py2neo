@@ -31,7 +31,7 @@ class CypherBuilder(object):
         return "<CypherBuilder statement=%r parameters=%r>" % (self.statement, self.parameters)
 
     def __str__(self):
-        return xstr(self.__unicode__())
+        return xstr(self.statement)
 
     def __unicode__(self):
         return ustr(self.statement)
