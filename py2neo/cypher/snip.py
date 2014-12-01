@@ -22,6 +22,21 @@ from py2neo.util import ustr, xstr
 
 
 class CypherSnip(object):
+    """ A CypherSnip is a self-contained bundle of Cypher
+    statement and parameters. This class can act as a base
+    class for more specific statement implementations and
+    is intended for use within a transaction::
+
+        >>> from py2neo import Graph
+        >>> graph = Graph()
+        >>> tx = graph.cypher.begin()
+        >>> tx.append(CypherSnip("CREATE (a {P}) RETURN a", {"P": {"name": "Alice"}}))
+        >>> tx.commit()
+           | a
+        ---+-----------------------
+         1 | (n170 {name:"Alice"})
+
+    """
 
     def __init__(self, statement="", parameters=None):
         self.__statement = statement
