@@ -28,7 +28,7 @@ class CypherSnip(object):
         self.__parameters = dict(parameters or {})
 
     def __repr__(self):
-        return "<CypherSnippet statement=%r parameters=%r>" % (self.statement, self.parameters)
+        return "<CypherSnip statement=%r parameters=%r>" % (self.statement, self.parameters)
 
     def __str__(self):
         return xstr(self.statement)

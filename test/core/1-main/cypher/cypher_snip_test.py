@@ -16,7 +16,18 @@
 # limitations under the License.
 
 
-from py2neo.cypher.snip import MergeNode
+from py2neo.cypher.snip import CypherSnip, MergeNode
+
+
+def test_base_snip():
+    statement = "spam"
+    parameters = {"foo": "bar"}
+    snip = CypherSnip(statement, parameters)
+    assert snip.__repr__() == "<CypherSnip statement=%r parameters=%r>" % (statement, parameters)
+    assert snip.__str__() == statement
+    assert snip.__unicode__() == statement
+    assert snip.statement == statement
+    assert snip.parameters == parameters
 
 
 def test_can_build_simple_merge_node_snip():
@@ -27,6 +38,9 @@ def test_can_build_simple_merge_node_snip():
 
 def test_can_build_merge_node_snip_without_property():
     snip = MergeNode("Person")
+    assert snip.primary_label == "Person"
+    assert snip.primary_key is None
+    assert snip.primary_value is None
     assert snip.statement == "MERGE (a:Person)\nRETURN a"
     assert snip.parameters == {}
 
