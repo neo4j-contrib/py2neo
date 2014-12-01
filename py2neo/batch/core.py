@@ -191,6 +191,9 @@ class Job(object):
     """ A single request for inclusion within a :class:`.Batch`.
     """
 
+    #: The graph for which this job is intended (optional).
+    graph = None
+
     #: Indicates whether or not the result should be
     #: interpreted as raw data.
     raw_result = False
@@ -321,7 +324,9 @@ class JobResult(object):
 
 
 class CypherJob(Job):
-    """ Cypher execution job.
+    """ A Cypher execution job for inclusion within a batch. Consider using
+    `Cypher transactions <py2neo.cypher.CypherTransaction>`_ instead of
+    batched Cypher jobs.
     """
 
     target = Target("cypher")

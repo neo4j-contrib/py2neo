@@ -16,9 +16,10 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
+from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUniquePathJob",
@@ -26,8 +27,9 @@ __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUni
            "AddNodeLabelsJob", "RemoveNodeLabelJob", "WriteBatch"]
 
 
-def _create_query(p, unique=False):
-    nodes, path, values, params = [], [], [], {}
+def _create_query(graph, p, unique=False):
+    start_or_match_clause = StartOrMatch(graph)
+    path, values, params = [], [], {}
 
     def append_node(i, node):
         if node is None:
@@ -35,7 +37,7 @@ def _create_query(p, unique=False):
             values.append("n{0}".format(i))
         elif node.bound:
             path.append("(n{0})".format(i))
-            nodes.append("n{0}=node({{i{0}}})".format(i))
+            start_or_match_clause.node("n%s" % i, "{i%s}" % i)
             params["i{0}".format(i)] = node._id
             values.append("n{0}".format(i))
         else:
@@ -57,15 +59,14 @@ def _create_query(p, unique=False):
         append_rel(i, rel)
         append_node(i + 1, p.nodes[i + 1])
     clauses = []
-    if nodes:
-        clauses.append("START {0}".format(",".join(nodes)))
+    if start_or_match_clause:
+        clauses.append(start_or_match_clause.string)
     if unique:
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
     else:
         clauses.append("CREATE p={0}".format("".join(path)))
-    #clauses.append("RETURN {0}".format(",".join(values)))
     clauses.append("RETURN p")
-    query = " ".join(clauses)
+    query = "\n".join(clauses)
     return query, params
 
 
@@ -89,13 +90,23 @@ class CreateRelationshipJob(Job):
 class CreatePathJob(CypherJob):
 
     def __init__(self, *entities):
-        CypherJob.__init__(self, *_create_query(Path(*entities)))
+        # Fudge to allow graph to be passed in so Cypher syntax
+        # detection can occur. Can be removed when only 2.0+ is
+        # supported.
+        if isinstance(entities[0], Graph):
+            self.graph, entities = entities[0], entities[1:]
+        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities)))
 
 
 class CreateUniquePathJob(CypherJob):
 
     def __init__(self, *entities):
-        CypherJob.__init__(self, *_create_query(Path(*entities), unique=True))
+        # Fudge to allow graph to be passed in so Cypher syntax
+        # detection can occur. Can be removed when only 2.0+ is
+        # supported.
+        if isinstance(entities[0], Graph):
+            self.graph, entities = entities[0], entities[1:]
+        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities), unique=True))
 
 
 class DeleteEntityJob(Job):
@@ -184,7 +195,7 @@ class WriteBatch(Batch):
         :type rels_and_nodes: concrete, abstract or :py:const:`None`
         :return: batch request object
         """
-        return self.append(CreatePathJob(node, *rels_and_nodes))
+        return self.append(CreatePathJob(self.graph, node, *rels_and_nodes))
 
     def get_or_create_path(self, node, *rels_and_nodes):
         """ Construct a unique path across a specified set of nodes and
@@ -198,7 +209,7 @@ class WriteBatch(Batch):
         :type rels_and_nodes: concrete, abstract or :py:const:`None`
         :return: batch request object
         """
-        return self.append(CreateUniquePathJob(node, *rels_and_nodes))
+        return self.append(CreateUniquePathJob(self.graph, node, *rels_and_nodes))
 
     def delete(self, entity):
         """ Delete a node or relationship from the graph.

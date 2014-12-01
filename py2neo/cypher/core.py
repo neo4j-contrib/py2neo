@@ -380,7 +380,7 @@ class RecordStream(object):
 
     ::
 
-        for record in graph.cypher.stream("START n=node(*) RETURN n LIMIT 10")
+        for record in graph.cypher.stream("MATCH (n) RETURN n LIMIT 10")
             print record[0]
 
     Each record returned is cast into a :py:class:`namedtuple` with names

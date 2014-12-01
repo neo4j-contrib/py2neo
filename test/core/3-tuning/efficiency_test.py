@@ -19,6 +19,7 @@
 import logging
 
 from py2neo import Graph, Node
+from py2neo.cypher.util import StartOrMatch
 
 
 class TestHandler(logging.Handler):
@@ -97,9 +98,11 @@ def test_relationship_hydration_does_not_make_nodes_stale(graph):
         return
     alice, bob = graph.create(Node("Person", name="Alice"), Node("Person", name="Bob"))
     with HTTPCounter() as counter:
-        friendship = graph.cypher.execute_one("START a=node({A}),b=node({B}) "
-                                              "CREATE (a)-[ab:KNOWS]->(b) "
-                                              "RETURN ab", {"A": alice, "B": bob})
+        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+                     "CREATE (a)-[ab:KNOWS]->(b) "
+                     "RETURN ab")
+        parameters = {"A": alice, "B": bob}
+        friendship = graph.cypher.execute_one(statement, parameters)
         assert counter.response_count == 1
         assert alice.labels == {"Person"}
         assert alice.properties == {"name": "Alice"}

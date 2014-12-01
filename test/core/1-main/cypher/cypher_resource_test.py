@@ -20,6 +20,7 @@ from __future__ import unicode_literals
 
 from py2neo.core import Node
 from py2neo.cypher.core import CypherResource, CypherTransaction
+from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_create_cypher_resource_without_transaction_uri():
@@ -84,7 +85,8 @@ def test_can_execute_parametrised_cypher_statement(graph):
 def test_can_execute_cypher_statement_with_node_parameter(graph):
     alice = Node(name="Alice")
     graph.create(alice)
-    results = graph.cypher.execute("START a=node({N}) RETURN a", {"N": alice})
+    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a"
+    results = graph.cypher.execute(statement, {"N": alice})
     result = results[0].a
     assert result is alice
 
@@ -119,8 +121,8 @@ def test_execute_one_with_no_results_returns_none(graph):
 def test_can_stream_cypher_statement(graph):
     alice, = graph.create(Node(name="Alice"))
     graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
-    results = graph.cypher.stream("START a=node({N}) MATCH (a)-[:KNOWS]->(x) RETURN x",
-                                  {"N": alice._id})
+    statement = StartOrMatch(graph).node("a", "{N}").string + "MATCH (a)-[:KNOWS]->(x) RETURN x"
+    results = graph.cypher.stream(statement, {"N": alice._id})
     for row in results:
         matched = row.x
         assert isinstance(matched, Node)

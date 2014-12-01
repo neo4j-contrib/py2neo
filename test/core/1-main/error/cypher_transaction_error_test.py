@@ -1,8 +1,26 @@
+#/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright 2011-2014, Nigel Small
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 
 from py2neo import GraphError
 from py2neo.cypher import CypherTransactionError, CypherError
-from py2neo.cypher.error import statement, ClientError
-from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
+from py2neo.cypher.error import ClientError
+from py2neo.cypher.error.statement import ConstraintViolation
+from py2neo.cypher.util import StartOrMatch
 
 from .util import assert_new_error
 
@@ -16,14 +34,18 @@ def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(g
     result = results[0]
     record = result[0]
     parameters = {"A": record.a._id, "B": record.b._id}
-    tx.append("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
-    tx.append("START a=node({A}), b=node({B}) CREATE (a)-[:KNOWS]->(b)", parameters)
-    tx.append("START a=node({A}), b=node({B}) CREATE UNIQUE (a)-[:KNOWS]->(b)", parameters)
+    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+                 "CREATE (a)-[:KNOWS]->(b)")
+    tx.append(statement, parameters)
+    tx.append(statement, parameters)
+    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+                 "CREATE UNIQUE (a)-[:KNOWS]->(b)")
+    tx.append(statement, parameters)
     try:
         tx.commit()
     except CypherTransactionError as error:
         assert_new_error(
-            error, (statement.ConstraintViolation, ClientError, CypherTransactionError,
+            error, (ConstraintViolation, ClientError, CypherTransactionError,
                     CypherError, GraphError), "Neo.ClientError.Statement.ConstraintViolation")
     else:
         assert False

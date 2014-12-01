@@ -325,6 +325,17 @@ class TestPathIterationAndReversal(object):
         ]
 
 
+def test_can_hydrate_path(graph):
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    if "directions" not in dehydrated:
+        dehydrated["directions"] = ["->"]
+    hydrated = Path.hydrate(dehydrated)
+    assert isinstance(hydrated, Path)
+    assert hydrated.order == 2
+    assert hydrated.size == 1
+    assert hydrated.relationships[0].type == "KNOWS"
+
+
 def test_can_hydrate_path_into_existing_instance(graph):
     alice = Node("Person", name="Alice", age=33)
     bob = Node("Person", name="Bob", age=44)
@@ -336,6 +347,41 @@ def test_can_hydrate_path_into_existing_instance(graph):
     assert hydrated is path
 
 
+def test_can_hydrate_path_without_directions(graph):
+    statement = "CREATE p=()-[:LIKES]->()<-[:DISLIKES]-() RETURN p"
+    dehydrated = graph.cypher.post(statement).content["data"][0][0]
+    try:
+        del dehydrated["directions"]
+    except KeyError:
+        pass
+    hydrated = graph.hydrate(dehydrated)
+    assert isinstance(hydrated, Path)
+    assert hydrated.order == 3
+    assert hydrated.size == 2
+    assert hydrated.relationships[0].type == "LIKES"
+    assert hydrated.relationships[1].type == "DISLIKES"
+
+
+def test_can_append_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = path_1.append(path_2)
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_prepend_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = path_2.prepend(path_1)
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
 def test_can_join_compatible_paths():
     alice = Node(name="Alice")
     bob = Node(name="Bob")
@@ -344,6 +390,32 @@ def test_can_join_compatible_paths():
     path_2 = bob + "KNOWS" + carol
     path_3 = path_1 + path_2
     assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_add_node_to_path():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = path_1 + bob
+    assert path_2 == Path(alice, "KNOWS", bob)
+
+
+def test_can_reverse_join_compatible_paths():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    carol = Node(name="Carol")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = bob + "KNOWS" + carol
+    path_3 = list(path_1) + path_2
+    assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
+
+
+def test_can_radd_node_to_path():
+    alice = Node(name="Alice")
+    bob = Node(name="Bob")
+    path_1 = alice + "KNOWS" + bob
+    path_2 = path_1.__radd__(alice)
+    assert path_2 == Path(alice, "KNOWS", bob)
 
 
 def test_cannot_join_incompatible_paths():
