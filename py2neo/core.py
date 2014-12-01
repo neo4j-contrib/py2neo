@@ -1111,15 +1111,8 @@ class PropertySet(Service, dict):
         return value
 
     def update(self, iterable=None, **kwargs):
-        if iterable:
-            try:
-                for key in iterable.keys():
-                    self[key] = iterable[key]
-            except (AttributeError, TypeError):
-                for key, value in iterable:
-                    self[key] = value
-        for key in kwargs:
-            self[key] = kwargs[key]
+        for key, value in dict(iterable or {}, **kwargs).items():
+            self[key] = value
 
 
 class LabelSet(Service, set):
