@@ -1251,7 +1251,7 @@ class PropertyContainer(Service):
 class Node(PropertyContainer):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
-    may have one or more :attr:`.labels` applied to them::
+    may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
 
         >>> from py2neo import Node
         >>> alice = Node("Person", name="Alice")
@@ -1265,10 +1265,10 @@ class Node(PropertyContainer):
         >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
-    :attr:`.labels` and :attr:`~py2neo.Node.properties` attributes respectively.
-    The former is an instance of :class:`.LabelSet`, which extends the
-    built-in :class:`set` class, and the latter is an instance of
-    :class:`.PropertySet` which extends :class:`dict`.
+    :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
+    attributes respectively. The former is an instance of :class:`.LabelSet`,
+    which extends the built-in :class:`set` class, and the latter is an
+    instance of :class:`.PropertySet` which extends :class:`dict`.
 
         >>> alice.properties["name"]
         'Alice'

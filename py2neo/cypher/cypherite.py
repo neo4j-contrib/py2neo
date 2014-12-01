@@ -21,29 +21,17 @@ from py2neo.cypher.lang import cypher_escape
 from py2neo.util import ustr, xstr
 
 
-class CypherSnip(object):
-    """ A CypherSnip is a self-contained bundle of Cypher
-    statement and parameters. This class can act as a base
-    class for more specific statement implementations and
-    is intended for use within a transaction::
-
-        >>> from py2neo import Graph
-        >>> graph = Graph()
-        >>> tx = graph.cypher.begin()
-        >>> tx.append(CypherSnip("CREATE (a {P}) RETURN a", {"P": {"name": "Alice"}}))
-        >>> tx.commit()
-           | a
-        ---+-----------------------
-         1 | (n170 {name:"Alice"})
-
+class Cypherite(object):
+    """ The Cypherite class can either be used directly or as
+    a base class for more specific statement implementations.
     """
 
-    def __init__(self, statement="", parameters=None):
+    def __init__(self, statement="", parameters=None, **kwparameters):
         self.__statement = statement
-        self.__parameters = dict(parameters or {})
+        self.__parameters = dict(parameters or {}, **kwparameters)
 
     def __repr__(self):
-        return "<CypherSnip statement=%r parameters=%r>" % (self.statement, self.parameters)
+        return "<Cypherite statement=%r parameters=%r>" % (self.statement, self.parameters)
 
     def __str__(self):
         return xstr(self.statement)
@@ -53,17 +41,37 @@ class CypherSnip(object):
 
     @property
     def statement(self):
+        """ The Cypher statement.
+        """
         return self.__statement
 
     @property
     def parameters(self):
+        """ Dictionary of parameters.
+        """
         return self.__parameters
 
 
-class MergeNode(CypherSnip):
+class MergeNode(Cypherite):
+    """ :class:`.Cypherite` for `merging <http://neo4j.com/docs/stable/query-merge.html>`_
+    nodes.
+
+    ::
+
+        >>> from py2neo import Graph
+        >>> graph = Graph()
+        >>> tx = graph.cypher.begin()
+        >>> tx.append(MergeNode("Person", "name", "Alice"))
+        >>> tx.commit()
+           | a
+        ---+-----------------------
+         1 | (n170 {name:"Alice"})
+
+
+    """
 
     def __init__(self, primary_label, primary_key=None, primary_value=None):
-        CypherSnip.__init__(self)
+        Cypherite.__init__(self)
         self.__labels = LabelSet([primary_label])
         self.__properties = PropertySet()
         if primary_key is not None:
@@ -73,22 +81,36 @@ class MergeNode(CypherSnip):
 
     @property
     def labels(self):
+        """ The full set of labels to apply to the merged node.
+
+        :rtype: :class:`py2neo.LabelSet`
+        """
         return self.__labels
 
     @property
     def properties(self):
+        """ The full set of properties to apply to the merged node.
+
+        :rtype: :class:`py2neo.PropertySet`
+        """
         return self.__properties
 
     @property
     def primary_label(self):
+        """ The label on which to merge.
+        """
         return self.__primary_label
 
     @property
     def primary_key(self):
+        """ The property key on which to merge.
+        """
         return self.__primary_key
 
     @property
     def primary_value(self):
+        """ The property value on which to merge.
+        """
         primary_key = self.primary_key
         if primary_key is None:
             return None
@@ -96,12 +118,19 @@ class MergeNode(CypherSnip):
             return self.properties.get(primary_key)
 
     def set(self, *labels, **properties):
+        """ Extra labels and properties to apply to the merged node.
+
+            >>> merge = MergeNode("Person", "name", "Bob").set("Employee", employee_id=1234)
+
+        """
         self.__labels.update(labels)
         self.__properties.update(properties)
         return self
 
     @property
     def statement(self):
+        """ The Cypher MERGE statement.
+        """
         lines = []
         if self.primary_key is None:
             lines.append("MERGE (a:%s)" % cypher_escape(self.primary_label))
@@ -119,6 +148,8 @@ class MergeNode(CypherSnip):
 
     @property
     def parameters(self):
+        """ Dictionary of parameters.
+        """
         parameters = {}
         if self.primary_key is not None:
             parameters["V"] = self.primary_value

@@ -16,27 +16,27 @@
 # limitations under the License.
 
 
-from py2neo.cypher.snip import CypherSnip, MergeNode
+from py2neo.cypher.cypherite import Cypherite, MergeNode
 
 
-def test_base_snip():
+def test_base_cypherite():
     statement = "spam"
     parameters = {"foo": "bar"}
-    snip = CypherSnip(statement, parameters)
-    assert snip.__repr__() == "<CypherSnip statement=%r parameters=%r>" % (statement, parameters)
+    snip = Cypherite(statement, parameters)
+    assert snip.__repr__() == "<Cypherite statement=%r parameters=%r>" % (statement, parameters)
     assert snip.__str__() == statement
     assert snip.__unicode__() == statement
     assert snip.statement == statement
     assert snip.parameters == parameters
 
 
-def test_can_build_simple_merge_node_snip():
+def test_can_build_simple_merge_node():
     snip = MergeNode("Person", "name", "Alice")
     assert snip.statement == "MERGE (a:Person {name:{V}})\nRETURN a"
     assert snip.parameters == {"V": "Alice"}
 
 
-def test_can_build_merge_node_snip_without_property():
+def test_can_build_merge_node_without_property():
     snip = MergeNode("Person")
     assert snip.primary_label == "Person"
     assert snip.primary_key is None
@@ -45,7 +45,7 @@ def test_can_build_merge_node_snip_without_property():
     assert snip.parameters == {}
 
 
-def test_can_build_merge_node_snip_with_extra_values():
+def test_can_build_merge_node_with_extra_values():
     snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234)
     assert snip.statement == "MERGE (a:Person {name:{V}})\nSET a:Employee\nSET a={P}\nRETURN a"
     assert snip.parameters == {"V": "Alice", "P": {"employee_id": 1234, "name": "Alice"}}
