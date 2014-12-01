@@ -20,7 +20,7 @@ Cypher is the built-in query language for Neo4j.
 """
 
 
-from py2neo.cypher.builder import *
+from py2neo.cypher.snip import *
 from py2neo.cypher.create import *
 from py2neo.cypher.delete import *
 from py2neo.cypher.error.core import *
@@ -28,8 +28,8 @@ from py2neo.cypher.lang import *
 from py2neo.cypher.core import *
 
 
-__all__ = ["CypherResource", "CypherStatement", "CypherTransaction",
+__all__ = ["CypherResource", "CypherTransaction",
            "RecordListList", "RecordList", "RecordStream", "Record", "RecordProducer",
            "CypherWriter", "cypher_escape", "cypher_repr",
            "CreateStatement", "DeleteStatement",
-           "CypherBuilder", "MergeNode"]
+           "CypherSnip", "MergeNode"]

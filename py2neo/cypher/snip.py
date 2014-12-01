@@ -21,14 +21,14 @@ from py2neo.cypher.lang import cypher_escape
 from py2neo.util import ustr, xstr
 
 
-class CypherBuilder(object):
+class CypherSnip(object):
 
     def __init__(self, statement="", parameters=None):
         self.__statement = statement
         self.__parameters = dict(parameters or {})
 
     def __repr__(self):
-        return "<CypherBuilder statement=%r parameters=%r>" % (self.statement, self.parameters)
+        return "<CypherSnippet statement=%r parameters=%r>" % (self.statement, self.parameters)
 
     def __str__(self):
         return xstr(self.statement)
@@ -45,12 +45,14 @@ class CypherBuilder(object):
         return self.__parameters
 
 
-class MergeNode(CypherBuilder):
+class MergeNode(CypherSnip):
 
     def __init__(self, primary_label, primary_key=None, primary_value=None):
-        CypherBuilder.__init__(self)
+        CypherSnip.__init__(self)
         self.__labels = LabelSet([primary_label])
-        self.__properties = PropertySet({}, **{primary_key: primary_value})
+        self.__properties = PropertySet()
+        if primary_key is not None:
+            self.__properties[primary_key] = primary_value
         self.__primary_label = primary_label
         self.__primary_key = primary_key
 
@@ -87,21 +89,24 @@ class MergeNode(CypherBuilder):
     def statement(self):
         lines = []
         if self.primary_key is None:
-            lines.append("MERGE (n:%s)" % cypher_escape(self.primary_label))
+            lines.append("MERGE (a:%s)" % cypher_escape(self.primary_label))
         else:
-            lines.append("MERGE (n:%s {%s:{V}})" % (cypher_escape(self.primary_label),
+            lines.append("MERGE (a:%s {%s:{V}})" % (cypher_escape(self.primary_label),
                                                     cypher_escape(self.primary_key)))
         if len(self.labels) > 1:
-            lines.append("SET n:" + ":".join(cypher_escape(l)
+            lines.append("SET a:" + ":".join(cypher_escape(l)
                                              for l in self.labels
                                              if l != self.primary_label))
-        lines.append("SET n={P}")
-        lines.append("RETURN n")
+        if len(self.properties) > 1:
+            lines.append("SET a={P}")
+        lines.append("RETURN a")
         return "\n".join(lines)
 
     @property
     def parameters(self):
-        parameters = {"P": self.properties}
+        parameters = {}
         if self.primary_key is not None:
             parameters["V"] = self.primary_value
+        if len(self.properties) > 1:
+            parameters["P"] = self.properties
         return parameters
