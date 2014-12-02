@@ -48,7 +48,7 @@ def test_nonsense_query(graph):
         assert error.exception == "SyntaxException"
         assert error.fullname in [None, "org.neo4j.cypher.SyntaxException"]
         assert error.statement == statement
-        assert error.parameters is None
+        assert not error.parameters
     else:
         assert False
 
