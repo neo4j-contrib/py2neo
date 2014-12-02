@@ -25,6 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
+from py2neo.env import NEO4J_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
@@ -41,11 +42,6 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "authenticate", "familiar", "set_auth_token", "rewrite",
            "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate"]
 
-
-DEFAULT_SCHEME = "http"
-DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 7474
-DEFAULT_HOST_PORT = "{0}:{1}".format(DEFAULT_HOST, DEFAULT_PORT)
 
 PRODUCT = ("py2neo", __version__)
 
@@ -470,9 +466,6 @@ class ServiceRoot(object):
     server, corresponding to the ``/`` URI.
     """
 
-    #: The URI for a Neo4j service with default configuration.
-    DEFAULT_URI = "{0}://{1}/".format(DEFAULT_SCHEME, DEFAULT_HOST_PORT)
-
     __instances = {}
 
     __authentication = None
@@ -480,7 +473,7 @@ class ServiceRoot(object):
 
     def __new__(cls, uri=None):
         if uri is None:
-            uri = cls.DEFAULT_URI
+            uri = NEO4J_URI
         uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
@@ -1154,15 +1147,8 @@ class PropertySet(Service, dict):
         return value
 
     def update(self, iterable=None, **kwargs):
-        if iterable:
-            try:
-                for key in iterable.keys():
-                    self[key] = iterable[key]
-            except (AttributeError, TypeError):
-                for key, value in iterable:
-                    self[key] = value
-        for key in kwargs:
-            self[key] = kwargs[key]
+        for key, value in dict(iterable or {}, **kwargs).items():
+            self[key] = value
 
 
 class LabelSet(Service, set):
@@ -1301,7 +1287,7 @@ class PropertyContainer(Service):
 class Node(PropertyContainer):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
-    may have one or more :attr:`.labels` applied to them::
+    may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
 
         >>> from py2neo import Node
         >>> alice = Node("Person", name="Alice")
@@ -1315,10 +1301,10 @@ class Node(PropertyContainer):
         >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
-    :attr:`.labels` and :attr:`~py2neo.Node.properties` attributes respectively.
-    The former is an instance of :class:`.LabelSet`, which extends the
-    built-in :class:`set` class, and the latter is an instance of
-    :class:`.PropertySet` which extends :class:`dict`.
+    :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
+    attributes respectively. The former is an instance of :class:`.LabelSet`,
+    which extends the built-in :class:`set` class, and the latter is an
+    instance of :class:`.PropertySet` which extends :class:`dict`.
 
         >>> alice.properties["name"]
         'Alice'

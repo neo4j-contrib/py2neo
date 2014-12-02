@@ -23,7 +23,7 @@ from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, F
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string, xstr
+from py2neo.util import is_integer, is_string, xstr, ustr
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -66,74 +66,75 @@ class CypherResource(Service):
             cls.__instances[key] = inst
         return inst
 
-    def post(self, statement, parameters=None):
+    def post(self, statement, parameters=None, **kwparameters):
         """ Post a Cypher statement to this resource, optionally with
         parameters.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
+        :arg kwparameters: Extra parameters supplied by keyword.
         :rtype: :class:`httpstream.Response`
         """
-        payload = {"query": statement}
+        payload = {"query": statement, "params": {}}
+        parameters = dict(parameters or {}, **kwparameters)
         if parameters:
-            payload["params"] = {}
             for key, value in parameters.items():
                 if isinstance(value, (Node, Rel, Relationship)):
                     value = value._id
                 payload["params"][key] = value
-        log.info("execute %r %r", payload["query"], payload.get("params", {}))
+        log.info("execute %r %r", payload["query"], payload["params"])
         return self.resource.post(payload)
 
-    def run(self, statement, parameters=None):
+    def run(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement, ignoring any return value.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters)
+            tx.append(statement, parameters, **kwparameters)
             tx.commit()
         else:
-            self.post(statement, parameters).close()
+            self.post(statement, parameters, **kwparameters).close()
 
-    def execute(self, statement, parameters=None):
+    def execute(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.RecordList`
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters)
+            tx.append(statement, parameters, **kwparameters)
             results = tx.commit()
             return results[0]
         else:
-            response = self.post(statement, parameters)
+            response = self.post(statement, parameters, **kwparameters)
             try:
                 return self.graph.hydrate(response.content)
             finally:
                 response.close()
 
-    def execute_one(self, statement, parameters=None):
+    def execute_one(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
         the first column of the first record returned.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
         if self.transaction_uri:
             tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters)
+            tx.append(statement, parameters, **kwparameters)
             results = tx.commit()
             try:
                 return results[0][0][0]
             except IndexError:
                 return None
         else:
-            response = self.post(statement, parameters)
+            response = self.post(statement, parameters, **kwparameters)
             results = self.graph.hydrate(response.content)
             try:
                 return results[0][0]
@@ -142,14 +143,14 @@ class CypherResource(Service):
             finally:
                 response.close()
 
-    def stream(self, statement, parameters=None):
+    def stream(self, statement, parameters=None, **kwparameters):
         """ Execute the query and return a result iterator.
 
-        :param statement: A Cypher statement to execute.
-        :param parameters: A dictionary of parameters.
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.RecordStream`
         """
-        return RecordStream(self.graph, self.post(statement, parameters))
+        return RecordStream(self.graph, self.post(statement, parameters, **kwparameters))
 
     def begin(self):
         """ Begin a new transaction.
@@ -209,24 +210,35 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def append(self, statement, parameters=None):
+    def append(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :param statement: the statement to append
-        :param parameters: a dictionary of execution parameters
+        :arg statement: the statement to append
+        :arg parameters: a dictionary of execution parameters
         """
         self.__assert_unfinished()
+
+        s = ustr(statement)
         p = {}
-        if parameters:
-            for key, value in parameters.items():
-                if isinstance(value, (Node, Rel, Relationship)):
-                    value = value._id
-                p[key] = value
+
+        def add_parameters(params):
+            if params:
+                for key, value in dict(params).items():
+                    if isinstance(value, (Node, Rel, Relationship)):
+                        value = value._id
+                    p[key] = value
+
+        try:
+            add_parameters(statement.parameters)
+        except AttributeError:
+            pass
+        add_parameters(dict(parameters or {}, **kwparameters))
+
         # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("append %r %r", statement, p)
+        log.info("append %r %r", s, p)
         self.statements.append(OrderedDict([
-            ("statement", statement),
+            ("statement", s),
             ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))

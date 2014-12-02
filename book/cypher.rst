@@ -17,6 +17,23 @@ Transaction
    :members:
 
 
+Cypherites
+==========
+
+Cypherites are self-contained bundles of Cypher statements and parameters intended for use within
+:class:`Cypher transactions <.CypherTransaction>`.
+
+.. note::
+   The name *Cypherite* comes from
+   `the Matrix franchise <http://en.wikipedia.org/wiki/List_of_minor_characters_in_the_Matrix_series#Cypher.27s_Legacy:_The_Cypherites>`_
+
+.. autoclass:: py2neo.cypher.Cypherite
+   :members:
+
+.. autoclass:: py2neo.cypher.MergeNode
+   :members:
+
+
 Records
 =======
 

@@ -16,9 +16,9 @@
 
 
 LATEST_1_8_VERSION="1.8.3"
-LATEST_1_9_VERSION="1.9.8"
+LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
-LATEST_2_1_VERSION="2.1.5"
+LATEST_2_1_VERSION="2.1.6"
 LATEST_VERSION=$LATEST_2_1_VERSION
 
 SELF=$0
@@ -111,7 +111,7 @@ function neo4j_set_dist {
     EDITION=$NEO4J_EDITION
     if [ "$EDITION" == "" ]
     then
-        EDITION="community"
+        EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
     if [ "$VERSION" == "2.1" ] || [ "$VERSION" == "" ]
