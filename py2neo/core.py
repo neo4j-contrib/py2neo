@@ -25,7 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
-from py2neo.env import NEO4J_URI
+from py2neo.env import NEO4J_AUTH_TOKEN, NEO4J_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
@@ -185,7 +185,6 @@ class Resource(_Resource):
         if uri.user_info:
             authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource.__init__(self, uri)
-        #self._subresources = {}
         self.__headers = _get_headers(self.__uri__.host_port)
         self.__base = super(Resource, self)
         if metadata is None:
@@ -238,6 +237,16 @@ class Resource(_Resource):
             self.__ref = self_uri[len(graph_uri):]
         return self.__ref
 
+    def resolve(self, reference, strict=True):
+        """ Resolve a URI reference against the URI for this resource,
+        returning a new resource represented by the new target URI.
+
+        :arg reference: Relative URI to resolve.
+        :arg strict: Strict mode flag.
+        :rtype: :class:`.Resource`
+        """
+        return Resource(_Resource.resolve(self, reference, strict).uri)
+
     @property
     def service_root(self):
         """ The root service associated with this resource.
@@ -255,8 +264,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(headers or {})
-        headers.update(self.__headers)
+        headers = dict(self.__headers, **(headers or {}))
         kwargs.update(cache=True)
         try:
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
@@ -282,8 +290,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(headers or {})
-        headers.update(self.__headers)
+        headers = dict(self.__headers, **(headers or {}))
         try:
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -307,8 +314,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(headers or {})
-        headers.update(self.__headers)
+        headers = dict(self.__headers, **(headers or {}))
         try:
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -331,8 +337,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(headers or {})
-        headers.update(self.__headers)
+        headers = dict(self.__headers, **(headers or {}))
         try:
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -480,6 +485,8 @@ class ServiceRoot(object):
         try:
             inst = cls.__instances[uri]
         except KeyError:
+            if NEO4J_AUTH_TOKEN:
+                set_auth_token(URI(uri).host_port, NEO4J_AUTH_TOKEN)
             inst = super(ServiceRoot, cls).__new__(cls)
             inst.__resource = Resource(uri)
             inst.__graph = None
@@ -512,7 +519,7 @@ class ServiceRoot(object):
                 uri = self.resource.metadata["data"]
             except KeyError:
                 if "authentication" in self.resource.metadata:
-                    # TODO: clear metadata
+                    self.resource._Resource__last_get_response = None
                     raise Unauthorized(self.uri)
                 else:
                     raise GraphError("No graph available for service <%s>" % self.uri)
@@ -1016,6 +1023,11 @@ class Graph(Service):
                     uri_string, Relationship.hydrate(resource.get().content))
             except ClientError:
                 raise ValueError("Relationship with ID %s not found" % id_)
+            except GraphError as error:
+                if error.exception == "RelationshipNotFoundException":
+                    raise ValueError("Relationship with ID %s not found" % id_)
+                else:
+                    raise
 
     @property
     def relationship_types(self):
@@ -1605,9 +1617,13 @@ class Node(PropertyContainer):
         from py2neo.cypher.util import StartOrMatch
         query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content
-        dehydrated, label_metadata = content["data"][0]
-        dehydrated.setdefault("metadata", {})["labels"] = label_metadata
-        Node.hydrate(dehydrated, self)
+        try:
+            dehydrated, label_metadata = content["data"][0]
+        except IndexError:
+            raise GraphError("Node with ID %s not found" % self._id)
+        else:
+            dehydrated.setdefault("metadata", {})["labels"] = label_metadata
+            Node.hydrate(dehydrated, self)
 
     def unbind(self):
         """ Detach this node from any remote counterpart.

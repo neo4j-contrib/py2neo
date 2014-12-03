@@ -27,9 +27,9 @@ def test_default_dist_host():
     assert DIST_HOST == "dist.neo4j.org"
 
 
-def test_default_neo4j_home():
-    assert NEO4J_HOME == "."
+def test_neo4j_home():
+    assert NEO4J_HOME
 
 
-def test_default_neo4j_uri():
-    assert NEO4J_URI == "http://localhost:7474/"
+def test_neo4j_uri():
+    assert NEO4J_URI

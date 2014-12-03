@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-__all__ = ["BindError", "Finished", "GraphError", "JoinError"]
+__all__ = ["BindError", "Finished", "GraphError", "JoinError", "Unauthorized"]
 
 
 class BindError(Exception):

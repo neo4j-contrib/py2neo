@@ -19,7 +19,8 @@ LATEST_1_8_VERSION="1.8.3"
 LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
 LATEST_2_1_VERSION="2.1.6"
-LATEST_VERSION=$LATEST_2_1_VERSION
+LATEST_2_2_VERSION="2.2.0-M01"
+LATEST_VERSION=$LATEST_2_2_VERSION
 
 SELF=$0
 COMMAND=$1
@@ -70,6 +71,8 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
+        export NEO4J_HOME="$HOME"
+        export NEO4J_AUTH_TOKEN=$(python -m py2neo.password neo4j neo4j password)
         if [ "$1" == "" ]
         then
             py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
@@ -114,7 +117,17 @@ function neo4j_set_dist {
         EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "2.1" ] || [ "$VERSION" == "" ]
+    if [ "$VERSION" == "2.2" ] || [ "$VERSION" == "" ]
+    then
+        VERSION=$LATEST_2_2_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.    .::::."
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'       .:' "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       .:'   "
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: :: ::::::"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.1" ]
     then
         VERSION=$LATEST_2_1_VERSION
         echo ""
@@ -180,6 +193,7 @@ function neo4j_start {
     cp "$DOWN/$ARCHIVE" "$RUN"
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
+    #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
     $DIST/bin/neo4j start
     popd > /dev/null
 }
@@ -230,7 +244,7 @@ case $COMMAND in
         test $ARGS
         ;;
     test-latest)
-        NEO4J_VERSIONS="2.1"
+        NEO4J_VERSIONS="2.2"
         test $ARGS
         ;;
 esac
