@@ -365,6 +365,25 @@ class RecordList(object):
     def __iter__(self):
         return iter(self.records)
 
+    @property
+    def one(self):
+        """ The first record from this result, reduced to a single value
+        if that record only consists of a single column. If no records
+        are available, :const:`None` is returned.
+        """
+        try:
+            record = self[0]
+        except IndexError:
+            return None
+        else:
+            if len(record) == 1:
+                try:
+                    return record[0]
+                except IndexError:
+                    return None
+            else:
+                return record
+
     def to_subgraph(self):
         """ Convert a RecordList into a Subgraph.
         """
