@@ -130,7 +130,10 @@ def familiar(*objects):
 
 def set_auth_token(host_port, token):
     """ Set the auth token for the specified `host_port`. This only applies
-    to server version 2.2 and above when authentication is turned on.
+    to server version 2.2 and above when authentication is turned on. An
+    alternative to using this function is to supply a token value in the
+    ``NEO4J_AUTH_TOKEN`` environment variable, from where it will be
+    automatically applied.
 
     :arg host_port: the host and optional port requiring authentication
     :arg token: a valid auth token
@@ -545,16 +548,17 @@ class ServiceRoot(object):
 class Graph(Service):
     """ The `Graph` class provides a wrapper around the
     `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
-    by a running Neo4j database server and is identified by the base URI
-    of the graph database. If no URI is specified, a default value of
-    `http://localhost:7474/db/data/` is assumed; therefore, to connect to a
-    local server with default configuration, simply use::
+    by a running Neo4j database server and is identified by the base URI of
+    the graph database. If no URI is specified, a default value is taken from
+    the ``NEO4J_URI`` environment variable. If this is not set, a default of
+    `http://localhost:7474/db/data/` is assumed. Therefore, the simplest way
+    to connect to a running service is to use::
 
         >>> from py2neo import Graph
         >>> graph = Graph()
 
-    An explicitly specified graph database URI can be passed to the constructor
-    as a string::
+    An explicitly specified graph database URI can also be passed to the
+    constructor as a string::
 
         >>> other_graph = Graph("http://camelot:1138/db/data/")
 
@@ -562,6 +566,12 @@ class Graph(Service):
     the relevant criteria can also be specified within the URI::
 
         >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
+
+    For services running with `built-in security
+    <http://neo4j.com/docs/snapshot/rest-api-security.html>`_, an auth token
+    can either be passed in via the :func:`py2neo.set_auth_token` function or
+    set as the ``NEO4J_AUTH_TOKEN`` environment variable where it will be
+    applied automatically.
 
     Once obtained, the `Graph` instance provides direct or indirect access
     to most of the functionality available within py2neo.

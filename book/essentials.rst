@@ -6,24 +6,30 @@ The ``py2neo`` top-level package contains the functions and classes that are use
 ubiquitously across the whole library.
 
 
-Graph
-=====
+The Graph
+=========
 
 .. autoclass:: py2neo.Graph
    :members:
    :inherited-members:
 
 
-Node
-====
+Authentication
+==============
+
+.. autofunction:: py2neo.set_auth_token
+
+
+Nodes
+=====
 
 .. autoclass:: py2neo.Node
    :members:
    :inherited-members:
 
 
-Relationship
-============
+Relationships
+=============
 
 .. autoclass:: py2neo.Relationship
    :members:
@@ -38,8 +44,8 @@ Relationship
    :inherited-members:
 
 
-Path
-====
+Paths
+=====
 
 .. autoclass:: py2neo.Path
    :members:
