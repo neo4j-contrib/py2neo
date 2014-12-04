@@ -471,7 +471,10 @@ class Service(object):
 
 class ServiceRoot(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
-    server, corresponding to the ``/`` URI.
+    server, corresponding to the ``/`` URI. If no URI is supplied to
+    the constructor, a value is taken from the ``NEO4J_URI`` environment
+    variable (if set) otherwise a default of ``http://localhost:7474/``
+    is used.
     """
 
     __instances = {}

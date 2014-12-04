@@ -20,8 +20,9 @@ import os
 from subprocess import check_output
 from shutil import rmtree
 
-from py2neo.env import DIST_HOST
+from py2neo.env import NEO4J_DIST
 from py2neo.packages.httpstream import NetworkAddressError
+from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.server import download, dist_archive_name, GraphServer
 
 
@@ -93,7 +94,8 @@ class Warehouse(object):
         try:
             return download(edition, version, dist_path)
         except NetworkAddressError:
-            raise RuntimeError("Not able to connect to %s" % DIST_HOST)
+            uri = URI(NEO4J_DIST)
+            raise RuntimeError("Not able to connect to %s" % uri.host)
 
     @property
     def _ports(self):

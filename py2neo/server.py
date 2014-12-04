@@ -32,10 +32,10 @@ import shlex
 import sys
 
 from py2neo import ServiceRoot
-from py2neo.env import DIST_SCHEME, DIST_HOST, NEO4J_HOME
+from py2neo.env import NEO4J_DIST, NEO4J_HOME
 from py2neo.packages.httpstream import download as _download
 from py2neo.store import GraphStore
-from py2neo.util import PropertiesParser
+from py2neo.util import PropertiesParser, ustr
 
 
 __all__ = ["dist_name", "dist_archive_name", "download", "GraphServer", "GraphServerProcess"]
@@ -52,22 +52,26 @@ number_in_brackets = re.compile("\[(\d+)\]")
 
 
 def dist_name(edition, version):
-    """ Get the full Neo4j distribution name for the given edition and version.
+    """ Get the full Neo4j distribution name for the given edition and
+    version, e.g. ``'neo4j-community-2.1.5'``.
     """
     return "neo4j-%s-%s" % (edition, version)
 
 
 def dist_archive_name(edition, version):
-    """ Get the full Neo4j archive name for the given edition and version.
+    """ Get the full Neo4j archive name for the given edition and
+    version, e.g. ``'neo4j-community-2.1.5-unix.tar.gz'``.
     """
     return "%s-unix.tar.gz" % dist_name(edition, version)
 
 
 def download(edition, version, path="."):
-    """ Download the Neo4j server archive for the given edition and version.
+    """ Download the Neo4j server archive for the given edition and version. The
+    download URI is built using the value in the environment variable ``NEO4J_DIST``
+    as a base or ``http://dist.neo4j.org/`` if this is not set.
     """
     archive_name = dist_archive_name(edition, version)
-    uri = "%s://%s/%s" % (DIST_SCHEME, DIST_HOST, archive_name)
+    uri = "%s/%s" % (NEO4J_DIST, archive_name)
     filename = os.path.join(os.path.abspath(path), archive_name)
     _download(uri, filename)
     return filename
@@ -111,11 +115,13 @@ class GraphServerProcess(object):
 
 
 class GraphServer(object):
-    """ Represents a Neo4j server installation on disk.
+    """ Represents a Neo4j server installation on disk. If no path
+    is supplied to the constructor, the value is taken from the
+    ``NEO4J_HOME`` environment variable. If this is not set, the
+    current directory is assumed.
     """
 
-    #: The base directory of this server installation (defaults
-    #: to the value of the ``NEO4J_HOME`` environment variable).
+    #: The base directory of this server installation.
     home = None
 
     __conf = None

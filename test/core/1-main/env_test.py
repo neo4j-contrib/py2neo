@@ -16,15 +16,11 @@
 # limitations under the License.
 
 
-from py2neo.env import DIST_SCHEME, DIST_HOST, NEO4J_HOME, NEO4J_URI
+from py2neo.env import NEO4J_DIST, NEO4J_HOME, NEO4J_URI
 
 
-def test_default_dist_scheme():
-    assert DIST_SCHEME == "http"
-
-
-def test_default_dist_host():
-    assert DIST_HOST == "dist.neo4j.org"
+def test_default_dist():
+    assert NEO4J_DIST == "http://dist.neo4j.org/"
 
 
 def test_neo4j_home():

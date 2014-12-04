@@ -38,8 +38,11 @@ Escaping Values in Cypher
     'CREATE (a)-[ab:`KNOWS WELL`]->(b) RETURN ab'
 
 
-Authentication
-==============
+Supplying a User Name and Password
+==================================
+
+This form of authentication can be used if a database server is behind (for example) an Apache
+proxy. It is not the same as the authentication mechanism bundled with Neo4j 2.2 and above.
 
 .. autofunction:: py2neo.authenticate
 
