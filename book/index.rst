@@ -6,15 +6,18 @@ Py2neo is a client library and comprehensive toolkit for working with Neo4j from
 applications and from the command line. The core library has no external dependencies and has been
 carefully designed to be easy and intuitive to use.
 
-.. note::
-   Documentation for py2neo 1.6 is available `here </1.6/>`_.
+Releases
+========
+
+The latest release of py2neo is **2.0.1**. Documentation for **1.6.4**
+is available `here </1.6/>`_.
 
 
 Requirements
 ============
 
-- Python 2.7, 3.3 or 3.4
-- Neo4j 1.8, 1.9, 2.0 or 2.1 (latest point release of each version is recommended)
+- Python 2.7 / 3.3 / 3.4
+- Neo4j 1.8 / 1.9 / 2.0 / 2.1 / 2.2 (the latest point release of each version is recommended)
 
 
 Installation
