@@ -17,6 +17,30 @@ The Graph
 Authentication
 ==============
 
+Neo4j 2.2 introduces token-based authentication for database servers. To use a server with
+authentication enabled, an auth token must first be obtained and then either supplied to the
+:func:`.set_auth_token` function or set as the value of the ``NEO4J_AUTH_TOKEN`` environment
+variable.
+
+There are two ways to set up authentication for a new server installation:
+
+1. Set an initial password for the ``neo4j`` user.
+2. Copy auth details from another (initialised) server.
+
+Py2neo provides a command line tool to help with setting the password and retrieving the auth
+token. For a new installation, use::
+
+    $ neoauth neo4j neo4j my-p4ssword
+    4ff5167fbeedb3082974c3695bc948dc
+
+For subsequent usage, after the initial password has been set::
+
+    $ neoauth neo4j my-p4ssword
+    4ff5167fbeedb3082974c3695bc948dc
+
+Alternatively, authentication can be disabled completely by editing the value of the
+``dbms.security.authorization_enabled`` setting in the ``conf/neo4j-server.properties`` file.
+
 .. autofunction:: py2neo.set_auth_token
 
 
