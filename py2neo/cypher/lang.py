@@ -105,6 +105,11 @@ class CypherWriter(Writer):
             link = self.sequence_separator
         self.file.write("]")
 
+    def write_literal(self, text):
+        """ Write literal text.
+        """
+        self.file.write(text)
+
     def write_map(self, mapping):
         """ Write a map.
         """
@@ -118,7 +123,7 @@ class CypherWriter(Writer):
             link = self.sequence_separator
         self.file.write("}")
 
-    def write_node(self, node, name=None):
+    def write_node(self, node, name=None, properties_parameter_key=None):
         """ Write a node.
         """
         self.file.write("(")
@@ -128,10 +133,14 @@ class CypherWriter(Writer):
             for label in sorted(node.labels):
                 self.file.write(":")
                 self.write_identifier(label)
-            if node.properties:
-                if name or node.labels:
-                    self.file.write(" ")
-                self.write_map(node.properties)
+            if properties_parameter_key is None:
+                if node.properties:
+                    if name or node.labels:
+                        self.file.write(" ")
+                    self.write_map(node.properties)
+            else:
+                self.file.write(" ")
+                self.write_parameter_key(properties_parameter_key)
         self.file.write(")")
 
     def write_rel(self, rel, name=None):
@@ -159,6 +168,13 @@ class CypherWriter(Writer):
         self.write_node(relationship.start_node)
         self.write_rel(relationship.rel, name)
         self.write_node(relationship.end_node)
+
+    def write_parameter_key(self, name):
+        """ Write a parameter key in curly brackets.
+        """
+        self.file.write("{")
+        self.file.write(name)
+        self.file.write("}")
 
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
