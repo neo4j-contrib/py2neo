@@ -21,7 +21,7 @@ __copyright__ = "2011-2014, Nigel Small"
 __email__ = "nigel@py2neo.org"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 
 
 from py2neo.core import *

@@ -120,7 +120,7 @@ html_theme_options = {
     'logo_align': 'left',
     'github_user': 'nigelsmall',
     'github_repo': 'py2neo',
-    'github_branch': 'release/2.0',
+    'github_branch': 'release/' + release,
     'travis_button': True,
 }
 
