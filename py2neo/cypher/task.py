@@ -16,13 +16,18 @@
 # limitations under the License.
 
 
-from py2neo.core import LabelSet, PropertySet
-from py2neo.cypher.lang import cypher_escape
+from io import StringIO
+
+from py2neo.core import Node, LabelSet, PropertySet
+from py2neo.cypher.lang import CypherWriter, cypher_escape
 from py2neo.util import ustr, xstr
 
 
-class Cypherite(object):
-    """ The Cypherite class can either be used directly or as
+__all__ = ["CypherTask", "CreateNode", "MergeNode"]
+
+
+class CypherTask(object):
+    """ The `CypherTask` class can either be used directly or as
     a base class for more specific statement implementations.
     """
 
@@ -31,7 +36,7 @@ class Cypherite(object):
         self.__parameters = dict(parameters or {}, **kwparameters)
 
     def __repr__(self):
-        return "<Cypherite statement=%r parameters=%r>" % (self.statement, self.parameters)
+        return "<CypherTask statement=%r parameters=%r>" % (self.statement, self.parameters)
 
     def __str__(self):
         return xstr(self.statement)
@@ -52,8 +57,69 @@ class Cypherite(object):
         return self.__parameters
 
 
-class MergeNode(Cypherite):
-    """ :class:`.Cypherite` for `merging <http://neo4j.com/docs/stable/query-merge.html>`_
+class CreateNode(CypherTask):
+    """ :class:`.CypherTask` for creating nodes.
+    """
+
+    def __init__(self, *labels, **properties):
+        CypherTask.__init__(self)
+        self.__node = Node(*labels, **properties)
+        self.__return = False
+
+    @property
+    def labels(self):
+        """ The full set of labels to apply to the created node.
+
+        :rtype: :class:`py2neo.LabelSet`
+        """
+        return self.__node.labels
+
+    @property
+    def properties(self):
+        """ The full set of properties to apply to the created node.
+
+        :rtype: :class:`py2neo.PropertySet`
+        """
+        return self.__node.properties
+
+    def set(self, *labels, **properties):
+        """ Extra labels and properties to apply to the node.
+        """
+        self.__node.labels.update(labels)
+        self.__node.properties.update(properties)
+        return self
+
+    def with_return(self):
+        """ Include a RETURN clause in the statement.
+        """
+        self.__return = True
+        return self
+
+    @property
+    def statement(self):
+        """ The full Cypher statement.
+        """
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_literal("CREATE ")
+        writer.write_node(self.__node, "a" if self.__return else None,
+                          "P" if self.__node.properties else None)
+        if self.__return:
+            writer.write_literal(" RETURN a")
+        return string.getvalue()
+
+    @property
+    def parameters(self):
+        """ Dictionary of parameters.
+        """
+        if self.__node.properties:
+            return {"P": self.properties}
+        else:
+            return {}
+
+
+class MergeNode(CypherTask):
+    """ :class:`.CypherTask` for `merging <http://neo4j.com/docs/stable/query-merge.html>`_
     nodes.
 
     ::
@@ -71,7 +137,7 @@ class MergeNode(Cypherite):
     """
 
     def __init__(self, primary_label, primary_key=None, primary_value=None):
-        Cypherite.__init__(self)
+        CypherTask.__init__(self)
         self.__labels = LabelSet([primary_label])
         self.__properties = PropertySet()
         if primary_key is not None:
@@ -119,7 +185,7 @@ class MergeNode(Cypherite):
             return self.properties.get(primary_key)
 
     def set(self, *labels, **properties):
-        """ Extra labels and properties to apply to the merged node.
+        """ Extra labels and properties to apply to the node.
 
             >>> merge = MergeNode("Person", "name", "Bob").set("Employee", employee_id=1234)
 
@@ -129,12 +195,14 @@ class MergeNode(Cypherite):
         return self
 
     def with_return(self):
+        """ Include a RETURN clause in the statement.
+        """
         self.__return_node = True
         return self
 
     @property
     def statement(self):
-        """ The Cypher MERGE statement.
+        """ The full Cypher statement.
         """
         lines = []
         if self.primary_key is None:
@@ -150,7 +218,7 @@ class MergeNode(Cypherite):
             lines.append("SET a={P}")
         if self.__return_node:
             lines.append("RETURN a")
-        return "\n".join(lines)
+        return " ".join(lines)
 
     @property
     def parameters(self):
