@@ -32,6 +32,12 @@ def test_base_cypherite():
 
 def test_can_build_simple_merge_node():
     snip = MergeNode("Person", "name", "Alice")
+    assert snip.statement == "MERGE (a:Person {name:{V}})"
+    assert snip.parameters == {"V": "Alice"}
+
+
+def test_can_build_simple_merge_node_with_return():
+    snip = MergeNode("Person", "name", "Alice").with_return()
     assert snip.statement == "MERGE (a:Person {name:{V}})\nRETURN a"
     assert snip.parameters == {"V": "Alice"}
 
@@ -41,11 +47,26 @@ def test_can_build_merge_node_without_property():
     assert snip.primary_label == "Person"
     assert snip.primary_key is None
     assert snip.primary_value is None
+    assert snip.statement == "MERGE (a:Person)"
+    assert snip.parameters == {}
+
+
+def test_can_build_merge_node_without_property_with_return():
+    snip = MergeNode("Person").with_return()
+    assert snip.primary_label == "Person"
+    assert snip.primary_key is None
+    assert snip.primary_value is None
     assert snip.statement == "MERGE (a:Person)\nRETURN a"
     assert snip.parameters == {}
 
 
 def test_can_build_merge_node_with_extra_values():
     snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234)
+    assert snip.statement == "MERGE (a:Person {name:{V}})\nSET a:Employee\nSET a={P}"
+    assert snip.parameters == {"V": "Alice", "P": {"employee_id": 1234, "name": "Alice"}}
+
+
+def test_can_build_merge_node_with_extra_values_and_return():
+    snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234).with_return()
     assert snip.statement == "MERGE (a:Person {name:{V}})\nSET a:Employee\nSET a={P}\nRETURN a"
     assert snip.parameters == {"V": "Alice", "P": {"employee_id": 1234, "name": "Alice"}}

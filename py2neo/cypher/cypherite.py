@@ -78,6 +78,7 @@ class MergeNode(Cypherite):
             self.__properties[primary_key] = primary_value
         self.__primary_label = primary_label
         self.__primary_key = primary_key
+        self.__return_node = False
 
     @property
     def labels(self):
@@ -127,6 +128,10 @@ class MergeNode(Cypherite):
         self.__properties.update(properties)
         return self
 
+    def with_return(self):
+        self.__return_node = True
+        return self
+
     @property
     def statement(self):
         """ The Cypher MERGE statement.
@@ -143,7 +148,8 @@ class MergeNode(Cypherite):
                                              if l != self.primary_label))
         if len(self.properties) > 1:
             lines.append("SET a={P}")
-        lines.append("RETURN a")
+        if self.__return_node:
+            lines.append("RETURN a")
         return "\n".join(lines)
 
     @property
