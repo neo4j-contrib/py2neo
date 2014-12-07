@@ -108,7 +108,7 @@ class CypherWriter(Writer):
     def write_literal(self, text):
         """ Write literal text.
         """
-        self.file.write(text)
+        self.file.write(ustr(text))
 
     def write_map(self, mapping):
         """ Write a map.
@@ -173,7 +173,7 @@ class CypherWriter(Writer):
         """ Write a parameter key in curly brackets.
         """
         self.file.write("{")
-        self.file.write(name)
+        self.file.write(ustr(name))
         self.file.write("}")
 
     def write_path(self, path):
