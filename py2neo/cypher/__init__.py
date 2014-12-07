@@ -30,6 +30,6 @@ from py2neo.cypher.task import *
 
 __all__ = ["CypherResource", "CypherTransaction",
            "RecordListList", "RecordList", "RecordStream", "Record", "RecordProducer",
-           "CypherWriter", "cypher_escape", "cypher_repr",
+           "CypherParameter", "CypherWriter", "cypher_escape", "cypher_repr",
            "CreateStatement", "DeleteStatement",
            "CypherTask", "CreateNode", "MergeNode"]

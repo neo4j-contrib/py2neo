@@ -26,7 +26,19 @@ from py2neo.lang import Writer
 from py2neo.util import is_collection, ustr, xstr
 
 
-__all__ = list(map(xstr, ["CypherWriter", "cypher_escape", "cypher_repr"]))
+__all__ = list(map(xstr, ["CypherParameter", "CypherWriter", "cypher_escape", "cypher_repr"]))
+
+
+class CypherParameter(object):
+    """ Object representing a parameter within a Cypher statement.
+    """
+
+    def __init__(self, key, value=None):
+        self.key = key
+        self.value = value
+
+    def __iter__(self):
+        yield (self.key, self.value)
 
 
 class CypherWriter(Writer):
@@ -67,6 +79,8 @@ class CypherWriter(Writer):
             self.write_relationship(obj)
         elif isinstance(obj, Path):
             self.write_path(obj)
+        elif isinstance(obj, CypherParameter):
+            self.write_parameter(obj)
         elif isinstance(obj, dict):
             self.write_map(obj)
         elif is_collection(obj):
@@ -93,6 +107,12 @@ class CypherWriter(Writer):
             self.file.write("`")
         else:
             self.file.write(identifier)
+
+    def write_label(self, label):
+        """ Write a label.
+        """
+        self.write_literal(":")
+        self.write_identifier(label)
 
     def write_list(self, collection):
         """ Write a list.
@@ -123,7 +143,7 @@ class CypherWriter(Writer):
             link = self.sequence_separator
         self.file.write("}")
 
-    def write_node(self, node, name=None, properties_parameter_key=None):
+    def write_node(self, node, name=None, properties=None):
         """ Write a node.
         """
         self.file.write("(")
@@ -131,16 +151,15 @@ class CypherWriter(Writer):
             self.write_identifier(name)
         if node is not None:
             for label in sorted(node.labels):
-                self.file.write(":")
-                self.write_identifier(label)
-            if properties_parameter_key is None:
+                self.write_label(label)
+            if properties is None:
                 if node.properties:
                     if name or node.labels:
                         self.file.write(" ")
                     self.write_map(node.properties)
             else:
                 self.file.write(" ")
-                self.write_parameter_key(properties_parameter_key)
+                self.write(properties)
         self.file.write(")")
 
     def write_rel(self, rel, name=None):
@@ -169,11 +188,11 @@ class CypherWriter(Writer):
         self.write_rel(relationship.rel, name)
         self.write_node(relationship.end_node)
 
-    def write_parameter_key(self, name):
+    def write_parameter(self, parameter):
         """ Write a parameter key in curly brackets.
         """
         self.file.write("{")
-        self.file.write(ustr(name))
+        self.file.write(ustr(parameter.key))
         self.file.write("}")
 
     def write_path(self, path):

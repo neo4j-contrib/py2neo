@@ -76,5 +76,9 @@ def cast_property(value):
     elif isinstance(value, complex):
         value = [value.real, value.imag]
     else:
-        raise TypeError("Invalid property type: %s" % type(value))
+        from py2neo.cypher.lang import CypherParameter
+        if isinstance(value, CypherParameter):
+            pass
+        else:
+            raise TypeError("Invalid property type: %s" % type(value))
     return value

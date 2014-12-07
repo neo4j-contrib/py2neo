@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.core import Node, LabelSet, PropertySet
-from py2neo.cypher.lang import CypherWriter, cypher_escape
+from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
@@ -103,7 +103,7 @@ class CreateNode(CypherTask):
         writer = CypherWriter(string)
         writer.write_literal("CREATE ")
         writer.write_node(self.__node, "a" if self.__return else None,
-                          "P" if self.__node.properties else None)
+                          CypherParameter("P") if self.__node.properties else None)
         if self.__return:
             writer.write_literal(" RETURN a")
         return string.getvalue()
@@ -138,13 +138,12 @@ class MergeNode(CypherTask):
 
     def __init__(self, primary_label, primary_key=None, primary_value=None):
         CypherTask.__init__(self)
-        self.__labels = LabelSet([primary_label])
-        self.__properties = PropertySet()
+        self.__node = Node(primary_label)
         if primary_key is not None:
-            self.__properties[primary_key] = primary_value
-        self.__primary_label = primary_label
-        self.__primary_key = primary_key
-        self.__return_node = False
+            self.__node.properties[primary_key] = CypherParameter("V", primary_value)
+        self.__labels = LabelSet()
+        self.__properties = PropertySet()
+        self.__return = False
 
     @property
     def labels(self):
@@ -152,7 +151,9 @@ class MergeNode(CypherTask):
 
         :rtype: :class:`py2neo.LabelSet`
         """
-        return self.__labels
+        l = LabelSet(self.__labels)
+        l.update(self.__node.labels)
+        return l
 
     @property
     def properties(self):
@@ -160,29 +161,34 @@ class MergeNode(CypherTask):
 
         :rtype: :class:`py2neo.PropertySet`
         """
-        return self.__properties
+        p = PropertySet(self.__properties)
+        if self.primary_key:
+            p[self.primary_key] = self.primary_value
+        return p
 
     @property
     def primary_label(self):
         """ The label on which to merge.
         """
-        return self.__primary_label
+        return list(self.__node.labels)[0]
 
     @property
     def primary_key(self):
         """ The property key on which to merge.
         """
-        return self.__primary_key
+        try:
+            return list(self.__node.properties.keys())[0]
+        except IndexError:
+            return None
 
     @property
     def primary_value(self):
         """ The property value on which to merge.
         """
-        primary_key = self.primary_key
-        if primary_key is None:
+        try:
+            return list(self.__node.properties.values())[0].value
+        except IndexError:
             return None
-        else:
-            return self.properties.get(primary_key)
 
     def set(self, *labels, **properties):
         """ Extra labels and properties to apply to the node.
@@ -197,36 +203,38 @@ class MergeNode(CypherTask):
     def with_return(self):
         """ Include a RETURN clause in the statement.
         """
-        self.__return_node = True
+        self.__return = True
         return self
 
     @property
     def statement(self):
         """ The full Cypher statement.
         """
-        lines = []
-        if self.primary_key is None:
-            lines.append("MERGE (a:%s)" % cypher_escape(self.primary_label))
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_literal("MERGE ")
+        if self.__labels or self.__properties or self.__return:
+            node_name = "a"
         else:
-            lines.append("MERGE (a:%s {%s:{V}})" % (cypher_escape(self.primary_label),
-                                                    cypher_escape(self.primary_key)))
-        if len(self.labels) > 1:
-            lines.append("SET a:" + ":".join(cypher_escape(l)
-                                             for l in self.labels
-                                             if l != self.primary_label))
-        if len(self.properties) > 1:
-            lines.append("SET a={P}")
-        if self.__return_node:
-            lines.append("RETURN a")
-        return " ".join(lines)
+            node_name = None
+        writer.write_node(self.__node, node_name)
+        if self.__labels:
+            writer.write_literal(" SET a")
+            for label in self.__labels:
+                writer.write_label(label)
+        if self.__properties:
+            writer.write_literal(" SET a={P}")
+        if self.__return:
+            writer.write_literal(" RETURN a")
+        return string.getvalue()
 
     @property
     def parameters(self):
         """ Dictionary of parameters.
         """
         parameters = {}
-        if self.primary_key is not None:
+        if self.__node.properties:
             parameters["V"] = self.primary_value
-        if len(self.properties) > 1:
+        if self.__properties:
             parameters["P"] = self.properties
         return parameters

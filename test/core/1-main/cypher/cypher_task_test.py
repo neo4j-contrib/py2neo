@@ -56,6 +56,7 @@ def test_create_node_with_label_and_return():
 
 def test_create_node_with_labels():
     snip = CreateNode("Homo Sapiens", "Female")
+    assert snip.labels == {"Homo Sapiens", "Female"}
     assert snip.statement == "CREATE (:Female:`Homo Sapiens`)"
     assert snip.parameters == {}
 
@@ -78,9 +79,21 @@ def test_create_node_with_labels_and_properties_and_return():
     assert snip.parameters == {"P": {"name": "Alice", "age": 33, "active": True}}
 
 
+def test_create_node_with_set():
+    snip = CreateNode().set("Person", name="Alice")
+    assert snip.statement == "CREATE (:Person {P})"
+    assert snip.parameters == {"P": {"name": "Alice"}}
+
+
+def test_create_node_with_set_and_return():
+    snip = CreateNode().set("Person", name="Alice").with_return()
+    assert snip.statement == "CREATE (a:Person {P}) RETURN a"
+    assert snip.parameters == {"P": {"name": "Alice"}}
+
+
 def test_merge_node():
     snip = MergeNode("Person", "name", "Alice")
-    assert snip.statement == "MERGE (a:Person {name:{V}})"
+    assert snip.statement == "MERGE (:Person {name:{V}})"
     assert snip.parameters == {"V": "Alice"}
 
 
@@ -95,7 +108,7 @@ def test_merge_node_without_property():
     assert snip.primary_label == "Person"
     assert snip.primary_key is None
     assert snip.primary_value is None
-    assert snip.statement == "MERGE (a:Person)"
+    assert snip.statement == "MERGE (:Person)"
     assert snip.parameters == {}
 
 
@@ -110,6 +123,7 @@ def test_merge_node_without_property_with_return():
 
 def test_merge_node_with_extra_values():
     snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234)
+    assert snip.labels == {"Person", "Employee"}
     assert snip.statement == "MERGE (a:Person {name:{V}}) SET a:Employee SET a={P}"
     assert snip.parameters == {"V": "Alice", "P": {"employee_id": 1234, "name": "Alice"}}
 
