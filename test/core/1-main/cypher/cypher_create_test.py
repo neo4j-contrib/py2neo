@@ -20,12 +20,14 @@ from py2neo.core import Node, Relationship, Path, Rel, Rev
 from py2neo.cypher import CreateStatement, CypherError
 
 
-def test_statement_representation_returns_cypher(graph):
+def test_statement_representations_return_cypher(graph):
     node = Node()
     statement = CreateStatement(graph)
     statement.create(node)
-    rep = repr(statement)
-    assert rep == 'CREATE (_0)\nRETURN _0'
+    assert statement.__repr__() == 'CREATE (_0)\nRETURN _0'
+    assert statement.__str__() == 'CREATE (_0)\nRETURN _0'
+    assert statement.__unicode__() == 'CREATE (_0)\nRETURN _0'
+
 
 
 def test_empty_statement_returns_empty_tuple(graph):

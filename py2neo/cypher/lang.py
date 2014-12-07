@@ -37,9 +37,6 @@ class CypherParameter(object):
         self.key = key
         self.value = value
 
-    def __iter__(self):
-        yield (self.key, self.value)
-
 
 class CypherWriter(Writer):
     """ Writer for Cypher data. This can be used to write to any
