@@ -376,11 +376,10 @@ class RecordList(object):
         except IndexError:
             return None
         else:
-            if len(record) == 1:
-                try:
-                    return record[0]
-                except IndexError:
-                    return None
+            if len(record) == 0:
+                return None
+            elif len(record) == 1:
+                return record[0]
             else:
                 return record
 
@@ -496,7 +495,10 @@ class Record(object):
         return out
 
     def __eq__(self, other):
-        return vars(self) == vars(other)
+        try:
+            return vars(self) == vars(other)
+        except TypeError:
+            return tuple(self) == tuple(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
