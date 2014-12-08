@@ -26,6 +26,10 @@ def test_statement_representations_return_cypher(graph):
     statement = DeleteStatement(graph)
     statement.delete(node)
     assert node in statement
-    assert statement.__repr__() == 'MATCH (_0) WHERE id(_0)={_0}\nDELETE _0'
-    assert statement.__str__() == 'MATCH (_0) WHERE id(_0)={_0}\nDELETE _0'
-    assert statement.__unicode__() == 'MATCH (_0) WHERE id(_0)={_0}\nDELETE _0'
+    if graph.supports_start_clause:
+        s = 'START _0=node({_0})\nDELETE _0'
+    else:
+        s = 'MATCH (_0) WHERE id(_0)={_0}\nDELETE _0'
+    assert statement.__repr__() == s
+    assert statement.__str__() == s
+    assert statement.__unicode__() == s
