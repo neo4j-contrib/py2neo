@@ -44,14 +44,12 @@ import random
 from time import time
 
 from py2neo import Graph, GraphError
+from py2neo.cypher import CreateNode
 
 
 CONSONANTS = "bcdfghjklmnprstvwz"
 VOWELS = "aeiou"
 
-CREATE_NODE = """\
-CREATE (:Person {A})
-"""
 CREATE_UNIQUE_RELATIONSHIP = """\
 MATCH (a:Person) WHERE a.user_id = {A}
 MATCH (b:Person) WHERE b.user_id = {B}
@@ -59,7 +57,7 @@ CREATE UNIQUE (a)-[:FOLLOWS]->(b)
 """
 
 
-def random_name_sequence():
+def random_name_generator():
     while True:
         words = []
         for n in range(2):
@@ -69,6 +67,16 @@ def random_name_sequence():
                 word.append(random.choice(CONSONANTS))
             words.append("".join(word))
         yield " ".join(words)
+
+
+random_name = random_name_generator()
+
+
+class CreatePerson(CreateNode):
+
+    def __init__(self, user_id):
+        CreateNode.__init__(self, "Person", user_id=user_id,
+                            name=next(random_name), born=random.randint(1900, 1999))
 
 
 class RandomGraphGenerator(object):
@@ -83,7 +91,6 @@ class RandomGraphGenerator(object):
             print("Highest user_id is %d" % self.max_user_id)
         else:
             self.max_user_id = 0
-        self.names = random_name_sequence()
 
     def create_nodes(self, count, process_every):
         """ Create a number of nodes in a single Cypher transaction.
@@ -91,14 +98,7 @@ class RandomGraphGenerator(object):
         tx = self.graph.cypher.begin()
         for i in range(1, count + 1):
             self.max_user_id += 1
-            parameters = {
-                "A": {
-                    "user_id": self.max_user_id,
-                    "name": next(self.names),
-                    "born": random.randint(1900, 1999),
-                }
-            }
-            tx.append(CREATE_NODE, parameters)
+            tx.append(CreatePerson(self.max_user_id))
             if i % process_every == 0:
                 if i < count:
                     tx.process()
