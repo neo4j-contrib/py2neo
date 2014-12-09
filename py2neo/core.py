@@ -2635,25 +2635,14 @@ class Relationship(Path):
 
 
 class Subgraph(object):
-    """ A collection of :class:`Node` and :class:`Relationship` objects.
+    """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
     """
 
     def __init__(self, *entities):
         self.__nodes = set()
         self.__relationships = set()
         for entity in entities:
-            entity = Graph.cast(entity)
-            if isinstance(entity, Node):
-                self.__nodes.add(entity)
-            elif isinstance(entity, Relationship):
-                self.__nodes.add(entity.start_node)
-                self.__nodes.add(entity.end_node)
-                self.__relationships.add(entity)
-            else:
-                for node in entity.nodes:
-                    self.__nodes.add(node)
-                for relationship in entity.relationships:
-                    self.__relationships.add(relationship)
+            self.add(entity)
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)
@@ -2695,6 +2684,24 @@ class Subgraph(object):
             return True
         else:
             return False
+
+    def add(self, entity):
+        """ Add an entity to the subgraph.
+
+        :arg entity: Entity to add
+        """
+        entity = Graph.cast(entity)
+        if isinstance(entity, Node):
+            self.__nodes.add(entity)
+        elif isinstance(entity, Relationship):
+            self.__nodes.add(entity.start_node)
+            self.__nodes.add(entity.end_node)
+            self.__relationships.add(entity)
+        else:
+            for node in entity.nodes:
+                self.__nodes.add(node)
+            for relationship in entity.relationships:
+                self.__relationships.add(relationship)
 
     @property
     def bound(self):
