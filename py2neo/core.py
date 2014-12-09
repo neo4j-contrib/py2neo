@@ -1213,6 +1213,10 @@ class LabelSet(Service, set):
         self.resource.put(self)
 
     def replace(self, iterable):
+        """ Replace all labels with those from the iterable provided.
+
+        :arg iterable:
+        """
         self.clear()
         self.update(iterable)
 
