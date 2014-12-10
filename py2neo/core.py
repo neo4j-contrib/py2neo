@@ -2674,16 +2674,19 @@ class Subgraph(object):
     def __iter__(self):
         return iter(self.__relationships)
 
-    def __contains__(self, item):
-        if isinstance(item, Node):
-            return item in self.__nodes
-        elif isinstance(item, Path):
-            for relationship in item:
-                if relationship not in self.__relationships:
-                    return False
-            return True
+    def __contains__(self, entity):
+        if isinstance(entity, Node):
+            return entity in self.__nodes
+        elif isinstance(entity, Relationship):
+            return (entity.start_node in self.__nodes and
+                    entity.end_node in self.__nodes and
+                    entity in self.__relationships)
         else:
-            return False
+            try:
+                return (all(node in self for node in entity.nodes) and
+                        all(relationship in self for relationship in entity.relationships))
+            except AttributeError:
+                return False
 
     def add(self, entity):
         """ Add an entity to the subgraph.

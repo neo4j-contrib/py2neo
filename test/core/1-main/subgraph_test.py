@@ -114,3 +114,20 @@ def test_converting_cypher_results_to_subgraph(graph):
     assert not s.bound
     s.unbind()
     assert not s.bound
+
+
+def test_subgraph_add():
+    s = Subgraph()
+    assert len(s) == 0
+    assert s.order == 0
+    assert s.size == 0
+    assert not s.__bool__()
+    assert not s.__nonzero__()
+    assert not s.bound
+    s.add(Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}))
+    assert len(s) == 1
+    assert s.order == 2
+    assert s.size == 1
+    assert s.__bool__()
+    assert s.__nonzero__()
+    assert not s.bound
