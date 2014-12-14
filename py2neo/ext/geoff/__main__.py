@@ -21,7 +21,7 @@ import os
 import sys
 
 from py2neo.core import ServiceRoot
-from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.env import NEO4J_URI
 
 from py2neo.ext.geoff import GeoffLoader
 
@@ -53,7 +53,7 @@ def main():
         _help(sys.argv[0])
         sys.exit(1)
 
-    uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
+    uri = NEO4J_URI.resolve("/")
     service_root = ServiceRoot(uri.string)
 
     loader = GeoffLoader(service_root.graph)
