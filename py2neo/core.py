@@ -2338,8 +2338,13 @@ class Path(object):
 
 class Relationship(Path):
     """ A graph relationship that may optionally be bound to a remote counterpart
-    in a Neo4j database. Relationships require a type name and may contain a set
-    of named :attr:`~py2neo.Node.properties`.
+    in a Neo4j database. Relationships require a triple of start node, relationship
+    type and end node and may also optionally be given one or more properties::
+
+        >>> from py2neo import Node, Relationship
+        >>> alice = Node("Person", name="Alice")
+        >>> bob = Node("Person", name="Bob")
+        >>> alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
 
     .. seealso::
        :class:`py2neo.Rel`
@@ -2422,7 +2427,12 @@ class Relationship(Path):
         cls.cache[self] = inst
         return inst
 
-    def __init__(self, start_node, rel, end_node, **properties):
+    def __init__(self, *triple, **properties):
+        try:
+            start_node, rel, end_node = triple
+        except ValueError:
+            raise TypeError("Relationships require 3 positional arguments: "
+                            "start_node, relationship_type and end_node")
         cast_rel = Rel.cast(rel)
         cast_rel._PropertyContainer__properties.update(properties)
         if isinstance(cast_rel, Rev):  # always forwards

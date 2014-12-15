@@ -429,3 +429,12 @@ def test_rel_never_equals_none():
 def test_only_one_relationship_in_a_relationship():
     rel = Relationship({}, "KNOWS", {})
     assert rel.size == 1
+
+
+def test_relationship_requires_a_triple():
+    try:
+        rel = Relationship({})
+    except TypeError:
+        assert True
+    else:
+        assert False
