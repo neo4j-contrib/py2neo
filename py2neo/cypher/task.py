@@ -18,12 +18,55 @@
 
 from io import StringIO
 
-from py2neo.core import Node, LabelSet, PropertySet, Relationship
+from py2neo.core import Node, LabelSet, PropertySet, Relationship, NodePointer
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
-__all__ = ["CypherTask", "CreateNode", "CreateRelationship", "MergeNode"]
+__all__ = ["Cypher", "Create", "CypherTask", "CreateNode", "CreateRelationship", "MergeNode"]
+
+
+class Cypher(object):
+
+    prefix = None
+    separator = "\n"
+
+    def __init__(self, *parts, **parameters):
+        self.__parts = list(map(ustr, parts))
+        self.__parameters = dict(parameters)
+
+    def __repr__(self):
+        return "<Cypher statement=%r parameters=%r>" % (self.statement, self.parameters)
+
+    def __str__(self):
+        return xstr(self.statement)
+
+    def __unicode__(self):
+        return ustr(self.statement)
+
+    @property
+    def parts(self):
+        return self.__parts
+
+    @property
+    def statement(self):
+        if self.prefix:
+            return "%s %s" % (self.prefix, self.separator.join(self.__parts))
+        else:
+            return self.separator.join(self.__parts)
+
+    @property
+    def parameters(self):
+        return self.__parameters
+
+
+class Create(Cypher):
+
+    prefix = "CREATE"
+    separator = ", "
+
+    def __init__(self, *parts, **parameters):
+        super(Create, self).__init__(*parts, **parameters)
 
 
 class CypherTask(object):
@@ -60,6 +103,9 @@ class CypherTask(object):
 class CreateNode(CypherTask):
     """ :class:`.CypherTask` for creating nodes.
     """
+
+    identifier = "a"
+    properties_parameter_key = "P"
 
     def __init__(self, *labels, **properties):
         CypherTask.__init__(self)
@@ -102,10 +148,11 @@ class CreateNode(CypherTask):
         string = StringIO()
         writer = CypherWriter(string)
         writer.write_literal("CREATE ")
-        writer.write_node(self.__node, "a" if self.__return else None,
-                          CypherParameter("P") if self.__node.properties else None)
+        writer.write_node(self.__node, self.identifier if self.__return else None,
+                          CypherParameter(self.properties_parameter_key) if self.__node.properties
+                          else None)
         if self.__return:
-            writer.write_literal(" RETURN a")
+            writer.write_literal(" RETURN %s" % self.identifier)
         return string.getvalue()
 
     @property
@@ -113,40 +160,59 @@ class CreateNode(CypherTask):
         """ Dictionary of parameters.
         """
         if self.__node.properties:
-            return {"P": self.properties}
+            return {self.properties_parameter_key: self.properties}
         else:
             return {}
 
 
 class CreateRelationship(CypherTask):
-    """ :class:`.CypherTask` for creating nodes.
+    """ :class:`.CypherTask` for creating relationships.
     """
 
-    def __init__(self, *type_, **properties):
+    identifier = "a"
+    properties_parameter_key = "P"
+
+    def __init__(self, *triple, **properties):
         CypherTask.__init__(self)
-        self.__relationship = Relationship(*labels, **properties)
+        rel = Relationship(*triple, **properties)
+        if isinstance(rel.start_node, NodePointer) or isinstance(rel.end_node, NodePointer):
+            raise TypeError("NodePointers cannot be used with CypherTasks")
+        self.__relationship = rel
         self.__return = False
 
     @property
-    def type(self):
-        """ The full set of labels to apply to the created node.
+    def start_node(self):
+        """ The start node of the created relationship.
 
-        :rtype: :class:`py2neo.LabelSet`
+        :rtype: :class:`py2neo.Node`
+        """
+        return self.__relationship.start_node
+
+    @property
+    def end_node(self):
+        """ The end node of the created relationship.
+
+        :rtype: :class:`py2neo.Node`
+        """
+        return self.__relationship.end_node
+
+    @property
+    def type(self):
+        """ The type of the created relationship.`
         """
         return self.__relationship.type
 
     @property
     def properties(self):
-        """ The full set of properties to apply to the created node.
+        """ The full set of properties to apply to the created relationship.
 
         :rtype: :class:`py2neo.PropertySet`
         """
         return self.__relationship.properties
 
-    def set(self, *labels, **properties):
-        """ Extra labels and properties to apply to the node.
+    def set(self, **properties):
+        """ Extra properties to apply to the relationship.
         """
-        self.__relationship.labels.update(labels)
         self.__relationship.properties.update(properties)
         return self
 
@@ -160,6 +226,9 @@ class CreateRelationship(CypherTask):
     def statement(self):
         """ The full Cypher statement.
         """
+        # TODO: MATCH bound nodes, CREATE unbound nodes, CREATE rel, RETURN rel
+        # TODO: chain together CreateNode or MatchNode tasks
+        # StatementChain(MatchOrCreateNode(start_node).named("a"), MatchOrCreate(self.end_node).named("b"), )
         string = StringIO()
         writer = CypherWriter(string)
         writer.write_literal("CREATE ")
