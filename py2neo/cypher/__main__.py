@@ -22,6 +22,7 @@ import sys
 
 from py2neo.core import Relationship, Node, Path
 from py2neo.cypher.error import CypherError, CypherTransactionError
+from py2neo.env import NEO4J_URI
 from py2neo.util import compact
 
 
@@ -85,10 +86,10 @@ class CypherCommandLine(object):
                         values = json.loads("[" + line + "]")
                         p = dict(self.parameters)
                         p.update(zip(columns, values))
-                        self.tx.execute(statement, p)
+                        self.tx.append(statement, p)
         else:
-            self.tx.execute(statement, self.parameters)
-        return self.tx.flush()
+            self.tx.append(statement, self.parameters)
+        return self.tx.process()
 
     def commit(self):
         self.tx.commit()
@@ -119,15 +120,13 @@ def dehydrate(value):
 
 
 def main():
-    import os
     import sys
     from py2neo.core import ServiceRoot
-    from py2neo.packages.httpstream.packages.urimagic import URI
     script, args = sys.argv[0], sys.argv[1:]
     if not args:
         _help(script)
         sys.exit(0)
-    uri = URI(os.getenv("NEO4J_URI", ServiceRoot.DEFAULT_URI)).resolve("/")
+    uri = NEO4J_URI.resolve("/")
     service_root = ServiceRoot(uri.string)
     out = sys.stdout
     output_format = None
