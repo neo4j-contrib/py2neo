@@ -1,7 +1,7 @@
 import pytest
 
-from . import TestBase
 from py2neo.ext.spatial.exceptions import LayerNotFoundError, InvalidWKTError
+from .basetest import TestBase
 
 
 LAYER_NAME = "geometry_layer"

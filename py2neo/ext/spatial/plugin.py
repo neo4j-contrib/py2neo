@@ -14,8 +14,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 try:
     from shapely.geos import ReadingError
     from shapely.wkt import loads as wkt_from_string_loader
@@ -111,8 +109,10 @@ class Spatial(ServerPlugin):
 
     def _get_wkt_from_shape(self, shape):
         if shape.type == POINT:
-            # shapely float precision errors break cypher matches!
-            wkt = dumps(shape, rounding_precision=8)
+            # we ignore the `to_wkt` api because of rounding precision errors
+            # from shapely and because of neo4j dropping trailing zeros, and
+            # we MATCH on wkt strings.
+            wkt = 'POINT ({x} {y})'.format(x=shape.x, y=shape.y)
         else:
             wkt = shape.wkt
 
@@ -195,7 +195,8 @@ class Spatial(ServerPlugin):
                 layer_name=layer_name, default_label=DEFAULT_LABEL,
                 point_label=POINT, multipolygon_label=MULTIPOLYGON,
                 internal_name=NAME_PROPERTY
-        ))
+            )
+        )
 
         graph.cypher.execute(query)
 
@@ -217,7 +218,7 @@ class Spatial(ServerPlugin):
 
     def create_geometry(
             self, geometry_name, wkt_string, layer_name, labels=None,
-            node_id=None):
+            node_id=None, spatial_id=None):
         """ Create a geometry of type Well Known Text (WKT).
 
         Internally this creates a node in your graph with a wkt property
@@ -292,7 +293,7 @@ class Spatial(ServerPlugin):
 
         spatial_data = {
             'geometry': wkt,
-            'layer': layer_name
+            'layer': layer_name,
         }
 
         resource.post(spatial_data)
@@ -454,7 +455,7 @@ class Spatial(ServerPlugin):
         nodes = self._execute_spatial_request(resource, spatial_data)
         return nodes
 
-    def find_closest_geometries(self, coords):
+    def find_closest_geometries(self, coords, distance=4):
         """ Find the "closest" points of interest (poi) accross *all* layers
         from a given lat-lon location coord.
 
@@ -463,6 +464,8 @@ class Spatial(ServerPlugin):
                 WGS84 (EPSG 4326) lat, lon pair
                 Latitude is a decimal number between -90.0 and 90.0
                 Longitude is a decimal number between -180.0 and 180.0
+            distance : int
+                The max distance in km from `coords` to look for geometries.
 
         :Returns:
             a list of all matched nodes
@@ -470,6 +473,7 @@ class Spatial(ServerPlugin):
         """
         resource = self.resources['findClosestGeometries']
         shape = parse_lat_long(coords)
+        # get layer nodes
         query = "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n"
         results = self.graph.cypher.execute(query)
 
@@ -479,16 +483,17 @@ class Spatial(ServerPlugin):
             # this appears to be handled more like a 'tolerance', as increasing
             # the value even slightly returns data from hundreds of kms away.
             # TODO: raise failing spatial PR with Spatial API.
-            'distanceInKm': 4,
+            'distanceInKm': distance,
         }
 
         pois = []
         for record in results:
+            data = spatial_data.copy()
             node = record[0]
             node_properties = node.get_properties()
             layer_name = node_properties['layer']
-            spatial_data['layer'] = layer_name
-            nodes = self._execute_spatial_request(resource, spatial_data)
+            data['layer'] = layer_name
+            nodes = self._execute_spatial_request(resource, data)
             pois.extend(nodes)
 
         return pois

@@ -50,6 +50,12 @@ def spatial(graph):
 
 
 @pytest.fixture
+def layer(spatial):
+    spatial.create_layer(DEFAULT_INDEX_NAME)
+    return DEFAULT_INDEX_NAME
+
+
+@pytest.fixture
 def cornwall_wkt(spatial):
     wkt = 'MULTIPOLYGON (((-4.653215 50.93101, -4.551301 50.92998, \
 -4.454097 50.93213, -4.457686 50.9153, -4.412353 50.86911, \
