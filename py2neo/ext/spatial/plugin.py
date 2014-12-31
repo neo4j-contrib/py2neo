@@ -55,7 +55,7 @@ class Spatial(ServerPlugin):
 
         An OSMLayer (Open Street Map Layer ) is also possible, but because one
         cannot be created over REST, only via the Java OSMImporter api, there
-        is no api to query or manipulate such a layer here.
+        is no api to query or manipulate such layers here.
 
     """
     def __init__(self, graph):
@@ -161,10 +161,6 @@ class Spatial(ServerPlugin):
     def delete_layer(self, layer_name):
         """ Remove a GIS map Layer.
 
-        .. note ::
-            There is no Resource for this action so in the meantime we
-            use the core py2neo cypher api.
-
         This will remove a representation of a GIS map Layer from the Neo4j
         data store - it will not remove any nodes you may have added to it.
 
@@ -183,6 +179,9 @@ class Spatial(ServerPlugin):
             )
 
         graph = self.graph
+
+        # There is no Resource for this action so in the meantime we use
+        # the core py2neo cypher api.
 
         # remove labels and properties on Nodes relating to this layer
         query = (
@@ -320,10 +319,6 @@ class Spatial(ServerPlugin):
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
 
-        .. note ::
-            There is no Resource for this action so in the meantime we
-            use the core py2neo cypher api.
-
         :Params:
             geometry_name : str
                 The unique name of the geometry to delete.
@@ -344,6 +339,9 @@ class Spatial(ServerPlugin):
 
         graph = self.graph
         shape = self._get_shape_from_wkt(wkt_string)
+
+        # There is no Resource for this action so in the meantime we use
+        # the core py2neo cypher api.
 
         # remove the node from the graph
         match = "MATCH (n:{label}".format(label=shape.type)

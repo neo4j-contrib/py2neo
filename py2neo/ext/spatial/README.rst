@@ -22,9 +22,9 @@ Known Text`_ (WKT) geometries over GIS_ map Layers.
 
 .. note::
 
-	| The `Neo4j Spatial Extension`_ must first be installed in your server.
-	| Next you'll need libgeos_.
-	| Finally the Python package Shapely_ is required.
+	| The `Neo4j Spatial Extension`_ must first be installed - check this from a shell: ``curl -v http://localhost:7474/db/data/``.
+	| You'll need libgeos_.
+	| And the Python package Shapely_.
 
 
 Main API
@@ -46,15 +46,14 @@ graph (the map Layer) and a relationship is created binding them together.
 Geoserver Integration
 #####################
 
-The Neo4j Spatial utilities can be integrated with Geoserver_ to create a neo4j *type*
-**datasource**.
+The Neo4j Server Spatial library can be integrated with Geoserver_ to allow the creation of a neo4j *type* **datasource** which you can use to visualise what you've created with Py2neo-Spatial.
 
-When you configure your datasource to point at a neo4j data store that contains Open Street map
-(OSM) layers, you can visualise your maps using Geoserver!
+.. warning::
 
-The Spatial_ server extension does not expose enough of the core Java api for
-py2neoSpatial to implement an `OSMLayer` api, only that for an `EditableLayer`, and py2neoSpatial
-implements this with WKT geometry. 
+	Neo4j server integration to Geoserver is work in progress. Because of this, it's recommened to work from this branch: ``https://github.com/noisyboiler/spatial``
+
+	And it's almost certain that you can help!
+
 
 Prerequisites
 =============
@@ -62,80 +61,96 @@ Prerequisites
 Oracle JDK 7 or OpenJDK 7
 
 Geoserver >= 2.5.2
-- this documentation is based on 2.5.2
 
-Neo4j == 2.1.5
-- this documentation is based on Community Edition 2.1.5
+Neo4j >= 2.1.5
 
 Source of Neo4j Spatial Server Extension
-- this documentation is based neo4j-spatial for Neo4j 2.1.2
+- this documentation is based on the branch ``0.14-neo4j-2.2`` (https://github.com/neo4j-contrib/spatial/tree/0.14-neo4j-2.2)
 
 py2neo latest
-
-note - Geoserver will run it's own Neo4j server and it will want to do this on the default port, 7474. Your preferred server will have to be stopped before visualising your data with Geoserver. It's most likely that you will have to *copy* the data directory from your preferred server (whist it is *not* running) and place this somewhere convienient in you file system - i chose the same folder Geoserver requires to know about for other data.
-
-danger - the version of Neo that your data was created in **must** match that Geoserver is using. It's very easy to forget, and if you grab data from a different version it's likely Geoserver will not spot the spatial data, leaving you with no raised warnings or errors and no fun.
 
 
 Install Geoserver
 =================
 
-There are many ways to achieve this, depending on your OS. I'm lucky enough to do this by :bash:`brew install geoserver`.
+If you do not have a preferred method for your OS, find out how to do it for you from Geoserver_.
 
-If you do not have a preferred method, find out how to do it for you from Geoserver_.
+
+Stop Geoserver
+##############
+
+You may have already started your server in a frenzy of excitement: :bash:`geoserver stop`
+
+
+Build The Spatial Extension
+===========================
+
+Pre-compliled archives do exist, but until an integration test suite between these and Geoserver, it's almost certain you'll need to build from the "supporting" branch.
+
+:bash:`mvn clean package -Dmaven.test.skip=true install`
+
+
+####################################
+Locate Your Geoserver Webapps Folder
+####################################
+
+Locate your Geoserver webapps lib folder, ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib`` - you'll be copying files from Neo4j *and* it's server extension into here.
+
+
+##############################
+Locate Your Neo4j Spatial Jars
+##############################
+
+Locate the Neo4j Spatial Extension archive: ``neo4j-spatial-X.XX-neo4j-X.X.X-server-plugin.zip``. Unzip this.
+
+
+######################
+Locate Your Neo4j Jars
+######################
+
+Locate your Neo4j source lib folder ``$NEO4J_HOME/lib``.
+
+
+Integrate With Geoserver
+========================
+
+From your Neo4j Spatial Jars, copy everyhing but the geotools_ files (these are ones prefixed by 'gt') into ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib`` - Geoserver tends to prefer it's own versions of these. Do this now.
+
+From your Neo4j Jar folder copy *everything* into ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib``.
+
+Do notice the versioning of all files you copy over. If any of these libraries already exists in your Geoserver webapps lib folder and they are older... use your discretion. In my experience, Geoserver tends to prefer it's own versions of geotools_. At the very end of this exercise, if you fail to see any data, come back to these steps with suspicion.
 
 
 Run Geoserver
 =============
 
-The default configuration for Geoserver **will not** allocate enough memeory for the tasks ahead, so do not start Geoserver without allocated extra room.
+The default configuration for Geoserver **will not** allocate enough memeory for the tasks ahead, so do **not** start Geoserver  with :bash:`geoserver start` - you need to allocate extra room.
 
 The following has been sufficient for small datasets, where ``start.jar`` is that from your Geoserver home directory.
 
-:bash:`java -server -Xmx256M -Xms48m -XX:MaxPermSize=128m -DGEOSERVER_DATA_DIR=/path/to/data/ -jar start.jar`
+:bash:`java -server -Xmx256M -Xms48m -XX:MaxPermSize=128m -DGEOSERVER_DATA_DIR=/path/to/data/ -jar /path/to/geoserver/start.jar`
 
 For example, if you installed using homebrew you can expect to find yout ``start.jar`` somewhere like:
 
-:bash:`java -server -Xmx256M -Xms48m -XX:MaxPermSize=128m -DGEOSERVER_DATA_DIR=/usr/local/Cellar/geoserver/2.5.2/libexec -jar start.jar`
+:bash:`java -server -Xmx256M -Xms48m -XX:MaxPermSize=128m -jar /usr/local/Cellar/geoserver/2.5.2/libexec/start.jar`
 
 Check that all is okay: http://localhost:8080/geoserver/web/
+
 Then check you can login.
 
-note - username/password is likely to be admin/geoserver
+.. note::
 
-Configure a workspace now so we can test our integration later. Do this once signed in vai the left sidebar "Workspaces". My imagination came up with "neo".
+	username/password is likely to be admin/geoserver
 
+Configure a workspace from the left sidebar "Workspaces" option. My imagination came up with "neo".
 
-###########################
-Build The Spatial Extension
-###########################
+.. note::
 
-Optionally you can compile from source but it's much easier to download the pre-compliled archive for your server.
+	Geoserver will run it's own Neo4j server and it will want to do this on the default port, 7474. Your preferred server will have to be stopped before visualising your data with Geoserver. It's most likely that you will have to *copy* the data directory from your preferred server (whist it is *not* running) and place this somewhere convienient in you file system - i chose the same folder Geoserver requires to know about for other data.
 
-If you prefer this option, grab the source code for the Spatial_ Extension and run:
+.. warning::
 
-:bash:`mvn clean package -Dmaven.test.skip=true install`
-
-
-########################
-Integrate With Geoserver
-########################
-
-Locate your Geoserver installs webapps lib folder, ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib``. You will place in here the jar archives for neo4j and those of the neo4j spatial extension.
-
-Now *stop* Geoserver if it is running.
-
-Locate your Neo4j Spatial source lib folder ``$NEO4J_HOME/lib``.
-
-A copy of *everything* from here needs to be place in ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib``. Do this now.
-
-Locate the Neo4j Spatial Extension archive: ``neo4j-spatial-X.XX-neo4j-X.X.X-server-plugin.zip``. Unzip this and copy everyhing but the geotools_ files (these are ones prefixed by 'gt') into ``$GEOSERVER_HOME/webapps/geoserver/WEB-INF/lib`` - Geoserver tends to prefer it's own versions of these. Do this now.
-
-Do notice the versioning of all files you copy over. If any of these libraries already exists in your Geoserver webapps lib folder and they are older, overwrite them. If they are newer... use you discretion. However, if your data does not visualise, consider this to be why if you don't use these exact versions.
-
-Now restart Geoserver.
-
-Assuming you did create a workspace you can now go straight to the "Stores" option in the left sidebar. Magically a brand new 'Vector Data Source' should now be visible called 'Neo4j - A datasource backed by a Neo4j Spatial datasource'.
+	the version of Neo that your data was created in **must** match that Geoserver is using. It's very easy to forget and if you grab data from a different version it's likely Geoserver will not spot the spatial data, leaving you with no raised warnings or errors and no fun.
 
 
 ###########################
@@ -148,15 +163,17 @@ For example, to put a MultiPolygon modelling Cornwall on to a GIS layer called "
 
 :bash:`python py2neo/ext/spatial/scripts/load_data.py cornwall --layer uk`
 
-You now have a GIS layer and some data to visualise!
+You now have a GIS layer and a tiny piece of data to visualise!
 
-Go back to the Geoserver web admin: http://localhost:8080/geoserver/web/
+Stop Neo4j (Geoserver will need the port) and go back to the Geoserver web admin: http://localhost:8080/geoserver/web/
 
 Select "Stores", "Add new store", "Neo4j - A datasource backed by a Neo4j Spatial datasource".
 
-Give the source a name, say, "cornwall". The directory path of the Neo4j database should be absolute, e.g. ``/usr/local/Cellar/neo4j/2.1.3/libexec/data/``.
+Give the source a name, say, "cornwall". The directory path of the Neo4j database should be absolute, e.g. ``/usr/local/Cellar/neo4j/2.1.4/libexec/data/``.
 
-note - this does not include the name of the datastore, just the path. including the name of the datastore will lead to long stack traces.
+.. note::
+
+	this does not include the name of the datastore ``graph.db``, just the path. including the name of the datastore will lead to long stack traces.
 
 
 
@@ -182,6 +199,8 @@ java.lang.NoClassDefFoundError: org/neo4j/graphdb/factory/GraphDatabaseFactory
 Solution: Geoserver is not recognising Neo4j. All of Neo4j's source needs to be copied into the webapps lib directory as Geoserver will run it's own neo server. Try this step again.
 
 
-No Layers
+87057 [btpool0-0] WARN  org.geoserver.web.data.store  - Error obtaining new data store
+java.io.IOException....
+Caused by: org.neo4j.graphdb.NotInTransactionException
 
-You've added your datastore that you know has layer data - but Geoserver notices no resources at all.
+	Write **and** reads from Neo are required to be in transactions.
