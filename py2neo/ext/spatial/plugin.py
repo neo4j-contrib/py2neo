@@ -49,13 +49,6 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 class Spatial(ServerPlugin):
     """ An API extension to py2neo for WKT type GIS operations.
-
-    .. note::
-
-        An OSMLayer (Open Street Map Layer ) is also possible, but because one
-        cannot be created over REST, only via the Java OSMImporter api, there
-        is no api to query or manipulate such layers here.
-
     """
     def __init__(self, graph):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
