@@ -192,10 +192,3 @@ def uk_features():
     ]
 
     return features
-
-
-@pytest.fixture
-def hard_lat_long():
-    # this lat-long rounds to oblivion when parsed by Shapely
-    st_pauls = Location('st_pauls', (51.513845, -0.098351))
-    return st_pauls

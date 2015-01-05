@@ -1,15 +1,11 @@
-import pytest
-
 from py2neo.ext.spatial.util import parse_lat_long
 from .basetest import TestBase
 
 
 class TestBasic(TestBase):
     def test_create_and_fetch_point(self, spatial):
-        graph = spatial.graph
         geometry_name = 'basic_test'
         layer_name = 'basic_layer'
-        basic_point = 'basic_point'
 
         spatial.create_layer(layer_name)
 
@@ -24,21 +20,27 @@ class TestBasic(TestBase):
 
         application_node = self.get_application_node(spatial, geometry_name)
 
-        assert application_node
+        node_properties = application_node.properties
+        assert node_properties['_py2neo_geometry_name'] == geometry_name
 
-    def test_precision(self, graph, spatial, layer, hard_lat_long):
-        x = hard_lat_long.coords[0]
-        y = hard_lat_long.coords[1]
+        geometry_node = self.get_geometry_node(spatial, geometry_name)
 
-        shape = parse_lat_long(hard_lat_long.coords)
+        node_properties = geometry_node.properties
+        assert node_properties['wkt'] == 'POINT (5.5 -4.5)'
+        assert node_properties['bbox'] == [5.5, -4.5, 5.5, -4.5]
+
+    def test_precision(self, graph, spatial, layer):
+        x, y = 51.513845, -0.098351
+        shape = parse_lat_long((x, y))
+
+        expected_wkt_string = 'POINT ({x} {y})'.format(x=x, y=y)
 
         assert shape.x == x
         assert shape.y == y
-
-        wkt_string = spatial._get_wkt_from_shape(shape)
+        assert shape.wkt == 'POINT (51.513845 -0.09835099999999999)'
 
         spatial.create_geometry(
-            geometry_name='tricky', wkt_string=wkt_string,
+            geometry_name='tricky', wkt_string=shape.wkt,
             layer_name=layer)
 
         application_node = self.get_application_node(spatial, 'tricky')
@@ -65,5 +67,4 @@ class TestBasic(TestBase):
         properties = geometry_node.properties
 
         wkt = properties['wkt']
-
-        assert wkt == wkt_string
+        assert wkt == expected_wkt_string

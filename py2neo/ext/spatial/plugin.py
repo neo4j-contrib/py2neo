@@ -17,7 +17,6 @@
 try:
     from shapely.geos import ReadingError
     from shapely.wkt import loads as wkt_from_string_loader
-    from shapely.wkt import dumps
 except ImportError:
     print("Please install extension requirements. See README.rst.")
 
