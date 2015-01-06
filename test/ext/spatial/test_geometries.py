@@ -2,10 +2,10 @@ import pytest
 
 from py2neo import Node, Relationship
 
-from . import TestBase
 from py2neo.ext.spatial.exceptions import GeometryExistsError, NodeNotFoundError
 from py2neo.ext.spatial.plugin import NAME_PROPERTY
 from py2neo.ext.spatial.util import parse_lat_long
+from .basetest import TestBase
 
 
 class TestGeometries(TestBase):

@@ -8,7 +8,7 @@ import os
 
 from py2neo.core import Graph
 from py2neo.ext.spatial import Spatial
-    
+
 
 NEO_URL = "http://localhost:{port}/db/data/"
 DEFAULT_DB = NEO_URL.format(port=7474)
@@ -24,7 +24,7 @@ parser.add_argument(
 
 parser.add_argument(
     '--layer', dest='layer_name', action='store',
-    help="""The layer to add the data to. 
+    help="""The layer to add the data to.
     This will be created if it does not already exist.""")
 
 parser.add_argument(

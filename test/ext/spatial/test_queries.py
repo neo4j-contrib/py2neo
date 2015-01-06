@@ -1,8 +1,8 @@
 import pytest
 
-from . import TestBase
 from py2neo.ext.spatial.plugin import NAME_PROPERTY
 from py2neo.ext.spatial.exceptions import LayerNotFoundError
+from .basetest import TestBase
 
 
 class TestQueries(TestBase):
@@ -77,7 +77,7 @@ class TestQueries(TestBase):
     def test_london_not_close(self, spatial, cornish_towns, london_features):
         self.load(spatial, cornish_towns, "cornwall")
         self.load(spatial, london_features, "london")
-        tourist = (50.500000, -4.500000)
+        tourist = (50.500000, -4.500000)  # Bodmin, Cornwall
         pois = spatial.find_closest_geometries(tourist)
 
         assert len(pois) == len(cornish_towns)
