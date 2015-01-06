@@ -50,6 +50,12 @@ def spatial(graph):
 
 
 @pytest.fixture
+def layer(spatial):
+    spatial.create_layer(DEFAULT_INDEX_NAME)
+    return DEFAULT_INDEX_NAME
+
+
+@pytest.fixture
 def cornwall_wkt(spatial):
     wkt = 'MULTIPOLYGON (((-4.653215 50.93101, -4.551301 50.92998, \
 -4.454097 50.93213, -4.457686 50.9153, -4.412353 50.86911, \
@@ -186,10 +192,3 @@ def uk_features():
     ]
 
     return features
-
-
-@pytest.fixture
-def hard_lat_long():
-    # this lat-long rounds to oblivion when parsed by Shapely
-    st_pauls = Location('st_pauls', (51.513845, -0.098351))
-    return st_pauls
