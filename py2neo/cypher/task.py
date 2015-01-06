@@ -69,6 +69,11 @@ class Create(Cypher):
         super(Create, self).__init__(*parts, **parameters)
 
 
+# TODO: SetLabels
+# TODO: SetProperties
+# TODO: SetAdditionalProperties
+
+
 class CypherTask(object):
     """ The `CypherTask` class can either be used directly or as
     a base class for more specific statement implementations.
@@ -353,6 +358,7 @@ class MergeNode(CypherTask):
             for label in self.__labels:
                 writer.write_label(label)
         if self.__properties:
+            # TODO: use SET a+={P} to update properties from map
             writer.write_literal(" SET a={P}")
         if self.__return:
             writer.write_literal(" RETURN a")
