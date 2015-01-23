@@ -201,7 +201,7 @@ class Box(object):
         :arg force: :const:`True` to remove server even if running.
 
         """
-        if self.server.pid and not force:
+        if not force and self.server.pid:
             raise RuntimeError("Cannot remove a running server instance")
         self.warehouse._remove_port(self.name)
         rmtree(self.home, ignore_errors=(not force))
