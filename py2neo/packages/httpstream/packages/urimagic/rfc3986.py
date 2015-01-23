@@ -228,7 +228,7 @@ class Authority(Part):
 
     @classmethod
     def _parse_host_port(cls, string):
-        host, colon, port = string.rpartition(":")
+        host, colon, port = string.partition(":")
         if colon:
             return host, int(port)
         else:
