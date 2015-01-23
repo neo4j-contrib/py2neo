@@ -29,6 +29,13 @@ from py2neo.server import download, dist_archive_name, GraphServer
 __all__ = ["Warehouse", "Box"]
 
 
+# Workaround for Python 2
+try:
+    FileExistsError
+except NameError:
+    FileExistsError = OSError
+
+
 class Warehouse(object):
     """ Container for Neo4j :class:`.Box` installations.
 
