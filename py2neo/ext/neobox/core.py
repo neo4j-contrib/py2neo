@@ -188,7 +188,7 @@ class Box(object):
         os.makedirs(inst_path)
         # The Python tarfile module doesn't seem to recognise the Neo4j tar format :-(
         check_output("tar -x -C \"%s\" -f \"%s\"" % (inst_path, filename), shell=True)
-        os.symlink(os.listdir(inst_path)[0], self.server.home)
+        os.symlink(os.listdir(inst_path)[0], os.path.join(inst_path, "neo4j"))
         port = self.warehouse._assign_port(self.name)
         server = self.server
         server.update_server_properties(webserver_port=port, webserver_https_port=(port + 1))
