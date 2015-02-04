@@ -1,9 +1,16 @@
 language: python
 
 python:
-  - "2.7"
-  - "3.3"
-  - "3.4"
+  - '2.7'
+  - '3.3'
+  - '3.4'
 
 script:
   - ONLINE=1 ./bau test
+
+after_success:
+  - coveralls
+
+env:
+  global:
+    secure: kyJzbnvLIGOyHE+erM7uOmpGQqW9JnCRLdhIegMfWrPDvk3gneTcvLHfJebJSuqObuL7/7NlenjvJ4MFocBhNIPS4smzyK+2mDgNZIJkPBPl84swDgr50M3u6Id4bTYPudc1BhmJXsgTBicZqZre2TAgA7p5Dye7fOI6DXERoLs=
