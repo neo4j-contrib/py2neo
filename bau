@@ -225,6 +225,11 @@ function neo4j {
             neo4j_set_dist
             neo4j_stop
             ;;
+        restart)
+            neo4j_set_dist
+            neo4j_stop
+            neo4j_start
+            ;;
         *)
             ;;
     esac
