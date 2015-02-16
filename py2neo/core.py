@@ -25,7 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
-from py2neo.env import NEO4J_AUTH_TOKEN, NEO4J_URI
+from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
@@ -39,7 +39,7 @@ from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr,
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "familiar", "set_auth_token", "rewrite",
+           "authenticate", "familiar", "rewrite",
            "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate"]
 
 
@@ -81,8 +81,9 @@ def _get_headers(host_port):
 
 
 def authenticate(host_port, user_name, password, realm=None):
-    """ Set HTTP basic authentication values for specified `host_port`. The
-    code below shows a simple example::
+    """ Set HTTP basic authentication values for specified `host_port` for use
+    with both Neo4j 2.2 built-in authentication as well as if a database server
+    is behind (for example) an Apache proxy. The code below shows a simple example::
 
         from py2neo import authenticate, Graph
 
@@ -126,19 +127,6 @@ def familiar(*objects):
         if len(service_roots) > 1:
             return False
     return True
-
-
-def set_auth_token(host_port, token):
-    """ Set the auth token for the specified `host_port`. This only applies
-    to server version 2.2 and above when authentication is turned on. An
-    alternative to using this function is to supply a token value in the
-    ``NEO4J_AUTH_TOKEN`` environment variable, from where it will be
-    automatically applied.
-
-    :arg host_port: the host and optional port requiring authentication
-    :arg token: a valid auth token
-    """
-    authenticate(host_port, "", token, "Neo4j")
 
 
 def rewrite(from_scheme_host_port, to_scheme_host_port):
@@ -491,8 +479,9 @@ class ServiceRoot(object):
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            if NEO4J_AUTH_TOKEN:
-                set_auth_token(URI(uri).host_port, NEO4J_AUTH_TOKEN)
+            if NEO4J_AUTH:
+                user_name, password = NEO4J_AUTH.partition(":")[0::2]
+                authenticate(URI(uri).host_port, user_name, password)
             inst = super(ServiceRoot, cls).__new__(cls)
             inst.__resource = Resource(uri)
             inst.__graph = None

@@ -18,10 +18,11 @@
 
 from __future__ import print_function
 
+import base64
 import os
 import sys
 
-from py2neo import GraphError, Resource, Service, ServiceRoot
+from py2neo import GraphError, Service, ServiceRoot
 from py2neo.env import NEO4J_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
 from py2neo.util import ustr
@@ -31,38 +32,48 @@ HELP = """\
 Usage: {script} «user_name» «password» [«new_password»]
 
 Authenticate against a Neo4j database server, optionally changing
-the password.
+the password. If no new password is supplied, a simple auth check
+is carried out and a response is output describing whether or not
+a password change is required. If the new password is supplied, a
+password change is attempted.
 
 Report bugs to nigel@py2neo.org
 """
 
 
-class AuthenticationError(GraphError):
-    """ Authentication failed with the supplied credentials.
+def auth_header_value(user_name, password, realm=None):
+    """ Construct a value for the Authorization header based on the
+    credentials supplied.
+
+    :param user_name: the user name
+    :param password: the password
+    :param realm: the realm (optional)
+    :return: string to be included in Authorization header
     """
+    credentials = (user_name + ":" + password).encode("UTF-8")
+    if realm:
+        value = 'Basic realm="' + realm + '" '
+    else:
+        value = 'Basic '
+    value += base64.b64encode(credentials).decode("ASCII")
+    return value
 
 
-class PasswordChangeRequired(GraphError):
-    """ A new password is required before authentication can occur.
-    """
-
-
-class Authentication(Service):
-    """ Authentication management service.
+class UserManager(Service):
+    """ User management service.
     """
 
     @classmethod
-    def for_service(cls, service_root):
-        """ Fetch an Authentication instance for a given service root.
+    def for_user(cls, service_root, user_name, password):
+        """ Fetch a UserManager instance for a given service root and user name.
 
         :param service_root: A valid :class:`py2neo.ServiceRoot` instance.
-        :rtype: :class:`.Authentication`
+        :rtype: :class:`.UserManager`
         """
-        try:
-            return cls(service_root.resource.metadata["authentication"])
-        except KeyError:
-            raise NotImplementedError("Authentication is not required for the service "
-                                      "at %r" % service_root.uri.string)
+        uri = service_root.uri.resolve("/user/%s" % user_name)
+        inst = cls(uri)
+        inst.resource.headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
+        return inst
 
     __instances = {}
 
@@ -73,47 +84,33 @@ class Authentication(Service):
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            inst = super(Authentication, cls).__new__(cls)
+            inst = super(UserManager, cls).__new__(cls)
             inst.bind(uri)
             cls.__instances[uri] = inst
         return inst
 
-    def refresh(self, user_name, password):
-        """ Perform authentication to refresh the stored metadata.
-
-        :arg user_name: Name of user to authenticate as.
-        :arg password: The current password for this user.
+    def refresh(self):
+        """ Refresh the stored metadata.
         """
-        try:
-            self.metadata = self.resource.post({"username": user_name,
-                                                "password": password}).content
-        except GraphError as error:
-            if error.response.status_code == UNPROCESSABLE_ENTITY:
-                raise AuthenticationError("Cannot authenticate for user %r" % user_name)
-            else:
-                raise
+        rs = self.resource.get()
+        self.metadata = rs.content
 
-    def authenticate(self, user_name, password, new_password=None):
-        """ Authenticate to retrieve an auth token.
+    @property
+    def user_name(self):
+        self.refresh()
+        return self.metadata["username"]
 
-        :arg service_root: The :class:`py2neo.ServiceRoot` object requiring authentication.
-        :arg user_name: Name of user to authenticate as.
-        :arg password: The current password for this user.
-        :arg new_password: A new password (optional, must not match the current password).
-        :return: A valid auth token.
-        :raise ValueError: If the new password supplied is invalid.
-        :raise AuthenticationError: If the user cannot be authenticated.
-        """
-        self.refresh(user_name, password)
-        if new_password is None:
-            if self.metadata["password_change_required"]:
-                raise PasswordChangeRequired("A password change is required for the service "
-                                             "at %r" % self.service_root.uri.string)
-            else:
-                return self.metadata.get("authorization_token")
-        else:
-            password_manager = PasswordManager(self.metadata["password_change"])
-            return password_manager.change(password, new_password)
+    @property
+    def password_manager(self):
+        self.refresh()
+        password_manager = PasswordManager(self.metadata["password_change"])
+        password_manager.resource.headers["Authorization"] = self.resource.headers["Authorization"]
+        return password_manager
+
+    @property
+    def password_change_required(self):
+        self.refresh()
+        return self.metadata["password_change_required"]
 
 
 class PasswordManager(Service):
@@ -131,7 +128,7 @@ class PasswordManager(Service):
             cls.__instances[uri] = inst
         return inst
 
-    def change(self, password, new_password):
+    def change(self, new_password):
         """ Change the authentication password.
 
         :arg password: The current password.
@@ -140,30 +137,14 @@ class PasswordManager(Service):
         :raise ValueError: If the new password is invalid.
         """
         try:
-            response = self.resource.post({"password": password, "new_password": new_password})
+            response = self.resource.post({"password": new_password})
         except GraphError as error:
             if error.response.status_code == UNPROCESSABLE_ENTITY:
                 raise ValueError("Cannot change password")
             else:
                 raise
         else:
-            return response.content.get("authorization_token")
-
-
-def get_auth_token(uri, user_name, password, new_password=None):
-    """ Authenticate to retrieve an auth token.
-
-    :arg uri: The root URI for the service requiring authentication.
-    :arg user_name: Name of user to authenticate as.
-    :arg password: The current password for this user.
-    :arg new_password: A new password (optional, must not match the current password).
-    :return: A valid auth token.
-    :raise AuthenticationError: If the user cannot be authenticated.
-    :raise ValueError: If the new password value is invalid.
-
-    """
-    auth = Authentication.for_service(ServiceRoot(uri))
-    return auth.authenticate(user_name, password, new_password)
+            return response.status_code == 200
 
 
 def _help(script):
@@ -172,17 +153,30 @@ def _help(script):
 
 def main():
     script, args = sys.argv[0], sys.argv[1:]
+    if len(args) < 2 or len(args) > 3:
+        _help(script)
+        return
     try:
-        if args:
-            if 2 <= len(args) <= 3:
-                print(get_auth_token(NEO4J_URI, *args))
+        service_root = ServiceRoot(NEO4J_URI)
+        user_name = args[0]
+        password = args[1]
+        user_manager = UserManager.for_user(service_root, user_name, password)
+        if len(args) == 2:
+            # Check password
+            if user_manager.password_change_required:
+                print("Password change required")
             else:
-                _help(script)
+                print("Password change not required")
         else:
-            _help(script)
+            # Change password
+            password_manager = user_manager.password_manager
+            new_password = args[2]
+            if password_manager.change(new_password):
+                print("Password change succeeded")
+            else:
+                print("Password change failed")
     except Exception as error:
-        sys.stderr.write(ustr(error))
-        sys.stderr.write("\n")
+        sys.stderr.write("%s: %s\n" % (error.__class__.__name__, ustr(error)))
         sys.exit(1)
 
 

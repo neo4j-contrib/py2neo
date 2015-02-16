@@ -19,7 +19,7 @@ LATEST_1_8_VERSION="1.8.3"
 LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
 LATEST_2_1_VERSION="2.1.6"
-LATEST_2_2_VERSION="2.2.0-M01"
+LATEST_2_2_VERSION="2.2.0-M04"
 LATEST_VERSION=$LATEST_2_2_VERSION
 
 SELF=$0
@@ -71,8 +71,10 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
+        NEW_PASSWORD="password"
+        python -m py2neo.password neo4j neo4j $NEW_PASSWORD 2> /dev/null
         export NEO4J_HOME="$HOME"
-        export NEO4J_AUTH_TOKEN=$(python -m py2neo.password neo4j neo4j password)
+        export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
         if [ "$1" == "" ]
         then
             py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
