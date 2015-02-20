@@ -72,7 +72,7 @@ class UserManager(Service):
         """
         uri = service_root.uri.resolve("/user/%s" % user_name)
         inst = cls(uri)
-        inst.resource.headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
+        inst.resource._headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
         return inst
 
     __instances = {}
@@ -104,7 +104,8 @@ class UserManager(Service):
     def password_manager(self):
         self.refresh()
         password_manager = PasswordManager(self.metadata["password_change"])
-        password_manager.resource.headers["Authorization"] = self.resource.headers["Authorization"]
+        password_manager.resource._headers["Authorization"] = \
+            self.resource._headers["Authorization"]
         return password_manager
 
     @property
@@ -175,6 +176,7 @@ def main():
                 print("Password change succeeded")
             else:
                 print("Password change failed")
+                sys.exit(2)
     except Exception as error:
         sys.stderr.write("%s: %s\n" % (error.__class__.__name__, ustr(error)))
         sys.exit(1)

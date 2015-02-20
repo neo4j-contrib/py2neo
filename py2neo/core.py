@@ -164,7 +164,7 @@ class Resource(_Resource):
     #: The class of error raised by failure responses from this resource.
     error_class = GraphError
 
-    def __init__(self, uri, metadata=None):
+    def __init__(self, uri, metadata=None, headers=None):
         uri = URI(uri)
         scheme_host_port = (uri.scheme, uri.host, uri.port)
         if scheme_host_port in _http_rewrites:
@@ -176,7 +176,7 @@ class Resource(_Resource):
         if uri.user_info:
             authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource.__init__(self, uri)
-        self.__headers = _get_headers(self.__uri__.host_port)
+        self._headers = dict(headers or {})
         self.__base = super(Resource, self)
         if metadata is None:
             self.__initial_metadata = None
@@ -204,7 +204,9 @@ class Resource(_Resource):
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        return self.__headers
+        headers = _get_headers(self.__uri__.host_port)
+        headers.update(self._headers)
+        return headers
 
     @property
     def metadata(self):
@@ -255,7 +257,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.__headers, **(headers or {}))
+        headers = dict(self.headers, **(headers or {}))
         kwargs.update(cache=True)
         try:
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
@@ -281,7 +283,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.__headers, **(headers or {}))
+        headers = dict(self.headers, **(headers or {}))
         try:
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -305,7 +307,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.__headers, **(headers or {}))
+        headers = dict(self.headers, **(headers or {}))
         try:
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
@@ -328,7 +330,7 @@ class Resource(_Resource):
         :rtype: :class:`httpstream.Response`
         :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.__headers, **(headers or {}))
+        headers = dict(self.headers, **(headers or {}))
         try:
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:

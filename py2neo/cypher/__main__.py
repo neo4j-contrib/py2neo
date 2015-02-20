@@ -20,7 +20,7 @@ import json
 import os
 import sys
 
-from py2neo.core import Relationship, Node, Path
+from py2neo.core import authenticate, Node, Relationship, Path
 from py2neo.cypher.error import CypherError, CypherTransactionError
 from py2neo.env import NEO4J_URI
 from py2neo.util import compact
@@ -30,6 +30,10 @@ HELP = """\
 Usage: {script} [«options»] «statement» [ [«options»] «statement» ... ]
 
 Execute a Cypher statement against a Neo4j database.
+
+General Options:
+  -? --help              display this help text
+  -A --auth «user:pass»  set auth details
 
 Formatting Options:
   -c --csv    write output as comma separated values
@@ -131,11 +135,16 @@ def main():
     out = sys.stdout
     output_format = None
     command_line = CypherCommandLine(service_root.graph)
-    command_line.begin()
     while args:
         arg = args.pop(0)
         if arg.startswith("-"):
-            if arg in ("-p", "--parameter"):
+            if arg in ("-?", "--help"):
+                _help(script)
+                sys.exit(0)
+            elif arg in ("-A", "--auth"):
+                user_name, password = args.pop(0).partition(":")[0::2]
+                authenticate(service_root.uri.host_port, user_name, password)
+            elif arg in ("-p", "--parameter"):
                 key = args.pop(0)
                 value = args.pop(0)
                 command_line.set_parameter(key, value)
@@ -152,6 +161,8 @@ def main():
             else:
                 raise ValueError("Unrecognised option %s" % arg)
         else:
+            if not command_line.tx:
+                command_line.begin()
             try:
                 results = command_line.execute(arg)
             except CypherError as error:
@@ -179,11 +190,12 @@ def main():
                     else:
                         out.write(repr(result))
                     out.write("\n")
-    try:
-        command_line.commit()
-    except CypherTransactionError as error:
-        sys.stderr.write(error.args[0])
-        sys.stderr.write("\n")
+    if command_line.tx:
+        try:
+            command_line.commit()
+        except CypherTransactionError as error:
+            sys.stderr.write(error.args[0])
+            sys.stderr.write("\n")
 
 
 if __name__ == "__main__":
