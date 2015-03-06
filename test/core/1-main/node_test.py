@@ -381,3 +381,14 @@ def test_can_merge_unsaved_changes_when_querying_node(graph):
     _ = list(alice.match_outgoing("KNOWS"))
     assert alice.properties == {"name": "Alice", "age": 33}
 
+
+def test_will_error_when_refreshing_deleted_node(graph):
+    node = Node()
+    graph.create(node)
+    graph.delete(node)
+    try:
+        node.refresh()
+    except GraphError:
+        assert True
+    else:
+        assert False
