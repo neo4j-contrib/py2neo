@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 #
 # Py2neo documentation build configuration file, created by
 # sphinx-quickstart on Fri Oct 17 16:03:15 2014.

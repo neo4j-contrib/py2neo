@@ -1,4 +1,4 @@
-#/usr/bin/env python
+#!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small

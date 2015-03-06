@@ -11669,7 +11669,7 @@ PyMODINIT_FUNC PyInit_cjsonstream(void)
 
   /* "jsonstream/cjsonstream.pyx":1
  * #!/usr/bin/env python             # <<<<<<<<<<<<<<
- * # -*- coding: utf-8 -*-
+ * # -*- encoding: utf-8 -*-
  * 
  */
   __pyx_t_2 = PyDict_New(); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}

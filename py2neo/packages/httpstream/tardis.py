@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 # Bits and pieces copied from Python 3.3 source code for use with earlier versions.
 
