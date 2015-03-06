@@ -510,11 +510,7 @@ class ServiceRoot(object):
             try:
                 uri = self.resource.metadata["data"]
             except KeyError:
-                if "authentication" in self.resource.metadata:
-                    self.resource._Resource__last_get_response = None
-                    raise Unauthorized(self.uri)
-                else:
-                    raise GraphError("No graph available for service <%s>" % self.uri)
+                raise GraphError("No graph available for service <%s>" % self.uri)
             else:
                 self.__graph = Graph(uri)
         return self.__graph
