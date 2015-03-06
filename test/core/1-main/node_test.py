@@ -247,10 +247,15 @@ class TestConcreteNode(object):
 
 class TestNode(object):
 
+    graph = None
+    fred = None
+    wilma = None
+    fred_and_wilma = None
+
     @pytest.fixture(autouse=True)
     def setup(self, graph):
-        self.gdb = graph
-        self.fred, self.wilma, self.fred_and_wilma = self.gdb.create(
+        self.graph = graph
+        self.fred, self.wilma, self.fred_and_wilma = self.graph.create(
             {"name": "Fred"}, {"name": "Wilma"}, (0, "REALLY LOVES", 1)
         )
 
@@ -271,7 +276,6 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_get_all_incoming_relationships(self):
-        #rels = self.wilma.get_relationships(neo4j.Direction.INCOMING)
         rels = list(self.wilma.match_incoming())
         assert len(rels) == 1
         assert isinstance(rels[0], neo4j.Relationship)
@@ -280,7 +284,6 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_get_all_relationships_of_type(self):
-        #rels = self.fred.get_relationships(neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES"))
         assert len(rels) == 1
         assert isinstance(rels[0], neo4j.Relationship)
@@ -289,7 +292,6 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_get_single_relationship(self):
-        #rel = self.fred.get_single_relationship(neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES", limit=1))
         assert isinstance(rels[0], neo4j.Relationship)
         assert rels[0].type == "REALLY LOVES"
@@ -297,7 +299,6 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_get_single_outgoing_relationship(self):
-        #rel = self.fred.get_single_relationship(neo4j.Direction.OUTGOING, "REALLY LOVES")
         rels = list(self.fred.match_outgoing("REALLY LOVES", limit=1))
         assert isinstance(rels[0], neo4j.Relationship)
         assert rels[0].type == "REALLY LOVES"
@@ -305,7 +306,6 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_get_single_incoming_relationship(self):
-        #rel = self.wilma.get_single_relationship(neo4j.Direction.INCOMING, "REALLY LOVES")
         rels = list(self.wilma.match_incoming("REALLY LOVES",
                                               start_node=self.fred, limit=1))
         assert isinstance(rels[0], neo4j.Relationship)
@@ -314,43 +314,37 @@ class TestNode(object):
         assert rels[0].end_node == self.wilma
 
     def test_explicit_is_related_to(self):
-        #self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES"))
         matched = list(self.fred.match("REALLY LOVES", other_node=self.wilma,
                                        limit=1))
         assert matched
 
     def test_explicit_is_related_to_outgoing(self):
-        #self.assertTrue(self.fred.is_related_to(self.wilma, neo4j.Direction.OUTGOING, "REALLY LOVES"))
         matched = list(self.fred.match_outgoing("REALLY LOVES",
                                                 end_node=self.wilma, limit=1))
         assert matched
 
     def test_explicit_is_related_to_incoming(self):
-        #self.assertFalse(self.fred.is_related_to(self.wilma, neo4j.Direction.INCOMING, "REALLY LOVES"))
         matched = list(self.fred.match_incoming("REALLY LOVES",
                                                  start_node=self.wilma, limit=1))
         assert not matched
 
     def test_implicit_is_related_to(self):
-        #self.assertTrue(self.fred.is_related_to(self.wilma))
         matches = list(self.fred.match(other_node=self.wilma))
         assert matches
 
     def test_is_not_related_to(self):
-        homer, = self.gdb.create({"name": "Homer"})
-        #self.assertFalse(self.fred.is_related_to(homer))
+        homer, = self.graph.create({"name": "Homer"})
         matches = list(self.fred.match(other_node=homer))
         assert not matches
 
     def test_get_relationships_with(self):
-        #rels = self.fred.get_relationships_with(self.wilma, neo4j.Direction.EITHER, "REALLY LOVES")
         rels = list(self.fred.match("REALLY LOVES", other_node=self.wilma))
         assert len(rels) == 1
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
 
     def tearDown(self):
-        self.gdb.delete(self.fred_and_wilma, self.fred, self.wilma)
+        self.graph.delete(self.fred_and_wilma, self.fred, self.wilma)
 
 
 def test_node_degree(graph):
