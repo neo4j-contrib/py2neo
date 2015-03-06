@@ -9,7 +9,7 @@ carefully designed to be easy and intuitive to use.
 Releases
 ========
 
-The latest release of py2neo is **2.0.5**. Documentation for **1.6.4**
+The latest release of py2neo is **2.0.6**. Documentation for **1.6.4**
 is available `here </1.6/>`_.
 
 
