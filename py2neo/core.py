@@ -80,7 +80,7 @@ def _get_headers(host_port):
     return uri_headers
 
 
-def authenticate(host_port, user_name, password, realm=None):
+def authenticate(host_port, user_name, password):
     """ Set HTTP basic authentication values for specified `host_port` for use
     with both Neo4j 2.2 built-in authentication as well as if a database server
     is behind (for example) an Apache proxy. The code below shows a simple example::
@@ -101,14 +101,9 @@ def authenticate(host_port, user_name, password, realm=None):
         (e.g. "bigserver", "camelot:7474")
     :arg user_name: the user name to authenticate as
     :arg password: the password
-    :arg realm: the authentication realm
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
-    if realm:
-        value = 'Basic realm="' + realm + '" '
-    else:
-        value = 'Basic '
-    value += base64.b64encode(credentials).decode("ASCII")
+    value = 'Basic ' + base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
 
 
