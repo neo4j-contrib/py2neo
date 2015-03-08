@@ -1,4 +1,10 @@
-[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=release%2F2.0)](https://travis-ci.org/nigelsmall/py2neo)
+[![Latest Version](https://img.shields.io/pypi/v/py2neo.svg)](https://pypi.python.org/pypi/py2neo/)
+[![Downloads](https://img.shields.io/pypi/dm/py2neo.svg)](https://pypi.python.org/pypi/py2neo/)
+[![Build Status](https://img.shields.io/travis/nigelsmall/py2neo/release%2F2.0.5.svg)](https://travis-ci.org/nigelsmall/py2neo)
+[![Coverage](https://img.shields.io/coveralls/jlirochon/py2neo/release%2F2.0.5.svg)](https://coveralls.io/r/jlirochon/py2neo)
+
+[![License](https://img.shields.io/pypi/l/py2neo.svg)](https://pypi.python.org/pypi/py2neo/)
+[![Supported Python versions](https://pypip.in/py_versions/py2neo/badge.svg?style=flat)](https://pypi.python.org/pypi/py2neo/)
 
 Py2neo 2.0
 ==========
