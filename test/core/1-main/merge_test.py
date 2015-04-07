@@ -55,6 +55,30 @@ def test_cannot_merge_empty_label(graph):
         assert False
 
 
+def test_cannot_merge_with_non_textual_property_key(graph):
+    if not graph.supports_node_labels:
+        return
+    label = uuid4().hex
+    try:
+        _ = list(graph.merge(label, 123, 456))
+    except TypeError:
+        assert True
+    else:
+        assert False
+
+
+def test_cannot_merge_with_dict_property_key(graph):
+    if not graph.supports_node_labels:
+        return
+    label = uuid4().hex
+    try:
+        _ = list(graph.merge(label, {}))
+    except TypeError:
+        assert True
+    else:
+        assert False
+
+
 def test_cannot_merge_on_key_only(graph):
     if not graph.supports_node_labels:
         return

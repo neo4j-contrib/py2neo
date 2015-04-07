@@ -919,12 +919,14 @@ class Graph(Service):
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
+        elif not is_string(property_key):
+            raise TypeError("Property key must be textual")
         elif property_value is None:
             raise ValueError("Both key and value must be specified for a property")
         else:
             statement = "MERGE (n:%s {%s:{V}}) RETURN n,labels(n)" % (
                 cypher_escape(label), cypher_escape(property_key))
-            parameters = {"V": property_value}
+            parameters = {"V": cast_property(property_value)}
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
