@@ -128,7 +128,7 @@ Neo4j has a built-in data query and manipulation language called
 the :attr:`cypher <py2neo.Graph.cypher>` attribute of a :class:`Graph <py2neo.Graph>` instance and
 call the :func:`execute <py2neo.cypher.CypherResource.execute>` method::
 
-    >>> graph.cypher.execute("CREATE (c:Person {name:{N}}) RETURN c", {"N": Carol})
+    >>> graph.cypher.execute("CREATE (c:Person {name:{N}}) RETURN c", {"N": "Carol"})
        | c
     ---+----------------------------
      1 | (n2:Person {name:"Carol"})
