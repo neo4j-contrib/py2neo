@@ -1411,6 +1411,10 @@ class Node(PropertyContainer):
             new_inst = cls()
             new_inst.__stale.update({"labels", "properties"})
             inst = cls.cache.setdefault(self, new_inst)
+            # The check below is a workaround for http://bugs.python.org/issue19542
+            # See also: https://github.com/nigelsmall/py2neo/issues/391
+            if inst is None:
+                inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
         inst.bind(self, data)
         if "data" in data:
@@ -1756,6 +1760,10 @@ class Rel(PropertyContainer):
             new_inst = cls()
             new_inst.__stale.update({"properties"})
             inst = cls.cache.setdefault(self, new_inst)
+            # The check below is a workaround for http://bugs.python.org/issue19542
+            # See also: https://github.com/nigelsmall/py2neo/issues/391
+            if inst is None:
+                inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
         inst.bind(self, data)
         inst.__type = data.get("type")
@@ -2407,9 +2415,14 @@ class Relationship(Path):
         """
         self = data["self"]
         if inst is None:
-            inst = cls.cache.setdefault(self, cls(Node.hydrate({"self": data["start"]}),
-                                                  Rel.hydrate(data),
-                                                  Node.hydrate({"self": data["end"]})))
+            new_inst = cls(Node.hydrate({"self": data["start"]}),
+                           Rel.hydrate(data),
+                           Node.hydrate({"self": data["end"]}))
+            inst = cls.cache.setdefault(self, new_inst)
+            # The check below is a workaround for http://bugs.python.org/issue19542
+            # See also: https://github.com/nigelsmall/py2neo/issues/391
+            if inst is None:
+                inst = cls.cache[self] = new_inst
         else:
             Node.hydrate({"self": data["start"]}, inst.start_node)
             Node.hydrate({"self": data["end"]}, inst.end_node)
