@@ -11,8 +11,8 @@ carefully designed to be easy and intuitive to use.
 Requirements
 ------------
 
-- Python 2.7, 3.3 or 3.4
-- Neo4j 1.8, 1.9, 2.0 or 2.1 (latest point release of each version is recommended)
+- Python 2.7 / 3.3 / 3.4
+- Neo4j 1.8 / 1.9 / 2.0 / 2.1 / 2.2 (the latest point release of each version is recommended)
 
 
 Installation
