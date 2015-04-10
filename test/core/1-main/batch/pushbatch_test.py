@@ -16,7 +16,31 @@
 # limitations under the License.
 
 
-from py2neo import Rel
+from py2neo import Node, Rel
+from py2neo.batch import BatchError
+
+
+def test_can_push_node(graph):
+    alice = Node(name="Alice")
+    graph.create(alice)
+    alice.properties["age"] = 33
+    graph.push(alice)
+    node_id = alice._id
+    Node.cache.clear()
+    node = graph.node(node_id)
+    assert node.properties["age"] == 33
+
+
+def test_cannot_push_empty_list_property(graph):
+    alice = Node(name="Alice")
+    graph.create(alice)
+    alice.properties["faults"] = []
+    try:
+        graph.push(alice)
+    except BatchError:
+        assert True
+    else:
+        assert False
 
 
 def test_can_push_rel(graph):

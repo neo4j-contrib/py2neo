@@ -91,7 +91,8 @@ class BatchResource(Service):
         return response
 
     def run(self, batch):
-        """ Execute a collection of jobs and discard any response.
+        """ Execute a collection of jobs and discard any response. Note that
+        as the response is discarded, any errors returned will be hidden.
 
         :arg batch: A :class:`.Batch` of jobs.
 

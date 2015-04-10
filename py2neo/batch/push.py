@@ -70,4 +70,4 @@ class PushBatch(Batch):
         """ Push details from all entities in this batch to their
         remote counterparts.
         """
-        self.graph.batch.run(self)
+        self.graph.batch.submit(self)
