@@ -508,7 +508,15 @@ class ServiceRoot(object):
         """
         if self.__graph is None:
             try:
-                uri = self.resource.metadata["data"]
+                # The graph URI used to be determined via
+                # discovery but another HTTP call sometimes
+                # caused problems in the middle of other
+                # operations (such as hydration) when using
+                # concurrent code. Therefore, the URI is now
+                # constructed manually.
+                #
+                # uri = self.resource.metadata["data"]
+                uri = self.uri.string + "db/data/"
             except KeyError:
                 raise GraphError("No graph available for service <%s>" % self.uri)
             else:
