@@ -18,12 +18,12 @@
 
 from io import StringIO
 
-from py2neo.core import Node, LabelSet, PropertySet, Relationship
+from py2neo.core import Node, LabelSet, PropertySet
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
-__all__ = ["CypherTask", "CreateNode", "CreateRelationship", "MergeNode"]
+__all__ = ["CypherTask", "CreateNode", "MergeNode"]
 
 
 class CypherTask(object):
@@ -113,67 +113,6 @@ class CreateNode(CypherTask):
         """ Dictionary of parameters.
         """
         if self.__node.properties:
-            return {"P": self.properties}
-        else:
-            return {}
-
-
-class CreateRelationship(CypherTask):
-    """ :class:`.CypherTask` for creating nodes.
-    """
-
-    def __init__(self, *type_, **properties):
-        CypherTask.__init__(self)
-        self.__relationship = Relationship(*labels, **properties)
-        self.__return = False
-
-    @property
-    def type(self):
-        """ The full set of labels to apply to the created node.
-
-        :rtype: :class:`py2neo.LabelSet`
-        """
-        return self.__relationship.type
-
-    @property
-    def properties(self):
-        """ The full set of properties to apply to the created node.
-
-        :rtype: :class:`py2neo.PropertySet`
-        """
-        return self.__relationship.properties
-
-    def set(self, *labels, **properties):
-        """ Extra labels and properties to apply to the node.
-        """
-        self.__relationship.labels.update(labels)
-        self.__relationship.properties.update(properties)
-        return self
-
-    def with_return(self):
-        """ Include a RETURN clause in the statement.
-        """
-        self.__return = True
-        return self
-
-    @property
-    def statement(self):
-        """ The full Cypher statement.
-        """
-        string = StringIO()
-        writer = CypherWriter(string)
-        writer.write_literal("CREATE ")
-        writer.write_node(self.__relationship, "a" if self.__return else None,
-                          CypherParameter("P") if self.__relationship.properties else None)
-        if self.__return:
-            writer.write_literal(" RETURN a")
-        return string.getvalue()
-
-    @property
-    def parameters(self):
-        """ Dictionary of parameters.
-        """
-        if self.__relationship.properties:
             return {"P": self.properties}
         else:
             return {}
