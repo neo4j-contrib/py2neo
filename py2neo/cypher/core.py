@@ -481,6 +481,7 @@ class Record(object):
     __producer__ = None
 
     def __init__(self, values):
+        self.__values__ = tuple(values)
         columns = self.__producer__.columns
         for i, column in enumerate(columns):
             setattr(self, column, values[i])
@@ -504,13 +505,16 @@ class Record(object):
         return not self.__eq__(other)
 
     def __len__(self):
-        return self.__producer__.__len__()
+        return len(self.__values__)
+
+    def __iter__(self):
+        return iter(self.__values__)
 
     def __getitem__(self, item):
-        if is_string(item):
+        if is_integer(item):
+            return self.__values__[item]
+        elif is_string(item):
             return getattr(self, item)
-        elif is_integer(item):
-            return getattr(self, self.__producer__.columns[item])
         else:
             raise LookupError(item)
 
