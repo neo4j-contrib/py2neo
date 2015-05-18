@@ -20,7 +20,8 @@ LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
 LATEST_2_1_VERSION="2.1.8"
 LATEST_2_2_VERSION="2.2.1"
-LATEST_VERSION=$LATEST_2_2_VERSION
+LATEST_2_3_VERSION="2.3.0-M01"
+LATEST_VERSION=$LATEST_2_3_VERSION
 
 SELF=$0
 COMMAND=$1
@@ -120,7 +121,17 @@ function neo4j_set_dist {
         EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "2.2" ] || [ "$VERSION" == "" ]
+    if [ "$VERSION" == "2.3" ] || [ "$VERSION" == "" ]
+    then
+        VERSION=$LATEST_2_3_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.    .::::."
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'       ::: "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ..  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: :: '::::'"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.2" ]
     then
         VERSION=$LATEST_2_2_VERSION
         echo ""
@@ -243,11 +254,11 @@ case $COMMAND in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="1.8 1.9 2.0 2.1 2.2"
+        NEO4J_VERSIONS="1.8 1.9 2.0 2.1 2.2 2.3"
         test $ARGS
         ;;
     test-latest)
-        NEO4J_VERSIONS="2.2"
+        NEO4J_VERSIONS="2.3"
         test $ARGS
         ;;
 esac
