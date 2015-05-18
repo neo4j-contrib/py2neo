@@ -64,7 +64,7 @@ class GraphError(Exception):
     def __init__(self, *args, **kwargs):
         Exception.__init__(self, *args)
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            setattr(self, key.lower(), value)
 
 
 class JoinError(Exception):

@@ -819,7 +819,7 @@ class Graph(Service):
                 return RecordList.hydrate(data, self)
             elif "neo4j_version" in data:
                 return self
-            elif "exception" in data and "stacktrace" in data:
+            elif "exception" in data and ("stacktrace" in data or "stackTrace" in data):
                 message = data.pop("message", "The server returned an error")
                 raise GraphError(message, **data)
             else:

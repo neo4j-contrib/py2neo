@@ -28,9 +28,14 @@ def test_can_handle_400():
     try:
         resource.post()
     except GraphError as error:
-        assert_error(
-            error, (GraphError,), "org.neo4j.server.rest.repr.BadInputException",
-            (_ClientError, _Response), 400)
+        try:
+            assert_error(
+                error, (GraphError,), "org.neo4j.server.rest.repr.BadInputException",
+                (_ClientError, _Response), 400)
+        except AssertionError:
+            assert_error(
+                error, (GraphError,), "org.neo4j.server.rest.repr.InvalidArgumentsException",
+                (_ClientError, _Response), 400)
     else:
         assert False
 
@@ -54,8 +59,14 @@ def test_can_handle_409(graph):
     try:
         resource.delete()
     except GraphError as error:
-        assert_error(
-            error, (GraphError,), "org.neo4j.server.rest.web.OperationFailureException",
-            (_ClientError, _Response), 409)
+        try:
+            assert_error(
+                error, (GraphError,), "org.neo4j.server.rest.web.OperationFailureException",
+                (_ClientError, _Response), 409)
+        except AssertionError:
+            assert_error(
+                error, (GraphError,), "org.neo4j.graphdb.ConstraintViolationException",
+                (_ClientError, _Response), 409)
+
     else:
         assert False
