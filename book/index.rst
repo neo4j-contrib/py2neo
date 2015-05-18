@@ -9,7 +9,7 @@ carefully designed to be easy and intuitive to use.
 Releases
 ========
 
-The latest release of py2neo is **2.0.7**. Documentation for **1.6.4**
+The latest release of py2neo is **2.0.8**. Documentation for **1.6.4**
 is available `here </1.6/>`_.
 
 
@@ -17,7 +17,7 @@ Requirements
 ============
 
 - Python 2.7 / 3.3 / 3.4
-- Neo4j 1.8 / 1.9 / 2.0 / 2.1 / 2.2 (the latest point release of each version is recommended)
+- Neo4j 1.8 / 1.9 / 2.0 / 2.1 / 2.2 / 2.3 (the latest point release of each version is recommended)
 
 Note that py2neo is developed and tested exclusively under Linux using standard CPython distributions.
 While other operating systems and Python distributions may work, I cannot offer support for these.
