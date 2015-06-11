@@ -3,6 +3,8 @@
 Py2neo 2.0
 ==========
 
+[![Join the chat at https://gitter.im/nigelsmall/py2neo](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nigelsmall/py2neo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Py2neo is a client library and comprehensive toolkit for working with Neo4j from within Python
 applications and from the command line. The core library has no external dependencies and has been
 carefully designed to be easy and intuitive to use.
