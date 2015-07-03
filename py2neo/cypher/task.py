@@ -23,7 +23,7 @@ from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
-__all__ = ["CypherTask", "CreateNode", "MergeNode"]
+__all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateUniqueConstraint"]
 
 
 class CypherTask(object):
@@ -238,3 +238,30 @@ class MergeNode(CypherTask):
         if self.__properties:
             parameters["P"] = self.properties
         return parameters
+
+
+class CreateUniqueConstraint(CypherTask):
+
+    def __init__(self, label, property_key):
+        CypherTask.__init__(self)
+        self.label = label
+        self.property_key = property_key
+
+    @property
+    def statement(self):
+        """ The full Cypher statement.
+        """
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_literal("CREATE CONSTRAINT ON ")
+        writer.write_node(Node(self.label), "a")
+        writer.write_literal(" ASSERT a.")
+        writer.write_identifier(self.property_key)
+        writer.write_literal(" IS UNIQUE")
+        return string.getvalue()
+
+    @property
+    def parameters(self):
+        """ Dictionary of parameters.
+        """
+        return {}

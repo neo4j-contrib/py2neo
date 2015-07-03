@@ -64,7 +64,7 @@ class PushBatch(Batch):
             for relationship in entity.relationships:
                 self.jobs.append(PushPropertiesJob(relationship, relationship.properties))
         else:
-            raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
+            raise TypeError("Cannot push object of type %s" % entity.__class__.__name__)
 
     def push(self):
         """ Push details from all entities in this batch to their
