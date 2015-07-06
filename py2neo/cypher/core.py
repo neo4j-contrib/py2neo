@@ -20,10 +20,11 @@ from collections import OrderedDict
 import logging
 
 from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
+from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string, xstr, ustr
+from py2neo.util import is_integer, is_string, xstr, ustr, is_collection
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -224,16 +225,34 @@ class CypherTransaction(object):
 
         def add_parameters(params):
             if params:
-                for key, value in dict(params).items():
-                    if isinstance(value, (Node, Rel, Relationship)):
-                        value = value._id
-                    p[key] = value
+                for k, v in dict(params).items():
+                    if isinstance(v, (Node, Rel, Relationship)):
+                        v = v._id
+                    p[k] = v
 
         try:
             add_parameters(statement.parameters)
         except AttributeError:
             pass
         add_parameters(dict(parameters or {}, **kwparameters))
+
+        # Parameter presubstitution
+        more = True
+        while more:
+            before, opener, key = s.partition(u"«")
+            if opener:
+                key, closer, after = key.partition(u"»")
+                try:
+                    value = p.pop(key)
+                except KeyError:
+                    raise KeyError("Expected a presubstitution parameter named %r" % key)
+                if is_collection(value):
+                    value = ":".join(map(cypher_escape, value))
+                else:
+                    value = cypher_escape(value)
+                s = before + value + after
+            else:
+                more = False
 
         # OrderedDict is used here to avoid statement/parameters ordering bug
         log.info("append %r %r", s, p)
