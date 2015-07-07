@@ -2,6 +2,27 @@
 API: Cypher
 ===========
 
+Py2neo provides Cypher execution functionality via the HTTP transactional endpoint or, if unavailable, the legacy endpoint.
+This is typically accessed via the :attr:`py2neo.Graph.cypher` attribute from where transactions may be created and simple execution may be carried out.
+Parameterised statements are fully supported and on top of this, an extra layer of client-side presubstitution is available.
+Such presubstitution is useful for parameterisation of relationship types, node labels and property keys.
+Angled quotation marks are used for delimiting parameter keys and can be mixed with regular parameters::
+
+    from py2neo import Graph
+    graph = Graph()
+    cypher = graph.cypher
+    cypher.execute("CREATE (a {name:{a}})-[:«rel»]->(b:«labels» {name:{b}})",
+                   a="Alice", rel="KNOWS", labels=["Human Being", "Employee"], b="Bob")
+
+Each presubstitution parameter will be correctly escaped within backticks if necessary and collections passed as a single parameter will be joined by colons.
+Therefore, the code above is equivalent to::
+
+    from py2neo import Graph
+    graph = Graph()
+    cypher = graph.cypher
+    cypher.execute("CREATE (a {name:{a}})-[:KNOWS]->(b:`Human Being`:Employee {name:{b}})",
+                   a="Alice", b="Bob")
+
 
 Cypher Resource
 ===============
