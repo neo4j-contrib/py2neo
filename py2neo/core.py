@@ -1633,6 +1633,8 @@ class Node(PropertyContainer):
 
     def refresh(self):
         # Non-destructive pull.
+        # Note: this may fail if attempted against an entity mid-transaction
+        # that has not yet been committed.
         from py2neo.cypher.util import StartOrMatch
         query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
         content = self.graph.cypher.post(query, {"a": self._id}).content

@@ -51,61 +51,62 @@ class CypherPresubstitutionTestCase(TestCase):
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:`Homo Sapiens` {`full name`:{v}}) RETURN a",
-                                     v="Alice Smith")
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
+                                 "RETURN labels(a), a.`full name`",
+                                 v="Alice Smith")
+            assert set(result[0]) == {"Homo Sapiens"}
+            assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_for_property_set(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:`Homo Sapiens`) SET a={p} RETURN a",
-                                     p={"full name": "Alice Smith"})
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:`Homo Sapiens`) SET a={p} "
+                                 "RETURN labels(a), a.`full name`",
+                                 p={"full name": "Alice Smith"})
+            assert set(result[0]) == {"Homo Sapiens"}
+            assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) RETURN a",
-                                     k="full name")
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+                                 "RETURN labels(a), a.`full name`",
+                                 k="full name")
+            assert set(result[0]) == {"Homo Sapiens"}
+            assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) RETURN a",
-                                     l="Homo Sapiens")
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                                 "RETURN labels(a), a.`full name`",
+                                 l="Homo Sapiens")
+            assert set(result[0]) == {"Homo Sapiens"}
+            assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) RETURN a",
-                                     l=("Homo Sapiens", "Hunter", "Gatherer"))
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens", "Hunter", "Gatherer"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                                 "RETURN labels(a), a.`full name`",
+                                 l=("Homo Sapiens", "Hunter", "Gatherer"))
+            assert set(result[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
+            assert result[1] == "Alice Smith"
 
     def test_can_parameter_mixture(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a:«l» {«k»:{v}}) RETURN a",
-                                     l="Homo Sapiens", k="full name", v="Alice Smith")
-            assert isinstance(created, Node)
-            assert created.labels == {"Homo Sapiens"}
-            assert created.properties == {"full name": "Alice Smith"}
+            result, = tx.execute("CREATE (a:«l» {«k»:{v}}) "
+                                 "RETURN labels(a), a.`full name`",
+                                 l="Homo Sapiens", k="full name", v="Alice Smith")
+            assert set(result[0]) == {"Homo Sapiens"}
+            assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_for_relationship_type(self):
         tx = self.new_tx()
         if tx:
-            (created,), = tx.execute("CREATE (a)-[ab:«t»]->(b) RETURN ab",
+            (created,), = tx.execute("CREATE (a)-[ab:«t»]->(b) "
+                                     "RETURN ab",
                                      t="REALLY LIKES")
             assert isinstance(created, Relationship)
             assert created.type == "REALLY LIKES"
