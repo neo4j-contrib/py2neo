@@ -74,7 +74,7 @@ function test {
         neo4j_start
         NEW_PASSWORD="password"
         python -m py2neo.password neo4j neo4j $NEW_PASSWORD 2> /dev/null
-        sleep 5
+        sleep 15
         export NEO4J_HOME="$HOME"
         export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
         if [ "$1" == "" ]
