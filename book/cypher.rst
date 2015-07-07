@@ -6,7 +6,7 @@ Py2neo provides Cypher execution functionality via the HTTP transactional endpoi
 This is typically accessed via the :attr:`py2neo.Graph.cypher` attribute from where transactions may be created and simple execution may be carried out.
 Parameterised statements are fully supported and on top of this, an extra layer of client-side presubstitution is available.
 Such presubstitution is useful for parameterisation of relationship types, node labels and property keys.
-Angled quotation marks are used for delimiting parameter keys and can be mixed with regular parameters::
+`Angled quotation marks <https://en.wikipedia.org/wiki/Guillemet#Typing_.22.C2.AB.22_and_.22.C2.BB.22_on_computers>`_ are used for delimiting parameter keys and can be mixed with regular parameters::
 
     from py2neo import Graph
     graph = Graph()
