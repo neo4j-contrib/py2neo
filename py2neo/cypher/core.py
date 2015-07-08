@@ -34,6 +34,30 @@ __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList"
 log = logging.getLogger("py2neo.cypher")
 
 
+def presubstitute(statement, parameters):
+    more = True
+    while more:
+        before, opener, key = statement.partition(u"«")
+        if opener:
+            key, closer, after = key.partition(u"»")
+            try:
+                value = parameters.pop(key)
+            except KeyError:
+                raise KeyError("Expected a presubstitution parameter named %r" % key)
+            if is_integer(value):
+                value = ustr(value)
+            elif isinstance(value, tuple) and all(map(is_integer, value)):
+                value = u"%d..%d" % (value[0], value[-1])
+            elif is_collection(value):
+                value = ":".join(map(cypher_escape, value))
+            else:
+                value = cypher_escape(value)
+            statement = before + value + after
+        else:
+            more = False
+    return statement, parameters
+
+
 class CypherResource(Service):
     """ Service wrapper for all Cypher functionality, providing access
     to transactions (if available) as well as single statement execution
@@ -236,23 +260,7 @@ class CypherTransaction(object):
             pass
         add_parameters(dict(parameters or {}, **kwparameters))
 
-        # Parameter presubstitution
-        more = True
-        while more:
-            before, opener, key = s.partition(u"«")
-            if opener:
-                key, closer, after = key.partition(u"»")
-                try:
-                    value = p.pop(key)
-                except KeyError:
-                    raise KeyError("Expected a presubstitution parameter named %r" % key)
-                if is_collection(value):
-                    value = ":".join(map(cypher_escape, value))
-                else:
-                    value = cypher_escape(value)
-                s = before + value + after
-            else:
-                more = False
+        s, p = presubstitute(s, p)
 
         # OrderedDict is used here to avoid statement/parameters ordering bug
         log.info("append %r %r", s, p)

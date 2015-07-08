@@ -18,7 +18,8 @@
 
 from unittest import main, TestCase
 
-from py2neo import Graph, Node, Relationship
+from py2neo import Graph
+from py2neo.cypher.core import presubstitute
 
 
 class TemporaryTransaction(object):
@@ -93,23 +94,47 @@ class CypherPresubstitutionTestCase(TestCase):
             assert set(result[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
             assert result[1] == "Alice Smith"
 
-    def test_can_parameter_mixture(self):
-        tx = self.new_tx()
-        if tx:
-            result, = tx.execute("CREATE (a:«l» {«k»:{v}}) "
-                                 "RETURN labels(a), a.`full name`",
-                                 l="Homo Sapiens", k="full name", v="Alice Smith")
-            assert set(result[0]) == {"Homo Sapiens"}
-            assert result[1] == "Alice Smith"
+    def test_can_use_parameter_mixture(self):
+        statement = "CREATE (a:«l» {«k»:{v}})"
+        parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
+        s, p = presubstitute(statement, parameters)
+        assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})"
+        assert p == {"v": "Alice Smith"}
 
-    def test_can_use_parameter_for_relationship_type(self):
-        tx = self.new_tx()
-        if tx:
-            (created,), = tx.execute("CREATE (a)-[ab:«t»]->(b) "
-                                     "RETURN ab",
-                                     t="REALLY LIKES")
-            assert isinstance(created, Relationship)
-            assert created.type == "REALLY LIKES"
+    def test_can_use_simple_parameter_for_relationship_type(self):
+        statement = "CREATE (a)-[ab:«t»]->(b)"
+        parameters = {"t": "REALLY_LIKES"}
+        s, p = presubstitute(statement, parameters)
+        assert s == "CREATE (a)-[ab:REALLY_LIKES]->(b)"
+        assert p == {}
+
+    def test_can_use_parameter_with_special_character_for_relationship_type(self):
+        statement = "CREATE (a)-[ab:«t»]->(b)"
+        parameters = {"t": "REALLY LIKES"}
+        s, p = presubstitute(statement, parameters)
+        assert s == "CREATE (a)-[ab:`REALLY LIKES`]->(b)"
+        assert p == {}
+
+    def test_can_use_parameter_with_backtick_for_relationship_type(self):
+        statement = "CREATE (a)-[ab:«t»]->(b)"
+        parameters = {"t": "REALLY `LIKES`"}
+        s, p = presubstitute(statement, parameters)
+        assert s == "CREATE (a)-[ab:`REALLY ``LIKES```]->(b)"
+        assert p == {}
+
+    def test_can_use_parameter_for_relationship_count(self):
+        statement = "MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        parameters = {"x": 3}
+        s, p = presubstitute(statement, parameters)
+        assert s == "MATCH (a)-[ab:KNOWS*3]->(b)"
+        assert p == {}
+
+    def test_can_use_parameter_for_relationship_count_range(self):
+        statement = "MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        parameters = {"x": (3, 5)}
+        s, p = presubstitute(statement, parameters)
+        assert s == "MATCH (a)-[ab:KNOWS*3..5]->(b)"
+        assert p == {}
 
     def test_fails_properly_if_presubstitution_key_does_not_exist(self):
         tx = self.new_tx()

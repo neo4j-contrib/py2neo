@@ -23,6 +23,13 @@ Therefore, the code above is equivalent to::
     cypher.execute("CREATE (a {name:{a}})-[:KNOWS]->(b:`Human Being`:Employee {name:{b}})",
                    a="Alice", b="Bob")
 
+Integer parameters will be substituted directly, without escaping, and integer 2-tuples will be assumed to denote a range::
+
+    from py2neo import Graph
+    graph = Graph()
+    cypher = graph.cypher
+    cypher.execute("MATCH (a)-[:KNOWS*«r1»]->(b)-[:KNOWS*«r2»]->(c)", r1=1, r2=(3, 5))
+
 
 Cypher Resource
 ===============
