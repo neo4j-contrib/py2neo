@@ -15,13 +15,12 @@
 # limitations under the License.
 
 
-LATEST_1_8_VERSION="1.8.3"
-LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
 LATEST_2_1_VERSION="2.1.8"
-LATEST_2_2_VERSION="2.2.1"
+LATEST_2_2_VERSION="2.2.3"
 LATEST_2_3_VERSION="2.3.0-M02"
-LATEST_VERSION=$LATEST_2_3_VERSION
+LATEST_3_0_VERSION="3.0.0-alpha.LATEST"
+LATEST_VERSION=$LATEST_3_0_VERSION
 
 SELF=$0
 COMMAND=$1
@@ -32,6 +31,7 @@ HOME=`pwd`/`dirname $SELF`
 DOWN="$HOME/.bau/down"
 LOG="$HOME/.bau/log"
 RUN="$HOME/.bau/run"
+NEOGET="$HOME/neoget.sh"
 
 function install_dependencies {
     if [ "$ONLINE" ]
@@ -113,7 +113,14 @@ function build_book {
 function download {
     mkdir -p "$DOWN" 2> /dev/null
     pushd "$DOWN" > /dev/null
-    wget $@
+    echo -n "Downloading Neo4j $VERSION -> "
+    if [ "$EDITION" == "enterprise" ]
+    then
+        ARCHIVE=$($NEOGET -ex $VERSION)
+    else
+        ARCHIVE=$($NEOGET -x $VERSION)
+    fi
+    echo $ARCHIVE
     popd > /dev/null
 }
 
@@ -124,7 +131,17 @@ function neo4j_set_dist {
         EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "2.3" ] || [ "$VERSION" == "" ]
+    if [ "$VERSION" == "3.0" ] || [ "$VERSION" == "" ]
+    then
+        VERSION=$LATEST_3_0_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.     :::: "
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       :::     ::  ::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    ::  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     '::::' ::  :::: "
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.3" ]
     then
         VERSION=$LATEST_2_3_VERSION
         echo ""
@@ -164,26 +181,6 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ::  ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
         echo "                                 :::"
-    elif [ "$VERSION" == "1.9" ]
-    then
-        VERSION=$LATEST_1_9_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::      ':::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::          ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
-    elif [ "$VERSION" == "1.8" ]
-    then
-        VERSION=$LATEST_1_8_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::       ::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::      ::  ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
     fi
     DIST="neo4j-$EDITION-$VERSION"
     ARCHIVE="$DIST-unix.tar.gz"
@@ -191,11 +188,15 @@ function neo4j_set_dist {
 
 function neo4j_download {
     neo4j_set_dist
+    if [ "$ONLINE" ] && [[ "$DIST" == *"LATEST"* ]]
+    then
+        rm "$DOWN/$ARCHIVE" 2> /dev/null
+    fi
     if [ ! -f "$DOWN/$ARCHIVE" ]
     then
         if [ "$ONLINE" ]
         then
-            download "http://dist.neo4j.org/$ARCHIVE"
+            download
         else
             echo "Cannot download necessary files while offline" >&2
             exit 1
@@ -211,13 +212,14 @@ function neo4j_start {
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
     #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
-    $DIST/bin/neo4j start
+    DIST_DIR=$(ls -r | grep "$(echo $DIST | sed 's/LATEST/*/')" | head -1)
+    $DIST_DIR/bin/neo4j start
     popd > /dev/null
 }
 
 function neo4j_stop {
     pushd "$RUN" > /dev/null
-    $DIST/bin/neo4j stop
+    $DIST_DIR/bin/neo4j stop
     popd > /dev/null
 }
 
@@ -257,11 +259,11 @@ case $COMMAND in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="1.8 1.9 2.0 2.1 2.2 2.3"
+        NEO4J_VERSIONS="2.0 2.1 2.2 2.3 3.0"
         test $ARGS
         ;;
     test-latest)
-        NEO4J_VERSIONS="2.3"
+        NEO4J_VERSIONS="3.0"
         test $ARGS
         ;;
 esac
