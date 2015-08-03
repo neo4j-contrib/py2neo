@@ -2824,6 +2824,3 @@ class UnmanagedExtension(object):
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
                                       "graph <%s>" % (path, graph.uri))
-
-
-from py2neo.deprecated import *

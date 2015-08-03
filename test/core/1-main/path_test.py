@@ -126,7 +126,7 @@ class TestCreatePath(object):
         assert path.nodes[0] == {"name": "Alice"}
         assert path.rels[0].type == "KNOWS"
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(graph)
+        path, = graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
@@ -140,7 +140,7 @@ class TestCreatePath(object):
         assert path.rels[0].type == "KNOWS"
         assert path.rels[0].properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(self.graph)
+        path, = self.graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
         assert isinstance(path.relationships[0], neo4j.Relationship)
@@ -150,7 +150,7 @@ class TestCreatePath(object):
         assert path.nodes[1]["name"] == "Bob"
 
 
-class TestGetOrCreatePath(object):
+class TestCreateUniquePath(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -158,11 +158,12 @@ class TestGetOrCreatePath(object):
 
     def test_can_create_single_path(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        )
+        ))
         #print(p1)
         assert isinstance(p1, Path)
         assert len(p1) == 3
@@ -170,20 +171,22 @@ class TestGetOrCreatePath(object):
 
     def test_can_create_overlapping_paths(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
-        )
+        ))
         assert isinstance(p1, Path)
         assert len(p1) == 3
         assert p1.nodes[0] == start_node
         #print(p1)
-        p2 = start_node.get_or_create_path(
+        p2, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
-        )
+        ))
         assert isinstance(p2, Path)
         assert len(p2) == 3
         assert p1.nodes[0] == p2.nodes[0]
@@ -194,11 +197,12 @@ class TestGetOrCreatePath(object):
         assert p1.relationships[1] == p2.relationships[1]
         assert p1.relationships[2] != p2.relationships[2]
         #print(p2)
-        p3 = start_node.get_or_create_path(
+        p3, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
-        )
+        ))
         assert isinstance(p3, Path)
         assert len(p3) == 3
         assert p2.nodes[0] == p3.nodes[0]
@@ -210,40 +214,20 @@ class TestGetOrCreatePath(object):
         assert p2.relationships[2] != p3.relationships[2]
         #print(p3)
 
-    def test_can_use_none_for_nodes(self):
-        start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12, "name": "December"},
-            "DAY",   {"number": 25},
-        )
-        p2 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", None,
-            "DAY",   {"number": 25},
-        )
-        assert isinstance(p2, Path)
-        assert len(p2) == 3
-        assert p1.nodes[0] == p2.nodes[0]
-        assert p1.nodes[1] == p2.nodes[1]
-        assert p1.nodes[2] == p2.nodes[2]
-        assert p1.nodes[3] == p2.nodes[3]
-        assert p1.relationships[0] == p2.relationships[0]
-        assert p1.relationships[1] == p2.relationships[1]
-        assert p1.relationships[2] == p2.relationships[2]
-
     def test_can_use_node_for_nodes(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        )
-        p2 = start_node.get_or_create_path(
+        ))
+        p2, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", p1.nodes[2],
             "DAY",   {"number": 25},
-        )
+        ))
         assert isinstance(p2, Path)
         assert len(p2) == 3
         assert p1.nodes[0] == p2.nodes[0]
