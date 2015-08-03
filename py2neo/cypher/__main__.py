@@ -22,7 +22,7 @@ import sys
 
 from py2neo.core import authenticate, Node, Relationship, Path
 from py2neo.cypher.error import CypherError, CypherTransactionError
-from py2neo.env import NEO4J_URI
+from py2neo.env import NEO4J_HTTP_URI
 from py2neo.util import compact
 
 
@@ -46,7 +46,7 @@ Parameter Options:
   -p «name» «value»
 
 Environment:
-  NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
+  NEO4J_HTTP_URI - HTTP URI of Neo4j database, e.g. http://localhost:7474
 
 Report bugs to nigel@py2neo.org
 """
@@ -130,7 +130,7 @@ def main():
     if not args:
         _help(script)
         sys.exit(0)
-    uri = NEO4J_URI.resolve("/")
+    uri = NEO4J_HTTP_URI.resolve("/")
     service_root = ServiceRoot(uri.string)
     out = sys.stdout
     output_format = None

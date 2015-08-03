@@ -18,7 +18,7 @@
 
 import logging
 
-from py2neo import Graph, Node
+from py2neo import Graph, Node, NEO4J_HTTP_URI
 from py2neo.cypher.util import StartOrMatch
 
 
@@ -59,10 +59,10 @@ class HTTPCounter(object):
 
 
 def test_repeated_graph_creation_needs_no_extra_responses():
-    graph = Graph()
+    graph = Graph(NEO4J_HTTP_URI)
     _ = graph.neo4j_version
     with HTTPCounter() as counter:
-        _ = Graph()
+        _ = Graph(NEO4J_HTTP_URI)
         assert counter.response_count == 0
 
 

@@ -25,6 +25,7 @@ __version__ = "3.0.0"
 
 
 from py2neo.core import *
+from py2neo.env import *
 from py2neo.error import *
 from py2neo.legacy import LegacyNode
 from py2neo.packages.httpstream.watch import watch
@@ -36,6 +37,7 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",
            "LegacyNode", "node", "rel",
+           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI",
 ]
 
 

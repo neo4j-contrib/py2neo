@@ -17,10 +17,11 @@
 
 
 from py2neo import Graph, Node, NodePointer, Rel, Rev, Path
+from py2neo.env import NEO4J_HTTP_URI
 
 
 def test_graph_hashes():
-    assert hash(Graph()) == hash(Graph())
+    assert hash(Graph(NEO4J_HTTP_URI)) == hash(Graph(NEO4J_HTTP_URI))
 
 
 def test_node_hashes(graph):

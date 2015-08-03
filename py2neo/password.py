@@ -23,7 +23,7 @@ import os
 import sys
 
 from py2neo import GraphError, Service, ServiceRoot
-from py2neo.env import NEO4J_URI
+from py2neo.env import NEO4J_HTTP_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
 from py2neo.util import ustr
 
@@ -158,7 +158,7 @@ def main():
         _help(script)
         return
     try:
-        service_root = ServiceRoot(NEO4J_URI)
+        service_root = ServiceRoot(NEO4J_HTTP_URI)
         user_name = args[0]
         password = args[1]
         user_manager = UserManager.for_user(service_root, user_name, password)

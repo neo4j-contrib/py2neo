@@ -20,6 +20,7 @@ from mock import patch
 
 from py2neo import Graph
 from py2neo.cypher.util import StartOrMatch
+from py2neo.env import NEO4J_HTTP_URI
 
 
 def test_can_create_graph_with_trailing_slash():
@@ -91,5 +92,5 @@ def test_can_open_browser(graph):
 
 
 def test_graph_is_not_equal_to_non_graph():
-    graph = Graph()
+    graph = Graph(NEO4J_HTTP_URI)
     assert graph != object()

@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-def test_can_connect():
+def test_can_connect_with_http():
     from py2neo import Graph
-    graph = Graph()
+    from py2neo.env import NEO4J_HTTP_URI
+    graph = Graph(NEO4J_HTTP_URI)
     assert graph.neo4j_version

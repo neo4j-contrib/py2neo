@@ -21,7 +21,8 @@ import logging
 import pytest
 
 from py2neo import node
-from py2neo.core import authenticate, _get_headers, Graph, Node, Relationship
+from py2neo.core import Graph, Node, Relationship
+from py2neo.env import NEO4J_HTTP_URI
 
 
 logging.basicConfig(
@@ -36,35 +37,6 @@ def test_can_use_graph_if_no_trailing_slash_supplied(graph):
     assert alice["name"] == "Alice"
 
 
-# def test_authentication_adds_the_correct_header():
-#     from py2neo.core import _headers
-#     _headers.clear()
-#     _headers.update({None: [("X-Stream", "true")]})
-#     authenticate("localhost:7474", "arthur", "excalibur")
-#     headers = _get_headers("localhost:7474")
-#     assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
-
-
-# def test_can_add_same_header_twice():
-#     from py2neo.core import _headers
-#     _headers.clear()
-#     _headers.update({None: [("X-Stream", "true")]})
-#     authenticate("localhost:7474", "arthur", "excalibur")
-#     authenticate("localhost:7474", "arthur", "excalibur")
-#     headers = _get_headers("localhost:7474")
-#     assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
-
-
-# def test_implicit_authentication_through_resource_constructor():
-#     from py2neo.core import _headers, Resource
-#     _headers.clear()
-#     _headers.update({None: [("X-Stream", "true")]})
-#     resource = Resource("http://arthur:excalibur@localhost:7474/")
-#     headers = _get_headers("localhost:7474")
-#     assert headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
-#     assert resource.headers['Authorization'] == 'Basic YXJ0aHVyOmV4Y2FsaWJ1cg=='
-
-
 class TestGraph(object):
 
     @pytest.fixture(autouse=True)
@@ -72,8 +44,8 @@ class TestGraph(object):
         self.graph = graph
 
     def test_can_get_same_instance(self):
-        graph_1 = Graph()
-        graph_2 = Graph()
+        graph_1 = Graph(NEO4J_HTTP_URI)
+        graph_2 = Graph(NEO4J_HTTP_URI)
         assert graph_1 is graph_2
 
     def test_neo4j_version_format(self):

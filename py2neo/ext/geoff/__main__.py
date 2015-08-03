@@ -21,7 +21,7 @@ import os
 import sys
 
 from py2neo.core import ServiceRoot
-from py2neo.env import NEO4J_URI
+from py2neo.env import NEO4J_HTTP_URI
 
 from py2neo.ext.geoff import GeoffLoader
 
@@ -35,7 +35,7 @@ Usage: {script} load «geoff-data»
 Load data into Neo4j from Geoff (or XML) data, optionally read from a file.
 
 Environment:
-  NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
+  NEO4J_HTTP_URI - HTTP URI of Neo4j database, e.g. http://localhost:7474
 
 Report bugs to nigel@py2neo.org
 """
@@ -53,7 +53,7 @@ def main():
         _help(sys.argv[0])
         sys.exit(1)
 
-    uri = NEO4J_URI.resolve("/")
+    uri = NEO4J_HTTP_URI.resolve("/")
     service_root = ServiceRoot(uri.string)
 
     loader = GeoffLoader(service_root.graph)

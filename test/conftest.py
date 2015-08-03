@@ -21,6 +21,7 @@ import logging
 import pytest
 
 from py2neo import Graph
+from py2neo.env import NEO4J_HTTP_URI
 
 
 PY2NEO_LOGGING_LEVEL_COLOUR_MAP = {
@@ -37,4 +38,4 @@ logger.setLevel(logging.INFO)
 
 @pytest.fixture
 def graph(request):
-    return Graph()
+    return Graph(NEO4J_HTTP_URI)

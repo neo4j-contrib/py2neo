@@ -25,7 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
-from py2neo.env import NEO4J_AUTH, NEO4J_URI
+from py2neo.env import NEO4J_AUTH, NEO4J_HTTP_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
@@ -457,9 +457,9 @@ class Service(object):
 class ServiceRoot(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
-    the constructor, a value is taken from the ``NEO4J_URI`` environment
-    variable (if set) otherwise a default of ``http://localhost:7474/``
-    is used.
+    the constructor, a value is taken from the ``NEO4J_HTTP_URI``
+    environment variable (if set) otherwise a default of
+    ``http://localhost:7474/`` is used.
     """
 
     __instances = {}
@@ -467,9 +467,11 @@ class ServiceRoot(object):
     __authentication = None
     __graph = None
 
+    graph_uri = None
+
     def __new__(cls, uri=None):
         if uri is None:
-            uri = NEO4J_URI
+            uri = NEO4J_HTTP_URI
         uri = ustr(uri)
         if not uri.endswith("/"):
             uri += "/"
@@ -482,6 +484,7 @@ class ServiceRoot(object):
             inst = super(ServiceRoot, cls).__new__(cls)
             inst.__resource = Resource(uri)
             inst.__graph = None
+            inst.graph_uri = URI(uri).resolve("/db/data/")
             cls.__instances[uri] = inst
         return inst
 
@@ -520,7 +523,7 @@ class ServiceRoot(object):
             except KeyError:
                 raise GraphError("No graph available for service <%s>" % self.uri)
             else:
-                self.__graph = Graph(uri)
+                self.__graph = Graph(self.graph_uri)
         return self.__graph
 
     @property
@@ -539,32 +542,17 @@ class ServiceRoot(object):
 
 
 class Graph(Service):
-    """ The `Graph` class provides a wrapper around the
-    `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
-    by a running Neo4j database server and is identified by the base URI of
-    the graph database. If no URI is specified, a default value is taken from
-    the ``NEO4J_URI`` environment variable. If this is not set, a default of
-    `http://localhost:7474/db/data/` is assumed. Therefore, the simplest way
+    """ The `Graph` class provides an accessor for a running Neo4j database server,
+    identified by the URI of the graph database. The simplest way
     to connect to a running service is to use::
 
         >>> from py2neo import Graph
-        >>> graph = Graph()
+        >>> graph = Graph("http://camelot:1138/db/data/")
 
-    An explicitly specified graph database URI can also be passed to the
-    constructor as a string::
-
-        >>> other_graph = Graph("http://camelot:1138/db/data/")
-
-    If the database server is behind a proxy that requires HTTP authorisation,
-    the relevant criteria can also be specified within the URI::
+    If the database server requires authorisation, the relevant criteria can also
+    be specified within the URI::
 
         >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
-
-    For services running with `built-in security
-    <http://neo4j.com/docs/snapshot/rest-api-security.html>`_, an auth token
-    can either be passed in via the :func:`py2neo.set_auth_token` function or
-    set as the ``NEO4J_AUTH_TOKEN`` environment variable where it will be
-    applied automatically.
 
     Once obtained, the `Graph` instance provides direct or indirect access
     to most of the functionality available within py2neo.
@@ -599,9 +587,8 @@ class Graph(Service):
         else:
             raise TypeError(obj)
 
-    def __new__(cls, uri=None):
-        if uri is None:
-            uri = ServiceRoot().graph.uri.string
+    def __new__(cls, uri):
+        uri = ServiceRoot(uri).graph_uri.string
         if not uri.endswith("/"):
             uri += "/"
         key = (cls, uri)

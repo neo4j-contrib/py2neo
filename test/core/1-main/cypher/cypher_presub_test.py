@@ -18,7 +18,7 @@
 
 from unittest import main, TestCase
 
-from py2neo import Graph
+from py2neo import Graph, NEO4J_HTTP_URI
 from py2neo.cypher.core import presubstitute
 
 
@@ -41,7 +41,7 @@ class CypherPresubstitutionTestCase(TestCase):
     graph = None
 
     def setUp(self):
-        self.graph = Graph()
+        self.graph = Graph(NEO4J_HTTP_URI)
 
     def new_tx(self):
         if self.graph.supports_cypher_transactions:

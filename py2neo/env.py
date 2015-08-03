@@ -21,7 +21,7 @@ import os
 from py2neo.packages.httpstream.packages.urimagic import URI
 
 
-__all__ = ["NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI"]
+__all__ = ["NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI"]
 
 
 #: Auth string, stored as `user:password`.
@@ -33,5 +33,8 @@ NEO4J_DIST = os.getenv("NEO4J_DIST", "http://dist.neo4j.org/")
 #: Default path for GraphServer instances.
 NEO4J_HOME = os.getenv("NEO4J_HOME", ".")
 
-#: Default URI for ServiceRoot instances.
-NEO4J_URI = URI(os.getenv("NEO4J_URI", "http://localhost:7474/"))
+#: Default URI for HTTP.
+NEO4J_HTTP_URI = URI(os.getenv("NEO4J_HTTP_URI", "http://localhost:7474/"))
+
+#: Default URI for binary protocol.
+NEO4J_URI = URI(os.getenv("NEO4J_URI", "bolt://localhost"))
