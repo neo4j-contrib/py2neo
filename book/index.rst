@@ -1,5 +1,5 @@
 =======================
-The Py2neo 2.0 Handbook
+The Py2neo 3.0 Handbook
 =======================
 
 Py2neo is a client library and comprehensive toolkit for working with Neo4j from within Python
@@ -9,8 +9,8 @@ carefully designed to be easy and intuitive to use.
 Releases
 ========
 
-The latest release of py2neo is **2.0.8**. Documentation for **1.6.4**
-is available `here </1.6/>`_.
+The latest release of py2neo is **3.0.3**. Documentation for **2.0**
+is available `here </2.0/>`_.
 
 
 Requirements
