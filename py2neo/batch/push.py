@@ -56,8 +56,7 @@ class PushBatch(Batch):
         """
         if isinstance(entity, Node):
             self.jobs.append(PushPropertiesJob(entity, entity.properties))
-            if entity.graph.supports_node_labels:
-                self.jobs.append(PushNodeLabelsJob(entity, entity.labels))
+            self.jobs.append(PushNodeLabelsJob(entity, entity.labels))
         elif isinstance(entity, Rel):
             self.jobs.append(PushPropertiesJob(entity, entity.properties))
         elif isinstance(entity, Path):

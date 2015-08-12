@@ -33,8 +33,6 @@ def test_can_pull_node(graph):
 
 
 def test_can_pull_node_with_label(graph):
-    if not graph.supports_node_labels:
-        return
     uri = graph.cypher.execute_one("CREATE (a:Person {name:'Alice'}) RETURN a").uri
     alice = Node()
     alice.bind(uri)

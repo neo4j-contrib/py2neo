@@ -21,8 +21,6 @@ from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_pull_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person", name="Alice")
     graph.create(remote)
@@ -35,8 +33,6 @@ def test_can_pull_node(graph):
 
 
 def test_can_pull_node_labels_only(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person")
     graph.create(remote)
@@ -47,8 +43,6 @@ def test_can_pull_node_labels_only(graph):
 
 
 def test_can_graph_pull_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person", name="Alice")
     graph.create(remote)
@@ -61,8 +55,6 @@ def test_can_graph_pull_node(graph):
 
 
 def test_can_push_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person", name="Alice")
     remote = Node()
     graph.create(remote)
@@ -76,8 +68,6 @@ def test_can_push_node(graph):
 
 
 def test_can_push_node_labels_only(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person")
     remote = Node()
     graph.create(remote)
@@ -89,8 +79,6 @@ def test_can_push_node_labels_only(graph):
 
 
 def test_can_graph_push_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person", name="Alice")
     remote = Node()
     graph.create(remote)

@@ -970,8 +970,6 @@ class Graph(Service):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        if not self.supports_node_labels:
-            raise NotImplementedError("Node labels not available for this Neo4j server version")
         if self.__node_labels is None:
             self.__node_labels = Resource(self.uri.string + "labels")
         return frozenset(self.__node_labels.get().content)
@@ -1055,12 +1053,6 @@ class Graph(Service):
         from py2neo.cypher.util import StartOrMatch
         statement = StartOrMatch(self).relationship("r", "*").string + "RETURN count(r)"
         return self.cypher.execute_one(statement)
-
-    @property
-    def supports_node_labels(self):
-        """ Indicates whether the server supports node labels.
-        """
-        return self.neo4j_version >= (2, 0)
 
     @property
     def supports_optional_match(self):
@@ -1516,11 +1508,7 @@ class Node(PropertyContainer):
 
         """
         PropertyContainer.bind(self, uri, metadata)
-        if self.graph.supports_node_labels:
-            self.__labels.bind(uri + "/labels")
-        else:
-            from py2neo.legacy.core import LegacyNode
-            self.__class__ = LegacyNode
+        self.__labels.bind(uri + "/labels")
         self.cache[uri] = self
 
     @property

@@ -26,31 +26,23 @@ from py2neo import Node
 
 
 def test_will_find_no_nodes_with_non_existent_label(graph):
-    if not graph.supports_node_labels:
-        return
     nodes = list(graph.find(uuid4().hex))
     assert nodes == []
 
 
 def test_can_find_nodes_with_label(graph):
-    if not graph.supports_node_labels:
-        return
     alice, = graph.create(Node("Person", name="Alice"))
     nodes = list(graph.find("Person"))
     assert alice in nodes
 
 
 def test_can_find_nodes_with_label_and_property(graph):
-    if not graph.supports_node_labels:
-        return
     alice, = graph.create(Node("Person", name="Alice"))
     nodes = list(graph.find("Person", "name", "Alice"))
     assert alice in nodes
 
 
 def test_cannot_find_empty_label(graph):
-    if not graph.supports_node_labels:
-        return
     try:
         _ = list(graph.find(""))
     except ValueError:
@@ -60,8 +52,6 @@ def test_cannot_find_empty_label(graph):
 
 
 def test_can_find_one_node_with_label_and_property(graph):
-    if not graph.supports_node_labels:
-        return
     name = uuid4().hex
     thing = Node("Thing", name=name)
     graph.create(thing)
