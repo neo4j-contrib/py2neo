@@ -729,14 +729,7 @@ class Graph(Service):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        from py2neo.batch import WriteBatch, CypherJob
-        from py2neo.cypher.util import StartOrMatch
-        batch = WriteBatch(self)
-        statement = StartOrMatch(self).relationship("r", "*").string + "DELETE r"
-        batch.append(CypherJob(statement))
-        statement = StartOrMatch(self).node("n", "*").string + "DELETE n"
-        batch.append(CypherJob(statement))
-        batch.run()
+        self.cypher.execute("MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE r,n")
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
