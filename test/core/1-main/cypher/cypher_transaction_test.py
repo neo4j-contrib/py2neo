@@ -23,8 +23,6 @@ from py2neo.cypher.error.statement import InvalidSyntax
 
 
 def test_can_execute_single_statement_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -39,8 +37,6 @@ def test_can_execute_single_statement_transaction(graph):
 
 
 def test_can_execute_transaction_as_with_statement(graph):
-    if not graph.supports_cypher_transactions:
-        return
     with graph.cypher.begin() as tx:
         assert not tx.finished
         tx.append("CREATE (a) RETURN a")
@@ -48,8 +44,6 @@ def test_can_execute_transaction_as_with_statement(graph):
 
 
 def test_can_execute_multi_statement_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     assert not tx.finished
     tx.append("CREATE (a) RETURN a")
@@ -65,8 +59,6 @@ def test_can_execute_multi_statement_transaction(graph):
 
 
 def test_can_execute_multi_execute_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     assert tx._id is None
     for i in range(10):
@@ -86,8 +78,6 @@ def test_can_execute_multi_execute_transaction(graph):
 
 
 def test_can_rollback_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     for i in range(10):
         assert not tx.finished
@@ -105,8 +95,6 @@ def test_can_rollback_transaction(graph):
 
 
 def test_can_generate_transaction_error(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     try:
         tx.append("CRAETE (a) RETURN a")
@@ -118,8 +106,6 @@ def test_can_generate_transaction_error(graph):
 
 
 def test_cannot_append_after_transaction_finished(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     tx.rollback()
     try:

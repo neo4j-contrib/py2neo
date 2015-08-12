@@ -652,7 +652,7 @@ class Graph(Service):
         if self.__cypher is None:
             from py2neo.cypher import CypherResource
             metadata = self.resource.metadata
-            self.__cypher = CypherResource(metadata["cypher"], metadata.get("transaction"))
+            self.__cypher = CypherResource(metadata.get("transaction"))
         return self.__cypher
 
     def create(self, *entities):
@@ -755,11 +755,10 @@ class Graph(Service):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response.content["data"]:
+        for record in response["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
-        response.close()
 
     def find_one(self, label, property_key=None, property_value=None):
         """ Find a single node by label and optional property. This method is
@@ -885,12 +884,9 @@ class Graph(Service):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        results = self.cypher.stream(statement, parameters)
-        try:
-            for result in results:
-                yield result.r
-        finally:
-            results.close()
+        results = self.cypher.execute(statement, parameters)
+        for result in results:
+            yield result.r
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
@@ -925,11 +921,10 @@ class Graph(Service):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response.content["data"]:
+        for record in response["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
-        response.close()
 
     def merge_one(self, label, property_key=None, property_value=None):
         """ Match or create a node by label and optional property and return a
@@ -1053,12 +1048,6 @@ class Graph(Service):
         from py2neo.cypher.util import StartOrMatch
         statement = StartOrMatch(self).relationship("r", "*").string + "RETURN count(r)"
         return self.cypher.execute_one(statement)
-
-    @property
-    def supports_cypher_transactions(self):
-        """ Indicates whether the server supports explicit Cypher transactions.
-        """
-        return "transaction" in self.resource.metadata
 
     @property
     def supports_foreach_pipe(self):
@@ -1624,7 +1613,7 @@ class Node(PropertyContainer):
         # that has not yet been committed.
         from py2neo.cypher.util import StartOrMatch
         query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
-        content = self.graph.cypher.post(query, {"a": self._id}).content
+        content = self.graph.cypher.post(query, {"a": self._id})
         try:
             dehydrated, label_metadata = content["data"][0]
         except IndexError:

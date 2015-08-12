@@ -26,8 +26,6 @@ from .util import assert_new_error
 
 
 def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     tx.append("CREATE (a), (b) RETURN a, b")
     results = tx.process()

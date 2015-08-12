@@ -72,14 +72,11 @@ class DeleteStatement(object):
             clauses.append("DELETE " + ",".join(self.delete_nodes_clause))
         return "\n".join(clauses)
 
-    def post(self):
-        return self.graph.cypher.post(self.string, self.parameters)
-
     def execute(self):
         """ Execute this statement.
         """
         if self.string:
-            self.post().close()
+            self.graph.cypher.post(self.string, self.parameters)
 
     def delete(self, entity):
         """ Append an entity to the DELETE clause of this statement.

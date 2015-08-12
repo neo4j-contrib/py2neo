@@ -15,9 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 from py2neo.core import Node, Relationship, Path, Rel, Rev
-from py2neo.cypher import CreateStatement, CypherError
+from py2neo.cypher import CreateStatement
+from py2neo.cypher.error.statement import ConstraintViolation
 
 
 def test_statement_representations_return_cypher(graph):
@@ -221,8 +221,8 @@ def test_can_create_a_relationship_to_two_existing_nodes(graph):
 
 
 def test_can_pass_entities_that_already_exist(graph):
-    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = results[0]
     statement = CreateStatement(graph)
     statement.create(alice)
     statement.create(bob)
@@ -232,8 +232,8 @@ def test_can_pass_entities_that_already_exist(graph):
 
 
 def test_a_unique_relationship_is_really_unique(graph):
-    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = results[0]
     assert alice.degree == 1
     assert bob.degree == 1
     statement = CreateStatement(graph)
@@ -244,8 +244,8 @@ def test_a_unique_relationship_is_really_unique(graph):
 
 
 def test_unique_path_creation_can_pick_up_existing_entities(graph):
-    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = results[0]
     statement = CreateStatement(graph)
     statement.create_unique(Relationship(alice, "KNOWS", Node()))
     created = statement.execute()
@@ -255,17 +255,16 @@ def test_unique_path_creation_can_pick_up_existing_entities(graph):
 
 
 def test_unique_path_not_unique_exception(graph):
-    results = graph.cypher.stream("CREATE (a)-[ab:KNOWS]->(b), (a)-[:KNOWS]->(b) RETURN a, ab, b")
-    alice, alice_knows_bob, bob = next(results)
+    results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b), (a)-[:KNOWS]->(b) RETURN a, ab, b")
+    alice, alice_knows_bob, bob = results[0]
     assert alice.degree == 2
     assert bob.degree == 2
     statement = CreateStatement(graph)
     statement.create_unique(Relationship(alice, "KNOWS", bob))
     try:
         statement.execute()
-    except CypherError as error:
-        assert error.exception == "UniquePathNotUniqueException"
-        assert error.fullname in [None, "org.neo4j.cypher.UniquePathNotUniqueException"]
+    except ConstraintViolation as error:
+        assert True
     else:
         assert False
 

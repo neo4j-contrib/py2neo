@@ -75,9 +75,6 @@ class CreateStatement(object):
             clauses.append("RETURN " + ",".join(self.return_clause))
         return "\n".join(clauses).strip()
 
-    def post(self):
-        return self.graph.cypher.post(self.string, self.parameters)
-
     def execute(self):
         """ Execute this statement.
 
@@ -86,7 +83,7 @@ class CreateStatement(object):
         """
         if not self.entities:
             return ()
-        raw = self.post().content
+        raw = self.graph.cypher.post(self.string, self.parameters)
         columns = raw["columns"]
         data = raw["data"]
         dehydrated = dict(zip(columns, data[0]))

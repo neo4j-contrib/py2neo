@@ -310,7 +310,7 @@ class TestPathIterationAndReversal(object):
 
 
 def test_can_hydrate_path(graph):
-    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
     if "directions" not in dehydrated:
         dehydrated["directions"] = ["->"]
     hydrated = Path.hydrate(dehydrated)
@@ -323,7 +323,7 @@ def test_can_hydrate_path(graph):
 def test_can_hydrate_path_into_existing_instance(graph):
     alice = Node("Person", name="Alice", age=33)
     bob = Node("Person", name="Bob", age=44)
-    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
     path = Path(alice, "KNOWS", bob)
     if "directions" not in dehydrated:
         dehydrated["directions"] = ["->"]
@@ -333,7 +333,7 @@ def test_can_hydrate_path_into_existing_instance(graph):
 
 def test_can_hydrate_path_without_directions(graph):
     statement = "CREATE p=()-[:LIKES]->()<-[:DISLIKES]-() RETURN p"
-    dehydrated = graph.cypher.post(statement).content["data"][0][0]
+    dehydrated = graph.cypher.post(statement)["data"][0][0]
     try:
         del dehydrated["directions"]
     except KeyError:
@@ -502,11 +502,14 @@ def test_graph(graph):
 
 def test_path_direction(graph):
     cypher = """\
-    CREATE p=({name:'Alice'})-[:LOVES]->({name:'Bob'})<-[:HATES]-({name:'Carol'})-[:KNOWS]->
-             ({name:'Dave'})
+    CREATE p=({name:'Alice'})-[:KNOWS]->({name:'Bob'})<-[:DISLIKES]-
+             ({name:'Carol'})-[:MARRIED_TO]->({name:'Dave'})
     RETURN p
     """
     path = graph.cypher.execute_one(cypher)
-    assert path[0] == Relationship({"name": "Alice"}, "LOVES", {"name": "Bob"})
-    assert path[1] == Relationship({"name": "Carol"}, "HATES", {"name": "Bob"})
-    assert path[2] == Relationship({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+    assert path[0].start_node["name"] == "Alice"
+    assert path[0].end_node["name"] == "Bob"
+    assert path[1].start_node["name"] == "Carol"
+    assert path[1].end_node["name"] == "Bob"
+    assert path[2].start_node["name"] == "Carol"
+    assert path[2].end_node["name"] == "Dave"

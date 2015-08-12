@@ -23,7 +23,7 @@ from py2neo.cypher.core import RecordProducer
 
 def test_record_field_access(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name as name,a.age as age"
-    for record in graph.cypher.stream(statement):
+    for record in graph.cypher.execute(statement):
         alice = record.a
         assert record.name == alice.properties["name"]
         assert record.age == alice.properties["age"]
@@ -41,7 +41,7 @@ def test_record_field_access(graph):
 
 def test_record_representation(graph):
     statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
-    for record in graph.cypher.stream(statement):
+    for record in graph.cypher.execute(statement):
         assert repr(record)
 
 

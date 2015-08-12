@@ -82,7 +82,6 @@ def test_supports(graph):
     assert isinstance(graph.supports_node_labels, bool)
     assert isinstance(graph.supports_optional_match, bool)
     assert isinstance(graph.supports_schema_indexes, bool)
-    assert isinstance(graph.supports_cypher_transactions, bool)
 
 
 def test_can_open_browser(graph):
