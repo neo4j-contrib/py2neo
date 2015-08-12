@@ -840,7 +840,6 @@ class Graph(Service):
         :return: matching relationships
         :rtype: generator
         """
-        from py2neo.cypher.util import StartOrMatch
         if start_node is None and end_node is None:
             statement = "MATCH (a)"
             parameters = {}

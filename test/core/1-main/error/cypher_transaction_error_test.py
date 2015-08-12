@@ -32,11 +32,11 @@ def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(g
     result = results[0]
     record = result[0]
     parameters = {"A": record.a._id, "B": record.b._id}
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE (a)-[:KNOWS]->(b)")
     tx.append(statement, parameters)
     tx.append(statement, parameters)
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE UNIQUE (a)-[:KNOWS]->(b)")
     tx.append(statement, parameters)
     try:

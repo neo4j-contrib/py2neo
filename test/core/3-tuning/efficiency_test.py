@@ -92,7 +92,7 @@ def test_find_needs_one_response(graph):
 def test_relationship_hydration_does_not_make_nodes_stale(graph):
     alice, bob = graph.create(Node("Person", name="Alice"), Node("Person", name="Bob"))
     with HTTPCounter() as counter:
-        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[ab:KNOWS]->(b) "
                      "RETURN ab")
         parameters = {"A": alice, "B": bob}

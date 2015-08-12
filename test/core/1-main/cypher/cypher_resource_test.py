@@ -55,7 +55,7 @@ def test_can_execute_parametrised_cypher_statement(graph):
 def test_can_execute_cypher_statement_with_node_parameter(graph):
     alice = Node(name="Alice")
     graph.create(alice)
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a"
+    statement = "MATCH (a) WHERE id(a)={N} RETURN a"
     results = graph.cypher.execute(statement, {"N": alice})
     result = results[0].a
     assert result is alice

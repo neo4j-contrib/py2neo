@@ -42,12 +42,12 @@ def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher = graph.cypher
     results = cypher.execute("CREATE (a), (b) RETURN a, b")
     parameters = {"A": results[0].a, "B": results[0].b}
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE (a)-[:KNOWS]->(b)")
     cypher.execute(statement, parameters)
     cypher.execute(statement, parameters)
     try:
-        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
         cypher.execute(statement, parameters)
     except CypherTransactionError as error:
