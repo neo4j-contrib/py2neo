@@ -1057,12 +1057,6 @@ class Graph(Service):
         return self.cypher.execute_one(statement)
 
     @property
-    def supports_foreach_pipe(self):
-        """ Indicates whether the server supports pipe syntax for FOREACH.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
     def supports_node_labels(self):
         """ Indicates whether the server supports node labels.
         """
