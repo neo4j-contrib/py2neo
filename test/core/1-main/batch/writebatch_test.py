@@ -189,8 +189,6 @@ def test_can_delete_properties_on_node_in_same_batch(graph):
 
 
 def test_can_add_labels_to_preexisting_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice, = graph.create({"name": "Alice"})
     batch = WriteBatch(graph)
     batch.add_labels(alice, "human", "female")
@@ -200,8 +198,6 @@ def test_can_add_labels_to_preexisting_node(graph):
 
 
 def test_can_add_labels_to_node_in_same_batch(graph):
-    if not graph.supports_node_labels:
-        return
     batch = WriteBatch(graph)
     a = batch.create({"name": "Alice"})
     batch.add_labels(a, "human", "female")
@@ -212,8 +208,6 @@ def test_can_add_labels_to_node_in_same_batch(graph):
 
 
 def test_can_remove_labels_from_preexisting_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice, = graph.create(Node("human", "female", name="Alice"))
     batch = WriteBatch(graph)
     batch.remove_label(alice, "human")
@@ -223,8 +217,6 @@ def test_can_remove_labels_from_preexisting_node(graph):
 
 
 def test_can_add_and_remove_labels_on_node_in_same_batch(graph):
-    if not graph.supports_node_labels:
-        return
     batch = WriteBatch(graph)
     alice = batch.create({"name": "Alice"})
     batch.add_labels(alice, "human", "female")
@@ -236,8 +228,6 @@ def test_can_add_and_remove_labels_on_node_in_same_batch(graph):
 
 
 def test_can_set_labels_on_preexisting_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice, = graph.create(Node("human", "female", name="Alice"))
     batch = WriteBatch(graph)
     batch.set_labels(alice, "mystery", "badger")
@@ -247,8 +237,6 @@ def test_can_set_labels_on_preexisting_node(graph):
 
 
 def test_can_set_labels_on_node_in_same_batch(graph):
-    if not graph.supports_node_labels:
-        return
     batch = WriteBatch(graph)
     batch.create({"name": "Alice"})
     batch.add_labels(0, "human", "female")

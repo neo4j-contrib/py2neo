@@ -24,7 +24,7 @@ import sys
 
 import pytest
 
-from py2neo import neo4j, Node, BindError, LegacyNode, GraphError, Path
+from py2neo import neo4j, Node, BindError, GraphError, Path
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -105,15 +105,6 @@ def test_unbound_node_equality():
     alice_1 = Node("Person", name="Alice")
     alice_2 = Node("Person", name="Alice")
     assert alice_1 == alice_2
-
-
-def test_binding_node_if_labels_not_supported_casts_to_legacy_node():
-    with patch("py2neo.Graph.supports_node_labels") as mocked:
-        mocked.__get__ = Mock(return_value=False)
-        alice = Node(name="Alice Smith")
-        assert isinstance(alice, Node)
-        alice.bind("http://localhost:7474/db/data/node/1")
-        assert isinstance(alice, LegacyNode)
 
 
 def test_node_exists_will_raise_non_404_errors():

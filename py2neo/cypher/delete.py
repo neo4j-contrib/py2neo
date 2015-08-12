@@ -40,7 +40,6 @@ class DeleteStatement(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.start_or_match_clause = StartOrMatch(self.graph)
         self.delete_rels_clause = []

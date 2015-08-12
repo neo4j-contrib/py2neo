@@ -17,11 +17,11 @@
 
 
 from py2neo.legacy.index import Index
-from py2neo.core import Node, Relationship, Resource, PropertyContainer, Service
+from py2neo.core import Node, Relationship, Resource, Service
 from py2neo.packages.jsonstream import assembled
 
 
-__all__ = ["LegacyResource", "LegacyNode"]
+__all__ = ["LegacyResource"]
 
 
 class LegacyResource(Service):
@@ -182,33 +182,3 @@ class LegacyResource(Service):
             if relationships:
                 return relationships[0]
         return None
-
-
-class LegacyNode(Node):
-    """ Legacy Node object for pre-2.0 servers. Does not
-    synchronise label information with server.
-    """
-
-    @property
-    def labels(self):
-        return self._Node__labels
-
-    def bind(self, uri, metadata=None):
-        PropertyContainer.bind(self, uri, metadata)
-
-    def unbind(self):
-        PropertyContainer.unbind(self)
-
-    def pull(self):
-        self._PropertyContainer__properties.clear()
-        self.refresh()
-
-    def push(self):
-        PropertyContainer.push(self)
-
-    def refresh(self):
-        from py2neo.cypher.util import StartOrMatch
-        graph = self.graph
-        statement = StartOrMatch(graph).node("a", "{a}").string + "RETURN a"
-        graph.cypher.execute(statement, {"a": self})
-        self._Node__stale.clear()

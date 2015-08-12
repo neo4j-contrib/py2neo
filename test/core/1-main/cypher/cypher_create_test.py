@@ -75,8 +75,6 @@ def test_can_create_node_with_properties(graph):
 
 
 def test_can_create_node_with_label(graph):
-    if not graph.supports_node_labels:
-        return
     node = Node("Person", name="Alice")
     statement = CreateStatement(graph)
     statement.create(node)

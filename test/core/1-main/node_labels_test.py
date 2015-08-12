@@ -37,49 +37,28 @@ def test_label_set_inequality():
 
 
 def test_can_get_all_node_labels(graph):
-    if not graph.supports_node_labels:
-        return
     labels = graph.node_labels
     assert isinstance(labels, frozenset)
 
 
-def test_cannot_get_node_labels_if_not_supported(graph):
-    with patch("py2neo.Graph.supports_node_labels") as mocked:
-        mocked.__get__ = Mock(return_value=False)
-        try:
-            _ = graph.node_labels
-        except NotImplementedError:
-            assert True
-        else:
-            assert False
-
-
 def test_can_create_node_with_labels(graph):
-    if not graph.supports_node_labels:
-        return
     alice = Node("Person", name="Alice")
     assert alice.labels == {"Person"}
 
 
 def test_can_add_labels_to_existing_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice = Node(name="Alice")
     alice.labels.add("Person")
     assert alice.labels == {"Person"}
 
 
 def test_can_remove_labels_from_existing_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice = Node("Person", name="Alice")
     alice.labels.remove("Person")
     assert alice.labels == set()
 
 
 def test_can_replace_labels_on_existing_node(graph):
-    if not graph.supports_node_labels:
-        return
     alice = Node("Person", name="Alice")
     alice.labels.replace({"Employee"})
     assert alice.labels == {"Employee"}

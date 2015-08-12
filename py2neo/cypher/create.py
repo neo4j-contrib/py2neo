@@ -41,7 +41,6 @@ class CreateStatement(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.names = []
         self.start_or_match_clause = StartOrMatch(self.graph)
@@ -144,7 +143,7 @@ class CreateStatement(object):
         template = "{name}"
         kwargs = {"name": name}
         if full:
-            if node.labels and self.supports_node_labels:
+            if node.labels:
                 template += "{labels}"
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
             if node.properties:

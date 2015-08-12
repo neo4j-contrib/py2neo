@@ -42,12 +42,11 @@ class DodgyClientError(ClientError):
 def get_clean_database():
     # Constraints have to be removed before the indexed property keys can be removed.
     graph = neo4j.Graph(NEO4J_HTTP_URI)
-    if graph.supports_node_labels:
-        for label in graph.node_labels:
-            for key in graph.schema.get_uniqueness_constraints(label):
-                graph.schema.drop_uniqueness_constraint(label, key)
-            for key in graph.schema.get_indexes(label):
-                graph.schema.drop_index(label, key)
+    for label in graph.node_labels:
+        for key in graph.schema.get_uniqueness_constraints(label):
+            graph.schema.drop_uniqueness_constraint(label, key)
+        for key in graph.schema.get_indexes(label):
+            graph.schema.drop_index(label, key)
     return graph
 
 
@@ -64,8 +63,6 @@ def test_schema_not_supported(graph):
 
 def test_schema_index():
     graph = get_clean_database()
-    if not graph.supports_node_labels:
-        return
     label_1 = uuid4().hex
     label_2 = uuid4().hex
     munich, = graph.create({'name': "München", 'key': "09162000"})
@@ -95,8 +92,6 @@ def test_schema_index():
 
 def test_unique_constraint():
     graph = get_clean_database()
-    if not graph.supports_node_labels:
-        return
     label_1 = uuid4().hex
     borough, = graph.create(Node(label_1, name="Taufkirchen"))
     graph.schema.create_uniqueness_constraint(label_1, "name")
@@ -109,8 +104,6 @@ def test_unique_constraint():
 
 def test_labels_constraints():
     graph_db = get_clean_database()
-    if not graph_db.supports_node_labels:
-        return
     label_1 = uuid4().hex
     a, b = graph_db.create(Node(label_1, name="Alice"), Node(label_1, name="Alice"))
     with pytest.raises(GraphError):
@@ -138,8 +131,6 @@ def test_labels_constraints():
 
 
 def test_drop_index_handles_404_errors_correctly(graph):
-    if not graph.supports_node_labels:
-        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = NotFoundError
         try:
@@ -151,8 +142,6 @@ def test_drop_index_handles_404_errors_correctly(graph):
 
 
 def test_drop_index_handles_non_404_errors_correctly(graph):
-    if not graph.supports_node_labels:
-        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = DodgyClientError
         try:
@@ -164,8 +153,6 @@ def test_drop_index_handles_non_404_errors_correctly(graph):
 
 
 def test_drop_unique_constraint_handles_404_errors_correctly(graph):
-    if not graph.supports_node_labels:
-        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = NotFoundError
         try:
@@ -177,8 +164,6 @@ def test_drop_unique_constraint_handles_404_errors_correctly(graph):
 
 
 def test_drop_unique_constraint_handles_non_404_errors_correctly(graph):
-    if not graph.supports_node_labels:
-        return
     with patch.object(_Resource, "delete") as mocked:
         mocked.side_effect = DodgyClientError
         try:
