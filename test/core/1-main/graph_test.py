@@ -77,10 +77,6 @@ def test_can_hydrate_map(graph):
     assert isinstance(hydrated, dict)
 
 
-def test_supports(graph):
-    assert isinstance(graph.supports_schema_indexes, bool)
-
-
 def test_can_open_browser(graph):
     with patch("webbrowser.open") as mocked:
         graph.open_browser()

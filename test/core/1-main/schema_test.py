@@ -50,17 +50,6 @@ def get_clean_database():
     return graph
 
 
-def test_schema_not_supported(graph):
-    with patch("py2neo.Graph.supports_schema_indexes") as mocked:
-        mocked.__get__ = Mock(return_value=False)
-        try:
-            _ = graph.schema
-        except NotImplementedError:
-            assert True
-        else:
-            assert False
-
-
 def test_schema_index():
     graph = get_clean_database()
     label_1 = uuid4().hex
