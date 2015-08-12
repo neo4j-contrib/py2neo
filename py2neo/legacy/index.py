@@ -56,12 +56,8 @@ class Index(Service):
             self.bind(uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
         uri = self.resource.uri
-        if self.graph.neo4j_version >= (1, 9):
-            self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
-            self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
-        else:
-            self._create_or_fail = None
-            self._get_or_create = Resource(uri.resolve("?unique"))
+        self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
+        self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._name = name or uri.path.segments[-1]
         self.__searcher_stem_cache = {}

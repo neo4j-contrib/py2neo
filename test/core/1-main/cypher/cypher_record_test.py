@@ -56,8 +56,6 @@ def test_producer_length():
 
 
 def test_record_equality(graph):
-    if graph.neo4j_version < (2,):
-        return
     statement = "MERGE (a {name:'Superfly',age:55}) RETURN a,a.name,a.age"
     results = graph.cypher.execute(statement)
     r1 = results[0]
