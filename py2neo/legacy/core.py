@@ -35,7 +35,6 @@ class LegacyResource(Service):
             inst = super(LegacyResource, cls).__new__(cls)
             inst.bind(uri)
             inst._indexes = {Node: {}, Relationship: {}}
-            inst.supports_index_uniqueness_modes = inst.graph.neo4j_version >= (1, 9)
             cls.__instances[uri] = inst
         return inst
 

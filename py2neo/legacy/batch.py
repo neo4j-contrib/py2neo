@@ -109,10 +109,6 @@ class LegacyWriteBatch(WriteBatch):
         super(LegacyWriteBatch, self).__init__(graph)
         self.__new_uniqueness_modes = None
 
-    @property
-    def supports_index_uniqueness_modes(self):
-        return self.graph.legacy.supports_index_uniqueness_modes
-
     def _assert_can_create_or_fail(self):
         if not self.supports_index_uniqueness_modes:
             raise NotImplementedError("Uniqueness mode `create_or_fail` "
@@ -165,7 +161,6 @@ class LegacyWriteBatch(WriteBatch):
         :type entity: concrete or reference
         :return: batch request object
         """
-        self._assert_can_create_or_fail()
         query = "uniqueness=create_or_fail"
         return self._add_to_index(cls, index, key, value, entity, query)
 
@@ -185,10 +180,7 @@ class LegacyWriteBatch(WriteBatch):
         :type entity: concrete or reference
         :return: batch request object
         """
-        if self.supports_index_uniqueness_modes:
-            query = "uniqueness=get_or_create"
-        else:
-            query = "unique"
+        query = "uniqueness=get_or_create"
         return self._add_to_index(cls, index, key, value, entity, query)
 
     ### CREATE IN INDEX ###
@@ -236,7 +228,6 @@ class LegacyWriteBatch(WriteBatch):
         :param abstract: abstract node or relationship to create
         :return: batch request object
         """
-        self._assert_can_create_or_fail()
         query = "uniqueness=create_or_fail"
         return self._create_in_index(cls, index, key, value, abstract, query)
 
@@ -255,10 +246,7 @@ class LegacyWriteBatch(WriteBatch):
         :param abstract: abstract node or relationship to create
         :return: batch request object
         """
-        if self.supports_index_uniqueness_modes:
-            query = "uniqueness=get_or_create"
-        else:
-            query = "unique"
+        query = "uniqueness=get_or_create"
         return self._create_in_index(cls, index, key, value, cls.cast(abstract), query)
 
     ### REMOVE FROM INDEX ###
