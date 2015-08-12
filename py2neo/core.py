@@ -1055,12 +1055,6 @@ class Graph(Service):
         return self.cypher.execute_one(statement)
 
     @property
-    def supports_schema_indexes(self):
-        """ Indicates whether the server supports schema indexes.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
     def supports_start_clause(self):
         """ Indicates whether the server supports the Cypher START clause.
         """

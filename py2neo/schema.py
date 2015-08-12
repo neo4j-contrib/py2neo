@@ -36,8 +36,6 @@ class SchemaResource(Service):
         except KeyError:
             inst = super(SchemaResource, cls).__new__(cls)
             inst.bind(uri)
-            if not inst.graph.supports_schema_indexes:
-                raise NotImplementedError("Schema index support requires version 2.0 or above")
             inst._index_template = ResourceTemplate(uri + "/index/{label}")
             inst._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
             inst._uniqueness_constraint_template = \
