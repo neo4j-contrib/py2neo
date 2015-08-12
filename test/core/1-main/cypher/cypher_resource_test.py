@@ -22,14 +22,14 @@ from py2neo.core import Node
 from py2neo.cypher.core import CypherResource, CypherTransaction
 
 
-def test_can_create_cypher_resource_with_transaction_uri():
+def test_can_create_cypher_resource():
     uri = "http://localhost:7474/db/data/transaction"
     cypher = CypherResource(uri)
     assert cypher.uri == uri
 
 
 def test_cypher_resources_with_identical_arguments_are_same_objects():
-    uri = "http://localhost:7474/db/data/transaction"
+    uri = "http://localhost:7474/db/data/cypher"
     cypher_1 = CypherResource(uri)
     cypher_2 = CypherResource(uri)
     assert cypher_1 is cypher_2
@@ -62,7 +62,7 @@ def test_can_execute_parametrised_cypher_statement(graph):
 def test_can_execute_cypher_statement_with_node_parameter(graph):
     alice = Node(name="Alice")
     graph.create(alice)
-    statement = "MATCH (a) WHERE id(a)={N} RETURN a"
+    statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
     results = graph.cypher.execute(statement, {"N": alice})
     result = results[0].a
     assert result is alice
@@ -90,7 +90,7 @@ def test_execute_one_with_no_results_returns_none(graph):
 def test_can_stream_cypher_statement(graph):
     alice, = graph.create(Node(name="Alice"))
     graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
-    statement = StartOrMatch(graph).node("a", "{N}").string + "MATCH (a)-[:KNOWS]->(x) RETURN x"
+    statement = "MATCH (a) WHERE id(a) = {N} MATCH (a)-[:KNOWS]->(x) RETURN x"
     results = graph.cypher.stream(statement, {"N": alice._id})
     for row in results:
         matched = row.x
