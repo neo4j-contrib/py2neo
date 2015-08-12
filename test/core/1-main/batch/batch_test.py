@@ -20,7 +20,6 @@ import pytest
 
 from py2neo import node, rel, Finished
 from py2neo.core import Node, Relationship
-from py2neo.cypher.util import StartOrMatch
 from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
 from py2neo.legacy import LegacyWriteBatch
 
@@ -387,7 +386,7 @@ def test_cypher_job_with_bad_syntax(graph):
 
 def test_cypher_job_with_other_error(graph):
     batch = WriteBatch(graph)
-    statement = StartOrMatch(graph).node("n", "*").string + "RETURN n LIMIT -1"
+    statement = "MATCH (n) RETURN n LIMIT -1"
     batch.append(CypherJob(statement))
     try:
         batch.submit()

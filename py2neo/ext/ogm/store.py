@@ -20,7 +20,6 @@ from __future__ import unicode_literals
 
 from py2neo.batch import WriteBatch
 from py2neo.core import Node
-from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["Store", "NotSaved"]

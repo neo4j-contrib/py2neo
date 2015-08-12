@@ -19,7 +19,6 @@
 from mock import patch
 
 from py2neo import Graph
-from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_create_graph_with_trailing_slash():
@@ -47,7 +46,7 @@ def test_same_uri_gives_same_instance():
 
 def test_graph_len_returns_number_of_rels(graph):
     size = len(graph)
-    statement = StartOrMatch(graph).relationship("r", "*").string + "RETURN COUNT(r)"
+    statement = "MATCH ()-[r]->() RETURN COUNT(r)"
     num_rels = graph.cypher.execute_one(statement)
     assert size == num_rels
 
