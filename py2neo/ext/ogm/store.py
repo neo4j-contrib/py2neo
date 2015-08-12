@@ -39,18 +39,11 @@ class Store(object):
 
     def __init__(self, graph):
         self.graph = graph
-        if self.graph.supports_optional_match:
-            self.__delete_query = (
-                StartOrMatch(self.graph).node("a", "{A}").string +
-                "OPTIONAL MATCH a-[r]-b "
-                "DELETE r, a"
-            )
-        else:
-            self.__delete_query = (
-                StartOrMatch(self.graph).node("a", "{A}").string +
-                "MATCH a-[r?]-b "
-                "DELETE r, a"
-            )
+        self.__delete_query = (
+            StartOrMatch(self.graph).node("a", "{A}").string +
+            "OPTIONAL MATCH a-[r]-b "
+            "DELETE r, a"
+        )
 
     def _assert_saved(self, subj):
         try:

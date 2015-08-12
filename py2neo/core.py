@@ -1048,13 +1048,6 @@ class Graph(Service):
         return self.cypher.execute_one(statement)
 
     @property
-    def supports_optional_match(self):
-        """ Indicates whether the server supports Cypher OPTIONAL MATCH
-        clauses.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
     def supports_schema_indexes(self):
         """ Indicates whether the server supports schema indexes.
         """
