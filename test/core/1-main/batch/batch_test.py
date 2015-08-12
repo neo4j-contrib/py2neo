@@ -74,28 +74,6 @@ class TestRelationshipCreation(object):
         assert knows.properties == {}
         self.recycling = [knows, alice, bob]
 
-    def test_can_create_relationship_with_new_indexed_nodes(self, graph):
-        try:
-            graph.legacy.delete_index(Node, "people")
-        except LookupError:
-            pass
-        try:
-            graph.legacy.delete_index(Relationship, "friendships")
-        except LookupError:
-            pass
-        self.batch.get_or_create_in_index(Node, "people", "name", "Alice", {"name": "Alice"})
-        self.batch.get_or_create_in_index(Node, "people", "name", "Bob", {"name": "Bob"})
-        self.batch.get_or_create_in_index(Relationship, "friendships",
-                                          "names", "alice_bob", (0, "KNOWS", 1))
-        #self.batch.create((0, "KNOWS", 1))
-        alice, bob, knows = self.batch.submit()
-        assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
-        assert knows.properties == {}
-        self.recycling = [knows, alice, bob]
-
     def test_can_create_relationship_with_existing_nodes(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})

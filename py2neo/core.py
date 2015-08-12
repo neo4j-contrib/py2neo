@@ -817,17 +817,6 @@ class Graph(Service):
         else:
             return data
 
-    @property
-    def legacy(self):
-        """ Sub-resource providing access to legacy functionality.
-
-        :rtype: :class:`py2neo.legacy.LegacyResource`
-        """
-        if self.__legacy is None:
-            from py2neo.legacy import LegacyResource
-            self.__legacy = LegacyResource(self.uri.string)
-        return self.__legacy
-
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Return an iterator for all relationships matching the
         specified criteria.

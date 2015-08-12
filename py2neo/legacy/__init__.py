@@ -17,8 +17,6 @@
 
 
 from py2neo.legacy.batch import *
-from py2neo.legacy.core import *
-from py2neo.legacy.index import *
 
 
-__all__ = ["LegacyResource", "Index", "LegacyReadBatch", "LegacyWriteBatch"]
+__all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
