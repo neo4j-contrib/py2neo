@@ -142,16 +142,14 @@ class TestCypher(object):
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{N}").string +
-                     "RETURN collect(a) AS a_collection")
+        statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node._id}
         results = self.graph.cypher.execute(statement, params)
         assert results[0].a_collection == [node]
 
     def test_param_used_once(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{X}").string +
-                     "RETURN a")
+        statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node._id}
         results = self.graph.cypher.execute(statement, params)
         record = results[0]
@@ -159,8 +157,7 @@ class TestCypher(object):
 
     def test_param_used_twice(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{X}").node("b", "{X}").string +
-                     "RETURN a, b")
+        statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node._id}
         results = self.graph.cypher.execute(statement, params)
         record = results[0]
@@ -169,10 +166,12 @@ class TestCypher(object):
 
     def test_param_used_thrice(self):
         node, = self.graph.create({})
-        query = (StartOrMatch(self.graph).node("a", "{X}").node("b", "{X}").
-                 node("c", "{X}").string + "RETURN a, b, c")
+        statement = "MATCH (a) WHERE id(a)={X} " \
+                    "MATCH (b) WHERE id(b)={X} " \
+                    "MATCH (c) WHERE id(c)={X} " \
+                    "RETURN a, b, c"
         params = {"X": node._id}
-        results = self.graph.cypher.execute(query, params)
+        results = self.graph.cypher.execute(statement, params)
         record = results[0]
         assert record.a == node
         assert record.b == node
@@ -180,7 +179,7 @@ class TestCypher(object):
 
     def test_param_reused_once_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
-        query = (StartOrMatch(self.graph).node("a", "{A}").string +
+        query = ("MATCH (a) WHERE id(a)={A} "
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE a.age > {min_age} "
                  "WITH a "
@@ -198,7 +197,7 @@ class TestCypher(object):
             {"name": "Carol", "age": 88},
             (b, "KNOWS", 0),
         )
-        query = (StartOrMatch(self.graph).node("a", "{A}").string +
+        query = ("MATCH (a) WHERE id(a)={A} "
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE a.age > {min_age} "
                  "WITH a "

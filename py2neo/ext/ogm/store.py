@@ -40,7 +40,7 @@ class Store(object):
     def __init__(self, graph):
         self.graph = graph
         self.__delete_query = (
-            StartOrMatch(self.graph).node("a", "{A}").string +
+            "MATCH (a) WHERE id(a)={A} "
             "OPTIONAL MATCH a-[r]-b "
             "DELETE r, a"
         )
@@ -217,9 +217,8 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            self.graph.cypher.run(StartOrMatch(self.graph).node("a", "{a}").string +
-                                  "MATCH (a)-[r]->(b) DELETE r",
-                                  {"a": subj.__node__})
+            self.graph.cypher.execute("MATCH (a) WHERE id(a)={a} MATCH (a)-[r]->(b) DELETE r",
+                                      {"a": subj.__node__})
         else:
             subj.__node__, = self.graph.create(props)
         # write rels
