@@ -88,32 +88,6 @@ def test_execute_one_with_no_results_returns_none(graph):
     assert result is None
 
 
-def test_can_stream_cypher_statement(graph):
-    alice, = graph.create(Node(name="Alice"))
-    graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
-    statement = StartOrMatch(graph).node("a", "{N}").string + "MATCH (a)-[:KNOWS]->(x) RETURN x"
-    results = graph.cypher.stream(statement, {"N": alice._id})
-    for row in results:
-        matched = row.x
-        assert isinstance(matched, Node)
-
-
-def test_can_stream_parametrised_cypher_statement(graph):
-    results = graph.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-    result = next(results).a
-    assert isinstance(result, Node)
-    assert result.labels == {"Person"}
-    assert result.properties == {"name": "Alice"}
-
-
-def test_can_stream_cypher_statement_using_next_method(graph):
-    results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
-    result = results.next().a
-    assert isinstance(result, Node)
-    assert result.labels == {"Person"}
-    assert result.properties == {"name": "Alice"}
-
-
 def test_can_begin_transaction():
     uri = "http://localhost:7474/db/data/transaction"
     cypher = CypherResource(uri)

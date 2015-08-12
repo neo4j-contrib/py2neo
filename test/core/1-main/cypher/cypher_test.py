@@ -86,13 +86,6 @@ def test_can_execute_one_where_none_returned(graph):
     assert result is None
 
 
-def test_can_stream(graph):
-    stream = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-    results = list(stream)
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
-
 def test_can_convert_to_subgraph(graph):
     results = graph.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
     subgraph = results.to_subgraph()

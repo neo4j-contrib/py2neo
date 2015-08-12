@@ -213,6 +213,7 @@ function neo4j_start {
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
     #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
+    DIST_DIR=$(pwd)/$(ls -t | grep "$(echo $DIST | sed 's/LATEST/*/')" | head -1)
     echo "Using Neo4j installation at ${DIST_DIR}"
     $DIST_DIR/bin/neo4j start
     popd > /dev/null

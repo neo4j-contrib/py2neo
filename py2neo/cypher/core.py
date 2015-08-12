@@ -22,12 +22,11 @@ import logging
 from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
-from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
 from py2neo.util import is_integer, is_string, xstr, ustr, is_collection
 
 
-__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
+__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList",
            "Record", "RecordProducer"]
 
 
@@ -136,15 +135,6 @@ class CypherResource(Service):
             return results[0][0][0]
         except IndexError:
             return None
-
-    def stream(self, statement, parameters=None, **kwparameters):
-        """ Execute the query and return a result iterator.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.RecordStream`
-        """
-        return RecordStream(self.graph, self.post(statement, parameters, **kwparameters))
 
     def begin(self):
         """ Begin a new transaction.
@@ -332,13 +322,6 @@ class RecordList(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
 
-    # @classmethod
-    # def hydrate(cls, data, graph):
-    #     columns = data["columns"]
-    #     rows = data["data"]
-    #     producer = RecordProducer(columns)
-    #     return cls(graph, columns, [producer.produce(graph.hydrate(row)) for row in rows])
-
     def __init__(self, graph, columns, records):
         self.graph = graph
         self.producer = RecordProducer(columns)
@@ -398,52 +381,6 @@ class RecordList(object):
                 if isinstance(value, (Node, Path)):
                     entities.append(value)
         return Subgraph(*entities)
-
-
-class RecordStream(object):
-    """ An accessor for a sequence of records yielded by a streamed Cypher statement.
-
-    ::
-
-        for record in graph.cypher.stream("MATCH (n) RETURN n LIMIT 10")
-            print record[0]
-
-    Each record returned is cast into a :py:class:`namedtuple` with names
-    derived from the resulting column names.
-
-    .. note ::
-        Results are available as returned from the server and are decoded
-        incrementally. This means that there is no need to wait for the
-        entire response to be received before processing can occur.
-    """
-
-    def __init__(self, graph, result):
-        self.graph = graph
-        self.__result = result
-        self.__result_item = self.__result_iterator()
-        self.columns = next(self.__result_item)
-        log.info("stream %r", self.columns)
-
-    def __result_iterator(self):
-        columns = self.__result["columns"]
-        producer = RecordProducer(columns)
-        yield tuple(columns)
-        for values in self.__result["data"]:
-            yield producer.produce(self.graph.hydrate(values))
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return next(self.__result_item)
-
-    def next(self):
-        return self.__next__()
-
-    def close(self):
-        """ Close results and free resources.
-        """
-        pass
 
 
 class Record(object):
