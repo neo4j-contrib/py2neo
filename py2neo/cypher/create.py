@@ -18,7 +18,6 @@
 
 from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
 from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.util import StartOrMatch
 from py2neo.util import ustr, xstr
 
 
@@ -43,7 +42,7 @@ class CreateStatement(object):
         self.graph = graph
         self.entities = []
         self.names = []
-        self.start_or_match_clause = StartOrMatch(self.graph)
+        self.initial_match_clause = []
         self.create_clause = []
         self.create_unique_clause = []
         self.return_clause = []
@@ -65,7 +64,7 @@ class CreateStatement(object):
     def string(self):
         """ The full Cypher statement as a string.
         """
-        clauses = [self.start_or_match_clause.string]
+        clauses = list(self.initial_match_clause)
         if self.create_clause:
             clauses.append("CREATE " + ",".join(self.create_clause))
         if self.create_unique_clause:
@@ -153,7 +152,8 @@ class CreateStatement(object):
 
     def _create_node(self, node, name):
         if node.bound:
-            self.start_or_match_clause.node(name, "{" + name + "}")
+            self.initial_match_clause.append("MATCH ({0}) "
+                                             "WHERE id({0})={{{0}}}".format(name))
             self.parameters[name] = node._id
         else:
             self.create_clause.append(self._node_pattern(node, name, full=True))
@@ -195,7 +195,8 @@ class CreateStatement(object):
             rel_name = name + "r" + ustr(i)
             rel_names.append(rel_name)
             if rel.bound:
-                self.start_or_match_clause.relationship(rel_name, "{" + rel_name + "}")
+                self.initial_match_clause.append("MATCH ()-[{0}]->() "
+                                                 "WHERE id({0})={{{0}}}".format(rel_name))
                 self.parameters[rel_name] = rel._id
             else:
                 if rel.properties:

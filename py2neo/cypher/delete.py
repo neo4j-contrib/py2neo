@@ -17,7 +17,6 @@
 
 
 from py2neo.core import Graph, Node, Path, Relationship
-from py2neo.cypher.util import StartOrMatch
 from py2neo.util import ustr, xstr
 
 
@@ -41,7 +40,7 @@ class DeleteStatement(object):
     def __init__(self, graph):
         self.graph = graph
         self.entities = []
-        self.start_or_match_clause = StartOrMatch(self.graph)
+        self.initial_match_clause = []
         self.delete_rels_clause = []
         self.delete_nodes_clause = []
         self.parameters = {}
@@ -62,9 +61,7 @@ class DeleteStatement(object):
     def string(self):
         """ The full Cypher statement as a string.
         """
-        clauses = []
-        if self.start_or_match_clause:
-            clauses.append(self.start_or_match_clause.string.rstrip())
+        clauses = list(self.initial_match_clause)
         if self.delete_rels_clause:
             clauses.append("DELETE " + ",".join(self.delete_rels_clause))
         if self.delete_nodes_clause:
@@ -96,13 +93,15 @@ class DeleteStatement(object):
 
     def _delete_node(self, node, name):
         if node.bound:
-            self.start_or_match_clause.node(name, "{%s}" % name)
+            self.initial_match_clause.append("MATCH ({0}) "
+                                             "WHERE id({0})={{{0}}}".format(name))
             self.delete_nodes_clause.append(name)
             self.parameters[name] = node._id
 
     def _delete_relationship(self, relationship, name):
         if relationship.bound:
-            self.start_or_match_clause.relationship(name, "{%s}" % name)
+            self.initial_match_clause.append("MATCH ()-[{0}]->() "
+                                             "WHERE id({0})={{{0}}}".format(name))
             self.delete_rels_clause.append(name)
             self.parameters[name] = relationship._id
 
