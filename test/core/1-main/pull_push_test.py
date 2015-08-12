@@ -132,7 +132,7 @@ def test_can_pull_path(graph):
                  .relationship("cd", "{cd}").string +
                  "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
     parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
-    graph.cypher.run(statement, parameters)
+    graph.cypher.execute(statement, parameters)
     path.pull()
     assert path[0].properties["amount"] == "lots"
     assert path[1].properties["amount"] == "some"

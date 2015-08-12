@@ -75,7 +75,7 @@ def test_can_pull_path(graph):
     path = graph.cypher.execute_one("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
     assert path.rels[0].properties["since"] is None
     statement = StartOrMatch(graph).relationship("ab", "{ab}").string + "SET ab.since=1999"
-    graph.cypher.run(statement, {"ab": path.rels[0]._id})
+    graph.cypher.execute(statement, {"ab": path.rels[0]._id})
     assert path.rels[0].properties["since"] is None
     batch = PullBatch(graph)
     batch.append(path)

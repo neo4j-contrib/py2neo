@@ -36,14 +36,6 @@ def test_cypher_resources_with_identical_arguments_are_same_objects():
     assert cypher_1 is cypher_2
 
 
-def test_can_run_cypher_statement(graph):
-    graph.cypher.run("MERGE (a:Person {name:'Alice'})")
-
-
-def test_can_run_parametrised_cypher_statement(graph):
-    graph.cypher.run("MERGE (a:Person {name:{N}})", {"N": "Alice"})
-
-
 def test_can_execute_cypher_statement(graph):
     results = graph.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
     result = results[0].a

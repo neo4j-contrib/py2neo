@@ -98,16 +98,6 @@ class CypherResource(Service):
         results = tx.post(commit=True)
         return results[0]
 
-    def run(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement, ignoring any return value.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        """
-        tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
-        tx.commit()
-
     def execute(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement.
 

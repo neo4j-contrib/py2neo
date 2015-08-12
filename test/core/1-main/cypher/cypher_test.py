@@ -48,11 +48,6 @@ def test_nonsense_query(graph):
         assert False
 
 
-def test_can_run(graph):
-    graph.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
-    assert True
-
-
 def test_can_execute(graph):
     results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     assert len(results) == 1
