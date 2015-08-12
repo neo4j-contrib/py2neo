@@ -43,9 +43,9 @@ def test_one_record_in_result(graph):
     assert value == ("Alice", 33)
 
 
-def test_one_from_record_with_zero_columns():
+def test_one_from_record_with_zero_columns(graph):
     producer = RecordProducer([])
     record = producer.produce([])
-    record_list = RecordList([], [record])
+    record_list = RecordList(graph, [], [record])
     value = record_list.one
     assert value is None

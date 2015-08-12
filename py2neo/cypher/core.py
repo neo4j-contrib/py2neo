@@ -319,7 +319,7 @@ class RecordListList(list):
 
     @classmethod
     def from_results(cls, results, graph):
-        return cls(RecordList.hydrate(result, graph) for result in results)
+        return cls(RecordList(graph, result["columns"], result["data"]) for result in results)
 
     def __repr__(self):
         out = []
@@ -332,35 +332,44 @@ class RecordList(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
 
-    @classmethod
-    def hydrate(cls, data, graph):
-        columns = data["columns"]
-        rows = data["data"]
-        producer = RecordProducer(columns)
-        return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
+    # @classmethod
+    # def hydrate(cls, data, graph):
+    #     columns = data["columns"]
+    #     rows = data["data"]
+    #     producer = RecordProducer(columns)
+    #     return cls(graph, columns, [producer.produce(graph.hydrate(row)) for row in rows])
 
-    def __init__(self, columns, records):
-        self.columns = columns
-        self.records = records
-        log.info("result %r %r", columns, len(records))
+    def __init__(self, graph, columns, records):
+        self.graph = graph
+        self.producer = RecordProducer(columns)
+        self.__records = records
 
     def __repr__(self):
         out = ""
         if self.columns:
-            table = TextTable([None] + self.columns, border=True)
-            for i, record in enumerate(self.records):
+            table = TextTable((None,) + self.columns, border=True)
+            for i, record in enumerate(self):
                 table.append([i + 1] + list(record))
             out = repr(table)
         return out
 
     def __len__(self):
-        return len(self.records)
+        return len(self.__records)
 
-    def __getitem__(self, item):
-        return self.records[item]
+    def __getitem__(self, index):
+        if isinstance(self.__records[index], list):
+            self.__records[index] = self.producer.produce(self.graph.hydrate(self.__records[index]))
+        return self.__records[index]
 
     def __iter__(self):
-        return iter(self.records)
+        for index, record in enumerate(self.__records):
+            if isinstance(record, list):
+                record = self.__records[index] = self.producer.produce(self.graph.hydrate(record))
+            yield record
+
+    @property
+    def columns(self):
+        return self.producer.columns
 
     @property
     def one(self):
@@ -384,7 +393,7 @@ class RecordList(object):
         """ Convert a RecordList into a Subgraph.
         """
         entities = []
-        for record in self.records:
+        for record in self:
             for value in record:
                 if isinstance(value, (Node, Path)):
                     entities.append(value)
@@ -501,21 +510,16 @@ class Record(object):
 class RecordProducer(object):
 
     def __init__(self, columns):
-        self.__columns = tuple(column for column in columns if not column.startswith("_"))
-        self.__len = len(self.__columns)
-        dct = dict.fromkeys(self.__columns)
+        self.columns = tuple(column for column in columns if not column.startswith("_"))
+        dct = dict.fromkeys(self.columns)
         dct["__producer__"] = self
         self.__type = type(xstr("Record"), (Record,), dct)
 
     def __repr__(self):
-        return "RecordProducer(columns=%r)" % (self.__columns,)
+        return "RecordProducer(columns=%r)" % (self.columns,)
 
     def __len__(self):
-        return self.__len
-
-    @property
-    def columns(self):
-        return self.__columns
+        return len(self.columns)
 
     def produce(self, values):
         """ Produce a record from a set of values.
