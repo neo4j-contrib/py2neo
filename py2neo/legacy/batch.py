@@ -34,14 +34,14 @@ class LegacyReadBatch(ReadBatch):
     def _index(self, content_type, index):
         """ Fetch an Index object.
         """
-        from py2neo.legacy.index import Index
+        from py2neo.ext.mandex import ManualIndexManager, Index
         if isinstance(index, Index):
             if content_type == index._content_type:
                 return index
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self.graph.legacy.get_or_create_index(content_type, str(index))
+            return ManualIndexManager(self.graph).get_or_create_index(content_type, str(index))
 
     def get_indexed_nodes(self, index, key, value):
         """ Fetch all nodes indexed under a given key-value pair.
@@ -96,23 +96,18 @@ class LegacyWriteBatch(WriteBatch):
     def _index(self, content_type, index):
         """ Fetch an Index object.
         """
-        from py2neo.legacy.index import Index
+        from py2neo.ext.mandex import ManualIndexManager, Index
         if isinstance(index, Index):
             if content_type == index._content_type:
                 return index
             else:
                 raise TypeError("Index is not for {0}s".format(content_type))
         else:
-            return self.graph.legacy.get_or_create_index(content_type, str(index))
+            return ManualIndexManager(self.graph).get_or_create_index(content_type, str(index))
 
     def __init__(self, graph):
         super(LegacyWriteBatch, self).__init__(graph)
         self.__new_uniqueness_modes = None
-
-    def _assert_can_create_or_fail(self):
-        if not self.supports_index_uniqueness_modes:
-            raise NotImplementedError("Uniqueness mode `create_or_fail` "
-                                      "requires version 1.9 or above")
 
     ### ADD TO INDEX ###
 
