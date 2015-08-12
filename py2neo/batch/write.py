@@ -19,7 +19,6 @@
 from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
-from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUniquePathJob",
@@ -28,7 +27,7 @@ __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUni
 
 
 def _create_query(graph, p, unique=False):
-    start_or_match_clause = StartOrMatch(graph)
+    initial_match_clause = []
     path, values, params = [], [], {}
 
     def append_node(i, node):
@@ -37,7 +36,7 @@ def _create_query(graph, p, unique=False):
             values.append("n{0}".format(i))
         elif node.bound:
             path.append("(n{0})".format(i))
-            start_or_match_clause.node("n%s" % i, "{i%s}" % i)
+            initial_match_clause.append("MATCH (n{0}) WHERE id(n{0})={{i{0}}}".format(i))
             params["i{0}".format(i)] = node._id
             values.append("n{0}".format(i))
         else:
@@ -58,9 +57,7 @@ def _create_query(graph, p, unique=False):
     for i, rel in enumerate(p.rels):
         append_rel(i, rel)
         append_node(i + 1, p.nodes[i + 1])
-    clauses = []
-    if start_or_match_clause:
-        clauses.append(start_or_match_clause.string)
+    clauses = list(initial_match_clause)
     if unique:
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
     else:

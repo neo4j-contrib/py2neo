@@ -19,7 +19,6 @@
 import logging
 
 from py2neo import Graph, Node, NEO4J_HTTP_URI
-from py2neo.cypher.util import StartOrMatch
 
 
 class TestHandler(logging.Handler):

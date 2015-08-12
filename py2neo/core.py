@@ -1036,12 +1036,6 @@ class Graph(Service):
         statement = "MATCH ()-[r]->() RETURN count(r)"
         return self.cypher.execute_one(statement)
 
-    @property
-    def supports_start_clause(self):
-        """ Indicates whether the server supports the Cypher START clause.
-        """
-        return self.neo4j_version < (2, 2)
-
 
 class PropertySet(Service, dict):
     """ A dict subclass that equates None with a non-existent key and can be

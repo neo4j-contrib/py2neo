@@ -22,7 +22,6 @@ import pytest
 
 from py2neo.core import Node, Relationship, Path
 from py2neo.cypher import CypherError, CypherTransactionError
-from py2neo.cypher.util import StartOrMatch
 
 
 def alice_and_bob(graph):
@@ -62,7 +61,7 @@ def test_can_execute_with_parameter(graph):
 
 def test_can_execute_with_entity_parameter(graph):
     alice, = graph.create({"name": "Alice"})
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a.name AS name"
+    statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
     results = graph.cypher.execute(statement, {"N": alice})
     assert len(results) == 1
     assert results[0].name == "Alice"
@@ -75,8 +74,7 @@ def test_can_execute_one(graph):
 
 
 def test_can_execute_one_where_none_returned(graph):
-    statement = (StartOrMatch(graph).node("a", "*").string +
-                 "WHERE 2 + 2 = 5 RETURN a.name AS name")
+    statement = "MATCH (a) WHERE 2 + 2 = 5 RETURN a.name AS name"
     result = graph.cypher.execute_one(statement)
     assert result is None
 
@@ -100,11 +98,10 @@ class TestCypher(object):
 
     def test_query(self):
         a, b, ab = alice_and_bob(self.graph)
-        statement = (
-            StartOrMatch(self.graph).node("a", a._id).node("b", b._id).string +
-            "MATCH a-[ab:KNOWS]->b RETURN a, b, ab, a.name AS a_name, b.name AS b_name"
-        )
-        results = self.graph.cypher.execute(statement)
+        statement = ("MATCH (a) WHERE id(a)={A} "
+                     "MATCH (b) WHERE id(b)={B} "
+                     "MATCH a-[ab:KNOWS]->b RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
+        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
             assert isinstance(record.a, Node)
@@ -115,11 +112,10 @@ class TestCypher(object):
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph)
-        statement = (
-            StartOrMatch(self.graph).node("a", a._id).node("b", b._id).string +
-            "MATCH p=(a-[ab:KNOWS]->b) RETURN p"
-        )
-        results = self.graph.cypher.execute(statement)
+        statement = ("MATCH (a) WHERE id(a)={A} "
+                     "MATCH (b) WHERE id(b)={B} "
+                     "MATCH p=(a-[ab:KNOWS]->b) RETURN p")
+        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
             assert isinstance(record.p, Path)

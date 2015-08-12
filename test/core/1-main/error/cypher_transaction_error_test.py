@@ -20,7 +20,6 @@ from py2neo import GraphError
 from py2neo.cypher import CypherTransactionError, CypherError
 from py2neo.cypher.error import ClientError
 from py2neo.cypher.error.statement import ConstraintViolation
-from py2neo.cypher.util import StartOrMatch
 
 from .util import assert_new_error
 

@@ -17,7 +17,6 @@
 
 
 from py2neo.cypher import CypherError, CypherTransactionError
-from py2neo.cypher.util import StartOrMatch
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 
