@@ -44,10 +44,7 @@ class CypherPresubstitutionTestCase(TestCase):
         self.graph = Graph()
 
     def new_tx(self):
-        if self.graph.supports_cypher_transactions:
-            return TemporaryTransaction(self.graph)
-        else:
-            return None
+        return TemporaryTransaction(self.graph)
 
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()

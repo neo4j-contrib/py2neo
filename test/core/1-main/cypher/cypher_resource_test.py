@@ -23,22 +23,14 @@ from py2neo.cypher.core import CypherResource, CypherTransaction
 from py2neo.cypher.util import StartOrMatch
 
 
-def test_can_create_cypher_resource_without_transaction_uri():
-    uri = "http://localhost:7474/db/data/cypher"
+def test_can_create_cypher_resource_with_transaction_uri():
+    uri = "http://localhost:7474/db/data/transaction"
     cypher = CypherResource(uri)
     assert cypher.uri == uri
 
 
-def test_can_create_cypher_resource_with_transaction_uri():
-    uri = "http://localhost:7474/db/data/cypher"
-    transaction_uri = "http://localhost:7474/db/data/transaction"
-    cypher = CypherResource(uri, transaction_uri)
-    assert cypher.uri == uri
-    assert cypher.transaction_uri == transaction_uri
-
-
 def test_cypher_resources_with_identical_arguments_are_same_objects():
-    uri = "http://localhost:7474/db/data/cypher"
+    uri = "http://localhost:7474/db/data/transaction"
     cypher_1 = CypherResource(uri)
     cypher_2 = CypherResource(uri)
     assert cypher_1 is cypher_2
@@ -153,19 +145,7 @@ def test_can_stream_cypher_statement_using_next_method(graph):
 
 
 def test_can_begin_transaction():
-    uri = "http://localhost:7474/db/data/cypher"
-    transaction_uri = "http://localhost:7474/db/data/transaction"
-    cypher = CypherResource(uri, transaction_uri)
+    uri = "http://localhost:7474/db/data/transaction"
+    cypher = CypherResource(uri)
     tx = cypher.begin()
     assert isinstance(tx, CypherTransaction)
-
-
-def test_cannot_begin_transaction_if_not_available():
-    uri = "http://localhost:7474/db/data/cypher"
-    cypher = CypherResource(uri)
-    try:
-        _ = cypher.begin()
-    except NotImplementedError:
-        assert True
-    else:
-        assert False

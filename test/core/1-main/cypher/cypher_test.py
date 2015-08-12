@@ -25,11 +25,6 @@ from py2neo.cypher import CypherResource, CypherError, CypherTransactionError
 from py2neo.cypher.util import StartOrMatch
 
 
-@pytest.fixture
-def vanilla_cypher(graph):
-    return CypherResource(graph.resource.metadata["cypher"])
-
-
 def alice_and_bob(graph):
     return graph.create(
         {"name": "Alice", "age": 66},
@@ -58,11 +53,6 @@ def test_can_run(graph):
     assert True
 
 
-def test_can_run_through_vanilla_endpoint(vanilla_cypher):
-    vanilla_cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
-    assert True
-
-
 def test_can_execute(graph):
     results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     assert len(results) == 1
@@ -83,25 +73,6 @@ def test_can_execute_with_entity_parameter(graph):
     assert results[0].name == "Alice"
 
 
-def test_can_execute_through_vanilla_endpoint(vanilla_cypher):
-    results = vanilla_cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
-
-def test_can_execute_through_vanilla_endpoint_with_parameter(vanilla_cypher):
-    results = vanilla_cypher.execute("CREATE (a {name:{N}}) RETURN a.name AS name", {"N": "Alice"})
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
-
-def test_can_execute_through_vanilla_endpoint_with_entity_parameter(graph, vanilla_cypher):
-    alice, = graph.create({"name": "Alice"})
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a.name AS name"
-    results = vanilla_cypher.execute(statement, {"N": alice})
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
 
 def test_can_execute_one(graph):
     result = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
@@ -112,18 +83,6 @@ def test_can_execute_one_where_none_returned(graph):
     statement = (StartOrMatch(graph).node("a", "*").string +
                  "WHERE 2 + 2 = 5 RETURN a.name AS name")
     result = graph.cypher.execute_one(statement)
-    assert result is None
-
-
-def test_can_execute_one_through_vanilla_endpoint(vanilla_cypher):
-    result = vanilla_cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-    assert result == "Alice"
-
-
-def test_can_execute_one_through_vanilla_endpoint_where_none_returned(vanilla_cypher):
-    statement = (StartOrMatch(vanilla_cypher.graph).node("a", "*").string +
-                 "WHERE 2 + 2 = 5 RETURN a.name AS name")
-    result = vanilla_cypher.execute_one(statement)
     assert result is None
 
 
