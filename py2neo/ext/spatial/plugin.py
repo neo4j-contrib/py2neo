@@ -14,20 +14,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Extended py2neo REST api for Neo4j Spatial.
+""" 
+Extended py2neo REST API for the Neo4j Spatial Extension
+========================================================
 
 The Neo4j Spatial Extension should be considered in two ways: embedded server
 and REST API, and the former has a richer API than the latter. The REST API was
 more of a prototype than a complete product and designed primarily to support
 Point objects and some WKT APIs.
 
-Py2neo Spatial implements *some* of the "prototype" JAVA REST API for *WKT*
+py2neo Spatial implements *some* of the "prototype" JAVA REST API for *WKT*
 geometries. The current status is::
 
     implemented = [
-        # add a editable WKT geometry encoded Layer to the graph
+        # add an editable WKT geometry encoded Layer to the graph
         'addEditableLayer',
-        # get a WKT Layer from the graph
+        # get a (WKT) Layer from the graph
         'getLayer',
         # add a Node with a WKT geometry property to an EditableLayer
         'addGeometryWKTToLayer',
@@ -37,23 +39,20 @@ geometries. The current status is::
         'updateGeometryFromWKT',
         # query APIs
         'findGeometriesWithinDistance',
+        'find_within_bounding_box',
     ]
 
     not_implemented = [
-        # for bespoke and optimised layer queries
+        # for bespoke and optimised layer queries. no case for this yet.
         'addCQLDynamicLayer',
-        # for bulk `addNodeToLayer` type requests
+        # for bulk `addNodeToLayer` type requests. likely to follow.
         'addNodesToLayer',
-        # not implemented. prefer WKT Nodes on EditableLayers
+        # not implemented. currently prefer WKT Nodes on EditableLayers.
         'addSimplePointLayer',
         # this appears to be broken upstream, with the `distanceInKm` behaving
-        # more like a tolerance. No test cases could be written against this
-        'findGeometriesInBBox',
+        # more like a tolerance. No test cases could be written against this.
+        'findClosestGeometries',
     ]
-
-Py2neo Spatial works with WKT strings. When Py2neo Spatial handles Point Of
-Interest coordinates it use the WGS84 (EPSG 4326) standard of POINT (x y),
-which translates to POINT (Lon Lat).
 
 """
 try:
@@ -211,7 +210,7 @@ class Spatial(ServerPlugin):
 
         This will remove a representation of a GIS map Layer from the Neo4j
         data store - it will not remove any nodes you may have added to it, or
-        any labels or properties Py2neo Spatial may have added to your Nodes.
+        any labels or properties py2neo Spatial may have added to your Nodes.
 
         :Parameters:
             layer_name : str
@@ -222,10 +221,6 @@ class Spatial(ServerPlugin):
 
         :Raises:
             LayerNotFoundError if the Layer does not exist.
-
-        .. note ::
-            There is no Resource for this action, so in the meantime, we
-            use the core py2neo cypher api.
 
         """
         if not self._layer_exists(layer_name):
@@ -677,12 +672,12 @@ class Spatial(ServerPlugin):
         :Parameters:
             layer_name : str
                 The name of the Layer to find containing geometries from.
-            latitude : Decimal
-                Decimal number between -90.0 and 90.0, north or south of the
-                equator.
             longitude : Decimal
                 Decimal number between -180.0 and 180.0, east or west of the
                 Prime Meridian.
+            latitude : Decimal
+                Decimal number between -90.0 and 90.0, north or south of the
+                equator.
 
         :Returns:
             A list of Nodes of geometry type Polygon or MultiPolygon.
@@ -717,12 +712,12 @@ class Spatial(ServerPlugin):
         :Parameters:
             layer_name : str
                 The name of the layer/index to remove the geometry from.
-            latitude : Decimal
-                Decimal number between -90.0 and 90.0, north or south of the
-                equator.
             longitude : Decimal
                 Decimal number between -180.0 and 180.0, east or west of the
                 Prime Meridian.
+            latitude : Decimal
+                Decimal number between -90.0 and 90.0, north or south of the
+                equator.
             max_distance : int
                 The radius of the search area to look for "interesting" Points.
             labels : list

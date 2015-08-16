@@ -15,7 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Py2neo Spatial 1.0
+# py2neo Spatial 1.0
 
 
 from .plugin import Spatial
