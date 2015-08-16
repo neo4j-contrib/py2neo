@@ -4,7 +4,8 @@ from py2neo import Node
 
 from . import TestBase
 from py2neo.ext.spatial.exceptions import (
-    GeometryExistsError, GeometryNotFoundError, InvalidWKTError)
+    GeometryExistsError, GeometryNotFoundError, InvalidWKTError,
+    LayerNotFoundError)
 from py2neo.ext.spatial.plugin import NAME_PROPERTY
 from py2neo.ext.spatial.util import parse_lat_long_to_point
 
@@ -96,7 +97,9 @@ class TestGeometries(TestBase):
         new_geometry = 'POINT ({} {})'.format(lon, lat)
 
         spatial.update_geometry(
-            geometry_name="stonehenge", wkt_string=new_geometry)
+            layer_name="uk", geometry_name="stonehenge",
+            new_wkt_string=new_geometry)
+
         node.pull()
 
         assert node.properties['wkt'] == new_geometry
@@ -136,8 +139,9 @@ class TestGeometries(TestBase):
 
         spatial.create_layer("mylayer")
         spatial.add_node_to_layer_by_id(
-            node_id=node_id, geometry_name="mygeom", wkt_string=shape.wkt,
-            layer_name="mylayer")
+            node_id=node_id, layer_name="mylayer", geometry_name="mygeom",
+            wkt_string=shape.wkt,
+        )
 
         node = next(graph.find(
             label="mylayer", property_key=NAME_PROPERTY,
@@ -160,8 +164,9 @@ class TestGeometries(TestBase):
 
         spatial.create_layer("mylayer")
         node = spatial.add_node_to_layer_by_id(
-            node_id=node_id, geometry_name="mygeom", wkt_string=shape.wkt,
-            layer_name="mylayer")
+            node_id=node_id, layer_name="mylayer",
+            geometry_name="mygeom", wkt_string=shape.wkt,
+        )
 
         assert isinstance(node, Node)
         assert str(node_id) in str(node.uri)
@@ -189,8 +194,14 @@ class TestGeometries(TestBase):
     def test_delete_geometry(self, spatial, uk, cornwall, cornwall_wkt):
         graph = spatial.graph
         assert self._geometry_exists(graph, "cornwall")
-        spatial.delete_geometry("cornwall", cornwall_wkt, "uk")
+
+        geometry_node = self.get_geometry_node(graph, "cornwall")
+        node_id = int(geometry_node.uri.path.segments[-1])
+
+        spatial.delete_geometry(layer_name="uk", geometry_name="cornwall",)
+
         assert not self._geometry_exists(graph, "cornwall")
+        assert self._node_exists(graph, node_id)
 
     def test_update_geometry(self, spatial):
         graph = spatial.graph
@@ -210,30 +221,52 @@ class TestGeometries(TestBase):
         eiffel_tower = (48.858370, 2.294481)
         shape = parse_lat_long_to_point(*eiffel_tower)
 
-        spatial.update_geometry(
-            geometry_name="eiffel_tower", wkt_string=shape.wkt)
+        response = spatial.update_geometry(
+            layer_name="paris", geometry_name="eiffel_tower",
+            new_wkt_string=shape.wkt)
+
+        assert isinstance(response, Node)
 
         node = self.get_geometry_node(graph, "eiffel_tower")
         node_properties = node.get_properties()
 
         assert node_properties['wkt'] == shape.wkt
 
-    def test_update_geometry_return_value(self):
-        pass
-
     def test_update_geometry_with_invalid_wkt(self, spatial, uk, cornwall):
         invalid_wkt = 'Shape(1, 234)'
 
         with pytest.raises(InvalidWKTError):
             spatial.update_geometry(
-                geometry_name="cornwall", wkt_string=invalid_wkt)
+                layer_name="uk", geometry_name="cornwall",
+                new_wkt_string=invalid_wkt)
 
-    def test_update_geometry_not_found(self, spatial):
+    def test_update_geometry_layer_not_found(self, spatial):
+        somewhere = (57.322857, -4.424382)
+        shape = parse_lat_long_to_point(*somewhere)
+
+        spatial.create_layer("layer")
+        spatial.create_geometry(
+            layer_name="layer", geometry_name="somewhere",
+            wkt_string=shape.wkt,
+        )
+
+        does_not_exist = "bad_layer"
+
+        with pytest.raises(LayerNotFoundError):
+            spatial.update_geometry(
+                layer_name=does_not_exist, geometry_name="somewhere",
+                new_wkt_string=shape.wkt
+            )
+
+    def test_update_geometry_shape_not_found(self, spatial, uk):
         coords = (57.322857, -4.424382)
         shape = parse_lat_long_to_point(*coords)
 
         with pytest.raises(GeometryNotFoundError):
-            spatial.update_geometry("somewhere", shape.wkt)
+            spatial.update_geometry(
+                layer_name="uk", geometry_name="somewhere",
+                new_wkt_string=shape.wkt
+            )
 
     def test_get_geometries_in_bounding_box(
             self, spatial, uk, cornwall, devon):

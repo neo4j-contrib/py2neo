@@ -152,11 +152,11 @@ class Spatial(ServerPlugin):
 
         :Parameters:
             layer_name : str
-                The name to give the Layer created. must be unique.
+                The name to give the Layer created. Must be unique.
 
         :Returns:
             The Layer Node containing the configuration for the newly created
-            layer.
+            Layer.
 
         :Raises:
             LayerExistsError
@@ -247,7 +247,7 @@ class Spatial(ServerPlugin):
         graph.cypher.execute(query, params)
 
     def add_node_to_layer_by_id(
-            self, node_id, geometry_name, layer_name, wkt_string, labels=None):
+            self, node_id, layer_name, geometry_name, wkt_string, labels=None):
         """ Add a non-geographically aware Node to a Layer (spatial index) by
         it's internal ID. This is any Node without a WKT property, as defined
         by the extensions `WKT_PROPERTY` value.
@@ -255,10 +255,10 @@ class Spatial(ServerPlugin):
         :Parameters:
             node_id : int
                 The internal Neo4j identifier of a Node.
-            geometry_name : string
-                A unique name to give the geometry.
             layer_name : string
                 The name of the Layer (index) to add the Node to.
+            geometry_name : string
+                A unique name to give the geometry.
             wkt_string : string
                 A WKT geometry to give the Node.
             labels : list
@@ -288,7 +288,7 @@ class Spatial(ServerPlugin):
 
         if self._geometry_exists(shape, geometry_name):
             raise GeometryExistsError(
-                'geometry exists: "{}"'.format(geometry_name)
+                'Geometry exists: "{}"'.format(geometry_name)
             )
 
         record = results[0]
@@ -318,22 +318,19 @@ class Spatial(ServerPlugin):
             **node_properties):
         """ Create a Point of Interest (POI) on a Layer.
 
-        This is a simple Point Geometry, i.e. a location. The ``wkt_string``
-        therefore should be of the form Point(long  lat).
-
         :Parameters:
             layer_name : str
-                The layer to add the POI to.
+                The Layer to add the POI to.
             poi_name: str
                 A unique name for the POI.
             longitude : Decimal
-                decimal number between -180.0 and 180.0, east or west of the
-                Prime Meridian
+                Decimal number between -180.0 and 180.0, east or west of the
+                Prime Meridian.
             latitude : Decimal
-                decimal number between -90.0 and 90.0, north or south of the
-                equator
+                Decimal number between -90.0 and 90.0, north or south of the
+                equator.
             labels : list
-                Optional list of labels to apply to the POI node.
+                Optional list of labels to apply to the POI Node.
             node_properties : dict
                 Optional keyword arguments to apply as properties on the Node.
 
@@ -394,17 +391,17 @@ class Spatial(ServerPlugin):
         return node
 
     def create_geometry(
-            self, geometry_name, wkt_string, layer_name, labels=None,
+            self, geometry_name, layer_name, wkt_string, labels=None,
             **node_properties):
         """ Create a geometry Node with any WKT string type.
 
         :Parameters:
             geometry_name : string
                 A unique name to give the geometry.
+            layer_name : string
+                The name of the Layer to add the Node to.
             wkt_string : string
                 A WKT geometry to give the Node.
-            layer_name : string
-                The name of the Layer (index) to add the Node to.
             labels : list
                 An optional list of labels to give to the Node.
             node_properties : dict
@@ -476,11 +473,15 @@ class Spatial(ServerPlugin):
 
         return node
 
-    def update_geometry(self, geometry_name, wkt_string):
+    def update_geometry(self, layer_name, geometry_name, new_wkt_string):
         """ Update the WKT geometry on a Node.
 
         :Parameters:
-            wkt_string : str
+            layer_name : str
+                The name of the Layer containing the geometry to update.
+            geometry_name : str
+                The name of the Node geometry to update.
+            new_wkt_string : str
                 The new Well Known Text string that will replace that
                 existing on the Node with `geometry_name`.
 
@@ -488,37 +489,52 @@ class Spatial(ServerPlugin):
             The updaed Node.
 
         :Raises:
-            InvalidWKTError if the WKT cannot be read.
+            GeometryNotFoundError
+                When the geometry to update cannot be found.
+            InvalidWKTError
+                When the `new_wkt_string` is invalid.
+            LayerNotFoundError
+                When the Layer does not exist.
 
         """
         resource = self.resources['updateGeometryFromWKT']
 
-        # validate WKT
-        self._get_shape_from_wkt(wkt_string)
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
+        # validate WKT string
+        self._get_shape_from_wkt(new_wkt_string)
 
         query = (
             "MATCH (geometry_node {geometry_name:{geometry_name}}) "
-            "<-[:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-(layer_node) "
-            "RETURN geometry_node, layer_node"
+            "<-[:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-"
+            "(layer_node {layer:{layer_name}}) "
+            "RETURN geometry_node"
         )
 
-        params = {'geometry_name': geometry_name}
+        params = {
+            'layer_name': layer_name,
+            'geometry_name': geometry_name,
+        }
+
         result = self.graph.cypher.execute(query, params)
 
         if not result:
             raise GeometryNotFoundError(
-                'Cannot update Node - Node not found: "{}"'.format(wkt_string)
+                'Cannot update Node - Node not found: "{}"'.format(
+                    geometry_name)
             )
 
-        records = result[0]
-        geometry_node, layer_node = records
+        result = result[0]
+        geometry_node = result.geometry_node
         geometry_node_id = int(geometry_node.uri.path.segments[-1])
-        geometry_layer = layer_node.get_properties()['layer']
 
         spatial_data = {
-            'geometry': wkt_string,
+            'geometry': new_wkt_string,
             'geometryNodeId': geometry_node_id,
-            'layer': geometry_layer,
+            'layer': layer_name,
         }
 
         # update the geometry node
@@ -527,16 +543,18 @@ class Spatial(ServerPlugin):
 
         return node
 
-    def delete_geometry(self, geometry_name, wkt_string, layer_name):
-        """ Remove a geometry node from a GIS map layer.
+    def delete_geometry(self, layer_name, geometry_name):
+        """ Remove a geometry Node from a Layer.
+
+        .. note::
+            This does not delete the Node itself, just removes it from the
+            spatial index. Use the standard py2neo API to delete Nodes.
 
         :Parameters:
+            layer_name : str
+                The name of the Layer to remove the geometry from.
             geometry_name : str
                 The unique name of the geometry to delete.
-            wkt_string : str
-                A Well Known Text string of any geometry
-            layer_name : str
-                The name of the layer/index to remove the geometry from.
 
         :Returns:
             None
@@ -544,8 +562,6 @@ class Spatial(ServerPlugin):
         :Raises:
             LayerNotFoundError
                 When the Layer does not exist.
-            InvalidWKTError
-                When the WKT cannot be read.
 
         """
         if not self._layer_exists(layer_name):
@@ -553,34 +569,21 @@ class Spatial(ServerPlugin):
                 'Layer Not Found: "{}"'.format(layer_name)
             )
 
-        graph = self.graph
-        shape = self._get_shape_from_wkt(wkt_string)
-
-        # remove the node from the graph
-        match = "MATCH (n:{label}".format(label=shape.type)
-        query = match + (
-            "{ geometry_name:{geometry_name} }) "
-            "OPTIONAL MATCH n<-[r]-() "
-            "DELETE r, n"
-        )
-        params = {
-            'label': shape.type,
-            'geometry_name': geometry_name,
-        }
-        graph.cypher.execute(query, params)
-
-        # tidy up the index. This will remove the node,
-        # it's bounding box node, and the relationship between them.
+        # find the geographically aware Node and remove its relationship to
+        # the spatial index.
         query = (
-            "MATCH (l { layer:{layer_name} }), "
-            "(n { wkt:{wkt} })-[ref:RTREE_REFERENCE]-() "
-            "DELETE ref, n"
+            "MATCH (geometry_node {geometry_name:{geometry_name}}) "
+            "<-[ref:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-"
+            "(layer_node {layer:{layer_name}}) "
+            "DELETE ref"
         )
+
         params = {
             'layer_name': layer_name,
-            'wkt': shape.wkt,
+            'geometry_name': geometry_name,
         }
-        graph.cypher.execute(query, params)
+
+        self.graph.cypher.execute(query, params)
 
     def find_within_distance(self, layer_name, longitude, latitude, distance):
         """ Find all WKT geometry primitive within a given distance from
@@ -588,12 +591,12 @@ class Spatial(ServerPlugin):
 
         :Parameters:
             layer_name : str
-                The name of the layer/index to remove the geometry from.
+                The name of the Layer to remove the geometry from.
             longitude : Decimal
-                decimal number between -180.0 and 180.0, east or west of the
+                Decimal number between -180.0 and 180.0, east or west of the
                 Prime Meridian.
             latitude : Decimal
-                decimal number between -90.0 and 90.0, north or south of the
+                Decimal number between -90.0 and 90.0, north or south of the
                 equator.
             distance : int
                 The radius of the search area in Kilometres (km).
@@ -637,7 +640,7 @@ class Spatial(ServerPlugin):
 
         :Parameters:
             layer_name : str
-                The name of the layer/index to remove the geometry from.
+                The name of the Layer to remove the geometry from.
             minx : Decimal
                 Longitude of the bottom-left corner.
             miny : Decimal
@@ -711,7 +714,7 @@ class Spatial(ServerPlugin):
 
         :Parameters:
             layer_name : str
-                The name of the layer/index to remove the geometry from.
+                The name of the Layer to remove the geometry from.
             longitude : Decimal
                 Decimal number between -180.0 and 180.0, east or west of the
                 Prime Meridian.

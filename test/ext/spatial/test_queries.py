@@ -143,7 +143,6 @@ class TestQueries(TestBase):
         geometry = geometries[0]
         assert geometry['geometry_name'] == expected_location
 
-    # TODO: add england?
     @pytest.mark.parametrize("latitude, longitude, expected_location", [
         (51.127889, -3.003632, "somerset"),  # Bridgewater
         (51.059771, -1.310142, "hampshire"),  # Winchester
