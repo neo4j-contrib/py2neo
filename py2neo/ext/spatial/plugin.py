@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright 2014, Simon Harrison
+# Copyright 2015, Simon Harrison
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,52 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+""" Extended py2neo REST api for Neo4j Spatial.
+
+The Neo4j Spatial Extension should be considered in two ways: embedded server
+and REST API, and the former has a richer API than the latter. The REST API was
+more of a prototype than a complete product and designed primarily to support
+Point objects and some WKT APIs.
+
+Py2neo Spatial implements *some* of the "prototype" JAVA REST API for *WKT*
+geometries. The current status is::
+
+    implemented = [
+        # add a editable WKT geometry encoded Layer to the graph
+        'addEditableLayer',
+        # get a WKT Layer from the graph
+        'getLayer',
+        # add a Node with a WKT geometry property to an EditableLayer
+        'addGeometryWKTToLayer',
+        # add an existing, non-geographically aware Node, to a Layer
+        'addNodeToLayer',
+        # update the geometry on a Node
+        'updateGeometryFromWKT',
+        # query APIs
+        'findGeometriesWithinDistance',
+    ]
+
+    not_implemented = [
+        # for bespoke and optimised layer queries
+        'addCQLDynamicLayer',
+        # for bulk `addNodeToLayer` type requests
+        'addNodesToLayer',
+        # not implemented. prefer WKT Nodes on EditableLayers
+        'addSimplePointLayer',
+        # this appears to be broken upstream, with the `distanceInKm` behaving
+        # more like a tolerance. No test cases could be written against this
+        'findGeometriesInBBox',
+    ]
+
+Py2neo Spatial works with WKT strings. When Py2neo Spatial handles Point Of
+Interest coordinates it use the WGS84 (EPSG 4326) standard of POINT (x y),
+which translates to POINT (Lon Lat).
+
+"""
 try:
     from shapely.geos import ReadingError
     from shapely.wkt import loads as wkt_from_string_loader
+    from shapely.wkt import dumps
 except ImportError:
     print("Please install extension requirements. See README.rst.")
 
@@ -24,15 +67,18 @@ from py2neo import Node, ServerPlugin
 from py2neo.error import GraphError
 from py2neo.packages.jsonstream import assembled
 from py2neo.ext.spatial.exceptions import (
-    GeometryExistsError, InvalidWKTError, LayerNotFoundError,
-    NodeNotFoundError)
-from py2neo.ext.spatial.util import parse_lat_long
+    AddNodeToLayerError, GeometryExistsError, GeometryNotFoundError,
+    InvalidWKTError, LayerExistsError, LayerNotFoundError, NodeNotFoundError,
+    ValidationError)
+from py2neo.ext.spatial.util import parse_lat_long_to_point
 
 
 EXTENSION_NAME = "SpatialPlugin"
-WKT_PROPERTY = "wkt"
-NAME_PROPERTY = "_py2neo_geometry_name"
+NAME_PROPERTY = "geometry_name"
 
+# extension configs exist for point and wkt geometries, but py2neo Spatial
+# only implements type WKT
+WKT_PROPERTY = "wkt"
 # wkt index config for the contrib spatial extension
 EXTENSION_CONFIG = {
     'format': 'WKT',
@@ -41,6 +87,7 @@ EXTENSION_CONFIG = {
 
 # shape identifiers
 MULTIPOLYGON = 'MultiPolygon'
+POLYGON = 'Polygon'
 POINT = 'Point'
 
 # a baseline label so we can retieve all data added via this extension
@@ -48,32 +95,16 @@ DEFAULT_LABEL = 'py2neo_spatial'
 
 
 class Spatial(ServerPlugin):
-    """ An API extension to py2neo for WKT type GIS operations.
-    """
+    """ A py2neo extension for WKT type GIS operations """
+
     def __init__(self, graph):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
-    def _get_data_nodes(self, geometry_nodes):
-        ids = [n._id for n in geometry_nodes]
-        query = (
-            "MATCH (n)-[:LOCATES]->(data_node) "
-            "WHERE id(n) IN {ids} RETURN data_node "
-        )
-
-        params = {
-            'ids': ids,
-        }
-
-        results = self.graph.cypher.execute(query, params)
-        nodes = [record[0] for record in results]
-
-        return nodes
-
-    def _execute_spatial_request(self, resource, spatial_payload):
+    def _handle_post_from_resource(self, resource, spatial_payload):
         try:
             json_stream = resource.post(spatial_payload)
         except GraphError as exc:
-            if 'NullPointerException' in exc.full_name:
+            if 'NullPointerException' in exc.fullname:
                 # no results leads to a NullPointerException.
                 # this is probably a bug on the Java side, but this
                 # happens with some resources and must be managed.
@@ -84,9 +115,7 @@ class Spatial(ServerPlugin):
             # no content
             return []
 
-        geometry_nodes = map(Node.hydrate, assembled(json_stream))
-        nodes = self._get_data_nodes(geometry_nodes)
-
+        nodes = map(Node.hydrate, assembled(json_stream))
         return nodes
 
     def _get_shape_from_wkt(self, wkt_string):
@@ -99,20 +128,9 @@ class Spatial(ServerPlugin):
 
         return shape
 
-    def _get_wkt_from_shape(self, shape):
-        if shape.type == POINT:
-            # we ignore the `to_wkt` api because of rounding precision errors
-            # from shapely and because of neo4j dropping trailing zeros, and
-            # we MATCH on wkt strings.
-            wkt = 'POINT ({x} {y})'.format(x=shape.x, y=shape.y)
-        else:
-            wkt = shape.wkt
-
-        return wkt
-
     def _geometry_exists(self, shape, geometry_name):
         match = "MATCH (n:{label} ".format(label=shape.type)
-        query = match + "{_py2neo_geometry_name:{geometry_name}}) RETURN n"
+        query = match + "{geometry_name:{geometry_name}}) RETURN n"
         params = {
             'geometry_name': geometry_name,
             'wkt': shape.wkt,
@@ -130,12 +148,29 @@ class Spatial(ServerPlugin):
         return bool(exists)
 
     def create_layer(self, layer_name):
-        """ Create a Layer to add geometries to. If a Layer with the
-        name property value of ``layer_name`` already exists, nothing
-        happens.
+        """ Create a GIS map Layer to add geometries to. The Layer is encoded
+        by the WKTGeometryEncoder.
+
+        :Parameters:
+            layer_name : str
+                The name to give the Layer created. must be unique.
+
+        :Returns:
+            The Layer Node containing the configuration for the newly created
+            layer.
+
+        :Raises:
+            LayerExistsError
+                If a Layer with `layer_name` already exists.
 
         """
         resource = self.resources['addEditableLayer']
+
+        if self._layer_exists(layer_name):
+            raise LayerExistsError(
+                'Layer Exists: "{}"'.format(layer_name)
+            )
+
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
         layer = assembled(raw)
@@ -143,26 +178,54 @@ class Spatial(ServerPlugin):
         return layer
 
     def get_layer(self, layer_name):
-        resource = self.resources['getLayer']
-        spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
-        raw = resource.post(spatial_data)
-        layer = assembled(raw)
+        """ Get the Layer identified by `layer_name`.
 
-        return layer
+        :Parameters:
+            layer_name : str
+                The name of the Layer to return.
 
-    def delete_layer(self, layer_name):
-        """ Remove a GIS map Layer.
-
-        This will remove a representation of a GIS map Layer from the Neo4j
-        data store - it will not remove any nodes you may have added to it.
-
-        The operation removes the layer data from the internal GIS R-tree
-        model and removes the layer's label from all nodes that exist on it.
-        It does not destroy any Nodes on the DB - use the standard py2neo
-        library for these actions.
+        :Returns:
+            The Layer Node.
 
         :Raises:
-            LayerNotFoundError if the index does not exist.
+            LayerNotFoundError
+                If a Layer with `layer_name` does not exist.
+
+        """
+        resource = self.resources['getLayer']
+
+        spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+
+        try:
+            layer_node = nodes[0]
+        except IndexError:
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
+        return layer_node
+
+    def delete_layer(self, layer_name):
+        """ Delete a GIS map Layer.
+
+        This will remove a representation of a GIS map Layer from the Neo4j
+        data store - it will not remove any nodes you may have added to it, or
+        any labels or properties Py2neo Spatial may have added to your Nodes.
+
+        :Parameters:
+            layer_name : str
+                The name of the Layer to delete.
+
+        :Returns:
+            None
+
+        :Raises:
+            LayerNotFoundError if the Layer does not exist.
+
+        .. note ::
+            There is no Resource for this action, so in the meantime, we
+            use the core py2neo cypher api.
 
         """
         if not self._layer_exists(layer_name):
@@ -172,33 +235,14 @@ class Spatial(ServerPlugin):
 
         graph = self.graph
 
-        # There is no Resource for this action so in the meantime we use
-        # the core py2neo cypher api.
-
-        # remove labels and properties on Nodes relating to this layer
-        query = (
-            "MATCH (n:{layer_name}) "
-            "REMOVE n:{default_label} "
-            "REMOVE n:{layer_name} "
-            "REMOVE n:{point_label} "
-            "REMOVE n:{multipolygon_label} "
-            "REMOVE n.{internal_name}".format(
-                layer_name=layer_name, default_label=DEFAULT_LABEL,
-                point_label=POINT, multipolygon_label=MULTIPOLYGON,
-                internal_name=NAME_PROPERTY
-            )
-        )
-
-        graph.cypher.execute(query)
-
         # remove the bounding box, metadata and root from the rtree index
         query = (
-            "MATCH (l { layer:{layer_name} })-[r_layer:LAYER]-(), "
+            "MATCH (layer { layer:{layer_name} })-[r_layer:LAYER]-(), "
             "(metadata)<-[r_meta:RTREE_METADATA]-(l), "
-            "()-[locate_rel:LOCATES]-(geometry_node)-[r_ref:RTREE_REFERENCE]-"
+            "(geometry_node)-[r_ref:RTREE_REFERENCE]-"
             "(bounding_box)-[r_root:RTREE_ROOT]-(l) "
-            "DELETE locate_rel, r_meta, r_layer, r_ref, r_root, "
-            "metadata, geometry_node, bounding_box, l"
+            "DELETE r_meta, r_layer, r_ref, r_root, "
+            "metadata, bounding_box, layer"
         )
 
         params = {
@@ -207,37 +251,109 @@ class Spatial(ServerPlugin):
 
         graph.cypher.execute(query, params)
 
-    def create_geometry(
-            self, geometry_name, wkt_string, layer_name, labels=None,
-            node_id=None, spatial_id=None):
-        """ Create a geometry of type Well Known Text (WKT).
+    def add_node_to_layer_by_id(
+            self, node_id, geometry_name, layer_name, wkt_string, labels=None):
+        """ Add a non-geographically aware Node to a Layer (spatial index) by
+        it's internal ID. This is any Node without a WKT property, as defined
+        by the extensions `WKT_PROPERTY` value.
 
-        Internally this creates a node in your graph with a wkt property
-        and also adds it to a GIS map layer (an index). Optionaly add
-        Labels to the Node.
-
-        :Params:
-            geometry_name : str
-                A unique name for the geometry.
-            wkt_string : str
-                A Well Known Text string of any geometry
-            layer_name : str
-                The name of the layer to add the geometry to.
-            labels : list
-                Optional list of Label names to apply to the geometry Node.
-
+        :Parameters:
             node_id : int
-                Optional - the internal ID used by neo4j to uniquely identify
-                a Node. When provided, an update operation in the application
-                graph will be carried out instead of the usual create, making
-                this Node spatially aware by adding a 'wkt' property to it.
-                It is then added to the Layer (indexed) as normal.
+                The internal Neo4j identifier of a Node.
+            geometry_name : string
+                A unique name to give the geometry.
+            layer_name : string
+                The name of the Layer (index) to add the Node to.
+            wkt_string : string
+                A WKT geometry to give the Node.
+            labels : list
+                An optional list of labels to give to the Node.
+
+        :Returns:
+            The updated Node identified by `node_id`.
 
         :Raises:
-            LayerNotFoundError if the index does not exist.
-            InvalidWKTError if the WKT cannot be read.
+            NodeNotFoundError
+                When a Node with ID `node_id` cannot be found.
+            GeometryExistsError
+                When a geometry with `geometry_name` already exists.
 
         """
+        resource = self.resources['addNodeToLayer']
+
+        query = 'MATCH (n) WHERE id(n) = {node_id} RETURN n'
+        params = {'node_id': node_id}
+        results = self.graph.cypher.execute(query, params)
+        if not results:
+            raise NodeNotFoundError(
+                'Node not found: "{}"'.format(node_id)
+            )
+
+        shape = self._get_shape_from_wkt(wkt_string)
+
+        if self._geometry_exists(shape, geometry_name):
+            raise GeometryExistsError(
+                'geometry exists: "{}"'.format(geometry_name)
+            )
+
+        record = results[0]
+        node = record[0]
+        node[NAME_PROPERTY] = geometry_name
+        node[WKT_PROPERTY] = wkt_string
+
+        labels = labels or []
+        labels.extend([DEFAULT_LABEL, layer_name, shape.type])
+
+        node.add_labels(*tuple(labels))
+        node.push()
+
+        # add the node to the spatial index
+        spatial_data = {
+            'node': str(node.uri),
+            'layer': layer_name
+        }
+
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+        node = nodes[0]
+
+        return node
+
+    def create_point_of_interest(
+            self, poi_name, layer_name, longitude, latitude, labels=None,
+            **node_properties):
+        """ Create a Point of Interest (POI) on a Layer.
+
+        This is a simple Point Geometry, i.e. a location. The ``wkt_string``
+        therefore should be of the form Point(long  lat).
+
+        :Parameters:
+            layer_name : str
+                The layer to add the POI to.
+            poi_name: str
+                A unique name for the POI.
+            longitude : Decimal
+                decimal number between -180.0 and 180.0, east or west of the
+                Prime Meridian
+            latitude : Decimal
+                decimal number between -90.0 and 90.0, north or south of the
+                equator
+            labels : list
+                Optional list of labels to apply to the POI node.
+            node_properties : dict
+                Optional keyword arguments to apply as properties on the Node.
+
+        :Returns:
+            The geometry Node created.
+
+        :Raises:
+            LayerNotFoundError
+                When the Layer does not exist.
+            GeometryExistsError
+                When a geometry with `geometry_name` already exists.
+
+        """
+        resource = self.resources['addNodeToLayer']
+
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
                 'Layer Not Found: "{0}".',
@@ -245,73 +361,181 @@ class Spatial(ServerPlugin):
                     layer_name)
             )
 
+        shape = parse_lat_long_to_point(latitude, longitude)
+
+        if self._geometry_exists(shape, poi_name):
+            raise GeometryExistsError(
+                'geometry exists: "{}"'.format(poi_name)
+            )
+
+        graph = self.graph
+
+        labels = labels or []
+        labels.extend([DEFAULT_LABEL, layer_name, shape.type])
+        wkt = dumps(shape, rounding_precision=4)
+
+        params = {
+            NAME_PROPERTY: poi_name,
+            WKT_PROPERTY: wkt,
+        }
+
+        params.update(node_properties)
+        node = Node(*labels, **params)
+        graph.create(node)
+
+        # add the node to the spatial index
+        spatial_data = {
+            'node': str(node.uri),
+            'layer': layer_name
+        }
+
+        resp = resource.post(spatial_data)
+        if resp.status_code != 200:
+            raise AddNodeToLayerError(
+                'Failed to add POI "{}" to layer "{}"'.format(
+                    poi_name, layer_name)
+            )
+
+        return node
+
+    def create_geometry(
+            self, geometry_name, wkt_string, layer_name, labels=None,
+            **node_properties):
+        """ Create a geometry Node with any WKT string type.
+
+        :Parameters:
+            geometry_name : string
+                A unique name to give the geometry.
+            wkt_string : string
+                A WKT geometry to give the Node.
+            layer_name : string
+                The name of the Layer (index) to add the Node to.
+            labels : list
+                An optional list of labels to give to the Node.
+            node_properties : dict
+                Optional keyword arguments to apply as properties on the Node.
+
+        :Returns:
+            The geometry Node created.
+
+        :Raises:
+            LayerNotFoundError
+                When the Layer does not exist.
+            GeometryExistsError
+                When a geometry with `geometry_name` already exists.
+
+        """
+        resource = self.resources['addGeometryWKTToLayer']
+
+        # validate WKT
         shape = self._get_shape_from_wkt(wkt_string)
 
+        # validate layer
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{0}".',
+                'Use ``create_layer(layer_name="{0}"")`` first.'.format(
+                    layer_name)
+            )
+
+        # validate uniqueness
         if self._geometry_exists(shape, geometry_name):
             raise GeometryExistsError(
                 'geometry already exists. ignoring request.'
             )
 
-        graph = self.graph
-        resource = self.resources['addGeometryWKTToLayer']
-
         labels = labels or []
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
-        wkt = self._get_wkt_from_shape(shape)
+
+        spatial_data = {
+            'geometry': wkt_string,
+            'layer': layer_name,
+        }
+
+        resp = resource.post(spatial_data)
+        content = resp.content[0]
+        node_id = content['metadata']['id']
+
+        # update the geometry node with provided node properties and labels
+        query = (
+            "MATCH geometry_node WHERE id(geometry_node) = {node_id} "
+            "RETURN geometry_node"
+        )
+
+        params = {
+            'node_id': node_id,
+        }
+
+        results = self.graph.cypher.execute(query, params)
+        result = results[0]
+        node = result.geometry_node
 
         params = {
             NAME_PROPERTY: geometry_name,
         }
 
-        if node_id:
-            query = 'MATCH (n) WHERE id(n) = {node_id} RETURN n'
-            params = {'node_id': node_id}
-            results = graph.cypher.execute(query, params)
-            if not results:
-                raise NodeNotFoundError(
-                    'Node not found: "{}"'.format(node_id)
-                )
+        params.update(node_properties)
+        node.properties.update(params)
+        node.labels.update(set(labels))
+        node.push()
 
-            record = results[0]
-            node = record[0]
-            node[NAME_PROPERTY] = geometry_name
-            node.add_labels(*tuple(labels))
-            node.push()
+        return node
 
-        else:
-            node = Node(*labels, **params)
-            graph.create(node)
+    def update_geometry(self, geometry_name, wkt_string):
+        """ Update the WKT geometry on a Node.
 
-        spatial_data = {
-            'geometry': wkt,
-            'layer': layer_name,
-        }
+        :Parameters:
+            wkt_string : str
+                The new Well Known Text string that will replace that
+                existing on the Node with `geometry_name`.
 
-        resource.post(spatial_data)
+        :Returns:
+            The updaed Node.
 
-        # now relate the geometry to our application node
+        :Raises:
+            InvalidWKTError if the WKT cannot be read.
+
+        """
+        resource = self.resources['updateGeometryFromWKT']
+
+        # validate WKT
+        self._get_shape_from_wkt(wkt_string)
+
         query = (
-            "MATCH (l { layer:{layer_name} })<-[r_layer:LAYER]-"
-            "(root { name:'spatial_root' }), "
-            "(bbox)-[r_root:RTREE_ROOT]-(l), "
-            "(geometry_node)-[r_ref:RTREE_REFERENCE]-(bbox), "
-            "(application_node { _py2neo_geometry_name:{geometry_name} }) "
-            "WHERE geometry_node.wkt = {wkt} "
-            "CREATE UNIQUE (geometry_node)-[:LOCATES]->(application_node)"
+            "MATCH (geometry_node {geometry_name:{geometry_name}}) "
+            "<-[:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-(layer_node) "
+            "RETURN geometry_node, layer_node"
         )
 
-        params = {
-            'wkt': wkt,
-            'layer_name': layer_name,
-            'geometry_name': geometry_name,
+        params = {'geometry_name': geometry_name}
+        result = self.graph.cypher.execute(query, params)
+
+        if not result:
+            raise GeometryNotFoundError(
+                'Cannot update Node - Node not found: "{}"'.format(wkt_string)
+            )
+
+        records = result[0]
+        geometry_node, layer_node = records
+        geometry_node_id = int(geometry_node.uri.path.segments[-1])
+        geometry_layer = layer_node.get_properties()['layer']
+
+        spatial_data = {
+            'geometry': wkt_string,
+            'geometryNodeId': geometry_node_id,
+            'layer': geometry_layer,
         }
 
-        graph.cypher.execute(query, params)
+        # update the geometry node
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+        node = nodes[0]
+
+        return node
 
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
 
-        :Params:
+        :Parameters:
             geometry_name : str
                 The unique name of the geometry to delete.
             wkt_string : str
@@ -319,9 +543,14 @@ class Spatial(ServerPlugin):
             layer_name : str
                 The name of the layer/index to remove the geometry from.
 
+        :Returns:
+            None
+
         :Raises:
-            LayerNotFoundError if the index does not exist.
-            InvalidWKTError if the WKT cannot be read.
+            LayerNotFoundError
+                When the Layer does not exist.
+            InvalidWKTError
+                When the WKT cannot be read.
 
         """
         if not self._layer_exists(layer_name):
@@ -332,13 +561,10 @@ class Spatial(ServerPlugin):
         graph = self.graph
         shape = self._get_shape_from_wkt(wkt_string)
 
-        # There is no Resource for this action so in the meantime we use
-        # the core py2neo cypher api.
-
         # remove the node from the graph
         match = "MATCH (n:{label}".format(label=shape.type)
         query = match + (
-            "{ _py2neo_geometry_name:{geometry_name} }) "
+            "{ geometry_name:{geometry_name} }) "
             "OPTIONAL MATCH n<-[r]-() "
             "DELETE r, n"
         )
@@ -361,80 +587,39 @@ class Spatial(ServerPlugin):
         }
         graph.cypher.execute(query, params)
 
-    def update_geometry(self, geometry_name, wkt_string):
-        """ Update the geometry on a Node.
+    def find_within_distance(self, layer_name, longitude, latitude, distance):
+        """ Find all WKT geometry primitive within a given distance from
+        location coord.
 
-        :Params:
-            wkt_string : str
-                A Well Known Text string of any geometry
-
-        :Raises:
-            InvalidWKTError if the WKT cannot be read.
-
-        """
-        graph = self.graph
-        resource = self.resources['updateGeometryFromWKT']
-        shape = self._get_shape_from_wkt(wkt_string)
-
-        query = (
-            "MATCH (application_node {_py2neo_geometry_name:{geometry_name}}),"
-            "(application_node)<-[:LOCATES]-(geometry_node)"
-            "<-[:RTREE_REFERENCE]-()<-[:RTREE_ROOT]-(layer_node) "
-            "RETURN geometry_node, layer_node"
-        )
-        params = {
-            'geometry_name': geometry_name,
-        }
-
-        result = graph.cypher.execute(query, params)
-        if not result:
-            raise NodeNotFoundError(
-                'Cannot update Node - Node not found: "{}"'.format(
-                    geometry_name)
-            )
-
-        records = result[0]
-        geometry_node, layer_node = records
-        geometry_node_id = int(geometry_node.uri.path.segments[-1])
-        geometry_layer = layer_node.get_properties()['layer']
-
-        spatial_data = {
-            'geometry': shape.wkt,
-            'geometryNodeId': geometry_node_id,
-            'layer': geometry_layer,
-        }
-
-        # update the geometry node
-        self._execute_spatial_request(resource, spatial_data)
-
-    def find_within_distance(self, layer_name, coords, distance):
-        """ Find all points of interest (poi) within a given distance from
-        a lat-lon location coord.
-
-        :Params:
+        :Parameters:
             layer_name : str
                 The name of the layer/index to remove the geometry from.
-            coords : tuple
-                WGS84 (EPSG 4326) lat, lon pair
-                Latitude is a decimal number between -90.0 and 90.0
-                Longitude is a decimal number between -180.0 and 180.0
+            longitude : Decimal
+                decimal number between -180.0 and 180.0, east or west of the
+                Prime Meridian.
+            latitude : Decimal
+                decimal number between -90.0 and 90.0, north or south of the
+                equator.
             distance : int
-                The radius of the search area in Kilometres (km)
-
-        :Raises:
-            LayerNotFoundError if the index does not exist.
+                The radius of the search area in Kilometres (km).
 
         :Returns:
-            a list of all matched nodes
+            A list of all matched nodes.
+
+        :Raises:
+            LayerNotFoundError
+                When the Layer does not exist.
 
         """
+        resource = self.resources['findGeometriesWithinDistance']
+
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
                 'Layer Not Found: "{}"'.format(layer_name)
             )
 
-        resource = self.resources['findGeometriesWithinDistance']
-        shape = parse_lat_long(coords)
+        # validate coordinates
+        shape = parse_lat_long_to_point(latitude, longitude)
         spatial_data = {
             'pointX': shape.x,
             'pointY': shape.y,
@@ -442,51 +627,9 @@ class Spatial(ServerPlugin):
             'distanceInKm': distance,
         }
 
-        nodes = self._execute_spatial_request(resource, spatial_data)
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+
         return nodes
-
-    def find_closest_geometries(self, coords, distance=4):
-        """ Find the "closest" points of interest (poi) accross *all* layers
-        from a given lat-lon location coord.
-
-        :Params:
-            coords : tuple
-                WGS84 (EPSG 4326) lat, lon pair
-                Latitude is a decimal number between -90.0 and 90.0
-                Longitude is a decimal number between -180.0 and 180.0
-            distance : int
-                The max distance in km from `coords` to look for geometries.
-
-        :Returns:
-            a list of all matched nodes
-
-        """
-        resource = self.resources['findClosestGeometries']
-        shape = parse_lat_long(coords)
-        # get layer nodes
-        query = "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) RETURN n"
-        results = self.graph.cypher.execute(query)
-
-        spatial_data = {
-            'pointX': shape.x,
-            'pointY': shape.y,
-            # this appears to be handled more like a 'tolerance', as increasing
-            # the value even slightly returns data from hundreds of kms away.
-            # TODO: raise failing spatial PR with Spatial API.
-            'distanceInKm': distance,
-        }
-
-        pois = []
-        for record in results:
-            data = spatial_data.copy()
-            node = record[0]
-            node_properties = node.get_properties()
-            layer_name = node_properties['layer']
-            data['layer'] = layer_name
-            nodes = self._execute_spatial_request(resource, data)
-            pois.extend(nodes)
-
-        return pois
 
     def find_within_bounding_box(self, layer_name, minx, miny, maxx, maxy):
         """ Find the points of interest from a given layer enclosed by a
@@ -497,20 +640,24 @@ class Spatial(ServerPlugin):
 
             bbox = (min Longitude, min Latitude, max Longitude, max Latitude)
 
-        :Params:
+        :Parameters:
             layer_name : str
                 The name of the layer/index to remove the geometry from.
             minx : Decimal
-                longitude of the bottom-left corner
+                Longitude of the bottom-left corner.
             miny : Decimal
-                latitude of the bottom-left corner
+                Latitude of the bottom-left corner.
             maxx : Decimal
-                longitude of the top-right corner
+                Longitude of the top-right corner.
             minx : Decimal
-                latitude of the top-right corner
+                Latitude of the top-right corner.
+
+        :Returns:
+            A list of all matched nodes in order of distance.
 
         """
         resource = self.resources['findGeometriesInBBox']
+
         spatial_data = {
             'layer': layer_name,
             'minx': minx,
@@ -519,5 +666,98 @@ class Spatial(ServerPlugin):
             'maxy': maxy,
         }
 
-        nodes = self._execute_spatial_request(resource, spatial_data)
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+
         return nodes
+
+    def find_containing_geometries(self, layer_name, longitude, latitude):
+        """ Given the position of a point of interest, find all the geometries
+        that contain it on a given Layer.
+
+        :Parameters:
+            layer_name : str
+                The name of the Layer to find containing geometries from.
+            latitude : Decimal
+                Decimal number between -90.0 and 90.0, north or south of the
+                equator.
+            longitude : Decimal
+                Decimal number between -180.0 and 180.0, east or west of the
+                Prime Meridian.
+
+        :Returns:
+            A list of Nodes of geometry type Polygon or MultiPolygon.
+
+        """
+        resource = self.resources['findGeometriesWithinDistance']
+
+        shape = parse_lat_long_to_point(latitude, longitude)
+        spatial_data = {
+            'pointX': shape.x,
+            'pointY': shape.y,
+            'layer': layer_name,
+            'distanceInKm': 0,  # set this to zero to ensure POI is contained
+        }
+
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+
+        # exclude any Points or LineString geometries etc we may have collected
+        polygon_nodes = [
+            node for node in nodes if
+            MULTIPOLYGON in node.labels or POLYGON in node.labels
+        ]
+
+        return polygon_nodes
+
+    def find_points_of_interest(
+            self, layer_name, longitude, latitude, max_distance, labels):
+        """ Given a coordinate, find the Point geometries that are "nearby" it
+        and are "interesting". Only Nodes that have matching `labels` are
+        deemed "interesting".
+
+        :Parameters:
+            layer_name : str
+                The name of the layer/index to remove the geometry from.
+            latitude : Decimal
+                Decimal number between -90.0 and 90.0, north or south of the
+                equator.
+            longitude : Decimal
+                Decimal number between -180.0 and 180.0, east or west of the
+                Prime Meridian.
+            max_distance : int
+                The radius of the search area to look for "interesting" Points.
+            labels : list
+                List of node labels which determine which points are
+                "interesting".
+
+        :Returns:
+            A list of interesting Nodes.
+
+        """
+        resource = self.resources['findGeometriesWithinDistance']
+
+        if not self._layer_exists(layer_name):
+            raise LayerNotFoundError(
+                'Layer Not Found: "{}"'.format(layer_name)
+            )
+
+        if len(labels) == 0:
+            raise ValidationError('At least one label must be given')
+
+        interesting_labels = set(labels)
+
+        # validates coordinates before use
+        shape = parse_lat_long_to_point(latitude, longitude)
+        spatial_data = {
+            'pointX': shape.x,
+            'pointY': shape.y,
+            'layer': layer_name,
+            'distanceInKm': max_distance,
+        }
+
+        nodes = self._handle_post_from_resource(resource, spatial_data)
+        interesting_nodes = [
+            node for node in nodes if
+            interesting_labels.intersection(node.labels)
+        ]
+
+        return interesting_nodes
