@@ -1,12 +1,11 @@
 import pytest
 
-from py2neo import Node, Relationship
+from py2neo import Node
 
 from . import TestBase
 from py2neo.ext.spatial.exceptions import (
-    GeometryExistsError, GeometryNotFoundError, InvalidWKTError,
-    NodeNotFoundError)
-from py2neo.ext.spatial.plugin import NAME_PROPERTY, WKT_PROPERTY
+    GeometryExistsError, GeometryNotFoundError, InvalidWKTError)
+from py2neo.ext.spatial.plugin import NAME_PROPERTY
 from py2neo.ext.spatial.util import parse_lat_long_to_point
 
 
@@ -33,7 +32,8 @@ class TestGeometries(TestBase):
         result = results[0]
         layer_node = result.layer
 
-        assert layer_node.properties['geomencoder'].endswith('WKTGeometryEncoder')
+        assert layer_node.properties['geomencoder'].endswith(
+            'WKTGeometryEncoder')
 
     def test_geometry_on_wkt_encoded_layer(self, spatial, cornwall_wkt):
         geometry_name = "shape"
@@ -58,19 +58,8 @@ class TestGeometries(TestBase):
         result = results[0]
         layer_node = result.layer
 
-        assert layer_node.properties['geomencoder'].endswith('WKTGeometryEncoder')
-
-    def test_create_polygon(self, spatial, cornwall_wkt):
-        graph = spatial.graph
-        geometry_name = "shape"
-        spatial.create_layer("cornwall")
-        spatial.create_geometry(
-            geometry_name=geometry_name,
-            wkt_string=cornwall_wkt,
-            layer_name="cornwall"
-        )
-
-        assert self._geometry_exists(graph, geometry_name)
+        assert layer_node.properties['geomencoder'].endswith(
+            'WKTGeometryEncoder')
 
     def test_create_point_of_interest(self, spatial):
         spatial.create_layer(layer_name="uk")
@@ -80,8 +69,9 @@ class TestGeometries(TestBase):
         lon = -1.826215
 
         poi_node = spatial.create_point_of_interest(
-            poi_name="stonehenge", layer_name="uk", latitude=lat, longitude=lon)
-        
+            poi_name="stonehenge", layer_name="uk", latitude=lat,
+            longitude=lon)
+
         assert poi_node.properties['geometry_name'] == "stonehenge"
 
     def test_update_point_of_interest(self, spatial):
@@ -93,7 +83,8 @@ class TestGeometries(TestBase):
         bad_geometry = 'POINT ({} {})'.format(lon, lat)
 
         spatial.create_point_of_interest(
-            poi_name="stonehenge", layer_name="uk", latitude=lat, longitude=lon)
+            poi_name="stonehenge", layer_name="uk", latitude=lat,
+            longitude=lon)
 
         node = self.get_geometry_node(spatial.graph, "stonehenge")
 
@@ -104,13 +95,13 @@ class TestGeometries(TestBase):
         lon = -1.826215
         new_geometry = 'POINT ({} {})'.format(lon, lat)
 
-        spatial.update_geometry(geometry_name="stonehenge", wkt_string=new_geometry)
+        spatial.update_geometry(
+            geometry_name="stonehenge", wkt_string=new_geometry)
         node.pull()
 
         assert node.properties['wkt'] == new_geometry
 
     def test_create_point_geometries(self, spatial):
-        graph = spatial.graph
         layer_name = 'point_layer'
         spatial.create_layer(layer_name)
 
@@ -144,7 +135,7 @@ class TestGeometries(TestBase):
         shape = parse_lat_long_to_point(*coords)
 
         spatial.create_layer("mylayer")
-        updated_node_repr = spatial.add_node_to_layer_by_id(
+        spatial.add_node_to_layer_by_id(
             node_id=node_id, geometry_name="mygeom", wkt_string=shape.wkt,
             layer_name="mylayer")
 
@@ -244,14 +235,16 @@ class TestGeometries(TestBase):
         with pytest.raises(GeometryNotFoundError):
             spatial.update_geometry("somewhere", shape.wkt)
 
-    def test_get_geometries_in_bounding_box(self, spatial, uk, cornwall, devon):
+    def test_get_geometries_in_bounding_box(
+            self, spatial, uk, cornwall, devon):
+
         # very roughly, the uk
         minx, miny, maxx, maxy = -10, 40, 10, 80
         geometries = spatial.find_within_bounding_box(
             "uk", minx, miny, maxx, maxy)
 
         assert len(geometries) == 2
-        
+
         expexted_geometry_names = {'cornwall', 'devon'}
         geometry_names = {
             geometry.properties['geometry_name'] for geometry in geometries}

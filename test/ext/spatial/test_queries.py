@@ -10,7 +10,7 @@ class TestQueries(TestBase):
         stoke_newington = (51.559676, -0.07937)
 
         with pytest.raises(LayerNotFoundError):
-            pois = spatial.find_within_distance(
+            spatial.find_within_distance(
                 layer_name="america",  # does not exist
                 longitude=stoke_newington[1],
                 latitude=stoke_newington[0],
@@ -20,7 +20,9 @@ class TestQueries(TestBase):
     def test_find_all_points_of_interest(
             self, spatial, uk, towns, uk_features, london_features):
 
-        expected_total = sum([len(uk_features), len(towns), len(london_features)])
+        expected_total = sum(
+            [len(uk_features), len(towns), len(london_features)]
+        )
 
         self.load_points_of_interest(spatial, towns, "uk")
         self.load_points_of_interest(spatial, uk_features, "uk")
@@ -111,9 +113,14 @@ class TestQueries(TestBase):
         assert len(points_of_interest) + len(counties) == len(pois)
         assert len(points_of_interest) == len(london_features)
 
-        expected_counties = ['london', 'surrey', 'buckinghamshire', 'essex', 'kent']
+        expected_counties = [
+            'london', 'surrey', 'buckinghamshire', 'essex', 'kent'
+        ]
+
         county_names = [
-            county_node.properties['geometry_name'] for county_node in counties]
+            county_node.properties['geometry_name']
+            for county_node in counties
+        ]
 
         assert sorted(expected_counties) == sorted(county_names)
 
@@ -149,7 +156,6 @@ class TestQueries(TestBase):
             self, spatial, counties, latitude, longitude, expected_location,
             england):
 
-        coords = latitude, longitude
         geometries = spatial.find_containing_geometries(
             layer_name="uk", longitude=longitude, latitude=latitude)
 
@@ -162,8 +168,12 @@ class TestQueries(TestBase):
 
         with pytest.raises(LayerNotFoundError):
             spatial.find_points_of_interest(
-                layer_name="does_not_exist", longitude=longitude, latitude=latitude,
-                max_distance=50, labels=[])
+                layer_name="does_not_exist",
+                longitude=longitude,
+                latitude=latitude,
+                max_distance=50,
+                labels=[]
+            )
 
     def test_find_points_of_interest_without_labels(self, spatial, uk):
         # somewhere in North London
@@ -186,8 +196,10 @@ class TestQueries(TestBase):
         favourite_london_feature = london_features.pop()
 
         self.load_points_of_interest(
-            spatial, [favourite_london_feature], "uk", labels=['london', 'favourite'])
-        self.load_points_of_interest(spatial, london_features, "uk", labels=['london'])
+            spatial, [favourite_london_feature], "uk",
+            labels=['london', 'favourite'])
+        self.load_points_of_interest(
+            spatial, london_features, "uk", labels=['london'])
 
         geometries = spatial.find_points_of_interest(
             layer_name="uk", longitude=longitude, latitude=latitude,

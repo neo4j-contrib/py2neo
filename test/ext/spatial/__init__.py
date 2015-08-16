@@ -1,7 +1,3 @@
-from py2neo.ext.spatial.util import parse_lat_long_to_point
-from py2neo.ext.spatial.plugin import NAME_PROPERTY, WKT_PROPERTY
-
-
 class TestBase(object):
     @staticmethod
     def _layer_exists(graph, layer_name):
@@ -17,8 +13,9 @@ class TestBase(object):
     @staticmethod
     def _geometry_exists(graph, geometry_name):
         response = graph.cypher.execute(
-            "match (n)<-[:RTREE_REFERENCE]-() where n.geometry_name = '{}' return n".format(
-                geometry_name))
+            "match (n)<-[:RTREE_REFERENCE]-() "
+            "where n.geometry_name = '{}' return n".format(geometry_name)
+        )
         results = list(response)
         return len(results) == 1
 
@@ -43,11 +40,12 @@ class TestBase(object):
         labels = labels or []
         for location in data:
             lat, lon = location.coords
-            api.create_point_of_interest(location.name, layer_name, lon, lat, labels)
+            api.create_point_of_interest(
+                location.name, layer_name, lon, lat, labels)
 
     @staticmethod
     def get_geometry_node(api, geometry_name):
-        query = """MATCH (geometry_node {geometry_name:{geometry_name}}) 
+        query = """MATCH (geometry_node {geometry_name:{geometry_name}})
 RETURN geometry_node"""
         params = {
             'geometry_name': geometry_name,

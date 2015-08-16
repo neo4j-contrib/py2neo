@@ -15,30 +15,6 @@ class TestLayers(TestBase):
         spatial.create_layer(LAYER_NAME)
         assert self._layer_exists(spatial.graph, LAYER_NAME)
 
-    def test_layer_uniqueness(self, spatial):
-        graph = spatial.graph
-
-        def count(layer_name):
-            count = 0
-            results = graph.cypher.execute(
-                "MATCH (r { name:'spatial_root' }), (r)-[:LAYER]->(n) "
-                "RETURN n"
-            )
-
-            for record in results:
-                node = record[0]
-                if node.properties['layer'] == layer_name:
-                    count += 1
-            return count
-
-        assert count(LAYER_NAME) == 0
-
-        spatial.create_layer(LAYER_NAME)
-        assert count(LAYER_NAME) == 1
-
-        spatial.create_layer(LAYER_NAME)
-        assert count(LAYER_NAME) == 1
-
     def test_cannot_create_geometry_if_layer_does_not_exist(self, spatial):
         with pytest.raises(LayerNotFoundError):
             spatial.create_geometry(
