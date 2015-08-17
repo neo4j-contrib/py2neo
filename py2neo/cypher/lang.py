@@ -168,7 +168,7 @@ class CypherWriter(Writer):
         self.file.write(ustr(node_pointer.address))
         self.file.write(")")
 
-    def write_rel(self, rel, name=None):
+    def write_rel(self, rel, name=None, properties=None):
         """ Write a relationship (excluding nodes).
         """
         if isinstance(rel, Rev):
@@ -179,19 +179,23 @@ class CypherWriter(Writer):
             self.write_identifier(name)
         self.file.write(":")
         self.write_identifier(rel.type)
-        if rel.properties:
+        if properties is None:
+            if rel.properties:
+                self.file.write(" ")
+                self.write_map(rel.properties)
+        else:
             self.file.write(" ")
-            self.write_map(rel.properties)
+            self.write(properties)
         if isinstance(rel, Rev):
             self.file.write("]-")
         else:
             self.file.write("]->")
 
-    def write_relationship(self, relationship, name=None):
+    def write_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (including nodes).
         """
         self.write(relationship.start_node)
-        self.write_rel(relationship.rel, name)
+        self.write_rel(relationship.rel, name, properties)
         self.write(relationship.end_node)
 
     def write_parameter(self, parameter):

@@ -239,11 +239,14 @@ class CypherTransaction(object):
         ]))
 
     def post(self, commit=False):
-        if commit:
-            resource = self.__commit or self.__begin_commit
-        else:
-            resource = self.__execute or self.__begin
         self.__assert_unfinished()
+        if commit:
+            log.info("commit")
+            resource = self.__commit or self.__begin_commit
+            self.__finished = True
+        else:
+            log.info("process")
+            resource = self.__execute or self.__begin
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:
@@ -288,7 +291,6 @@ class CypherTransaction(object):
 
         :return: list of results from pending statements
         """
-        log.info("process")
         return RecordListList.from_results(self.post(), self.graph)
 
     def commit(self):
@@ -297,11 +299,7 @@ class CypherTransaction(object):
 
         :return: list of results from pending statements
         """
-        log.info("commit")
-        try:
-            return RecordListList.from_results(self.post(commit=True), self.graph)
-        finally:
-            self.__finished = True
+        return RecordListList.from_results(self.post(commit=True), self.graph)
 
     def rollback(self):
         """ Rollback the current transaction.

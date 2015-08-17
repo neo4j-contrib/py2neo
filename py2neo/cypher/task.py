@@ -18,12 +18,12 @@
 
 from io import StringIO
 
-from py2neo.core import Node, LabelSet, PropertySet
+from py2neo.core import Node, LabelSet, PropertySet, Relationship
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
-__all__ = ["CypherTask", "CreateNode", "MergeNode"]
+__all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateRelationship"]
 
 
 class CypherTask(object):
@@ -65,6 +65,8 @@ class CreateNode(CypherTask):
         CypherTask.__init__(self)
         self.__node = Node(*labels, **properties)
         self.__return = False
+        self.cypher_name = "a"
+        self.cypher_parameter = "A"
 
     @property
     def labels(self):
@@ -102,10 +104,12 @@ class CreateNode(CypherTask):
         string = StringIO()
         writer = CypherWriter(string)
         writer.write_literal("CREATE ")
-        writer.write_node(self.__node, "a" if self.__return else None,
-                          CypherParameter("P") if self.__node.properties else None)
+        writer.write_node(self.__node, self.cypher_name,
+                          CypherParameter(self.cypher_parameter)
+                          if self.__node.properties else None)
         if self.__return:
-            writer.write_literal(" RETURN a")
+            writer.write_literal(" RETURN ")
+            writer.write_literal(self.cypher_name)
         return string.getvalue()
 
     @property
@@ -113,9 +117,111 @@ class CreateNode(CypherTask):
         """ Dictionary of parameters.
         """
         if self.__node.properties:
-            return {"P": self.properties}
+            return {self.cypher_parameter: self.properties}
         else:
             return {}
+
+
+class CreateRelationship(CypherTask):
+    """ :class:`.CypherTask` for creating relationships.
+    """
+
+    def __init__(self, *triple, **properties):
+        CypherTask.__init__(self)
+        self.__relationship = Relationship(*triple, **properties)
+        self.__return = False
+
+    @property
+    def start_node(self):
+        """ The start node of the newly created relationship.
+
+        :rtype: :class:`py2neo.Node`
+        """
+        return self.__relationship.start_node
+
+    @property
+    def end_node(self):
+        """ The end node of the newly created relationship.
+
+        :rtype: :class:`py2neo.Node`
+        """
+        return self.__relationship.end_node
+
+    @property
+    def type(self):
+        """ The type of the newly created relationship.
+
+        :rtype: str
+        """
+        return self.__relationship.type
+
+    @property
+    def properties(self):
+        """ The full set of properties to apply to the created relationship.
+
+        :rtype: :class:`py2neo.PropertySet`
+        """
+        return self.__relationship.properties
+
+    def set(self, **properties):
+        """ Extra properties to apply to the node.
+        """
+        self.__relationship.properties.update(properties)
+        return self
+
+    def with_return(self):
+        """ Include a RETURN clause in the statement.
+        """
+        self.__return = True
+        return self
+
+    @property
+    def statement(self):
+        """ The full Cypher statement.
+        """
+        string = StringIO()
+        writer = CypherWriter(string)
+        if self.start_node.bound:
+            writer.write_literal("MATCH (a) WHERE id(a)={A} ")
+        else:
+            creator = CreateNode(*self.start_node.labels, **self.start_node.properties)
+            creator.cypher_name = "a"
+            creator.cypher_parameter = "A"
+            writer.write_literal(creator.statement)
+            writer.write_literal(" ")
+        if self.end_node.bound:
+            writer.write_literal("MATCH (b) WHERE id(b)={B} ")
+        else:
+            creator = CreateNode(*self.start_node.labels, **self.start_node.properties)
+            creator.cypher_name = "b"
+            creator.cypher_parameter = "B"
+            writer.write_literal(creator.statement)
+            writer.write_literal(" ")
+        writer.write_literal("CREATE ")
+        writer.write_literal("(a)")
+        writer.write_rel(self.__relationship.rel, "r",
+                         CypherParameter("R") if self.__relationship.properties else None)
+        writer.write_literal("(b)")
+        if self.__return:
+            writer.write_literal(" RETURN r")
+        return string.getvalue()
+
+    @property
+    def parameters(self):
+        """ Dictionary of parameters.
+        """
+        value = {}
+        if self.start_node.bound:
+            value["A"] = self.start_node._id
+        else:
+            value["A"] = self.start_node.properties
+        if self.end_node.bound:
+            value["B"] = self.end_node._id
+        else:
+            value["B"] = self.end_node.properties
+        if self.__relationship.properties:
+            value["R"] = self.properties
+        return value
 
 
 class MergeNode(CypherTask):
@@ -140,7 +246,7 @@ class MergeNode(CypherTask):
         CypherTask.__init__(self)
         self.__node = Node(primary_label)
         if primary_key is not None:
-            self.__node.properties[primary_key] = CypherParameter("V", primary_value)
+            self.__node.properties[primary_key] = CypherParameter("A1", primary_value)
         self.__labels = LabelSet()
         self.__properties = PropertySet()
         self.__return = False
@@ -213,17 +319,13 @@ class MergeNode(CypherTask):
         string = StringIO()
         writer = CypherWriter(string)
         writer.write_literal("MERGE ")
-        if self.__labels or self.__properties or self.__return:
-            node_name = "a"
-        else:
-            node_name = None
-        writer.write_node(self.__node, node_name)
+        writer.write_node(self.__node, "a")
         if self.__labels:
             writer.write_literal(" SET a")
             for label in self.__labels:
                 writer.write_label(label)
         if self.__properties:
-            writer.write_literal(" SET a={P}")
+            writer.write_literal(" SET a={A}")
         if self.__return:
             writer.write_literal(" RETURN a")
         return string.getvalue()
@@ -234,7 +336,49 @@ class MergeNode(CypherTask):
         """
         parameters = {}
         if self.__node.properties:
-            parameters["V"] = self.primary_value
+            parameters["A1"] = self.primary_value
         if self.__properties:
-            parameters["P"] = self.properties
+            parameters["A"] = self.properties
         return parameters
+
+
+class CreateTransaction(object):
+
+    def __init__(self, graph):
+        self.graph = graph
+        self.cypher = self.graph.cypher
+        self.nodes = set()
+        self.relationships = set()
+
+    def append(self, entity):
+        if isinstance(entity, Node):
+            self.nodes.add(entity)
+        elif isinstance(entity, Relationship):
+            self.relationships.add(entity)
+        else:
+            raise ValueError("Cannot create an entity of type " + entity.__class__.__name__)
+
+    def commit(self):
+        tx = self.cypher.begin()
+
+        def create_entities(entities, creator, commit=False):
+            entity_list = list(entities)
+            indexes = {}
+            creation_index = 0
+            for argument_index, entity in enumerate(entity_list):
+                if not entity.bound:
+                    indexes[creation_index] = argument_index
+                    tx.append(creator(entity))
+                    creation_index += 1
+            results = tx.post(commit)
+            for creation_index, result in enumerate(results):
+                argument_index = indexes[creation_index]
+                entity_list[argument_index].bind(result["data"][0][0]["self"])
+
+        create_entities(self.nodes,
+                        lambda n: CreateNode(*n.labels, **n.properties).with_return())
+        create_entities(self.relationships,
+                        lambda r: CreateRelationship(r.start_node, r.end_node,
+                                                     r.type, **r.properties).with_return())
+
+        tx.commit()
