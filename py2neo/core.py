@@ -1152,13 +1152,13 @@ class PropertyContainer(Service):
         self.auto_sync_properties = Graph.auto_sync_properties
 
     def __eq__(self, other):
-        return self.properties == other.properties
+        return self is other
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.__properties)
+        return hash(id(self))
 
     def __contains__(self, key):
         self.__pull_if_bound()
@@ -1424,14 +1424,13 @@ class Node(PropertyContainer):
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
-            return (LabelSet.__eq__(self.labels, other.labels) and
-                    PropertyContainer.__eq__(self, other))
+            return self is other
 
     def __hash__(self):
-        value = super(Node, self).__hash__() ^ hash(self.labels)
         if self.bound:
-            value ^= hash(self.resource.uri)
-        return value
+            return hash(self.resource.uri)
+        else:
+            return hash(id(self))
 
     def __add__(self, other):
         return Path(self, other)
@@ -1746,13 +1745,13 @@ class Rel(PropertyContainer):
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
-            return self.type == other.type and self.properties == other.properties
+            return self is other
 
     def __hash__(self):
-        value = super(Rel, self).__hash__() ^ hash(self.type)
         if self.bound:
-            value ^= hash(self.resource.uri)
-        return value
+            return hash(self.resource.uri)
+        else:
+            return hash(id(self))
 
     def __pos__(self):
         return self
