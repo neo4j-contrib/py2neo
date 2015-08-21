@@ -23,7 +23,7 @@ from py2neo.cypher.lang import CypherParameter, CypherWriter
 from py2neo.util import ustr, xstr
 
 
-__all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateRelationship"]
+__all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateRelationship", "CreateTransaction"]
 
 
 class CypherTask(object):
@@ -358,10 +358,12 @@ class CreateTransaction(object):
         else:
             raise ValueError("Cannot create an entity of type " + entity.__class__.__name__)
 
-    def commit(self):
+    def create(self):
         tx = self.cypher.begin()
 
         def create_entities(entities, creator, commit=False):
+            if not entities:
+                return
             entity_list = list(entities)
             indexes = {}
             creation_index = 0

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 from py2neo.core import Node, Relationship, Path, Rel, Rev
-from py2neo.cypher import CreateStatement
+from py2neo.cypher import CreateStatement, CreateTransaction
 from py2neo.cypher.error.statement import ConstraintViolation
 
 
@@ -335,3 +335,14 @@ def test_cannot_create_unique_path_with_no_bound_nodes(graph):
         assert True
     else:
         assert False
+
+
+def test_can_create_many_nodes(graph):
+    alice = Node("Person", name="Alice")
+    bob = Node("Person", name="Bob")
+    ct = CreateTransaction(graph)
+    ct.append(alice)
+    ct.append(bob)
+    ct.commit()
+    assert alice.bound
+    assert bob.bound

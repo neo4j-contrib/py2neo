@@ -2,6 +2,7 @@
 branch = True
 omit =
     */__main__.py
+    py2neo/compat.py
     py2neo/deprecated.py
     py2neo/util.py
     py2neo/ext/*
