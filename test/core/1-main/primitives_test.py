@@ -81,6 +81,70 @@ class GraphViewTestCase(TestCase):
         assert set(DAVE_WORKS_FOR_DAVE.nodes) == {DAVE}
         assert set(DAVE_WORKS_FOR_DAVE.relationships) == {DAVE_WORKS_FOR_DAVE}
 
+    def test_path(self):
+        relationships = [ALICE_KNOWS_BOB, CAROL_DISLIKES_BOB, CAROL_MARRIED_TO_DAVE]
+        path = Path(ALICE, *relationships)
+        assert repr(path).startswith("<Path")
+        assert path.order == 4
+        assert path.size == 3
+        assert list(path.nodes) == [ALICE, BOB, CAROL, DAVE]
+        assert list(path.relationships) == relationships
+        assert list(path.directions) == [1, -1, 1]
+
+    def test_path_construction(self):
+        path = Path(ALICE, ALICE_KNOWS_BOB, BOB)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(ALICE, ALICE_KNOWS_BOB)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(ALICE_KNOWS_BOB, BOB)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(ALICE_KNOWS_BOB)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(ALICE, ALICE, ALICE_KNOWS_BOB, BOB, BOB)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(ALICE, None, ALICE_KNOWS_BOB, None)
+        assert path.order == 2
+        assert path.size == 1
+        assert path.length == 1
+        path = Path(Path(ALICE_KNOWS_BOB, CAROL_DISLIKES_BOB), CAROL_MARRIED_TO_DAVE)
+        assert path.order == 4
+        assert path.size == 3
+        assert path.length == 3
+        path = Path(Path(ALICE_KNOWS_BOB, CAROL_DISLIKES_BOB),
+                    Path(CAROL, ALICE_LIKES_CAROL, ALICE_LIKES_CAROL, CAROL_MARRIED_TO_DAVE))
+        assert path.order == 4
+        assert path.size == 4
+        assert path.length == 5
+
+    def test_path_addition(self):
+        path = Path(ALICE, ALICE_KNOWS_BOB, CAROL_DISLIKES_BOB)
+        path += CAROL_MARRIED_TO_DAVE
+        assert repr(path).startswith("<Path")
+        assert path.order == 4
+        assert path.size == 3
+        assert list(path.nodes) == [ALICE, BOB, CAROL, DAVE]
+        assert list(path.relationships) == [ALICE_KNOWS_BOB, CAROL_DISLIKES_BOB,
+                                            CAROL_MARRIED_TO_DAVE]
+        assert list(path.directions) == [1, -1, 1]
+
+    def test_node_addition(self):
+        alice = ALICE + ALICE
+        assert alice == ALICE
+
+    def test_relationship_addition(self):
+        abc = ALICE_KNOWS_BOB + CAROL_DISLIKES_BOB
+        assert tuple(abc.nodes) == (ALICE, BOB, CAROL)
+
     def test_graph_view(self):
         graph = (ALICE_KNOWS_BOB | ALICE_LIKES_CAROL | CAROL_DISLIKES_BOB |
                  CAROL_MARRIED_TO_DAVE | DAVE_WORKS_FOR_DAVE)

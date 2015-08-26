@@ -23,7 +23,7 @@ from py2neo.compat import integer, string
 from py2neo.util import ustr
 
 
-__all__ = ["GraphView", "Node", "Relationship"]
+__all__ = ["GraphView", "Node", "Relationship", "Path"]
 
 
 # Maximum and minimum integers supported up to Java 7.
@@ -174,6 +174,9 @@ class EntityCollectionView(object):
     def __len__(self):
         return len(self._entities)
 
+    def __getitem__(self, index):
+        return self._entities[index]
+
     def __iter__(self):
         return iter(self._entities)
 
@@ -196,17 +199,16 @@ class EntityCollectionView(object):
 class GraphView(object):
 
     def __init__(self, nodes, relationships):
-        self.nodes = EntityCollectionView(frozenset(nodes))
-        self.relationships = EntityCollectionView(frozenset(relationships))
-        self.order = len(self.nodes)
-        self.size = len(self.relationships)
+        self.nodes = EntityCollectionView(nodes)
+        self.relationships = EntityCollectionView(relationships)
 
     def __repr__(self):
-        return "<GraphView order=%s size=%s>" % (self.order, self.size)
+        return "<%s order=%s size=%s>" % (self.__class__.__name__, self.order, self.size)
 
     def __eq__(self, other):
         try:
-            return self.nodes == other.nodes and self.relationships == other.relationships
+            return (set(self.nodes) == set(other.nodes) and
+                    set(self.relationships) == set(other.relationships))
         except AttributeError:
             return False
 
@@ -222,7 +224,7 @@ class GraphView(object):
         return value
 
     def __len__(self):
-        return len(self.relationships)
+        return self.size
 
     def __iter__(self):
         return iter(self.relationships)
@@ -250,6 +252,14 @@ class GraphView(object):
         return GraphView(nodes, relationships)
 
     @property
+    def order(self):
+        return len(set(self.nodes))
+
+    @property
+    def size(self):
+        return len(set(self.relationships))
+
+    @property
     def property_keys(self):
         keys = set()
         for entity in self.nodes:
@@ -273,13 +283,63 @@ class Identifiable(object):
         self.identity = identity
 
 
-class Node(Identifiable, PropertyContainer, GraphView):
+class DirectedGraphView(GraphView):
+
+    def __init__(self, nodes, relationships, directions):
+        GraphView.__init__(self, nodes, relationships)
+        self.__directions = tuple(directions)
+
+    def __eq__(self, other):
+        try:
+            return (tuple(self.nodes) == tuple(other.nodes) and
+                    tuple(self.relationships) == tuple(other.relationships) and
+                    tuple(self.directions) == tuple(other.directions))
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for entity in self.nodes:
+            value ^= hash(entity)
+        for entity in self.relationships:
+            value ^= hash(entity)
+        for direction in self.directions:
+            value ^= hash(direction)
+        return value
+
+    def __len__(self):
+        return self.length
+
+    def __add__(self, other):
+        return Path(self, other)
+
+    @property
+    def length(self):
+        return len(self.relationships)
+
+    @property
+    def start_node(self):
+        return self.nodes[0]
+
+    @property
+    def end_node(self):
+        return self.nodes[-1]
+
+    @property
+    def directions(self):
+        return self.__directions
+
+
+class Node(Identifiable, PropertyContainer, DirectedGraphView):
 
     def __init__(self, *labels, **properties):
         Identifiable.__init__(self)
         PropertyContainer.__init__(self, **properties)
+        DirectedGraphView.__init__(self, (self,), (), ())
         self.__labels = set(labels)
-        GraphView.__init__(self, [self], [])
 
     def __repr__(self):
         return "<Node identity=%r labels=%r properties=%r>" % \
@@ -287,9 +347,11 @@ class Node(Identifiable, PropertyContainer, GraphView):
 
     def __eq__(self, other):
         try:
-            return self is other
+            other_nodes = tuple(other.nodes)
         except AttributeError:
             return False
+        else:
+            return len(other_nodes) == 1 and self is other_nodes[0]
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -308,7 +370,7 @@ class Node(Identifiable, PropertyContainer, GraphView):
         return self.__labels
 
 
-class Relationship(Identifiable, PropertyContainer, GraphView):
+class Relationship(Identifiable, PropertyContainer, DirectedGraphView):
 
     def __init__(self, *args, **properties):
         Identifiable.__init__(self)
@@ -326,7 +388,7 @@ class Relationship(Identifiable, PropertyContainer, GraphView):
         else:
             nodes = (args[0],) + args[2:]
             self.type = args[1]
-        GraphView.__init__(self, nodes, [self])
+        DirectedGraphView.__init__(self, nodes, (self,), (0,))
 
     def __repr__(self):
         return "<Relationship identity=%r nodes=%r type=%r properties=%r>" % \
@@ -334,7 +396,8 @@ class Relationship(Identifiable, PropertyContainer, GraphView):
 
     def __eq__(self, other):
         try:
-            return self is other
+            return (tuple(self.nodes) == tuple(other.nodes) and
+                    (self,) == tuple(other.relationships))
         except AttributeError:
             return False
 
@@ -350,10 +413,33 @@ class Relationship(Identifiable, PropertyContainer, GraphView):
     def __iter__(self):
         yield self
 
-    @property
-    def start_node(self):
-        return tuple(self.nodes)[0]
 
-    @property
-    def end_node(self):
-        return tuple(self.nodes)[-1]
+class Path(DirectedGraphView):
+
+    def __init__(self, base, *sequence):
+        # TODO: if base has size=1,direction=0 try forward and backward
+        nodes = list(base.nodes)
+        relationships = list(base.relationships)
+        directions = list(base.directions)
+        for item in sequence:
+            if item is None:
+                continue
+            elif item.length == 0:
+                last_node = nodes[-1]
+                if item.nodes[0] != last_node:
+                    raise ValueError("Non-continuous")
+            else:
+                for i, relationship in enumerate(item):
+                    last_node = nodes[-1]
+                    direction = item.directions[i]
+                    if direction >= 0 and last_node == relationship.start_node:
+                        next_node = relationship.end_node
+                        directions.append(1)
+                    elif direction <= 0 and last_node == relationship.end_node:
+                        next_node = relationship.start_node
+                        directions.append(-1)
+                    else:
+                        raise ValueError("Non-continuous")
+                    nodes.append(next_node)
+                    relationships.append(relationship)
+        DirectedGraphView.__init__(self, nodes, relationships, directions)
