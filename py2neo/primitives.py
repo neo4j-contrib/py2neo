@@ -160,7 +160,7 @@ class PropertyContainer(object):
         raise TypeError("%r object is not iterable" % self.__class__.__name__)
 
 
-class EntitySetView(object):
+class EntityCollectionView(object):
 
     def __init__(self, collection):
         self._entities = collection
@@ -181,23 +181,23 @@ class EntitySetView(object):
         return item in self._entities
 
     def __or__(self, other):
-        return EntitySetView(frozenset(self).union(other))
+        return EntityCollectionView(frozenset(self).union(other))
 
     def __and__(self, other):
-        return EntitySetView(frozenset(self).intersection(other))
+        return EntityCollectionView(frozenset(self).intersection(other))
 
     def __sub__(self, other):
-        return EntitySetView(frozenset(self).difference(other))
+        return EntityCollectionView(frozenset(self).difference(other))
 
     def __xor__(self, other):
-        return EntitySetView(frozenset(self).symmetric_difference(other))
+        return EntityCollectionView(frozenset(self).symmetric_difference(other))
 
 
 class GraphView(object):
 
     def __init__(self, nodes, relationships):
-        self.nodes = EntitySetView(frozenset(nodes))
-        self.relationships = EntitySetView(frozenset(relationships))
+        self.nodes = EntityCollectionView(frozenset(nodes))
+        self.relationships = EntityCollectionView(frozenset(relationships))
         self.order = len(self.nodes)
         self.size = len(self.relationships)
 
@@ -267,15 +267,23 @@ class GraphView(object):
         return frozenset(relationship.type for relationship in self.relationships)
 
 
-class Node(PropertyContainer, GraphView):
+class Identifiable(object):
+
+    def __init__(self, identity=None):
+        self.identity = identity
+
+
+class Node(Identifiable, PropertyContainer, GraphView):
 
     def __init__(self, *labels, **properties):
+        Identifiable.__init__(self)
         PropertyContainer.__init__(self, **properties)
         self.__labels = set(labels)
         GraphView.__init__(self, [self], [])
 
     def __repr__(self):
-        return "<Node labels=%r properties=%r>" % (set(self.labels), self.properties)
+        return "<Node identity=%r labels=%r properties=%r>" % \
+               (self.identity, set(self.labels), self.properties)
 
     def __eq__(self, other):
         try:
@@ -300,28 +308,29 @@ class Node(PropertyContainer, GraphView):
         return self.__labels
 
 
-class Relationship(PropertyContainer, GraphView):
+class Relationship(Identifiable, PropertyContainer, GraphView):
 
     def __init__(self, *args, **properties):
+        Identifiable.__init__(self)
         PropertyContainer.__init__(self, **properties)
         num_args = len(args)
         if num_args == 0:
-            self.endpoints = (None, None)
+            nodes = (None, None)
             self.type = None
         elif num_args == 1:
-            self.endpoints = (None, None)
+            nodes = (None, None)
             self.type = args[0]
         elif num_args == 2:
-            self.endpoints = args
+            nodes = args
             self.type = None
         else:
-            self.endpoints = (args[0],) + args[2:]
+            nodes = (args[0],) + args[2:]
             self.type = args[1]
-        GraphView.__init__(self, self.endpoints, [self])
+        GraphView.__init__(self, nodes, [self])
 
     def __repr__(self):
-        return "<Relationship endpoints=%r type=%r properties=%r>" % \
-               (self.endpoints, self.type, self.properties)
+        return "<Relationship identity=%r nodes=%r type=%r properties=%r>" % \
+               (self.identity, tuple(self.nodes), self.type, self.properties)
 
     def __eq__(self, other):
         try:
@@ -342,9 +351,9 @@ class Relationship(PropertyContainer, GraphView):
         yield self
 
     @property
-    def start(self):
-        return self.endpoints[0]
+    def start_node(self):
+        return tuple(self.nodes)[0]
 
     @property
-    def end(self):
-        return self.endpoints[-1]
+    def end_node(self):
+        return tuple(self.nodes)[-1]

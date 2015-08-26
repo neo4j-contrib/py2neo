@@ -36,8 +36,7 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",
            "node", "rel",
-           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI",
-]
+           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI"]
 
 
 node = Node.cast

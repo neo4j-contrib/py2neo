@@ -69,6 +69,8 @@ class GraphViewTestCase(TestCase):
         assert ALICE_KNOWS_BOB.labels == {"Person", "Employee"}
         assert ALICE_KNOWS_BOB.types == {"KNOWS"}
         assert ALICE_KNOWS_BOB.property_keys == {"name", "since"}
+        assert ALICE_KNOWS_BOB.start_node == ALICE
+        assert ALICE_KNOWS_BOB.end_node == BOB
         assert set(ALICE_KNOWS_BOB.nodes) == {ALICE, BOB}
         assert set(ALICE_KNOWS_BOB.relationships) == {ALICE_KNOWS_BOB}
 
