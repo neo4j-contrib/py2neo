@@ -16,15 +16,12 @@
 # limitations under the License.
 
 
-from datetime import date, time, datetime
-from decimal import Decimal
+from itertools import chain
 
-from py2neo.compat import integer, string
-from py2neo.util import ustr
+from py2neo.compat import integer, unicode
 
 
-__all__ = ["GraphView", "Node", "Relationship", "Path"]
-
+__all__ = ["Graph", "TraversableGraph", "Node", "Relationship", "Path"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -33,48 +30,36 @@ JAVA_INTEGER_MIN_VALUE = -2 ** 63
 JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
 
 
-def cast_property(value):
-    """ Cast the supplied property value to something supported by
-    Neo4j, raising an error if this is not possible.
-    """
-    if isinstance(value, (bool, float)):
-        pass
-    elif isinstance(value, integer):
-        if JAVA_INTEGER_MIN_VALUE <= value <= JAVA_INTEGER_MAX_VALUE:
-            pass
+def coerce_atomic_property(x):
+    if isinstance(x, unicode):
+        return x
+    elif isinstance(x, bool):
+        return x
+    elif isinstance(x, integer):
+        if JAVA_INTEGER_MIN_VALUE <= x <= JAVA_INTEGER_MAX_VALUE:
+            return x
         else:
-            raise ValueError("Integer value out of range: %s" % value)
-    elif isinstance(value, string):
-        value = ustr(value)
-    elif isinstance(value, (frozenset, list, set, tuple)):
-        # check each item and all same type
-        list_value = []
-        list_type = None
-        for item in value:
-            item = cast_property(item)
-            if list_type is None:
-                list_type = type(item)
-                if list_type is list:
-                    raise ValueError("Lists cannot contain nested collections")
-            elif not isinstance(item, list_type):
-                raise TypeError("List property items must be of similar types")
-            list_value.append(item)
-        value = list_value
-    elif isinstance(value, (datetime, date, time)):
-        value = value.isoformat()
-    elif isinstance(value, Decimal):
-        # We'll lose some precision here but Neo4j can't
-        # handle decimals anyway.
-        value = float(value)
-    elif isinstance(value, complex):
-        value = [value.real, value.imag]
+            raise ValueError("Integer value out of range: %s" % x)
     else:
-        raise TypeError("Invalid property type: %s" % type(value))
-    return value
+        raise ValueError("Properties of type %s are not supported" % x.__class__.__name__)
+
+
+def coerce_property(x):
+    if isinstance(x, (tuple, list, set, frozenset)):
+        cls = None
+        for item in x:
+            if cls is None:
+                cls = type(item)
+            elif type(item) != cls:
+                raise ValueError("List properties must be homogenous")
+            coerce_atomic_property(item)
+        return x
+    else:
+        return coerce_atomic_property(x)
 
 
 class PropertySet(dict):
-    """ A dict subclass that equates None with a non-existent key.
+    """ A dictionary subclass that equates None with a non-existent key.
     """
 
     def __init__(self, iterable=None, **kwargs):
@@ -91,11 +76,11 @@ class PropertySet(dict):
 
     def __hash__(self):
         value = 0
-        for key, value in self.items():
-            if isinstance(value, list):
-                value ^= hash((key, tuple(value)))
+        for k, v in self.items():
+            if isinstance(v, list):
+                value ^= hash((k, tuple(v)))
             else:
-                value ^= hash((key, value))
+                value ^= hash((k, v))
         return value
 
     def __getitem__(self, key):
@@ -108,11 +93,7 @@ class PropertySet(dict):
             except KeyError:
                 pass
         else:
-            dict.__setitem__(self, key, cast_property(value))
-
-    def replace(self, iterable=None, **kwargs):
-        self.clear()
-        self.update(iterable, **kwargs)
+            dict.__setitem__(self, key, coerce_property(value))
 
     def setdefault(self, key, default=None):
         if key in self:
@@ -127,6 +108,10 @@ class PropertySet(dict):
         for key, value in dict(iterable or {}, **kwargs).items():
             self[key] = value
 
+    def replace(self, iterable=None, **kwargs):
+        self.clear()
+        self.update(iterable, **kwargs)
+
 
 class PropertyContainer(object):
     """ Base class for objects that contain a set of properties,
@@ -135,14 +120,8 @@ class PropertyContainer(object):
     def __init__(self, **properties):
         self.properties = PropertySet(properties)
 
-    def __eq__(self, other):
-        return self is other
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(id(self))
+    def __len__(self):
+        return len(self.properties)
 
     def __contains__(self, key):
         return key in self.properties
@@ -157,58 +136,24 @@ class PropertyContainer(object):
         self.properties.__delitem__(key)
 
     def __iter__(self):
-        raise TypeError("%r object is not iterable" % self.__class__.__name__)
+        return iter(self.properties)
+
+    @property
+    def property_keys(self):
+        return frozenset(self.properties.keys())
 
 
-class EntityCollectionView(object):
-
-    def __init__(self, collection):
-        self._entities = collection
-
-    def __eq__(self, other):
-        return frozenset(self) == frozenset(other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __len__(self):
-        return len(self._entities)
-
-    def __getitem__(self, index):
-        return self._entities[index]
-
-    def __iter__(self):
-        return iter(self._entities)
-
-    def __contains__(self, item):
-        return item in self._entities
-
-    def __or__(self, other):
-        return EntityCollectionView(frozenset(self).union(other))
-
-    def __and__(self, other):
-        return EntityCollectionView(frozenset(self).intersection(other))
-
-    def __sub__(self, other):
-        return EntityCollectionView(frozenset(self).difference(other))
-
-    def __xor__(self, other):
-        return EntityCollectionView(frozenset(self).symmetric_difference(other))
-
-
-class GraphView(object):
+class Graph(object):
+    """ Arbitrary, unordered collection of nodes and relationships.
+    """
 
     def __init__(self, nodes, relationships):
-        self.nodes = EntityCollectionView(nodes)
-        self.relationships = EntityCollectionView(relationships)
-
-    def __repr__(self):
-        return "<%s order=%s size=%s>" % (self.__class__.__name__, self.order, self.size)
+        self.nodes = frozenset(nodes)
+        self.relationships = frozenset(relationships)
 
     def __eq__(self, other):
         try:
-            return (set(self.nodes) == set(other.nodes) and
-                    set(self.relationships) == set(other.relationships))
+            return self.nodes == other.nodes and self.relationships == other.relationships
         except AttributeError:
             return False
 
@@ -236,114 +181,128 @@ class GraphView(object):
         return bool(self.relationships)
 
     def __or__(self, other):
-        return GraphView(self.nodes | other.nodes, self.relationships | other.relationships)
+        return Graph(self.nodes | other.nodes, self.relationships | other.relationships)
 
     def __and__(self, other):
-        return GraphView(self.nodes & other.nodes, self.relationships & other.relationships)
+        return Graph(self.nodes & other.nodes, self.relationships & other.relationships)
 
     def __sub__(self, other):
         relationships = self.relationships - other.relationships
         nodes = (self.nodes - other.nodes) | set().union(*(rel.nodes for rel in relationships))
-        return GraphView(nodes, relationships)
+        return Graph(nodes, relationships)
 
     def __xor__(self, other):
         relationships = self.relationships ^ other.relationships
         nodes = (self.nodes ^ other.nodes) | set().union(*(rel.nodes for rel in relationships))
-        return GraphView(nodes, relationships)
+        return Graph(nodes, relationships)
 
     @property
     def order(self):
-        return len(set(self.nodes))
+        """ Total number of unique nodes in this set.
+        """
+        return len(self.nodes)
 
     @property
     def size(self):
-        return len(set(self.relationships))
-
-    @property
-    def property_keys(self):
-        keys = set()
-        for entity in self.nodes:
-            keys |= set(entity.properties.keys())
-        for entity in self.relationships:
-            keys |= set(entity.properties.keys())
-        return frozenset(keys)
+        """ Total number of unique relationships in this set.
+        """
+        return len(self.relationships)
 
     @property
     def labels(self):
-        return frozenset().union(*(node.labels for node in self.nodes))
+        return frozenset(chain(*(node.labels for node in self.nodes)))
 
     @property
     def types(self):
-        return frozenset(relationship.type for relationship in self.relationships)
+        return frozenset(rel.type for rel in self.relationships)
+
+    @property
+    def property_keys(self):
+        return (frozenset(chain(*(node.properties.keys() for node in self.nodes))) |
+                frozenset(chain(*(rel.properties.keys() for rel in self.relationships))))
 
 
-class Identifiable(object):
+class TraversableGraph(Graph):
+    """ A graph with traversal information.
+    """
 
-    def __init__(self, identity=None):
-        self.identity = identity
-
-
-class DirectedGraphView(GraphView):
-
-    def __init__(self, nodes, relationships, directions):
-        GraphView.__init__(self, nodes, relationships)
-        self.__directions = tuple(directions)
+    def __init__(self, head, *tail):
+        sequence = (head,) + tail
+        Graph.__init__(self, sequence[0::2], sequence[1::2])
+        self.__sequence = sequence
 
     def __eq__(self, other):
         try:
-            return (tuple(self.nodes) == tuple(other.nodes) and
-                    tuple(self.relationships) == tuple(other.relationships) and
-                    tuple(self.directions) == tuple(other.directions))
+            other_walk = tuple(other.traverse())
         except AttributeError:
             return False
+        else:
+            return tuple(self.traverse()) == other_walk
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
         value = 0
-        for entity in self.nodes:
-            value ^= hash(entity)
-        for entity in self.relationships:
-            value ^= hash(entity)
-        for direction in self.directions:
-            value ^= hash(direction)
+        for item in self.traverse():
+            value ^= hash(item)
         return value
 
-    def __len__(self):
-        return self.length
+    def __iter__(self):
+        return self.traverse()
 
     def __add__(self, other):
-        return Path(self, other)
-
-    @property
-    def length(self):
-        return len(self.relationships)
+        assert isinstance(other, TraversableGraph)
+        if self.end_node == other.start_node:
+            seq_1 = self.__sequence[:-1]
+            seq_2 = other.traverse()
+        elif self.length <= 1 and self.start_node == other.start_node:
+            seq_1 = reversed(self.__sequence[1:])
+            seq_2 = other.traverse()
+        elif other.length <= 1 and self.end_node == other.end_node:
+            seq_1 = self.__sequence[:-1]
+            seq_2 = reversed(list(other.traverse()))
+        elif self.length <= 1 and other.length <= 1 and self.start_node == other.end_node:
+            seq_1 = reversed(self.__sequence[1:])
+            seq_2 = reversed(list(other.traverse()))
+        else:
+            raise ValueError("Cannot concatenate walkable objects with no common endpoints")
+        return TraversableGraph(*chain(seq_1, seq_2))
 
     @property
     def start_node(self):
-        return self.nodes[0]
+        return self.__sequence[0]
 
     @property
     def end_node(self):
-        return self.nodes[-1]
+        return self.__sequence[-1]
 
     @property
-    def directions(self):
-        return self.__directions
+    def length(self):
+        return (len(self.__sequence) - 1) // 2
+
+    def traverse(self):
+        return iter(self.__sequence)
 
 
-class Node(Identifiable, PropertyContainer, DirectedGraphView):
+class Entity(TraversableGraph, PropertyContainer):
+
+    def __init__(self, identity, *sequence, **properties):
+        TraversableGraph.__init__(self, *sequence)
+        PropertyContainer.__init__(self, **properties)
+        self.identity = identity
+
+
+class Node(Entity):
+    """ A graph vertex with support for labels and properties.
+    """
 
     def __init__(self, *labels, **properties):
-        Identifiable.__init__(self)
-        PropertyContainer.__init__(self, **properties)
-        DirectedGraphView.__init__(self, (self,), (), ())
+        Entity.__init__(self, None, self, **properties)
         self.__labels = set(labels)
 
     def __repr__(self):
-        return "<Node identity=%r labels=%r properties=%r>" % \
-               (self.identity, set(self.labels), self.properties)
+        return "(%s)" % "".join(":" + label for label in self.labels)
 
     def __eq__(self, other):
         try:
@@ -359,22 +318,16 @@ class Node(Identifiable, PropertyContainer, DirectedGraphView):
     def __hash__(self):
         return hash(id(self))
 
-    def __len__(self):
-        return 0
-
-    def __iter__(self):
-        return iter([])
-
     @property
     def labels(self):
         return self.__labels
 
 
-class Relationship(Identifiable, PropertyContainer, DirectedGraphView):
+class Relationship(Entity):
+    """ A typed edge between two graph nodes with support for properties.
+    """
 
     def __init__(self, *args, **properties):
-        Identifiable.__init__(self)
-        PropertyContainer.__init__(self, **properties)
         num_args = len(args)
         if num_args == 0:
             nodes = (None, None)
@@ -385,14 +338,23 @@ class Relationship(Identifiable, PropertyContainer, DirectedGraphView):
         elif num_args == 2:
             nodes = args
             self.type = None
-        else:
-            nodes = (args[0],) + args[2:]
+        elif num_args == 3:
+            nodes = (args[0], args[2])
             self.type = args[1]
-        DirectedGraphView.__init__(self, nodes, (self,), (0,))
+        else:
+            raise TypeError("Hyperedges not supported")
+        Entity.__init__(self, None, nodes[0], self, nodes[1], **properties)
 
     def __repr__(self):
-        return "<Relationship identity=%r nodes=%r type=%r properties=%r>" % \
-               (self.identity, tuple(self.nodes), self.type, self.properties)
+        if self.type is not None:
+            value = "-[:%s]->" % self.type
+        else:
+            value = "->"
+        if self.start_node is not None:
+            value = repr(self.start_node) + value
+        if self.end_node is not None:
+            value += repr(self.end_node)
+        return value
 
     def __eq__(self, other):
         try:
@@ -407,39 +369,15 @@ class Relationship(Identifiable, PropertyContainer, DirectedGraphView):
     def __hash__(self):
         return hash(id(self))
 
-    def __len__(self):
-        return 1
 
-    def __iter__(self):
-        yield self
+class Path(TraversableGraph):
 
+    def __new__(cls, head, *tail):
+        path = TraversableGraph(*head.traverse())
+        for item in tail:
+            path += item
+        path.__class__ = cls
+        return path
 
-class Path(DirectedGraphView):
-
-    def __init__(self, base, *sequence):
-        # TODO: if base has size=1,direction=0 try forward and backward
-        nodes = list(base.nodes)
-        relationships = list(base.relationships)
-        directions = list(base.directions)
-        for item in sequence:
-            if item is None:
-                continue
-            elif item.length == 0:
-                last_node = nodes[-1]
-                if item.nodes[0] != last_node:
-                    raise ValueError("Non-continuous")
-            else:
-                for i, relationship in enumerate(item):
-                    last_node = nodes[-1]
-                    direction = item.directions[i]
-                    if direction >= 0 and last_node == relationship.start_node:
-                        next_node = relationship.end_node
-                        directions.append(1)
-                    elif direction <= 0 and last_node == relationship.end_node:
-                        next_node = relationship.start_node
-                        directions.append(-1)
-                    else:
-                        raise ValueError("Non-continuous")
-                    nodes.append(next_node)
-                    relationships.append(relationship)
-        DirectedGraphView.__init__(self, nodes, relationships, directions)
+    def __repr__(self):
+        return "<Path length=%r>" % self.length
