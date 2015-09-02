@@ -1428,8 +1428,8 @@ class Node(PropertyContainer):
         if "data" in data:
             inst.__stale.discard("properties")
             properties = data["data"]
-            properties.update(inst.properties)
-            inst._PropertyContainer__properties.replace(properties)
+            inst.properties.update(properties)
+
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
