@@ -256,13 +256,13 @@ class TraversableGraph(Graph):
         if self.end_node == other.start_node:
             seq_1 = self.__sequence[:-1]
             seq_2 = other.traverse()
-        elif self.length <= 1 and self.start_node == other.start_node:
+        elif self.length <= 1 and self.start_node is other.start_node:
             seq_1 = reversed(self.__sequence[1:])
             seq_2 = other.traverse()
-        elif other.length <= 1 and self.end_node == other.end_node:
+        elif other.length <= 1 and self.end_node is other.end_node:
             seq_1 = self.__sequence[:-1]
             seq_2 = reversed(list(other.traverse()))
-        elif self.length <= 1 and other.length <= 1 and self.start_node == other.end_node:
+        elif self.length <= 1 and other.length <= 1 and self.start_node is other.end_node:
             seq_1 = reversed(self.__sequence[1:])
             seq_2 = reversed(list(other.traverse()))
         else:
@@ -306,11 +306,10 @@ class Node(Entity):
 
     def __eq__(self, other):
         try:
-            other_nodes = tuple(other.nodes)
+            return (other.order == 1 and other.size == 0 and
+                    self.labels == other.labels and self.properties == other.properties)
         except AttributeError:
             return False
-        else:
-            return len(other_nodes) == 1 and self is other_nodes[0]
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -358,8 +357,9 @@ class Relationship(Entity):
 
     def __eq__(self, other):
         try:
-            return (tuple(self.nodes) == tuple(other.nodes) and
-                    (self,) == tuple(other.relationships))
+            return (self.order == other.order and other.size == 1 and
+                    self.start_node is other.start_node and self.end_node is other.end_node and
+                    self.type == other.type and self.properties == other.properties)
         except AttributeError:
             return False
 
@@ -367,7 +367,7 @@ class Relationship(Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(id(self))
+        return hash(self.nodes) ^ hash(self.type)
 
 
 class Path(TraversableGraph):

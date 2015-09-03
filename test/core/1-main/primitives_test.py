@@ -19,8 +19,8 @@
 from unittest import TestCase, main
 
 from py2neo.compat import ustr
-from py2neo.primitives import PropertySet, PropertyContainer, \
-    TraversableGraph, Node, Relationship, Path
+from py2neo.primitives import PropertySet, PropertyContainer, TraversableGraph, \
+    Node, Relationship, Path
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -294,11 +294,11 @@ class NodeTestCase(TestCase):
         assert set(alice.relationships) == set()
 
     def test_equality(self):
-        other_node = alice
+        other_node = Node("Person", "Employee", name="Alice", age=33)
         assert alice == other_node
 
     def test_inequality(self):
-        other_node = Node("Person", "Employee", name="Alice", age=33)
+        other_node = Node("Person", "Employee", name="Bob", age=44)
         assert alice != other_node
 
     def test_inequality_with_other_types(self):
