@@ -147,11 +147,12 @@ class CypherWriter(Writer):
         if name:
             self.write_identifier(name)
         if node is not None:
-            for label in sorted(node.labels):
-                self.write_label(label)
+            if hasattr(node, "labels"):
+                for label in sorted(node.labels):
+                    self.write_label(label)
             if properties is None:
-                if node.properties:
-                    if name or node.labels:
+                if hasattr(node, "properties") and node.properties:
+                    if name or (hasattr(node, "labels") and node.labels):
                         self.file.write(" ")
                     self.write_map(node.properties)
             else:
