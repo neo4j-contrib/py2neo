@@ -18,7 +18,7 @@
 
 from io import StringIO
 
-from py2neo.core import Node, Relationship, Rel, Rev, Path
+from py2neo.core import Node, Relationship, Rel, Rev, Path, NodePointer
 from py2neo.cypher.lang import CypherWriter, cypher_repr
 
 
@@ -115,6 +115,22 @@ def test_can_write_relationship_with_properties():
         {"name": "Fred"}, ("LIVES WITH", {"place": "Bedrock"}), {"name": "Wilma"}))
     written = string.getvalue()
     assert written == '({name:"Fred"})-[:`LIVES WITH` {place:"Bedrock"}]->({name:"Wilma"})'
+
+
+def test_can_write_node_pointer():
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(NodePointer(42))
+    written = string.getvalue()
+    assert written == "(*42)"
+
+
+def test_can_write_relationship_containing_node_pointer():
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(Relationship(NodePointer(42), "KNOWS", {}))
+    written = string.getvalue()
+    assert written == "(*42)-[:KNOWS]->()"
 
 
 def test_can_write_simple_rel():
