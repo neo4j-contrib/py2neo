@@ -189,22 +189,18 @@ class CypherResource(Service):
                 statement, parameters, result_formats=["graph"], **kwparameters)
             results = tx.commit()
             try:
-                data = results[0]
+                return [d['graph'] for d in resuts[0]]
             except IndexError:
                 return None
-
-            return [d['graph'] for d in data]
 
         else:
             response = self.post(
                 statement, parameters, result_formats=["graph"], **kwparameters)
             results = response.content
             try:
-                data = results[0]
+                return [d['graph'] for d in resuts[0]]
             except IndexError:
                 return None
-            else:
-                return [d['graph'] for d in data]
             finally:
                 response.close()
 
@@ -311,7 +307,7 @@ class CypherTransaction(object):
         self.statements.append(OrderedDict([
             ("statement", s),
             ("parameters", p),
-            ("resultDataContents", ["REST"]),
+            ("resultDataContents", result_formats),
         ]))
 
     def post(self, resource):
