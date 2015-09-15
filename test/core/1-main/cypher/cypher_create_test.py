@@ -343,6 +343,6 @@ def test_can_create_many_nodes(graph):
     ct = CreateTransaction(graph)
     ct.append(alice)
     ct.append(bob)
-    ct.commit()
+    ct.create()
     assert alice.bound
     assert bob.bound
