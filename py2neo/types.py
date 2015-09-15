@@ -20,7 +20,7 @@ from datetime import date, time, datetime
 from decimal import Decimal
 from sys import version_info
 
-from py2neo.util import ustr
+from py2neo.compat import ustr
 
 
 # Maximum and minimum integers supported up to Java 7.

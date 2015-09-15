@@ -20,11 +20,12 @@ from collections import OrderedDict
 import logging
 
 from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
+from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string, xstr, ustr, is_collection
+from py2neo.util import is_collection
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -44,9 +45,9 @@ def presubstitute(statement, parameters):
                 value = parameters.pop(key)
             except KeyError:
                 raise KeyError("Expected a presubstitution parameter named %r" % key)
-            if is_integer(value):
+            if isinstance(value, integer):
                 value = ustr(value)
-            elif isinstance(value, tuple) and all(map(is_integer, value)):
+            elif isinstance(value, tuple) and all(map(lambda x: isinstance(x, integer), value)):
                 value = u"%d..%d" % (value[0], value[-1])
             elif is_collection(value):
                 value = ":".join(map(cypher_escape, value))
@@ -491,9 +492,9 @@ class Record(object):
         return iter(self.__values__)
 
     def __getitem__(self, item):
-        if is_integer(item):
+        if isinstance(item, integer):
             return self.__values__[item]
-        elif is_string(item):
+        elif isinstance(item, string):
             return getattr(self, item)
         else:
             raise LookupError(item)
