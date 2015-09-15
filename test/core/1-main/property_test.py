@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from py2neo.neo4j import PropertySet, PropertyContainer
+from py2neo import PropertySet, PropertyContainer
 
 
 class TestPropertySet(object):

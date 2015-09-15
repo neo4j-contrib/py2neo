@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import neo4j, Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
 
 
 class TestPathConstruction(object):
@@ -119,7 +119,7 @@ class TestCreatePath(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
-        neo4j.Graph.auto_sync_properties = True
+        Graph.auto_sync_properties = True
 
     def test_can_create_path(self, graph):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
@@ -129,7 +129,7 @@ class TestCreatePath(object):
         path, = graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert isinstance(path.relationships[0], Relationship)
         assert path.relationships[0].type == "KNOWS"
         assert isinstance(path.nodes[1], Node)
         assert path.nodes[1]["name"] == "Bob"
@@ -143,7 +143,7 @@ class TestCreatePath(object):
         path, = self.graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert isinstance(path.relationships[0], Relationship)
         assert path.relationships[0].type == "KNOWS"
         assert path.relationships[0].properties == {"since": 1999}
         assert isinstance(path.nodes[1], Node)
