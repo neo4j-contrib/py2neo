@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
+from py2neo.compat import ustr, xstr
 from py2neo.core import Graph, Node, Path, Relationship
-from py2neo.util import ustr, xstr
 
 
 __all__ = ["DeleteStatement"]

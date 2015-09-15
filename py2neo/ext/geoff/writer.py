@@ -18,9 +18,10 @@
 
 import json
 
+from py2neo.compat import ustr
 from py2neo.core import Node, Rel, Rev, Path
 from py2neo.lang import Writer
-from py2neo.util import is_collection, ustr
+from py2neo.util import is_collection
 
 
 __all__ = ["GeoffWriter"]

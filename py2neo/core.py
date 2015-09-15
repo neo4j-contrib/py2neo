@@ -25,6 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
+from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_HTTP_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
@@ -33,8 +34,8 @@ from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
-    raise_from, xstr, ThreadLocalWeakValueDictionary
+from py2neo.util import is_collection, round_robin, version_tuple, \
+    raise_from, ThreadLocalWeakValueDictionary
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
@@ -890,7 +891,7 @@ class Graph(Service):
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
-        elif not is_string(property_key):
+        elif not isinstance(property_key, string):
             raise TypeError("Property key must be textual")
         elif property_value is None:
             raise ValueError("Both key and value must be specified for a property")
@@ -1303,7 +1304,7 @@ class Node(PropertyContainer):
                 return None
             elif isinstance(arg, (Node, NodePointer, Job)):
                 return arg
-            elif is_integer(arg):
+            elif isinstance(arg, integer):
                 return NodePointer(arg)
 
         inst = Node()
@@ -1314,7 +1315,7 @@ class Node(PropertyContainer):
             elif is_collection(x):
                 for item in x:
                     apply(item)
-            elif is_string(x):
+            elif isinstance(x, string):
                 inst.labels.add(ustr(x))
             else:
                 raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))

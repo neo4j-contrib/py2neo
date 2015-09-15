@@ -21,9 +21,10 @@ from __future__ import unicode_literals
 from io import StringIO
 import json
 
+from py2neo.compat import ustr, xstr
 from py2neo.core import Node, Rel, Rev, Path, Relationship, NodePointer
 from py2neo.lang import Writer
-from py2neo.util import is_collection, ustr, xstr
+from py2neo.util import is_collection
 
 
 __all__ = list(map(xstr, ["CypherParameter", "CypherWriter", "cypher_escape", "cypher_repr"]))
