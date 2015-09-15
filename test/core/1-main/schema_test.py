@@ -26,7 +26,7 @@ from uuid import uuid4
 
 import pytest
 
-from py2neo import neo4j, GraphError, Node
+from py2neo import Graph, GraphError, Node
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -40,7 +40,7 @@ class DodgyClientError(ClientError):
 
 def get_clean_database():
     # Constraints have to be removed before the indexed property keys can be removed.
-    graph = neo4j.Graph()
+    graph = Graph()
     for label in graph.node_labels:
         for key in graph.schema.get_uniqueness_constraints(label):
             graph.schema.drop_uniqueness_constraint(label, key)

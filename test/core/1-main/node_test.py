@@ -24,7 +24,7 @@ import sys
 
 import pytest
 
-from py2neo import neo4j, Node, BindError, GraphError, Path
+from py2neo import Node, BindError, GraphError, Path, Node, Relationship
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -167,7 +167,7 @@ class TestConcreteNode(object):
 
     def test_can_create_concrete_node(self):
         alice, = self.graph.create({"name": "Alice", "age": 34})
-        assert isinstance(alice, neo4j.Node)
+        assert isinstance(alice, Node)
         assert alice.bound
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
@@ -253,7 +253,7 @@ class TestNode(object):
     def test_get_all_relationships(self):
         rels = list(self.fred.match())
         assert len(rels) == 1
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
@@ -261,7 +261,7 @@ class TestNode(object):
     def test_get_all_outgoing_relationships(self):
         rels = list(self.fred.match_outgoing())
         assert len(rels) == 1
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
@@ -269,7 +269,7 @@ class TestNode(object):
     def test_get_all_incoming_relationships(self):
         rels = list(self.wilma.match_incoming())
         assert len(rels) == 1
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
@@ -277,21 +277,21 @@ class TestNode(object):
     def test_get_all_relationships_of_type(self):
         rels = list(self.fred.match("REALLY LOVES"))
         assert len(rels) == 1
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
 
     def test_get_single_relationship(self):
         rels = list(self.fred.match("REALLY LOVES", limit=1))
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
 
     def test_get_single_outgoing_relationship(self):
         rels = list(self.fred.match_outgoing("REALLY LOVES", limit=1))
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
@@ -299,7 +299,7 @@ class TestNode(object):
     def test_get_single_incoming_relationship(self):
         rels = list(self.wilma.match_incoming("REALLY LOVES",
                                               start_node=self.fred, limit=1))
-        assert isinstance(rels[0], neo4j.Relationship)
+        assert isinstance(rels[0], Relationship)
         assert rels[0].type == "REALLY LOVES"
         assert rels[0].start_node == self.fred
         assert rels[0].end_node == self.wilma
