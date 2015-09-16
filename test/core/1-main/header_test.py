@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.http import _add_header, _get_headers
+from py2neo.http.core import _add_header, _get_headers
 
 
 def test_can_add_and_retrieve_global_header():
