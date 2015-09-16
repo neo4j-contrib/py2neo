@@ -108,10 +108,6 @@ class PropertySet(dict):
         for key, value in dict(iterable or {}, **kwargs).items():
             self[key] = value
 
-    def replace(self, iterable=None, **kwargs):
-        self.clear()
-        self.update(iterable, **kwargs)
-
 
 class PropertyContainer(object):
     """ Base class for objects that contain a set of properties,
@@ -233,23 +229,42 @@ class TraversableGraph(Graph):
 
     def __eq__(self, other):
         try:
-            other_walk = tuple(other.traverse())
+            other_traversal = tuple(other.traverse())
         except AttributeError:
             return False
         else:
-            return tuple(self.traverse()) == other_walk
+            return tuple(self.traverse()) == other_traversal
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
         value = 0
-        for item in self.traverse():
+        for item in self.__sequence:
             value ^= hash(item)
         return value
 
+    def __len__(self):
+        return (len(self.__sequence) - 1) // 2
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start, stop = index.start, index.stop
+            if start is not None:
+                if start < 0:
+                    start += len(self)
+                start *= 2
+            if stop is not None:
+                if stop < 0:
+                    stop += len(self)
+                stop = 2 * stop + 1
+            return TraversableGraph(*self.__sequence[start:stop])
+        else:
+            return self.__sequence[2 * index + 1]
+
     def __iter__(self):
-        return self.traverse()
+        for relationship in self.__sequence[1::2]:
+            yield relationship
 
     def __add__(self, other):
         assert isinstance(other, TraversableGraph)
@@ -285,12 +300,11 @@ class TraversableGraph(Graph):
         return iter(self.__sequence)
 
 
-class Entity(TraversableGraph, PropertyContainer):
+class Entity(PropertyContainer, TraversableGraph):
 
-    def __init__(self, identity, *sequence, **properties):
+    def __init__(self, *sequence, **properties):
         TraversableGraph.__init__(self, *sequence)
         PropertyContainer.__init__(self, **properties)
-        self.identity = identity
 
 
 class Node(Entity):
@@ -298,7 +312,7 @@ class Node(Entity):
     """
 
     def __init__(self, *labels, **properties):
-        Entity.__init__(self, None, self, **properties)
+        Entity.__init__(self, self, **properties)
         self.__labels = set(labels)
 
     def __repr__(self):
@@ -342,7 +356,7 @@ class Relationship(Entity):
             self.type = args[1]
         else:
             raise TypeError("Hyperedges not supported")
-        Entity.__init__(self, None, nodes[0], self, nodes[1], **properties)
+        Entity.__init__(self, nodes[0], self, nodes[1], **properties)
 
     def __repr__(self):
         if self.type is not None:

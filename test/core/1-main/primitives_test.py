@@ -156,11 +156,6 @@ class PropertySetTestCase(TestCase):
         del properties["age"]
         assert properties == {"name": "Alice"}
 
-    def test_replace(self):
-        properties = PropertySet({"name": "Alice", "age": 33})
-        properties.replace({"name": "Bob", "married": False})
-        assert properties == {"name": "Bob", "married": False}
-
 
 class PropertyContainerTestCase(TestCase):
 
@@ -273,7 +268,63 @@ class TraversableGraphTestCase(TestCase):
         assert self.graph != "this is not a graph"
 
     def test_iteration(self):
-        assert tuple(iter(self.graph)) == self.sequence
+        assert tuple(iter(self.graph)) == (alice_knows_bob, carol_dislikes_bob)
+
+    def test_slicing(self):
+        sequence = (alice, alice_knows_bob, bob, carol_dislikes_bob, carol,
+                    carol_married_to_dave, dave, dave_works_for_dave, dave)
+        graph = TraversableGraph(*sequence)
+        assert graph[0] == alice_knows_bob
+        assert graph[1] == carol_dislikes_bob
+        assert graph[2] == carol_married_to_dave
+        assert graph[3] == dave_works_for_dave
+        assert graph[0:0] == TraversableGraph(alice)
+        assert graph[0:1] == TraversableGraph(alice, alice_knows_bob, bob)
+        assert graph[0:2] == TraversableGraph(alice, alice_knows_bob, bob,
+                                              carol_dislikes_bob, carol)
+        assert graph[0:3] == TraversableGraph(alice, alice_knows_bob, bob,
+                                              carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave)
+        assert graph[0:4] == TraversableGraph(alice, alice_knows_bob, bob,
+                                              carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[0:5] == TraversableGraph(alice, alice_knows_bob, bob,
+                                              carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[0:] == TraversableGraph(alice, alice_knows_bob, bob,
+                                             carol_dislikes_bob, carol,
+                                             carol_married_to_dave, dave,
+                                             dave_works_for_dave, dave)
+        assert graph[:1] == TraversableGraph(alice, alice_knows_bob, bob)
+        assert graph[1:1] == TraversableGraph(bob)
+        assert graph[1:2] == TraversableGraph(bob, carol_dislikes_bob, carol)
+        assert graph[1:3] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave)
+        assert graph[1:4] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[1:5] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                              carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[1:] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                             carol_married_to_dave, dave,
+                                             dave_works_for_dave, dave)
+        assert graph[:2] == TraversableGraph(alice, alice_knows_bob, bob,
+                                             carol_dislikes_bob, carol)
+        assert graph[2:2] == TraversableGraph(carol)
+        assert graph[2:3] == TraversableGraph(carol, carol_married_to_dave, dave)
+        assert graph[2:4] == TraversableGraph(carol, carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[2:5] == TraversableGraph(carol, carol_married_to_dave, dave,
+                                              dave_works_for_dave, dave)
+        assert graph[2:] == TraversableGraph(carol, carol_married_to_dave, dave,
+                                             dave_works_for_dave, dave)
+        assert graph[1:-1] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                               carol_married_to_dave, dave)
+        assert graph[-3:-1] == TraversableGraph(bob, carol_dislikes_bob, carol,
+                                                carol_married_to_dave, dave)
 
 
 class NodeTestCase(TestCase):
