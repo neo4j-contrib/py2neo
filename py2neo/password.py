@@ -22,9 +22,10 @@ import base64
 import os
 import sys
 
-from py2neo import GraphError, Service, ServiceRoot
+from py2neo import GraphError
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_HTTP_URI
+from py2neo.http import Service, ServiceRoot
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
 
 

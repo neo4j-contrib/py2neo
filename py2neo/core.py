@@ -24,7 +24,7 @@ from py2neo import __version__, http
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite",
-           "ServerPlugin", "UnmanagedExtension", "Service"]
+           "ServerPlugin", "UnmanagedExtension"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -32,7 +32,6 @@ PRODUCT = ("py2neo", __version__)
 authenticate = http.authenticate
 familiar = http.familiar
 rewrite = http.rewrite
-Service = http.Service
 ServiceRoot = http.ServiceRoot
 Graph = http.Graph
 PropertySet = http.PropertySet
