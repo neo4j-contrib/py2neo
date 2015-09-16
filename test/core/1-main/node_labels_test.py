@@ -21,7 +21,8 @@ try:
 except ImportError:
     from mock import Mock, patch
 
-from py2neo import Node, LabelSet
+from py2neo import Node
+from py2neo.http import LabelSet
 
 
 def test_label_set_equality():

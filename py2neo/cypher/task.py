@@ -19,7 +19,8 @@
 from io import StringIO
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, LabelSet, PropertySet, Relationship
+from py2neo.core import Node, Relationship
+from py2neo.http import LabelSet, PropertySet
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 
 

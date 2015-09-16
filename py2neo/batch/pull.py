@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Path, Rel
+from py2neo.http import Node, Path, Rel
 from py2neo.batch.core import Batch, Job, Target
 
 

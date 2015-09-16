@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.http import Graph, Node, Relationship, Path, PropertySet, LabelSet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 

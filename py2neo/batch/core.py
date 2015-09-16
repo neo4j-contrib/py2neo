@@ -20,7 +20,7 @@ import json
 import logging
 
 from py2neo.compat import ustr
-from py2neo.core import NodePointer
+from py2neo.http import NodePointer
 from py2neo.cypher import RecordList
 from py2neo.error import GraphError, Finished
 from py2neo.http import Service
