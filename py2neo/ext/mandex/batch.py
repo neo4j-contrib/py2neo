@@ -34,8 +34,8 @@ class LegacyReadBatch(ReadBatch):
     def _index(self, content_type, index):
         """ Fetch an Index object.
         """
-        from py2neo.ext.mandex import ManualIndexManager, Index
-        if isinstance(index, Index):
+        from py2neo.ext.mandex import ManualIndexManager, ManualIndex
+        if isinstance(index, ManualIndex):
             if content_type == index._content_type:
                 return index
             else:
@@ -96,8 +96,8 @@ class LegacyWriteBatch(WriteBatch):
     def _index(self, content_type, index):
         """ Fetch an Index object.
         """
-        from py2neo.ext.mandex import ManualIndexManager, Index
-        if isinstance(index, Index):
+        from py2neo.ext.mandex import ManualIndexManager, ManualIndex
+        if isinstance(index, ManualIndex):
             if content_type == index._content_type:
                 return index
             else:
