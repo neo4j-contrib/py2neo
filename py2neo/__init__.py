@@ -27,6 +27,7 @@ __version__ = "3.0.0"
 from py2neo.core import *
 from py2neo.env import *
 from py2neo.error import *
+from py2neo.http.ext import *
 from py2neo.packages.httpstream.watch import watch
 
 

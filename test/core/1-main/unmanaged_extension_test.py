@@ -22,7 +22,7 @@ try:
 except ImportError:
     from mock import patch
 
-from py2neo.core import UnmanagedExtension
+from py2neo.http.ext import UnmanagedExtension
 
 
 class FakeExtension(UnmanagedExtension):

@@ -22,8 +22,7 @@ from py2neo import __version__, http
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "authenticate",
-           "ServerPlugin", "UnmanagedExtension"]
+           "authenticate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -37,5 +36,3 @@ Rev = http.Rev
 Path = http.Path
 Relationship = http.Relationship
 Subgraph = http.Subgraph
-ServerPlugin = http.ServerPlugin
-UnmanagedExtension = http.UnmanagedExtension
