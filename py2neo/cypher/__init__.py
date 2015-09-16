@@ -25,6 +25,7 @@ from py2neo.cypher.create import *
 from py2neo.cypher.delete import *
 from py2neo.cypher.error.core import *
 from py2neo.cypher.lang import *
+from py2neo.cypher.records import *
 from py2neo.cypher.task import *
 
 

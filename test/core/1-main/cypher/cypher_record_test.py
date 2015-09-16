@@ -16,9 +16,7 @@
 # limitations under the License.
 
 
-import sys
-
-from py2neo.cypher.core import RecordProducer
+from py2neo.cypher.records import RecordProducer
 
 
 def test_record_field_access(graph):

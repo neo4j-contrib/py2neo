@@ -19,7 +19,7 @@
 from unittest import main, TestCase
 
 from py2neo import Graph, NEO4J_HTTP_URI
-from py2neo.cypher.core import presubstitute
+from py2neo.http.cypher import presubstitute
 
 
 class TemporaryTransaction(object):
