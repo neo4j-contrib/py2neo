@@ -21,7 +21,8 @@ try:
 except ImportError:
     from mock import patch
 
-from py2neo import Resource, GraphError
+from py2neo import GraphError
+from py2neo.http import Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource
+from py2neo.http import Resource
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 

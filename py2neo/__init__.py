@@ -34,7 +34,7 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
-           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",
+           "ServerPlugin", "UnmanagedExtension", "Service", "ResourceTemplate",
            "node", "rel",
            "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI"]
 

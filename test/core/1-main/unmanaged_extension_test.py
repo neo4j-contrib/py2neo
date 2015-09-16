@@ -39,7 +39,7 @@ class NaughtyExtension(UnmanagedExtension):
 
 @pytest.yield_fixture
 def fake_resource_get():
-    with patch("py2neo.core.Resource.get") as mocked:
+    with patch("py2neo.http.Resource.get") as mocked:
         yield mocked
 
 

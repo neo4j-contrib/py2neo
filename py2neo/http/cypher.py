@@ -19,7 +19,8 @@
 from collections import OrderedDict
 import logging
 
-from py2neo import Service, Resource, Node, Rel, Relationship, Finished
+from py2neo import Finished
+from py2neo.http.core import Service, Resource, Node, Rel, Relationship
 from py2neo.compat import integer, ustr
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.cypher.lang import cypher_escape

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import rewrite, Resource
+from py2neo.http import rewrite, Resource
 
 
 def test_can_rewrite_uri():
