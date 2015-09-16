@@ -20,7 +20,6 @@ import logging
 
 import pytest
 
-from py2neo import node
 from py2neo.core import Graph, Node, Relationship
 from py2neo.env import NEO4J_HTTP_URI
 
@@ -32,7 +31,7 @@ logging.basicConfig(
 
 
 def test_can_use_graph_if_no_trailing_slash_supplied(graph):
-    alice, = graph.create(node(name="Alice"))
+    alice, = graph.create(Node(name="Alice"))
     assert isinstance(alice, Node)
     assert alice["name"] == "Alice"
 
