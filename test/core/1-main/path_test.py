@@ -18,7 +18,8 @@
 
 import pytest
 
-from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, BindError, Graph
+from py2neo.http import ServiceRoot
 
 
 class TestPathConstruction(object):

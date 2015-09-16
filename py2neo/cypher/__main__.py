@@ -125,7 +125,7 @@ def dehydrate(value):
 
 def main():
     import sys
-    from py2neo.core import ServiceRoot
+    from py2neo.http import ServiceRoot
     script, args = sys.argv[0], sys.argv[1:]
     if not args:
         _help(script)

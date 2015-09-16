@@ -20,7 +20,7 @@ import codecs
 import os
 import sys
 
-from py2neo.core import ServiceRoot
+from py2neo.http import ServiceRoot
 from py2neo.env import NEO4J_HTTP_URI
 
 from py2neo.ext.geoff import GeoffLoader

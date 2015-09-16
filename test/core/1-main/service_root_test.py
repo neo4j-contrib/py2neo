@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import ServiceRoot
+from py2neo.http import ServiceRoot
 
 
 def test_can_create_service_root_with_trailing_slash():
