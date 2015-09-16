@@ -21,10 +21,10 @@ from py2neo.core import Node, Relationship, NodePointer
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 
 
-__all__ = ["LegacyReadBatch", "LegacyWriteBatch"]
+__all__ = ["ManualIndexReadBatch", "ManualIndexWriteBatch"]
 
 
-class LegacyReadBatch(ReadBatch):
+class ManualIndexReadBatch(ReadBatch):
     """ Generic batch execution facility for data read requests,
     """
 
@@ -58,7 +58,7 @@ class LegacyReadBatch(ReadBatch):
         return self.append_get(uri)
 
 
-class LegacyWriteBatch(WriteBatch):
+class ManualIndexWriteBatch(WriteBatch):
     """ Generic batch execution facility for data write requests. Most methods
     return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
     can be used as a reference in other methods. See the
@@ -106,7 +106,7 @@ class LegacyWriteBatch(WriteBatch):
             return ManualIndexManager(self.graph).get_or_create_index(content_type, str(index))
 
     def __init__(self, graph):
-        super(LegacyWriteBatch, self).__init__(graph)
+        super(ManualIndexWriteBatch, self).__init__(graph)
         self.__new_uniqueness_modes = None
 
     ### ADD TO INDEX ###

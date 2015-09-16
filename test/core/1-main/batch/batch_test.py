@@ -21,7 +21,7 @@ import pytest
 from py2neo import Finished
 from py2neo.core import Node, Relationship
 from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
-from py2neo.ext.mandex.batch import LegacyWriteBatch
+from py2neo.ext.mandex.batch import ManualIndexWriteBatch
 
 
 class TestNodeCreation(object):
@@ -60,7 +60,7 @@ class TestRelationshipCreation(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
-        self.batch = LegacyWriteBatch(graph)
+        self.batch = ManualIndexWriteBatch(graph)
 
     def test_can_create_relationship_with_new_nodes(self):
         self.batch.create({"name": "Alice"})
