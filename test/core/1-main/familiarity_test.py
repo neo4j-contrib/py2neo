@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import *
+from py2neo.http import familiar, Node
 
 
 def test_zero_nodes_are_familiar():

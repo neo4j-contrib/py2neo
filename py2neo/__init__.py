@@ -31,7 +31,7 @@ from py2neo.packages.httpstream.watch import watch
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "authenticate", "familiar", "watch",
+           "authenticate", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension",
            "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_HTTP_URI", "NEO4J_URI"]
