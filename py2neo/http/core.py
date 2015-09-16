@@ -647,7 +647,7 @@ class Graph(Service):
 
         """
         if self.__cypher is None:
-            from py2neo.cypher import CypherResource
+            from py2neo.http.cypher import CypherResource
             metadata = self.resource.metadata
             self.__cypher = CypherResource(metadata.get("transaction"))
         return self.__cypher
@@ -1011,7 +1011,7 @@ class Graph(Service):
         :rtype: :class:`SchemaResource <py2neo.schema.SchemaResource>`
         """
         if self.__schema is None:
-            from py2neo.schema import SchemaResource
+            from py2neo.http.schema import SchemaResource
             self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 

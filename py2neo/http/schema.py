@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Service, ResourceTemplate, GraphError
+from py2neo.error import GraphError
+from py2neo.http import Service, ResourceTemplate
 from py2neo.packages.httpstream import Response
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 
