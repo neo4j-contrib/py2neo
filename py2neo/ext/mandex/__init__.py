@@ -23,7 +23,7 @@ from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 
 
-__all__ = ["ManualIndexManager", "ManualIndex", "LegacyReadBatch", "LegacyWriteBatch"]
+__all__ = ["ManualIndexManager", "ManualIndex", "ManualIndexReadBatch", "ManualIndexWriteBatch"]
 
 
 class ManualIndexManager(Service):
@@ -310,7 +310,7 @@ class ManualIndex(Service):
         """ Create and index a new node or relationship using the abstract
         provided.
         """
-        batch = LegacyWriteBatch(self.graph)
+        batch = ManualIndexWriteBatch(self.graph)
         if self._content_type is Node:
             batch.create(abstract)
             batch.add_to_index(Node, self, key, value, 0)
@@ -418,7 +418,7 @@ class ManualIndex(Service):
                 URI(entity.resource.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
-            batch = LegacyWriteBatch(self.graph)
+            batch = ManualIndexWriteBatch(self.graph)
             for uri in uris:
                 batch.append_delete(uri)
             batch.run()
