@@ -16,14 +16,14 @@
 # limitations under the License.
 
 
-from py2neo.legacy.batch import LegacyWriteBatch
+from py2neo.ext.mandex.batch import *
 from py2neo.core import Service, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 
 
-__all__ = ["ManualIndexManager", "Index"]
+__all__ = ["ManualIndexManager", "ManualIndex", "LegacyReadBatch", "LegacyWriteBatch"]
 
 
 class ManualIndexManager(Service):
@@ -65,7 +65,7 @@ class ManualIndexManager(Service):
         index_index = index_manager.get().content
         if index_index:
             self._indexes[content_type] = dict(
-                (key, Index(content_type, value["template"]))
+                (key, ManualIndex(content_type, value["template"]))
                 for key, value in index_index.items()
             )
         else:
@@ -117,7 +117,7 @@ class ManualIndexManager(Service):
             return index
         index_manager = self._index_manager(content_type)
         rs = index_manager.post({"name": index_name, "config": config or {}})
-        index = Index(content_type, assembled(rs)["template"])
+        index = ManualIndex(content_type, assembled(rs)["template"])
         self._indexes[content_type].update({index_name: index})
         return index
 
@@ -185,8 +185,7 @@ class ManualIndexManager(Service):
         return None
 
 
-
-class Index(Service):
+class ManualIndex(Service):
     """ Searchable database index which can contain either nodes or
     relationships.
 
@@ -202,7 +201,7 @@ class Index(Service):
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        inst = super(Index, cls).__new__(cls)
+        inst = super(ManualIndex, cls).__new__(cls)
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
