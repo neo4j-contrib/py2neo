@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import node, rel, Finished
+from py2neo import Finished
 from py2neo.core import Node, Relationship
 from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
 from py2neo.legacy import LegacyWriteBatch
@@ -32,7 +32,7 @@ class TestNodeCreation(object):
         self.graph = graph
 
     def test_can_create_single_empty_node(self):
-        self.batch.create(node())
+        self.batch.create(Node())
         a, = self.batch.submit()
         assert isinstance(a, Node)
         assert a.properties == {}
@@ -45,8 +45,8 @@ class TestNodeCreation(object):
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
-        self.batch.create(node({"name": "Bob"}))
-        self.batch.create(node(name="Carol"))
+        self.batch.create(Node.cast({"name": "Bob"}))
+        self.batch.create(Node(name="Carol"))
         alice, bob, carol = self.batch.submit()
         assert isinstance(alice, Node)
         assert isinstance(bob, Node)
@@ -159,9 +159,9 @@ class TestRelationshipCreation(object):
         self.recycling = [knows, alice, bob]
 
     def test_create_function(self):
-        self.batch.create(node(name="Alice"))
-        self.batch.create(node(name="Bob"))
-        self.batch.create(rel(0, "KNOWS", 1))
+        self.batch.create(Node(name="Alice"))
+        self.batch.create(Node(name="Bob"))
+        self.batch.create(Relationship(0, "KNOWS", 1))
         alice, bob, ab = self.batch.submit()
         assert isinstance(alice, Node)
         assert alice["name"] == "Alice"
@@ -329,9 +329,9 @@ class TestPropertyManagement(object):
 
 def test_can_use_return_values_as_references(graph):
     batch = WriteBatch(graph)
-    a = batch.create(node(name="Alice"))
-    b = batch.create(node(name="Bob"))
-    batch.create(rel(a, "KNOWS", b))
+    a = batch.create(Node(name="Alice"))
+    b = batch.create(Node(name="Bob"))
+    batch.create(Relationship(a, "KNOWS", b))
     results = batch.submit()
     ab = results[2]
     assert isinstance(ab, Relationship)
