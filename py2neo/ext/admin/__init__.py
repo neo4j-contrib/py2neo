@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,18 @@ from collections import namedtuple
 from datetime import datetime
 
 from py2neo import Service, Resource, ServiceRoot
-from py2neo.util import numberise
+
+
+def to_number(n):
+    """ Convert a value to an integer if possible. If not, simply return
+        the input value.
+    """
+    if n == "NaN":
+        return None
+    try:
+        return int(n)
+    except ValueError:
+        return n
 
 
 class Monitor(Service):
@@ -61,9 +72,9 @@ class Monitor(Service):
         data = zip(
             (datetime.fromtimestamp(t) for t in timestamps),
             (counts(*x) for x in zip(
-                (numberise(n) for n in data["node_count"]),
-                (numberise(n) for n in data["relationship_count"]),
-                (numberise(n) for n in data["property_count"]),
+                (to_number(n) for n in data["node_count"]),
+                (to_number(n) for n in data["relationship_count"]),
+                (to_number(n) for n in data["property_count"]),
             )),
         )
         return data
