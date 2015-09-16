@@ -40,18 +40,6 @@ __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "PropertiesParser", "ThreadLocalWeakValueDictionary"]
 
 
-def numberise(n):
-    """ Convert a value to an integer if possible. If not, simply return
-        the input value.
-    """
-    if n == "NaN":
-        return None
-    try:
-        return int(n)
-    except ValueError:
-        return n
-
-
 def compact(obj):
     """ Return a copy of an object with all :py:const:`None` values removed.
     """
