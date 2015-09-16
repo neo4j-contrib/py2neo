@@ -20,7 +20,6 @@ from __future__ import division, unicode_literals
 
 import base64
 from io import StringIO
-import re
 from warnings import warn
 import webbrowser
 
