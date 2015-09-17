@@ -18,26 +18,26 @@
 
 from __future__ import unicode_literals
 
-from py2neo.http import PropertySet, PropertyContainer
+from py2neo.http import PropertySetView, PropertyContainerView
 
 
 class TestPropertySet(object):
 
     def test_none_is_not_stored(self):
         # when
-        p = PropertySet(name=None)
+        p = PropertySetView(name=None)
         # then
         assert "name" not in p
 
     def test_missing_property_is_none(self):
         # when
-        p = PropertySet()
+        p = PropertySetView()
         # then
         assert p["name"] is None
 
     def test_setting_to_none_deletes(self):
         # given
-        p = PropertySet(name="Alice")
+        p = PropertySetView(name="Alice")
         # when
         p["name"] = None
         # then
@@ -45,7 +45,7 @@ class TestPropertySet(object):
 
     def test_deleting_sets_to_none(self):
         # given
-        p = PropertySet(name="Alice")
+        p = PropertySetView(name="Alice")
         # when
         del p["name"]
         # then
@@ -53,7 +53,7 @@ class TestPropertySet(object):
 
     def test_setdefault_on_existing_returns_existing(self):
         # given
-        p = PropertySet(name="Alice")
+        p = PropertySetView(name="Alice")
         # when
         value = p.setdefault("name", "Bob")
         # then
@@ -61,7 +61,7 @@ class TestPropertySet(object):
 
     def test_setdefault_on_missing_returns_default(self):
         # given
-        p = PropertySet()
+        p = PropertySetView()
         # when
         value = p.setdefault("name", "Bob")
         # then
@@ -69,7 +69,7 @@ class TestPropertySet(object):
 
     def test_setdefault_on_missing_with_no_default_returns_none(self):
         # given
-        p = PropertySet()
+        p = PropertySetView()
         # when
         value = p.setdefault("name")
         # then
@@ -77,7 +77,7 @@ class TestPropertySet(object):
 
     def test_setdefault_on_missing_with_no_default_does_not_add_key(self):
         # given
-        p = PropertySet()
+        p = PropertySetView()
         # when
         p.setdefault("name")
         # then
@@ -85,7 +85,7 @@ class TestPropertySet(object):
 
     def test_update_with_dict(self):
         # given
-        p = PropertySet()
+        p = PropertySetView()
         # when
         p.update({"name": "Alice"})
         # then
@@ -93,7 +93,7 @@ class TestPropertySet(object):
 
     def test_update_with_key_value_list(self):
         # given
-        p = PropertySet()
+        p = PropertySetView()
         # when
         p.update([("name", "Alice")])
         # then
@@ -101,22 +101,22 @@ class TestPropertySet(object):
 
     def test_property_set_equality(self):
         # given
-        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
-        q = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        p = PropertySetView(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySetView(name="Alice", age="33", colours=["red", "green", "blue"])
         # then
         assert p == q
 
     def test_property_set_inequality(self):
         # given
-        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
-        q = PropertySet(name="Bob", age="44", colours=["purple", "pink", "orange"])
+        p = PropertySetView(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySetView(name="Bob", age="44", colours=["purple", "pink", "orange"])
         # then
         assert p != q
 
     def test_property_set_hash_match(self):
         # given
-        p = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
-        q = PropertySet(name="Alice", age="33", colours=["red", "green", "blue"])
+        p = PropertySetView(name="Alice", age="33", colours=["red", "green", "blue"])
+        q = PropertySetView(name="Alice", age="33", colours=["red", "green", "blue"])
         # then
         assert hash(p) == hash(q)
 
@@ -125,19 +125,19 @@ class TestPropertyContainer(object):
 
     def test_none_is_not_stored(self):
         # when
-        p = PropertyContainer(name=None)
+        p = PropertyContainerView(name=None)
         # then
         assert "name" not in p
 
     def test_missing_property_is_none(self):
         # when
-        p = PropertyContainer()
+        p = PropertyContainerView()
         # then
         assert p["name"] is None
 
     def test_setting_to_none_deletes(self):
         # given
-        p = PropertyContainer(name="Alice")
+        p = PropertyContainerView(name="Alice")
         # when
         p["name"] = None
         # then
@@ -145,7 +145,7 @@ class TestPropertyContainer(object):
 
     def test_deleting_sets_to_none(self):
         # given
-        p = PropertyContainer(name="Alice")
+        p = PropertyContainerView(name="Alice")
         # when
         del p["name"]
         # then

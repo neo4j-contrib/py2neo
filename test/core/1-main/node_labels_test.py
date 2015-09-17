@@ -22,18 +22,18 @@ except ImportError:
     from mock import Mock, patch
 
 from py2neo import Node
-from py2neo.http import LabelSet
+from py2neo.http import LabelSetView
 
 
 def test_label_set_equality():
-    label_set_1 = LabelSet({"foo"})
-    label_set_2 = LabelSet({"foo"})
+    label_set_1 = LabelSetView({"foo"})
+    label_set_2 = LabelSetView({"foo"})
     assert label_set_1 == label_set_2
 
 
 def test_label_set_inequality():
-    label_set_1 = LabelSet({"foo"})
-    label_set_2 = LabelSet({"bar"})
+    label_set_1 = LabelSetView({"foo"})
+    label_set_2 = LabelSetView({"bar"})
     assert label_set_1 != label_set_2
 
 

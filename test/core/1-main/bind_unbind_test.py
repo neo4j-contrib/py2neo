@@ -18,13 +18,13 @@
 
 import pytest
 
-from py2neo.http import Resource, Node, Rel, Rev, Relationship, Service, Path
+from py2neo.http import Resource, Node, Rel, Rev, Relationship, View, Path
 from py2neo.error import BindError
 
 
 def test_can_create_bindable_with_initial_uri():
     uri = "http://localhost:7474/db/data/node/1"
-    bindable = Service()
+    bindable = View()
     bindable.bind(uri)
     assert bindable.bound
     assert bindable.uri == uri
@@ -33,7 +33,7 @@ def test_can_create_bindable_with_initial_uri():
 def test_can_create_bindable_with_initial_uri_and_metadata():
     uri = "http://localhost:7474/db/data/node/1"
     metadata = {"foo": "bar"}
-    bindable = Service()
+    bindable = View()
     bindable.bind(uri, metadata)
     assert bindable.bound
     assert bindable.uri == uri
@@ -42,7 +42,7 @@ def test_can_create_bindable_with_initial_uri_and_metadata():
 
 def test_can_create_bindable_with_initial_uri_template():
     uri = "http://localhost:7474/db/data/node/{node_id}"
-    bindable = Service()
+    bindable = View()
     bindable.bind(uri)
     assert bindable.bound
     assert bindable.uri == uri
@@ -51,7 +51,7 @@ def test_can_create_bindable_with_initial_uri_template():
 def test_cannot_create_bindable_with_initial_uri_template_and_metadata():
     uri = "http://localhost:7474/db/data/node/{node_id}"
     metadata = {"foo": "bar"}
-    service = Service()
+    service = View()
     try:
         service.bind(uri, metadata)
     except ValueError:

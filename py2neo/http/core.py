@@ -38,8 +38,8 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 
 
 __all__ = ["GraphView", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "familiar", "rewrite", "Service", "Resource", "ResourceTemplate"]
+           "ServiceRoot", "PropertySetView", "LabelSetView", "PropertyContainerView",
+           "authenticate", "familiar", "rewrite", "View", "Resource", "ResourceTemplate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -357,7 +357,7 @@ class ResourceTemplate(_ResourceTemplate):
         return resource
 
 
-class Service(object):
+class View(object):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
@@ -537,7 +537,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class GraphView(Service):
+class GraphView(View):
     """ The `Graph` class provides an accessor for a running Neo4j database server,
     identified by the URI of the graph database. The simplest way
     to connect to a running service is to use::
@@ -1010,19 +1010,19 @@ class GraphView(Service):
         return self.cypher.execute_one(statement)
 
 
-class PropertySet(Service, dict):
+class PropertySetView(dict, View):
     """ A dict subclass that equates None with a non-existent key and can be
     bound to a remote *properties* resource.
     """
 
     def __init__(self, iterable=None, **kwargs):
-        Service.__init__(self)
         dict.__init__(self)
+        View.__init__(self)
         self.update(iterable, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, PropertySet):
-            other = PropertySet(other)
+        if not isinstance(other, PropertySetView):
+            other = PropertySetView(other)
         return dict.__eq__(self, other)
 
     def __ne__(self, other):
@@ -1079,19 +1079,19 @@ class PropertySet(Service, dict):
             self[key] = value
 
 
-class LabelSet(Service, set):
+class LabelSetView(set, View):
     """ A set subclass that can be bound to a remote *labels* resource.
     """
 
     def __init__(self, iterable=None):
-        Service.__init__(self)
         set.__init__(self)
+        View.__init__(self)
         if iterable:
             self.update(iterable)
 
     def __eq__(self, other):
-        if not isinstance(other, LabelSet):
-            other = LabelSet(other)
+        if not isinstance(other, LabelSetView):
+            other = LabelSetView(other)
         return set.__eq__(self, other)
 
     def __ne__(self, other):
@@ -1124,14 +1124,14 @@ class LabelSet(Service, set):
         self.update(iterable)
 
 
-class PropertyContainer(Service):
+class PropertyContainerView(View):
     """ Base class for objects that contain a set of properties,
     i.e. :py:class:`Node` and :py:class:`Relationship`.
     """
 
     def __init__(self, **properties):
-        Service.__init__(self)
-        self.__properties = PropertySet(properties)
+        View.__init__(self)
+        self.__properties = PropertySetView(properties)
 
     def __eq__(self, other):
         return self.properties == other.properties
@@ -1164,7 +1164,7 @@ class PropertyContainer(Service):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        Service.bind(self, uri, metadata)
+        View.bind(self, uri, metadata)
         self.__properties.bind(uri + "/properties")
 
     @property
@@ -1190,11 +1190,11 @@ class PropertyContainer(Service):
     def unbind(self):
         """ Detach this «class.lower» from any remote counterpart.
         """
-        Service.unbind(self)
+        View.unbind(self)
         self.__properties.unbind()
 
 
-class Node(PropertyContainer):
+class Node(PropertyContainerView):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1312,7 +1312,7 @@ class Node(PropertyContainer):
             inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
-            inst._PropertyContainer__properties.replace(properties)
+            inst._PropertyContainerView__properties.replace(properties)
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
@@ -1344,8 +1344,8 @@ class Node(PropertyContainer):
         raise JoinError("Cannot join nodes {} and {}".format(n, m))
 
     def __init__(self, *labels, **properties):
-        PropertyContainer.__init__(self, **properties)
-        self.__labels = LabelSet(labels)
+        PropertyContainerView.__init__(self, **properties)
+        self.__labels = LabelSetView(labels)
         self.__stale = set()
 
     def __repr__(self):
@@ -1386,8 +1386,8 @@ class Node(PropertyContainer):
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
-            return (LabelSet.__eq__(self.labels, other.labels) and
-                    PropertyContainer.__eq__(self, other))
+            return (LabelSetView.__eq__(self.labels, other.labels) and
+                    PropertyContainerView.__eq__(self, other))
 
     def __hash__(self):
         value = super(Node, self).__hash__() ^ hash(self.labels)
@@ -1421,7 +1421,7 @@ class Node(PropertyContainer):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        PropertyContainer.bind(self, uri, metadata)
+        PropertyContainerView.bind(self, uri, metadata)
         self.__labels.bind(uri + "/labels")
         self.cache[uri] = self
 
@@ -1529,7 +1529,7 @@ class Node(PropertyContainer):
             del self.cache[self.uri]
         except KeyError:
             pass
-        PropertyContainer.unbind(self)
+        PropertyContainerView.unbind(self)
         self.__labels.unbind()
         self.__id = None
 
@@ -1564,7 +1564,7 @@ class NodePointer(object):
         return hash(self.address)
 
 
-class Rel(PropertyContainer):
+class Rel(PropertyContainerView):
     """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
     store information about the nodes to which it is attached. This class
     is used internally to bundle relationship type and property details
@@ -1660,13 +1660,13 @@ class Rel(PropertyContainer):
             inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
-            inst._PropertyContainer__properties.replace(properties)
+            inst._PropertyContainerView__properties.replace(properties)
         return inst
 
     def __init__(self, *type_, **properties):
         if len(type_) > 1:
             raise ValueError("Only one relationship type can be specified")
-        PropertyContainer.__init__(self, **properties)
+        PropertyContainerView.__init__(self, **properties)
         self.__type = type_[0] if type_ else None
         self.__stale = set()
 
@@ -1726,7 +1726,7 @@ class Rel(PropertyContainer):
         if self.pair is None:
             self.pair = self._pair_class()
             self.pair.__resource__ = self.__resource__
-            self.pair._PropertyContainer__properties = self._PropertyContainer__properties
+            self.pair._PropertyContainerView__properties = self._PropertyContainerView__properties
             self.pair._Rel__type = self.__type
             self.pair._Rel__stale = self.__stale
             self.pair.pair = self
@@ -1758,11 +1758,11 @@ class Rel(PropertyContainer):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        PropertyContainer.bind(self, uri, metadata)
+        PropertyContainerView.bind(self, uri, metadata)
         self.cache[uri] = self
         pair = self.pair
         if pair is not None:
-            PropertyContainer.bind(pair, uri, metadata)
+            PropertyContainerView.bind(pair, uri, metadata)
             # make sure we're using exactly the same resource object
             # (maybe could write a Service.multi_bind classmethod
             pair.__resource__ = self.__resource__
@@ -1845,7 +1845,7 @@ class Rel(PropertyContainer):
             del self.cache[self.uri]
         except KeyError:
             pass
-        PropertyContainer.unbind(self)
+        PropertyContainerView.unbind(self)
         self.__id = None
         pair = self.pair
         if pair is not None:
@@ -1853,7 +1853,7 @@ class Rel(PropertyContainer):
                 del pair.cache[pair.uri]
             except KeyError:
                 pass
-            PropertyContainer.unbind(pair)
+            PropertyContainerView.unbind(pair)
 
 
 class Rev(Rel):
@@ -2326,7 +2326,7 @@ class Relationship(Path):
             raise TypeError("Relationships require 3 positional arguments: "
                             "start_node, relationship_type and end_node")
         cast_rel = Rel.cast(rel)
-        cast_rel._PropertyContainer__properties.update(properties)
+        cast_rel._PropertyContainerView__properties.update(properties)
         if isinstance(cast_rel, Rev):  # always forwards
             Path.__init__(self, end_node, -cast_rel, start_node)
         else:

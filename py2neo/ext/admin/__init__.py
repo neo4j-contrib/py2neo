@@ -19,7 +19,7 @@
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo.http import Service, Resource, ServiceRoot
+from py2neo.http import View, Resource, ServiceRoot
 
 
 def to_number(n):
@@ -34,7 +34,7 @@ def to_number(n):
         return n
 
 
-class Monitor(Service):
+class Monitor(View):
 
     __instances = {}
 
@@ -54,7 +54,7 @@ class Monitor(Service):
             manager = Resource(service_root.resource.metadata["management"])
             monitor = Monitor(manager.metadata["services"]["monitor"])
             uri = monitor.resource.uri
-        Service.__init__(self)
+        View.__init__(self)
         self.bind(uri)
 
     def fetch_latest_stats(self):

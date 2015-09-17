@@ -25,7 +25,7 @@ import sys
 from py2neo import GraphError
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_HTTP_URI
-from py2neo.http import Service, ServiceRoot
+from py2neo.http import View, ServiceRoot
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
 
 
@@ -60,7 +60,7 @@ def auth_header_value(user_name, password, realm=None):
     return value
 
 
-class UserManager(Service):
+class UserManager(View):
     """ User management service.
     """
 
@@ -115,7 +115,7 @@ class UserManager(Service):
         return self.metadata["password_change_required"]
 
 
-class PasswordManager(Service):
+class PasswordManager(View):
     """ Password management service.
     """
 

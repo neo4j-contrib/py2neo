@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.http import GraphView, Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.http import GraphView, Node, Relationship, Path, PropertySetView, LabelSetView
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
@@ -47,7 +47,7 @@ def _create_query(graph, p, unique=False):
     def append_rel(i, rel):
         if rel.properties:
             path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel.type))
-            params["q{0}".format(i)] = PropertySet(rel.properties)
+            params["q{0}".format(i)] = PropertySetView(rel.properties)
             values.append("r{0}".format(i))
         else:
             path.append("-[r{0}:`{1}`]->".format(i, rel.type))
@@ -127,7 +127,7 @@ class DeletePropertiesJob(Job):
 class AddNodeLabelsJob(Job):
 
     def __init__(self, node, *labels):
-        Job.__init__(self, "POST", Target(node, "labels"), list(LabelSet(labels)))
+        Job.__init__(self, "POST", Target(node, "labels"), list(LabelSetView(labels)))
 
 
 class RemoveNodeLabelJob(Job):

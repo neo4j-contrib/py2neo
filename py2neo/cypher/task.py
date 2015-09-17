@@ -20,7 +20,7 @@ from io import StringIO
 
 from py2neo.compat import ustr, xstr
 from py2neo.core import Node, Relationship
-from py2neo.http import LabelSet, PropertySet
+from py2neo.http import LabelSetView, PropertySetView
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 
 
@@ -248,8 +248,8 @@ class MergeNode(CypherTask):
         self.__node = Node(primary_label)
         if primary_key is not None:
             self.__node.properties[primary_key] = CypherParameter("A1", primary_value)
-        self.__labels = LabelSet()
-        self.__properties = PropertySet()
+        self.__labels = LabelSetView()
+        self.__properties = PropertySetView()
         self.__return = False
 
     @property
@@ -258,7 +258,7 @@ class MergeNode(CypherTask):
 
         :rtype: :class:`py2neo.LabelSet`
         """
-        l = LabelSet(self.__labels)
+        l = LabelSetView(self.__labels)
         l.update(self.__node.labels)
         return l
 
@@ -268,7 +268,7 @@ class MergeNode(CypherTask):
 
         :rtype: :class:`py2neo.PropertySet`
         """
-        p = PropertySet(self.__properties)
+        p = PropertySetView(self.__properties)
         if self.primary_key:
             p[self.primary_key] = self.primary_value
         return p
