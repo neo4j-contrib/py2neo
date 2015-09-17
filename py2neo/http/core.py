@@ -120,6 +120,28 @@ def familiar(*objects):
     return True
 
 
+def __joinable(obj):
+    from py2neo.batch import Job
+    return obj is None or isinstance(obj, (Node, NodePointer, Job))
+
+
+def join(n, m):
+    # Attempt to join two nodes together as single node.
+    if not __joinable(n) or not __joinable(m):
+        raise TypeError("Can only join Node, NodePointer, Job or None")
+    if n is None:
+        return m
+    elif m is None or n is m:
+        return n
+    elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
+        if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
+            return n
+    elif n.bound and m.bound:
+        if n.resource == m.resource:
+            return n
+    raise JoinError("Cannot join nodes {} and {}".format(n, m))
+
+
 def rewrite(from_scheme_host_port, to_scheme_host_port):
     """ Automatically rewrite all URIs directed to the scheme, host and port
     specified in `from_scheme_host_port` to that specified in
@@ -1321,28 +1343,6 @@ class Node(PropertyContainerView):
             inst.__labels.replace(labels)
         return inst
 
-    @classmethod
-    def __joinable(cls, obj):
-        from py2neo.batch import Job
-        return obj is None or isinstance(obj, (Node, NodePointer, Job))
-
-    @classmethod
-    def join(cls, n, m):
-        # Attempt to join two nodes together as single node.
-        if not cls.__joinable(n) or not cls.__joinable(m):
-            raise TypeError("Can only join Node, NodePointer, Job or None")
-        if n is None:
-            return m
-        elif m is None or n is m:
-            return n
-        elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
-            if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
-                return n
-        elif n.bound and m.bound:
-            if n.resource == m.resource:
-                return n
-        raise JoinError("Cannot join nodes {} and {}".format(n, m))
-
     def __init__(self, *labels, **properties):
         PropertyContainerView.__init__(self, **properties)
         self.__labels = LabelSetView(labels)
@@ -1956,11 +1956,11 @@ class Path(object):
             else:
                 # try joining forward
                 try:
-                    nodes[-1] = Node.join(nodes[-1], path.start_node)
+                    nodes[-1] = join(nodes[-1], path.start_node)
                 except JoinError:
                     # try joining backward
                     try:
-                        nodes[-1] = Node.join(nodes[-1], path.end_node)
+                        nodes[-1] = join(nodes[-1], path.end_node)
                     except JoinError:
                         raise JoinError("Path at position %s cannot be joined" % index)
                     else:
@@ -1980,7 +1980,7 @@ class Path(object):
             if len(nodes) == len(rels):
                 nodes.append(node)
             else:
-                nodes[-1] = Node.join(nodes[-1], node)
+                nodes[-1] = join(nodes[-1], node)
 
         for i, entity in enumerate(entities):
             if isinstance(entity, Path):
