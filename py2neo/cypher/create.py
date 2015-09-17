@@ -17,7 +17,7 @@
 
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
+from py2neo.http import GraphView, Node, NodePointer, Path, Relationship, Rev
 from py2neo.cypher.lang import cypher_escape
 
 
@@ -108,7 +108,7 @@ class CreateStatement(object):
         :arg entity: The entity to create.
 
         """
-        entity = Graph.cast(entity)
+        entity = GraphView.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
@@ -125,7 +125,7 @@ class CreateStatement(object):
         :arg entity: The entity to add.
 
         """
-        entity = Graph.cast(entity)
+        entity = GraphView.cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Path):

@@ -123,7 +123,7 @@ def test_can_set_property_on_node_in_same_batch(graph):
     batch.set_property(alice, "age", 34)
     results = batch.submit()
     alice = results[batch.find(alice)]
-    alice.auto_sync_properties = True
+    alice.pull()
     assert alice["age"] == 34
 
 
@@ -143,7 +143,7 @@ def test_can_set_properties_on_node_in_same_batch(graph):
     batch.set_properties(alice, {"name": "Alice", "age": 34})
     results = batch.submit()
     alice = results[batch.find(alice)]
-    alice.auto_sync_properties = True
+    alice.pull()
     assert alice["name"] == "Alice"
     assert alice["age"] == 34
 
@@ -164,7 +164,7 @@ def test_can_delete_property_on_node_in_same_batch(graph):
     batch.delete_property(alice, "age")
     results = batch.submit()
     alice = results[batch.find(alice)]
-    alice.auto_sync_properties = True
+    alice.pull()
     assert alice["name"] == "Alice"
     assert alice["age"] is None
 

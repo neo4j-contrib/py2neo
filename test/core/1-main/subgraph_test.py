@@ -98,8 +98,8 @@ def test_converting_cypher_results_to_subgraph(graph):
         "CREATE (a {name:'Alice'})-[ab:KNOWS]->(b {name:'Bob'}) RETURN a, ab, b")
     a, ab, b = r[0]
     s = r.to_subgraph()
-    assert s.graph is graph
-    assert s.service_root is graph.service_root
+    assert s.graph == graph
+    assert s.service_root == graph.service_root
     assert len(s) == 1
     assert s.order == 2
     assert s.size == 1

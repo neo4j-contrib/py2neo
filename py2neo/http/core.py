@@ -37,7 +37,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary
 
 
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
+__all__ = ["GraphView", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite", "Service", "Resource", "ResourceTemplate"]
 
@@ -519,7 +519,7 @@ class ServiceRoot(object):
             except KeyError:
                 raise GraphError("No graph available for service <%s>" % self.uri)
             else:
-                self.__graph = Graph(self.graph_uri)
+                self.__graph = GraphView(self.graph_uri)
         return self.__graph
 
     @property
@@ -537,7 +537,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graph(Service):
+class GraphView(Service):
     """ The `Graph` class provides an accessor for a running Neo4j database server,
     identified by the URI of the graph database. The simplest way
     to connect to a running service is to use::
@@ -555,17 +555,12 @@ class Graph(Service):
 
     """
 
-    __instances = {}
-
     __batch = None
     __cypher = None
     __legacy = None
     __schema = None
     __node_labels = None
     __relationship_types = None
-
-    # Auto-sync will be removed in 2.1
-    auto_sync_properties = False
 
     @staticmethod
     def cast(obj):
@@ -583,21 +578,14 @@ class Graph(Service):
         else:
             raise TypeError(obj)
 
-    def __new__(cls, uri):
+    def __init__(self, uri):
         uri = ServiceRoot(uri).graph_uri.string
         if not uri.endswith("/"):
             uri += "/"
-        key = (cls, uri)
-        try:
-            inst = cls.__instances[key]
-        except KeyError:
-            inst = super(Graph, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[key] = inst
-        return inst
+        self.bind(uri)
 
     def __repr__(self):
-        return "<Graph uri=%r>" % self.uri.string
+        return "<http.GraphView uri=%r>" % self.uri.string
 
     def __hash__(self):
         return hash(self.uri)
@@ -907,7 +895,7 @@ class Graph(Service):
         single matching node. This method is intended to be used with a unique
         constraint and does not fail if more than one matching node is found.
 
-            >>> graph = Graph()
+            >>> graph = GraphView()
             >>> person = graph.merge_one("Person", "email", "bob@example.com")
 
         """
@@ -1144,8 +1132,6 @@ class PropertyContainer(Service):
     def __init__(self, **properties):
         Service.__init__(self)
         self.__properties = PropertySet(properties)
-        # Auto-sync will be removed in 2.1
-        self.auto_sync_properties = Graph.auto_sync_properties
 
     def __eq__(self, other):
         return self.properties == other.properties
@@ -1157,20 +1143,16 @@ class PropertyContainer(Service):
         return hash(self.__properties)
 
     def __contains__(self, key):
-        self.__pull_if_bound()
         return key in self.properties
 
     def __getitem__(self, key):
-        self.__pull_if_bound()
         return self.properties.__getitem__(key)
 
     def __setitem__(self, key, value):
         self.properties.__setitem__(key, value)
-        self.__push_if_bound()
 
     def __delitem__(self, key):
         self.properties.__delitem__(key)
-        self.__push_if_bound()
 
     def __iter__(self):
         raise TypeError("%r object is not iterable" % self.__class__.__name__)
@@ -1210,22 +1192,6 @@ class PropertyContainer(Service):
         """
         Service.unbind(self)
         self.__properties.unbind()
-
-    def __pull_if_bound(self):
-        # remove in 2.1
-        if self.auto_sync_properties:
-            try:
-                self.properties.pull()
-            except BindError:
-                pass
-
-    def __push_if_bound(self):
-        # remove in 2.1
-        if self.auto_sync_properties:
-            try:
-                self.properties.push()
-            except BindError:
-                pass
 
 
 class Node(PropertyContainer):
@@ -2629,7 +2595,7 @@ class Subgraph(object):
 
         :arg entity: Entity to add
         """
-        entity = Graph.cast(entity)
+        entity = GraphView.cast(entity)
         if isinstance(entity, Node):
             self.__nodes.add(entity)
         elif isinstance(entity, Relationship):

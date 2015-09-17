@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.http import Graph, Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.http import GraphView, Node, Relationship, Path, PropertySet, LabelSet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
@@ -90,7 +90,7 @@ class CreatePathJob(CypherJob):
         # Fudge to allow graph to be passed in so Cypher syntax
         # detection can occur. Can be removed when only 2.0+ is
         # supported.
-        if isinstance(entities[0], Graph):
+        if isinstance(entities[0], GraphView):
             self.graph, entities = entities[0], entities[1:]
         CypherJob.__init__(self, *_create_query(self.graph, Path(*entities)))
 
@@ -101,7 +101,7 @@ class CreateUniquePathJob(CypherJob):
         # Fudge to allow graph to be passed in so Cypher syntax
         # detection can occur. Can be removed when only 2.0+ is
         # supported.
-        if isinstance(entities[0], Graph):
+        if isinstance(entities[0], GraphView):
             self.graph, entities = entities[0], entities[1:]
         CypherJob.__init__(self, *_create_query(self.graph, Path(*entities), unique=True))
 

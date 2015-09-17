@@ -28,9 +28,9 @@ PY2 = sys.version_info < (3,)
 
 def test_graph_repr(graph):
     if PY2:
-        assert repr(graph) == "<Graph uri=u'http://localhost:7474/db/data/'>"
+        assert repr(graph) == "<http.GraphView uri=u'http://localhost:7474/db/data/'>"
     else:
-        assert repr(graph) == "<Graph uri='http://localhost:7474/db/data/'>"
+        assert repr(graph) == "<http.GraphView uri='http://localhost:7474/db/data/'>"
 
 
 def test_node_repr(graph):

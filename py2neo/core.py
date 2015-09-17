@@ -19,6 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo import __version__, http
+from py2neo.packages.httpstream.packages.urimagic import URI
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
@@ -28,7 +29,24 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
 PRODUCT = ("py2neo", __version__)
 
 authenticate = http.authenticate
-Graph = http.Graph
+
+
+class Graph(object):
+
+    __instances = {}
+
+    def __new__(cls, uri):
+        uri = URI(uri)
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            if uri.scheme == "http":
+                cls.__instances[uri] = inst = http.GraphView(uri)
+            else:
+                raise ValueError(uri)
+        return inst
+
+
 Node = http.Node
 NodePointer = http.NodePointer
 Rel = http.Rel

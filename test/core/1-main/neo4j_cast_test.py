@@ -16,19 +16,19 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship
+from py2neo.http import GraphView, Node, Relationship
 
 
 def test_can_cast_node(graph):
     alice, = graph.create({"name": "Alice"})
-    casted = Graph.cast(alice)
+    casted = GraphView.cast(alice)
     assert isinstance(casted, Node)
     assert casted.bound
     assert casted["name"] == "Alice"
 
 
 def test_can_cast_dict():
-    casted = Graph.cast({"name": "Alice"})
+    casted = GraphView.cast({"name": "Alice"})
     assert isinstance(casted, Node)
     assert not casted.bound
     assert casted["name"] == "Alice"
@@ -36,7 +36,7 @@ def test_can_cast_dict():
 
 def test_can_cast_rel(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
-    casted = Graph.cast(ab)
+    casted = GraphView.cast(ab)
     assert isinstance(casted, Relationship)
     assert casted.bound
     assert casted.start_node == a
@@ -45,7 +45,7 @@ def test_can_cast_rel(graph):
 
 
 def test_can_cast_3_tuple():
-    casted = Graph.cast(("Alice", "KNOWS", "Bob"))
+    casted = GraphView.cast(("Alice", "KNOWS", "Bob"))
     assert isinstance(casted, Relationship)
     assert not casted.bound
     assert casted.start_node == Node("Alice")
@@ -54,7 +54,7 @@ def test_can_cast_3_tuple():
 
 
 def test_can_cast_4_tuple():
-    casted = Graph.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
+    casted = GraphView.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
     assert isinstance(casted, Relationship)
     assert not casted.bound
     assert casted.start_node == Node("Alice")
