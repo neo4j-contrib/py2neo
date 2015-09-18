@@ -303,8 +303,8 @@ class TraversableGraph(Graph):
 class Entity(PropertyContainer, TraversableGraph):
 
     def __init__(self, *sequence, **properties):
-        TraversableGraph.__init__(self, *sequence)
         PropertyContainer.__init__(self, **properties)
+        TraversableGraph.__init__(self, *sequence)
 
 
 class Node(Entity):
