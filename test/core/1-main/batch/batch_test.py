@@ -44,8 +44,8 @@ class TestNodeCreation(object):
             assert result.properties == {"name": "Alice"}
 
     def test_can_create_multiple_nodes(self):
-        self.batch.create({"name": "Alice"})
-        self.batch.create(Node.cast({"name": "Bob"}))
+        self.batch.create(Node(name="Alice"))
+        self.batch.create(Node(name="Bob"))
         self.batch.create(Node(name="Carol"))
         alice, bob, carol = self.batch.submit()
         assert isinstance(alice, Node)

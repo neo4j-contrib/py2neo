@@ -39,7 +39,8 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 
 __all__ = ["GraphView", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySetView", "LabelSetView", "PropertyContainerView",
-           "authenticate", "familiar", "rewrite", "View", "Resource", "ResourceTemplate"]
+           "authenticate", "familiar", "rewrite", "View", "Resource", "ResourceTemplate",
+           "cast", "cast_to_node", "cast_to_rel", "cast_to_relationship"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -584,22 +585,6 @@ class GraphView(View):
     __node_labels = None
     __relationship_types = None
 
-    @staticmethod
-    def cast(obj):
-        """ Cast an general Python object to a graph-specific entity,
-        such as a :class:`.Node` or a :class:`.Relationship`.
-        """
-        if obj is None:
-            return None
-        elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev, Subgraph)):
-            return obj
-        elif isinstance(obj, dict):
-            return Node.cast(obj)
-        elif isinstance(obj, tuple):
-            return Relationship.cast(obj)
-        else:
-            raise TypeError(obj)
-
     def __init__(self, uri):
         uri = ServiceRoot(uri).graph_uri.string
         if not uri.endswith("/"):
@@ -840,20 +825,16 @@ class GraphView(View):
             parameters = {}
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
-            start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
-            end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
-            start_node = Node.cast(start_node)
-            end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
@@ -1226,11 +1207,7 @@ class Node(PropertyContainerView):
         >>> banana = Node("Fruit", "Food", colour="yellow", tasty=True)
 
     All positional arguments passed to the constructor are interpreted
-    as labels and all keyword arguments as properties. It is also possible to
-    construct Node instances from other data types (such as a dictionary)
-    by using the :meth:`.Node.cast` class method::
-
-        >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
+    as labels and all keyword arguments as properties.
 
     Labels and properties can be accessed and modified using the
     :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
@@ -1255,58 +1232,6 @@ class Node(PropertyContainerView):
     cache = ThreadLocalWeakValueDictionary()
 
     __id = None
-
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Node` (or
-        :class:`.NodePointer`). The following combinations of
-        arguments are possible::
-
-            >>> Node.cast(None)
-            >>> Node.cast()
-            <Node labels=set() properties={}>
-            >>> Node.cast("Person")
-            <Node labels={'Person'} properties={}>
-            >>> Node.cast(name="Alice")
-            <Node labels=set() properties={'name': 'Alice'}>
-            >>> Node.cast("Person", name="Alice")
-            <Node labels={'Person'} properties={'name': 'Alice'}>
-            >>> Node.cast(123)
-            <NodePointer address=123>
-            >>> Node.cast({"name": "Alice"})
-            <Node labels=set() properties={'name': 'Alice'}>
-            >>> node = Node("Person", name="Alice")
-            >>> Node.cast(node)
-            <Node labels={'Person'} properties={'name': 'Alice'}>
-
-        """
-        if len(args) == 1 and not kwargs:
-            from py2neo.batch import Job
-            arg = args[0]
-            if arg is None:
-                return None
-            elif isinstance(arg, (Node, NodePointer, Job)):
-                return arg
-            elif isinstance(arg, integer):
-                return NodePointer(arg)
-
-        inst = Node()
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.properties.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            elif isinstance(x, string):
-                inst.labels.add(ustr(x))
-            else:
-                raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
-
-        for arg in args:
-            apply(arg)
-        inst.properties.update(kwargs)
-        return inst
 
     @classmethod
     def hydrate(cls, data, inst=None):
@@ -1382,7 +1307,8 @@ class Node(PropertyContainerView):
     def __eq__(self, other):
         if other is None:
             return False
-        other = Node.cast(other)
+        if not isinstance(other, self.__class__):
+            return NotImplemented
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1581,55 +1507,6 @@ class Rel(PropertyContainerView):
 
     __id = None
 
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.«class»`. The
-        following combinations of arguments are possible::
-
-            >>> «class».cast(None)
-            >>> «class».cast()
-            <«class» type=None properties={}>
-            >>> «class».cast("KNOWS")
-            <«class» type='KNOWS' properties={}>
-            >>> «class».cast("KNOWS", since=1999)
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class».cast("KNOWS", {"since": 1999})
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class».cast(("KNOWS",))
-            <«class» type='KNOWS' properties={}>
-            >>> «class».cast(("KNOWS", {"since": 1999}))
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class.lower» = «class»("KNOWS", since=1999)
-            >>> «class».cast(«class.lower»)
-            <«class» type='KNOWS' properties={'since': 1999}>
-
-        """
-        if len(args) == 1 and not kwargs:
-            from py2neo.batch import Job
-            arg = args[0]
-            if arg is None:
-                return None
-            elif isinstance(arg, (Rel, Job)):
-                return arg
-            elif isinstance(arg, Relationship):
-                return arg.rel
-
-        inst = Rel()
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.properties.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            else:
-                inst.type = ustr(x)
-
-        for arg in args:
-            apply(arg)
-        inst.properties.update(kwargs)
-        return inst
-
     @classmethod
     def hydrate(cls, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.«class»` instance.
@@ -1704,7 +1581,8 @@ class Rel(PropertyContainerView):
     def __eq__(self, other):
         if other is None:
             return False
-        other = Rel.cast(other)
+        if not isinstance(other, self.__class__):
+            return NotImplemented
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1990,9 +1868,9 @@ class Path(object):
             elif isinstance(entity, (Node, NodePointer)):
                 join_node(entity)
             elif len(nodes) == len(rels):
-                join_node(Node.cast(entity))
+                join_node(cast_to_node(entity))
             else:
-                join_rel(Rel.cast(entity), i)
+                join_rel(cast_to_rel(entity), i)
         join_node(None)
 
         self.__nodes = tuple(nodes)
@@ -2243,55 +2121,6 @@ class Relationship(Path):
 
     __id = None
 
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Relationship`. The
-        following combinations of arguments are possible::
-
-            >>> Relationship.cast(Node(), "KNOWS", Node())
-            <Relationship type='KNOWS' properties={}>
-            >>> Relationship.cast((Node(), "KNOWS", Node()))
-            <Relationship type='KNOWS' properties={}>
-            >>> Relationship.cast(Node(), "KNOWS", Node(), since=1999)
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), "KNOWS", Node(), {"since": 1999})
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), "KNOWS", Node(), {"since": 1999}))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), ("KNOWS", {"since": 1999}), Node())
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), ("KNOWS", {"since": 1999}), Node()))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), Rel("KNOWS", since=1999), Node())
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), Rel("KNOWS", since=1999), Node()))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-
-        """
-        if len(args) == 1 and not kwargs:
-            arg = args[0]
-            if isinstance(arg, Relationship):
-                return arg
-            elif isinstance(arg, tuple):
-                if len(arg) == 3:
-                    return Relationship(*arg)
-                elif len(arg) == 4:
-                    return Relationship(arg[0], arg[1], arg[2], **arg[3])
-                else:
-                    raise TypeError("Cannot cast relationship from {0}".format(arg))
-            else:
-                raise TypeError("Cannot cast relationship from {0}".format(arg))
-        elif len(args) == 3:
-            rel = Relationship(*args)
-            rel.properties.update(kwargs)
-            return rel
-        elif len(args) == 4:
-            props = args[3]
-            props.update(kwargs)
-            return Relationship(*args[0:3], **props)
-        else:
-            raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
-
     @classmethod
     def hydrate(cls, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.Relationship` instance.
@@ -2325,7 +2154,7 @@ class Relationship(Path):
         except ValueError:
             raise TypeError("Relationships require 3 positional arguments: "
                             "start_node, relationship_type and end_node")
-        cast_rel = Rel.cast(rel)
+        cast_rel = cast_to_rel(rel)
         cast_rel._PropertyContainerView__properties.update(properties)
         if isinstance(cast_rel, Rev):  # always forwards
             Path.__init__(self, end_node, -cast_rel, start_node)
@@ -2595,7 +2424,7 @@ class Subgraph(object):
 
         :arg entity: Entity to add
         """
-        entity = GraphView.cast(entity)
+        entity = cast(entity)
         if isinstance(entity, Node):
             self.__nodes.add(entity)
         elif isinstance(entity, Relationship):
@@ -2681,3 +2510,169 @@ class Subgraph(object):
                 entity.unbind()
             except BindError:
                 pass
+
+
+def cast(obj):
+    """ Cast an general Python object to a graph-specific entity,
+    such as a :class:`.Node` or a :class:`.Relationship`.
+    """
+    if obj is None:
+        return None
+    elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev, Subgraph)):
+        return obj
+    elif isinstance(obj, dict):
+        return cast_to_node(obj)
+    elif isinstance(obj, tuple):
+        return cast_to_relationship(obj)
+    else:
+        raise TypeError(obj)
+
+
+def cast_to_node(*args, **kwargs):
+    """ Cast the arguments provided to a :class:`.Node` (or
+    :class:`.NodePointer`). The following combinations of
+    arguments are possible::
+
+        >>> cast_to_node(None)
+        >>> cast_to_node()
+        <Node labels=set() properties={}>
+        >>> cast_to_node("Person")
+        <Node labels={'Person'} properties={}>
+        >>> cast_to_node(name="Alice")
+        <Node labels=set() properties={'name': 'Alice'}>
+        >>> cast_to_node("Person", name="Alice")
+        <Node labels={'Person'} properties={'name': 'Alice'}>
+        >>> cast_to_node(123)
+        <NodePointer address=123>
+        >>> cast_to_node({"name": "Alice"})
+        <Node labels=set() properties={'name': 'Alice'}>
+        >>> node = Node("Person", name="Alice")
+        >>> cast_to_node(node)
+        <Node labels={'Person'} properties={'name': 'Alice'}>
+
+    """
+    if len(args) == 1 and not kwargs:
+        from py2neo.batch import Job
+        arg = args[0]
+        if arg is None:
+            return None
+        elif isinstance(arg, (Node, NodePointer, Job)):
+            return arg
+        elif isinstance(arg, integer):
+            return NodePointer(arg)
+
+    inst = Node()
+
+    def apply(x):
+        if isinstance(x, dict):
+            inst.properties.update(x)
+        elif is_collection(x):
+            for item in x:
+                apply(item)
+        elif isinstance(x, string):
+            inst.labels.add(ustr(x))
+        else:
+            raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
+
+    for arg in args:
+        apply(arg)
+    inst.properties.update(kwargs)
+    return inst
+
+
+def cast_to_rel(*args, **kwargs):
+    """ Cast the arguments provided to a :class:`.Rel`. The
+    following combinations of arguments are possible::
+
+        >>> cast_to_rel(None)
+        >>> cast_to_rel()
+        <«class» type=None properties={}>
+        >>> cast_to_rel("KNOWS")
+        <«class» type='KNOWS' properties={}>
+        >>> cast_to_rel("KNOWS", since=1999)
+        <«class» type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_rel("KNOWS", {"since": 1999})
+        <«class» type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_rel(("KNOWS",))
+        <«class» type='KNOWS' properties={}>
+        >>> cast_to_rel(("KNOWS", {"since": 1999}))
+        <«class» type='KNOWS' properties={'since': 1999}>
+        >>> rel = Rel("KNOWS", since=1999)
+        >>> cast_to_rel(rel)
+        <«class» type='KNOWS' properties={'since': 1999}>
+
+    """
+    if len(args) == 1 and not kwargs:
+        from py2neo.batch import Job
+        arg = args[0]
+        if arg is None:
+            return None
+        elif isinstance(arg, (Rel, Job)):
+            return arg
+        elif isinstance(arg, Relationship):
+            return arg.rel
+
+    inst = Rel()
+
+    def apply(x):
+        if isinstance(x, dict):
+            inst.properties.update(x)
+        elif is_collection(x):
+            for item in x:
+                apply(item)
+        else:
+            inst.type = ustr(x)
+
+    for arg in args:
+        apply(arg)
+    inst.properties.update(kwargs)
+    return inst
+
+
+def cast_to_relationship(*args, **kwargs):
+    """ Cast the arguments provided to a :class:`.Relationship`. The
+    following combinations of arguments are possible::
+
+        >>> cast_to_relationship(Node(), "KNOWS", Node())
+        <Relationship type='KNOWS' properties={}>
+        >>> cast_to_relationship((Node(), "KNOWS", Node()))
+        <Relationship type='KNOWS' properties={}>
+        >>> cast_to_relationship(Node(), "KNOWS", Node(), since=1999)
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship(Node(), "KNOWS", Node(), {"since": 1999})
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship((Node(), "KNOWS", Node(), {"since": 1999}))
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship(Node(), ("KNOWS", {"since": 1999}), Node())
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship((Node(), ("KNOWS", {"since": 1999}), Node()))
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship(Node(), Rel("KNOWS", since=1999), Node())
+        <Relationship type='KNOWS' properties={'since': 1999}>
+        >>> cast_to_relationship((Node(), Rel("KNOWS", since=1999), Node()))
+        <Relationship type='KNOWS' properties={'since': 1999}>
+
+    """
+    if len(args) == 1 and not kwargs:
+        arg = args[0]
+        if isinstance(arg, Relationship):
+            return arg
+        elif isinstance(arg, tuple):
+            if len(arg) == 3:
+                return Relationship(*arg)
+            elif len(arg) == 4:
+                return Relationship(arg[0], arg[1], arg[2], **arg[3])
+            else:
+                raise TypeError("Cannot cast relationship from {0}".format(arg))
+        else:
+            raise TypeError("Cannot cast relationship from {0}".format(arg))
+    elif len(args) == 3:
+        rel = Relationship(*args)
+        rel.properties.update(kwargs)
+        return rel
+    elif len(args) == 4:
+        props = args[3]
+        props.update(kwargs)
+        return Relationship(*args[0:3], **props)
+    else:
+        raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))

@@ -18,6 +18,7 @@
 
 from py2neo.batch import ReadBatch, WriteBatch, Job, Target
 from py2neo.core import Node, Relationship, NodePointer
+from py2neo.http import cast_to_node, cast_to_relationship
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 
 
@@ -183,14 +184,14 @@ class ManualIndexWriteBatch(WriteBatch):
     def _create_in_index(self, cls, index, key, value, abstract, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
         if cls is Node:
-            node = Node.cast(abstract)
+            node = cast_to_node(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "properties": node.properties,
             })
         elif cls is Relationship:
-            relationship = Relationship.cast(abstract)
+            relationship = cast_to_relationship(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
@@ -242,7 +243,13 @@ class ManualIndexWriteBatch(WriteBatch):
         :return: batch request object
         """
         query = "uniqueness=get_or_create"
-        return self._create_in_index(cls, index, key, value, cls.cast(abstract), query)
+        if cls is Node:
+            abstract = cast_to_node(abstract)
+        elif cls is Relationship:
+            abstract = cast_to_relationship(abstract)
+        else:
+            raise TypeError(cls)
+        return self._create_in_index(cls, index, key, value, abstract, query)
 
     ### REMOVE FROM INDEX ###
 

@@ -124,9 +124,9 @@ class TestCreatePath(object):
 
     def test_can_create_path(self, graph):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        assert path.nodes[0] == {"name": "Alice"}
+        assert path.nodes[0] == Node(name="Alice")
         assert path.rels[0].type == "KNOWS"
-        assert path.nodes[1] == {"name": "Bob"}
+        assert path.nodes[1] == Node(name="Bob")
         path, = graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
@@ -137,10 +137,10 @@ class TestCreatePath(object):
 
     def test_can_create_path_with_rel_properties(self):
         path = Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
-        assert path.nodes[0] == {"name": "Alice"}
+        assert path.nodes[0] == Node(name="Alice")
         assert path.rels[0].type == "KNOWS"
         assert path.rels[0].properties == {"since": 1999}
-        assert path.nodes[1] == {"name": "Bob"}
+        assert path.nodes[1] == Node(name="Bob")
         path, = self.graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
@@ -165,7 +165,6 @@ class TestCreateUniquePath(object):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
         ))
-        #print(p1)
         assert isinstance(p1, Path)
         assert len(p1) == 3
         assert p1.nodes[0] == start_node
@@ -181,7 +180,6 @@ class TestCreateUniquePath(object):
         assert isinstance(p1, Path)
         assert len(p1) == 3
         assert p1.nodes[0] == start_node
-        #print(p1)
         p2, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},

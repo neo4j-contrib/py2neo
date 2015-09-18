@@ -16,27 +16,27 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, Rel, Relationship
+from py2neo.http import Node, NodePointer, Rel, Relationship, cast, cast_to_node, cast_to_rel
 
 
-def test_graph_cast(graph):
-    assert graph.cast(None) is None
+def test_graph_cast():
+    assert cast(None) is None
 
 
 def test_node_cast():
     alice = Node("Person", "Employee", name="Alice", age=33)
-    assert Node.cast() == Node()
-    assert Node.cast(None) is None
-    assert Node.cast(alice) is alice
-    assert Node.cast("Person") == Node("Person")
-    assert Node.cast(name="Alice") == Node(name="Alice")
-    assert Node.cast("Person", "Employee", name="Alice", age=33) == alice
-    assert Node.cast({"name": "Alice"}) == Node(name="Alice")
-    assert Node.cast(("Person", "Employee", {"name": "Alice", "age": 33})) == alice
-    assert Node.cast(42) == NodePointer(42)
-    assert Node.cast(NodePointer(42)) == NodePointer(42)
+    assert cast_to_node() == Node()
+    assert cast_to_node(None) is None
+    assert cast_to_node(alice) is alice
+    assert cast_to_node("Person") == Node("Person")
+    assert cast_to_node(name="Alice") == Node(name="Alice")
+    assert cast_to_node("Person", "Employee", name="Alice", age=33) == alice
+    assert cast_to_node({"name": "Alice"}) == Node(name="Alice")
+    assert cast_to_node(("Person", "Employee", {"name": "Alice", "age": 33})) == alice
+    assert cast_to_node(42) == NodePointer(42)
+    assert cast_to_node(NodePointer(42)) == NodePointer(42)
     try:
-        Node.cast(3.14)
+        cast_to_node(3.14)
     except TypeError:
         assert True
     else:
@@ -45,12 +45,12 @@ def test_node_cast():
 
 def test_rel_cast():
     knows = Rel("KNOWS", since=1999)
-    assert Rel.cast() == Rel()
-    assert Rel.cast(None) is None
-    assert Rel.cast(knows) is knows
-    assert Rel.cast("KNOWS") == Rel("KNOWS")
-    assert Rel.cast(since=1999) == Rel(since=1999)
-    assert Rel.cast("KNOWS", since=1999) == Rel("KNOWS", since=1999)
-    assert Rel.cast({"since": 1999}) == Rel(since=1999)
-    assert Rel.cast(("KNOWS", {"since": 1999})) == knows
-    assert Rel.cast(Relationship({}, "KNOWS", {})) == Rel("KNOWS")
+    assert cast_to_rel() == Rel()
+    assert cast_to_rel(None) is None
+    assert cast_to_rel(knows) is knows
+    assert cast_to_rel("KNOWS") == Rel("KNOWS")
+    assert cast_to_rel(since=1999) == Rel(since=1999)
+    assert cast_to_rel("KNOWS", since=1999) == Rel("KNOWS", since=1999)
+    assert cast_to_rel({"since": 1999}) == Rel(since=1999)
+    assert cast_to_rel(("KNOWS", {"since": 1999})) == knows
+    assert cast_to_rel(Relationship({}, "KNOWS", {})) == Rel("KNOWS")
