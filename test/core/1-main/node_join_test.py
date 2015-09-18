@@ -19,7 +19,7 @@
 import pytest
 
 from py2neo import Node, NodePointer, JoinError
-from py2neo.http.core import join
+from py2neo.http.core import unify
 
 
 alice = Node(name="Alice")
@@ -30,19 +30,19 @@ pointer_2 = NodePointer(2)
 
 
 def test_can_join_none_and_none():
-    assert join(None, None) is None
+    assert unify(None, None) is None
 
 
 def test_can_join_none_and_node():
-    assert join(None, alice) is alice
+    assert unify(None, alice) is alice
 
 
 def test_can_join_node_and_none():
-    assert join(alice, None) is alice
+    assert unify(alice, None) is alice
 
 
 def test_can_join_same_nodes():
-    assert join(alice, alice) is alice
+    assert unify(alice, alice) is alice
 
 
 def test_can_join_similar_bound_nodes():
@@ -50,47 +50,47 @@ def test_can_join_similar_bound_nodes():
     Node.cache.clear()
     alice_2 = Node(name="Alice")
     alice_2.bind(alice.uri)
-    assert join(alice, alice_2) == alice
+    assert unify(alice, alice_2) == alice
 
 
 def test_cannot_join_different_nodes():
     with pytest.raises(JoinError):
-        join(alice, bob)
+        unify(alice, bob)
 
 
 def test_can_join_none_and_pointer():
-    assert join(None, pointer_1) is pointer_1
+    assert unify(None, pointer_1) is pointer_1
 
 
 def test_can_join_pointer_and_node():
-    assert join(pointer_1, None) is pointer_1
+    assert unify(pointer_1, None) is pointer_1
 
 
 def test_can_join_same_pointers():
-    assert join(pointer_1, pointer_1) is pointer_1
+    assert unify(pointer_1, pointer_1) is pointer_1
 
 
 def test_can_join_equal_pointers():
-    assert join(pointer_1, NodePointer(pointer_1.address)) == pointer_1
+    assert unify(pointer_1, NodePointer(pointer_1.address)) == pointer_1
 
 
 def test_cannot_join_different_pointers():
     with pytest.raises(JoinError):
-        join(pointer_1, pointer_2)
+        unify(pointer_1, pointer_2)
 
 
 def test_cannot_join_node_and_pointer():
     with pytest.raises(JoinError):
-        join(alice, pointer_2)
+        unify(alice, pointer_2)
 
 
 def test_cannot_join_other_types():
     foo = "foo"
     with pytest.raises(TypeError):
-        join(foo, foo)
+        unify(foo, foo)
 
 
 def test_cannot_join_one_of_other_type():
     foo = "foo"
     with pytest.raises(TypeError):
-        join(alice, foo)
+        unify(alice, foo)

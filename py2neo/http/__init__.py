@@ -17,3 +17,4 @@
 
 
 from py2neo.http.core import *
+from py2neo.http.rest import *

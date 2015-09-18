@@ -19,6 +19,7 @@
 from __future__ import division, unicode_literals
 
 from py2neo import __version__, http
+from py2neo.http import rest
 from py2neo.packages.httpstream.packages.urimagic import URI
 
 
@@ -28,7 +29,7 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
 
 PRODUCT = ("py2neo", __version__)
 
-authenticate = http.authenticate
+authenticate = rest.authenticate
 
 
 class Graph(object):
