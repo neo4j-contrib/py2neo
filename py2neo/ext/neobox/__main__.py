@@ -94,7 +94,7 @@ def main():
                     box.rename(new_name)
                 elif command == "start":
                     ps = box.server.start()
-                    print(ps.service_root.uri)
+                    print(ps.root.uri)
                 elif command == "stop":
                     box.server.stop()
                 elif command == "open":

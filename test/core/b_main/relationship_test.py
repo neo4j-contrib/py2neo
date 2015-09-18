@@ -23,7 +23,7 @@ except ImportError:
 import pytest
 
 from py2neo import Graph, Relationship, Rel, Rev, GraphError, BindError
-from py2neo.http import ServiceRoot
+from py2neo.http import RootView
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -185,16 +185,16 @@ def test_changing_type_of_unbound_rev_mirrors_to_pair_rel():
     assert rel.type == "LIKES"
 
 
-def test_service_root(graph):
+def test_root(graph):
     a, b, ab = graph.create({}, {}, (0, "KNOWS", 1))
-    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    assert ab.root == RootView("http://localhost:7474/")
     ab.rel.unbind()
-    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    assert ab.root == RootView("http://localhost:7474/")
     a.unbind()
-    assert ab.service_root == ServiceRoot("http://localhost:7474/")
+    assert ab.root == RootView("http://localhost:7474/")
     b.unbind()
     try:
-        _ = ab.service_root
+        _ = ab.root
     except BindError:
         assert True
     else:

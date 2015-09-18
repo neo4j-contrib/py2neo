@@ -19,7 +19,7 @@
 from collections import namedtuple
 from datetime import datetime
 
-from py2neo.http import View, Resource, ServiceRoot
+from py2neo.http import View, Resource, RootView
 
 
 def to_number(n):
@@ -50,8 +50,8 @@ class Monitor(View):
 
     def __init__(self, uri=None):
         if uri is None:
-            service_root = ServiceRoot()
-            manager = Resource(service_root.resource.metadata["management"])
+            root = RootView()
+            manager = Resource(root.resource.metadata["management"])
             monitor = Monitor(manager.metadata["services"]["monitor"])
             uri = monitor.resource.uri
         View.__init__(self)

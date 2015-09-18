@@ -20,7 +20,7 @@ import codecs
 import os
 import sys
 
-from py2neo.http import ServiceRoot
+from py2neo.http import RootView
 from py2neo.env import NEO4J_HTTP_URI
 
 from py2neo.ext.geoff import GeoffLoader
@@ -54,9 +54,9 @@ def main():
         sys.exit(1)
 
     uri = NEO4J_HTTP_URI.resolve("/")
-    service_root = ServiceRoot(uri.string)
+    root = RootView(uri.string)
 
-    loader = GeoffLoader(service_root.graph)
+    loader = GeoffLoader(root.graph)
     load = loader.load
     results = []
 

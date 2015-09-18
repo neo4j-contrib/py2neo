@@ -99,7 +99,7 @@ def test_converting_cypher_results_to_subgraph(graph):
     a, ab, b = r[0]
     s = r.to_subgraph()
     assert s.graph == graph
-    assert s.service_root == graph.service_root
+    assert s.root == graph.root
     assert len(s) == 1
     assert s.order == 2
     assert s.size == 1

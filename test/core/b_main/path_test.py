@@ -19,7 +19,7 @@
 import pytest
 
 from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, BindError, Graph
-from py2neo.http import ServiceRoot
+from py2neo.http import RootView
 
 
 class TestPathConstruction(object):
@@ -464,26 +464,26 @@ def test_path_in_several_ways():
         assert False
 
 
-def test_service_root_on_bound_path(graph):
+def test_root_on_bound_path(graph):
     alice = Node(name="Alice")
     bob = Node(name="Bob")
     carol = Node(name="Carol")
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     graph.create(path)
-    assert path.service_root == ServiceRoot("http://localhost:7474/")
+    assert path.root == RootView("http://localhost:7474/")
     path[0].unbind()
-    assert path.service_root == ServiceRoot("http://localhost:7474/")
+    assert path.root == RootView("http://localhost:7474/")
 
 
-def test_service_root_on_unbound_path():
+def test_root_on_unbound_path():
     alice = Node(name="Alice")
     bob = Node(name="Bob")
     carol = Node(name="Carol")
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     try:
-        assert path.service_root == ServiceRoot("http://localhost:7474/")
+        assert path.root == RootView("http://localhost:7474/")
     except BindError:
         assert True
     else:

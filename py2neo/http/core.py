@@ -22,7 +22,7 @@ from io import StringIO
 from warnings import warn
 import webbrowser
 
-from py2neo.compat import integer, string, ustr, xstr
+from py2neo.compat import integer, string, bstr, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_HTTP_URI
 from py2neo.error import BindError, GraphError, JoinError
 from py2neo.http.rest import authenticate, Resource, ResourceTemplate
@@ -35,7 +35,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 
 
 __all__ = ["GraphView", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "PropertySetView", "LabelSetView", "PropertyContainerView",
+           "RootView", "PropertySetView", "LabelSetView", "PropertyContainerView",
            "View", "cast", "cast_to_node", "cast_to_rel", "cast_to_relationship"]
 
 
@@ -108,7 +108,7 @@ class View(object):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.root.graph
 
     @property
     def ref(self):
@@ -131,12 +131,12 @@ class View(object):
             raise BindError("Local entity is not bound to a remote entity")
 
     @property
-    def service_root(self):
+    def root(self):
         """ The root service associated with the remote resource.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.RootView`
         """
-        return self.resource.service_root
+        return self.resource.root
 
     def unbind(self):
         """ Detach this object from any remote resource.
@@ -154,7 +154,7 @@ class View(object):
             return resource.uri_template
 
 
-class ServiceRoot(object):
+class RootView(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
     the constructor, a value is taken from the ``NEO4J_HTTP_URI``
@@ -181,7 +181,7 @@ class ServiceRoot(object):
             if NEO4J_AUTH:
                 user_name, password = NEO4J_AUTH.partition(":")[0::2]
                 authenticate(URI(uri).host_port, user_name, password)
-            inst = super(ServiceRoot, cls).__new__(cls)
+            inst = super(RootView, cls).__new__(cls)
             inst.__resource = Resource(uri)
             inst.__graph = None
             inst.graph_uri = URI(uri).resolve("/db/data/")
@@ -189,7 +189,7 @@ class ServiceRoot(object):
         return inst
 
     def __repr__(self):
-        return "<ServiceRoot uri=%r>" % self.uri.string
+        return "<RootView uri=%r>" % self.uri.string
     
     def __eq__(self, other):
         try:
@@ -267,7 +267,7 @@ class GraphView(View):
     __relationship_types = None
 
     def __init__(self, uri):
-        uri = ServiceRoot(uri).graph_uri.string
+        uri = RootView(uri).graph_uri.string
         if not uri.endswith("/"):
             uri += "/"
         self.bind(uri)
@@ -619,7 +619,7 @@ class GraphView(View):
         """ Open a page in the default system web browser pointing at
         the Neo4j browser application for this graph.
         """
-        webbrowser.open(self.service_root.resource.uri.string)
+        webbrowser.open(self.root.resource.uri.string)
 
     @property
     def order(self):
@@ -1658,7 +1658,7 @@ class Path(object):
         :const:`False` otherwise.
         """
         try:
-            _ = self.service_root
+            _ = self.root
         except BindError:
             return False
         else:
@@ -1685,7 +1685,7 @@ class Path(object):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.root.graph
 
     @property
     def nodes(self):
@@ -1745,14 +1745,14 @@ class Path(object):
         return self.__rels
 
     @property
-    def service_root(self):
+    def root(self):
         """ The root service associated with this path.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.RootView`
         """
         for relationship in self:
             try:
-                return relationship.service_root
+                return relationship.root
             except BindError:
                 pass
         raise BindError("Local path is not bound to a remote path")
@@ -1940,7 +1940,7 @@ class Relationship(Path):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.root.graph
 
     @property
     def properties(self):
@@ -1987,18 +1987,18 @@ class Relationship(Path):
         return self.rel.resource
 
     @property
-    def service_root(self):
+    def root(self):
         """ The root service associated with this relationship.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.RootView`
         """
         try:
-            return self.rel.service_root
+            return self.rel.root
         except BindError:
             try:
-                return self.start_node.service_root
+                return self.start_node.root
             except BindError:
-                return self.end_node.service_root
+                return self.end_node.root
 
     @property
     def size(self):
@@ -2124,7 +2124,7 @@ class Subgraph(object):
         :const:`False` otherwise.
         """
         try:
-            _ = self.service_root
+            _ = self.root
         except BindError:
             return False
         else:
@@ -2143,7 +2143,7 @@ class Subgraph(object):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.root.graph
 
     @property
     def nodes(self):
@@ -2164,14 +2164,14 @@ class Subgraph(object):
         return frozenset(self.__relationships)
 
     @property
-    def service_root(self):
+    def root(self):
         """ The root service associated with this subgraph.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.RootView`
         """
         for relationship in self:
             try:
-                return relationship.service_root
+                return relationship.root
             except BindError:
                 pass
         raise BindError("Local path is not bound to a remote path")

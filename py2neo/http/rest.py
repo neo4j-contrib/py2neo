@@ -101,12 +101,12 @@ def familiar(*objects):
     :return: :const:`True` if all objects belong to the same remote service,
              :const:`False` otherwise.
     """
-    service_roots = set()
+    roots = set()
     for obj in objects:
         if not obj.bound:
             raise ValueError("Can only determine familiarity of bound objects")
-        service_roots.add(obj.service_root)
-        if len(service_roots) > 1:
+        roots.add(obj.root)
+        if len(roots) > 1:
             return False
     return True
 
@@ -139,6 +139,37 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
+class Identifier(object):
+
+    def __init__(self, uri):
+        uri = URI(uri)
+
+        scheme_host_port = (uri.scheme, uri.host, uri.port)
+        if scheme_host_port in _http_rewrites:
+            scheme_host_port = _http_rewrites[scheme_host_port]
+            # This is fine - it's all my code anyway...
+            uri._URI__set_scheme(scheme_host_port[0])
+            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
+                                                     scheme_host_port[2]))
+
+        if uri.user_info:
+            auth = uri.user_info.partition(":")[0::2]
+            uri._URI__set_authority(uri.host_port)
+        else:
+            auth = None
+
+        root_uri = uri.resolve("/").string
+        graph_uri = uri.resolve("/db/data/").string
+
+        self.uri = uri.string
+        self.auth = auth
+        self.host_port = uri.host_port
+        self.root_uri = root_uri
+        self.graph_uri = graph_uri
+        self.ref = self.uri[len(graph_uri):]
+        self.name = uri.path.segments[-1]
+
+
 class Resource(_Resource):
     """ Base class for all local resources mapped to remote counterparts.
     """
@@ -147,17 +178,11 @@ class Resource(_Resource):
     error_class = GraphError
 
     def __init__(self, uri, metadata=None, headers=None):
-        uri = URI(uri)
-        scheme_host_port = (uri.scheme, uri.host, uri.port)
-        if scheme_host_port in _http_rewrites:
-            scheme_host_port = _http_rewrites[scheme_host_port]
-            # This is fine - it's all my code anyway...
-            uri._URI__set_scheme(scheme_host_port[0])
-            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
-                                                     scheme_host_port[2]))
-        if uri.user_info:
-            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
-        self._resource = _Resource.__init__(self, uri)
+        self.identifier = Identifier(uri)
+
+        if self.identifier.auth:
+            authenticate(self.identifier.host_port, *self.identifier.auth)
+        self._resource = _Resource.__init__(self, self.identifier.uri)
         self._headers = dict(headers or {})
         self.__base = super(Resource, self)
         if metadata is None:
@@ -166,14 +191,12 @@ class Resource(_Resource):
             self.__initial_metadata = dict(metadata)
         self.__last_get_response = None
 
-        uri = uri.string
-        service_root_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
-        if service_root_uri == uri:
-            self.__service_root = self
+        if self.identifier.root_uri == self.identifier.uri:
+            self.root = self
         else:
-            from py2neo.http.core import ServiceRoot
-            self.__service_root = ServiceRoot(service_root_uri)
-        self.__ref = NotImplemented
+            from py2neo.http.core import RootView
+            self.root = RootView(self.identifier.root_uri)
+        self.ref = self.identifier.ref
 
     @property
     def graph(self):
@@ -181,15 +204,13 @@ class Resource(_Resource):
 
         :rtype: :class:`.Graph`
         """
-        return self.__service_root.graph
+        return self.root.graph
 
     @property
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        headers = _get_headers(self.__uri__.host_port)
-        headers.update(self._headers)
-        return headers
+        return dict(_get_headers(self.__uri__.host_port), **self._headers)
 
     @property
     def metadata(self):
@@ -201,18 +222,6 @@ class Resource(_Resource):
             self.get()
         return self.__last_get_response.content
 
-    @property
-    def ref(self):
-        """ The URI of this resource relative to its graph.
-
-        :rtype: string
-        """
-        if self.__ref is NotImplemented:
-            self_uri = self.uri.string
-            graph_uri = self.graph.uri.string
-            self.__ref = self_uri[len(graph_uri):]
-        return self.__ref
-
     def resolve(self, reference, strict=True):
         """ Resolve a URI reference against the URI for this resource,
         returning a new resource represented by the new target URI.
@@ -222,14 +231,6 @@ class Resource(_Resource):
         :rtype: :class:`.Resource`
         """
         return Resource(_Resource.resolve(self, reference, strict).uri)
-
-    @property
-    def service_root(self):
-        """ The root service associated with this resource.
-
-        :return: :class:`.ServiceRoot`
-        """
-        return self.__service_root
 
     def get(self, headers=None, redirect_limit=5, **kwargs):
         """ Perform an HTTP GET to this resource.

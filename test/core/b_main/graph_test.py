@@ -79,7 +79,7 @@ def test_can_hydrate_map(graph):
 def test_can_open_browser(graph):
     with patch("webbrowser.open") as mocked:
         graph.open_browser()
-        assert mocked.called_once_with(graph.service_root.resource.uri.string)
+        assert mocked.called_once_with(graph.root.resource.uri.string)
 
 
 def test_graph_is_not_equal_to_non_graph():

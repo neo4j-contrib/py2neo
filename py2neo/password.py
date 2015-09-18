@@ -25,7 +25,7 @@ import sys
 from py2neo import GraphError
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_HTTP_URI
-from py2neo.http import View, ServiceRoot
+from py2neo.http import View, RootView
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
 
 
@@ -65,13 +65,13 @@ class UserManager(View):
     """
 
     @classmethod
-    def for_user(cls, service_root, user_name, password):
+    def for_user(cls, root, user_name, password):
         """ Fetch a UserManager instance for a given service root and user name.
 
-        :param service_root: A valid :class:`py2neo.ServiceRoot` instance.
+        :param root: A valid :class:`py2neo.RootView` instance.
         :rtype: :class:`.UserManager`
         """
-        uri = service_root.uri.resolve("/user/%s" % user_name)
+        uri = root.uri.resolve("/user/%s" % user_name)
         inst = cls(uri)
         inst.resource._headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
         return inst
@@ -159,10 +159,10 @@ def main():
         _help(script)
         return
     try:
-        service_root = ServiceRoot(NEO4J_HTTP_URI)
+        root = RootView(NEO4J_HTTP_URI)
         user_name = args[0]
         password = args[1]
-        user_manager = UserManager.for_user(service_root, user_name, password)
+        user_manager = UserManager.for_user(root, user_name, password)
         if len(args) == 2:
             # Check password
             if user_manager.password_change_required:
