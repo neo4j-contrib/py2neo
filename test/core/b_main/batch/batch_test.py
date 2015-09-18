@@ -20,7 +20,7 @@ import pytest
 
 from py2neo import Finished
 from py2neo.core import Node, Relationship
-from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
+from py2neo.http.batch import BatchError, WriteBatch, CypherJob, Batch
 from py2neo.ext.mandex.batch import ManualIndexWriteBatch
 
 

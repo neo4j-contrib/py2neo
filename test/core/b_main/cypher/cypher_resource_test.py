@@ -19,7 +19,7 @@
 from __future__ import unicode_literals
 
 from py2neo.core import Node
-from py2neo.cypher.core import CypherResource, CypherTransaction
+from py2neo.http.cypher.core import CypherResource, CypherTransaction
 
 
 def test_can_create_cypher_resource_with_transaction_uri():

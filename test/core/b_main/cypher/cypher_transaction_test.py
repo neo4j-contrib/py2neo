@@ -19,7 +19,7 @@
 from __future__ import unicode_literals
 
 from py2neo import Finished
-from py2neo.cypher.error.statement import InvalidSyntax
+from py2neo.http.cypher.error.statement import InvalidSyntax
 
 
 def test_can_execute_single_statement_transaction(graph):

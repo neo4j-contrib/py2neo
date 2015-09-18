@@ -17,9 +17,9 @@
 
 
 from py2neo import GraphError
-from py2neo.cypher import CypherTransactionError, CypherError
-from py2neo.cypher.error import ClientError
-from py2neo.cypher.error.statement import ConstraintViolation
+from py2neo.http.cypher import CypherTransactionError, CypherError
+from py2neo.http.cypher.error import ClientError
+from py2neo.http.cypher.error.statement import ConstraintViolation
 
 from .util import assert_new_error
 
@@ -105,7 +105,7 @@ def test_can_hydrate_error_for_all_known_codes():
         assert error.message == "X"
         assert error.__class__.__name__ == title
         assert error.__class__.__mro__[1].__name__ == classification
-        assert error.__class__.__module__ == "py2neo.cypher.error.%s" % category.lower()
+        assert error.__class__.__module__ == "py2neo.http.cypher.error.%s" % category.lower()
         assert isinstance(error, CypherTransactionError)
         assert isinstance(error, CypherError)
         assert isinstance(error, GraphError)

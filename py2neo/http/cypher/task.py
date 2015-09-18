@@ -21,7 +21,7 @@ from io import StringIO
 from py2neo.compat import ustr, xstr
 from py2neo.core import Node, Relationship
 from py2neo.http import LabelSetView, PropertySetView
-from py2neo.cypher.lang import CypherParameter, CypherWriter
+from py2neo.http.cypher import CypherParameter, CypherWriter
 
 
 __all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateRelationship", "CreateTransaction"]

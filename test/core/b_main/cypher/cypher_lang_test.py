@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.core import Node, Relationship, Rel, Rev, Path, NodePointer
-from py2neo.cypher.lang import CypherWriter, cypher_repr
+from py2neo.http.cypher.lang import CypherWriter, cypher_repr
 
 
 def test_can_write_simple_identifier():

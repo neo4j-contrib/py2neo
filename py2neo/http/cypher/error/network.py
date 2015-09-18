@@ -16,6 +16,10 @@
 # limitations under the License.
 
 
-from py2neo.http.cypher import CypherResource, CypherTransaction
+from py2neo.http.cypher import TransientError
 
-__all__ = ["CypherResource", "CypherTransaction"]
+
+class UnknownFailure(TransientError):
+    """ An unknown network failure occurred, a retry may resolve the
+    issue.
+    """

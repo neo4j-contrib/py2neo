@@ -17,7 +17,7 @@
 
 
 from py2neo.core import Node
-from py2neo.cypher import DeleteStatement
+from py2neo.http.cypher import DeleteStatement
 
 
 def test_statement_representations_return_cypher(graph):

@@ -22,7 +22,7 @@ from io import StringIO
 from warnings import warn
 import webbrowser
 
-from py2neo.compat import integer, string, bstr, ustr, xstr
+from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_HTTP_URI
 from py2neo.error import BindError, GraphError, JoinError
 from py2neo.http.rest import authenticate, Resource, ResourceTemplate
@@ -33,14 +33,13 @@ from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary
 
-
 __all__ = ["GraphView", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "RootView", "PropertySetView", "LabelSetView", "PropertyContainerView",
            "View", "cast", "cast_to_node", "cast_to_rel", "cast_to_relationship"]
 
 
 def unifiable(obj):
-    from py2neo.batch import Job
+    from py2neo.http.batch import Job
     return obj is None or isinstance(obj, (Node, NodePointer, Job))
 
 
@@ -302,7 +301,7 @@ class GraphView(View):
 
         """
         if self.__batch is None:
-            from py2neo.batch import BatchResource
+            from py2neo.http.batch import BatchResource
             self.__batch = BatchResource(self.resource.metadata["batch"])
         return self.__batch
 
@@ -367,7 +366,7 @@ class GraphView(View):
             left of the assignment operation.
 
         """
-        from py2neo.cypher.create import CreateStatement
+        from py2neo.http.cypher import CreateStatement
         statement = CreateStatement(self)
         for entity in entities:
             statement.create(entity)
@@ -379,7 +378,7 @@ class GraphView(View):
         `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
         clause to ensure that only relationships that do not already exist are created.
         """
-        from py2neo.cypher.create import CreateStatement
+        from py2neo.http.cypher import CreateStatement
         statement = CreateStatement(self)
         for entity in entities:
             statement.create_unique(entity)
@@ -388,7 +387,7 @@ class GraphView(View):
     def delete(self, *entities):
         """ Delete one or more nodes, relationships and/or paths.
         """
-        from py2neo.cypher.delete import DeleteStatement
+        from py2neo.http.cypher import DeleteStatement
         statement = DeleteStatement(self)
         for entity in entities:
             statement.delete(entity)
@@ -409,7 +408,7 @@ class GraphView(View):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.cypher.lang import cypher_escape
+        from py2neo.http.cypher import cypher_escape
         if property_key is None:
             statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -450,7 +449,7 @@ class GraphView(View):
                     return Node.hydrate(data)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
-                    from py2neo.batch import Job, Target
+                    from py2neo.http.batch import Job, Target
                     node_uris = data["nodes"]
                     relationship_uris = data["relationships"]
                     jobs = [Job("GET", Target(uri)) for uri in relationship_uris]
@@ -466,7 +465,7 @@ class GraphView(View):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import RecordList
+                from py2neo.http.cypher import RecordList
                 return RecordList(self, data["columns"], data["data"])
             elif "neo4j_version" in data:
                 return self
@@ -554,7 +553,7 @@ class GraphView(View):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.cypher.lang import cypher_escape
+        from py2neo.http.cypher import cypher_escape
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -632,7 +631,7 @@ class GraphView(View):
         """ Pull data to one or more entities from their remote counterparts.
         """
         if entities:
-            from py2neo.batch.pull import PullBatch
+            from py2neo.http.batch.pull import PullBatch
             batch = PullBatch(self)
             for entity in entities:
                 batch.append(entity)
@@ -642,7 +641,7 @@ class GraphView(View):
         """ Push data from one or more entities to their remote counterparts.
         """
         if entities:
-            from py2neo.batch.push import PushBatch
+            from py2neo.http.batch import PushBatch
             batch = PushBatch(self)
             for entity in entities:
                 batch.append(entity)
@@ -976,7 +975,7 @@ class Node(PropertyContainerView):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.http.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
         if self.bound:
@@ -1110,7 +1109,7 @@ class Node(PropertyContainerView):
         """ Push data from this node to its remote counterpart. Consider
         using :meth:`.Graph.push` instead for batches of nodes.
         """
-        from py2neo.batch.push import PushBatch
+        from py2neo.http.batch import PushBatch
         batch = PushBatch(self.graph)
         batch.append(self)
         batch.push()
@@ -1250,7 +1249,7 @@ class Rel(PropertyContainerView):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.http.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
         if self.bound:
@@ -1575,7 +1574,7 @@ class Path(object):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.http.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
         writer.write_path(self)
@@ -1712,7 +1711,7 @@ class Path(object):
     def pull(self):
         """ Pull data to all entities in this path from their remote counterparts.
         """
-        from py2neo.batch.pull import PullBatch
+        from py2neo.http.batch.pull import PullBatch
         batch = PullBatch(self.graph)
         for relationship in self:
             batch.append(relationship)
@@ -1721,7 +1720,7 @@ class Path(object):
     def push(self):
         """ Push data from all entities in this path to their remote counterparts.
         """
-        from py2neo.batch.push import PushBatch
+        from py2neo.http.batch import PushBatch
         batch = PushBatch(self.graph)
         for relationship in self:
             batch.append(relationship)
@@ -1866,7 +1865,7 @@ class Relationship(Path):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.http.cypher import CypherWriter
         string = StringIO()
         writer = CypherWriter(string)
         if self.bound:
@@ -2233,7 +2232,7 @@ def cast_to_node(*args, **kwargs):
 
     """
     if len(args) == 1 and not kwargs:
-        from py2neo.batch import Job
+        from py2neo.http.batch import Job
         arg = args[0]
         if arg is None:
             return None
@@ -2284,7 +2283,7 @@ def cast_to_rel(*args, **kwargs):
 
     """
     if len(args) == 1 and not kwargs:
-        from py2neo.batch import Job
+        from py2neo.http.batch import Job
         arg = args[0]
         if arg is None:
             return None

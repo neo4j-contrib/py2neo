@@ -17,7 +17,7 @@
 
 
 from py2neo.http import LabelSetView, Node, Path, PropertySetView, Rel
-from py2neo.batch.core import Batch, Job, Target
+from py2neo.http.batch import Batch, Job, Target
 
 
 __all__ = ["PushPropertyJob", "PushPropertiesJob", "PushNodeLabelsJob", "PushBatch"]

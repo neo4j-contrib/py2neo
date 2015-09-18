@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship
-from py2neo.batch import PullBatch
+from py2neo.http.batch import PullBatch
 
 
 def test_can_pull_node(graph):

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.batch import Job, Target
+from py2neo.http.batch import Job, Target
 
 
 def test_can_create_batch_request():

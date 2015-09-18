@@ -16,22 +16,28 @@
 # limitations under the License.
 
 
-from py2neo.batch.core import Batch
+from py2neo.http.cypher import ClientError, DatabaseError
 
 
-__all__ = ["ReadBatch"]
-
-
-class ReadBatch(Batch):
-    """ Generic batch execution facility for data read requests,
+class ReadOnly(ClientError):
+    """ This is a read only database, writing or modifying the database
+    is not allowed.
     """
 
-    def __init__(self, graph):
-        Batch.__init__(self, graph)
 
-    def stream(self):
-        for result in self.graph.batch.stream(self):
-            yield result.content
+class CorruptSchemaRule(DatabaseError):
+    """ A malformed schema rule was encountered. Please contact your
+    support representative.
+    """
 
-    def submit(self):
-        return [result.content for result in self.graph.batch.submit(self)]
+
+class FailedIndex(DatabaseError):
+    """ The request (directly or indirectly) referred to an index that
+    is in a failed state. The index needs to be dropped and recreated
+    manually.
+    """
+
+
+class UnknownFailure(DatabaseError):
+    """ An unknown failure occurred.
+    """

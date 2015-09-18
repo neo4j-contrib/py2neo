@@ -16,11 +16,11 @@
 # limitations under the License.
 
 
-from py2neo.batch.core import *
-from py2neo.batch.pull import *
-from py2neo.batch.push import *
-from py2neo.batch.read import *
-from py2neo.batch.write import *
+from py2neo.http.batch.core import *
+from py2neo.http.batch.pull import *
+from py2neo.http.batch.push import *
+from py2neo.http.batch.read import *
+from py2neo.http.batch.write import *
 
 
 __all__ = [

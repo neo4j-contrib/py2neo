@@ -44,8 +44,7 @@ import random
 from time import time
 
 from py2neo import Graph, GraphError
-from py2neo.cypher import CreateNode
-
+from py2neo.http.cypher import CreateNode
 
 CONSONANTS = "bcdfghjklmnprstvwz"
 VOWELS = "aeiou"

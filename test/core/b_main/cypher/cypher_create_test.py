@@ -16,8 +16,8 @@
 # limitations under the License.
 
 from py2neo.core import Node, Relationship, Path, Rel, Rev
-from py2neo.cypher import CreateStatement, CreateTransaction
-from py2neo.cypher.error.statement import ConstraintViolation
+from py2neo.http.cypher import CreateStatement, CreateTransaction
+from py2neo.http.cypher.error.statement import ConstraintViolation
 
 
 def test_statement_representations_return_cypher(graph):
@@ -27,7 +27,6 @@ def test_statement_representations_return_cypher(graph):
     assert statement.__repr__() == 'CREATE (_0)\nRETURN _0'
     assert statement.__str__() == 'CREATE (_0)\nRETURN _0'
     assert statement.__unicode__() == 'CREATE (_0)\nRETURN _0'
-
 
 
 def test_empty_statement_returns_empty_tuple(graph):

@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 import pytest
 
 from py2neo.core import Node, Relationship, Path
-from py2neo.cypher import CypherError, CypherTransactionError
+from py2neo.http.cypher import CypherError, CypherTransactionError
 
 
 def alice_and_bob(graph):

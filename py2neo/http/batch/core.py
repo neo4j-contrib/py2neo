@@ -21,13 +21,12 @@ import logging
 
 from py2neo.compat import ustr
 from py2neo.http import NodePointer
-from py2neo.cypher import RecordList
+from py2neo.http.cypher import RecordList
 from py2neo.error import GraphError, Finished
 from py2neo.http import View
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, raise_from
-
 
 __all__ = ["BatchError", "BatchResource", "Target", "Job", "JobResult", "CypherJob", "Batch"]
 

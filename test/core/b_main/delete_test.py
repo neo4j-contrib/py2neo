@@ -17,8 +17,8 @@
 
 
 from py2neo import Node, Relationship, Path, Rev
-from py2neo.cypher.delete import DeleteStatement
-from py2neo.cypher.error import CypherError
+from py2neo.http.cypher import DeleteStatement
+from py2neo.http.cypher import CypherError
 
 
 def test_deleting_nothing_does_nothing(graph):

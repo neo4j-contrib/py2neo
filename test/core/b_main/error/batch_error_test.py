@@ -17,7 +17,7 @@
 
 
 from py2neo import GraphError
-from py2neo.batch import WriteBatch, CypherJob, BatchError
+from py2neo.http.batch import WriteBatch, CypherJob, BatchError
 
 
 def test_invalid_syntax_raises_cypher_error(graph):

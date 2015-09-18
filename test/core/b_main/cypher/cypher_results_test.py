@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.cypher import RecordProducer, RecordList
+from py2neo.http.cypher import RecordProducer, RecordList
 
 
 def test_can_output_correct_representation_with_one_row(graph):

@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Rel
-from py2neo.batch import BatchError
+from py2neo.http.batch import BatchError
 
 
 def test_can_push_node(graph):

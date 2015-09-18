@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.cypher.error.core import ClientError, DatabaseError, TransientError
+from py2neo.http.cypher import ClientError, DatabaseError, TransientError
 
 
 class ArithmeticError(ClientError):

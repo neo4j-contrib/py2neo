@@ -17,8 +17,8 @@
 
 
 from py2neo.http import GraphView, Node, Relationship, Path, PropertySetView, LabelSetView, cast
-from py2neo.batch.core import Batch, Job, CypherJob, Target
-from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
+from py2neo.http.batch import Batch, Job, CypherJob, Target
+from py2neo.http.batch import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
 
 __all__ = ["CreateNodeJob", "CreateRelationshipJob", "CreatePathJob", "CreateUniquePathJob",

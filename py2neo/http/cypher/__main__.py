@@ -21,10 +21,9 @@ import os
 import sys
 
 from py2neo.core import authenticate, Node, Relationship, Path
-from py2neo.cypher.error import CypherError, CypherTransactionError
+from py2neo.http.cypher import CypherError, CypherTransactionError
 from py2neo.env import NEO4J_HTTP_URI
 from py2neo.util import compact
-
 
 HELP = """\
 Usage: {script} [«options»] «statement» [ [«options»] «statement» ... ]

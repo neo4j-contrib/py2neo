@@ -16,11 +16,11 @@
 # limitations under the License.
 
 
-from py2neo.cypher import CypherError, CypherTransactionError
+from py2neo.http.cypher import CypherError, CypherTransactionError
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 
-from .util import assert_error, get_non_existent_node_id
+from .util import assert_error
 
 
 def test_invalid_syntax_raises_cypher_error(graph):

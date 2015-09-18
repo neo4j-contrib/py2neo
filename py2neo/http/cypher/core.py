@@ -22,11 +22,10 @@ import logging
 from py2neo.error import Finished
 from py2neo.http.core import View, Resource, Node, Rel, Relationship
 from py2neo.compat import integer, ustr
-from py2neo.cypher.error.core import CypherError, CypherTransactionError
-from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.records import RecordListList
+from py2neo.http.cypher.error.core import CypherError, CypherTransactionError
+from py2neo.http.cypher.lang import cypher_escape
+from py2neo.http.cypher.records import RecordListList
 from py2neo.util import is_collection
-
 
 __all__ = ["CypherResource", "CypherTransaction"]
 

@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer
-from py2neo.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship
+from py2neo import Node
+from py2neo.http.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship
 
 
 def test_bare_task():

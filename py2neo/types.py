@@ -22,6 +22,7 @@ from decimal import Decimal
 from py2neo.compat import integer, string, ustr
 
 
+
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
 # to (2 ** 64 - 1) but Neo4j is not yet on Java 8.
@@ -65,7 +66,7 @@ def cast_property(value):
     elif isinstance(value, complex):
         value = [value.real, value.imag]
     else:
-        from py2neo.cypher.lang import CypherParameter
+        from py2neo.http.cypher import CypherParameter
         if isinstance(value, CypherParameter):
             pass
         else:

@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from py2neo.batch import WriteBatch
+from py2neo.http.batch import WriteBatch
 from py2neo.core import Node
 
 

@@ -31,7 +31,11 @@ To watch batch traffic::
 Escaping Values in Cypher
 =========================
 
-    >>> from py2neo.cypher import cypher_escape
+    >>> from py2neo.http.cypher import cypher_escape
+        >>> rel_type = "KNOWS WELL"
+        >>> statement = "CREATE (a)-[ab:%s]->(b) RETURN ab" % cypher_escape(rel_type)
+        >>> statement
+        'CREATE (a)-[ab:
     >>> rel_type = "KNOWS WELL"
     >>> statement = "CREATE (a)-[ab:%s]->(b) RETURN ab" % cypher_escape(rel_type)
     >>> statement

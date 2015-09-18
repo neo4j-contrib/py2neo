@@ -44,7 +44,7 @@ class CypherWriter(Writer):
     file-like object, such as standard output::
 
         >>> from py2neo import Node
-        >>> from py2neo.cypher import CypherWriter
+        >>> from py2neo.http.cypher import CypherWriter
         >>> import sys
         >>> writer = CypherWriter(sys.stdout)
         >>> writer.write(Node("Person", name="Alice"))

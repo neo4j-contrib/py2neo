@@ -16,15 +16,22 @@
 # limitations under the License.
 
 
-from py2neo.cypher.error.core import ClientError
+from py2neo.http.batch import Batch
 
 
-class Invalid(ClientError):
-    """ The client provided an invalid request.
+__all__ = ["ReadBatch"]
+
+
+class ReadBatch(Batch):
+    """ Generic batch execution facility for data read requests,
     """
 
+    def __init__(self, graph):
+        Batch.__init__(self, graph)
 
-class InvalidFormat(ClientError):
-    """ The client provided a request that was missing required fields,
-    or had values that are not allowed.
-    """
+    def stream(self):
+        for result in self.graph.batch.stream(self):
+            yield result.content
+
+    def submit(self):
+        return [result.content for result in self.graph.batch.submit(self)]
