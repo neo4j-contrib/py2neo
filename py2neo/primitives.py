@@ -18,7 +18,7 @@
 
 from itertools import chain
 
-from py2neo.compat import integer, unicode
+from py2neo.compat import integer, string, unicode, ustr
 
 
 __all__ = ["Graph", "TraversableGraph", "Node", "Relationship", "Path"]
@@ -33,6 +33,8 @@ JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
 def coerce_atomic_property(x):
     if isinstance(x, unicode):
         return x
+    elif isinstance(x, string):
+        return ustr(x)
     elif isinstance(x, bool):
         return x
     elif isinstance(x, integer):
@@ -41,19 +43,21 @@ def coerce_atomic_property(x):
         else:
             raise ValueError("Integer value out of range: %s" % x)
     else:
-        raise ValueError("Properties of type %s are not supported" % x.__class__.__name__)
+        raise TypeError("Properties of type %s are not supported" % x.__class__.__name__)
 
 
 def coerce_property(x):
     if isinstance(x, (tuple, list, set, frozenset)):
+        collection = []
         cls = None
         for item in x:
+            item = coerce_atomic_property(item)
             if cls is None:
                 cls = type(item)
             elif type(item) != cls:
                 raise ValueError("List properties must be homogenous")
-            coerce_atomic_property(item)
-        return x
+            collection.append(item)
+        return x.__class__(collection)
     else:
         return coerce_atomic_property(x)
 

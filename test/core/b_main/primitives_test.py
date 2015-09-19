@@ -61,21 +61,29 @@ class PropertyCoercionTestCase(TestCase):
         else:
             assert False
 
-    def test_byte_strings_not_supported(self):
-        try:
-            PropertySet({"value": b"hello, world"})
-        except ValueError:
-            assert True
-        else:
-            assert False
+    def test_byte_strings_are_supported(self):
+        props = PropertySet({"value": b"hello, world"})
+        assert props == {"value": ustr("hello, world")}
 
     def test_unicode_strings_are_supported(self):
         props = PropertySet({"value": ustr("hello, world")})
         assert props == {"value": ustr("hello, world")}
 
+    def test_byte_arrays_are_not_supported(self):
+        try:
+            PropertySet({"value": bytearray(b"hello, world")})
+        except TypeError:
+            assert True
+        else:
+            assert False
+
     def test_homogenous_list(self):
         props = PropertySet({"value": [1, 2, 3]})
         assert props == {"value": [1, 2, 3]}
+
+    def test_homogenous_list_of_strings(self):
+        props = PropertySet({"value": [ustr("hello"), b"world"]})
+        assert props == {"value": [ustr("hello"), ustr("world")]}
 
     def test_heterogenous_list(self):
         try:

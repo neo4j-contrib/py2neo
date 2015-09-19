@@ -52,6 +52,7 @@ if version_info >= (3,):
 else:
     integer = (int, long)
     string = (str, unicode)
+    unicode = unicode
 
     def bstr(s, encoding="utf-8"):
         if isinstance(s, bytes):
