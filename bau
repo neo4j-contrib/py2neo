@@ -207,9 +207,12 @@ function neo4j_download {
 function neo4j_start {
     mkdir -p "$RUN" 2> /dev/null
     pushd "$RUN" > /dev/null
-    DIST_DIR=$(pwd)/$(ls -t | grep "$(echo $DIST | sed 's/LATEST/*/')" | head -1)
-    rm -rf "$DIST_DIR"
-    cp "$DOWN/$ARCHIVE" "$RUN"
+    DIST_DIR=$(ls -t | grep "$(echo $DIST | sed 's/LATEST/*/')" | head -1)
+    if [ "$DIST_DIR" != "" ]
+    then
+        rm -rf "$(pwd)/$DIST_DIR"
+    fi
+    cp "$DOWN/$ARCHIVE" "$RUN/"
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
     #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
