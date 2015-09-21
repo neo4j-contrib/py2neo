@@ -30,7 +30,7 @@ class ServerPlugin(object):
     def __init__(self, graph, name):
         self.graph = graph
         self.name = name
-        extensions = self.graph.resource.metadata["extensions"]
+        extensions = self.graph.resource.content["extensions"]
         try:
             self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
         except KeyError:

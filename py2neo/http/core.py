@@ -79,19 +79,19 @@ class View(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def bind(self, uri, metadata=None):
+    def bind(self, uri, content=None):
         """ Associate this «class.lower» with a remote resource.
 
         :arg uri: The URI identifying the remote resource to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg content: Dictionary of initial content to attach to the contained resource.
 
         """
         if "{" in uri and "}" in uri:
-            if metadata:
-                raise ValueError("Initial metadata cannot be passed to a resource template")
+            if content:
+                raise ValueError("Initial content cannot be passed to a resource template")
             self.__resource__ = ResourceTemplate(uri)
         else:
-            self.__resource__ = Resource(uri, metadata)
+            self.__resource__ = Resource(uri, content)
         self.__resource__.error_class = self.error_class
 
     @property
@@ -217,7 +217,7 @@ class RootView(object):
                 # concurrent code. Therefore, the URI is now
                 # constructed manually.
                 #
-                # uri = self.resource.metadata["data"]
+                # uri = self.resource.content["data"]
                 uri = self.uri.string + "db/data/"
             except KeyError:
                 raise GraphError("No graph available for service <%s>" % self.uri)
@@ -302,7 +302,7 @@ class GraphView(View):
         """
         if self.__batch is None:
             from py2neo.http.batch import BatchResource
-            self.__batch = BatchResource(self.resource.metadata["batch"])
+            self.__batch = BatchResource(self.resource.content["batch"])
         return self.__batch
 
     @property
@@ -322,8 +322,8 @@ class GraphView(View):
         """
         if self.__cypher is None:
             from py2neo.http.cypher import CypherResource
-            metadata = self.resource.metadata
-            self.__cypher = CypherResource(metadata.get("transaction"))
+            content = self.resource.content
+            self.__cypher = CypherResource(content.get("transaction"))
         return self.__cypher
 
     def create(self, *entities):
@@ -590,7 +590,7 @@ class GraphView(View):
         """ The database software version as a 4-tuple of (``int``, ``int``,
         ``int``, ``str``).
         """
-        return version_tuple(self.resource.metadata["neo4j_version"])
+        return version_tuple(self.resource.content["neo4j_version"])
 
     def node(self, id_):
         """ Fetch a node by ID. This method creates an object representing the
@@ -736,7 +736,7 @@ class PropertySetView(dict, View):
         """ Copy the set of remote properties onto the local set.
         """
         self.resource.get()
-        properties = self.resource.metadata
+        properties = self.resource.content
         self.replace(properties or {})
 
     def push(self):
@@ -790,7 +790,7 @@ class LabelSetView(set, View):
         """ Copy the set of remote labels onto the local set.
         """
         self.resource.get()
-        labels = self.resource.metadata
+        labels = self.resource.content
         self.replace(labels or [])
 
     def push(self):
@@ -840,14 +840,14 @@ class PropertyContainerView(View):
     def __iter__(self):
         raise TypeError("%r object is not iterable" % self.__class__.__name__)
 
-    def bind(self, uri, metadata=None):
+    def bind(self, uri, content=None):
         """ Associate this «class.lower» with a remote resource.
 
         :arg uri: The URI identifying the remote resource to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg content: Dictionary of initial content to attach to the contained resource.
 
         """
-        View.bind(self, uri, metadata)
+        View.bind(self, uri, content)
         self.__properties.bind(uri + "/properties")
 
     @property
@@ -862,7 +862,7 @@ class PropertyContainerView(View):
         """ Pull data to this «class.lower» from its remote counterpart.
         """
         self.resource.get()
-        properties = self.resource.metadata["data"]
+        properties = self.resource.content["data"]
         self.__properties.replace(properties or {})
 
     def push(self):
@@ -1020,14 +1020,14 @@ class Node(PropertyContainerView):
         """
         return "node/%s" % self._id
 
-    def bind(self, uri, metadata=None):
+    def bind(self, uri, content=None):
         """ Associate this node with a remote node.
 
         :arg uri: The URI identifying the remote node to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg content: Dictionary of initial content to attach to the contained resource.
 
         """
-        PropertyContainerView.bind(self, uri, metadata)
+        PropertyContainerView.bind(self, uri, content)
         self.__labels.bind(uri + "/labels")
         self.cache[uri] = self
 
@@ -1309,18 +1309,18 @@ class Rel(PropertyContainerView):
         """
         return "relationship/%s" % self._id
 
-    def bind(self, uri, metadata=None):
+    def bind(self, uri, content=None):
         """ Associate this object with a remote relationship.
 
         :arg uri: The URI identifying the remote relationship to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg content: Dictionary of initial content to attach to the contained resource.
 
         """
-        PropertyContainerView.bind(self, uri, metadata)
+        PropertyContainerView.bind(self, uri, content)
         self.cache[uri] = self
         pair = self.pair
         if pair is not None:
-            PropertyContainerView.bind(pair, uri, metadata)
+            PropertyContainerView.bind(pair, uri, content)
             # make sure we're using exactly the same resource object
             # (maybe could write a Service.multi_bind classmethod
             pair.__resource__ = self.__resource__
@@ -1370,7 +1370,7 @@ class Rel(PropertyContainerView):
     def refresh(self):
         # Non-destructive pull.
         super(Rel, self).pull()
-        pulled_type = self.resource.metadata["type"]
+        pulled_type = self.resource.content["type"]
         self.__type = pulled_type
         pair = self.pair
         if pair is not None:
@@ -1897,18 +1897,18 @@ class Relationship(Path):
             self.__id = self.rel._id
         return self.__id
 
-    def bind(self, uri, metadata=None):
+    def bind(self, uri, content=None):
         """ Associate this relationship with a remote relationship. The start and
         end nodes will also be associated with their corresponding remote nodes.
 
         :arg uri: The URI identifying the remote relationship to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+        :arg content: Dictionary of initial content to attach to the contained resource.
 
         """
-        self.rel.bind(uri, metadata)
+        self.rel.bind(uri, content)
         self.cache[uri] = self
         for i, key, node in [(0, "start", self.start_node), (-1, "end", self.end_node)]:
-            uri = self.resource.metadata[key]
+            uri = self.resource.content[key]
             if isinstance(node, Node):
                 node.bind(uri)
             else:
@@ -2356,3 +2356,61 @@ def cast_to_relationship(*args, **kwargs):
         return Relationship(*args[0:3], **props)
     else:
         raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
+
+
+class ResourceView(object):
+    """ Base class for objects that are associated with a remote resource. This
+    class is essentially a container for a :class:`.Resource` instance.
+    """
+
+    #: The class of error raised by failure responses from the contained resource.
+    error_class = GraphError
+
+    def __init__(self, uri, content=None):
+        if "{" in uri and "}" in uri:
+            if content:
+                raise ValueError("Initial content cannot be passed to a resource template")
+            resource = ResourceTemplate(uri)
+        else:
+            resource = Resource(uri, content)
+        resource.error_class = self.error_class
+        self.resource = resource
+        self.graph = resource.graph
+        self.ref = resource.ref
+        self.root = resource.root
+        try:
+            self.uri = resource.uri.string
+        except AttributeError:
+            self.uri = resource.uri_template.string
+        self.update(content)
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.uri == other.uri
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def update(self, content):
+        raise NotImplementedError()
+
+
+class NodeView(ResourceView):
+
+    snapshot = None
+
+    def __init__(self, uri, content=None):
+        ResourceView.__init__(self, uri, content)
+
+    def update(self, content):
+        assert self.uri == content["self"], "URI mismatch in content"
+        if "data" in content:
+            labels = content["metadata"]["labels"]
+            properties = content["data"]
+            if self.snapshot is None:
+                from py2neo import primitives
+                self.snapshot = primitives.Node(*labels, **properties)
+            else:
+                self.snapshot.labels.clear()
+                self.snapshot.labels.update(labels)
+                self.snapshot.properties.clear()
+                self.snapshot.properties.update(properties)

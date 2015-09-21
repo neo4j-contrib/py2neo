@@ -39,7 +39,7 @@ class NaughtyPlugin(ServerPlugin):
 
 @pytest.fixture
 def fake_plugin_discovery(graph):
-    metadata = graph.resource.metadata
+    metadata = graph.resource.content
     metadata["extensions"]["FakePlugin"] = {}
     graph.bind(graph.uri, metadata)
 

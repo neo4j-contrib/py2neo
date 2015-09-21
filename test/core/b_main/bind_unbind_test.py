@@ -32,12 +32,12 @@ def test_can_create_bindable_with_initial_uri():
 
 def test_can_create_bindable_with_initial_uri_and_metadata():
     uri = "http://localhost:7474/db/data/node/1"
-    metadata = {"foo": "bar"}
+    content = {"foo": "bar"}
     bindable = View()
-    bindable.bind(uri, metadata)
+    bindable.bind(uri, content)
     assert bindable.bound
     assert bindable.uri == uri
-    assert bindable.resource.metadata == metadata
+    assert bindable.resource.content == content
 
 
 def test_can_create_bindable_with_initial_uri_template():
@@ -50,10 +50,10 @@ def test_can_create_bindable_with_initial_uri_template():
 
 def test_cannot_create_bindable_with_initial_uri_template_and_metadata():
     uri = "http://localhost:7474/db/data/node/{node_id}"
-    metadata = {"foo": "bar"}
+    content = {"foo": "bar"}
     service = View()
     try:
-        service.bind(uri, metadata)
+        service.bind(uri, content)
     except ValueError:
         assert True
     else:
@@ -127,13 +127,13 @@ def test_can_bind_rev_to_resource():
 
 def test_can_bind_relationship_to_resource():
     uri = "http://localhost:7474/db/relationship/1"
-    metadata = {
+    content = {
         "start": "http://localhost:7474/db/node/1",
         "end": "http://localhost:7474/db/node/2",
     }
     relationship = Relationship({}, "", {})
-    # Pass in metadata to avoid callback to server
-    relationship.bind(uri, metadata=metadata)
+    # Pass in content to avoid callback to server
+    relationship.bind(uri, content=content)
     assert relationship.bound
     assert isinstance(relationship.resource, Resource)
     assert relationship.resource.uri == uri

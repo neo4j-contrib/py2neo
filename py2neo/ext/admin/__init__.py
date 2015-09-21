@@ -51,8 +51,8 @@ class Monitor(View):
     def __init__(self, uri=None):
         if uri is None:
             root = RootView()
-            manager = Resource(root.resource.metadata["management"])
-            monitor = Monitor(manager.metadata["services"]["monitor"])
+            manager = Resource(root.resource.content["management"])
+            monitor = Monitor(manager.content["services"]["monitor"])
             uri = monitor.resource.uri
         View.__init__(self)
         self.bind(uri)
@@ -65,7 +65,7 @@ class Monitor(View):
         counts = namedtuple("Stats", ("node_count",
                                       "relationship_count",
                                       "property_count"))
-        uri = self.resource.metadata["resources"]["latest_data"]
+        uri = self.resource.content["resources"]["latest_data"]
         latest_data = Resource(uri).get().content
         timestamps = latest_data["timestamps"]
         data = latest_data["data"]

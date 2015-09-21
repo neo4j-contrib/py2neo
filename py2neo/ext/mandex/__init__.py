@@ -47,9 +47,9 @@ class ManualIndexManager(View):
         :return:
         """
         if content_type is Node:
-            uri = self.resource.metadata["node_index"]
+            uri = self.resource.content["node_index"]
         elif content_type is Relationship:
-            uri = self.resource.metadata["relationship_index"]
+            uri = self.resource.content["relationship_index"]
         else:
             raise TypeError("Indexes can manage either Nodes or Relationships")
         return Resource(uri)
@@ -415,7 +415,7 @@ class ManualIndex(View):
             t.expand(key=key, value=value, entity=entity._id).delete()
         elif key and value:
             uris = [
-                URI(entity.resource.metadata["indexed"])
+                URI(entity.resource.content["indexed"])
                 for entity in self.get(key, value)
             ]
             batch = ManualIndexWriteBatch(self.graph)

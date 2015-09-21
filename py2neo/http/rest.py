@@ -139,9 +139,16 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
-class Identifier(object):
+class Resource(_Resource):
+    """ Base class for all local resources mapped to remote counterparts.
+    """
 
-    def __init__(self, uri):
+    #: The class of error raised by failure responses from this resource.
+    error_class = GraphError
+
+    def __init__(self, uri, content=None, headers=None):
+        # TODO: optimise this
+
         uri = URI(uri)
 
         scheme_host_port = (uri.scheme, uri.host, uri.port)
@@ -158,45 +165,34 @@ class Identifier(object):
         else:
             auth = None
 
+        uri_string = uri.string
+
         root_uri = uri.resolve("/").string
         graph_uri = uri.resolve("/db/data/").string
 
-        self.uri = uri.string
         self.auth = auth
         self.host_port = uri.host_port
         self.root_uri = root_uri
         self.graph_uri = graph_uri
-        self.ref = self.uri[len(graph_uri):]
+        self.ref = uri_string[len(graph_uri):]
         self.name = uri.path.segments[-1]
 
-
-class Resource(_Resource):
-    """ Base class for all local resources mapped to remote counterparts.
-    """
-
-    #: The class of error raised by failure responses from this resource.
-    error_class = GraphError
-
-    def __init__(self, uri, metadata=None, headers=None):
-        self.identifier = Identifier(uri)
-
-        if self.identifier.auth:
-            authenticate(self.identifier.host_port, *self.identifier.auth)
-        self._resource = _Resource.__init__(self, self.identifier.uri)
+        if self.auth:
+            authenticate(self.host_port, *self.auth)
+        self._resource = _Resource.__init__(self, uri_string)
         self._headers = dict(headers or {})
         self.__base = super(Resource, self)
-        if metadata is None:
-            self.__initial_metadata = None
+        if content is None:
+            self.__initial_content = None
         else:
-            self.__initial_metadata = dict(metadata)
+            self.__initial_content = dict(content)
         self.__last_get_response = None
 
-        if self.identifier.root_uri == self.identifier.uri:
+        if self.root_uri == uri_string:
             self.root = self
         else:
             from py2neo.http.core import RootView
-            self.root = RootView(self.identifier.root_uri)
-        self.ref = self.identifier.ref
+            self.root = RootView(self.root_uri)
 
     @property
     def graph(self):
@@ -213,12 +209,12 @@ class Resource(_Resource):
         return dict(_get_headers(self.__uri__.host_port), **self._headers)
 
     @property
-    def metadata(self):
-        """ Metadata received in the last HTTP response.
+    def content(self):
+        """ Content received from the last HTTP GET response.
         """
         if self.__last_get_response is None:
-            if self.__initial_metadata is not None:
-                return self.__initial_metadata
+            if self.__initial_content is not None:
+                return self.__initial_content
             self.get()
         return self.__last_get_response.content
 
