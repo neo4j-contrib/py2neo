@@ -248,7 +248,7 @@ class GraphView(View):
         >>> from py2neo import Graph
         >>> graph = Graph("http://camelot:1138/db/data/")
 
-    If the database server requires authorisation, the relevant criteria can also
+    If the database server requires authorisation, the credentials can also
     be specified within the URI::
 
         >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
