@@ -71,7 +71,7 @@ def download(edition, version, path="."):
     as a base or ``http://dist.neo4j.org/`` if this is not set.
     """
     archive_name = dist_archive_name(edition, version)
-    uri = "%s/%s" % (NEO4J_DIST, archive_name)
+    uri = NEO4J_DIST + archive_name
     filename = os.path.join(os.path.abspath(path), archive_name)
     _download(uri, filename)
     return filename
