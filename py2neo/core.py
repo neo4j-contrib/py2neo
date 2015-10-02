@@ -555,16 +555,10 @@ class Graph(Service):
 
         >>> other_graph = Graph("http://camelot:1138/db/data/")
 
-    If the database server is behind a proxy that requires HTTP authorisation,
-    the relevant criteria can also be specified within the URI::
+    If the database server requires authorisation, the credentials can also
+    be specified within the URI::
 
         >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
-
-    For services running with `built-in security
-    <http://neo4j.com/docs/snapshot/rest-api-security.html>`_, an auth token
-    can either be passed in via the :func:`py2neo.set_auth_token` function or
-    set as the ``NEO4J_AUTH_TOKEN`` environment variable where it will be
-    applied automatically.
 
     Once obtained, the `Graph` instance provides direct or indirect access
     to most of the functionality available within py2neo.
