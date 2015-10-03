@@ -91,22 +91,27 @@ class CypherResource(Service):
             cls.__instances[key] = inst
         return inst
 
-    def post(self, statement, parameters=None, **kwparameters):
+    def post(
+            self, statement, parameters=None, result_formats=None, **kwparameters):
         """ Post a Cypher statement to this resource, optionally with
         parameters.
 
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
+        :arg result_formats: A list of Cypher result formats, defaults to ["REST"]
         :arg kwparameters: Extra parameters supplied by keyword.
         :rtype: :class:`httpstream.Response`
         """
         payload = {"query": statement, "params": {}}
         parameters = dict(parameters or {}, **kwparameters)
-        if parameters:
-            for key, value in parameters.items():
-                if isinstance(value, (Node, Rel, Relationship)):
-                    value = value._id
-                payload["params"][key] = value
+        result_formats = result_formats or ["REST"]
+        parameters['resultDataContent'] = result_formats
+
+        for key, value in parameters.items():
+            if isinstance(value, (Node, Rel, Relationship)):
+                value = value._id
+            payload["params"][key] = value
+
         log.info("execute %r %r", payload["query"], payload["params"])
         return self.resource.post(payload)
 
@@ -163,6 +168,37 @@ class CypherResource(Service):
             results = self.graph.hydrate(response.content)
             try:
                 return results[0][0]
+            except IndexError:
+                return None
+            finally:
+                response.close()
+
+    def execute_for_visualisation(
+            self, statement, parameters=None, **kwparameters):
+        """ Execute a single cypher query and return the result in graphJSON
+        format ready for visualisation.
+
+        The format collates all the nodes and relationships from all columns of
+        the result, and also flattens collections of nodes and relationships,
+        including paths.
+
+        """
+        if self.transaction_uri:
+            tx = CypherTransaction(self.transaction_uri)
+            tx.append(
+                statement, parameters, result_formats=["graph"], **kwparameters)
+            results = tx.commit()
+            try:
+                return [d['graph'] for d in resuts[0]]
+            except IndexError:
+                return None
+
+        else:
+            response = self.post(
+                statement, parameters, result_formats=["graph"], **kwparameters)
+            results = response.content
+            try:
+                return [d['graph'] for d in resuts[0]]
             except IndexError:
                 return None
             finally:
@@ -235,17 +271,21 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def append(self, statement, parameters=None, **kwparameters):
+    def append(
+            self, statement, parameters=None, result_formats=None,
+            **kwparameters):
         """ Add a statement to the current queue of statements to be
         executed.
 
         :arg statement: the statement to append
         :arg parameters: a dictionary of execution parameters
+        :arg result_formats: A list of Cypher result formats, defaults to ["REST"]
         """
         self.__assert_unfinished()
 
         s = ustr(statement)
         p = {}
+        result_formats = result_formats or ["REST"]
 
         def add_parameters(params):
             if params:
@@ -267,7 +307,7 @@ class CypherTransaction(object):
         self.statements.append(OrderedDict([
             ("statement", s),
             ("parameters", p),
-            ("resultDataContents", ["REST"]),
+            ("resultDataContents", result_formats),
         ]))
 
     def post(self, resource):
