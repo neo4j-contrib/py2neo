@@ -46,15 +46,16 @@ Run Tests
 
 The py2neo Spatial APIs rely on the upstream project, the `Neo4j Spatial Extension`_, to be kept up to date with Neo4j. Because of this, it's advised to run the tests for this extension to check for compatibility problems.
 
-	:bash: pip install -r ./test/requirements.txt
-	:bash: py.test ./test/ext/spatial/
+	:bash:`pip install -r ./test/requirements.txt`
+
+	:bash:`py.test ./test/ext/spatial/`
 
 These tests have been run successfully against Neo4j 2.0 - 2.2.3.
 
 API Overview
 ============
 
-Simple CRUD APIs for GIS Layers, Points Of Interest (POI) and other geometries with endpoints for some spatial type queries over your data.
+Simple CRUD APIs for GIS Layers, Points Of Interest (POI) and other geometries plus some endpoints for spatial queries over your data.
 
 Each GIS Layer you create is essentially an "index" and is modelled as an Rtree_ within your graph which Neo4j will use when executing "spatial" type queries. This should not be confused with the Neo4j schema indexes, nor the "legacy" type of index, and is used internally by the spatial extension to optimise expensive spatial queries.
 
