@@ -99,6 +99,10 @@ class Spatial(ServerPlugin):
     def __init__(self, graph):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
+    def _assemble(self, json_stream):
+        nodes = map(Node.hydrate, assembled(json_stream))
+        return nodes
+
     def _handle_post_from_resource(self, resource, spatial_payload):
         try:
             json_stream = resource.post(spatial_payload)
@@ -114,8 +118,7 @@ class Spatial(ServerPlugin):
             # no content
             return []
 
-        nodes = map(Node.hydrate, assembled(json_stream))
-        return nodes
+        return json_stream
 
     def _get_shape_from_wkt(self, wkt_string):
         try:
@@ -155,8 +158,7 @@ class Spatial(ServerPlugin):
                 The name to give the Layer created. Must be unique.
 
         :Returns:
-            The Layer Node containing the configuration for the newly created
-            Layer.
+            An HTTP status code.
 
         :Raises:
             LayerExistsError
@@ -172,9 +174,8 @@ class Spatial(ServerPlugin):
 
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
         raw = resource.post(spatial_data)
-        layer = assembled(raw)
 
-        return layer
+        return raw.status_code
 
     def get_layer(self, layer_name):
         """ Get the Layer identified by `layer_name`.
@@ -194,14 +195,14 @@ class Spatial(ServerPlugin):
         resource = self.resources['getLayer']
 
         spatial_data = dict(layer=layer_name, **EXTENSION_CONFIG)
-        nodes = self._handle_post_from_resource(resource, spatial_data)
-
-        try:
-            layer_node = nodes[0]
-        except IndexError:
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        if not raw:
             raise LayerNotFoundError(
                 'Layer Not Found: "{}"'.format(layer_name)
             )
+
+        nodes = self._assemble(raw)
+        layer_node = nodes[0]
 
         return layer_node
 
@@ -210,7 +211,8 @@ class Spatial(ServerPlugin):
 
         This will remove a representation of a GIS map Layer from the Neo4j
         data store - it will not remove any nodes you may have added to it, or
-        any labels or properties py2neo Spatial may have added to your Nodes.
+        any labels or properties py2neo Spatial may have added to your own
+        Nodes.
 
         :Parameters:
             layer_name : str
@@ -220,15 +222,20 @@ class Spatial(ServerPlugin):
             None
 
         :Raises:
-            LayerNotFoundError if the Layer does not exist.
+            LayerNotFoundError
+                When the Layer to delete does not exist.
+
+        .. note::
+            The return type here is `None` and not an HTTP status because
+            there is no Neo4j Spatial Extension REST endpoint for deleting a
+            layer, so we use the Py2neo cypher API, which returns nothing on
+            delete.
 
         """
         if not self._layer_exists(layer_name):
             raise LayerNotFoundError(
                 'Layer Not Found: "{}"'.format(layer_name)
             )
-
-        graph = self.graph
 
         # remove the bounding box, metadata and root from the rtree index
         query = (
@@ -244,7 +251,7 @@ class Spatial(ServerPlugin):
             'layer_name': layer_name
         }
 
-        graph.cypher.execute(query, params)
+        self.graph.cypher.execute(query, params)
 
     def add_node_to_layer_by_id(
             self, node_id, layer_name, geometry_name, wkt_string, labels=None):
@@ -265,7 +272,7 @@ class Spatial(ServerPlugin):
                 An optional list of labels to give to the Node.
 
         :Returns:
-            The updated Node identified by `node_id`.
+            An HTTP status code.
 
         :Raises:
             NodeNotFoundError
@@ -308,14 +315,14 @@ class Spatial(ServerPlugin):
             'layer': layer_name
         }
 
-        nodes = self._handle_post_from_resource(resource, spatial_data)
-        node = nodes[0]
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        status_code = raw.status_code
 
-        return node
+        return status_code
 
     def create_point_of_interest(
-            self, poi_name, layer_name, longitude, latitude, labels=None,
-            **node_properties):
+            self, poi_name, layer_name, longitude, latitude,
+            labels=None, node_properties=None):
         """ Create a Point of Interest (POI) on a Layer.
 
         :Parameters:
@@ -335,7 +342,7 @@ class Spatial(ServerPlugin):
                 Optional keyword arguments to apply as properties on the Node.
 
         :Returns:
-            The geometry Node created.
+            An HTTP status_code.
 
         :Raises:
             LayerNotFoundError
@@ -363,6 +370,8 @@ class Spatial(ServerPlugin):
         graph = self.graph
 
         labels = labels or []
+        node_properties = node_properties or {}
+
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
         wkt = dumps(shape, rounding_precision=4)
 
@@ -381,18 +390,20 @@ class Spatial(ServerPlugin):
             'layer': layer_name
         }
 
-        resp = resource.post(spatial_data)
-        if resp.status_code != 200:
+        http_response = resource.post(spatial_data)
+        status_code = http_response.status_code
+
+        if status_code != 200:
             raise AddNodeToLayerError(
                 'Failed to add POI "{}" to layer "{}"'.format(
                     poi_name, layer_name)
             )
 
-        return node
+        return status_code
 
     def create_geometry(
-            self, geometry_name, layer_name, wkt_string, labels=None,
-            **node_properties):
+            self, geometry_name, layer_name, wkt_string,
+            labels=None, node_properties=None):
         """ Create a geometry Node with any WKT string type.
 
         :Parameters:
@@ -408,7 +419,7 @@ class Spatial(ServerPlugin):
                 Optional keyword arguments to apply as properties on the Node.
 
         :Returns:
-            The geometry Node created.
+            An HTTP status code.
 
         :Raises:
             LayerNotFoundError
@@ -437,6 +448,8 @@ class Spatial(ServerPlugin):
             )
 
         labels = labels or []
+        node_properties = node_properties or {}
+
         labels.extend([DEFAULT_LABEL, layer_name, shape.type])
 
         spatial_data = {
@@ -444,11 +457,16 @@ class Spatial(ServerPlugin):
             'layer': layer_name,
         }
 
-        resp = resource.post(spatial_data)
-        content = resp.content[0]
+        http_response = resource.post(spatial_data)
+        status_code = http_response.status_code
+        if status_code != 200:
+            return status_code
+
+        content = http_response.content[0]
         node_id = content['metadata']['id']
 
         # update the geometry node with provided node properties and labels
+        # manually as the upstream API does not except extra args in tbis case
         query = (
             "MATCH geometry_node WHERE id(geometry_node) = {node_id} "
             "RETURN geometry_node"
@@ -471,7 +489,7 @@ class Spatial(ServerPlugin):
         node.labels.update(set(labels))
         node.push()
 
-        return node
+        return status_code
 
     def update_geometry(self, layer_name, geometry_name, new_wkt_string):
         """ Update the WKT geometry on a Node.
@@ -486,7 +504,7 @@ class Spatial(ServerPlugin):
                 existing on the Node with `geometry_name`.
 
         :Returns:
-            The updaed Node.
+            An HTTP status code.
 
         :Raises:
             GeometryNotFoundError
@@ -538,10 +556,10 @@ class Spatial(ServerPlugin):
         }
 
         # update the geometry node
-        nodes = self._handle_post_from_resource(resource, spatial_data)
-        node = nodes[0]
+        http_response = self._handle_post_from_resource(resource, spatial_data)
+        status_code = http_response.status_code
 
-        return node
+        return status_code
 
     def delete_geometry(self, layer_name, geometry_name):
         """ Remove a geometry Node from a Layer.
@@ -562,6 +580,12 @@ class Spatial(ServerPlugin):
         :Raises:
             LayerNotFoundError
                 When the Layer does not exist.
+
+        .. note::
+            The return type here is `None` and not an HTTP status because
+            there is no Neo4j Spatial Extension REST endpoint for deleting a
+            layer, so we use the Py2neo cypher API, which returns nothing on
+            delete.
 
         """
         if not self._layer_exists(layer_name):
@@ -625,7 +649,8 @@ class Spatial(ServerPlugin):
             'distanceInKm': distance,
         }
 
-        nodes = self._handle_post_from_resource(resource, spatial_data)
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        nodes = self._assemble(raw)
 
         return nodes
 
@@ -664,7 +689,8 @@ class Spatial(ServerPlugin):
             'maxy': maxy,
         }
 
-        nodes = self._handle_post_from_resource(resource, spatial_data)
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        nodes = self._assemble(raw)
 
         return nodes
 
@@ -696,7 +722,8 @@ class Spatial(ServerPlugin):
             'distanceInKm': 0,  # set this to zero to ensure POI is contained
         }
 
-        nodes = self._handle_post_from_resource(resource, spatial_data)
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        nodes = self._assemble(raw)
 
         # exclude any Points or LineString geometries etc we may have collected
         polygon_nodes = [
@@ -752,7 +779,9 @@ class Spatial(ServerPlugin):
             'distanceInKm': max_distance,
         }
 
-        nodes = self._handle_post_from_resource(resource, spatial_data)
+        raw = self._handle_post_from_resource(resource, spatial_data)
+        nodes = self._assemble(raw)
+
         interesting_nodes = [
             node for node in nodes if
             interesting_labels.intersection(node.labels)

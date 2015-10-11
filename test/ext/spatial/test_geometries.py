@@ -16,9 +16,12 @@ class TestGeometries(TestBase):
         bristol = (51.454513, -2.58791)
         lat, lon = bristol
 
-        node = spatial.create_point_of_interest(
+        status_code = spatial.create_point_of_interest(
             poi_name="bristol", layer_name="uk", latitude=lat, longitude=lon)
 
+        assert status_code == 200
+
+        node = self.get_geometry_node(spatial.graph, "bristol")
         node_id = int(node.uri.path.segments[-1])
         query = (
             "MATCH (n)<-[:RTREE_REFERENCE]-(bbox)<-[:RTREE_ROOT]-(layer) "
@@ -39,12 +42,15 @@ class TestGeometries(TestBase):
     def test_geometry_on_wkt_encoded_layer(self, spatial, cornwall_wkt):
         geometry_name = "shape"
         spatial.create_layer("cornwall")
-        node = spatial.create_geometry(
+        status_code = spatial.create_geometry(
             geometry_name=geometry_name,
             wkt_string=cornwall_wkt,
             layer_name="cornwall"
         )
 
+        assert status_code == 200
+
+        node = self.get_geometry_node(spatial.graph, geometry_name)
         node_id = int(node.uri.path.segments[-1])
         query = (
             "MATCH (n)<-[:RTREE_REFERENCE]-(bbox)<-[:RTREE_ROOT]-(layer) "
@@ -69,11 +75,11 @@ class TestGeometries(TestBase):
         lat = 51.178882
         lon = -1.826215
 
-        poi_node = spatial.create_point_of_interest(
+        status_code = spatial.create_point_of_interest(
             poi_name="stonehenge", layer_name="uk", latitude=lat,
             longitude=lon)
 
-        assert poi_node.properties['geometry_name'] == "stonehenge"
+        assert status_code == 200
 
     def test_update_point_of_interest(self, spatial):
         spatial.create_layer(layer_name="uk")
@@ -163,13 +169,12 @@ class TestGeometries(TestBase):
         shape = parse_lat_long_to_point(*coords)
 
         spatial.create_layer("mylayer")
-        node = spatial.add_node_to_layer_by_id(
+        status_code = spatial.add_node_to_layer_by_id(
             node_id=node_id, layer_name="mylayer",
             geometry_name="mygeom", wkt_string=shape.wkt,
         )
 
-        assert isinstance(node, Node)
-        assert str(node_id) in str(node.uri)
+        assert status_code == 200
 
     def test_geometry_uniqueness(self, spatial, cornwall_wkt):
         geometry_name = "shape"
@@ -221,11 +226,11 @@ class TestGeometries(TestBase):
         eiffel_tower = (48.858370, 2.294481)
         shape = parse_lat_long_to_point(*eiffel_tower)
 
-        response = spatial.update_geometry(
+        status_code = spatial.update_geometry(
             layer_name="paris", geometry_name="eiffel_tower",
             new_wkt_string=shape.wkt)
 
-        assert isinstance(response, Node)
+        assert status_code == 200
 
         node = self.get_geometry_node(graph, "eiffel_tower")
         node_properties = node.get_properties()
@@ -287,13 +292,16 @@ class TestGeometries(TestBase):
     def test_create_polygon(self, spatial):
         wkt_string = 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))'
         spatial.create_layer(layer_name="geometries")
-        geometry = spatial.create_geometry(
+        status_code = spatial.create_geometry(
             layer_name="geometries", geometry_name="polygon",
             wkt_string=wkt_string
         )
 
-        assert isinstance(geometry, Node)
-        assert 'Polygon' in geometry.labels
+        assert status_code == 200
+
+        node = self.get_geometry_node(spatial.graph, geometry_name="polygon")
+
+        assert 'Polygon' in node.labels
 
     def test_create_multipolygon(self, spatial):
         wkt_string = (
@@ -302,10 +310,11 @@ class TestGeometries(TestBase):
             '(30 20, 20 15, 20 25, 30 20)))'
         )
         spatial.create_layer(layer_name="geometries")
-        geometry = spatial.create_geometry(
+        status_code = spatial.create_geometry(
             layer_name="geometries", geometry_name="polygon",
             wkt_string=wkt_string
         )
 
-        assert isinstance(geometry, Node)
-        assert 'MultiPolygon' in geometry.labels
+        node = self.get_geometry_node(spatial.graph, geometry_name="polygon")
+
+        assert 'MultiPolygon' in node.labels
