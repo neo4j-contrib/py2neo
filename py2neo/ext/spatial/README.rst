@@ -41,6 +41,16 @@ To test your install, from a shell you can use `curl` to ask for the configurati
 
 In the "extensions" section of response you should see "SpatialPlugin".
 
+Run Tests
+=========
+
+The py2neo Spatial APIs rely on the upstream project, the `Neo4j Spatial Extension`_, to be kept up to date with Neo4j. Because of this, it's advised to run the tests for this extension to check for compatibility problems.
+
+	:bash: pip install -r ./test/requirements.txt
+	:bash: py.test ./test/ext/spatial/
+
+These tests have been run successfully against Neo4j 2.0 - 2.2.3.
+
 API Overview
 ============
 
