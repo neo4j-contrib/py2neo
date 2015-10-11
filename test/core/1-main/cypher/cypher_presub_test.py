@@ -95,42 +95,42 @@ class CypherPresubstitutionTestCase(TestCase):
             assert result[1] == "Alice Smith"
 
     def test_can_use_parameter_mixture(self):
-        statement = "CREATE (a:«l» {«k»:{v}})"
+        statement = u"CREATE (a:«l» {«k»:{v}})"
         parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})"
         assert p == {"v": "Alice Smith"}
 
     def test_can_use_simple_parameter_for_relationship_type(self):
-        statement = "CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:«t»]->(b)"
         parameters = {"t": "REALLY_LIKES"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:REALLY_LIKES]->(b)"
         assert p == {}
 
     def test_can_use_parameter_with_special_character_for_relationship_type(self):
-        statement = "CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:«t»]->(b)"
         parameters = {"t": "REALLY LIKES"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:`REALLY LIKES`]->(b)"
         assert p == {}
 
     def test_can_use_parameter_with_backtick_for_relationship_type(self):
-        statement = "CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:«t»]->(b)"
         parameters = {"t": "REALLY `LIKES`"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:`REALLY ``LIKES```]->(b)"
         assert p == {}
 
     def test_can_use_parameter_for_relationship_count(self):
-        statement = "MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        statement = u"MATCH (a)-[ab:KNOWS*«x»]->(b)"
         parameters = {"x": 3}
         s, p = presubstitute(statement, parameters)
         assert s == "MATCH (a)-[ab:KNOWS*3]->(b)"
         assert p == {}
 
     def test_can_use_parameter_for_relationship_count_range(self):
-        statement = "MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        statement = u"MATCH (a)-[ab:KNOWS*«x»]->(b)"
         parameters = {"x": (3, 5)}
         s, p = presubstitute(statement, parameters)
         assert s == "MATCH (a)-[ab:KNOWS*3..5]->(b)"

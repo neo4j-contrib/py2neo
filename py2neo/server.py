@@ -71,7 +71,7 @@ def download(edition, version, path="."):
     as a base or ``http://dist.neo4j.org/`` if this is not set.
     """
     archive_name = dist_archive_name(edition, version)
-    uri = "%s/%s" % (NEO4J_DIST, archive_name)
+    uri = NEO4J_DIST + archive_name
     filename = os.path.join(os.path.abspath(path), archive_name)
     _download(uri, filename)
     return filename
@@ -189,7 +189,7 @@ class GraphServer(object):
         else:
             uri = None
             kwargs = {}
-            for line in out.decode("utf-8").splitlines(keepends=False):
+            for line in out.decode("utf-8").splitlines(False):
                 if line.startswith("Using additional JVM arguments:"):
                     kwargs["jvm_arguments"] = shlex.split(line[32:])
                 elif line.startswith("process"):
@@ -231,7 +231,7 @@ class GraphServer(object):
                               "server status [%s]" % error.returncode)
         else:
             p = None
-            for line in out.decode("utf-8").splitlines(keepends=False):
+            for line in out.decode("utf-8").splitlines(False):
                 if "running" in line:
                     p = int(line.rpartition(" ")[-1])
             return p
@@ -250,7 +250,7 @@ class GraphServer(object):
                               "server info [%s]" % error.returncode)
         else:
             data = {}
-            for line in out.decode("utf-8").splitlines(keepends=False):
+            for line in out.decode("utf-8").splitlines(False):
                 try:
                     colon = line.index(":")
                 except ValueError:

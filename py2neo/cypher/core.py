@@ -370,9 +370,9 @@ class RecordList(object):
         return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
 
     def __init__(self, columns, records):
-        log.info("result %r %r", columns, len(records))
         self.columns = columns
         self.records = records
+        log.info("result %r %r", columns, len(records))
 
     def __repr__(self):
         out = ""

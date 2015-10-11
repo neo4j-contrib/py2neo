@@ -21,7 +21,7 @@ from __future__ import unicode_literals
 from io import StringIO
 import json
 
-from py2neo.core import Node, Rel, Rev, Path, Relationship
+from py2neo.core import Node, Rel, Rev, Path, Relationship, NodePointer
 from py2neo.lang import Writer
 from py2neo.util import is_collection, ustr, xstr
 
@@ -70,6 +70,8 @@ class CypherWriter(Writer):
             pass
         elif isinstance(obj, Node):
             self.write_node(obj)
+        elif isinstance(obj, NodePointer):
+            self.write_node_pointer(obj)
         elif isinstance(obj, Rel):
             self.write_rel(obj)
         elif isinstance(obj, Relationship):
@@ -159,6 +161,13 @@ class CypherWriter(Writer):
                 self.write(properties)
         self.file.write(")")
 
+    def write_node_pointer(self, node_pointer):
+        """ Write a node.
+        """
+        self.file.write("(*")
+        self.file.write(ustr(node_pointer.address))
+        self.file.write(")")
+
     def write_rel(self, rel, name=None):
         """ Write a relationship (excluding nodes).
         """
@@ -181,9 +190,9 @@ class CypherWriter(Writer):
     def write_relationship(self, relationship, name=None):
         """ Write a relationship (including nodes).
         """
-        self.write_node(relationship.start_node)
+        self.write(relationship.start_node)
         self.write_rel(relationship.rel, name)
-        self.write_node(relationship.end_node)
+        self.write(relationship.end_node)
 
     def write_parameter(self, parameter):
         """ Write a parameter key in curly brackets.
