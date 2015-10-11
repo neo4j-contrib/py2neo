@@ -18,6 +18,9 @@
 Extended py2neo REST API for the Neo4j Spatial Extension
 ========================================================
 
+py2neo Spatial is an extension to the py2neo project and provides REST APIs
+for the Neo4j Spatial Extension.
+
 The Neo4j Spatial Extension should be considered in two ways: embedded server
 and REST API, and the former has a richer API than the latter. The REST API was
 more of a prototype than a complete product and designed primarily to support
