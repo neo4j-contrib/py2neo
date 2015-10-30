@@ -153,6 +153,28 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
+def node_like(obj):
+    from py2neo.batch import Job
+    return obj is None or isinstance(obj, (Node, NodePointer, Job))
+
+
+def coalesce(n, m):
+    # Attempt to unify two nodes together into a single node.
+    if not node_like(n) or not node_like(m):
+        raise TypeError("Can only join Node, NodePointer, Job or None")
+    if n is None:
+        return m
+    elif m is None or n is m:
+        return n
+    elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
+        if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
+            return n
+    elif n.bound and m.bound:
+        if n.resource == m.resource:
+            return n
+    raise JoinError("Cannot join nodes {} and {}".format(n, m))
+
+
 class Resource(_Resource):
     """ Base class for all local resources mapped to remote counterparts.
     """
@@ -1367,28 +1389,6 @@ class Node(PropertyContainer):
             inst.__labels.replace(labels)
         return inst
 
-    @classmethod
-    def __joinable(cls, obj):
-        from py2neo.batch import Job
-        return obj is None or isinstance(obj, (Node, NodePointer, Job))
-
-    @classmethod
-    def join(cls, n, m):
-        # Attempt to join two nodes together as single node.
-        if not cls.__joinable(n) or not cls.__joinable(m):
-            raise TypeError("Can only join Node, NodePointer, Job or None")
-        if n is None:
-            return m
-        elif m is None or n is m:
-            return n
-        elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
-            if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
-                return n
-        elif n.bound and m.bound:
-            if n.resource == m.resource:
-                return n
-        raise JoinError("Cannot join nodes {} and {}".format(n, m))
-
     def __init__(self, *labels, **properties):
         PropertyContainer.__init__(self, **properties)
         self.__labels = LabelSet(labels)
@@ -2002,11 +2002,11 @@ class Path(object):
             else:
                 # try joining forward
                 try:
-                    nodes[-1] = Node.join(nodes[-1], path.start_node)
+                    nodes[-1] = coalesce(nodes[-1], path.start_node)
                 except JoinError:
                     # try joining backward
                     try:
-                        nodes[-1] = Node.join(nodes[-1], path.end_node)
+                        nodes[-1] = coalesce(nodes[-1], path.end_node)
                     except JoinError:
                         raise JoinError("Path at position %s cannot be joined" % index)
                     else:
@@ -2026,7 +2026,7 @@ class Path(object):
             if len(nodes) == len(rels):
                 nodes.append(node)
             else:
-                nodes[-1] = Node.join(nodes[-1], node)
+                nodes[-1] = coalesce(nodes[-1], node)
 
         for i, entity in enumerate(entities):
             if isinstance(entity, Path):
