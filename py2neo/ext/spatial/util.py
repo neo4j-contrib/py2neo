@@ -19,11 +19,10 @@
 from shapely.geometry import MultiPolygon, Point
 
 
-def parse_lat_long(coords):
-    # WKT standard is: POINT (x y)
+def parse_lat_long_to_point(latitude, longitude):
+    # WKT standard is: POINT (x y), i.e. POINT(lon lat), *not* lat, long
     # WSG 84: http://spatialreference.org/ref/epsg/4326/
-    lat, lon = coords
-    point = Point(float(lat), float(lon))
+    point = Point(longitude, latitude)
     return point
 
 

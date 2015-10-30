@@ -20,7 +20,15 @@ class LayerNotFoundError(Exception):
     pass
 
 
+class LayerExistsError(Exception):
+    pass
+
+
 class NodeNotFoundError(Exception):
+    pass
+
+
+class GeometryNotFoundError(Exception):
     pass
 
 
@@ -29,4 +37,12 @@ class GeometryExistsError(Exception):
 
 
 class InvalidWKTError(Exception):
+    pass
+
+
+class AddNodeToLayerError(Exception):
+    pass
+
+
+class ValidationError(Exception):
     pass
