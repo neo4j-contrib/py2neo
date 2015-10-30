@@ -15,8 +15,6 @@
 # limitations under the License.
 
 
-LATEST_1_8_VERSION="1.8.3"
-LATEST_1_9_VERSION="1.9.9"
 LATEST_2_0_VERSION="2.0.4"
 LATEST_2_1_VERSION="2.1.8"
 LATEST_2_2_VERSION="2.2.1"
@@ -164,26 +162,6 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ::  ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
         echo "                                 :::"
-    elif [ "$VERSION" == "1.9" ]
-    then
-        VERSION=$LATEST_1_9_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::      ':::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::          ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
-    elif [ "$VERSION" == "1.8" ]
-    then
-        VERSION=$LATEST_1_8_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::       ::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::      ::  ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
     fi
     DIST="neo4j-$EDITION-$VERSION"
     ARCHIVE="$DIST-unix.tar.gz"
@@ -257,7 +235,7 @@ case $COMMAND in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="1.8 1.9 2.0 2.1 2.2 2.3"
+        NEO4J_VERSIONS="2.0 2.1 2.2 2.3"
         test $ARGS
         ;;
     test-latest)
