@@ -20,8 +20,9 @@ try:
 except ImportError:
     print("Please install extension requirements. See README.rst.")
 
-from py2neo import Node, ServerPlugin
+from py2neo import Node
 from py2neo.error import GraphError
+from py2neo.ext import ServerPlugin
 from py2neo.packages.jsonstream import assembled
 from py2neo.ext.spatial.exceptions import (
     GeometryExistsError, InvalidWKTError, LayerNotFoundError,

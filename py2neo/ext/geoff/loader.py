@@ -18,7 +18,8 @@
 
 import json
 
-from py2neo.core import Resource, UnmanagedExtension
+from py2neo.core import Resource
+from py2neo.ext import UnmanagedExtension
 from py2neo.util import version_tuple
 
 from py2neo.ext.geoff.xmlutil import xml_to_geoff
