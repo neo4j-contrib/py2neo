@@ -18,9 +18,8 @@
 
 from datetime import date, time, datetime
 from decimal import Decimal
-from sys import version_info
 
-from py2neo.util import ustr
+from py2neo.compat import integer, string, ustr
 
 
 # Maximum and minimum integers supported up to Java 7.
@@ -30,28 +29,18 @@ minint = -2 ** 63
 maxint = 2 ** 63 - 1
 
 
-if version_info.major == 2:
-    # Python 2
-    integer_types = (int, long)
-    string_types = (bytearray, bytes, str, unicode)
-else:
-    # Python 3
-    integer_types = (int,)
-    string_types = (bytearray, bytes, str)
-
-
 def cast_property(value):
     """ Cast the supplied property value to something supported by
     Neo4j, raising an error if this is not possible.
     """
     if isinstance(value, (bool, float)):
         pass
-    elif isinstance(value, integer_types):
+    elif isinstance(value, integer):
         if minint <= value <= maxint:
             pass
         else:
             raise ValueError("Integer value out of range: %s" % value)
-    elif isinstance(value, string_types):
+    elif isinstance(value, string):
         value = ustr(value)
     elif isinstance(value, (frozenset, list, set, tuple)):
         # check each item and all same type

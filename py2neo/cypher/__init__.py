@@ -32,4 +32,4 @@ __all__ = ["CypherResource", "CypherTransaction",
            "RecordListList", "RecordList", "RecordStream", "Record", "RecordProducer",
            "CypherParameter", "CypherWriter", "cypher_escape", "cypher_repr",
            "CreateStatement", "DeleteStatement",
-           "CypherTask", "CreateNode", "MergeNode"]
+           "CypherTask", "CreateNode", "MergeNode", "CreateRelationship"]

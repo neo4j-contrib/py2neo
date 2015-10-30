@@ -37,20 +37,7 @@ from weakref import WeakValueDictionary
 
 __all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
            "version_tuple", "is_collection", "has_all", "pendulate",
-           "is_integer", "is_string", "is_numeric", "ustr", "xstr",
            "PropertiesParser", "ThreadLocalWeakValueDictionary"]
-
-
-def numberise(n):
-    """ Convert a value to an integer if possible. If not, simply return
-        the input value.
-    """
-    if n == "NaN":
-        return None
-    try:
-        return int(n)
-    except ValueError:
-        return n
 
 
 def compact(obj):
@@ -154,70 +141,6 @@ def is_collection(obj):
 
 
 has_all = lambda iterable, items: all(item in iterable for item in items)
-
-
-if sys.version_info >= (3,):
-
-    is_integer = lambda x: isinstance(x, int)
-    is_numeric = lambda x: isinstance(x, (int, float, complex))
-    is_string = lambda x: isinstance(x, str)
-
-    def bstr(s, encoding="utf-8"):
-        if isinstance(s, bytes):
-            return s
-        elif isinstance(s, bytearray):
-            return bytes(s)
-        elif isinstance(s, str):
-            return bytes(s, encoding)
-        else:
-            return bytes(str(s), encoding)
-
-    def ustr(s, encoding="utf-8"):
-        """ Convert argument to unicode string.
-        """
-        if isinstance(s, str):
-            return s
-        try:
-            return s.decode(encoding)
-        except AttributeError:
-            return str(s)
-
-    def xstr(s, encoding="utf-8"):
-        """ Convert argument to string type returned by __str__.
-        """
-        return ustr(s, encoding)
-
-else:
-
-    is_integer = lambda x: isinstance(x, (int, long))
-    is_numeric = lambda x: isinstance(x, (int, float, long, complex))
-    is_string = lambda x: isinstance(x, (str, unicode))
-
-    def bstr(s, encoding="utf-8"):
-        if isinstance(s, bytes):
-            return s
-        elif isinstance(s, bytearray):
-            return bytes(s)
-        elif isinstance(s, unicode):
-            return s.encode(encoding)
-        else:
-            return str(s)
-
-    def ustr(s, encoding="utf-8"):
-        """ Convert argument to unicode string.
-        """
-        if isinstance(s, str):
-            return s.decode(encoding)
-        else:
-            return unicode(s)
-
-    def xstr(s, encoding="utf-8"):
-        """ Convert argument to string type returned by __str__.
-        """
-        if isinstance(s, str):
-            return s
-        else:
-            return unicode(s).encode(encoding)
 
 
 def pendulate(collection):

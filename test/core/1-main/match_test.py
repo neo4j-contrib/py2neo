@@ -20,7 +20,7 @@ from uuid import uuid4
 
 import pytest
 
-from py2neo import neo4j, Node
+from py2neo import Node, Relationship
 
 
 class TestMatch(object):
@@ -127,7 +127,7 @@ class TestMatch(object):
 
     def test_can_match_one_when_some_exist(self):
         rel = self.graph.match_one()
-        assert isinstance(rel, neo4j.Relationship)
+        assert isinstance(rel, Relationship)
 
     def test_can_match_one_when_none_exist(self):
         rel = self.graph.match_one(rel_type=uuid4())

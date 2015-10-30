@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import ServerPlugin
+from py2neo.ext import ServerPlugin
 
 
 __all__ = ["Gremlin"]

@@ -21,13 +21,7 @@ from __future__ import unicode_literals
 import pytest
 
 from py2neo.core import Node, Relationship, Path
-from py2neo.cypher import CypherResource, CypherError, CypherTransactionError
-from py2neo.cypher.util import StartOrMatch
-
-
-@pytest.fixture
-def vanilla_cypher(graph):
-    return CypherResource(graph.resource.metadata["cypher"])
+from py2neo.cypher import CypherError, CypherTransactionError
 
 
 def alice_and_bob(graph):
@@ -58,11 +52,6 @@ def test_can_run(graph):
     assert True
 
 
-def test_can_run_through_vanilla_endpoint(vanilla_cypher):
-    vanilla_cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
-    assert True
-
-
 def test_can_execute(graph):
     results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
     assert len(results) == 1
@@ -77,30 +66,11 @@ def test_can_execute_with_parameter(graph):
 
 def test_can_execute_with_entity_parameter(graph):
     alice, = graph.create({"name": "Alice"})
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a.name AS name"
+    statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
     results = graph.cypher.execute(statement, {"N": alice})
     assert len(results) == 1
     assert results[0].name == "Alice"
 
-
-def test_can_execute_through_vanilla_endpoint(vanilla_cypher):
-    results = vanilla_cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
-
-def test_can_execute_through_vanilla_endpoint_with_parameter(vanilla_cypher):
-    results = vanilla_cypher.execute("CREATE (a {name:{N}}) RETURN a.name AS name", {"N": "Alice"})
-    assert len(results) == 1
-    assert results[0].name == "Alice"
-
-
-def test_can_execute_through_vanilla_endpoint_with_entity_parameter(graph, vanilla_cypher):
-    alice, = graph.create({"name": "Alice"})
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a.name AS name"
-    results = vanilla_cypher.execute(statement, {"N": alice})
-    assert len(results) == 1
-    assert results[0].name == "Alice"
 
 
 def test_can_execute_one(graph):
@@ -109,21 +79,8 @@ def test_can_execute_one(graph):
 
 
 def test_can_execute_one_where_none_returned(graph):
-    statement = (StartOrMatch(graph).node("a", "*").string +
-                 "WHERE 2 + 2 = 5 RETURN a.name AS name")
+    statement = "MATCH (a) WHERE 2 + 2 = 5 RETURN a.name AS name"
     result = graph.cypher.execute_one(statement)
-    assert result is None
-
-
-def test_can_execute_one_through_vanilla_endpoint(vanilla_cypher):
-    result = vanilla_cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-    assert result == "Alice"
-
-
-def test_can_execute_one_through_vanilla_endpoint_where_none_returned(vanilla_cypher):
-    statement = (StartOrMatch(vanilla_cypher.graph).node("a", "*").string +
-                 "WHERE 2 + 2 = 5 RETURN a.name AS name")
-    result = vanilla_cypher.execute_one(statement)
     assert result is None
 
 
@@ -153,11 +110,10 @@ class TestCypher(object):
 
     def test_query(self):
         a, b, ab = alice_and_bob(self.graph)
-        statement = (
-            StartOrMatch(self.graph).node("a", a._id).node("b", b._id).string +
-            "MATCH a-[ab:KNOWS]->b RETURN a, b, ab, a.name AS a_name, b.name AS b_name"
-        )
-        results = self.graph.cypher.execute(statement)
+        statement = ("MATCH (a) WHERE id(a)={A} "
+                     "MATCH (b) WHERE id(b)={B} "
+                     "MATCH a-[ab:KNOWS]->b RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
+        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
             assert isinstance(record.a, Node)
@@ -168,11 +124,10 @@ class TestCypher(object):
 
     def test_query_can_return_path(self):
         a, b, ab = alice_and_bob(self.graph)
-        statement = (
-            StartOrMatch(self.graph).node("a", a._id).node("b", b._id).string +
-            "MATCH p=(a-[ab:KNOWS]->b) RETURN p"
-        )
-        results = self.graph.cypher.execute(statement)
+        statement = ("MATCH (a) WHERE id(a)={A} "
+                     "MATCH (b) WHERE id(b)={B} "
+                     "MATCH p=(a-[ab:KNOWS]->b) RETURN p")
+        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
             assert isinstance(record.p, Path)
@@ -183,16 +138,14 @@ class TestCypher(object):
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{N}").string +
-                     "RETURN collect(a) AS a_collection")
+        statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node._id}
         results = self.graph.cypher.execute(statement, params)
         assert results[0].a_collection == [node]
 
     def test_param_used_once(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{X}").string +
-                     "RETURN a")
+        statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node._id}
         results = self.graph.cypher.execute(statement, params)
         record = results[0]
@@ -200,8 +153,7 @@ class TestCypher(object):
 
     def test_param_used_twice(self):
         node, = self.graph.create({})
-        statement = (StartOrMatch(self.graph).node("a", "{X}").node("b", "{X}").string +
-                     "RETURN a, b")
+        statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node._id}
         results = self.graph.cypher.execute(statement, params)
         record = results[0]
@@ -210,10 +162,12 @@ class TestCypher(object):
 
     def test_param_used_thrice(self):
         node, = self.graph.create({})
-        query = (StartOrMatch(self.graph).node("a", "{X}").node("b", "{X}").
-                 node("c", "{X}").string + "RETURN a, b, c")
+        statement = "MATCH (a) WHERE id(a)={X} " \
+                    "MATCH (b) WHERE id(b)={X} " \
+                    "MATCH (c) WHERE id(c)={X} " \
+                    "RETURN a, b, c"
         params = {"X": node._id}
-        results = self.graph.cypher.execute(query, params)
+        results = self.graph.cypher.execute(statement, params)
         record = results[0]
         assert record.a == node
         assert record.b == node
@@ -221,7 +175,7 @@ class TestCypher(object):
 
     def test_param_reused_once_after_with_statement(self):
         a, b, ab = alice_and_bob(self.graph)
-        query = (StartOrMatch(self.graph).node("a", "{A}").string +
+        query = ("MATCH (a) WHERE id(a)={A} "
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE a.age > {min_age} "
                  "WITH a "
@@ -239,7 +193,7 @@ class TestCypher(object):
             {"name": "Carol", "age": 88},
             (b, "KNOWS", 0),
         )
-        query = (StartOrMatch(self.graph).node("a", "{A}").string +
+        query = ("MATCH (a) WHERE id(a)={A} "
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE a.age > {min_age} "
                  "WITH a "

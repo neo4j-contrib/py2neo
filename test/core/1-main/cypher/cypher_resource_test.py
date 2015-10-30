@@ -20,21 +20,12 @@ from __future__ import unicode_literals
 
 from py2neo.core import Node
 from py2neo.cypher.core import CypherResource, CypherTransaction
-from py2neo.cypher.util import StartOrMatch
 
 
-def test_can_create_cypher_resource_without_transaction_uri():
-    uri = "http://localhost:7474/db/data/cypher"
+def test_can_create_cypher_resource():
+    uri = "http://localhost:7474/db/data/transaction"
     cypher = CypherResource(uri)
     assert cypher.uri == uri
-
-
-def test_can_create_cypher_resource_with_transaction_uri():
-    uri = "http://localhost:7474/db/data/cypher"
-    transaction_uri = "http://localhost:7474/db/data/transaction"
-    cypher = CypherResource(uri, transaction_uri)
-    assert cypher.uri == uri
-    assert cypher.transaction_uri == transaction_uri
 
 
 def test_cypher_resources_with_identical_arguments_are_same_objects():
@@ -45,71 +36,49 @@ def test_cypher_resources_with_identical_arguments_are_same_objects():
 
 
 def test_can_run_cypher_statement(graph):
-    if graph.supports_node_labels:
-        graph.cypher.run("MERGE (a:Person {name:'Alice'})")
-    else:
-        graph.cypher.run("CREATE (a {name:'Alice'})")
+    graph.cypher.run("MERGE (a:Person {name:'Alice'})")
 
 
 def test_can_run_parametrised_cypher_statement(graph):
-    if graph.supports_node_labels:
-        graph.cypher.run("MERGE (a:Person {name:{N}})", {"N": "Alice"})
-    else:
-        graph.cypher.run("CREATE (a {name:{N}})", {"N": "Alice"})
+    graph.cypher.run("MERGE (a:Person {name:{N}})", {"N": "Alice"})
 
 
 def test_can_execute_cypher_statement(graph):
-    if graph.supports_node_labels:
-        results = graph.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
-    else:
-        results = graph.cypher.execute("CREATE (a {name:'Alice'}) RETURN a")
+    results = graph.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
     result = results[0].a
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
 def test_can_execute_parametrised_cypher_statement(graph):
-    if graph.supports_node_labels:
-        results = graph.cypher.execute("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-    else:
-        results = graph.cypher.execute("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
+    results = graph.cypher.execute("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
     result = results[0].a
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
 def test_can_execute_cypher_statement_with_node_parameter(graph):
     alice = Node(name="Alice")
     graph.create(alice)
-    statement = StartOrMatch(graph).node("a", "{N}").string + "RETURN a"
+    statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
     results = graph.cypher.execute(statement, {"N": alice})
     result = results[0].a
     assert result is alice
 
 
 def test_can_execute_one_cypher_statement(graph):
-    if graph.supports_node_labels:
-        result = graph.cypher.execute_one("MERGE (a:Person {name:'Alice'}) RETURN a")
-    else:
-        result = graph.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a")
+    result = graph.cypher.execute_one("MERGE (a:Person {name:'Alice'}) RETURN a")
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
 def test_can_execute_one_parametrised_cypher_statement(graph):
-    if graph.supports_node_labels:
-        result = graph.cypher.execute_one("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-    else:
-        result = graph.cypher.execute_one("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
+    result = graph.cypher.execute_one("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
@@ -121,7 +90,7 @@ def test_execute_one_with_no_results_returns_none(graph):
 def test_can_stream_cypher_statement(graph):
     alice, = graph.create(Node(name="Alice"))
     graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
-    statement = StartOrMatch(graph).node("a", "{N}").string + "MATCH (a)-[:KNOWS]->(x) RETURN x"
+    statement = "MATCH (a) WHERE id(a) = {N} MATCH (a)-[:KNOWS]->(x) RETURN x"
     results = graph.cypher.stream(statement, {"N": alice._id})
     for row in results:
         matched = row.x
@@ -129,43 +98,23 @@ def test_can_stream_cypher_statement(graph):
 
 
 def test_can_stream_parametrised_cypher_statement(graph):
-    if graph.supports_node_labels:
-        results = graph.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-    else:
-        results = graph.cypher.stream("CREATE (a {name:{N}}) RETURN a", {"N": "Alice"})
+    results = graph.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
     result = next(results).a
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
 def test_can_stream_cypher_statement_using_next_method(graph):
-    if graph.supports_node_labels:
-        results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
-    else:
-        results = graph.cypher.stream("CREATE (a {name:'Alice'}) RETURN a")
+    results = graph.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
     result = results.next().a
     assert isinstance(result, Node)
-    if graph.supports_node_labels:
-        assert result.labels == {"Person"}
+    assert result.labels == {"Person"}
     assert result.properties == {"name": "Alice"}
 
 
 def test_can_begin_transaction():
-    uri = "http://localhost:7474/db/data/cypher"
-    transaction_uri = "http://localhost:7474/db/data/transaction"
-    cypher = CypherResource(uri, transaction_uri)
+    uri = "http://localhost:7474/db/data/transaction"
+    cypher = CypherResource(uri)
     tx = cypher.begin()
     assert isinstance(tx, CypherTransaction)
-
-
-def test_cannot_begin_transaction_if_not_available():
-    uri = "http://localhost:7474/db/data/cypher"
-    cypher = CypherResource(uri)
-    try:
-        _ = cypher.begin()
-    except NotImplementedError:
-        assert True
-    else:
-        assert False

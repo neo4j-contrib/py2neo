@@ -20,7 +20,6 @@ from __future__ import unicode_literals
 
 from py2neo.batch import WriteBatch
 from py2neo.core import Node
-from py2neo.cypher.util import StartOrMatch
 
 
 __all__ = ["Store", "NotSaved"]
@@ -39,18 +38,11 @@ class Store(object):
 
     def __init__(self, graph):
         self.graph = graph
-        if self.graph.supports_optional_match:
-            self.__delete_query = (
-                StartOrMatch(self.graph).node("a", "{A}").string +
-                "OPTIONAL MATCH a-[r]-b "
-                "DELETE r, a"
-            )
-        else:
-            self.__delete_query = (
-                StartOrMatch(self.graph).node("a", "{A}").string +
-                "MATCH a-[r?]-b "
-                "DELETE r, a"
-            )
+        self.__delete_query = (
+            "MATCH (a) WHERE id(a)={A} "
+            "OPTIONAL MATCH a-[r]-b "
+            "DELETE r, a"
+        )
 
     def _assert_saved(self, subj):
         try:
@@ -224,9 +216,8 @@ class Store(object):
                 props[key] = value
         if hasattr(subj, "__node__"):
             subj.__node__.set_properties(props)
-            self.graph.cypher.run(StartOrMatch(self.graph).node("a", "{a}").string +
-                                  "MATCH (a)-[r]->(b) DELETE r",
-                                  {"a": subj.__node__})
+            self.graph.cypher.execute("MATCH (a) WHERE id(a)={a} MATCH (a)-[r]->(b) DELETE r",
+                                      {"a": subj.__node__})
         else:
             subj.__node__, = self.graph.create(props)
         # write rels

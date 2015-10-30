@@ -20,11 +20,12 @@ from collections import OrderedDict
 import logging
 
 from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
+from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_integer, is_string, xstr, ustr, is_collection
+from py2neo.util import is_collection
 
 
 __all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -44,9 +45,9 @@ def presubstitute(statement, parameters):
                 value = parameters.pop(key)
             except KeyError:
                 raise KeyError("Expected a presubstitution parameter named %r" % key)
-            if is_integer(value):
+            if isinstance(value, integer):
                 value = ustr(value)
-            elif isinstance(value, tuple) and all(map(is_integer, value)):
+            elif isinstance(value, tuple) and all(map(lambda x: isinstance(x, integer), value)):
                 value = u"%d..%d" % (value[0], value[-1])
             elif is_collection(value):
                 value = ":".join(map(cypher_escape, value))
@@ -60,10 +61,7 @@ def presubstitute(statement, parameters):
 
 class CypherResource(Service):
     """ Service wrapper for all Cypher functionality, providing access
-    to transactions (if available) as well as single statement execution
-    and streaming. If the server supports Cypher transactions, these
-    will be used for single statement execution; if not, the vanilla
-    Cypher endpoint will be used.
+    to transactions as well as single statement execution and streaming.
 
     This class will usually be instantiated via a :class:`py2neo.Graph`
     object and will be made available through the
@@ -80,15 +78,13 @@ class CypherResource(Service):
 
     __instances = {}
 
-    def __new__(cls, uri, transaction_uri=None):
-        key = (uri, transaction_uri)
+    def __new__(cls, transaction_uri):
         try:
-            inst = cls.__instances[key]
+            inst = cls.__instances[transaction_uri]
         except KeyError:
             inst = super(CypherResource, cls).__new__(cls)
-            inst.bind(uri)
-            inst.transaction_uri = transaction_uri
-            cls.__instances[key] = inst
+            inst.bind(transaction_uri)
+            cls.__instances[transaction_uri] = inst
         return inst
 
     def post(self, statement, parameters=None, **kwparameters):
@@ -98,17 +94,11 @@ class CypherResource(Service):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
-        :rtype: :class:`httpstream.Response`
         """
-        payload = {"query": statement, "params": {}}
-        parameters = dict(parameters or {}, **kwparameters)
-        if parameters:
-            for key, value in parameters.items():
-                if isinstance(value, (Node, Rel, Relationship)):
-                    value = value._id
-                payload["params"][key] = value
-        log.info("execute %r %r", payload["query"], payload["params"])
-        return self.resource.post(payload)
+        tx = CypherTransaction(self.uri)
+        tx.append(statement, parameters, **kwparameters)
+        results = tx.post(commit=True)
+        return results[0]
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement, ignoring any return value.
@@ -116,12 +106,9 @@ class CypherResource(Service):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        if self.transaction_uri:
-            tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters, **kwparameters)
-            tx.commit()
-        else:
-            self.post(statement, parameters, **kwparameters).close()
+        tx = CypherTransaction(self.uri)
+        tx.append(statement, parameters, **kwparameters)
+        tx.commit()
 
     def execute(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement.
@@ -130,17 +117,10 @@ class CypherResource(Service):
         :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.RecordList`
         """
-        if self.transaction_uri:
-            tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters, **kwparameters)
-            results = tx.commit()
-            return results[0]
-        else:
-            response = self.post(statement, parameters, **kwparameters)
-            try:
-                return self.graph.hydrate(response.content)
-            finally:
-                response.close()
+        tx = CypherTransaction(self.uri)
+        tx.append(statement, parameters, **kwparameters)
+        results = tx.commit()
+        return results[0]
 
     def execute_one(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -150,23 +130,13 @@ class CypherResource(Service):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        if self.transaction_uri:
-            tx = CypherTransaction(self.transaction_uri)
-            tx.append(statement, parameters, **kwparameters)
-            results = tx.commit()
-            try:
-                return results[0][0][0]
-            except IndexError:
-                return None
-        else:
-            response = self.post(statement, parameters, **kwparameters)
-            results = self.graph.hydrate(response.content)
-            try:
-                return results[0][0]
-            except IndexError:
-                return None
-            finally:
-                response.close()
+        tx = CypherTransaction(self.uri)
+        tx.append(statement, parameters, **kwparameters)
+        results = tx.commit()
+        try:
+            return results[0][0][0]
+        except IndexError:
+            return None
 
     def stream(self, statement, parameters=None, **kwparameters):
         """ Execute the query and return a result iterator.
@@ -182,11 +152,7 @@ class CypherResource(Service):
 
         :rtype: :class:`py2neo.cypher.CypherTransaction`
         """
-        if self.transaction_uri:
-            return CypherTransaction(self.transaction_uri)
-        else:
-            raise NotImplementedError("Transaction support not available from this "
-                                      "Neo4j server version")
+        return CypherTransaction(self.uri)
 
 
 class CypherTransaction(object):
@@ -210,7 +176,10 @@ class CypherTransaction(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.commit()
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
 
     def __assert_unfinished(self):
         if self.__finished:
@@ -270,8 +239,15 @@ class CypherTransaction(object):
             ("resultDataContents", ["REST"]),
         ]))
 
-    def post(self, resource):
+    def post(self, commit=False):
         self.__assert_unfinished()
+        if commit:
+            log.info("commit")
+            resource = self.__commit or self.__begin_commit
+            self.__finished = True
+        else:
+            log.info("process")
+            resource = self.__execute or self.__begin
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:
@@ -286,13 +262,10 @@ class CypherTransaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise self.error_class.hydrate(error)
-        out = RecordListList()
-        for result in j["results"]:
-            columns = result["columns"]
-            producer = RecordProducer(columns)
-            out.append(RecordList(columns, [producer.produce(self.graph.hydrate(r["rest"]))
-                                            for r in result["data"]]))
-        return out
+        results = [{"columns": result["columns"], "data": [data["rest"] for data in result["data"]]}
+                   for result in j["results"]]
+        log.info("results %r", results)
+        return results
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
@@ -319,8 +292,7 @@ class CypherTransaction(object):
 
         :return: list of results from pending statements
         """
-        log.info("process")
-        return self.post(self.__execute or self.__begin)
+        return RecordListList.from_results(self.post(), self.graph)
 
     def commit(self):
         """ Send all pending statements to the server for execution and commit
@@ -328,11 +300,7 @@ class CypherTransaction(object):
 
         :return: list of results from pending statements
         """
-        log.info("commit")
-        try:
-            return self.post(self.__commit or self.__begin_commit)
-        finally:
-            self.__finished = True
+        return RecordListList.from_results(self.post(commit=True), self.graph)
 
     def rollback(self):
         """ Rollback the current transaction.
@@ -350,6 +318,10 @@ class RecordListList(list):
     """ Container for multiple RecordList instances that presents a more
     consistent representation.
     """
+
+    @classmethod
+    def from_results(cls, results, graph):
+        return cls(RecordList.hydrate(result, graph) for result in results)
 
     def __repr__(self):
         out = []
@@ -438,43 +410,25 @@ class RecordStream(object):
         entire response to be received before processing can occur.
     """
 
-    def __init__(self, graph, response):
+    def __init__(self, graph, result):
         self.graph = graph
-        self.__response = response
-        self.__response_item = self.__response_iterator()
-        self.columns = next(self.__response_item)
+        self.__result = result
+        self.__result_item = self.__result_iterator()
+        self.columns = next(self.__result_item)
         log.info("stream %r", self.columns)
 
-    def __response_iterator(self):
-        producer = None
-        columns = []
-        record_data = None
-        for key, value in self.__response:
-            key_len = len(key)
-            if key_len > 0:
-                section = key[0]
-                if section == "columns":
-                    if key_len > 1:
-                        columns.append(value)
-                elif section == "data":
-                    if key_len == 1:
-                        producer = RecordProducer(columns)
-                        yield tuple(columns)
-                    elif key_len == 2:
-                        if record_data is not None:
-                            yield producer.produce(self.graph.hydrate(assembled(record_data)))
-                        record_data = []
-                    else:
-                        record_data.append((key[2:], value))
-        if record_data is not None:
-            yield producer.produce(self.graph.hydrate(assembled(record_data)))
-        self.close()
+    def __result_iterator(self):
+        columns = self.__result["columns"]
+        producer = RecordProducer(columns)
+        yield tuple(columns)
+        for values in self.__result["data"]:
+            yield producer.produce(self.graph.hydrate(values))
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        return next(self.__response_item)
+        return next(self.__result_item)
 
     def next(self):
         return self.__next__()
@@ -482,7 +436,7 @@ class RecordStream(object):
     def close(self):
         """ Close results and free resources.
         """
-        self.__response.close()
+        pass
 
 
 class Record(object):
@@ -538,9 +492,9 @@ class Record(object):
         return iter(self.__values__)
 
     def __getitem__(self, item):
-        if is_integer(item):
+        if isinstance(item, integer):
             return self.__values__[item]
-        elif is_string(item):
+        elif isinstance(item, string):
             return getattr(self, item)
         else:
             raise LookupError(item)

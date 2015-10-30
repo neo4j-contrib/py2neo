@@ -21,8 +21,8 @@ from __future__ import print_function
 import os
 import sys
 
+from py2neo.compat import ustr
 from py2neo.ext.neobox.core import Warehouse
-from py2neo.util import ustr
 
 
 HELP = """\

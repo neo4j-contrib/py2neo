@@ -20,25 +20,22 @@ from py2neo import GraphError
 from py2neo.cypher import CypherTransactionError, CypherError
 from py2neo.cypher.error import ClientError
 from py2neo.cypher.error.statement import ConstraintViolation
-from py2neo.cypher.util import StartOrMatch
 
 from .util import assert_new_error
 
 
 def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(graph):
-    if not graph.supports_cypher_transactions:
-        return
     tx = graph.cypher.begin()
     tx.append("CREATE (a), (b) RETURN a, b")
     results = tx.process()
     result = results[0]
     record = result[0]
     parameters = {"A": record.a._id, "B": record.b._id}
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE (a)-[:KNOWS]->(b)")
     tx.append(statement, parameters)
     tx.append(statement, parameters)
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE UNIQUE (a)-[:KNOWS]->(b)")
     tx.append(statement, parameters)
     try:

@@ -25,6 +25,7 @@ from warnings import warn
 import webbrowser
 
 from py2neo import __version__
+from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
@@ -33,14 +34,14 @@ from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
-from py2neo.util import is_collection, is_integer, is_string, round_robin, ustr, version_tuple, \
-    raise_from, xstr, ThreadLocalWeakValueDictionary
+from py2neo.util import is_collection, round_robin, version_tuple, \
+    raise_from, ThreadLocalWeakValueDictionary
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite",
-           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate"]
+           "Service", "Resource", "ResourceTemplate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -150,6 +151,28 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
             pass
     else:
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
+
+
+def node_like(obj):
+    from py2neo.batch import Job
+    return obj is None or isinstance(obj, (Node, NodePointer, Job))
+
+
+def coalesce(n, m):
+    # Attempt to unify two nodes together into a single node.
+    if not node_like(n) or not node_like(m):
+        raise TypeError("Can only join Node, NodePointer, Job or None")
+    if n is None:
+        return m
+    elif m is None or n is m:
+        return n
+    elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
+        if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
+            return n
+    elif n.bound and m.bound:
+        if n.resource == m.resource:
+            return n
+    raise JoinError("Cannot join nodes {} and {}".format(n, m))
 
 
 class Resource(_Resource):
@@ -659,7 +682,7 @@ class Graph(Service):
         if self.__cypher is None:
             from py2neo.cypher import CypherResource
             metadata = self.resource.metadata
-            self.__cypher = CypherResource(metadata["cypher"], metadata.get("transaction"))
+            self.__cypher = CypherResource(metadata.get("transaction"))
         return self.__cypher
 
     def create(self, *entities):
@@ -736,14 +759,7 @@ class Graph(Service):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        from py2neo.batch import WriteBatch, CypherJob
-        from py2neo.cypher.util import StartOrMatch
-        batch = WriteBatch(self)
-        statement = StartOrMatch(self).relationship("r", "*").string + "DELETE r"
-        batch.append(CypherJob(statement))
-        statement = StartOrMatch(self).node("n", "*").string + "DELETE n"
-        batch.append(CypherJob(statement))
-        batch.run()
+        self.cypher.execute("MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE r,n")
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -762,11 +778,10 @@ class Graph(Service):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response.content["data"]:
+        for record in response["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
-        response.close()
 
     def find_one(self, label, property_key=None, property_value=None):
         """ Find a single node by label and optional property. This method is
@@ -825,17 +840,6 @@ class Graph(Service):
         else:
             return data
 
-    @property
-    def legacy(self):
-        """ Sub-resource providing access to legacy functionality.
-
-        :rtype: :class:`py2neo.legacy.LegacyResource`
-        """
-        if self.__legacy is None:
-            from py2neo.legacy import LegacyResource
-            self.__legacy = LegacyResource(self.uri.string)
-        return self.__legacy
-
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Return an iterator for all relationships matching the
         specified criteria.
@@ -855,24 +859,23 @@ class Graph(Service):
         :return: matching relationships
         :rtype: generator
         """
-        from py2neo.cypher.util import StartOrMatch
         if start_node is None and end_node is None:
-            statement = StartOrMatch(self).node("a", "*").string
+            statement = "MATCH (a)"
             parameters = {}
         elif end_node is None:
-            statement = StartOrMatch(self).node("a", "{A}").string
+            statement = "MATCH (a) WHERE id(a)={A}"
             start_node = Node.cast(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
-            statement = StartOrMatch(self).node("b", "{B}").string
+            statement = "MATCH (b) WHERE id(b)={B}"
             end_node = Node.cast(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
-            statement = StartOrMatch(self).node("a", "{A}").node("b", "{B}").string
+            statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
             start_node = Node.cast(start_node)
             end_node = Node.cast(end_node)
             if not start_node.bound or not end_node.bound:
@@ -881,8 +884,7 @@ class Graph(Service):
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
-            separator = "|:" if self.neo4j_version >= (2, 0, 0) else "|"
-            rel_clause = ":" + separator.join("`{0}`".format(_)
+            rel_clause = ":" + "|:".join("`{0}`".format(_)
                                               for _ in rel_type)
         else:
             rel_clause = ":`{0}`".format(rel_type)
@@ -892,12 +894,9 @@ class Graph(Service):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        results = self.cypher.stream(statement, parameters)
-        try:
-            for result in results:
-                yield result.r
-        finally:
-            results.close()
+        results = self.cypher.execute(statement, parameters)
+        for result in results:
+            yield result.r
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
@@ -921,7 +920,7 @@ class Graph(Service):
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
-        elif not is_string(property_key):
+        elif not isinstance(property_key, string):
             raise TypeError("Property key must be textual")
         elif property_value is None:
             raise ValueError("Both key and value must be specified for a property")
@@ -932,11 +931,10 @@ class Graph(Service):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response.content["data"]:
+        for record in response["data"]:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
-        response.close()
 
     def merge_one(self, label, property_key=None, property_value=None):
         """ Match or create a node by label and optional property and return a
@@ -975,8 +973,6 @@ class Graph(Service):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        if not self.supports_node_labels:
-            raise NotImplementedError("Node labels not available for this Neo4j server version")
         if self.__node_labels is None:
             self.__node_labels = Resource(self.uri.string + "labels")
         return frozenset(self.__node_labels.get().content)
@@ -991,8 +987,7 @@ class Graph(Service):
     def order(self):
         """ The number of nodes in this graph.
         """
-        from py2neo.cypher.util import StartOrMatch
-        statement = StartOrMatch(self).node("n", "*").string + "RETURN count(n)"
+        statement = "MATCH (n) RETURN count(n)"
         return self.cypher.execute_one(statement)
 
     def pull(self, *entities):
@@ -1057,46 +1052,8 @@ class Graph(Service):
     def size(self):
         """ The number of relationships in this graph.
         """
-        from py2neo.cypher.util import StartOrMatch
-        statement = StartOrMatch(self).relationship("r", "*").string + "RETURN count(r)"
+        statement = "MATCH ()-[r]->() RETURN count(r)"
         return self.cypher.execute_one(statement)
-
-    @property
-    def supports_cypher_transactions(self):
-        """ Indicates whether the server supports explicit Cypher transactions.
-        """
-        return "transaction" in self.resource.metadata
-
-    @property
-    def supports_foreach_pipe(self):
-        """ Indicates whether the server supports pipe syntax for FOREACH.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_node_labels(self):
-        """ Indicates whether the server supports node labels.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_optional_match(self):
-        """ Indicates whether the server supports Cypher OPTIONAL MATCH
-        clauses.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_schema_indexes(self):
-        """ Indicates whether the server supports schema indexes.
-        """
-        return self.neo4j_version >= (2, 0)
-
-    @property
-    def supports_start_clause(self):
-        """ Indicates whether the server supports the Cypher START clause.
-        """
-        return self.neo4j_version < (2, 2)
 
 
 class PropertySet(Service, dict):
@@ -1376,7 +1333,7 @@ class Node(PropertyContainer):
                 return None
             elif isinstance(arg, (Node, NodePointer, Job)):
                 return arg
-            elif is_integer(arg):
+            elif isinstance(arg, integer):
                 return NodePointer(arg)
 
         inst = Node()
@@ -1387,7 +1344,7 @@ class Node(PropertyContainer):
             elif is_collection(x):
                 for item in x:
                     apply(item)
-            elif is_string(x):
+            elif isinstance(x, string):
                 inst.labels.add(ustr(x))
             else:
                 raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
@@ -1431,28 +1388,6 @@ class Node(PropertyContainer):
             labels.update(inst.labels)
             inst.__labels.replace(labels)
         return inst
-
-    @classmethod
-    def __joinable(cls, obj):
-        from py2neo.batch import Job
-        return obj is None or isinstance(obj, (Node, NodePointer, Job))
-
-    @classmethod
-    def join(cls, n, m):
-        # Attempt to join two nodes together as single node.
-        if not cls.__joinable(n) or not cls.__joinable(m):
-            raise TypeError("Can only join Node, NodePointer, Job or None")
-        if n is None:
-            return m
-        elif m is None or n is m:
-            return n
-        elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
-            if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
-                return n
-        elif n.bound and m.bound:
-            if n.resource == m.resource:
-                return n
-        raise JoinError("Cannot join nodes {} and {}".format(n, m))
 
     def __init__(self, *labels, **properties):
         PropertyContainer.__init__(self, **properties)
@@ -1533,20 +1468,14 @@ class Node(PropertyContainer):
 
         """
         PropertyContainer.bind(self, uri, metadata)
-        if self.graph.supports_node_labels:
-            self.__labels.bind(uri + "/labels")
-        else:
-            from py2neo.legacy.core import LegacyNode
-            self.__class__ = LegacyNode
+        self.__labels.bind(uri + "/labels")
         self.cache[uri] = self
 
     @property
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        from py2neo.cypher.util import StartOrMatch
-        statement = (StartOrMatch(self.graph).node("n", "{n}").string +
-                     "MATCH (n)-[r]-() RETURN count(r)")
+        statement = "MATCH (n)-[r]-() WHERE id(n)={n} RETURN count(r)"
         return self.graph.cypher.execute_one(statement, {"n": self})
 
     @property
@@ -1629,9 +1558,8 @@ class Node(PropertyContainer):
         # Non-destructive pull.
         # Note: this may fail if attempted against an entity mid-transaction
         # that has not yet been committed.
-        from py2neo.cypher.util import StartOrMatch
-        query = StartOrMatch(self.graph).node("a", "{a}").string + "RETURN a,labels(a)"
-        content = self.graph.cypher.post(query, {"a": self._id}).content
+        query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
+        content = self.graph.cypher.post(query, {"a": self._id})
         try:
             dehydrated, label_metadata = content["data"][0]
         except IndexError:
@@ -1829,10 +1757,13 @@ class Rel(PropertyContainer):
             return self.type == other.type and self.properties == other.properties
 
     def __hash__(self):
-        value = super(Rel, self).__hash__() ^ hash(self.type)
         if self.bound:
-            value ^= hash(self.resource.uri)
-        return value
+            return hash(self.resource.uri)
+        else:
+            value = super(Rel, self).__hash__() ^ hash(self.type)
+            if self.bound:
+                value ^= hash(self.resource.uri)
+            return value
 
     def __pos__(self):
         return self
@@ -2071,11 +2002,11 @@ class Path(object):
             else:
                 # try joining forward
                 try:
-                    nodes[-1] = Node.join(nodes[-1], path.start_node)
+                    nodes[-1] = coalesce(nodes[-1], path.start_node)
                 except JoinError:
                     # try joining backward
                     try:
-                        nodes[-1] = Node.join(nodes[-1], path.end_node)
+                        nodes[-1] = coalesce(nodes[-1], path.end_node)
                     except JoinError:
                         raise JoinError("Path at position %s cannot be joined" % index)
                     else:
@@ -2095,7 +2026,7 @@ class Path(object):
             if len(nodes) == len(rels):
                 nodes.append(node)
             else:
-                nodes[-1] = Node.join(nodes[-1], node)
+                nodes[-1] = coalesce(nodes[-1], node)
 
         for i, entity in enumerate(entities):
             if isinstance(entity, Path):
@@ -2796,34 +2727,3 @@ class Subgraph(object):
                 entity.unbind()
             except BindError:
                 pass
-
-
-class ServerPlugin(object):
-    """ Base class for server plugins.
-    """
-
-    def __init__(self, graph, name):
-        self.graph = graph
-        self.name = name
-        extensions = self.graph.resource.metadata["extensions"]
-        try:
-            self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
-        except KeyError:
-            raise LookupError("No plugin named %r found on graph <%s>" % (self.name, graph.uri))
-
-
-class UnmanagedExtension(object):
-    """ Base class for unmanaged extensions.
-    """
-
-    def __init__(self, graph, path):
-        self.graph = graph
-        self.resource = Resource(graph.service_root.uri.resolve(path))
-        try:
-            self.resource.get()
-        except GraphError:
-            raise NotImplementedError("No extension found at path %r on "
-                                      "graph <%s>" % (path, graph.uri))
-
-
-from py2neo.deprecated import *

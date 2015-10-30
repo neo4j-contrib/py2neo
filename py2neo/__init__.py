@@ -21,12 +21,13 @@ __copyright__ = "2011-2014, Nigel Small"
 __email__ = "nigel@py2neo.org"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "2.0.8"
+__version__ = "2.1.0"
 
 
 from py2neo.core import *
+from py2neo.env import *
 from py2neo.error import *
-from py2neo.legacy import LegacyNode
+from py2neo.ext import *
 from py2neo.packages.httpstream.watch import watch
 
 
@@ -34,8 +35,9 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
-           "ServerPlugin", "UnmanagedExtension", "Service", "Resource", "ResourceTemplate",
-           "LegacyNode", "node", "rel",
+           "ServerPlugin", "UnmanagedExtension",
+           "Service", "Resource", "ResourceTemplate",
+           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI",
 ]
 
 

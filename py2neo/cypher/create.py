@@ -16,10 +16,9 @@
 # limitations under the License.
 
 
+from py2neo.compat import ustr, xstr
 from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
 from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.util import StartOrMatch
-from py2neo.util import ustr, xstr
 
 
 __all__ = ["CreateStatement"]
@@ -41,10 +40,9 @@ class CreateStatement(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self.supports_node_labels = self.graph.supports_node_labels
         self.entities = []
         self.names = []
-        self.start_or_match_clause = StartOrMatch(self.graph)
+        self.initial_match_clause = []
         self.create_clause = []
         self.create_unique_clause = []
         self.return_clause = []
@@ -66,7 +64,7 @@ class CreateStatement(object):
     def string(self):
         """ The full Cypher statement as a string.
         """
-        clauses = [self.start_or_match_clause.string]
+        clauses = list(self.initial_match_clause)
         if self.create_clause:
             clauses.append("CREATE " + ",".join(self.create_clause))
         if self.create_unique_clause:
@@ -74,9 +72,6 @@ class CreateStatement(object):
         if self.return_clause:
             clauses.append("RETURN " + ",".join(self.return_clause))
         return "\n".join(clauses).strip()
-
-    def post(self):
-        return self.graph.cypher.post(self.string, self.parameters)
 
     def execute(self):
         """ Execute this statement.
@@ -86,7 +81,7 @@ class CreateStatement(object):
         """
         if not self.entities:
             return ()
-        raw = self.post().content
+        raw = self.graph.cypher.post(self.string, self.parameters)
         columns = raw["columns"]
         data = raw["data"]
         dehydrated = dict(zip(columns, data[0]))
@@ -147,7 +142,7 @@ class CreateStatement(object):
         template = "{name}"
         kwargs = {"name": name}
         if full:
-            if node.labels and self.supports_node_labels:
+            if node.labels:
                 template += "{labels}"
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
             if node.properties:
@@ -157,7 +152,8 @@ class CreateStatement(object):
 
     def _create_node(self, node, name):
         if node.bound:
-            self.start_or_match_clause.node(name, "{" + name + "}")
+            self.initial_match_clause.append("MATCH ({0}) "
+                                             "WHERE id({0})={{{0}}}".format(name))
             self.parameters[name] = node._id
         else:
             self.create_clause.append(self._node_pattern(node, name, full=True))
@@ -199,7 +195,8 @@ class CreateStatement(object):
             rel_name = name + "r" + ustr(i)
             rel_names.append(rel_name)
             if rel.bound:
-                self.start_or_match_clause.relationship(rel_name, "{" + rel_name + "}")
+                self.initial_match_clause.append("MATCH ()-[{0}]->() "
+                                                 "WHERE id({0})={{{0}}}".format(rel_name))
                 self.parameters[rel_name] = rel._id
             else:
                 if rel.properties:

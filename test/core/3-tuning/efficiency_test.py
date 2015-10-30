@@ -19,7 +19,6 @@
 import logging
 
 from py2neo import Graph, Node
-from py2neo.cypher.util import StartOrMatch
 
 
 class TestHandler(logging.Handler):
@@ -67,8 +66,6 @@ def test_repeated_graph_creation_needs_no_extra_responses():
 
 
 def test_merge_needs_one_response(graph):
-    if not graph.supports_node_labels:
-        return
     _ = graph.neo4j_version
     with HTTPCounter() as counter:
         count = 0
@@ -80,8 +77,6 @@ def test_merge_needs_one_response(graph):
 
 
 def test_find_needs_one_response(graph):
-    if not graph.supports_node_labels:
-        return
     _ = graph.neo4j_version
     graph.merge("Person", "name", "Alice")
     with HTTPCounter() as counter:
@@ -94,11 +89,9 @@ def test_find_needs_one_response(graph):
 
 
 def test_relationship_hydration_does_not_make_nodes_stale(graph):
-    if not graph.supports_node_labels:
-        return
     alice, bob = graph.create(Node("Person", name="Alice"), Node("Person", name="Bob"))
     with HTTPCounter() as counter:
-        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[ab:KNOWS]->(b) "
                      "RETURN ab")
         parameters = {"A": alice, "B": bob}

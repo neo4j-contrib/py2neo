@@ -16,17 +16,176 @@
 # limitations under the License.
 
 
-from py2neo.legacy.batch import LegacyWriteBatch
+from py2neo.ext.mandex.batch import *
 from py2neo.core import Service, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 
 
-__all__ = ["Index"]
+__all__ = ["ManualIndexManager", "ManualIndex", "ManualIndexReadBatch", "ManualIndexWriteBatch"]
 
 
-class Index(Service):
+class ManualIndexManager(Service):
+
+    __instances = {}
+
+    def __new__(cls, graph):
+        try:
+            inst = cls.__instances[graph.uri]
+        except KeyError:
+            inst = super(ManualIndexManager, cls).__new__(cls)
+            inst.bind(graph.uri)
+            inst._indexes = {Node: {}, Relationship: {}}
+            cls.__instances[graph.uri] = inst
+        return inst
+
+    def _index_manager(self, content_type):
+        """ Fetch the index management resource for the given `content_type`.
+
+        :param content_type:
+        :return:
+        """
+        if content_type is Node:
+            uri = self.resource.metadata["node_index"]
+        elif content_type is Relationship:
+            uri = self.resource.metadata["relationship_index"]
+        else:
+            raise TypeError("Indexes can manage either Nodes or Relationships")
+        return Resource(uri)
+
+    def get_indexes(self, content_type):
+        """ Fetch a dictionary of all available indexes of a given type.
+
+        :param content_type: either :py:class:`neo4j.Node` or
+            :py:class:`neo4j.Relationship`
+        :return: a list of :py:class:`Index` instances of the specified type
+        """
+        index_manager = self._index_manager(content_type)
+        index_index = index_manager.get().content
+        if index_index:
+            self._indexes[content_type] = dict(
+                (key, ManualIndex(content_type, value["template"]))
+                for key, value in index_index.items()
+            )
+        else:
+            self._indexes[content_type] = {}
+        return self._indexes[content_type]
+
+    def get_index(self, content_type, index_name):
+        """ Fetch a specific index from the current database, returning an
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, :py:const:`None` is returned.
+
+        :param content_type: either :py:class:`neo4j.Node` or
+            :py:class:`neo4j.Relationship`
+        :param index_name: the name of the required index
+        :return: an :py:class:`Index` instance or :py:const:`None`
+
+        .. seealso:: :py:func:`get_or_create_index`
+        .. seealso:: :py:class:`Index`
+        """
+        if index_name not in self._indexes[content_type]:
+            self.get_indexes(content_type)
+        if index_name in self._indexes[content_type]:
+            return self._indexes[content_type][index_name]
+        else:
+            return None
+
+    def get_or_create_index(self, content_type, index_name, config=None):
+        """ Fetch a specific index from the current database, returning an
+        :py:class:`Index` instance. If an index with the supplied `name` and
+        content `type` does not exist, one is created with either the
+        default configuration or that supplied in `config`::
+
+            # get or create a node index called "People"
+            people = graph.get_or_create_index(neo4j.Node, "People")
+
+            # get or create a relationship index called "Friends"
+            friends = graph.get_or_create_index(neo4j.Relationship, "Friends")
+
+        :param content_type: either :py:class:`neo4j.Node` or
+            :py:class:`neo4j.Relationship`
+        :param index_name: the name of the required index
+        :return: an :py:class:`Index` instance
+
+        .. seealso:: :py:func:`get_index`
+        .. seealso:: :py:class:`Index`
+        """
+        index = self.get_index(content_type, index_name)
+        if index:
+            return index
+        index_manager = self._index_manager(content_type)
+        rs = index_manager.post({"name": index_name, "config": config or {}})
+        index = ManualIndex(content_type, assembled(rs)["template"])
+        self._indexes[content_type].update({index_name: index})
+        return index
+
+    def delete_index(self, content_type, index_name):
+        """ Delete the entire index identified by the type and name supplied.
+
+        :param content_type: either :py:class:`neo4j.Node` or
+            :py:class:`neo4j.Relationship`
+        :param index_name: the name of the index to delete
+        :raise LookupError: if the specified index does not exist
+        """
+        if index_name not in self._indexes[content_type]:
+            self.get_indexes(content_type)
+        if index_name in self._indexes[content_type]:
+            index = self._indexes[content_type][index_name]
+            index.resource.delete()
+            del self._indexes[content_type][index_name]
+        else:
+            raise LookupError("Index not found")
+
+    def get_indexed_node(self, index_name, key, value):
+        """ Fetch the first node indexed with the specified details, returning
+        :py:const:`None` if none found.
+
+        :param index_name: the name of the required index
+        :param key: the index key
+        :param value: the index value
+        :return: a :py:class:`Node` instance
+        """
+        index = self.get_index(Node, index_name)
+        if index:
+            nodes = index.get(key, value)
+            if nodes:
+                return nodes[0]
+        return None
+
+    def get_or_create_indexed_node(self, index_name, key, value, properties=None):
+        """ Fetch the first node indexed with the specified details, creating
+        and returning a new indexed node if none found.
+
+        :param index_name: the name of the required index
+        :param key: the index key
+        :param value: the index value
+        :param properties: properties for the new node, if one is created
+            (optional)
+        :return: a :py:class:`Node` instance
+        """
+        index = self.get_or_create_index(Node, index_name)
+        return index.get_or_create(key, value, properties or {})
+
+    def get_indexed_relationship(self, index_name, key, value):
+        """ Fetch the first relationship indexed with the specified details,
+        returning :py:const:`None` if none found.
+
+        :param index_name: the name of the required index
+        :param key: the index key
+        :param value: the index value
+        :return: a :py:class:`Relationship` instance
+        """
+        index = self.get_index(Relationship, index_name)
+        if index:
+            relationships = index.get(key, value)
+            if relationships:
+                return relationships[0]
+        return None
+
+
+class ManualIndex(Service):
     """ Searchable database index which can contain either nodes or
     relationships.
 
@@ -42,7 +201,7 @@ class Index(Service):
         :param uri: URI of the cached resource
         :return: a resource instance
         """
-        inst = super(Index, cls).__new__(cls)
+        inst = super(ManualIndex, cls).__new__(cls)
         return cls.__instances.setdefault(uri, inst)
 
     def __init__(self, content_type, uri, name=None):
@@ -56,12 +215,8 @@ class Index(Service):
             self.bind(uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
         uri = self.resource.uri
-        if self.graph.neo4j_version >= (1, 9):
-            self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
-            self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
-        else:
-            self._create_or_fail = None
-            self._get_or_create = Resource(uri.resolve("?unique"))
+        self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
+        self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._name = name or uri.path.segments[-1]
         self.__searcher_stem_cache = {}
@@ -155,7 +310,7 @@ class Index(Service):
         """ Create and index a new node or relationship using the abstract
         provided.
         """
-        batch = LegacyWriteBatch(self.graph)
+        batch = ManualIndexWriteBatch(self.graph)
         if self._content_type is Node:
             batch.create(abstract)
             batch.add_to_index(Node, self, key, value, 0)
@@ -263,7 +418,7 @@ class Index(Service):
                 URI(entity.resource.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
-            batch = LegacyWriteBatch(self.graph)
+            batch = ManualIndexWriteBatch(self.graph)
             for uri in uris:
                 batch.append_delete(uri)
             batch.run()

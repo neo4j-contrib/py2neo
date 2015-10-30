@@ -22,7 +22,7 @@ try:
 except ImportError:
     from mock import patch
 
-from py2neo.core import ServerPlugin
+from py2neo.ext import ServerPlugin
 
 
 class FakePlugin(ServerPlugin):

@@ -24,8 +24,6 @@ from py2neo import Node
 
 
 def test_can_merge_on_label_only(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     merged = list(graph.merge(label))
     assert len(merged) == 1
@@ -34,8 +32,6 @@ def test_can_merge_on_label_only(graph):
 
 
 def test_can_merge_on_label_and_property(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     merged = list(graph.merge(label, "foo", "bar"))
     assert len(merged) == 1
@@ -45,8 +41,6 @@ def test_can_merge_on_label_and_property(graph):
 
 
 def test_cannot_merge_empty_label(graph):
-    if not graph.supports_node_labels:
-        return
     try:
         _ = list(graph.merge(""))
     except ValueError:
@@ -56,8 +50,6 @@ def test_cannot_merge_empty_label(graph):
 
 
 def test_cannot_merge_with_non_textual_property_key(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     try:
         _ = list(graph.merge(label, 123, 456))
@@ -68,8 +60,6 @@ def test_cannot_merge_with_non_textual_property_key(graph):
 
 
 def test_cannot_merge_with_dict_property_key(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     try:
         _ = list(graph.merge(label, {}))
@@ -80,8 +70,6 @@ def test_cannot_merge_with_dict_property_key(graph):
 
 
 def test_cannot_merge_on_key_only(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     try:
         _ = list(graph.merge(label, "foo"))
@@ -92,8 +80,6 @@ def test_cannot_merge_on_key_only(graph):
 
 
 def test_can_merge_one_on_label_and_property(graph):
-    if not graph.supports_node_labels:
-        return
     label = uuid4().hex
     try:
         merged = graph.merge_one(label, "foo", "bar")

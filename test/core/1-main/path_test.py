@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import neo4j, Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
 
 
 class TestPathConstruction(object):
@@ -119,17 +119,17 @@ class TestCreatePath(object):
     @pytest.fixture(autouse=True)
     def setup(self, graph):
         self.graph = graph
-        neo4j.Graph.auto_sync_properties = True
+        Graph.auto_sync_properties = True
 
     def test_can_create_path(self, graph):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         assert path.nodes[0] == {"name": "Alice"}
         assert path.rels[0].type == "KNOWS"
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(graph)
+        path, = graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert isinstance(path.relationships[0], Relationship)
         assert path.relationships[0].type == "KNOWS"
         assert isinstance(path.nodes[1], Node)
         assert path.nodes[1]["name"] == "Bob"
@@ -140,17 +140,17 @@ class TestCreatePath(object):
         assert path.rels[0].type == "KNOWS"
         assert path.rels[0].properties == {"since": 1999}
         assert path.nodes[1] == {"name": "Bob"}
-        path = path.create(self.graph)
+        path, = self.graph.create(path)
         assert isinstance(path.nodes[0], Node)
         assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], neo4j.Relationship)
+        assert isinstance(path.relationships[0], Relationship)
         assert path.relationships[0].type == "KNOWS"
         assert path.relationships[0].properties == {"since": 1999}
         assert isinstance(path.nodes[1], Node)
         assert path.nodes[1]["name"] == "Bob"
 
 
-class TestGetOrCreatePath(object):
+class TestCreateUniquePath(object):
 
     @pytest.fixture(autouse=True)
     def setup(self, graph):
@@ -158,11 +158,12 @@ class TestGetOrCreatePath(object):
 
     def test_can_create_single_path(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        )
+        ))
         #print(p1)
         assert isinstance(p1, Path)
         assert len(p1) == 3
@@ -170,20 +171,22 @@ class TestGetOrCreatePath(object):
 
     def test_can_create_overlapping_paths(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
-        )
+        ))
         assert isinstance(p1, Path)
         assert len(p1) == 3
         assert p1.nodes[0] == start_node
         #print(p1)
-        p2 = start_node.get_or_create_path(
+        p2, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
-        )
+        ))
         assert isinstance(p2, Path)
         assert len(p2) == 3
         assert p1.nodes[0] == p2.nodes[0]
@@ -194,11 +197,12 @@ class TestGetOrCreatePath(object):
         assert p1.relationships[1] == p2.relationships[1]
         assert p1.relationships[2] != p2.relationships[2]
         #print(p2)
-        p3 = start_node.get_or_create_path(
+        p3, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
-        )
+        ))
         assert isinstance(p3, Path)
         assert len(p3) == 3
         assert p2.nodes[0] == p3.nodes[0]
@@ -210,40 +214,20 @@ class TestGetOrCreatePath(object):
         assert p2.relationships[2] != p3.relationships[2]
         #print(p3)
 
-    def test_can_use_none_for_nodes(self):
-        start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", {"number": 12, "name": "December"},
-            "DAY",   {"number": 25},
-        )
-        p2 = start_node.get_or_create_path(
-            "YEAR",  {"number": 2000},
-            "MONTH", None,
-            "DAY",   {"number": 25},
-        )
-        assert isinstance(p2, Path)
-        assert len(p2) == 3
-        assert p1.nodes[0] == p2.nodes[0]
-        assert p1.nodes[1] == p2.nodes[1]
-        assert p1.nodes[2] == p2.nodes[2]
-        assert p1.nodes[3] == p2.nodes[3]
-        assert p1.relationships[0] == p2.relationships[0]
-        assert p1.relationships[1] == p2.relationships[1]
-        assert p1.relationships[2] == p2.relationships[2]
-
     def test_can_use_node_for_nodes(self):
         start_node, = self.graph.create({})
-        p1 = start_node.get_or_create_path(
+        p1, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        )
-        p2 = start_node.get_or_create_path(
+        ))
+        p2, = self.graph.create_unique(Path(
+            start_node,
             "YEAR",  {"number": 2000},
             "MONTH", p1.nodes[2],
             "DAY",   {"number": 25},
-        )
+        ))
         assert isinstance(p2, Path)
         assert len(p2) == 3
         assert p1.nodes[0] == p2.nodes[0]
@@ -326,7 +310,7 @@ class TestPathIterationAndReversal(object):
 
 
 def test_can_hydrate_path(graph):
-    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
     if "directions" not in dehydrated:
         dehydrated["directions"] = ["->"]
     hydrated = Path.hydrate(dehydrated)
@@ -339,7 +323,7 @@ def test_can_hydrate_path(graph):
 def test_can_hydrate_path_into_existing_instance(graph):
     alice = Node("Person", name="Alice", age=33)
     bob = Node("Person", name="Bob", age=44)
-    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p").content["data"][0][0]
+    dehydrated = graph.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
     path = Path(alice, "KNOWS", bob)
     if "directions" not in dehydrated:
         dehydrated["directions"] = ["->"]
@@ -349,7 +333,7 @@ def test_can_hydrate_path_into_existing_instance(graph):
 
 def test_can_hydrate_path_without_directions(graph):
     statement = "CREATE p=()-[:LIKES]->()<-[:DISLIKES]-() RETURN p"
-    dehydrated = graph.cypher.post(statement).content["data"][0][0]
+    dehydrated = graph.cypher.post(statement)["data"][0][0]
     try:
         del dehydrated["directions"]
     except KeyError:
@@ -518,11 +502,14 @@ def test_graph(graph):
 
 def test_path_direction(graph):
     cypher = """\
-    CREATE p=({name:'Alice'})-[:LOVES]->({name:'Bob'})<-[:HATES]-({name:'Carol'})-[:KNOWS]->
-             ({name:'Dave'})
+    CREATE p=({name:'Alice'})-[:KNOWS]->({name:'Bob'})<-[:DISLIKES]-
+             ({name:'Carol'})-[:MARRIED_TO]->({name:'Dave'})
     RETURN p
     """
     path = graph.cypher.execute_one(cypher)
-    assert path[0] == Relationship({"name": "Alice"}, "LOVES", {"name": "Bob"})
-    assert path[1] == Relationship({"name": "Carol"}, "HATES", {"name": "Bob"})
-    assert path[2] == Relationship({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+    assert path[0].start_node["name"] == "Alice"
+    assert path[0].end_node["name"] == "Bob"
+    assert path[1].start_node["name"] == "Carol"
+    assert path[1].end_node["name"] == "Bob"
+    assert path[2].start_node["name"] == "Carol"
+    assert path[2].end_node["name"] == "Dave"

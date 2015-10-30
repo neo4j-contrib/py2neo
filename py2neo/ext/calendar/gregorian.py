@@ -33,8 +33,6 @@ class GregorianCalendar(object):
     __instances = {}
 
     def __new__(cls, graph):
-        if not graph.supports_node_labels:
-            raise ValueError("Graph does not support node labels")
         try:
             inst = cls.__instances[graph]
         except KeyError:

@@ -17,7 +17,6 @@
 
 
 from py2neo.cypher import CypherError, CypherTransactionError
-from py2neo.cypher.util import StartOrMatch
 from py2neo.error import GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 
@@ -42,12 +41,12 @@ def test_unique_path_not_unique_raises_cypher_error(graph):
     cypher = graph.cypher
     results = cypher.execute("CREATE (a), (b) RETURN a, b")
     parameters = {"A": results[0].a, "B": results[0].b}
-    statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+    statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                  "CREATE (a)-[:KNOWS]->(b)")
     cypher.execute(statement, parameters)
     cypher.execute(statement, parameters)
     try:
-        statement = (StartOrMatch(graph).node("a", "{A}").node("b", "{B}").string +
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
         cypher.execute(statement, parameters)
     except CypherTransactionError as error:

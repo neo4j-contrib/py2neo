@@ -17,12 +17,9 @@
 
 
 from py2neo.core import Node, Rel, Rev, Path
-from py2neo.cypher.util import StartOrMatch
 
 
 def test_can_pull_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person", name="Alice")
     graph.create(remote)
@@ -35,8 +32,6 @@ def test_can_pull_node(graph):
 
 
 def test_can_pull_node_labels_only(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person")
     graph.create(remote)
@@ -47,8 +42,6 @@ def test_can_pull_node_labels_only(graph):
 
 
 def test_can_graph_pull_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node()
     remote = Node("Person", name="Alice")
     graph.create(remote)
@@ -61,8 +54,6 @@ def test_can_graph_pull_node(graph):
 
 
 def test_can_push_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person", name="Alice")
     remote = Node()
     graph.create(remote)
@@ -76,8 +67,6 @@ def test_can_push_node(graph):
 
 
 def test_can_push_node_labels_only(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person")
     remote = Node()
     graph.create(remote)
@@ -89,8 +78,6 @@ def test_can_push_node_labels_only(graph):
 
 
 def test_can_graph_push_node(graph):
-    if not graph.supports_node_labels:
-        return
     local = Node("Person", name="Alice")
     remote = Node()
     graph.create(remote)
@@ -138,10 +125,9 @@ def test_can_pull_path(graph):
     assert path[0].rel.properties["amount"] is None
     assert path[1].rel.properties["amount"] is None
     assert path[2].rel.properties["since"] is None
-    statement = (StartOrMatch(graph)
-                 .relationship("ab", "{ab}")
-                 .relationship("bc", "{bc}")
-                 .relationship("cd", "{cd}").string +
+    statement = ("MATCH ()-[ab]->() WHERE id(ab)={ab} "
+                 "MATCH ()-[bc]->() WHERE id(bc)={bc} "
+                 "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                  "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
     parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
     graph.cypher.run(statement, parameters)
@@ -161,14 +147,10 @@ def test_can_push_path(graph):
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
     graph.create(path)
-    statement = (StartOrMatch(graph)
-                 .relationship("ab", "{ab}")
-                 .relationship("bc", "{bc}")
-                 .relationship("cd", "{cd}").string)
-    if graph.neo4j_version >= (2, 0, 0):
-        statement += "RETURN ab.amount, bc.amount, cd.since"
-    else:
-        statement += "RETURN ab.amount?, bc.amount?, cd.since?"
+    statement = ("MATCH ()-[ab]->() WHERE id(ab)={ab} "
+                 "MATCH ()-[bc]->() WHERE id(bc)={bc} "
+                 "MATCH ()-[cd]->() WHERE id(cd)={cd} "
+                 "RETURN ab.amount, bc.amount, cd.since")
     parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
     path[0].properties["amount"] = "lots"
     path[1].properties["amount"] = "some"

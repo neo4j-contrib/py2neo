@@ -23,9 +23,9 @@ import os
 import sys
 
 from py2neo import GraphError, Service, ServiceRoot
+from py2neo.compat import ustr
 from py2neo.env import NEO4J_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
-from py2neo.util import ustr
 
 
 HELP = """\
