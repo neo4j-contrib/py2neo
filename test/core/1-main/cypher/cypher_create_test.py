@@ -18,6 +18,7 @@
 from py2neo.core import Node, Relationship, Path, Rel, Rev
 from py2neo.cypher import CreateStatement
 from py2neo.cypher.error.statement import ConstraintViolation
+from py2neo.cypher.task import CreateTransaction
 
 
 def test_statement_representations_return_cypher(graph):
@@ -27,7 +28,6 @@ def test_statement_representations_return_cypher(graph):
     assert statement.__repr__() == 'CREATE (_0)\nRETURN _0'
     assert statement.__str__() == 'CREATE (_0)\nRETURN _0'
     assert statement.__unicode__() == 'CREATE (_0)\nRETURN _0'
-
 
 
 def test_empty_statement_returns_empty_tuple(graph):
@@ -343,6 +343,6 @@ def test_can_create_many_nodes(graph):
     ct = CreateTransaction(graph)
     ct.append(alice)
     ct.append(bob)
-    ct.create()
+    ct.commit()
     assert alice.bound
     assert bob.bound
