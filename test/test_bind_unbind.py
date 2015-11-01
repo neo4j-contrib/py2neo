@@ -19,7 +19,7 @@
 from py2neo.core import Resource, Node, Rel, Rev, Relationship, Service, Path
 from py2neo.error import BindError
 
-from test.util import DatabaseTestCase
+from test.cases import DatabaseTestCase
 
 
 class BindUnbindTestCase(DatabaseTestCase):

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from test.util import DatabaseTestCase
+from test.cases import DatabaseTestCase
 
 
 class CypherTestCase(DatabaseTestCase):

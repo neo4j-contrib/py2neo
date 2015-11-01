@@ -21,7 +21,7 @@ except ImportError:
     from mock import Mock, patch
 
 from py2neo import Graph, Node, Relationship, GraphError
-from test.util import DatabaseTestCase
+from test.cases import DatabaseTestCase
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 

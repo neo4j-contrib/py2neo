@@ -22,7 +22,7 @@ except ImportError:
     from mock import Mock, patch
 
 from py2neo import Node, Rel, Rev, Path
-from test.util import DatabaseTestCase
+from test.cases import DatabaseTestCase
 
 
 class ArithmeticTestCase(DatabaseTestCase):

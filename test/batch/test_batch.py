@@ -16,20 +16,16 @@
 # limitations under the License.
 
 
-import pytest
-
-from py2neo import Finished
-from py2neo.core import Node, Relationship
-from py2neo.batch import BatchError, WriteBatch, CypherJob, Batch
-from py2neo.ext.mandex.batch import ManualIndexWriteBatch
+from py2neo import Node, Relationship, Finished
+from py2neo.batch import BatchError, CypherJob
+from py2neo.ext.mandex import ManualIndexWriteBatch
+from test.cases import DatabaseTestCase
 
 
-class TestNodeCreation(object):
+class NodeCreationTestCase(DatabaseTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = WriteBatch(graph)
-        self.graph = graph
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_create_single_empty_node(self):
         self.batch.create(Node())
@@ -56,11 +52,10 @@ class TestNodeCreation(object):
         assert carol["name"] == "Carol"
 
 
-class TestRelationshipCreation(object):
+class RelationshipCreationTestCase(DatabaseTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = ManualIndexWriteBatch(graph)
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_create_relationship_with_new_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -174,10 +169,10 @@ class TestRelationshipCreation(object):
         self.recycling = [ab, alice, bob]
 
 
-class TestUniqueRelationshipCreation(object):
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = WriteBatch(graph)
+class UniqueRelationshipCreationRestCase(DatabaseTestCase):
+
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_create_relationship_if_none_exists(self):
         self.batch.create({"name": "Alice"})
@@ -252,11 +247,10 @@ class TestUniqueRelationshipCreation(object):
         self.recycling = [knows, alice, bob]
 
 
-class TestDeletion(object):
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = WriteBatch(graph)
-        self.graph = graph
+class DeletionTestCase(DatabaseTestCase):
+
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_delete_relationship_and_related_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -276,16 +270,15 @@ class TestDeletion(object):
         assert not ab.exists
 
 
-class TestPropertyManagement(object):
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.batch = WriteBatch(graph)
-        self.alice, self.bob, self.friends = graph.create(
+class PropertyManagementTestCase(DatabaseTestCase):
+
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
+        self.alice, self.bob, self.friends = self.graph.create(
             {"name": "Alice", "surname": "Allison"},
             {"name": "Bob", "surname": "Robertson"},
             (0, "KNOWS", 1, {"since": 2000}),
         )
-        self.graph = graph
 
     def _check_properties(self, entity, expected_properties):
         entity.pull()
@@ -327,63 +320,55 @@ class TestPropertyManagement(object):
         self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
 
-def test_can_use_return_values_as_references(graph):
-    batch = WriteBatch(graph)
-    a = batch.create(Node(name="Alice"))
-    b = batch.create(Node(name="Bob"))
-    batch.create(Relationship(a, "KNOWS", b))
-    results = batch.submit()
-    ab = results[2]
-    assert isinstance(ab, Relationship)
-    assert ab.start_node["name"] == "Alice"
-    assert ab.end_node["name"] == "Bob"
+class MiscellaneousTestCase(DatabaseTestCase):
 
+    def setUp(self):
+        self.batch = ManualIndexWriteBatch(self.graph)
 
-def test_can_handle_json_response_with_no_content(graph):
-    # This example might fail if the server bug is fixed that returns
-    # a 200 response with application/json content-type and no content.
-    batch = WriteBatch(graph)
-    batch.create((0, "KNOWS", 1))
-    results = batch.submit()
-    assert results == []
+    def test_can_use_return_values_as_references(self):
+        a = self.batch.create(Node(name="Alice"))
+        b = self.batch.create(Node(name="Bob"))
+        self.batch.create(Relationship(a, "KNOWS", b))
+        results = self.batch.submit()
+        ab = results[2]
+        assert isinstance(ab, Relationship)
+        assert ab.start_node["name"] == "Alice"
+        assert ab.end_node["name"] == "Bob"
 
+    def test_can_handle_json_response_with_no_content(self):
+        # This example might fail if the server bug is fixed that returns
+        # a 200 response with application/json content-type and no content.
+        self.batch.create((0, "KNOWS", 1))
+        results = self.batch.submit()
+        assert results == []
+    
+    def test_cypher_job_with_bad_syntax(self):
+        self.batch.append(CypherJob("X"))
+        try:
+            self.batch.submit()
+        except BatchError as error:
+            assert error.batch is self.batch
+            assert error.job_id == 0
+            assert error.status_code == 400
+            assert error.uri == "cypher"
+        else:
+            assert False
 
-def test_cypher_job_with_bad_syntax(graph):
-    batch = WriteBatch(graph)
-    batch.append(CypherJob("X"))
-    try:
-        batch.submit()
-    except BatchError as error:
-        assert error.batch is batch
-        assert error.job_id == 0
-        assert error.status_code == 400
-        assert error.uri == "cypher"
-    else:
-        assert False
+    def test_cypher_job_with_other_error(self):
+        statement = "MATCH (n) RETURN n LIMIT -1"
+        self.batch.append(CypherJob(statement))
+        try:
+            self.batch.submit()
+        except BatchError as error:
+            assert error.batch is self.batch
+            assert error.job_id == 0
+            assert error.status_code == 400
+            assert error.uri == "cypher"
+        else:
+            assert False
 
-
-def test_cypher_job_with_other_error(graph):
-    batch = WriteBatch(graph)
-    statement = "MATCH (n) RETURN n LIMIT -1"
-    batch.append(CypherJob(statement))
-    try:
-        batch.submit()
-    except BatchError as error:
-        assert error.batch is batch
-        assert error.job_id == 0
-        assert error.status_code == 400
-        assert error.uri == "cypher"
-    else:
-        assert False
-
-
-def test_cannot_resubmit_finished_job(graph):
-    batch = Batch(graph)
-    batch.append(CypherJob("CREATE (a)"))
-    graph.batch.submit(batch)
-    try:
-        graph.batch.submit(batch)
-    except Finished:
-        assert True
-    else:
-        assert False
+    def test_cannot_resubmit_finished_job(self):
+        self.batch.append(CypherJob("CREATE (a)"))
+        self.graph.batch.submit(self.batch)
+        with self.assertRaises(Finished):
+            self.graph.batch.submit(self.batch)
