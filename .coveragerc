@@ -7,3 +7,5 @@ omit =
     py2neo/legacy/*
     py2neo/packages/*
     test/*
+    test_ext/*
+    */site-packages/*
