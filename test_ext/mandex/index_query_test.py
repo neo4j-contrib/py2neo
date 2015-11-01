@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import neo4j
+from py2neo import Node
 
 
 def test_can_query_node_index(graph):
@@ -24,10 +24,10 @@ def test_can_query_node_index(graph):
         # Skip due to legacy index bug in milestone (may be fixed in GA)
         return
     try:
-        graph.legacy.delete_index(neo4j.Node, "people")
+        graph.legacy.delete_index(Node, "people")
     except LookupError:
         pass
-    people = graph.legacy.get_or_create_index(neo4j.Node, "people")
+    people = graph.legacy.get_or_create_index(Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -44,10 +44,10 @@ def test_can_query_node_index_with_score_by_index(graph):
         # Skip due to legacy index bug in milestone (may be fixed in GA)
         return
     try:
-        graph.legacy.delete_index(neo4j.Node, "people")
+        graph.legacy.delete_index(Node, "people")
     except LookupError:
         pass
-    people = graph.legacy.get_or_create_index(neo4j.Node, "people")
+    people = graph.legacy.get_or_create_index(Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -65,10 +65,10 @@ def test_can_query_node_index_with_score_by_relevance(graph):
         # Skip due to legacy index bug in milestone (may be fixed in GA)
         return
     try:
-        graph.legacy.delete_index(neo4j.Node, "people")
+        graph.legacy.delete_index(Node, "people")
     except LookupError:
         pass
-    people = graph.legacy.get_or_create_index(neo4j.Node, "people")
+    people = graph.legacy.get_or_create_index(Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})
@@ -86,10 +86,10 @@ def test_can_query_node_index_with_score_by_score(graph):
         # Skip due to legacy index bug in milestone (may be fixed in GA)
         return
     try:
-        graph.legacy.delete_index(neo4j.Node, "people")
+        graph.legacy.delete_index(Node, "people")
     except LookupError:
         pass
-    people = graph.legacy.get_or_create_index(neo4j.Node, "people")
+    people = graph.legacy.get_or_create_index(Node, "people")
     people.create("name", "Alice", {"name": "Alice"})
     people.create("name", "Bob", {"name": "Bob"})
     c = people.create("name", "Carol", {"name": "Carol"})

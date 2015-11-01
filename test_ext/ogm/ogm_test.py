@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo import Graph, Node
+from py2neo import Graph, Node, Path
 from py2neo.ext.ogm import Store
 
 
@@ -209,16 +209,17 @@ class TestLoad(object):
 class TestLoadIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         self.graph = graph
+        self.index_manager = index_manager
         try:
-            self.graph.legacy.delete_index(Node, "People")
+            index_manager.delete_index(Node, "People")
         except LookupError:
             pass
         self.store = Store(self.graph)
 
     def test_can_load(self):
-        people = self.graph.legacy.get_or_create_index(Node, "People")
+        people = self.index_manager.get_or_create_index(Node, "People")
         alice_node, bob_node = self.graph.create({
             "email": "alice@example.com",
             "name": "Alice Smith",
@@ -241,17 +242,18 @@ class TestLoadIndexed(object):
 class TestLoadUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         self.graph = graph
+        self.index_manager = index_manager
         try:
-            self.graph.legacy.delete_index(Node, "People")
+            index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.graph.legacy.get_or_create_index(Node, "People")
+        index_manager.get_or_create_index(Node, "People")
         self.store = Store(self.graph)
 
     def test_can_load_simple_object(self):
-        alice_node = self.graph.legacy.get_or_create_indexed_node(
+        alice_node = self.index_manager.get_or_create_indexed_node(
             "People", "email", "alice@example.com", {
                 "email": "alice@example.com",
                 "name": "Alice Allison",
@@ -269,14 +271,14 @@ class TestLoadUnique(object):
         assert alice.age == 34
 
     def test_can_load_object_with_relationships(self):
-        alice_node = self.graph.legacy.get_or_create_indexed_node(
+        alice_node = self.index_manager.get_or_create_indexed_node(
             "People", "email", "alice@example.com", {
                 "email": "alice@example.com",
                 "name": "Alice Allison",
                 "age": 34,
             }
         )
-        path = alice_node.create_path("LIKES", {"name": "Bob Robertson"})
+        path, = self.graph.create(Path(alice_node, "LIKES", {"name": "Bob Robertson"}))
         bob_node = path.nodes[1]
         alice = self.store.load_unique("People", "email", "alice@example.com", Person)
         assert isinstance(alice, Person)
@@ -348,10 +350,11 @@ class TestSave(object):
 class TestSaveIndexed(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         self.graph = graph
+        self.index_manager = index_manager
         try:
-            self.graph.legacy.delete_index(Node, "People")
+            index_manager.delete_index(Node, "People")
         except LookupError:
             pass
         self.store = Store(self.graph)
@@ -360,7 +363,7 @@ class TestSaveIndexed(object):
         alice = Person("alice@example.com", "Alice Smith", 34)
         bob = Person("bob@example.org", "Bob Smith", 66)
         self.store.save_indexed("People", "family_name", "Smith", alice, bob)
-        people = self.graph.legacy.get_index(Node, "People")
+        people = self.index_manager.get_index(Node, "People")
         smiths = people.get("family_name", "Smith")
         assert len(smiths) == 2
         assert alice.__node__ in smiths
@@ -377,8 +380,9 @@ class TestSaveIndexed(object):
 class TestSaveUnique(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         self.graph = graph
+        self.index_manager = index_manager
         self.store = Store(self.graph)
 
     def test_can_save_simple_object(self):
@@ -386,7 +390,7 @@ class TestSaveUnique(object):
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, Node)
-        assert alice.__node__ == self.graph.legacy.get_indexed_node(
+        assert alice.__node__ == self.index_manager.get_indexed_node(
             "People", "email", "alice@example.com")
 
     def test_can_save_object_with_rels(self):
@@ -399,7 +403,7 @@ class TestSaveUnique(object):
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, Node)
-        assert alice.__node__ == self.graph.legacy.get_indexed_node(
+        assert alice.__node__ == self.index_manager.get_indexed_node(
             "People", "email", "alice@example.com")
         friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
         assert len(friend_rels) == 1

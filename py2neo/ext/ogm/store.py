@@ -20,6 +20,7 @@ from __future__ import unicode_literals
 
 from py2neo.batch import WriteBatch
 from py2neo.core import Node
+from py2neo.ext.mandex import ManualIndexManager
 
 
 __all__ = ["Store", "NotSaved"]
@@ -38,6 +39,7 @@ class Store(object):
 
     def __init__(self, graph):
         self.graph = graph
+        self.index_manager = ManualIndexManager(self.graph)
         self.__delete_query = (
             "MATCH (a) WHERE id(a)={A} "
             "OPTIONAL MATCH a-[r]-b "
@@ -156,7 +158,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: a list of `cls` instances
         """
-        index = self.graph.legacy.get_index(Node, index_name)
+        index = self.index_manager.get_index(Node, index_name)
         nodes = index.get(key, value)
         return [self.load(cls, node) for node in nodes]
 
@@ -169,7 +171,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: as instance of `cls` containing the loaded data
         """
-        index = self.graph.legacy.get_index(Node, index_name)
+        index = self.index_manager.get_index(Node, index_name)
         nodes = index.get(key, value)
         if not nodes:
             return None
@@ -187,7 +189,7 @@ class Store(object):
         """
         self._assert_saved(subj)
         # naively copy properties from node to object
-        properties = subj.__node__.get_properties()
+        properties = subj.__node__.properties
         for key in subj.__dict__:
             if not key.startswith("_") and key not in properties:
                 setattr(subj, key, None)
@@ -198,7 +200,7 @@ class Store(object):
         for rel in subj.__node__.match():
             if rel.type not in subj.__rel__:
                 subj.__rel__[rel.type] = []
-            subj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
+            subj.__rel__[rel.type].append((rel.properties, rel.end_node))
 
     def save(self, subj, node=None):
         """ Save an object to a database node.
@@ -215,7 +217,8 @@ class Store(object):
             if not key.startswith("_"):
                 props[key] = value
         if hasattr(subj, "__node__"):
-            subj.__node__.set_properties(props)
+            subj.__node__.properties.clear()
+            subj.__node__.properties.update(props)
             self.graph.cypher.execute("MATCH (a) WHERE id(a)={a} MATCH (a)-[r]->(b) DELETE r",
                                       {"a": subj.__node__})
         else:
@@ -241,7 +244,7 @@ class Store(object):
         :param value: the index value
         :param subj: one or more objects to save
         """
-        index = self.graph.legacy.get_or_create_index(Node, index_name)
+        index = self.index_manager.get_or_create_index(Node, index_name)
         for subj in subj:
             index.add(key, value, self.save(self._get_node(subj)))
 
@@ -254,7 +257,7 @@ class Store(object):
         :param value: the index value
         :param subj: the object to save
         """
-        index = self.graph.legacy.get_or_create_index(Node, index_name)
+        index = self.index_manager.get_or_create_index(Node, index_name)
         node = index.get_or_create(key, value, {})
         self.save(subj, node)
 

@@ -19,19 +19,19 @@
 import pytest
 
 from py2neo.core import Node, Relationship
-from py2neo.legacy import LegacyWriteBatch
+from py2neo.ext.mandex import ManualIndexManager, ManualIndexWriteBatch
 
 
 class TestIndexedNodeCreation(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         try:
-            graph.legacy.delete_index(Node, "People")
+            index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = graph.legacy.get_or_create_index(Node, "People")
-        self.batch = LegacyWriteBatch(graph)
+        self.people = index_manager.get_or_create_index(Node, "People")
+        self.batch = ManualIndexWriteBatch(graph)
         self.graph = graph
 
     def test_can_create_single_indexed_node(self):
@@ -97,13 +97,13 @@ class TestIndexedNodeCreation(object):
 class TestIndexedNodeAddition(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         try:
-            graph.legacy.delete_index(Node, "People")
+            index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = graph.legacy.get_or_create_index(Node, "People")
-        self.batch = LegacyWriteBatch(graph)
+        self.people = index_manager.get_or_create_index(Node, "People")
+        self.batch = ManualIndexWriteBatch(graph)
         self.graph = graph
 
     def test_can_add_single_node(self):
@@ -150,13 +150,13 @@ class TestIndexedNodeAddition(object):
 class TestIndexedRelationshipAddition(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         try:
-            graph.legacy.delete_index(Relationship, "Friendships")
+            index_manager.delete_index(Relationship, "Friendships")
         except LookupError:
             pass
-        self.friendships = graph.legacy.get_or_create_index(Relationship, "Friendships")
-        self.batch = LegacyWriteBatch(graph)
+        self.friendships = index_manager.get_or_create_index(Relationship, "Friendships")
+        self.batch = ManualIndexWriteBatch(graph)
         self.graph = graph
 
     def test_can_add_single_relationship(self, graph):
@@ -206,13 +206,13 @@ class TestIndexedRelationshipAddition(object):
 class TestIndexedNodeRemoval(object):
 
     @pytest.fixture(autouse=True)
-    def setup(self, graph):
+    def setup(self, graph, index_manager):
         self.graph = graph
         try:
-            graph.legacy.delete_index(Node, "node_removal_test_index")
+            index_manager.delete_index(Node, "node_removal_test_index")
         except LookupError:
             pass
-        self.index = graph.legacy.get_or_create_index(Node, "node_removal_test_index")
+        self.index = index_manager.get_or_create_index(Node, "node_removal_test_index")
         self.fred, self.wilma, = graph.create(
             {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
         )
@@ -222,7 +222,7 @@ class TestIndexedNodeRemoval(object):
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-        self.batch = LegacyWriteBatch(graph)
+        self.batch = ManualIndexWriteBatch(graph)
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)
