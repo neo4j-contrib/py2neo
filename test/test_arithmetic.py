@@ -16,11 +16,6 @@
 # limitations under the License.
 
 
-try:
-    from unittest.mock import Mock, patch
-except ImportError:
-    from mock import Mock, patch
-
 from py2neo import Node, Rel, Rev, Path
 from test.cases import DatabaseTestCase
 

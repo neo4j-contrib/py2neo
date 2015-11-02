@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,16 +16,18 @@
 # limitations under the License.
 
 
-from py2neo.env import NEO4J_DIST, NEO4J_HOME, NEO4J_URI
+from sys import version_info
+try:
+    from unittest.mock import Mock, patch
+except ImportError:
+    from mock import Mock, patch
 
 
-def test_default_dist():
-    assert NEO4J_DIST == "http://dist.neo4j.org/"
+__all__ = ["Mock", "patch", "long"]
 
 
-def test_neo4j_home():
-    assert NEO4J_HOME
+if version_info >= (3,):
+    long = int
 
-
-def test_neo4j_uri():
-    assert NEO4J_URI
+else:
+    long = long

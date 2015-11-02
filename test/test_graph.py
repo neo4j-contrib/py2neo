@@ -15,18 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from unittest.mock import Mock, patch
-except ImportError:
-    from mock import Mock, patch
 
-from py2neo import Graph, Node, Relationship, GraphError
+from py2neo import Graph, Node, Relationship
 from test.cases import DatabaseTestCase
-from py2neo.packages.httpstream import ClientError, Resource as _Resource
-
-
-class DodgyClientError(ClientError):
-    status_code = 499
+from test.compat import patch
 
 
 class GraphTestCase(DatabaseTestCase):
@@ -139,40 +131,3 @@ class GraphTestCase(DatabaseTestCase):
         Node.cache.clear()
         node = self.graph.node(node_id)
         assert not node.exists
-
-
-class NodeTestCase(DatabaseTestCase):
-
-    def test_can_create_node(self):
-        a = Node("Person", name="Alice", age=33)
-        assert a.labels == {"Person"}
-        assert a.properties == {"name": "Alice", "age": 33}
-
-    def test_bound_node_equals_unbound_node_with_same_properties(self):
-        alice_1 = Node(name="Alice")
-        alice_1.bind("http://localhost:7474/db/data/node/1")
-        alice_2 = Node(name="Alice")
-        assert alice_1 == alice_2
-
-    def test_bound_node_equality(self):
-        alice_1 = Node(name="Alice")
-        alice_1.bind("http://localhost:7474/db/data/node/1")
-        Node.cache.clear()
-        alice_2 = Node(name="Alice")
-        alice_2.bind(alice_1.uri)
-        assert alice_1 == alice_2
-
-    def test_unbound_node_equality(self):
-        alice_1 = Node("Person", name="Alice")
-        alice_2 = Node("Person", name="Alice")
-        assert alice_1 == alice_2
-
-    def test_node_exists_will_raise_non_404_errors(self):
-        with patch.object(_Resource, "get") as mocked:
-            error = GraphError("bad stuff happened")
-            error.response = DodgyClientError()
-            mocked.side_effect = error
-            alice = Node(name="Alice Smith")
-            alice.bind("http://localhost:7474/db/data/node/1")
-            with self.assertRaises(GraphError):
-                _ = alice.exists
