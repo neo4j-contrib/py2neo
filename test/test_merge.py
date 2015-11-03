@@ -16,28 +16,25 @@
 # limitations under the License.
 
 
-from uuid import uuid4
-
 from py2neo import Node
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class MergeTestCase(DatabaseTestCase):
-
-    def setUp(self):
-        self.label = uuid4().hex
+class MergeTestCase(Py2neoTestCase):
 
     def test_can_merge_on_label_only(self):
-        merged = list(self.graph.merge(self.label))
+        label = next(self.unique_string)
+        merged = list(self.graph.merge(label))
         assert len(merged) == 1
         assert isinstance(merged[0], Node)
-        assert merged[0].labels == {self.label}
+        assert merged[0].labels == {label}
         
     def test_can_merge_on_label_and_property(self):
-        merged = list(self.graph.merge(self.label, "foo", "bar"))
+        label = next(self.unique_string)
+        merged = list(self.graph.merge(label, "foo", "bar"))
         assert len(merged) == 1
         assert isinstance(merged[0], Node)
-        assert merged[0].labels == {self.label}
+        assert merged[0].labels == {label}
         assert merged[0].properties == {"foo": "bar"}
         
     def test_cannot_merge_empty_label(self):
@@ -45,20 +42,24 @@ class MergeTestCase(DatabaseTestCase):
             list(self.graph.merge(""))
 
     def test_cannot_merge_with_non_textual_property_key(self):
+        label = next(self.unique_string)
         with self.assertRaises(TypeError):
-            list(self.graph.merge(self.label, 123, 456))
+            list(self.graph.merge(label, 123, 456))
 
     def test_cannot_merge_with_dict_property_key(self):
+        label = next(self.unique_string)
         with self.assertRaises(TypeError):
-            list(self.graph.merge(self.label, {}))
+            list(self.graph.merge(label, {}))
 
     def test_cannot_merge_on_key_only(self):
+        label = next(self.unique_string)
         with self.assertRaises(ValueError):
-            list(self.graph.merge(self.label, "foo"))
+            list(self.graph.merge(label, "foo"))
 
     def test_can_merge_one_on_label_and_property(self):
-        merged = self.graph.merge_one(self.label, "foo", "bar")
+        label = next(self.unique_string)
+        merged = self.graph.merge_one(label, "foo", "bar")
         assert isinstance(merged, Node)
-        assert merged.labels == {self.label}
+        assert merged.labels == {label}
         assert merged.properties == {"foo": "bar"}
 

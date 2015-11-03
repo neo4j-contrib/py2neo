@@ -16,13 +16,13 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished
-from py2neo.batch import BatchError, CypherJob
+from py2neo import Node, Rel, Relationship, Finished, GraphError
+from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
 from py2neo.ext.mandex import ManualIndexWriteBatch
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class NodeCreationTestCase(DatabaseTestCase):
+class NodeCreationTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -52,7 +52,7 @@ class NodeCreationTestCase(DatabaseTestCase):
         assert carol["name"] == "Carol"
 
 
-class RelationshipCreationTestCase(DatabaseTestCase):
+class RelationshipCreationTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -169,7 +169,7 @@ class RelationshipCreationTestCase(DatabaseTestCase):
         self.recycling = [ab, alice, bob]
 
 
-class UniqueRelationshipCreationRestCase(DatabaseTestCase):
+class UniqueRelationshipCreationRestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -247,7 +247,7 @@ class UniqueRelationshipCreationRestCase(DatabaseTestCase):
         self.recycling = [knows, alice, bob]
 
 
-class DeletionTestCase(DatabaseTestCase):
+class DeletionTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -270,7 +270,7 @@ class DeletionTestCase(DatabaseTestCase):
         assert not ab.exists
 
 
-class PropertyManagementTestCase(DatabaseTestCase):
+class PropertyManagementTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -320,7 +320,7 @@ class PropertyManagementTestCase(DatabaseTestCase):
         self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
 
-class MiscellaneousTestCase(DatabaseTestCase):
+class MiscellaneousTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -372,3 +372,346 @@ class MiscellaneousTestCase(DatabaseTestCase):
         self.graph.batch.submit(self.batch)
         with self.assertRaises(Finished):
             self.graph.batch.submit(self.batch)
+
+
+class BatchErrorTestCase(Py2neoTestCase):
+
+    def test_invalid_syntax_raises_cypher_error(self):
+        batch = WriteBatch(self.graph)
+        batch.append(CypherJob("X"))
+        try:
+            batch.submit()
+        except BatchError as error:
+            assert isinstance(error, BatchError)
+            cause = error.__cause__
+            assert isinstance(cause, GraphError)
+            assert cause.__class__.__name__ == "SyntaxException"
+            assert cause.exception == "SyntaxException"
+            assert cause.fullname in [None, "org.neo4j.cypher.SyntaxException"]
+        else:
+            assert False
+
+
+class BatchRequestTestCase(Py2neoTestCase):
+
+    def test_can_create_batch_request(self):
+        method = "POST"
+        endpoint = "cypher"
+        target = Target(endpoint)
+        body = {"query": "CREATE (a) RETURN a"}
+        request = Job(method, target, body)
+        assert request.method == method
+        assert request.target.uri_string == endpoint
+        assert request.body == body
+
+    def test_batch_requests_are_equal_if_same(self):
+        method = "POST"
+        endpoint = "cypher"
+        target = Target(endpoint)
+        body = {"query": "CREATE (a) RETURN a"}
+        request_1 = Job(method, target, body)
+        request_2 = request_1
+        assert request_1 == request_2
+        assert hash(request_1) == hash(request_2)
+
+    def test_batch_requests_are_unequal_if_not_same(self):
+        method = "POST"
+        endpoint = "cypher"
+        target = Target(endpoint)
+        body = {"query": "CREATE (a) RETURN a"}
+        request_1 = Job(method, target, body)
+        request_2 = Job(method, target, body)
+        assert request_1 != request_2
+        assert hash(request_1) != hash(request_2)
+
+
+class PullBatchTestCase(Py2neoTestCase):
+
+    def setUp(self):
+        self.batch = PullBatch(self.graph)
+
+    def test_can_pull_node(self):
+        uri = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a").uri
+        alice = Node()
+        alice.bind(uri)
+        assert alice.properties["name"] is None
+        self.batch.append(alice)
+        self.batch.pull()
+        assert alice.properties["name"] == "Alice"
+
+    def test_can_pull_node_with_label(self):
+        uri = self.cypher.execute_one("CREATE (a:Person {name:'Alice'}) RETURN a").uri
+        alice = Node()
+        alice.bind(uri)
+        assert "Person" not in alice.labels
+        assert alice.properties["name"] is None
+        self.batch.append(alice)
+        self.batch.pull()
+        assert "Person" in alice.labels
+        assert alice.properties["name"] == "Alice"
+
+    def test_can_pull_relationship(self):
+        uri = self.cypher.execute_one("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
+        ab = Relationship(None, "", None)
+        ab.bind(uri)
+        assert ab.type == ""
+        assert ab.properties["since"] is None
+        self.batch.append(ab)
+        self.batch.pull()
+        assert ab.type == "KNOWS"
+        assert ab.properties["since"] == 1999
+
+    def test_can_pull_rel(self):
+        uri = self.cypher.execute_one("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
+        ab = Relationship(None, "", None).rel
+        ab.bind(uri)
+        assert ab.type == ""
+        assert ab.properties["since"] is None
+        self.batch.append(ab)
+        self.batch.pull()
+        assert ab.type == "KNOWS"
+        assert ab.properties["since"] == 1999
+
+    def test_can_pull_path(self):
+        path = self.cypher.execute_one("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
+        assert path.rels[0].properties["since"] is None
+        statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
+        self.cypher.execute(statement, {"ab": path.rels[0]._id})
+        assert path.rels[0].properties["since"] is None
+        self.batch.append(path)
+        self.batch.pull()
+        assert path.rels[0].properties["since"] == 1999
+
+    def test_cannot_pull_none(self):
+        try:
+            self.batch.append(None)
+        except TypeError:
+            assert True
+        else:
+            assert False
+
+
+class PushBatchTestCase(Py2neoTestCase):
+
+    def test_can_push_node(self):
+        alice = Node(name="Alice")
+        self.graph.create(alice)
+        alice.properties["age"] = 33
+        self.graph.push(alice)
+        node_id = alice._id
+        Node.cache.clear()
+        node = self.graph.node(node_id)
+        assert node.properties["age"] == 33
+
+    def test_cannot_push_empty_list_property(self):
+        alice = Node(name="Alice")
+        self.graph.create(alice)
+        alice.properties["faults"] = []
+        with self.assertRaises(BatchError):
+            self.graph.push(alice)
+
+    def test_can_push_rel(self):
+        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        rel = ab.rel
+        rel.properties["since"] = 1999
+        self.graph.push(rel)
+        rel_id = rel._id
+        Rel.cache.clear()
+        rel = self.graph.relationship(rel_id).rel
+        assert rel.properties["since"] == 1999
+
+    def test_cannot_push_none(self):
+        with self.assertRaises(TypeError):
+            self.graph.push(None)
+
+
+class WriteBatchTestCase(Py2neoTestCase):
+
+    def setUp(self):
+        self.batch = WriteBatch(self.graph)
+
+    def test_cannot_create_with_bad_type(self):
+        try:
+            self.batch.create("")
+        except TypeError:
+            assert True
+        else:
+            assert False
+
+    def test_cannot_create_with_none(self):
+        try:
+            self.batch.create(None)
+        except TypeError:
+            assert True
+        else:
+            assert False
+
+    def test_can_create_path_with_new_nodes(self):
+        self.batch.create_path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        results = self.batch.submit()
+        path = results[0]
+        assert len(path) == 1
+        assert path.nodes[0]["name"] == "Alice"
+        assert path.relationships[0].type == "KNOWS"
+        assert path.nodes[1]["name"] == "Bob"
+
+    def test_can_create_path_with_existing_nodes(self):
+        alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
+        self.batch.create_path(alice, "KNOWS", bob)
+        results = self.batch.submit()
+        path = results[0]
+        assert len(path) == 1
+        assert path.nodes[0] == alice
+        assert path.relationships[0].type == "KNOWS"
+        assert path.nodes[1] == bob
+
+    def test_path_creation_is_not_idempotent(self):
+        alice, = self.graph.create({"name": "Alice"})
+        self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
+        results = self.batch.submit()
+        path = results[0]
+        bob = path.nodes[1]
+        assert path.nodes[0] == alice
+        assert bob["name"] == "Bob"
+        self.batch = WriteBatch(self.graph)
+        self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
+        results = self.batch.submit()
+        path = results[0]
+        assert path.nodes[0] == alice
+        assert path.nodes[1] != bob
+
+    def test_can_get_or_create_path_with_existing_nodes(self):
+        alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
+        self.batch.get_or_create_path(alice, "KNOWS", bob)
+        results = self.batch.submit()
+        path = results[0]
+        assert len(path) == 1
+        assert path.nodes[0] == alice
+        assert path.relationships[0].type == "KNOWS"
+        assert path.nodes[1] == bob
+
+    def test_path_merging_is_idempotent(self):
+        alice, = self.graph.create({"name": "Alice"})
+        self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
+        results = self.batch.submit()
+        path = results[0]
+        bob = path.nodes[1]
+        assert path.nodes[0] == alice
+        assert bob["name"] == "Bob"
+        self.batch = WriteBatch(self.graph)
+        self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
+        results = self.batch.submit()
+        path = results[0]
+        assert path.nodes[0] == alice
+        assert path.nodes[1] == bob
+
+    def test_can_set_property_on_preexisting_node(self):
+        alice, = self.graph.create({"name": "Alice"})
+        self.batch.set_property(alice, "age", 34)
+        self.batch.run()
+        alice.pull()
+        assert alice["age"] == 34
+
+    def test_can_set_property_on_node_in_same_batch(self):
+        alice = self.batch.create({"name": "Alice"})
+        self.batch.set_property(alice, "age", 34)
+        results = self.batch.submit()
+        alice = results[self.batch.find(alice)]
+        alice.auto_sync_properties = True
+        assert alice["age"] == 34
+
+    def test_can_set_properties_on_preexisting_node(self):
+        alice, = self.graph.create({})
+        self.batch.set_properties(alice, {"name": "Alice", "age": 34})
+        self.batch.run()
+        alice.pull()
+        assert alice["name"] == "Alice"
+        assert alice["age"] == 34
+
+    def test_can_set_properties_on_node_in_same_batch(self):
+        alice = self.batch.create({})
+        self.batch.set_properties(alice, {"name": "Alice", "age": 34})
+        results = self.batch.submit()
+        alice = results[self.batch.find(alice)]
+        alice.auto_sync_properties = True
+        assert alice["name"] == "Alice"
+        assert alice["age"] == 34
+
+    def test_can_delete_property_on_preexisting_node(self):
+        alice, = self.graph.create({"name": "Alice", "age": 34})
+        self.batch.delete_property(alice, "age")
+        self.batch.run()
+        alice.pull()
+        assert alice["name"] == "Alice"
+        assert alice["age"] is None
+
+    def test_can_delete_property_on_node_in_same_batch(self):
+        alice = self.batch.create({"name": "Alice", "age": 34})
+        self.batch.delete_property(alice, "age")
+        results = self.batch.submit()
+        alice = results[self.batch.find(alice)]
+        alice.auto_sync_properties = True
+        assert alice["name"] == "Alice"
+        assert alice["age"] is None
+
+    def test_can_delete_properties_on_preexisting_node(self):
+        alice, = self.graph.create({"name": "Alice", "age": 34})
+        self.batch.delete_properties(alice)
+        self.batch.run()
+        alice.pull()
+        assert alice.properties == {}
+
+    def test_can_delete_properties_on_node_in_same_batch(self):
+        alice = self.batch.create({"name": "Alice", "age": 34})
+        self.batch.delete_properties(alice)
+        results = self.batch.submit()
+        alice = results[self.batch.find(alice)]
+        alice.pull()
+        assert alice.properties == {}
+
+    def test_can_add_labels_to_preexisting_node(self):
+        alice, = self.graph.create({"name": "Alice"})
+        self.batch.add_labels(alice, "human", "female")
+        self.batch.run()
+        alice.pull()
+        assert alice.labels == {"human", "female"}
+
+    def test_can_add_labels_to_node_in_same_batch(self):
+        a = self.batch.create({"name": "Alice"})
+        self.batch.add_labels(a, "human", "female")
+        results = self.batch.submit()
+        alice = results[self.batch.find(a)]
+        alice.pull()
+        assert alice.labels == {"human", "female"}
+
+    def test_can_remove_labels_from_preexisting_node(self):
+        alice, = self.graph.create(Node("human", "female", name="Alice"))
+        self.batch.remove_label(alice, "human")
+        self.batch.run()
+        alice.pull()
+        assert alice.labels == {"female"}
+
+    def test_can_add_and_remove_labels_on_node_in_same_batch(self):
+        alice = self.batch.create({"name": "Alice"})
+        self.batch.add_labels(alice, "human", "female")
+        self.batch.remove_label(alice, "female")
+        results = self.batch.submit()
+        alice = results[self.batch.find(alice)]
+        alice.pull()
+        assert alice.labels == {"human"}
+
+    def test_can_set_labels_on_preexisting_node(self):
+        alice, = self.graph.create(Node("human", "female", name="Alice"))
+        self.batch.set_labels(alice, "mystery", "badger")
+        self.batch.run()
+        alice.pull()
+        assert alice.labels == {"mystery", "badger"}
+
+    def test_can_set_labels_on_node_in_same_batch(self):
+        self.batch.create({"name": "Alice"})
+        self.batch.add_labels(0, "human", "female")
+        self.batch.set_labels(0, "mystery", "badger")
+        results = self.batch.submit()
+        alice = results[0]
+        alice.pull()
+        assert alice.labels == {"mystery", "badger"}

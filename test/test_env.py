@@ -17,10 +17,10 @@
 
 
 from py2neo.env import NEO4J_DIST, NEO4J_HOME, NEO4J_URI
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class EnvTestCase(DatabaseTestCase):
+class EnvTestCase(Py2neoTestCase):
 
     def test_default_dist(self):
         assert NEO4J_DIST == "http://dist.neo4j.org/"

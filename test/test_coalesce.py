@@ -18,10 +18,10 @@
 
 from py2neo import Node, NodePointer, JoinError
 from py2neo.core import coalesce
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class CastTestCase(DatabaseTestCase):
+class CastTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.alice = Node(name="Alice")

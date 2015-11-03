@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Rel, Relationship
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class HydrationTestCase(DatabaseTestCase):
+class HydrationTestCase(Py2neoTestCase):
     
     def test_minimal_node_hydrate(self):
         dehydrated = {

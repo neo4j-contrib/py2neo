@@ -16,13 +16,11 @@
 # limitations under the License.
 
 
-from uuid import uuid4
-
 from py2neo import Node, Relationship
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class MatchTestCase(DatabaseTestCase):
+class MatchTestCase(Py2neoTestCase):
     
     def setUp(self):
         stuff = self.graph.create(
@@ -115,7 +113,7 @@ class MatchTestCase(DatabaseTestCase):
         assert isinstance(rel, Relationship)
 
     def test_can_match_one_when_none_exist(self):
-        rel = self.graph.match_one(rel_type=uuid4())
+        rel = self.graph.match_one(rel_type=next(self.unique_string))
         assert rel is None
 
     def test_can_match_none(self):
@@ -127,25 +125,13 @@ class MatchTestCase(DatabaseTestCase):
         assert len(relationships) == 2
 
     def test_relationship_start_node_must_be_bound(self):
-        try:
+        with self.assertRaises(TypeError):
             list(self.graph.match(start_node=Node()))
-        except TypeError:
-            assert True
-        else:
-            assert False
 
     def test_relationship_end_node_must_be_bound(self):
-        try:
+        with self.assertRaises(TypeError):
             list(self.graph.match(end_node=Node()))
-        except TypeError:
-            assert True
-        else:
-            assert False
 
     def test_relationship_start_and_end_node_must_be_bound(self):
-        try:
+        with self.assertRaises(TypeError):
             list(self.graph.match(start_node=Node(), end_node=Node()))
-        except TypeError:
-            assert True
-        else:
-            assert False

@@ -17,11 +17,11 @@
 
 
 from py2neo import Graph, Node, Relationship
-from test.cases import DatabaseTestCase
-from test.compat import patch
+from test.util import Py2neoTestCase
+from test.compat import patch, assert_repr
 
 
-class GraphTestCase(DatabaseTestCase):
+class GraphTestCase(Py2neoTestCase):
 
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
@@ -131,3 +131,95 @@ class GraphTestCase(DatabaseTestCase):
         Node.cache.clear()
         node = self.graph.node(node_id)
         assert not node.exists
+
+    def test_graph_hashes(self):
+        assert hash(self.graph) == hash(self.graph)
+
+    def test_graph_repr(self):
+        assert_repr(self.graph, "<Graph uri='http://localhost:7474/db/data/'>",
+                                "<Graph uri=u'http://localhost:7474/db/data/'>")
+
+    def test_can_get_same_instance(self):
+        graph_1 = Graph()
+        graph_2 = Graph()
+        assert graph_1 is graph_2
+
+    def test_neo4j_version_format(self):
+        version = self.graph.neo4j_version
+        print(version)
+        assert isinstance(version, tuple)
+        assert 3 <= len(version) <= 4
+        assert isinstance(version[0], int)
+        assert isinstance(version[1], int)
+        assert isinstance(version[2], int)
+
+    def test_create_single_empty_node(self):
+        a, = self.graph.create({})
+
+    def test_get_node_by_id(self):
+        a1, = self.graph.create({"foo": "bar"})
+        a2 = self.graph.node(a1._id)
+        assert a1 == a2
+
+    def test_create_node_with_property_dict(self):
+        node, = self.graph.create({"foo": "bar"})
+        assert node["foo"] == "bar"
+
+    def test_create_node_with_mixed_property_types(self):
+        node, = self.graph.create(
+            {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
+        )
+        assert len(node.properties) == 4
+        assert node["fish"] == "chips"
+        assert node["foo"] == "bar"
+        assert node["number"] == 13
+        assert not node["true"]
+
+    def test_create_node_with_null_properties(self):
+        node, = self.graph.create({"foo": "bar", "no-foo": None})
+        assert node["foo"] == "bar"
+        assert node["no-foo"] is None
+
+    def test_create_multiple_nodes(self):
+        nodes = self.graph.create(
+                {},
+                {"foo": "bar"},
+                {"number": 42, "foo": "baz", "true": True},
+                {"fish": ["cod", "haddock", "plaice"], "number": 109}
+        )
+        assert len(nodes) == 4
+        assert len(nodes[0].properties) == 0
+        assert len(nodes[1].properties) == 1
+        assert nodes[1]["foo"] == "bar"
+        assert len(nodes[2].properties) == 3
+        assert nodes[2]["number"] == 42
+        assert nodes[2]["foo"] == "baz"
+        assert nodes[2]["true"]
+        assert len(nodes[3].properties) == 2
+        assert nodes[3]["fish"][0] == "cod"
+        assert nodes[3]["fish"][1] == "haddock"
+        assert nodes[3]["fish"][2] == "plaice"
+        assert nodes[3]["number"] == 109
+
+    def test_batch_pull_and_check_properties(self):
+        nodes = self.graph.create(
+            {},
+            {"foo": "bar"},
+            {"number": 42, "foo": "baz", "true": True},
+            {"fish": ["cod", "haddock", "plaice"], "number": 109}
+        )
+        self.graph.pull(*nodes)
+        props = [n.properties for n in nodes]
+        assert len(props) == 4
+        assert len(props[0]) == 0
+        assert len(props[1]) == 1
+        assert props[1]["foo"] == "bar"
+        assert len(props[2]) == 3
+        assert props[2]["number"] == 42
+        assert props[2]["foo"] == "baz"
+        assert props[2]["true"]
+        assert len(props[3]) == 2
+        assert props[3]["fish"][0] == "cod"
+        assert props[3]["fish"][1] == "haddock"
+        assert props[3]["fish"][2] == "plaice"
+        assert props[3]["number"] == 109

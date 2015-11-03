@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Rev, Relationship, Path
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class CreateTestCase(DatabaseTestCase):
+class CreateTestCase(Py2neoTestCase):
 
     def test_creating_nothing_does_nothing(self):
         created = self.graph.create()
@@ -163,3 +163,86 @@ class CreateTestCase(DatabaseTestCase):
     def test_node_pointer_must_point_to_a_node(self):
         with self.assertRaises(ValueError):
             self.graph.create({}, {}, (0, "KNOWS", 1), (0, "KNOWS", 2))
+
+    def test_can_create_single_node(self):
+        results = self.graph.create(
+            {"name": "Alice"}
+        )
+        assert results is not None
+        assert len(results) == 1
+        assert isinstance(results[0], Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+
+    def test_can_create_simple_graph(self):
+        results = self.graph.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            (0, "KNOWS", 1)
+        )
+        assert results is not None
+        assert len(results) == 3
+        assert isinstance(results[0], Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], Node)
+        assert "name" in results[1]
+        assert results[1]["name"] == "Bob"
+        assert isinstance(results[2], Relationship)
+        assert results[2].type == "KNOWS"
+        assert results[2].start_node == results[0]
+        assert results[2].end_node == results[1]
+
+    def test_can_create_simple_graph_with_rel_data(self):
+        results = self.graph.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            (0, "KNOWS", 1, {"since": 1996})
+        )
+        assert results is not None
+        assert len(results) == 3
+        assert isinstance(results[0], Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], Node)
+        assert "name" in results[1]
+        assert results[1]["name"] == "Bob"
+        assert isinstance(results[2], Relationship)
+        assert results[2].type == "KNOWS"
+        assert results[2].start_node == results[0]
+        assert results[2].end_node == results[1]
+        assert "since" in results[2]
+        assert results[2]["since"] == 1996
+
+    def test_can_create_graph_against_existing_node(self):
+        ref_node, = self.graph.create({})
+        results = self.graph.create(
+            {"name": "Alice"},
+            (ref_node, "PERSON", 0)
+        )
+        assert results is not None
+        assert len(results) == 2
+        assert isinstance(results[0], Node)
+        assert "name" in results[0]
+        assert results[0]["name"] == "Alice"
+        assert isinstance(results[1], Relationship)
+        assert results[1].type == "PERSON"
+        assert results[1].start_node == ref_node
+        assert results[1].end_node == results[0]
+        self.graph.delete(results[1], results[0], ref_node)
+
+    def test_fails_on_bad_reference(self):
+        with self.assertRaises(Exception):
+            self.graph.create({"name": "Alice"}, (0, "KNOWS", 1))
+
+    def test_can_create_big_graph(self):
+        size = 40
+        nodes = [
+            {"number": i}
+            for i in range(size)
+        ]
+        results = self.graph.create(*nodes)
+        assert results is not None
+        assert len(results) == size
+        for i in range(size):
+            assert isinstance(results[i], Node)

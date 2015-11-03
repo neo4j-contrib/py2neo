@@ -18,10 +18,10 @@
 
 from py2neo.core import Resource, Node, Rel, Rev, Relationship, Service, Path
 from py2neo.error import BindError
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class BindUnbindTestCase(DatabaseTestCase):
+class BindUnbindTestCase(Py2neoTestCase):
         
     def test_can_create_bindable_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"

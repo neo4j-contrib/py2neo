@@ -16,12 +16,11 @@
 # limitations under the License.
 
 
-from __future__ import unicode_literals
-
 from py2neo import PropertySet, PropertyContainer
+from test.util import Py2neoTestCase
 
 
-class TestPropertySet(object):
+class PropertySetTestCase(Py2neoTestCase):
 
     def test_none_is_not_stored(self):
         # when
@@ -49,7 +48,7 @@ class TestPropertySet(object):
         # when
         del p["name"]
         # then
-        assert p["name"] == None
+        assert p["name"] is None
 
     def test_setdefault_on_existing_returns_existing(self):
         # given
@@ -121,7 +120,7 @@ class TestPropertySet(object):
         assert hash(p) == hash(q)
 
 
-class TestPropertyContainer(object):
+class PropertyContainerTestCase(Py2neoTestCase):
 
     def test_none_is_not_stored(self):
         # when
@@ -149,4 +148,4 @@ class TestPropertyContainer(object):
         # when
         del p["name"]
         # then
-        assert p["name"] == None
+        assert p["name"] is None

@@ -19,10 +19,10 @@
 from py2neo import Node, Rev, Relationship, Path
 from py2neo.cypher.delete import DeleteStatement
 from py2neo.cypher.error import CypherError
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class DeleteTestCase(DatabaseTestCase):
+class DeleteTestCase(Py2neoTestCase):
         
     def test_deleting_nothing_does_nothing(self):
         self.graph.delete()

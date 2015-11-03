@@ -23,7 +23,7 @@ except ImportError:
     from mock import Mock, patch
 
 
-__all__ = ["Mock", "patch", "long"]
+__all__ = ["Mock", "patch", "long", "assert_repr"]
 
 
 if version_info >= (3,):
@@ -31,3 +31,10 @@ if version_info >= (3,):
 
 else:
     long = long
+
+
+def assert_repr(obj, repr_string, python2_repr_string=None):
+    if version_info >= (3,) or python2_repr_string is None:
+        assert repr(obj) == repr_string
+    else:
+        assert repr(obj) == python2_repr_string

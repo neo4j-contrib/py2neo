@@ -16,11 +16,11 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, Rel, Relationship
-from test.cases import DatabaseTestCase
+from py2neo import Graph, Node, NodePointer, Rel, Relationship
+from test.util import Py2neoTestCase
 
 
-class CastTestCase(DatabaseTestCase):
+class CastTestCase(Py2neoTestCase):
 
     def test_graph_cast(self):
         assert self.graph.cast(None) is None
@@ -51,3 +51,163 @@ class CastTestCase(DatabaseTestCase):
         assert Rel.cast({"since": 1999}) == Rel(since=1999)
         assert Rel.cast(("KNOWS", {"since": 1999})) == knows
         assert Rel.cast(Relationship({}, "KNOWS", {})) == Rel("KNOWS")
+
+    def test_can_cast_node(self):
+        alice, = self.graph.create({"name": "Alice"})
+        casted = Graph.cast(alice)
+        assert isinstance(casted, Node)
+        assert casted.bound
+        assert casted["name"] == "Alice"
+
+    def test_can_cast_dict(self):
+        casted = Graph.cast({"name": "Alice"})
+        assert isinstance(casted, Node)
+        assert not casted.bound
+        assert casted["name"] == "Alice"
+
+    def test_can_cast_rel(self):
+        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        casted = Graph.cast(ab)
+        assert isinstance(casted, Relationship)
+        assert casted.bound
+        assert casted.start_node == a
+        assert casted.type == "KNOWS"
+        assert casted.end_node == b
+
+    def test_can_cast_3_tuple(self):
+        casted = Graph.cast(("Alice", "KNOWS", "Bob"))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+
+    def test_can_cast_4_tuple(self):
+        casted = Graph.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+    
+    
+class RelCastTestCase(Py2neoTestCase):
+    
+    def test_can_cast_rel(self):
+        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        casted = Relationship.cast(ab)
+        assert isinstance(casted, Relationship)
+        assert casted.bound
+        assert casted.start_node == a
+        assert casted.type == "KNOWS"
+        assert casted.end_node == b
+        
+    def test_cannot_cast_0_tuple(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast(())
+
+    def test_cannot_cast_1_tuple(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast(("Alice",))
+
+    def test_cannot_cast_2_tuple(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast(("Alice", "KNOWS"))
+
+    def test_can_cast_3_tuple(self):
+        casted = Relationship.cast(("Alice", "KNOWS", "Bob"))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        
+    def test_can_cast_3_tuple_with_unbound_rel(self):
+        casted = Relationship.cast(("Alice", ("KNOWS", {"since": 1999}), "Bob"))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        
+    def test_can_cast_4_tuple(self):
+        casted = Relationship.cast(("Alice", "KNOWS", "Bob", {"since": 1999}))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        
+    def test_cannot_cast_6_tuple(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast(("Alice", "KNOWS", "Bob", "foo", "bar", "baz"))
+
+    def test_cannot_cast_0_args(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast()
+
+    def test_cannot_cast_1_arg(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast("Alice")
+
+    def test_cannot_cast_2_args(self):
+        with self.assertRaises(TypeError):
+            Relationship.cast("Alice", "KNOWS")
+
+    def test_can_cast_3_args(self):
+        casted = Relationship.cast("Alice", "KNOWS", "Bob")
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        
+    def test_can_cast_3_args_with_mid_tuple(self):
+        casted = Relationship.cast("Alice", ("KNOWS", {"since": 1999}), "Bob")
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        
+    def test_can_cast_3_args_with_mid_tuple_and_props(self):
+        casted = Relationship.cast("Alice", ("KNOWS", {"since": 1999}), "Bob", foo="bar")
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        assert casted["foo"] == "bar"
+        
+    def test_can_cast_kwargs(self):
+        casted = Relationship.cast("Alice", "KNOWS", "Bob", since=1999)
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        
+    def test_can_cast_4_args(self):
+        casted = Relationship.cast("Alice", "KNOWS", "Bob", {"since": 1999})
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+
+    def test_can_cast_4_args_and_props(self):
+        casted = Relationship.cast("Alice", "KNOWS", "Bob", {"since": 1999}, foo="bar")
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node == Node("Alice")
+        assert casted.type == "KNOWS"
+        assert casted.end_node == Node("Bob")
+        assert casted["since"] == 1999
+        assert casted["foo"] == "bar"

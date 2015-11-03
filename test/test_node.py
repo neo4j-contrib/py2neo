@@ -16,9 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import Node, GraphError, BindError, Path
-from test.compat import patch, long
-from test.cases import DatabaseTestCase
+from py2neo import Node, NodePointer, GraphError, BindError, Path
+from test.compat import patch, long, assert_repr
+from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 
 
@@ -26,7 +26,7 @@ class DodgyClientError(ClientError):
     status_code = 499
 
 
-class NodeTestCase(DatabaseTestCase):
+class NodeTestCase(Py2neoTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice", age=33)
@@ -93,7 +93,7 @@ class NodeTestCase(DatabaseTestCase):
             node.refresh()
 
 
-class AbstractNodeTestCase(DatabaseTestCase):
+class AbstractNodeTestCase(Py2neoTestCase):
 
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
@@ -117,7 +117,7 @@ class AbstractNodeTestCase(DatabaseTestCase):
         assert alice is not None
 
 
-class ConcreteNodeTestCase(DatabaseTestCase):
+class ConcreteNodeTestCase(Py2neoTestCase):
 
     def test_can_create_concrete_node(self):
         alice, = self.graph.create({"name": "Alice", "age": 34})
@@ -169,3 +169,147 @@ class ConcreteNodeTestCase(DatabaseTestCase):
         node = Node()
         with self.assertRaises(BindError):
             _ = node.ref
+
+    def test_node_repr(self):
+        node = Node("Person", name="Alice")
+        assert_repr(node, "<Node labels={'Person'} properties={'name': 'Alice'}>",
+                          "<Node labels=set([u'Person']) properties={'name': u'Alice'}>")
+        self.graph.create(node)
+        assert_repr(node, "<Node graph='http://localhost:7474/db/data/' ref='%s' "
+                          "labels={'Person'} properties={'name': 'Alice'}>" % node.ref,
+                          "<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                          "labels=set([u'Person']) properties={'name': u'Alice'}>" % node.ref)
+
+    def test_node_hashes(self):
+        assert hash(Node()) == hash(Node())
+        assert hash(Node(name="Alice")) == hash(Node(name="Alice"))
+        assert hash(Node(name="Alice", age=33)) == hash(Node(age=33, name="Alice"))
+        assert (hash(Node("Person", name="Alice", age=33)) ==
+                hash(Node("Person", age=33, name="Alice")))
+        node_1 = Node("Person", name="Alice")
+        self.graph.create(node_1)
+        node_2 = Node("Person", name="Alice")
+        node_2.bind(node_1.uri)
+        assert node_1 is not node_2
+        assert hash(node_1) == hash(node_2)
+
+    def test_stale_node_repr(self):
+        node = Node.hydrate({"self": "http://localhost:7474/db/data/node/0"})
+        assert_repr(node, "<Node graph='http://localhost:7474/db/data/' ref='%s' "
+                          "labels=? properties=?>" % node.ref,
+                          "<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
+                          "labels=? properties=?>" % node.ref)
+
+    def test_node_str(self):
+        node = Node("Person", name="Alice")
+        assert str(node) == '(:Person {name:"Alice"})'
+        self.graph.create(node)
+        assert str(node) == '(n%s:Person {name:"Alice"})' % node._id
+
+
+class NodeMatchTestCase(Py2neoTestCase):
+        
+    def setUp(self):
+        a, b, c, d, e = self.graph.create(
+            {"name": "Alice"},
+            {"name": "Bob"},
+            {"name": "Carol"},
+            {"name": "Dave"},
+            {"name": "Eve"},
+        )
+        rels = self.graph.create(
+            (a, "LOVES", b),
+            (b, "LOVES", a),
+            (b, "KNOWS", c),
+            (b, "KNOWS", d),
+            (d, "LOVES", e),
+        )
+        self.sample_graph = a, b, c, d, e, rels
+
+    def test_can_match_zero_outgoing(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(e.match_outgoing())
+        assert len(matches) == 0
+
+    def test_can_match_one_outgoing(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(a.match_outgoing())
+        assert len(matches) == 1
+        assert rels[0] in matches
+
+    def test_can_match_many_outgoing(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match_outgoing())
+        assert len(matches) == 3
+        assert rels[1] in matches
+        assert rels[2] in matches
+        assert rels[3] in matches
+
+    def test_can_match_many_outgoing_with_limit(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match_outgoing(limit=2))
+        assert len(matches) == 2
+        for match in matches:
+            assert match in (rels[1], rels[2], rels[3])
+
+    def test_can_match_many_outgoing_by_type(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match_outgoing("KNOWS"))
+        assert len(matches) == 2
+        assert rels[2] in matches
+        assert rels[3] in matches
+
+    def test_can_match_many_outgoing_by_multiple_types(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match_outgoing(("KNOWS", "LOVES")))
+        assert len(matches) == 3
+        assert rels[1] in matches
+        assert rels[2] in matches
+        assert rels[3] in matches
+
+    def test_can_match_many_in_both_directions(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match())
+        assert len(matches) == 4
+        assert rels[0] in matches
+        assert rels[1] in matches
+        assert rels[2] in matches
+        assert rels[3] in matches
+
+    def test_can_match_many_in_both_directions_with_limit(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match(limit=2))
+        assert len(matches) == 2
+        for match in matches:
+            assert match in (rels[0], rels[1], rels[2], rels[3])
+
+    def test_can_match_many_by_type_in_both_directions(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(b.match("LOVES"))
+        assert len(matches) == 2
+        assert rels[0] in matches
+        assert rels[1] in matches
+
+
+class NodePointerTestCase(Py2neoTestCase):
+
+    def test_node_pointer_equality(self):
+        p1 = NodePointer(42)
+        p2 = NodePointer(42)
+        assert p1 == p2
+
+    def test_node_pointer_inequality(self):
+        p1 = NodePointer(42)
+        p2 = NodePointer(69)
+        assert p1 != p2
+
+    def test_node_pointer_hashes(self):
+        assert hash(NodePointer(42)) == hash(NodePointer(42))
+
+    def test_node_pointer_repr(self):
+        pointer = NodePointer(3456)
+        assert_repr(pointer, "<NodePointer address=3456>")
+
+    def test_node_pointer_str(self):
+        pointer = NodePointer(3456)
+        assert str(pointer) == "{3456}"

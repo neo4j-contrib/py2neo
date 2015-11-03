@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Rel, Rev, Path
-from test.cases import DatabaseTestCase
+from test.util import Py2neoTestCase
 
 
-class ArithmeticTestCase(DatabaseTestCase):
+class ArithmeticTestCase(Py2neoTestCase):
         
     def test_can_apply_unary_positive_to_rel(self):
         before = Rel("KNOWS", since=1999)
