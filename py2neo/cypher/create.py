@@ -113,6 +113,8 @@ class CreateStatement(object):
         name = _(index)
         if isinstance(entity, Node):
             self.names.append(self._create_node(entity, name))
+        elif isinstance(entity, Relationship):
+            self.names.append(self._create_path(entity, name, unique=False))
         elif isinstance(entity, Path):
             self.names.append(self._create_path(entity, name, unique=False))
         else:
@@ -128,7 +130,7 @@ class CreateStatement(object):
         entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
-        if isinstance(entity, Path):
+        if isinstance(entity, (Relationship, Path)):
             if len(entity) == 0:
                 raise ValueError("Cannot create unique path with zero length")
             if not any(node.bound or node in self for node in entity.nodes):

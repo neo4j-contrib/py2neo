@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import LabelSet, Node, Path, PropertySet, Rel
+from py2neo.core import LabelSet, Node, Relationship, Path, PropertySet, Rel
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -59,11 +59,13 @@ class PushBatch(Batch):
             self.jobs.append(PushNodeLabelsJob(entity, entity.labels))
         elif isinstance(entity, Rel):
             self.jobs.append(PushPropertiesJob(entity, entity.properties))
+        elif isinstance(entity, Relationship):
+            self.jobs.append(PushPropertiesJob(entity, entity.properties))
         elif isinstance(entity, Path):
             for relationship in entity.relationships:
                 self.jobs.append(PushPropertiesJob(relationship, relationship.properties))
         else:
-            raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
+            raise TypeError("Cannot push object of type %s" % entity.__class__.__name__)
 
     def push(self):
         """ Push details from all entities in this batch to their

@@ -2031,6 +2031,8 @@ class Path(object):
         for i, entity in enumerate(entities):
             if isinstance(entity, Path):
                 join_path(entity, i)
+            elif isinstance(entity, Relationship):
+                join_path(entity, i)
             elif isinstance(entity, Rel):
                 join_rel(entity, i)
             elif isinstance(entity, (Node, NodePointer)):
@@ -2269,7 +2271,7 @@ class Path(object):
                 pass
 
 
-class Relationship(Path):
+class Relationship(object):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -2374,9 +2376,15 @@ class Relationship(Path):
         cast_rel = Rel.cast(rel)
         cast_rel._PropertyContainer__properties.update(properties)
         if isinstance(cast_rel, Rev):  # always forwards
-            Path.__init__(self, end_node, -cast_rel, start_node)
+            self.__nodes = (Node.cast(end_node), Node.cast(start_node))
+            self.__rels = (-cast_rel,)
         else:
-            Path.__init__(self, start_node, cast_rel, end_node)
+            self.__nodes = (Node.cast(start_node), Node.cast(end_node))
+            self.__rels = (cast_rel,)
+        self.__relationships = None
+        self.__order = len(self.__nodes)
+        self.__size = len(self.__rels)
+        self.__metadata = None
 
     def __repr__(self):
         s = [self.__class__.__name__]
@@ -2496,12 +2504,12 @@ class Relationship(Path):
             if isinstance(node, Node):
                 node.bind(uri)
             else:
-                nodes = list(self._Path__nodes)
+                nodes = list(self.__nodes)
                 node = Node.cache.setdefault(uri, Node())
                 if not node.bound:
                     node.bind(uri)
                 nodes[i] = node
-                self._Path__nodes = tuple(nodes)
+                self.__nodes = tuple(nodes)
 
     @property
     def bound(self):
@@ -2537,7 +2545,7 @@ class Relationship(Path):
     def nodes(self):
         """ A tuple of all nodes in this «class.lower».
         """
-        return self._Path__nodes
+        return self.__nodes
 
     @property
     def order(self):
@@ -2590,7 +2598,7 @@ class Relationship(Path):
     def rel(self):
         """ The :class:`.Rel` object within this relationship.
         """
-        return self._Path__rels[0]
+        return self.__rels[0]
 
     @property
     def relationships(self):
@@ -2602,7 +2610,7 @@ class Relationship(Path):
     def rels(self):
         """ A tuple of all rels in this «class.lower».
         """
-        return self._Path__rels
+        return self.__rels
 
     @property
     def resource(self):

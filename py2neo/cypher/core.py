@@ -388,7 +388,7 @@ class RecordList(object):
         entities = []
         for record in self.records:
             for value in record:
-                if isinstance(value, (Node, Path)):
+                if isinstance(value, (Node, Relationship, Path)):
                     entities.append(value)
         return Subgraph(*entities)
 
