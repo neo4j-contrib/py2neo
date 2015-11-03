@@ -35,7 +35,7 @@ function install_dependencies {
     if [ "$ONLINE" ]
     then
         echo "Ensuring dependencies are up to date"
-        pip install --upgrade $(find . -name requirements.txt | xargs cat)
+        pip install --upgrade $(find . -name *requirements.txt | xargs cat)
         EXIT_CODE=$?
         if [ "$EXIT_CODE" != "0" ]
         then
@@ -78,17 +78,18 @@ function test {
         echo "Starting tests"
         export NEO4J_HOME="$HOME"
         export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
-        if [ "$1" == "" ]
-        then
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
-        else
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
-        fi
+        $HOME/runtests.sh
+        #if [ "$1" == "" ]
+        #then
+        #    py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
+        #else
+        #    py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+        #fi
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
         rm -rf "$LOG/$NEO4J_VERSION/htmlcov"
-        mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
+        #mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
         echo ""
         if [ "$EXIT_CODE" != "0" ]
         then
