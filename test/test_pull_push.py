@@ -32,16 +32,7 @@ class PullPushTestCase(Py2neoTestCase):
         local.pull()
         assert local.labels == remote.labels
         assert local.properties == remote.properties
-        
-    def test_can_pull_node_labels_only(self):
-        local = Node()
-        remote = Node("Person")
-        self.graph.create(remote)
-        assert local.labels == set()
-        local.bind(remote.uri)
-        local.labels.pull()
-        assert local.labels == remote.labels
-        
+
     def test_can_graph_pull_node(self):
         local = Node()
         remote = Node("Person", name="Alice")
@@ -64,17 +55,7 @@ class PullPushTestCase(Py2neoTestCase):
         remote.pull()
         assert local.labels == remote.labels
         assert local.properties == remote.properties
-        
-    def test_can_push_node_labels_only(self):
-        local = Node("Person")
-        remote = Node()
-        self.graph.create(remote)
-        assert remote.labels == set()
-        local.bind(remote.uri)
-        local.labels.push()
-        remote.labels.pull()
-        assert local.labels == remote.labels
-        
+
     def test_can_graph_push_node(self):
         local = Node("Person", name="Alice")
         remote = Node()
@@ -98,15 +79,16 @@ class PullPushTestCase(Py2neoTestCase):
         assert local.properties == remote.properties
         
     def test_can_push_relationship(self):
-        local = Rel("KNOWS", since=1999)
-        remote = Rel("KNOWS")
-        a, b, ab = self.graph.create({}, {}, (0, remote, 1))
-        assert ab.properties == {}
-        local.bind(ab.uri)
+        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        value = self.cypher.execute_one("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                        "RETURN ab.since", i=ab._id)
+        assert value is None
+        ab["since"] = 1999
         ab.push()
-        local.pull()
-        assert local.properties == remote.properties
-        
+        value = self.cypher.execute_one("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                        "RETURN ab.since", i=ab._id)
+        assert value == 1999
+
     def test_can_pull_path(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")

@@ -39,7 +39,8 @@ class SchemaTestCase(Py2neoTestCase):
         label_1 = next(self.unique_string)
         label_2 = next(self.unique_string)
         munich, = self.graph.create({'name': "München", 'key': "09162000"})
-        munich.labels.replace({label_1, label_2})
+        munich.labels.clear()
+        munich.labels.update({label_1, label_2})
         self.schema.create_index(label_1, "name")
         self.schema.create_index(label_1, "key")
         self.schema.create_index(label_2, "name")
@@ -78,12 +79,12 @@ class SchemaTestCase(Py2neoTestCase):
         with self.assertRaises(GraphError):
             self.graph.schema.create_uniqueness_constraint(label_1, "name")
         b.labels.remove(label_1)
-        b.push()
+        self.graph.push(b)
         self.schema.create_uniqueness_constraint(label_1, "name")
         a.labels.remove(label_1)
-        a.push()
+        self.graph.push(a)
         b.labels.add(label_1)
-        b.push()
+        self.graph.push(b)
         try:
             self.schema.drop_index(label_1, "name")
         except GraphError as error:
@@ -92,7 +93,7 @@ class SchemaTestCase(Py2neoTestCase):
         else:
             assert False
         b.labels.remove(label_1)
-        b.push()
+        self.graph.push(b)
         self.schema.drop_uniqueness_constraint(label_1, "name")
         with self.assertRaises(GraphError):
             self.schema.drop_uniqueness_constraint(label_1, "name")
@@ -160,8 +161,3 @@ class LabelSetTestCase(Py2neoTestCase):
         alice = Node("Person", name="Alice")
         alice.labels.remove("Person")
         assert alice.labels == set()
-        
-    def test_can_replace_labels_on_existing_node(self):
-        alice = Node("Person", name="Alice")
-        alice.labels.replace({"Employee"})
-        assert alice.labels == {"Employee"}

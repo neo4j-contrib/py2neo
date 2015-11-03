@@ -35,7 +35,7 @@ from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
-    raise_from, ThreadLocalWeakValueDictionary
+    raise_from, ThreadLocalWeakValueDictionary, deprecated
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
@@ -235,18 +235,6 @@ class Resource(_Resource):
                 return self.__initial_metadata
             self.get()
         return self.__last_get_response.content
-
-    @property
-    def ref(self):
-        """ The URI of this resource relative to its graph.
-
-        :rtype: string
-        """
-        if self.__ref is NotImplemented:
-            self_uri = self.uri.string
-            graph_uri = self.graph.uri.string
-            self.__ref = self_uri[len(graph_uri):]
-        return self.__ref
 
     def resolve(self, reference, strict=True):
         """ Resolve a URI reference against the URI for this resource,
@@ -1095,22 +1083,6 @@ class PropertySet(Service, dict):
         else:
             dict.__setitem__(self, key, cast_property(value))
 
-    def pull(self):
-        """ Copy the set of remote properties onto the local set.
-        """
-        self.resource.get()
-        properties = self.resource.metadata
-        self.replace(properties or {})
-
-    def push(self):
-        """ Copy the set of local properties onto the remote set.
-        """
-        self.resource.put(self)
-
-    def replace(self, iterable=None, **kwargs):
-        self.clear()
-        self.update(iterable, **kwargs)
-
     def setdefault(self, key, default=None):
         if key in self:
             value = self[key]
@@ -1149,26 +1121,6 @@ class LabelSet(Service, set):
             value ^= hash(label)
         return value
 
-    def pull(self):
-        """ Copy the set of remote labels onto the local set.
-        """
-        self.resource.get()
-        labels = self.resource.metadata
-        self.replace(labels or [])
-
-    def push(self):
-        """ Copy the set of local labels onto the remote set.
-        """
-        self.resource.put(self)
-
-    def replace(self, iterable):
-        """ Replace all labels with those from the iterable provided.
-
-        :arg iterable:
-        """
-        self.clear()
-        self.update(iterable)
-
 
 class PropertyContainer(Service):
     """ Base class for objects that contain a set of properties,
@@ -1178,8 +1130,6 @@ class PropertyContainer(Service):
     def __init__(self, **properties):
         Service.__init__(self)
         self.__properties = PropertySet(properties)
-        # Auto-sync will be removed in 2.1
-        self.auto_sync_properties = Graph.auto_sync_properties
 
     def __eq__(self, other):
         return self.properties == other.properties
@@ -1191,20 +1141,16 @@ class PropertyContainer(Service):
         return hash(self.__properties)
 
     def __contains__(self, key):
-        self.__pull_if_bound()
         return key in self.properties
 
     def __getitem__(self, key):
-        self.__pull_if_bound()
         return self.properties.__getitem__(key)
 
     def __setitem__(self, key, value):
         self.properties.__setitem__(key, value)
-        self.__push_if_bound()
 
     def __delitem__(self, key):
         self.properties.__delitem__(key)
-        self.__push_if_bound()
 
     def __iter__(self):
         raise TypeError("%r object is not iterable" % self.__class__.__name__)
@@ -1227,39 +1173,11 @@ class PropertyContainer(Service):
         """
         return self.__properties
 
-    def pull(self):
-        """ Pull data to this «class.lower» from its remote counterpart.
-        """
-        self.resource.get()
-        properties = self.resource.metadata["data"]
-        self.__properties.replace(properties or {})
-
-    def push(self):
-        """ Push data from this «class.lower» to its remote counterpart.
-        """
-        self.__properties.push()
-
     def unbind(self):
         """ Detach this «class.lower» from any remote counterpart.
         """
         Service.unbind(self)
         self.__properties.unbind()
-
-    def __pull_if_bound(self):
-        # remove in 2.1
-        if self.auto_sync_properties:
-            try:
-                self.properties.pull()
-            except BindError:
-                pass
-
-    def __push_if_bound(self):
-        # remove in 2.1
-        if self.auto_sync_properties:
-            try:
-                self.properties.push()
-            except BindError:
-                pass
 
 
 class Node(PropertyContainer):
@@ -1380,13 +1298,15 @@ class Node(PropertyContainer):
             inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
-            inst._PropertyContainer__properties.replace(properties)
+            inst._PropertyContainer__properties.clear()
+            inst._PropertyContainer__properties.update(properties)
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
             labels = set(metadata["labels"])
             labels.update(inst.labels)
-            inst.__labels.replace(labels)
+            inst.__labels.clear()
+            inst.__labels.update(labels)
         return inst
 
     def __init__(self, *labels, **properties):
@@ -1537,22 +1457,19 @@ class Node(PropertyContainer):
             self.refresh()
         return super(Node, self).properties
 
+    @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):
         """ Pull data to this node from its remote counterpart. Consider
         using :meth:`.Graph.pull` instead for batches of nodes.
         """
-        super(Node, self).properties.clear()
-        self.__labels.clear()
-        self.refresh()
+        self.graph.pull(self)
 
+    @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
         """ Push data from this node to its remote counterpart. Consider
         using :meth:`.Graph.push` instead for batches of nodes.
         """
-        from py2neo.batch.push import PushBatch
-        batch = PushBatch(self.graph)
-        batch.append(self)
-        batch.push()
+        self.graph.push(self)
 
     def refresh(self):
         # Non-destructive pull.
@@ -1706,7 +1623,8 @@ class Rel(PropertyContainer):
             inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
-            inst._PropertyContainer__properties.replace(properties)
+            inst._PropertyContainer__properties.clear()
+            inst._PropertyContainer__properties.update(properties)
         return inst
 
     def __init__(self, *type_, **properties):
@@ -1841,29 +1759,20 @@ class Rel(PropertyContainer):
 
         """
         if self.bound and "properties" in self.__stale:
-            self.refresh()
+            self.graph.pull(self)
         return super(Rel, self).properties
 
+    @deprecated("Rel.pull() is deprecated, use graph.pull(rel) instead")
     def pull(self):
         """ Pull data to this relationship from its remote counterpart.
         """
-        super(Rel, self).properties.clear()
-        self.refresh()
+        self.graph.pull(self)
 
+    @deprecated("Rel.push() is deprecated, use graph.push(rel) instead")
     def push(self):
         """ Push data from this relationship to its remote counterpart.
         """
-        super(Rel, self).push()
-
-    def refresh(self):
-        # Non-destructive pull.
-        super(Rel, self).pull()
-        pulled_type = self.resource.metadata["type"]
-        self.__type = pulled_type
-        pair = self.pair
-        if pair is not None:
-            pair._Rel__type = pulled_type
-        self.__stale.clear()
+        self.graph.push(self)
 
     @property
     def type(self):
@@ -2201,20 +2110,12 @@ class Path(object):
     def pull(self):
         """ Pull data to all entities in this path from their remote counterparts.
         """
-        from py2neo.batch.pull import PullBatch
-        batch = PullBatch(self.graph)
-        for relationship in self:
-            batch.append(relationship)
-        batch.pull()
+        self.graph.pull(self)
 
     def push(self):
         """ Push data from all entities in this path to their remote counterparts.
         """
-        from py2neo.batch.push import PushBatch
-        batch = PushBatch(self.graph)
-        for relationship in self:
-            batch.append(relationship)
-        batch.push()
+        self.graph.push(self)
 
     @property
     def relationships(self):
@@ -2576,15 +2477,17 @@ class Relationship(object):
         """
         return self.rel.properties
 
+    @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
         """ Pull data to this relationship from its remote counterpart.
         """
-        self.rel.pull()
+        self.graph.pull(self)
 
+    @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
     def push(self):
         """ Push data from this relationship to its remote counterpart.
         """
-        self.rel.push()
+        self.graph.push(self)
 
     @property
     def ref(self):

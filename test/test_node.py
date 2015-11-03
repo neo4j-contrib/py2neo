@@ -28,10 +28,16 @@ class DodgyClientError(ClientError):
 
 class NodeTestCase(Py2neoTestCase):
 
-    def test_can_create_node(self):
+    def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
         assert a.labels == {"Person"}
         assert a.properties == {"name": "Alice", "age": 33}
+
+    def test_can_create_remote_node(self):
+        a, = self.graph.create(Node("Person", name="Alice", age=33))
+        assert a.labels == {"Person"}
+        assert a.properties == {"name": "Alice", "age": 33}
+        assert a.ref.startswith("node/")
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
