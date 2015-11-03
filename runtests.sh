@@ -5,4 +5,10 @@
 # TODO: check coverage is installed
 
 coverage run -m unittest -vf
-coverage report -m
+STATUS=$?
+if [ "${STATUS}" == "0" ]
+then
+    coverage report -m
+else
+    exit ${STATUS}
+fi

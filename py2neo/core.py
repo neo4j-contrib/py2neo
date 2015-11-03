@@ -2403,13 +2403,34 @@ class Relationship(Path):
 
     def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        string = StringIO()
-        writer = CypherWriter(string)
+        s = StringIO()
+        writer = CypherWriter(s)
         if self.bound:
             writer.write_relationship(self, "r" + ustr(self._id))
         else:
             writer.write_relationship(self)
-        return string.getvalue()
+        return s.getvalue()
+
+    def __eq__(self, other):
+        try:
+            return self.nodes == other.nodes and self.rels == other.rels
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for entity in self.rels + self.nodes:
+            value ^= hash(entity)
+        return value
+
+    def __bool__(self):
+        return True
+
+    def __nonzero__(self):
+        return True
 
     def __len__(self):
         return 1
@@ -2426,6 +2447,24 @@ class Relationship(Path):
     def __delitem__(self, key):
         self.rel.__delitem__(key)
 
+    def __iter__(self):
+        yield self
+
+    def __reversed__(self):
+        yield self
+
+    def __add__(self, other):
+        try:
+            return Path(self, *other)
+        except TypeError:
+            return Path(self, other)
+
+    def __radd__(self, other):
+        try:
+            return self.prepend(*other)
+        except TypeError:
+            return self.prepend(other)
+
     @property
     def _id(self):
         """ The internal ID of this relationship within the database.
@@ -2433,6 +2472,14 @@ class Relationship(Path):
         if self.__id is None:
             self.__id = self.rel._id
         return self.__id
+
+    def append(self, *others):
+        """ Join another path or relationship to the end of this path to form a new path.
+
+        :arg others: Entities to join to the end of this path
+        :rtype: :class:`.Path`
+        """
+        return Path(self, *others)
 
     def bind(self, uri, metadata=None):
         """ Associate this relationship with a remote relationship. The start and
@@ -2464,6 +2511,14 @@ class Relationship(Path):
         return self.rel.bound
 
     @property
+    def end_node(self):
+        """ The end node of this «class.lower».
+
+        :return: :class:`.Node`
+        """
+        return self.nodes[-1]
+
+    @property
     def exists(self):
         """ :const:`True` if this relationship exists in the database,
         :const:`False` otherwise.
@@ -2477,6 +2532,28 @@ class Relationship(Path):
         :rtype: :class:`.Graph`
         """
         return self.service_root.graph
+
+    @property
+    def nodes(self):
+        """ A tuple of all nodes in this «class.lower».
+        """
+        return self._Path__nodes
+
+    @property
+    def order(self):
+        """ The number of nodes in this «class.lower».
+        """
+        return self.order
+
+    def prepend(self, *others):
+        """ Join another path or relationship to the start of this path to form a new path.
+
+        :arg others: Entities to join to the start of this path
+        :rtype: :class:`.Path`
+        """
+        p = Path(*others)
+        p = p.append(self)
+        return p
 
     @property
     def properties(self):
@@ -2513,7 +2590,19 @@ class Relationship(Path):
     def rel(self):
         """ The :class:`.Rel` object within this relationship.
         """
-        return self.rels[0]
+        return self._Path__rels[0]
+
+    @property
+    def relationships(self):
+        """ A tuple of all relationships in this «class.lower».
+        """
+        return self,
+
+    @property
+    def rels(self):
+        """ A tuple of all rels in this «class.lower».
+        """
+        return self._Path__rels
 
     @property
     def resource(self):
@@ -2542,7 +2631,15 @@ class Relationship(Path):
         always equals 1 for a :class:`.Relationship` and is inherited from
         the more general parent class, :class:`.Path`.
         """
-        return super(Relationship, self).size
+        return 1
+
+    @property
+    def start_node(self):
+        """ The start node of this «class.lower».
+
+        :return: :class:`.Node`
+        """
+        return self.nodes[0]
 
     @property
     def type(self):
