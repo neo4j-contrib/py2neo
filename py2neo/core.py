@@ -1096,12 +1096,11 @@ class PropertySet(dict):
             self[key] = value
 
 
-class LabelSet(Service, set):
+class LabelSet(set):
     """ A set subclass that can be bound to a remote *labels* resource.
     """
 
     def __init__(self, iterable=None):
-        Service.__init__(self)
         set.__init__(self)
         if iterable:
             self.update(iterable)
@@ -1385,7 +1384,6 @@ class Node(PropertyContainer):
 
         """
         PropertyContainer.bind(self, uri, metadata)
-        self.__labels.bind(uri + "/labels")
         self.cache[uri] = self
 
     @property
@@ -1490,7 +1488,6 @@ class Node(PropertyContainer):
         except KeyError:
             pass
         PropertyContainer.unbind(self)
-        self.__labels.unbind()
         self.__id = None
 
 
