@@ -179,12 +179,12 @@ class ConcreteNodeTestCase(Py2neoTestCase):
     def test_node_repr(self):
         node = Node("Person", name="Alice")
         assert_repr(node, "<Node labels={'Person'} properties={'name': 'Alice'}>",
-                          "<Node labels=set([u'Person']) properties={'name': u'Alice'}>")
+                          "<Node labels=set(['Person']) properties={'name': u'Alice'}>")
         self.graph.create(node)
         assert_repr(node, "<Node graph='http://localhost:7474/db/data/' ref='%s' "
                           "labels={'Person'} properties={'name': 'Alice'}>" % node.ref,
                           "<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                          "labels=set([u'Person']) properties={'name': u'Alice'}>" % node.ref)
+                          "labels=set(['Person']) properties={'name': u'Alice'}>" % node.ref)
 
     def test_node_hashes(self):
         assert hash(Node()) == hash(Node())

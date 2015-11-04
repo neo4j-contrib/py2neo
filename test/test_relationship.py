@@ -226,10 +226,7 @@ class RelationshipTestCase(Py2neoTestCase):
 
     def test_unbound_rel_repr(self):
         rel = Rel("KNOWS", since=1999)
-        if PY2:
-            assert repr(rel) == "<Rel type=u'KNOWS' properties={'since': 1999}>"
-        else:
-            assert repr(rel) == "<Rel type='KNOWS' properties={'since': 1999}>"
+        assert repr(rel) == "<Rel type='KNOWS' properties={'since': 1999}>"
 
     def test_rel_repr(self):
         alice = Node("Person", name="Alice")
@@ -255,10 +252,7 @@ class RelationshipTestCase(Py2neoTestCase):
 
     def test_unbound_rev_repr(self):
         rev = Rev("KNOWS", since=1999)
-        if PY2:
-            assert repr(rev) == "<Rev type=u'KNOWS' properties={'since': 1999}>"
-        else:
-            assert repr(rev) == "<Rev type='KNOWS' properties={'since': 1999}>"
+        assert repr(rev) == "<Rev type='KNOWS' properties={'since': 1999}>"
 
     def test_rev_repr(self):
         alice = Node("Person", name="Alice")
