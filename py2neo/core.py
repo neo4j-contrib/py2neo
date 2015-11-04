@@ -422,6 +422,14 @@ class Bindable(object):
         return self.service_root.graph
 
     @property
+    def cypher(self):
+        """ The Cypher engine associated with the remote resource.
+
+        :rtype: :class:`.CypherEngine`
+        """
+        return self.service_root.graph.cypher
+
+    @property
     def ref(self):
         """ The URI of the remote resource relative to its graph.
 
@@ -664,13 +672,13 @@ class Graph(Bindable):
             >>> graph = Graph()
             >>> graph.cypher.execute("CREATE (a:Person {name:{N}})", {"N": "Alice"})
 
-        :rtype: :class:`py2neo.cypher.CypherResource`
+        :rtype: :class:`py2neo.cypher.CypherEngine`
 
         """
         if self.__cypher is None:
-            from py2neo.cypher import CypherResource
+            from py2neo.cypher import CypherEngine
             metadata = self.resource.metadata
-            self.__cypher = CypherResource(metadata.get("transaction"))
+            self.__cypher = CypherEngine(metadata.get("transaction"))
         return self.__cypher
 
     def create(self, *entities):

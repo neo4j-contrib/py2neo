@@ -126,7 +126,7 @@ Single Statements
 Neo4j has a built-in data query and manipulation language called
 `Cypher <http://neo4j.com/guides/basic-cypher/>`_. To execute Cypher from within py2neo, simply use
 the :attr:`cypher <py2neo.Graph.cypher>` attribute of a :class:`Graph <py2neo.Graph>` instance and
-call the :func:`execute <py2neo.cypher.CypherResource.execute>` method::
+call the :func:`execute <py2neo.cypher.CypherEngine.execute>` method::
 
     >>> graph.cypher.execute("CREATE (c:Person {name:{N}}) RETURN c", {"N": "Carol"})
        | c
@@ -178,7 +178,7 @@ as part of a single transaction. Transactions such as these allow far more contr
 logical grouping of statements and can also offer vastly better performance compared to individual
 statements by submitting multiple statements in a single HTTP request.
 
-To use this endpoint, firstly call the :func:`begin <py2neo.cypher.CypherResource.begin>` method on
+To use this endpoint, firstly call the :func:`begin <py2neo.cypher.CypherEngine.begin>` method on
 the :attr:`Graph.cypher <py2neo.Graph.cypher>` resource to create a transaction, then use the
 methods listed below on the new :class:`CypherTransaction <py2neo.cypher.CypherTransaction>`
 object:

@@ -34,7 +34,7 @@ Integer parameters will be substituted directly, without escaping, and integer 2
 Cypher Resource
 ===============
 
-.. autoclass:: py2neo.cypher.CypherResource
+.. autoclass:: py2neo.cypher.CypherEngine
    :members:
 
 

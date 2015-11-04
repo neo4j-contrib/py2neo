@@ -28,7 +28,7 @@ from py2neo.packages.tart.tables import TextTable
 from py2neo.util import is_collection
 
 
-__all__ = ["CypherResource", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
+__all__ = ["CypherEngine", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
            "Record", "RecordProducer"]
 
 
@@ -62,7 +62,7 @@ def presubstitute(statement, parameters):
     return statement, parameters
 
 
-class CypherResource(Bindable):
+class CypherEngine(Bindable):
     """ Service wrapper for all Cypher functionality, providing access
     to transactions as well as single statement execution and streaming.
 
@@ -85,7 +85,7 @@ class CypherResource(Bindable):
         try:
             inst = cls.__instances[transaction_uri]
         except KeyError:
-            inst = super(CypherResource, cls).__new__(cls)
+            inst = super(CypherEngine, cls).__new__(cls)
             inst.bind(transaction_uri)
             cls.__instances[transaction_uri] = inst
         return inst

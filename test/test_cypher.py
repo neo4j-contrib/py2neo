@@ -15,10 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from io import StringIO
 
 from py2neo import Node, NodePointer, Rel, Rev, Relationship, Path, Finished, GraphError
-from py2neo.cypher import CypherResource, CypherTransaction, \
+from py2neo.cypher import CypherEngine, CypherTransaction, \
     CreateStatement, DeleteStatement, RecordProducer, RecordList
 from py2neo.cypher.core import presubstitute
 from py2neo.cypher.error.core import CypherError, CypherTransactionError, ClientError
@@ -70,15 +71,15 @@ class CypherTestCase(Py2neoTestCase):
         value = first[0]
         assert value == 1
 
-    def test_can_create_cypher_resource(self):
+    def test_can_create_cypher_engine(self):
         uri = "http://localhost:7474/db/data/transaction"
-        cypher = CypherResource(uri)
+        cypher = CypherEngine(uri)
         assert cypher.uri == uri
 
-    def test_cypher_resources_with_identical_arguments_are_same_objects(self):
+    def test_cypher_engines_with_identical_arguments_are_same_objects(self):
         uri = "http://localhost:7474/db/data/cypher"
-        cypher_1 = CypherResource(uri)
-        cypher_2 = CypherResource(uri)
+        cypher_1 = CypherEngine(uri)
+        cypher_2 = CypherEngine(uri)
         assert cypher_1 is cypher_2
 
     def test_can_run_cypher_statement(self):
@@ -150,7 +151,7 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_can_begin_transaction(self):
         uri = "http://localhost:7474/db/data/transaction"
-        cypher = CypherResource(uri)
+        cypher = CypherEngine(uri)
         tx = cypher.begin()
         assert isinstance(tx, CypherTransaction)
 
