@@ -4,7 +4,7 @@
 # TODO: start/stop database
 # TODO: check coverage is installed
 
-coverage run -m unittest -vf
+coverage run -m unittest discover -vfs test
 STATUS=$?
 if [ "${STATUS}" == "0" ]
 then
