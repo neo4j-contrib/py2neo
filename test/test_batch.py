@@ -431,7 +431,7 @@ class PullBatchTestCase(Py2neoTestCase):
         self.batch = PullBatch(self.graph)
 
     def test_can_pull_node(self):
-        uri = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a").uri
+        uri = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a").uri
         alice = Node()
         alice.bind(uri)
         assert alice.properties["name"] is None
@@ -440,7 +440,7 @@ class PullBatchTestCase(Py2neoTestCase):
         assert alice.properties["name"] == "Alice"
 
     def test_can_pull_node_with_label(self):
-        uri = self.cypher.execute_one("CREATE (a:Person {name:'Alice'}) RETURN a").uri
+        uri = self.cypher.evaluate("CREATE (a:Person {name:'Alice'}) RETURN a").uri
         alice = Node()
         alice.bind(uri)
         assert "Person" not in alice.labels
@@ -451,7 +451,7 @@ class PullBatchTestCase(Py2neoTestCase):
         assert alice.properties["name"] == "Alice"
 
     def test_can_pull_relationship(self):
-        uri = self.cypher.execute_one("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
+        uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
         ab = Relationship(None, "", None)
         ab.bind(uri)
         assert ab.type == ""
@@ -462,7 +462,7 @@ class PullBatchTestCase(Py2neoTestCase):
         assert ab.properties["since"] == 1999
 
     def test_can_pull_rel(self):
-        uri = self.cypher.execute_one("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
+        uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
         ab = Relationship(None, "", None).rel
         ab.bind(uri)
         assert ab.type == ""
@@ -473,7 +473,7 @@ class PullBatchTestCase(Py2neoTestCase):
         assert ab.properties["since"] == 1999
 
     def test_can_pull_path(self):
-        path = self.cypher.execute_one("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
+        path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
         assert path.rels[0].properties["since"] is None
         statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
         self.cypher.execute(statement, {"ab": path.rels[0]._id})

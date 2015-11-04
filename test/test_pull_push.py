@@ -80,12 +80,12 @@ class PullPushTestCase(Py2neoTestCase):
         
     def test_can_push_relationship(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        value = self.cypher.execute_one("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
                                         "RETURN ab.since", i=ab._id)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
-        value = self.cypher.execute_one("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
                                         "RETURN ab.since", i=ab._id)
         assert value == 1999
 

@@ -125,7 +125,7 @@ class CypherEngine(Bindable):
         results = tx.commit()
         return results[0]
 
-    def execute_one(self, statement, parameters=None, **kwparameters):
+    def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
         the first column of the first record returned.
 

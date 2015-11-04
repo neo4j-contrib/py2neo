@@ -281,7 +281,7 @@ class EfficiencyTestCase(Py2neoTestCase):
                          "CREATE (a)-[ab:KNOWS]->(b) "
                          "RETURN ab")
             parameters = {"A": alice, "B": bob}
-            friendship = self.cypher.execute_one(statement, parameters)
+            friendship = self.cypher.evaluate(statement, parameters)
             assert counter.response_count == 1
             assert alice.labels == {"Person"}
             assert alice.properties == {"name": "Alice"}

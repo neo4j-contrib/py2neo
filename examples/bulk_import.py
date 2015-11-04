@@ -87,7 +87,7 @@ class RandomGraphGenerator(object):
             self.graph.schema.create_uniqueness_constraint("Person", "user_id")
         except GraphError:
             print("Finding highest user_id\r", end="", flush=True)
-            self.max_user_id = graph.cypher.execute_one("MATCH (p:Person) RETURN max(p.user_id)")
+            self.max_user_id = graph.cypher.evaluate("MATCH (p:Person) RETURN max(p.user_id)")
             print("Highest user_id is %d" % self.max_user_id)
         else:
             self.max_user_id = 0

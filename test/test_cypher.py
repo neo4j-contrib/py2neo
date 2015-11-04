@@ -110,20 +110,20 @@ class CypherTestCase(Py2neoTestCase):
         result = results[0].a
         assert result is alice
 
-    def test_can_execute_one_cypher_statement(self):
-        result = self.cypher.execute_one("MERGE (a:Person {name:'Alice'}) RETURN a")
+    def test_can_evaluate_cypher_statement(self):
+        result = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(result, Node)
         assert result.labels == {"Person"}
         assert result.properties == {"name": "Alice"}
 
-    def test_can_execute_one_parametrised_cypher_statement(self):
-        result = self.cypher.execute_one("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
+    def test_can_evaluate_parametrised_cypher_statement(self):
+        result = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(result, Node)
         assert result.labels == {"Person"}
         assert result.properties == {"name": "Alice"}
 
-    def test_execute_one_with_no_results_returns_none(self):
-        result = self.cypher.execute_one("CREATE (a {name:{N}})", {"N": "Alice"})
+    def test_evaluate_with_no_results_returns_none(self):
+        result = self.cypher.evaluate("CREATE (a {name:{N}})", {"N": "Alice"})
         assert result is None
 
     def test_can_stream_cypher_statement(self):
@@ -191,13 +191,13 @@ class CypherTestCase(Py2neoTestCase):
         assert len(results) == 1
         assert results[0].name == "Alice"
 
-    def test_can_execute_one(self):
-        result = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+    def test_can_evaluate(self):
+        result = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a.name AS name")
         assert result == "Alice"
 
-    def test_can_execute_one_where_none_returned(self):
+    def test_can_evaluate_where_none_returned(self):
         statement = "MATCH (a) WHERE 2 + 2 = 5 RETURN a.name AS name"
-        result = self.cypher.execute_one(statement)
+        result = self.cypher.evaluate(statement)
         assert result is None
 
     def test_can_stream(self):
@@ -667,7 +667,7 @@ class CypherCreateTestCase(Py2neoTestCase):
             statement.create(broken_relationship)
 
     def test_can_create_one_node_and_a_relationship_to_an_existing_node(self):
-        alice = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a")
+        alice = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a")
         bob = Node(name="Bob")
         alice_knows_bob = Relationship(alice, "KNOWS", bob)
         statement = CreateStatement(self.graph)
@@ -681,8 +681,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice_knows_bob.end_node is bob
 
     def test_can_create_a_relationship_to_two_existing_nodes(self):
-        alice = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a")
-        bob = self.cypher.execute_one("CREATE (b {name:'Bob'}) RETURN b")
+        alice = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a")
+        bob = self.cypher.evaluate("CREATE (b {name:'Bob'}) RETURN b")
         alice_knows_bob = Relationship(alice, "KNOWS", bob)
         statement = CreateStatement(self.graph)
         statement.create(alice_knows_bob)
@@ -757,10 +757,10 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert cd.end_node is dave
 
     def test_can_create_a_path_with_existing_nodes(self):
-        alice = self.cypher.execute_one("CREATE (a {name:'Alice'}) RETURN a")
+        alice = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a")
         alice_id = alice._id
         bob = Node(name="Bob")
-        carol = self.cypher.execute_one("CREATE (c {name:'Carol'}) RETURN c")
+        carol = self.cypher.evaluate("CREATE (c {name:'Carol'}) RETURN c")
         carol_id = carol._id
         dave = Node(name="Dave")
         path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)

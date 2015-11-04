@@ -983,7 +983,7 @@ class Graph(Bindable):
         """ The number of nodes in this graph.
         """
         statement = "MATCH (n) RETURN count(n)"
-        return self.cypher.execute_one(statement)
+        return self.cypher.evaluate(statement)
 
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
@@ -1048,7 +1048,7 @@ class Graph(Bindable):
         """ The number of relationships in this graph.
         """
         statement = "MATCH ()-[r]->() RETURN count(r)"
-        return self.cypher.execute_one(statement)
+        return self.cypher.evaluate(statement)
 
 
 class PropertySet(dict):
@@ -1382,8 +1382,7 @@ class Node(Bindable, PropertyContainer):
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        statement = "MATCH (n)-[r]-() WHERE id(n)={n} RETURN count(r)"
-        return self.graph.cypher.execute_one(statement, {"n": self})
+        return self.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} RETURN count(r)", n=self)
 
     @property
     def exists(self):
@@ -1463,7 +1462,7 @@ class Node(Bindable, PropertyContainer):
         # Note: this may fail if attempted against an entity mid-transaction
         # that has not yet been committed.
         query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
-        content = self.graph.cypher.post(query, {"a": self._id})
+        content = self.cypher.post(query, {"a": self._id})
         try:
             dehydrated, label_metadata = content["data"][0]
         except IndexError:
