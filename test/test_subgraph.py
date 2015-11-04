@@ -103,9 +103,9 @@ class SubgraphTestCase(Py2neoTestCase):
         assert ab in s
         assert b in s
         assert s.bound
-        assert s.exists
+        assert self.graph.exists(s)
         self.graph.delete(ab)
-        assert not s.exists
+        assert not self.graph.exists(s)
         s.unbind()
         assert not s.bound
         s.unbind()

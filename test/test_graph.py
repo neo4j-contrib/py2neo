@@ -83,17 +83,17 @@ class GraphTestCase(Py2neoTestCase):
         a, = self.graph.create(Node())
         assert isinstance(a, Node)
         assert a.bound
-        assert a.exists
+        assert self.graph.exists(a)
         self.graph.delete(a)
-        assert not a.exists
+        assert not self.graph.exists(a)
 
     def test_can_create_and_delete_relationship(self):
         ab, = self.graph.create(Relationship(Node(), "KNOWS", Node()))
         assert isinstance(ab, Relationship)
         assert ab.bound
-        assert ab.exists
+        assert self.graph.exists(ab)
         self.graph.delete(ab, ab.start_node, ab.end_node)
-        assert not ab.exists
+        assert not self.graph.exists(ab)
 
     def test_can_get_node_by_id_when_cached(self):
         node, = self.graph.create({})
@@ -130,7 +130,7 @@ class GraphTestCase(Py2neoTestCase):
         self.graph.delete(node)
         Node.cache.clear()
         node = self.graph.node(node_id)
-        assert not node.exists
+        assert not self.graph.exists(node)
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)

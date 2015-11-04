@@ -766,9 +766,15 @@ class Graph(Bindable):
                 tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=entity)
             elif isinstance(entity, (Rel, Relationship)):
                 tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=entity)
+            elif isinstance(entity, (Path, Subgraph)):
+                for node in entity.nodes:
+                    tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=node)
+                for rel in entity.relationships:
+                    tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=rel)
             else:
                 raise TypeError("Cannot determine existence of non-entity")
-        return sum(result[0][0] for result in tx.commit()) == len(entities)
+        count = len(tx.statements)
+        return sum(result[0][0] for result in tx.commit()) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -1413,6 +1419,7 @@ class Node(Bindable, PropertyContainer):
             self.refresh()
         return self.__labels
 
+    @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
         """ Return an iterator for all relationships attached to this node
         that match the specified criteria. See :meth:`.Graph.match` for
@@ -1420,6 +1427,7 @@ class Node(Bindable, PropertyContainer):
         """
         return self.graph.match(self, rel_type, other_node, True, limit)
 
+    @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
         """ Return an iterator for all incoming relationships to this node
         that match the specified criteria. See :meth:`.Graph.match` for
@@ -1427,6 +1435,7 @@ class Node(Bindable, PropertyContainer):
         """
         return self.graph.match(start_node, rel_type, self, False, limit)
 
+    @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
         """ Return an iterator for all outgoing relationships from this node
         that match the specified criteria. See :meth:`.Graph.match` for

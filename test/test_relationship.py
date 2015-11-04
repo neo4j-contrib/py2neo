@@ -91,7 +91,7 @@ class RelationshipTestCase(Py2neoTestCase):
 
     def test_getting_no_relationships(self):
         alice, = self.graph.create({"name": "Alice"})
-        rels = list(alice.match())
+        rels = list(self.graph.match(alice))
         assert rels is not None
         assert isinstance(rels, list)
         assert len(rels) == 0
