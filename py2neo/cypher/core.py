@@ -37,12 +37,14 @@ log = logging.getLogger("py2neo.cypher")
 
 def presubstitute(statement, parameters):
     more = True
+    presub_parameters = []
     while more:
         before, opener, key = statement.partition(u"«")
         if opener:
             key, closer, after = key.partition(u"»")
             try:
-                value = parameters.pop(key)
+                value = parameters[key]
+                presub_parameters.append(key)
             except KeyError:
                 raise KeyError("Expected a presubstitution parameter named %r" % key)
             if isinstance(value, integer):
@@ -56,6 +58,7 @@ def presubstitute(statement, parameters):
             statement = before + value + after
         else:
             more = False
+    parameters = {k:v for k,v in parameters.items() if k not in presub_parameters}
     return statement, parameters
 
 
