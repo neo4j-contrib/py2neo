@@ -29,7 +29,7 @@ class PullPushTestCase(Py2neoTestCase):
         assert local.labels == set()
         assert local.properties == {}
         local.bind(remote.uri)
-        local.pull()
+        self.graph.pull(local)
         assert local.labels == remote.labels
         assert local.properties == remote.properties
 
@@ -51,8 +51,8 @@ class PullPushTestCase(Py2neoTestCase):
         assert remote.labels == set()
         assert remote.properties == {}
         local.bind(remote.uri)
-        local.push()
-        remote.pull()
+        self.graph.push(local)
+        self.graph.pull(remote)
         assert local.labels == remote.labels
         assert local.properties == remote.properties
 
@@ -74,8 +74,8 @@ class PullPushTestCase(Py2neoTestCase):
         self.graph.create({}, {}, (0, remote, 1))
         assert remote.properties == {}
         local.bind(remote.uri)
-        local.push()
-        remote.pull()
+        self.graph.push(local)
+        self.graph.pull(remote)
         assert local.properties == remote.properties
         
     def test_can_push_relationship(self):
@@ -84,7 +84,7 @@ class PullPushTestCase(Py2neoTestCase):
                                         "RETURN ab.since", i=ab._id)
         assert value is None
         ab["since"] = 1999
-        ab.push()
+        self.graph.push(ab)
         value = self.cypher.execute_one("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
                                         "RETURN ab.since", i=ab._id)
         assert value == 1999
@@ -108,7 +108,7 @@ class PullPushTestCase(Py2neoTestCase):
                      "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
         parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
         self.cypher.run(statement, parameters)
-        path.pull()
+        self.graph.pull(path)
         assert path[0].properties["amount"] == "lots"
         assert path[1].properties["amount"] == "some"
         assert path[2].properties["since"] == 1999
@@ -136,7 +136,7 @@ class PullPushTestCase(Py2neoTestCase):
         assert ab_amount is None
         assert bc_amount is None
         assert cd_since is None
-        path.push()
+        self.graph.push(path)
         results = self.cypher.execute(statement, parameters)
         ab_amount, bc_amount, cd_since = results[0]
         assert ab_amount == "lots"

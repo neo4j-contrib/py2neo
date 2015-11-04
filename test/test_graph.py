@@ -146,7 +146,6 @@ class GraphTestCase(Py2neoTestCase):
 
     def test_neo4j_version_format(self):
         version = self.graph.neo4j_version
-        print(version)
         assert isinstance(version, tuple)
         assert 3 <= len(version) <= 4
         assert isinstance(version[0], int)

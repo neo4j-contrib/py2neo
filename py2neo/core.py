@@ -1757,7 +1757,7 @@ class Rel(Bindable, PropertyContainer):
         """ The type of this relationship.
         """
         if self.bound and self.__type is None:
-            self.pull()
+            self.graph.pull(self)
         return self.__type
 
     @type.setter
