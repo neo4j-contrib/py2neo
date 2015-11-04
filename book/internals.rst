@@ -20,7 +20,7 @@ Resources
    :members:
    :inherited-members:
 
-.. autoclass:: py2neo.Service
+.. autoclass:: py2neo.Bindable
    :members:
 
 

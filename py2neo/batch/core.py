@@ -20,7 +20,7 @@ import json
 import logging
 
 from py2neo.compat import ustr
-from py2neo.core import NodePointer, Service
+from py2neo.core import NodePointer, Bindable
 from py2neo.cypher import RecordList
 from py2neo.error import GraphError, Finished
 from py2neo.packages.jsonstream import assembled, grouped
@@ -53,7 +53,7 @@ class BatchError(GraphError):
         self.location = location
 
 
-class BatchResource(Service):
+class BatchResource(Bindable):
     """ Resource for batch execution.
     """
 

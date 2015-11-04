@@ -41,7 +41,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
            "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
            "authenticate", "familiar", "rewrite",
-           "Service", "Resource", "ResourceTemplate"]
+           "Bindable", "Resource", "ResourceTemplate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -372,7 +372,7 @@ class ResourceTemplate(_ResourceTemplate):
         return resource
 
 
-class Service(object):
+class Bindable(object):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
@@ -549,7 +549,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graph(Service):
+class Graph(Bindable):
     """ The `Graph` class provides a wrapper around the
     `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
     by a running Neo4j database server and is identified by the base URI of
@@ -1161,7 +1161,7 @@ class PropertyContainer(object):
         return self.__properties
 
 
-class Node(PropertyContainer, Service):
+class Node(PropertyContainer, Bindable):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1368,7 +1368,7 @@ class Node(PropertyContainer, Service):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        Service.bind(self, uri, metadata)
+        Bindable.bind(self, uri, metadata)
         self.cache[uri] = self
 
     @property
@@ -1472,7 +1472,7 @@ class Node(PropertyContainer, Service):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Service.unbind(self)
+        Bindable.unbind(self)
         self.__id = None
 
 
@@ -1506,7 +1506,7 @@ class NodePointer(object):
         return hash(self.address)
 
 
-class Rel(PropertyContainer, Service):
+class Rel(PropertyContainer, Bindable):
     """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
     store information about the nodes to which it is attached. This class
     is used internally to bundle relationship type and property details
@@ -1701,13 +1701,13 @@ class Rel(PropertyContainer, Service):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        Service.bind(self, uri, metadata)
+        Bindable.bind(self, uri, metadata)
         self.cache[uri] = self
         pair = self.pair
         if pair is not None:
-            Service.bind(pair, uri, metadata)
+            Bindable.bind(pair, uri, metadata)
             # make sure we're using exactly the same resource object
-            # (maybe could write a Service.multi_bind classmethod
+            # (maybe could write a Bindable.multi_bind classmethod
             pair.__resource__ = self.__resource__
             pair.cache[uri] = pair
 
@@ -1779,7 +1779,7 @@ class Rel(PropertyContainer, Service):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Service.unbind(self)
+        Bindable.unbind(self)
         self.__id = None
         pair = self.pair
         if pair is not None:
@@ -1787,7 +1787,7 @@ class Rel(PropertyContainer, Service):
                 del pair.cache[pair.uri]
             except KeyError:
                 pass
-            Service.unbind(pair)
+            Bindable.unbind(pair)
 
 
 class Rev(Rel):

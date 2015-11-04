@@ -22,7 +22,7 @@ import base64
 import os
 import sys
 
-from py2neo import GraphError, Service, ServiceRoot
+from py2neo import GraphError, Bindable, ServiceRoot
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
@@ -59,7 +59,7 @@ def auth_header_value(user_name, password, realm=None):
     return value
 
 
-class UserManager(Service):
+class UserManager(Bindable):
     """ User management service.
     """
 
@@ -114,7 +114,7 @@ class UserManager(Service):
         return self.metadata["password_change_required"]
 
 
-class PasswordManager(Service):
+class PasswordManager(Bindable):
     """ Password management service.
     """
 

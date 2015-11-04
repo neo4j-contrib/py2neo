@@ -19,7 +19,7 @@
 from collections import OrderedDict
 import logging
 
-from py2neo import Service, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
+from py2neo import Bindable, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
@@ -62,7 +62,7 @@ def presubstitute(statement, parameters):
     return statement, parameters
 
 
-class CypherResource(Service):
+class CypherResource(Bindable):
     """ Service wrapper for all Cypher functionality, providing access
     to transactions as well as single statement execution and streaming.
 

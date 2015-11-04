@@ -74,7 +74,7 @@ sub-package and may make use of the following classes:
 - **Resource** - represents a remote REST resource
 - **ResourceTemplate** - maintains a URI template for remote REST resources
 - **ServerPlugin** - base class for Neo4j [server plugins](http://neo4j.com/docs/stable/server-plugins.html)
-- **Service** - a wrapper object that may be bound to a remote resource
+- **Bindable** - a base class for objects that may be bound to remote resources
 - **ServiceRoot** - the root service for a Neo4j server
 - **UnmanagedExtension** - base class for Neo4j [unmanaged extensions](http://neo4j.com/docs/stable/server-unmanaged-extensions.html)
 

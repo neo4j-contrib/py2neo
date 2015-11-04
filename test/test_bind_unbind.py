@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Resource, Node, Rel, Rev, Relationship, Service, Path
+from py2neo.core import Resource, Node, Rel, Rev, Relationship, Bindable, Path
 from py2neo.error import BindError
 from test.util import Py2neoTestCase
 
@@ -25,7 +25,7 @@ class BindUnbindTestCase(Py2neoTestCase):
         
     def test_can_create_bindable_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
-        bindable = Service()
+        bindable = Bindable()
         bindable.bind(uri)
         assert bindable.bound
         assert bindable.uri == uri
@@ -33,7 +33,7 @@ class BindUnbindTestCase(Py2neoTestCase):
     def test_can_create_bindable_with_initial_uri_and_metadata(self):
         uri = "http://localhost:7474/db/data/node/1"
         metadata = {"foo": "bar"}
-        bindable = Service()
+        bindable = Bindable()
         bindable.bind(uri, metadata)
         assert bindable.bound
         assert bindable.uri == uri
@@ -41,7 +41,7 @@ class BindUnbindTestCase(Py2neoTestCase):
 
     def test_can_create_bindable_with_initial_uri_template(self):
         uri = "http://localhost:7474/db/data/node/{node_id}"
-        bindable = Service()
+        bindable = Bindable()
         bindable.bind(uri)
         assert bindable.bound
         assert bindable.uri == uri
@@ -49,7 +49,7 @@ class BindUnbindTestCase(Py2neoTestCase):
     def test_cannot_create_bindable_with_initial_uri_template_and_metadata(self):
         uri = "http://localhost:7474/db/data/node/{node_id}"
         metadata = {"foo": "bar"}
-        service = Service()
+        service = Bindable()
         try:
             service.bind(uri, metadata)
         except ValueError:

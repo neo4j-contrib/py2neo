@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Service, ResourceTemplate, GraphError
+from py2neo import Bindable, ResourceTemplate, GraphError
 from py2neo.packages.httpstream import Response
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 
@@ -24,7 +24,7 @@ from py2neo.packages.httpstream.numbers import NOT_FOUND
 __all__ = ["SchemaResource"]
 
 
-class SchemaResource(Service):
+class SchemaResource(Bindable):
     """ The schema resource attached to a `Graph` instance.
     """
 
