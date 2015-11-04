@@ -872,8 +872,7 @@ class Graph(Bindable):
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):
-            rel_clause = ":" + "|:".join("`{0}`".format(_)
-                                              for _ in rel_type)
+            rel_clause = ":" + "|:".join("`{0}`".format(_) for _ in rel_type)
         else:
             rel_clause = ":`{0}`".format(rel_type)
         if bidirectional:
@@ -1161,7 +1160,7 @@ class PropertyContainer(object):
         return self.__properties
 
 
-class Node(PropertyContainer, Bindable):
+class Node(Bindable, PropertyContainer):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1337,7 +1336,7 @@ class Node(PropertyContainer, Bindable):
                     PropertyContainer.__eq__(self, other))
 
     def __hash__(self):
-        value = super(Node, self).__hash__() ^ hash(self.labels)
+        value = PropertyContainer.__hash__(self) ^ hash(self.labels)
         if self.bound:
             value ^= hash(self.resource.uri)
         return value
@@ -1506,7 +1505,7 @@ class NodePointer(object):
         return hash(self.address)
 
 
-class Rel(PropertyContainer, Bindable):
+class Rel(Bindable, PropertyContainer):
     """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
     store information about the nodes to which it is attached. This class
     is used internally to bundle relationship type and property details
@@ -1636,13 +1635,13 @@ class Rel(PropertyContainer, Bindable):
 
     def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        string = StringIO()
-        writer = CypherWriter(string)
+        s = StringIO()
+        writer = CypherWriter(s)
         if self.bound:
             writer.write_rel(self, "r" + ustr(self._id))
         else:
             writer.write_rel(self)
-        return string.getvalue()
+        return s.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1657,7 +1656,7 @@ class Rel(PropertyContainer, Bindable):
         if self.bound:
             return hash(self.resource.uri)
         else:
-            value = super(Rel, self).__hash__() ^ hash(self.type)
+            value = PropertyContainer.__hash__(self) ^ hash(self.type)
             if self.bound:
                 value ^= hash(self.resource.uri)
             return value
@@ -1953,10 +1952,10 @@ class Path(object):
 
     def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        string = StringIO()
-        writer = CypherWriter(string)
+        s = StringIO()
+        writer = CypherWriter(s)
         writer.write_path(self)
-        return string.getvalue()
+        return s.getvalue()
 
     def __eq__(self, other):
         try:
