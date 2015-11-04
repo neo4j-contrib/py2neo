@@ -755,7 +755,20 @@ class Graph(Bindable):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.cypher.execute("MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE r,n")
+        self.cypher.execute("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+
+    def exists(self, *entities):
+        """ Determine whether a number of graph entities all exist within the database.
+        """
+        tx = self.cypher.begin()
+        for entity in entities:
+            if isinstance(entity, Node):
+                tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=entity)
+            elif isinstance(entity, (Rel, Relationship)):
+                tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=entity)
+            else:
+                raise TypeError("Cannot determine existence of non-entity")
+        return sum(result[0][0] for result in tx.commit()) == len(entities)
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -1385,19 +1398,12 @@ class Node(Bindable, PropertyContainer):
         return self.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} RETURN count(r)", n=self)
 
     @property
+    @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
         """ :const:`True` if this node exists in the database,
         :const:`False` otherwise.
         """
-        try:
-            self.resource.get()
-        except GraphError as error:
-            if error.__cause__ and error.__cause__.status_code == NOT_FOUND:
-                return False
-            else:
-                raise
-        else:
-            return True
+        return self.graph.exists(self)
 
     @property
     def labels(self):
@@ -1718,19 +1724,12 @@ class Rel(Bindable, PropertyContainer):
             pair.cache[uri] = pair
 
     @property
+    @deprecated("Rel.exists() is deprecated, use graph.exists(rel) instead")
     def exists(self):
         """ :const:`True` if this relationship exists in the database,
         :const:`False` otherwise.
         """
-        try:
-            self.resource.get()
-        except GraphError as error:
-            if error.__cause__ and error.__cause__.status_code == NOT_FOUND:
-                return False
-            else:
-                raise
-        else:
-            return True
+        return self.graph.exists(self)
 
     @property
     def properties(self):
@@ -2056,11 +2055,12 @@ class Path(object):
         return self.__nodes[-1]
 
     @property
+    @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
     def exists(self):
         """ :const:`True` if this path exists in the database,
         :const:`False` otherwise.
         """
-        return all(entity.exists for entity in self.nodes + self.rels)
+        return self.graph.exists(*(self.nodes + self.rels))
 
     @property
     def graph(self):
@@ -2399,11 +2399,12 @@ class Relationship(object):
         return self.nodes[-1]
 
     @property
+    @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):
         """ :const:`True` if this relationship exists in the database,
         :const:`False` otherwise.
         """
-        return self.rel.exists
+        return self.graph.exists(self)
 
     @property
     def graph(self):
@@ -2636,11 +2637,12 @@ class Subgraph(object):
             return True
 
     @property
+    @deprecated("Subgraph.exists() is deprecated, use graph.exists(subgraph) instead")
     def exists(self):
         """ :const:`True` if this subgraph exists in the database,
         :const:`False` otherwise.
         """
-        return all(entity.exists for entity in self.__nodes | self.__relationships)
+        return self.graph.exists(*(self.__nodes | self.__relationships))
 
     @property
     def graph(self):

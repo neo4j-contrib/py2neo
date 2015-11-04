@@ -105,15 +105,6 @@ class RelationshipTestCase(Py2neoTestCase):
         with self.assertRaises(ValueError):
             Rel("LIKES", "HATES")
 
-    def test_relationship_exists_will_raise_non_404_errors(self):
-        with patch.object(_Resource, "get") as mocked:
-            error = GraphError("bad stuff happened")
-            error.response = DodgyClientError()
-            mocked.side_effect = error
-            a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-            with self.assertRaises(GraphError):
-                _ = ab.exists
-
     def test_type_of_bound_rel_is_immutable(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         with self.assertRaises(AttributeError):

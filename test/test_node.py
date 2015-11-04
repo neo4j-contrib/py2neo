@@ -58,16 +58,6 @@ class NodeTestCase(Py2neoTestCase):
         alice_2 = Node("Person", name="Alice")
         assert alice_1 == alice_2
 
-    def test_node_exists_will_raise_non_404_errors(self):
-        with patch.object(_Resource, "get") as mocked:
-            error = GraphError("bad stuff happened")
-            error.response = DodgyClientError()
-            mocked.side_effect = error
-            alice = Node(name="Alice Smith")
-            alice.bind("http://localhost:7474/db/data/node/1")
-            with self.assertRaises(GraphError):
-                _ = alice.exists
-
     def test_node_degree(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
