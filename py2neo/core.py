@@ -1044,13 +1044,12 @@ class Graph(Service):
         return self.cypher.execute_one(statement)
 
 
-class PropertySet(Service, dict):
+class PropertySet(dict):
     """ A dict subclass that equates None with a non-existent key and can be
     bound to a remote *properties* resource.
     """
 
     def __init__(self, iterable=None, **kwargs):
-        Service.__init__(self)
         dict.__init__(self)
         self.update(iterable, **kwargs)
 
@@ -1163,7 +1162,6 @@ class PropertyContainer(Service):
 
         """
         Service.bind(self, uri, metadata)
-        self.__properties.bind(uri + "/properties")
 
     @property
     def properties(self):
@@ -1177,7 +1175,6 @@ class PropertyContainer(Service):
         """ Detach this «class.lower» from any remote counterpart.
         """
         Service.unbind(self)
-        self.__properties.unbind()
 
 
 class Node(PropertyContainer):
@@ -2368,12 +2365,6 @@ class Relationship(object):
         except TypeError:
             return Path(self, other)
 
-    def __radd__(self, other):
-        try:
-            return self.prepend(*other)
-        except TypeError:
-            return self.prepend(other)
-
     @property
     def _id(self):
         """ The internal ID of this relationship within the database.
@@ -2381,14 +2372,6 @@ class Relationship(object):
         if self.__id is None:
             self.__id = self.rel._id
         return self.__id
-
-    def append(self, *others):
-        """ Join another path or relationship to the end of this path to form a new path.
-
-        :arg others: Entities to join to the end of this path
-        :rtype: :class:`.Path`
-        """
-        return Path(self, *others)
 
     def bind(self, uri, metadata=None):
         """ Associate this relationship with a remote relationship. The start and
@@ -2453,16 +2436,6 @@ class Relationship(object):
         """ The number of nodes in this «class.lower».
         """
         return self.order
-
-    def prepend(self, *others):
-        """ Join another path or relationship to the start of this path to form a new path.
-
-        :arg others: Entities to join to the start of this path
-        :rtype: :class:`.Path`
-        """
-        p = Path(*others)
-        p = p.append(self)
-        return p
 
     @property
     def properties(self):

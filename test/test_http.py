@@ -152,11 +152,13 @@ class ClientErrorTestCase(Py2neoTestCase):
 
 
 class ServerErrorTestCase(Py2neoTestCase):
-    
+
+    def setUp(self):
+        self.non_existent_resource = Resource("http://localhost:7474/db/data/x")
+
     def test_can_handle_json_error_from_get(self):
-        resource = Resource("http://localhost:7474/db/data/node/spam")
         try:
-            resource.get()
+            self.non_existent_resource.get()
         except GraphError as error:
             cause = error.__cause__
             assert isinstance(cause, _ClientError)
@@ -166,34 +168,30 @@ class ServerErrorTestCase(Py2neoTestCase):
             assert False
 
     def test_can_handle_json_error_from_put(self):
-        node, = self.graph.create({})
         try:
-            node.properties.resource.put(["foo"])
+            self.non_existent_resource.put("")
         except GraphError as error:
             cause = error.__cause__
             assert isinstance(cause, _ClientError)
             assert isinstance(cause, _Response)
-            assert cause.status_code == 400
+            assert cause.status_code == 404
         else:
             assert False
 
     def test_can_handle_json_error_from_post(self):
-        new_node_resource = Resource("http://localhost:7474/db/data/node")
         try:
-            new_node_resource.post(["foo"])
+            self.non_existent_resource.post("")
         except GraphError as error:
             cause = error.__cause__
             assert isinstance(cause, _ClientError)
             assert isinstance(cause, _Response)
-            assert cause.status_code == 400
+            assert cause.status_code == 404
         else:
             assert False
 
     def test_can_handle_json_error_from_delete(self):
-        node, = self.graph.create({})
-        non_existent_property = Resource(node.properties.resource.uri.string + "/foo")
         try:
-            non_existent_property.delete()
+            self.non_existent_resource.delete()
         except GraphError as error:
             cause = error.__cause__
             assert isinstance(cause, _ClientError)
