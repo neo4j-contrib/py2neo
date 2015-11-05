@@ -191,10 +191,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
 
     def test_stale_node_repr(self):
         node = Node.hydrate({"self": "http://localhost:7474/db/data/node/0"})
-        assert_repr(node, "<Node graph='http://localhost:7474/db/data/' ref='%s' "
-                          "labels=? properties=?>" % node.ref,
-                          "<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                          "labels=? properties=?>" % node.ref)
+        assert repr(node).startswith("<Node")
 
     def test_node_str(self):
         node = Node("Person", name="Alice")
