@@ -199,12 +199,6 @@ class RelationshipTestCase(Py2neoTestCase):
                                           "ref='%s' start='%s' end='%s' type='KNOWS' "
                                           "properties={}>" % (relationship.ref, alice.ref, bob.ref))
 
-    def test_stale_relationship_repr(self):
-        relationship = Relationship.hydrate({"self": "http://localhost:7474/db/data/relationship/0",
-                                             "start": "http://localhost:7474/db/data/node/0",
-                                             "end": "http://localhost:7474/db/data/node/1"})
-        assert repr(relationship).startswith("<Relationship")
-
     def test_unbound_rel_repr(self):
         rel = Rel("KNOWS", since=1999)
         assert repr(rel) == "<Rel type='KNOWS' properties={'since': 1999}>"
@@ -222,10 +216,6 @@ class RelationshipTestCase(Py2neoTestCase):
             assert repr(rel) == ("<Rel graph='http://localhost:7474/db/data/' ref='%s' "
                                  "type='KNOWS' properties={}>" % rel.ref)
 
-    def test_stale_rel_repr(self):
-        rel = Rel.hydrate({"self": "http://localhost:7474/db/data/relationship/0"})
-        assert repr(rel).startswith("<Rel")
-
     def test_unbound_rev_repr(self):
         rev = Rev("KNOWS", since=1999)
         assert repr(rev) == "<Rev type='KNOWS' properties={'since': 1999}>"
@@ -242,10 +232,6 @@ class RelationshipTestCase(Py2neoTestCase):
         else:
             assert repr(rev) == ("<Rev graph='http://localhost:7474/db/data/' ref='%s' "
                                  "type='KNOWS' properties={}>" % rev.ref)
-
-    def test_stale_rev_repr(self):
-        rev = Rev.hydrate({"self": "http://localhost:7474/db/data/relationship/0"})
-        assert repr(rev).startswith("<Rev")
 
     def test_relationship_str(self):
         alice = Node("Person", name="Alice")
