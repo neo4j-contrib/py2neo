@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from warnings import catch_warnings
+from warnings import catch_warnings, simplefilter
 
 from test.util import Py2neoTestCase
 
@@ -24,6 +24,7 @@ from test.util import Py2neoTestCase
 class DeprecatedTestCase(Py2neoTestCase):
 
     def setUp(self):
+        simplefilter("always")
         self._catcher = catch_warnings(record=True)
         self.warnings = self._catcher.__enter__()
 
