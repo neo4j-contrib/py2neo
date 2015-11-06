@@ -29,7 +29,7 @@ class DodgyClientError(ClientError):
     status_code = 499
 
 
-class RelTestCase(Py2neoTestCase):
+class RelationshipTestCase(Py2neoTestCase):
 
     def test_rel_and_rev_hashes(self):
         assert hash(Rel("KNOWS")) == hash(Rel("KNOWS"))
@@ -42,9 +42,6 @@ class RelTestCase(Py2neoTestCase):
         assert rel_1 is not rel_2
         assert hash(rel_1) == hash(rel_2)
 
-
-class RelationshipTestCase(Py2neoTestCase):
-        
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
         assert isinstance(types, frozenset)
@@ -206,14 +203,7 @@ class RelationshipTestCase(Py2neoTestCase):
         relationship = Relationship.hydrate({"self": "http://localhost:7474/db/data/relationship/0",
                                              "start": "http://localhost:7474/db/data/node/0",
                                              "end": "http://localhost:7474/db/data/node/1"})
-        if PY2:
-            assert repr(relationship) == ("<Relationship graph=u'http://localhost:7474/db/data/' "
-                                          "ref=u'relationship/0' start=u'node/0' end=u'node/1' "
-                                          "type=? properties=?>")
-        else:
-            assert repr(relationship) == ("<Relationship graph='http://localhost:7474/db/data/' "
-                                          "ref='relationship/0' start='node/0' end='node/1' "
-                                          "type=? properties=?>")
+        assert repr(relationship).startswith("<Relationship")
 
     def test_unbound_rel_repr(self):
         rel = Rel("KNOWS", since=1999)
@@ -234,12 +224,7 @@ class RelationshipTestCase(Py2neoTestCase):
 
     def test_stale_rel_repr(self):
         rel = Rel.hydrate({"self": "http://localhost:7474/db/data/relationship/0"})
-        if PY2:
-            assert repr(rel) == ("<Rel graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                                 "type=? properties=?>" % rel.ref)
-        else:
-            assert repr(rel) == ("<Rel graph='http://localhost:7474/db/data/' ref='%s' "
-                                 "type=? properties=?>" % rel.ref)
+        assert repr(rel).startswith("<Rel")
 
     def test_unbound_rev_repr(self):
         rev = Rev("KNOWS", since=1999)
