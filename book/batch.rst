@@ -4,7 +4,7 @@ API: Batch
 
 The Neo4j batch resource is designed to allow multiple REST calls to be passed to the server in a
 single request and be executed in a single transaction. While this remains a good choice for some
-legacy use cases, many are better served by a `Cypher transaction <py2neo.cypher.CypherTransaction>`_
+legacy use cases, many are better served by a `Cypher transaction <py2neo.cypher.Transaction>`_
 instead.
 
 Batches offer a limited capability to refer to one job from another **within the same batch**. This

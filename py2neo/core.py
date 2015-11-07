@@ -849,8 +849,8 @@ class Graph(Bindable):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import RecordList
-                return RecordList.hydrate(data, self)
+                from py2neo.cypher import Result
+                return Result.hydrate(data, self)
             elif "neo4j_version" in data:
                 return self
             elif "exception" in data and ("stacktrace" in data or "stackTrace" in data):

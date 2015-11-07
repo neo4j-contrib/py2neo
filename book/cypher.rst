@@ -41,7 +41,7 @@ Cypher Resource
 Transactions
 ============
 
-.. autoclass:: py2neo.cypher.CypherTransaction
+.. autoclass:: py2neo.cypher.Transaction
    :members:
 
 
@@ -49,7 +49,7 @@ Tasks
 =====
 
 CypherTasks are self-contained bundles of Cypher statements and parameters intended for use within
-:class:`Cypher transactions <.CypherTransaction>`.
+:class:`Cypher transactions <.Transaction>`.
 
 .. autoclass:: py2neo.cypher.CypherTask
    :members:
@@ -67,7 +67,7 @@ Records
 .. autoclass:: py2neo.cypher.Record
    :members:
 
-.. autoclass:: py2neo.cypher.RecordList
+.. autoclass:: py2neo.cypher.Result
    :members:
 
 .. autoclass:: py2neo.cypher.RecordStream
@@ -108,7 +108,7 @@ Exceptions
 .. autoexception:: py2neo.cypher.CypherError
    :members:
 
-.. autoexception:: py2neo.cypher.CypherTransactionError
+.. autoexception:: py2neo.cypher.TransactionError
    :members:
 
 
