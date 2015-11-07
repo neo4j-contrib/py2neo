@@ -21,7 +21,7 @@ import logging
 
 from py2neo.compat import ustr
 from py2neo.core import NodePointer, Bindable
-from py2neo.cypher import RecordList
+from py2neo.cypher import Result
 from py2neo.error import GraphError, Finished
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -263,7 +263,7 @@ class JobResult(object):
                 raise_from(BatchError(message, batch, job_id, status_code, uri, location), error)
             else:
                 # If Cypher results, reduce to single row or single value if possible
-                if isinstance(body, RecordList):
+                if isinstance(body, Result):
                     num_rows = len(body)
                     if num_rows == 0:
                         body = None
@@ -327,7 +327,7 @@ class JobResult(object):
 
 class CypherJob(Job):
     """ A Cypher execution job for inclusion within a batch. Consider using
-    `Cypher transactions <py2neo.cypher.CypherTransaction>`_ instead of
+    `Cypher transactions <py2neo.cypher.Transaction>`_ instead of
     batched Cypher jobs.
     """
 

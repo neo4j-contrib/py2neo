@@ -134,7 +134,7 @@ call the :func:`execute <py2neo.cypher.CypherEngine.execute>` method::
      1 | (n2:Person {name:"Carol"})
 
 
-The object returned from this call is a :class:`RecordList <py2neo.cypher.RecordList>` which is
+The object returned from this call is a :class:`Result <py2neo.cypher.Result>` which is
 rendered by default as a table of results. Each item in this list is a
 :class:`Record <py2neo.cypher.Record>` instance::
 
@@ -180,17 +180,17 @@ statements by submitting multiple statements in a single HTTP request.
 
 To use this endpoint, firstly call the :func:`begin <py2neo.cypher.CypherEngine.begin>` method on
 the :attr:`Graph.cypher <py2neo.Graph.cypher>` resource to create a transaction, then use the
-methods listed below on the new :class:`CypherTransaction <py2neo.cypher.CypherTransaction>`
+methods listed below on the new :class:`Transaction <py2neo.cypher.Transaction>`
 object:
 
-- :func:`append(statement, [parameters]) <py2neo.cypher.CypherTransaction.append>` - add a
+- :func:`append(statement, [parameters]) <py2neo.cypher.Transaction.append>` - add a
   statement to the queue of statements to be executed (this does not pass any statements to the
   server)
-- :func:`process() <py2neo.cypher.CypherTransaction.process>` - push all queued statements to the
+- :func:`process() <py2neo.cypher.Transaction.process>` - push all queued statements to the
   server for execution and return the results from those statements
-- :func:`commit() <py2neo.cypher.CypherTransaction.commit>` - push all queued statements to the
+- :func:`commit() <py2neo.cypher.Transaction.commit>` - push all queued statements to the
   server for execution and commit the transaction (returns the results from all queued statements)
-- :func:`rollback() <py2neo.cypher.CypherTransaction.rollback>` - roll the transaction back
+- :func:`rollback() <py2neo.cypher.Transaction.rollback>` - roll the transaction back
 
 For example::
 

@@ -19,10 +19,10 @@
 from io import StringIO
 
 from py2neo import Node, NodePointer, Rel, Rev, Relationship, Path, Finished, GraphError
-from py2neo.cypher import CypherEngine, CypherTransaction, \
-    CreateStatement, DeleteStatement, RecordProducer, RecordList
+from py2neo.cypher import CypherEngine, Transaction, \
+    CreateStatement, DeleteStatement, RecordProducer, Result
 from py2neo.cypher.core import presubstitute
-from py2neo.cypher.error.core import CypherError, CypherTransactionError, ClientError
+from py2neo.cypher.error.core import CypherError, TransactionError, ClientError
 from py2neo.cypher.error.statement import ConstraintViolation, InvalidSyntax
 from py2neo.cypher.lang import CypherWriter, cypher_repr
 from py2neo.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship, \
@@ -153,13 +153,13 @@ class CypherTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/transaction"
         cypher = CypherEngine(uri)
         tx = cypher.begin()
-        assert isinstance(tx, CypherTransaction)
+        assert isinstance(tx, Transaction)
 
     def test_nonsense_query(self):
         statement = "SELECT z=nude(0) RETURNS x"
         try:
             self.cypher.execute(statement)
-        except CypherTransactionError as error:
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
             assert error.exception == "SyntaxException"
@@ -322,7 +322,7 @@ class CypherTestCase(Py2neoTestCase):
         cypher = self.cypher
         try:
             cypher.execute("X")
-        except CypherTransactionError as error:
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
             self.assert_error(
@@ -343,7 +343,7 @@ class CypherTestCase(Py2neoTestCase):
             statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                          "CREATE UNIQUE (a)-[:KNOWS]->(b)")
             cypher.execute(statement, parameters)
-        except CypherTransactionError as error:
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
         except CypherError as error:
             self.assert_error(
@@ -439,7 +439,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
             tx.execute("CREATE (a) RETURN a")
         except Finished as error:
             assert error.obj is tx
-            assert repr(error) == "CypherTransaction finished"
+            assert repr(error) == "Transaction finished"
         else:
             assert False
 
@@ -459,9 +459,9 @@ class CypherTransactionTestCase(Py2neoTestCase):
         tx.execute(statement, parameters)
         try:
             tx.commit()
-        except CypherTransactionError as error:
+        except TransactionError as error:
             self.assert_new_error(
-                error, (ConstraintViolation, ClientError, CypherTransactionError,
+                error, (ConstraintViolation, ClientError, TransactionError,
                         CypherError, GraphError), "Neo.ClientError.Statement.ConstraintViolation")
         else:
             assert False
@@ -518,13 +518,13 @@ class CypherTransactionTestCase(Py2neoTestCase):
         for code in codes:
             data = {"code": code, "message": "X"}
             _, classification, category, title = code.split(".")
-            error = CypherTransactionError.hydrate(data)
+            error = TransactionError.hydrate(data)
             assert error.code == code
             assert error.message == "X"
             assert error.__class__.__name__ == title
             assert error.__class__.__mro__[1].__name__ == classification
             assert error.__class__.__module__ == "py2neo.cypher.error.%s" % category.lower()
-            assert isinstance(error, CypherTransactionError)
+            assert isinstance(error, TransactionError)
             assert isinstance(error, CypherError)
             assert isinstance(error, GraphError)
 
@@ -973,24 +973,24 @@ class CypherResultTest(Py2neoTestCase):
 
     def test_one_value_when_none_returned(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33})")
-        value = result.one
+        value = result.value
         assert value is None
 
     def test_one_value_in_result(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name")
-        value = result.one
+        value = result.value
         assert value == "Alice"
 
     def test_one_record_in_result(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name,a.age")
-        value = result.one
+        value = result.value
         assert value == ("Alice", 33)
 
     def test_one_from_record_with_zero_columns(self):
         producer = RecordProducer([])
         record = producer.produce([])
-        record_list = RecordList([], [record])
-        value = record_list.one
+        result = Result([], [record])
+        value = result.value
         assert value is None
 
     def test_record_field_access(self):

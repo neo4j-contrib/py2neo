@@ -22,12 +22,12 @@ import logging
 from py2neo import Bindable, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.error.core import CypherError, CypherTransactionError
+from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.packages.tart.tables import TextTable
 from py2neo.util import is_collection, deprecated
 
 
-__all__ = ["CypherEngine", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
+__all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
            "Record", "RecordProducer"]
 
 
@@ -97,10 +97,10 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
         """
-        tx = CypherTransaction(self.uri)
-        tx.execute(statement, parameters, **kwparameters)
-        results = tx.post(commit=True)
-        return results[0]
+        tx = Transaction(self.uri)
+        result = tx.execute(statement, parameters, **kwparameters)
+        tx.post(commit=True)
+        return result
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement, ignoring any return value.
@@ -108,7 +108,7 @@ class CypherEngine(Bindable):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = CypherTransaction(self.uri)
+        tx = Transaction(self.uri)
         tx.execute(statement, parameters, **kwparameters)
         tx.commit()
 
@@ -117,12 +117,12 @@ class CypherEngine(Bindable):
 
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.RecordList`
+        :rtype: :class:`py2neo.cypher.Result`
         """
-        tx = CypherTransaction(self.uri)
-        tx.execute(statement, parameters, **kwparameters)
-        results = tx.commit()
-        return results[0]
+        tx = Transaction(self.uri)
+        result = tx.execute(statement, parameters, **kwparameters)
+        tx.commit()
+        return result
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -132,13 +132,10 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = CypherTransaction(self.uri)
-        tx.execute(statement, parameters, **kwparameters)
-        results = tx.commit()
-        try:
-            return results[0][0][0]
-        except IndexError:
-            return None
+        tx = Transaction(self.uri)
+        result = tx.execute(statement, parameters, **kwparameters)
+        tx.commit()
+        return result.value
 
     def stream(self, statement, parameters=None, **kwparameters):
         """ Execute the query and return a result iterator.
@@ -152,21 +149,22 @@ class CypherEngine(Bindable):
     def begin(self):
         """ Begin a new transaction.
 
-        :rtype: :class:`py2neo.cypher.CypherTransaction`
+        :rtype: :class:`py2neo.cypher.Transaction`
         """
-        return CypherTransaction(self.uri)
+        return Transaction(self.uri)
 
 
-class CypherTransaction(object):
+class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
     """
 
-    error_class = CypherTransactionError
+    error_class = TransactionError
 
     def __init__(self, uri):
         log.info("begin")
         self.statements = []
+        self.results = []
         self.__begin = Resource(uri)
         self.__begin_commit = Resource(uri + "/commit")
         self.__execute = None
@@ -206,10 +204,6 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    @deprecated("CypherTransaction.append() is deprecated, use tx.execute() instead")
-    def append(self, statement, parameters=None, **kwparameters):
-        return self.execute(statement, parameters, **kwparameters)
-
     def execute(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
         executed.
@@ -244,6 +238,9 @@ class CypherTransaction(object):
             ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))
+        result = Result(self.graph)
+        self.results.append(result)
+        return result
 
     def post(self, commit=False):
         self.__assert_unfinished()
@@ -268,15 +265,18 @@ class CypherTransaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise self.error_class.hydrate(error)
-        results = [{"columns": result["columns"], "data": [data["rest"] for data in result["data"]]}
-                   for result in j["results"]]
-        log.info("results %r", results)
-        return results
+        # TODO: move hydration from here
+        for j_result in j["results"]:
+            result = self.results.pop(0)
+            result.keys = j_result["columns"]
+            producer = RecordProducer(result.keys)
+            result.records = [producer.produce(self.graph.hydrate(data["rest"])) for data in j_result["data"]]
+        #log.info("results %r", results)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements. Along with
-        :meth:`append <.CypherTransaction.append>`, this method can be used to
+        :meth:`append <.Transaction.append>`, this method can be used to
         batch up a number of individual statements into a single HTTP request::
 
             from py2neo import Graph
@@ -296,17 +296,14 @@ class CypherTransaction(object):
 
             tx.commit()
 
-        :return: list of results from pending statements
         """
-        return RecordListList.from_results(self.post(), self.graph)
+        self.post()
 
     def commit(self):
         """ Send all pending statements to the server for execution and commit
         the transaction.
-
-        :return: list of results from pending statements
         """
-        return RecordListList.from_results(self.post(commit=True), self.graph)
+        self.post(commit=True)
 
     def rollback(self):
         """ Rollback the current transaction.
@@ -320,42 +317,22 @@ class CypherTransaction(object):
             self.__finished = True
 
 
-class RecordListList(list):
-    """ Container for multiple RecordList instances that presents a more
-    consistent representation.
-    """
-
-    @classmethod
-    def from_results(cls, results, graph):
-        return cls(RecordList.hydrate(result, graph) for result in results)
-
-    def __repr__(self):
-        out = []
-        for i in self:
-            out.append(repr(i))
-        return "\n".join(out)
-
-
-class RecordList(object):
+class Result(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
 
-    @classmethod
-    def hydrate(cls, data, graph):
-        columns = data["columns"]
-        rows = data["data"]
-        producer = RecordProducer(columns)
-        return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
+    def __init__(self, graph):
+        self.graph = graph
+        self.keys = []
+        self.records = []
 
-    def __init__(self, columns, records):
-        self.columns = columns
-        self.records = records
-        log.info("result %r %r", columns, len(records))
+    def __str__(self):
+        return xstr(self.__unicode__())
 
-    def __repr__(self):
+    def __unicode__(self):
         out = ""
-        if self.columns:
-            table = TextTable([None] + self.columns, border=True)
+        if self.keys:
+            table = TextTable([None] + self.keys, border=True)
             for i, record in enumerate(self.records):
                 table.append([i + 1] + list(record))
             out = repr(table)
@@ -371,9 +348,8 @@ class RecordList(object):
         return iter(self.records)
 
     @property
-    def one(self):
-        """ The first record from this result, reduced to a single value
-        if that record only consists of a single column. If no records
+    def value(self):
+        """ The first value from the first record of this result. If no records
         are available, :const:`None` is returned.
         """
         try:
@@ -389,7 +365,7 @@ class RecordList(object):
                 return record
 
     def to_subgraph(self):
-        """ Convert a RecordList into a Subgraph.
+        """ Convert a Result into a Subgraph.
         """
         entities = []
         for record in self.records:
