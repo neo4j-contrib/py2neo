@@ -763,14 +763,14 @@ class Graph(Bindable):
         tx = self.cypher.begin()
         for entity in entities:
             if isinstance(entity, Node):
-                tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=entity)
+                tx.execute("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=entity)
             elif isinstance(entity, (Rel, Relationship)):
-                tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=entity)
+                tx.execute("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=entity)
             elif isinstance(entity, (Path, Subgraph)):
                 for node in entity.nodes:
-                    tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=node)
+                    tx.execute("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=node)
                 for rel in entity.relationships:
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=rel)
+                    tx.execute("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=rel)
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)

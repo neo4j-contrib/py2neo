@@ -41,7 +41,7 @@ class TemporaryTransaction(object):
         self.tx.rollback()
 
     def execute(self, statement, parameters=None, **kwparameters):
-        self.tx.append(statement, parameters, **kwparameters)
+        self.tx.execute(statement, parameters, **kwparameters)
         result, = self.tx.process()
         return result
 
@@ -358,7 +358,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_execute_single_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished
-        tx.append("CREATE (a) RETURN a")
+        tx.execute("CREATE (a) RETURN a")
         results = tx.commit()
         assert repr(results)
         assert len(results) == 1
@@ -371,15 +371,15 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_execute_transaction_as_with_statement(self):
         with self.cypher.begin() as tx:
             assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
         assert tx.finished
 
     def test_can_execute_multi_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished
-        tx.append("CREATE (a) RETURN a")
-        tx.append("CREATE (a) RETURN a")
-        tx.append("CREATE (a) RETURN a")
+        tx.execute("CREATE (a) RETURN a")
+        tx.execute("CREATE (a) RETURN a")
+        tx.execute("CREATE (a) RETURN a")
         results = tx.commit()
         assert len(results) == 3
         for result in results:
@@ -393,9 +393,9 @@ class CypherTransactionTestCase(Py2neoTestCase):
         assert tx._id is None
         for i in range(10):
             assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
             results = tx.process()
             assert tx._id is not None
             assert len(results) == 3
@@ -410,9 +410,9 @@ class CypherTransactionTestCase(Py2neoTestCase):
         tx = self.cypher.begin()
         for i in range(10):
             assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
             results = tx.process()
             assert len(results) == 3
             for result in results:
@@ -425,7 +425,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_generate_transaction_error(self):
         tx = self.cypher.begin()
         try:
-            tx.append("CRAETE (a) RETURN a")
+            tx.execute("CRAETE (a) RETURN a")
             tx.commit()
         except InvalidSyntax as err:
             assert repr(err)
@@ -436,7 +436,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
         tx = self.cypher.begin()
         tx.rollback()
         try:
-            tx.append("CREATE (a) RETURN a")
+            tx.execute("CREATE (a) RETURN a")
         except Finished as error:
             assert error.obj is tx
             assert repr(error) == "CypherTransaction finished"
@@ -445,18 +445,18 @@ class CypherTransactionTestCase(Py2neoTestCase):
 
     def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
         tx = self.cypher.begin()
-        tx.append("CREATE (a), (b) RETURN a, b")
+        tx.execute("CREATE (a), (b) RETURN a, b")
         results = tx.process()
         result = results[0]
         record = result[0]
         parameters = {"A": record.a._id, "B": record.b._id}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
-        tx.append(statement, parameters)
-        tx.append(statement, parameters)
+        tx.execute(statement, parameters)
+        tx.execute(statement, parameters)
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-        tx.append(statement, parameters)
+        tx.execute(statement, parameters)
         try:
             tx.commit()
         except CypherTransactionError as error:

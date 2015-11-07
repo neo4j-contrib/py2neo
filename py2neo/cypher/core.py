@@ -99,7 +99,7 @@ class CypherEngine(Bindable):
         :arg kwparameters: Extra parameters supplied by keyword.
         """
         tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
+        tx.execute(statement, parameters, **kwparameters)
         results = tx.post(commit=True)
         return results[0]
 
@@ -110,7 +110,7 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         """
         tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
+        tx.execute(statement, parameters, **kwparameters)
         tx.commit()
 
     def execute(self, statement, parameters=None, **kwparameters):
@@ -121,7 +121,7 @@ class CypherEngine(Bindable):
         :rtype: :class:`py2neo.cypher.RecordList`
         """
         tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
+        tx.execute(statement, parameters, **kwparameters)
         results = tx.commit()
         return results[0]
 
@@ -134,7 +134,7 @@ class CypherEngine(Bindable):
         :return: Single return value or :const:`None`.
         """
         tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
+        tx.execute(statement, parameters, **kwparameters)
         results = tx.commit()
         try:
             return results[0][0][0]
@@ -207,7 +207,7 @@ class CypherTransaction(object):
         """
         return self.__finished
 
-    def append(self, statement, parameters=None, **kwparameters):
+    def execute(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
         executed.
 

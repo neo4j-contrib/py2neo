@@ -90,9 +90,9 @@ class CypherCommandLine(object):
                         values = json.loads("[" + line + "]")
                         p = dict(self.parameters)
                         p.update(zip(columns, values))
-                        self.tx.append(statement, p)
+                        self.tx.execute(statement, p)
         else:
-            self.tx.append(statement, self.parameters)
+            self.tx.execute(statement, self.parameters)
         return self.tx.process()
 
     def commit(self):
