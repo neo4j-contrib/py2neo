@@ -24,7 +24,7 @@ from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_collection
+from py2neo.util import is_collection, deprecated
 
 
 __all__ = ["CypherEngine", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
@@ -205,6 +205,10 @@ class CypherTransaction(object):
                  :py:const:`False` otherwise
         """
         return self.__finished
+
+    @deprecated("CypherTransaction.append() is deprecated, use tx.execute() instead")
+    def append(self, statement, parameters=None, **kwparameters):
+        return self.execute(statement, parameters, **kwparameters)
 
     def execute(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
