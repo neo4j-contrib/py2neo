@@ -768,19 +768,19 @@ class Graph(Bindable):
         tx = self.cypher.begin()
         for entity in entities:
             if isinstance(entity, Node):
-                tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
+                tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
             elif isinstance(entity, Relationship):
-                tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
+                tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
             elif isinstance(entity, Path):
                 for node in entity.nodes():
-                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                    tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
                 for rel in entity.relationships():
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                    tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
             elif isinstance(entity, Subgraph):
-                for node in entity.nodes:
-                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
-                for rel in entity.relationships:
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                for node in entity.nodes():
+                    tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                for rel in entity.relationships():
+                    tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)

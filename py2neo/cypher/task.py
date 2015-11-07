@@ -233,7 +233,7 @@ class MergeNode(CypherTask):
         >>> from py2neo import Graph
         >>> graph = Graph()
         >>> tx = graph.cypher.begin()
-        >>> tx.append(MergeNode("Person", "name", "Alice"))
+        >>> tx.execute(MergeNode("Person", "name", "Alice"))
         >>> tx.commit()
            | a
         ---+-----------------------
@@ -349,7 +349,7 @@ class CreateTransaction(object):
             for argument_index, entity in enumerate(entity_list):
                 if not entity.bound:
                     indexes[creation_index] = argument_index
-                    tx.append(creator(entity))
+                    tx.execute(creator(entity))
                     creation_index += 1
             results = tx.post(commit)
             for creation_index, result in enumerate(results):

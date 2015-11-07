@@ -98,7 +98,7 @@ class RandomGraphGenerator(object):
         tx = self.graph.cypher.begin()
         for i in range(1, count + 1):
             self.max_user_id += 1
-            tx.append(CreatePerson(self.max_user_id))
+            tx.execute(CreatePerson(self.max_user_id))
             if i % process_every == 0:
                 if i < count:
                     tx.process()
@@ -118,7 +118,7 @@ class RandomGraphGenerator(object):
                 "A": start_user_id,
                 "B": end_user_id,
             }
-            tx.append(CREATE_UNIQUE_RELATIONSHIP, parameters)
+            tx.execute(CREATE_UNIQUE_RELATIONSHIP, parameters)
             if i % process_every == 0:
                 if i < count:
                     tx.process()
