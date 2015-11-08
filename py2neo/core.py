@@ -46,7 +46,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
            "ServiceRoot",
            "authenticate", "familiar", "rewrite",
-           "Bindable", "Resource", "ResourceTemplate"]
+           "Graphy", "Bindable", "Resource", "ResourceTemplate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -560,6 +560,12 @@ class ServiceRoot(object):
         """ The full URI of the contained resource.
         """
         return self.resource.uri
+
+
+class Graphy(object):
+
+    def __nodes__(self):
+        raise NotImplementedError()
 
 
 class Graph(Bindable):
@@ -1264,6 +1270,9 @@ class Node(Bindable, PrimitiveNode):
 
     def __add__(self, other):
         return Path(self, other)
+
+    def __nodes__(self):
+        yield self
 
     def __getitem__(self, item):
         if self.bound and "properties" in self.__stale:

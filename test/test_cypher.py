@@ -530,6 +530,14 @@ class CypherTransactionTestCase(Py2neoTestCase):
             assert isinstance(error, GraphError)
 
 
+class CypherSpecialistExecutionTestCase(Py2neoTestCase):
+
+    def test_can_create(self):
+        tx = self.cypher.begin()
+        
+        tx.commit()
+
+
 class CypherCreateTestCase(Py2neoTestCase):
 
     def test_statement_representations_return_cypher(self):
@@ -964,24 +972,24 @@ class CypherResultTest(Py2neoTestCase):
 
     def test_one_value_when_none_returned(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33})")
-        value = result.value
+        value = result.value()
         assert value is None
 
     def test_one_value_in_result(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name")
-        value = result.value
+        value = result.value()
         assert value == "Alice"
 
     def test_one_record_in_result(self):
         result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name,a.age")
-        value = result.value
+        value = result.value()
         assert value == ("Alice", 33)
 
     def test_one_from_record_with_zero_columns(self):
         producer = RecordProducer([])
         record = producer.produce([])
         result = Result([], [record])
-        value = result.value
+        value = result.value()
         assert value is None
 
     def test_record_field_access(self):

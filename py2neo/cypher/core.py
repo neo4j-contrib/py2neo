@@ -19,7 +19,7 @@
 from collections import OrderedDict
 import logging
 
-from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
+from py2neo import Graphy, Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, TransactionError
@@ -32,6 +32,23 @@ __all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
 
 
 log = logging.getLogger("py2neo.cypher")
+
+
+def first_node(x):
+    if hasattr(x, "__nodes__"):
+        try:
+            return next(x.__nodes__())
+        except StopIteration:
+            raise ValueError("No such node: %r" % x)
+    raise ValueError("No such node: %r" % x)
+
+
+def last_node(x):
+    if hasattr(x, "__nodes__"):
+        nodes = list(x.__nodes__())
+        if nodes:
+            return nodes[-1]
+    raise ValueError("No such node: %r" % x)
 
 
 def presubstitute(statement, parameters):
@@ -135,7 +152,7 @@ class CypherEngine(Bindable):
         tx = Transaction(self.uri)
         result = tx.execute(statement, parameters, **kwparameters)
         tx.commit()
-        return result.value
+        return result.value()
 
     def stream(self, statement, parameters=None, **kwparameters):
         """ Execute the query and return a result iterator.
@@ -223,10 +240,8 @@ class Transaction(object):
                         v = v._id
                     p[k] = v
 
-        try:
+        if hasattr(statement, "parameters"):
             add_parameters(statement.parameters)
-        except AttributeError:
-            pass
         add_parameters(dict(parameters or {}, **kwparameters))
 
         s, p = presubstitute(s, p)
@@ -242,7 +257,27 @@ class Transaction(object):
         self.results.append(result)
         return result
 
-    def post(self, commit=False):
+    def create(self, *labels, **properties):
+        return self.execute("CREATE (a:«l» {p}) "
+                            "RETURN a",
+                            l=labels, p=properties)
+
+    def delete(self, node):
+        pass
+
+    def relate(self, *nodes, **properties):
+        if len(nodes) != 3:
+            raise ValueError("Start node, type and end node are required")
+        start_node = last_node(nodes[0])
+        end_node = first_node(nodes[2])
+        relationship_type = nodes[1]
+        return self.execute("MATCH (a) WHERE id(a)={x} "
+                            "MATCH (b) WHERE id(b)={y} "
+                            "CREATE UNIQUE (a)-[r:«t» {p}]->(b) "
+                            "RETURN r",
+                            x=start_node._id, y=end_node._id, t=relationship_type, p=properties)
+
+    def post(self, commit=False, hydrate=False):
         self.__assert_unfinished()
         if commit:
             log.info("commit")
@@ -265,12 +300,15 @@ class Transaction(object):
             if len(errors) >= 1:
                 error = errors[0]
                 raise self.error_class.hydrate(error)
-        # TODO: move hydration from here
         for j_result in j["results"]:
             result = self.results.pop(0)
-            result.keys = j_result["columns"]
-            producer = RecordProducer(result.keys)
-            result.records = [producer.produce(self.graph.hydrate(data["rest"])) for data in j_result["data"]]
+            keys = j_result["columns"]
+            producer = RecordProducer(keys)
+            if hydrate:
+                result.process(keys, [producer.produce(self.graph.hydrate(data["rest"]))
+                                      for data in j_result["data"]])
+            else:
+                result.process(keys, [data["rest"] for data in j_result["data"]])
         #log.info("results %r", results)
 
     def process(self):
@@ -297,13 +335,13 @@ class Transaction(object):
             tx.commit()
 
         """
-        self.post()
+        self.post(hydrate=True)
 
     def commit(self):
         """ Send all pending statements to the server for execution and commit
         the transaction.
         """
-        self.post(commit=True)
+        self.post(commit=True, hydrate=True)
 
     def rollback(self):
         """ Rollback the current transaction.
@@ -317,41 +355,66 @@ class Transaction(object):
             self.__finished = True
 
 
+class NotProcessedError(Exception):
+    pass
+
+
 class Result(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
 
     def __init__(self, graph):
         self.graph = graph
-        self.keys = []
-        self.records = []
+        self._keys = []
+        self._records = []
+        self._processed = False
+
+    def __repr__(self):
+        return "<Result>"
 
     def __str__(self):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
+        self._assert_processed()
         out = ""
-        if self.keys:
-            table = TextTable([None] + self.keys, border=True)
-            for i, record in enumerate(self.records):
+        if self._keys:
+            table = TextTable([None] + self._keys, border=True)
+            for i, record in enumerate(self._records):
                 table.append([i + 1] + list(record))
             out = repr(table)
         return out
 
     def __len__(self):
-        return len(self.records)
+        self._assert_processed()
+        return len(self._records)
 
     def __getitem__(self, item):
-        return self.records[item]
+        self._assert_processed()
+        return self._records[item]
 
     def __iter__(self):
-        return iter(self.records)
+        self._assert_processed()
+        return iter(self._records)
+
+    def _assert_processed(self):
+        if not self._processed:
+            raise NotProcessedError("Result not yet processed")
 
     @property
+    def processed(self):
+        return self._processed
+
+    def process(self, keys, records):
+        self._keys = keys
+        self._records = records
+        self._processed = True
+
     def value(self):
         """ The first value from the first record of this result. If no records
         are available, :const:`None` is returned.
         """
+        self._assert_processed()
         try:
             record = self[0]
         except IndexError:
@@ -367,8 +430,9 @@ class Result(object):
     def to_subgraph(self):
         """ Convert a Result into a Subgraph.
         """
+        self._assert_processed()
         entities = []
-        for record in self.records:
+        for record in self._records:
             for value in record:
                 if isinstance(value, (Node, Relationship, Path)):
                     entities.append(value)
@@ -421,7 +485,7 @@ class RecordStream(object):
         pass
 
 
-class Record(object):
+class Record(Graphy, object):
     """ A simple object containing values from a single row of a Cypher
     result. Each value can be retrieved by column position or name,
     supplied as either an index key or an attribute name.
@@ -480,6 +544,13 @@ class Record(object):
             return getattr(self, item)
         else:
             raise LookupError(item)
+
+    def __nodes__(self):
+        """ Iterate through all nodes in this record.
+        """
+        for value in self.__values__:
+            if isinstance(value, Node):
+                yield value
 
 
 class RecordProducer(object):
