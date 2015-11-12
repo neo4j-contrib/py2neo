@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import GraphError, Node, LabelSet
+from py2neo import GraphError, Node
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 from test.util import Py2neoTestCase
 from test.compat import patch
@@ -130,34 +130,3 @@ class SchemaTestCase(Py2neoTestCase):
                 assert isinstance(error.__cause__, DodgyClientError)
             else:
                 assert False
-
-
-class LabelSetTestCase(Py2neoTestCase):
-    
-    def test_label_set_equality(self):
-        label_set_1 = LabelSet({"foo"})
-        label_set_2 = LabelSet({"foo"})
-        assert label_set_1 == label_set_2
-            
-    def test_label_set_inequality(self):
-        label_set_1 = LabelSet({"foo"})
-        label_set_2 = LabelSet({"bar"})
-        assert label_set_1 != label_set_2
-        
-    def test_can_get_all_node_labels(self):
-        labels = self.graph.node_labels
-        assert isinstance(labels, frozenset)
-        
-    def test_can_create_node_with_labels(self):
-        alice = Node("Person", name="Alice")
-        assert alice.labels() == {"Person"}
-        
-    def test_can_add_labels_to_existing_node(self):
-        alice = Node(name="Alice")
-        alice.add_label("Person")
-        assert alice.labels() == {"Person"}
-        
-    def test_can_remove_labels_from_existing_node(self):
-        alice = Node("Person", name="Alice")
-        alice.remove_label("Person")
-        assert alice.labels() == set()

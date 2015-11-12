@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import LabelSet, Node, Relationship, Path, PropertySet, Rel
+from py2neo.core import Node, Relationship, Path, PropertySet, Rel
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -38,7 +38,7 @@ class PushPropertiesJob(Job):
 class PushNodeLabelsJob(Job):
 
     def __init__(self, node, labels):
-        Job.__init__(self, "PUT", Target(node, "labels"), list(LabelSet(labels)))
+        Job.__init__(self, "PUT", Target(node, "labels"), set(labels))
 
 
 class PushBatch(Batch):

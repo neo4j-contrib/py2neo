@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.core import Graph, Node, Relationship, Path, PropertySet
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
@@ -127,7 +127,7 @@ class DeletePropertiesJob(Job):
 class AddNodeLabelsJob(Job):
 
     def __init__(self, node, *labels):
-        Job.__init__(self, "POST", Target(node, "labels"), list(LabelSet(labels)))
+        Job.__init__(self, "POST", Target(node, "labels"), set(labels))
 
 
 class RemoveNodeLabelJob(Job):

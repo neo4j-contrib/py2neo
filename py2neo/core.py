@@ -39,7 +39,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
+           "ServiceRoot", "PropertySet", "PropertyContainer",
            "authenticate", "familiar", "rewrite",
            "Bindable", "Resource", "ResourceTemplate"]
 
@@ -1120,30 +1120,6 @@ class PropertySet(dict):
     def update(self, iterable=None, **kwargs):
         for key, value in dict(iterable or {}, **kwargs).items():
             self[key] = value
-
-
-class LabelSet(set):
-    """ A set subclass that can be bound to a remote *labels* resource.
-    """
-
-    def __init__(self, iterable=None):
-        set.__init__(self)
-        if iterable:
-            self.update(iterable)
-
-    def __eq__(self, other):
-        if not isinstance(other, LabelSet):
-            other = LabelSet(other)
-        return set.__eq__(self, other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for label in self:
-            value ^= hash(label)
-        return value
 
 
 class PropertyContainer(object):
