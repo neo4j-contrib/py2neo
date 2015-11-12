@@ -27,15 +27,15 @@ class MergeTestCase(Py2neoTestCase):
         merged = list(self.graph.merge(label))
         assert len(merged) == 1
         assert isinstance(merged[0], Node)
-        assert merged[0].labels == {label}
+        assert merged[0].labels() == {label}
         
     def test_can_merge_on_label_and_property(self):
         label = next(self.unique_string)
         merged = list(self.graph.merge(label, "foo", "bar"))
         assert len(merged) == 1
         assert isinstance(merged[0], Node)
-        assert merged[0].labels == {label}
-        assert merged[0].properties == {"foo": "bar"}
+        assert merged[0].labels() == {label}
+        assert dict(merged[0]) == {"foo": "bar"}
         
     def test_cannot_merge_empty_label(self):
         with self.assertRaises(ValueError):
@@ -60,6 +60,6 @@ class MergeTestCase(Py2neoTestCase):
         label = next(self.unique_string)
         merged = self.graph.merge_one(label, "foo", "bar")
         assert isinstance(merged, Node)
-        assert merged.labels == {label}
-        assert merged.properties == {"foo": "bar"}
+        assert merged.labels() == {label}
+        assert dict(merged) == {"foo": "bar"}
 

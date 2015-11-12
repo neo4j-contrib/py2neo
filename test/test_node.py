@@ -30,13 +30,13 @@ class NodeTestCase(Py2neoTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
-        assert a.labels == {"Person"}
-        assert a.properties == {"name": "Alice", "age": 33}
+        assert a.labels() == {"Person"}
+        assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_can_create_remote_node(self):
         a, = self.graph.create(Node("Person", name="Alice", age=33))
-        assert a.labels == {"Person"}
-        assert a.properties == {"name": "Alice", "age": 33}
+        assert a.labels() == {"Person"}
+        assert dict(a) == {"name": "Alice", "age": 33}
         assert a.ref.startswith("node/")
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
@@ -177,11 +177,6 @@ class ConcreteNodeTestCase(Py2neoTestCase):
                           "labels=set(['Person']) properties={'name': u'Alice'}>" % node.ref)
 
     def test_node_hashes(self):
-        assert hash(Node()) == hash(Node())
-        assert hash(Node(name="Alice")) == hash(Node(name="Alice"))
-        assert hash(Node(name="Alice", age=33)) == hash(Node(age=33, name="Alice"))
-        assert (hash(Node("Person", name="Alice", age=33)) ==
-                hash(Node("Person", age=33, name="Alice")))
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")

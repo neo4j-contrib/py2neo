@@ -92,15 +92,15 @@ class CypherTestCase(Py2neoTestCase):
         results = self.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
         result = results[0].a
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_can_execute_parametrised_cypher_statement(self):
         results = self.cypher.execute("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         result = results[0].a
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_can_execute_cypher_statement_with_node_parameter(self):
         alice = Node(name="Alice")
@@ -113,14 +113,14 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_evaluate_cypher_statement(self):
         result = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_can_evaluate_parametrised_cypher_statement(self):
         result = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_evaluate_with_no_results_returns_none(self):
         result = self.cypher.evaluate("CREATE (a {name:{N}})", {"N": "Alice"})
@@ -139,15 +139,15 @@ class CypherTestCase(Py2neoTestCase):
         results = self.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         result = next(results).a
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_can_stream_cypher_statement_using_next_method(self):
         results = self.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
         result = results.next().a
         assert isinstance(result, Node)
-        assert result.labels == {"Person"}
-        assert result.properties == {"name": "Alice"}
+        assert result.labels() == {"Person"}
+        assert dict(result) == {"name": "Alice"}
 
     def test_can_begin_transaction(self):
         uri = "http://localhost:7474/db/data/transaction"
@@ -365,7 +365,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
         for result in results:
             assert len(result) == 1
             for record in result:
-                assert record.a
+                assert isinstance(record.a, Node)
         assert tx.finished
 
     def test_can_execute_transaction_as_with_statement(self):
@@ -385,7 +385,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
         for result in results:
             assert len(result) == 1
             for record in result:
-                assert record.a
+                assert isinstance(record.a, Node)
         assert tx.finished
 
     def test_can_execute_multi_execute_transaction(self):
@@ -402,7 +402,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
             for result in results:
                 assert len(result) == 1
                 for record in result:
-                    assert record.a
+                    assert isinstance(record.a, Node)
         tx.commit()
         assert tx.finished
 
@@ -418,7 +418,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
             for result in results:
                 assert len(result) == 1
                 for record in result:
-                    assert record.a
+                    assert isinstance(record.a, Node)
         tx.rollback()
         assert tx.finished
 
@@ -1135,12 +1135,12 @@ class CypherTaskTestCase(Py2neoTestCase):
         snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234)
         assert snip.labels == {"Person", "Employee"}
         assert snip.statement == "MERGE (a:Person {name:{A1}}) SET a:Employee SET a={A}"
-        assert snip.parameters == {"A1": "Alice", "A": {"employee_id": 1234, "name": "Alice"}}
+        assert snip.parameters == {"A1": "Alice", "A": {"employee_id": 1234}}
 
     def test_merge_node_with_extra_values_and_return(self):
         snip = MergeNode("Person", "name", "Alice").set("Employee", employee_id=1234).with_return()
         assert snip.statement == "MERGE (a:Person {name:{A1}}) SET a:Employee SET a={A} RETURN a"
-        assert snip.parameters == {"A1": "Alice", "A": {"employee_id": 1234, "name": "Alice"}}
+        assert snip.parameters == {"A1": "Alice", "A": {"employee_id": 1234}}
 
     def test_create_relationship_and_both_nodes(self):
         t = CreateRelationship(Node("Person", name="Alice"), "KNOWS", Node("Person", name="Bob"))

@@ -99,13 +99,6 @@ class PathTestCase(Py2neoTestCase):
             Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
         ]
 
-    def test_path_hashes(self):
-        p1 = Path(Node("Person", name="Alice"), Rel("KNOWS", since=1999), Node("Person", name="Bob"))
-        p2 = Path(Node("Person", name="Alice"), Rel("KNOWS", since=1999), Node("Person", name="Bob"))
-        assert hash(p1) == hash(p2)
-        self.graph.create(p1)
-        assert hash(p1) != hash(p2)
-
     def test_path_repr(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
@@ -158,66 +151,6 @@ class PathTestCase(Py2neoTestCase):
         assert hydrated.size == 2
         assert hydrated.relationships[0].type == "LIKES"
         assert hydrated.relationships[1].type == "DISLIKES"
-        
-    def test_can_append_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_1.append(path_2)
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_prepend_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_2.prepend(path_1)
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_join_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_1 + path_2
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_add_node_to_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = path_1 + bob
-        assert path_2 == Path(alice, "KNOWS", bob)
-
-    def test_can_reverse_join_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = list(path_1) + path_2
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-
-    def test_can_radd_node_to_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = path_1.__radd__(alice)
-        assert path_2 == Path(alice, "KNOWS", bob)
-
-    def test_cannot_join_incompatible_paths(self):
-        path_1 = Node(name="Alice") + "KNOWS" + Node(name="Bob")
-        path_2 = Node(name="Carol") + "KNOWS" + Node(name="Dave")
-        try:
-            _ = path_1 + path_2
-        except JoinError:
-            assert True
-        else:
-            assert False
 
     def test_cannot_build_path_with_two_consecutive_rels(self):
         try:

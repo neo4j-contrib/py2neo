@@ -97,7 +97,7 @@ class PropertyCoercionTestCase(TestCase):
     def test_heterogenous_list(self):
         try:
             PropertySet({"value": [True, 2, u"three"]})
-        except ValueError:
+        except TypeError:
             assert True
         else:
             assert False

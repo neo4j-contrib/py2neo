@@ -43,6 +43,8 @@ def coerce_atomic_property(x):
             return x
         else:
             raise ValueError("Integer value out of range: %s" % x)
+    elif isinstance(x, float):
+        return x
     else:
         raise TypeError("Properties of type %s are not supported" % x.__class__.__name__)
 
@@ -53,10 +55,12 @@ def coerce_property(x):
         cls = None
         for item in x:
             item = coerce_atomic_property(item)
+            t = type(item)
             if cls is None:
-                cls = type(item)
-            elif type(item) != cls:
-                raise ValueError("List properties must be homogenous")
+                cls = t
+            elif t != cls:
+                raise TypeError("List properties must be homogenous "
+                                "(found %s in list of %s)" % (t.__name__, cls.__name__))
             collection.append(item)
         return x.__class__(collection)
     else:
@@ -332,8 +336,8 @@ class Node(Entity):
     """
 
     def __init__(self, *labels, **properties):
-        Entity.__init__(self, self, **properties)
         self.__labels = set(labels)
+        Entity.__init__(self, self, **properties)
 
     def __repr__(self):
         return "(%s {...})" % "".join(":" + label for label in self.__labels)

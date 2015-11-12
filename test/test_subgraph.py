@@ -78,8 +78,10 @@ class SubgraphTestCase(Py2neoTestCase):
         assert not s.bound
         
     def test_subgraph_equality(self):
-        s1 = Subgraph(Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}))
-        s2 = Subgraph(Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}))
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        s1 = Subgraph(Path(alice, "KNOWS", bob))
+        s2 = Subgraph(Path(alice, "KNOWS", bob))
         assert s1 == s2
         assert hash(s1) == hash(s2)
         

@@ -45,8 +45,8 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create(node)
         # then
         assert isinstance(created, Node)
-        assert created.labels == labels
-        assert created.properties == properties
+        assert created.labels() == labels
+        assert dict(created) == properties
         assert created.bound
 
     def test_created_node_is_same_object(self):

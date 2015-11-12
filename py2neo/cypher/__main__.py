@@ -106,7 +106,7 @@ def dehydrate(value):
         out = {
             "self": value.ref,
             "properties": value.properties,
-            "labels": list(value.labels),
+            "labels": list(value.labels()),
         }
     elif isinstance(value, Relationship):
         out = {

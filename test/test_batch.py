@@ -430,21 +430,21 @@ class PullBatchTestCase(Py2neoTestCase):
         uri = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a").uri
         alice = Node()
         alice.bind(uri)
-        assert alice.properties["name"] is None
+        assert alice["name"] is None
         self.batch.append(alice)
         self.batch.pull()
-        assert alice.properties["name"] == "Alice"
+        assert alice["name"] == "Alice"
 
     def test_can_pull_node_with_label(self):
         uri = self.cypher.evaluate("CREATE (a:Person {name:'Alice'}) RETURN a").uri
         alice = Node()
         alice.bind(uri)
-        assert "Person" not in alice.labels
-        assert alice.properties["name"] is None
+        assert "Person" not in alice.labels()
+        assert alice["name"] is None
         self.batch.append(alice)
         self.batch.pull()
-        assert "Person" in alice.labels
-        assert alice.properties["name"] == "Alice"
+        assert "Person" in alice.labels()
+        assert alice["name"] == "Alice"
 
     def test_can_pull_relationship(self):
         uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
@@ -492,17 +492,17 @@ class PushBatchTestCase(Py2neoTestCase):
     def test_can_push_node(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
-        alice.properties["age"] = 33
+        alice["age"] = 33
         self.graph.push(alice)
         node_id = alice._id
         Node.cache.clear()
         node = self.graph.node(node_id)
-        assert node.properties["age"] == 33
+        assert node["age"] == 33
 
     def test_cannot_push_empty_list_property(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
-        alice.properties["faults"] = []
+        alice["faults"] = []
         with self.assertRaises(BatchError):
             self.graph.push(alice)
 
@@ -670,7 +670,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.add_labels(alice, "human", "female")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels == {"human", "female"}
+        assert alice.labels() == {"human", "female"}
 
     def test_can_add_labels_to_node_in_same_batch(self):
         a = self.batch.create({"name": "Alice"})
@@ -678,14 +678,14 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         alice = results[self.batch.find(a)]
         self.graph.pull(alice)
-        assert alice.labels == {"human", "female"}
+        assert alice.labels() == {"human", "female"}
 
     def test_can_remove_labels_from_preexisting_node(self):
         alice, = self.graph.create(Node("human", "female", name="Alice"))
         self.batch.remove_label(alice, "human")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels == {"female"}
+        assert alice.labels() == {"female"}
 
     def test_can_add_and_remove_labels_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice"})
@@ -694,14 +694,14 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
-        assert alice.labels == {"human"}
+        assert alice.labels() == {"human"}
 
     def test_can_set_labels_on_preexisting_node(self):
         alice, = self.graph.create(Node("human", "female", name="Alice"))
         self.batch.set_labels(alice, "mystery", "badger")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels == {"mystery", "badger"}
+        assert alice.labels() == {"mystery", "badger"}
 
     def test_can_set_labels_on_node_in_same_batch(self):
         self.batch.create({"name": "Alice"})
@@ -710,4 +710,4 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         alice = results[0]
         self.graph.pull(alice)
-        assert alice.labels == {"mystery", "badger"}
+        assert alice.labels() == {"mystery", "badger"}

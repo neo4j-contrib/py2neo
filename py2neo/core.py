@@ -1187,7 +1187,10 @@ class PropertyContainer(object):
         return self.__properties
 
 
-class Node(Bindable, PropertyContainer):
+from py2neo.primitive import Node as PrimitiveNode
+
+
+class Node(Bindable, PrimitiveNode):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1209,12 +1212,12 @@ class Node(Bindable, PropertyContainer):
     which extends the built-in :class:`set` class, and the latter is an
     instance of :class:`.PropertySet` which extends :class:`dict`.
 
-        >>> alice.properties["name"]
+        >>> alice["name"]
         'Alice'
-        >>> alice.labels
+        >>> alice.labels()
         {'Person'}
-        >>> alice.labels.add("Employee")
-        >>> alice.properties["employee_no"] = 3456
+        >>> alice.add_label("Employee")
+        >>> alice["employee_no"] = 3456
         >>> alice
         <Node labels={'Employee', 'Person'} properties={'employee_no': 3456, 'name': 'Alice'}>
 
@@ -1265,18 +1268,18 @@ class Node(Bindable, PropertyContainer):
 
         def apply(x):
             if isinstance(x, dict):
-                inst.properties.update(x)
+                inst.update(x)
             elif is_collection(x):
                 for item in x:
                     apply(item)
             elif isinstance(x, string):
-                inst.labels.add(ustr(x))
+                inst.add_label(ustr(x))
             else:
                 raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
 
         for arg in args:
             apply(arg)
-        inst.properties.update(kwargs)
+        inst.update(kwargs)
         return inst
 
     @classmethod
@@ -1305,20 +1308,19 @@ class Node(Bindable, PropertyContainer):
             inst.__stale.discard("properties")
             properties = data["data"]
             properties.update(inst.properties)
-            inst._PropertyContainer__properties.clear()
-            inst._PropertyContainer__properties.update(properties)
+            inst.clear()
+            inst.update(properties)
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
             labels = set(metadata["labels"])
-            labels.update(inst.labels)
-            inst.__labels.clear()
-            inst.__labels.update(labels)
+            labels.update(inst.labels())
+            inst.clear_labels()
+            inst.update_labels(labels)
         return inst
 
     def __init__(self, *labels, **properties):
-        PropertyContainer.__init__(self, **properties)
-        self.__labels = LabelSet(labels)
+        PrimitiveNode.__init__(self, *labels, **properties)
         self.__stale = set()
 
     def __repr__(self):
@@ -1329,14 +1331,14 @@ class Node(Bindable, PropertyContainer):
             if "labels" in self.__stale:
                 s.append("labels=?")
             else:
-                s.append("labels=%r" % set(self.labels))
+                s.append("labels=%r" % set(self.labels()))
             if "properties" in self.__stale:
                 s.append("properties=?")
             else:
-                s.append("properties=%r" % self.properties)
+                s.append("properties=%r" % dict(self))
         else:
-            s.append("labels=%r" % set(self.labels))
-            s.append("properties=%r" % self.properties)
+            s.append("labels=%r" % set(self.labels()))
+            s.append("properties=%r" % dict(self))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
@@ -1344,13 +1346,13 @@ class Node(Bindable, PropertyContainer):
 
     def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        string = StringIO()
-        writer = CypherWriter(string)
+        s = StringIO()
+        writer = CypherWriter(s)
         if self.bound:
             writer.write_node(self, "n" + ustr(self._id))
         else:
             writer.write_node(self)
-        return string.getvalue()
+        return s.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1359,17 +1361,21 @@ class Node(Bindable, PropertyContainer):
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
-            return (LabelSet.__eq__(self.labels, other.labels) and
-                    PropertyContainer.__eq__(self, other))
+            return PrimitiveNode.__eq__(self, other)
 
     def __hash__(self):
-        value = PropertyContainer.__hash__(self) ^ hash(self.labels)
         if self.bound:
-            value ^= hash(self.resource.uri)
-        return value
+            return hash(self.resource.uri)
+        else:
+            return PrimitiveNode.__hash__(self)
 
     def __add__(self, other):
         return Path(self, other)
+
+    def __getitem__(self, item):
+        if self.bound and "properties" in self.__stale:
+            self.refresh()
+        return PrimitiveNode.__getitem__(self, item)
 
     @property
     def _id(self):
@@ -1411,13 +1417,12 @@ class Node(Bindable, PropertyContainer):
         """
         return self.graph.exists(self)
 
-    @property
     def labels(self):
         """ The set of labels attached to this node.
         """
         if self.bound and "labels" in self.__stale:
             self.refresh()
-        return self.__labels
+        return PrimitiveNode.labels(self)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
@@ -1456,7 +1461,7 @@ class Node(Bindable, PropertyContainer):
         """
         if self.bound and "properties" in self.__stale:
             self.refresh()
-        return super(Node, self).properties
+        return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):

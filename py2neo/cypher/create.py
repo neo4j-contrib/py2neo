@@ -146,7 +146,7 @@ class CreateStatement(object):
         if full:
             if node.labels:
                 template += "{labels}"
-                kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels)
+                kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels())
             if node.properties:
                 template += " {{{name}}}"
                 self.parameters[name] = node.properties

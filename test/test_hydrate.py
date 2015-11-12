@@ -41,7 +41,7 @@ class HydrationTestCase(Py2neoTestCase):
         }
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
-        assert hydrated.properties == dehydrated["data"]
+        assert dict(hydrated) == dehydrated["data"]
         assert hydrated.bound
         assert hydrated.resource.uri == dehydrated["self"]
 
@@ -69,7 +69,7 @@ class HydrationTestCase(Py2neoTestCase):
         }
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
-        assert hydrated.properties == dehydrated["data"]
+        assert dict(hydrated) == dehydrated["data"]
         assert hydrated.bound
         assert hydrated.resource.uri == dehydrated["self"]
 
@@ -100,8 +100,8 @@ class HydrationTestCase(Py2neoTestCase):
         }
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
-        assert hydrated.properties == dehydrated["data"]
-        assert hydrated.labels == set(dehydrated["metadata"]["labels"])
+        assert dict(hydrated) == dehydrated["data"]
+        assert hydrated.labels() == set(dehydrated["metadata"]["labels"])
         assert hydrated.bound
         assert hydrated.resource.uri == dehydrated["self"]
 

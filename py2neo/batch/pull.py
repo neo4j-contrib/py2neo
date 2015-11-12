@@ -81,10 +81,10 @@ class PullBatch(Batch):
             job = self.jobs[i]
             entity = job.target.entity
             if isinstance(job, PullPropertiesJob):
-                entity.properties.clear()
-                entity.properties.update(result.content)
+                entity.clear()
+                entity.update(result.content)
             elif isinstance(job, PullNodeLabelsJob):
-                entity.labels.clear()
-                entity.labels.update(result.content)
+                entity.clear_labels()
+                entity.update_labels(result.content)
             elif isinstance(job, PullRelationshipJob):
                 entity.__class__.hydrate(result.content, entity)

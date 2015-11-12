@@ -59,11 +59,11 @@ class GeoffWriter(Writer):
         if obj is None:
             pass
         elif isinstance(obj, Node):
-            self.write_node(id(obj), obj.labels, obj.properties)
+            self.write_node(id(obj), obj.labels(), dict(obj))
         elif isinstance(obj, Rev):
-            self.write_rev(obj.type, obj.properties)
+            self.write_rev(obj.type, dict(obj))
         elif isinstance(obj, Rel):
-            self.write_rel(obj.type, obj.properties)
+            self.write_rel(obj.type, dict(obj))
         elif isinstance(obj, Path):
             self.write_path(obj)
         elif isinstance(obj, dict):
@@ -176,7 +176,7 @@ class GeoffWriter(Writer):
         link = ""
         for node in subgraph.nodes:
             self.file.write(link)
-            self.write_node(id(node), node.labels, node.properties)
+            self.write_node(id(node), node.labels(), dict(node))
             link = self.element_separator
         for relationship in subgraph.relationships:
             self.file.write(link)

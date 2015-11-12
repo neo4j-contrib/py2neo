@@ -35,12 +35,6 @@ class RelationshipTestCase(Py2neoTestCase):
         assert hash(Rel("KNOWS")) == hash(Rel("KNOWS"))
         assert hash(Rel("KNOWS")) == -hash(Rev("KNOWS"))
         assert hash(Rel("KNOWS", well=True, since=1999)) == hash(Rel("KNOWS", since=1999, well=True))
-        rel_1 = Node("KNOWS", since=1999)
-        self.graph.create(rel_1)
-        rel_2 = Node("KNOWS", since=1999)
-        rel_2.bind(rel_1.uri)
-        assert rel_1 is not rel_2
-        assert hash(rel_1) == hash(rel_2)
 
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types

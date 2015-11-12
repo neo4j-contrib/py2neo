@@ -26,47 +26,47 @@ class PullPushTestCase(Py2neoTestCase):
         local = Node()
         remote = Node("Person", name="Alice")
         self.graph.create(remote)
-        assert local.labels == set()
-        assert local.properties == {}
+        assert local.labels() == set()
+        assert dict(local) == {}
         local.bind(remote.uri)
         self.graph.pull(local)
-        assert local.labels == remote.labels
-        assert local.properties == remote.properties
+        assert local.labels() == remote.labels()
+        assert dict(local) == dict(remote)
 
     def test_can_graph_pull_node(self):
         local = Node()
         remote = Node("Person", name="Alice")
         self.graph.create(remote)
-        assert local.labels == set()
-        assert local.properties == {}
+        assert local.labels() == set()
+        assert dict(local) == {}
         local.bind(remote.uri)
         self.graph.pull(local)
-        assert local.labels == remote.labels
-        assert local.properties == remote.properties
+        assert local.labels() == remote.labels()
+        assert dict(local) == dict(remote)
         
     def test_can_push_node(self):
         local = Node("Person", name="Alice")
         remote = Node()
         self.graph.create(remote)
-        assert remote.labels == set()
-        assert remote.properties == {}
+        assert remote.labels() == set()
+        assert dict(remote) == {}
         local.bind(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
-        assert local.labels == remote.labels
-        assert local.properties == remote.properties
+        assert local.labels() == remote.labels()
+        assert dict(local) == dict(remote)
 
     def test_can_graph_push_node(self):
         local = Node("Person", name="Alice")
         remote = Node()
         self.graph.create(remote)
-        assert remote.labels == set()
-        assert remote.properties == {}
+        assert remote.labels() == set()
+        assert dict(remote) == {}
         local.bind(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
-        assert local.labels == remote.labels
-        assert local.properties == remote.properties
+        assert local.labels() == remote.labels()
+        assert dict(local) == dict(remote)
         
     def test_can_push_rel(self):
         local = Rel("KNOWS", since=1999)
@@ -81,12 +81,12 @@ class PullPushTestCase(Py2neoTestCase):
     def test_can_push_relationship(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                        "RETURN ab.since", i=ab._id)
+                                     "RETURN ab.since", i=ab._id)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                        "RETURN ab.since", i=ab._id)
+                                     "RETURN ab.since", i=ab._id)
         assert value == 1999
 
     def test_can_pull_path(self):

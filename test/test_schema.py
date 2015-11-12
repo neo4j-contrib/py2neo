@@ -39,8 +39,8 @@ class SchemaTestCase(Py2neoTestCase):
         label_1 = next(self.unique_string)
         label_2 = next(self.unique_string)
         munich, = self.graph.create({'name': "München", 'key': "09162000"})
-        munich.labels.clear()
-        munich.labels.update({label_1, label_2})
+        munich.clear_labels()
+        munich.update_labels({label_1, label_2})
         self.schema.create_index(label_1, "name")
         self.schema.create_index(label_1, "key")
         self.schema.create_index(label_2, "name")
@@ -78,12 +78,12 @@ class SchemaTestCase(Py2neoTestCase):
         a, b = self.graph.create(Node(label_1, name="Alice"), Node(label_1, name="Alice"))
         with self.assertRaises(GraphError):
             self.graph.schema.create_uniqueness_constraint(label_1, "name")
-        b.labels.remove(label_1)
+        b.remove_label(label_1)
         self.graph.push(b)
         self.schema.create_uniqueness_constraint(label_1, "name")
-        a.labels.remove(label_1)
+        a.remove_label(label_1)
         self.graph.push(a)
-        b.labels.add(label_1)
+        b.add_label(label_1)
         self.graph.push(b)
         try:
             self.schema.drop_index(label_1, "name")
@@ -92,7 +92,7 @@ class SchemaTestCase(Py2neoTestCase):
             assert error.__cause__.status_code // 100 == 5
         else:
             assert False
-        b.labels.remove(label_1)
+        b.remove_label(label_1)
         self.graph.push(b)
         self.schema.drop_uniqueness_constraint(label_1, "name")
         with self.assertRaises(GraphError):
@@ -150,14 +150,14 @@ class LabelSetTestCase(Py2neoTestCase):
         
     def test_can_create_node_with_labels(self):
         alice = Node("Person", name="Alice")
-        assert alice.labels == {"Person"}
+        assert alice.labels() == {"Person"}
         
     def test_can_add_labels_to_existing_node(self):
         alice = Node(name="Alice")
-        alice.labels.add("Person")
-        assert alice.labels == {"Person"}
+        alice.add_label("Person")
+        assert alice.labels() == {"Person"}
         
     def test_can_remove_labels_from_existing_node(self):
         alice = Node("Person", name="Alice")
-        alice.labels.remove("Person")
-        assert alice.labels == set()
+        alice.remove_label("Person")
+        assert alice.labels() == set()
