@@ -153,7 +153,7 @@ class CypherWriter(Writer):
             for label in sorted(node.labels()):
                 self.write_label(label)
             if properties is None:
-                if node.properties:
+                if node:
                     if name or node.labels():
                         self.file.write(" ")
                     self.write_map(dict(node))

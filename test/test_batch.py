@@ -31,13 +31,13 @@ class NodeCreationTestCase(Py2neoTestCase):
         self.batch.create(Node())
         a, = self.batch.submit()
         assert isinstance(a, Node)
-        assert a.properties == {}
+        assert not a
 
     def test_can_create_single_node_with_streaming(self):
         self.batch.create(Node(name="Alice"))
         for result in self.batch.stream():
             assert isinstance(result, Node)
-            assert result.properties == {"name": "Alice"}
+            assert dict(result) == {"name": "Alice"}
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
@@ -278,7 +278,7 @@ class PropertyManagementTestCase(Py2neoTestCase):
 
     def _check_properties(self, entity, expected_properties):
         self.graph.pull(entity)
-        actual_properties = entity.properties
+        actual_properties = dict(entity)
         assert len(actual_properties) == len(expected_properties)
         for key, value in expected_properties.items():
             assert key in actual_properties
@@ -309,11 +309,6 @@ class PropertyManagementTestCase(Py2neoTestCase):
         self.batch.delete_properties(self.alice)
         self.batch.run()
         self._check_properties(self.alice, {})
-
-    def test_can_add_new_relationship_property(self):
-        self.batch.set_property(self.friends, "foo", "bar")
-        self.batch.run()
-        self._check_properties(self.friends, {"since": 2000, "foo": "bar"})
 
 
 class MiscellaneousTestCase(Py2neoTestCase):
@@ -655,7 +650,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.delete_properties(alice)
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.properties == {}
+        assert not alice
 
     def test_can_delete_properties_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice", "age": 34})
@@ -663,7 +658,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
-        assert alice.properties == {}
+        assert not alice
 
     def test_can_add_labels_to_preexisting_node(self):
         alice, = self.graph.create({"name": "Alice"})

@@ -259,7 +259,7 @@ class EfficiencyTestCase(Py2neoTestCase):
             count = 0
             for node in self.graph.merge("Person", "name", "Alice"):
                 assert "Person" in node.labels()
-                assert node.properties["name"] == "Alice"
+                assert node["name"] == "Alice"
                 count += 1
             assert counter.response_count == 1
 

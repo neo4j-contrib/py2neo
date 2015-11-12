@@ -1307,7 +1307,7 @@ class Node(Bindable, PrimitiveNode):
         if "data" in data:
             inst.__stale.discard("properties")
             properties = data["data"]
-            properties.update(inst.properties)
+            properties.update(inst)
             inst.clear()
             inst.update(properties)
         if "metadata" in data:
@@ -1449,6 +1449,7 @@ class Node(Bindable, PrimitiveNode):
         return self.graph.match(self, rel_type, end_node, False, limit)
 
     @property
+    @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
         """ The set of properties attached to this node. Properties
         can also be read from and written to any :class:`Node`

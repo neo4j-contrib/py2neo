@@ -997,12 +997,12 @@ class CypherResultTest(Py2neoTestCase):
         statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name as name,a.age as age"
         for record in self.cypher.execute(statement):
             alice = record.a
-            assert record.name == alice.properties["name"]
-            assert record.age == alice.properties["age"]
-            assert record[1] == alice.properties["name"]
-            assert record[2] == alice.properties["age"]
-            assert record["name"] == alice.properties["name"]
-            assert record["age"] == alice.properties["age"]
+            assert record.name == alice["name"]
+            assert record.age == alice["age"]
+            assert record[1] == alice["name"]
+            assert record[2] == alice["age"]
+            assert record["name"] == alice["name"]
+            assert record["age"] == alice["age"]
             try:
                 _ = record[object()]
             except LookupError:

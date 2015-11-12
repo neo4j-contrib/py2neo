@@ -106,7 +106,7 @@ class CreateNode(CypherTask):
         writer.write_literal("CREATE ")
         writer.write_node(self.__node, self.cypher_name,
                           CypherParameter(self.cypher_parameter)
-                          if self.__node.properties else None)
+                          if self.__node else None)
         if self.__return:
             writer.write_literal(" RETURN ")
             writer.write_literal(self.cypher_name)
@@ -116,7 +116,7 @@ class CreateNode(CypherTask):
     def parameters(self):
         """ Dictionary of parameters.
         """
-        if self.__node.properties:
+        if self.__node:
             return {self.cypher_parameter: self.properties}
         else:
             return {}
@@ -214,11 +214,11 @@ class CreateRelationship(CypherTask):
         if self.start_node.bound:
             value["A"] = self.start_node._id
         else:
-            value["A"] = self.start_node.properties
+            value["A"] = dict(self.start_node)
         if self.end_node.bound:
             value["B"] = self.end_node._id
         else:
-            value["B"] = self.end_node.properties
+            value["B"] = dict(self.end_node)
         if self.__relationship.properties:
             value["R"] = self.properties
         return value

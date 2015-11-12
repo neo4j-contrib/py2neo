@@ -41,7 +41,7 @@ def _create_query(graph, p, unique=False):
             values.append("n{0}".format(i))
         else:
             path.append("(n{0} {{p{0}}})".format(i))
-            params["p{0}".format(i)] = node.properties
+            params["p{0}".format(i)] = dict(node)
             values.append("n{0}".format(i))
 
     def append_rel(i, rel):
@@ -173,7 +173,7 @@ class WriteBatch(Batch):
         """
         entity = self.graph.cast(abstract)
         if isinstance(entity, Node):
-            return self.append(CreateNodeJob(**entity.properties))
+            return self.append(CreateNodeJob(**entity))
         elif isinstance(entity, Relationship):
             start_node = self.resolve(entity.start_node)
             end_node = self.resolve(entity.end_node)

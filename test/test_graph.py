@@ -168,7 +168,7 @@ class GraphTestCase(Py2neoTestCase):
         node, = self.graph.create(
             {"number": 13, "foo": "bar", "true": False, "fish": "chips"}
         )
-        assert len(node.properties) == 4
+        assert len(node) == 4
         assert node["fish"] == "chips"
         assert node["foo"] == "bar"
         assert node["number"] == 13
@@ -187,14 +187,14 @@ class GraphTestCase(Py2neoTestCase):
                 {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
         assert len(nodes) == 4
-        assert len(nodes[0].properties) == 0
-        assert len(nodes[1].properties) == 1
+        assert len(nodes[0]) == 0
+        assert len(nodes[1]) == 1
         assert nodes[1]["foo"] == "bar"
-        assert len(nodes[2].properties) == 3
+        assert len(nodes[2]) == 3
         assert nodes[2]["number"] == 42
         assert nodes[2]["foo"] == "baz"
         assert nodes[2]["true"]
-        assert len(nodes[3].properties) == 2
+        assert len(nodes[3]) == 2
         assert nodes[3]["fish"][0] == "cod"
         assert nodes[3]["fish"][1] == "haddock"
         assert nodes[3]["fish"][2] == "plaice"
@@ -208,7 +208,7 @@ class GraphTestCase(Py2neoTestCase):
             {"fish": ["cod", "haddock", "plaice"], "number": 109}
         )
         self.graph.pull(*nodes)
-        props = [n.properties for n in nodes]
+        props = [dict(n) for n in nodes]
         assert len(props) == 4
         assert len(props[0]) == 0
         assert len(props[1]) == 1

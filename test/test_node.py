@@ -75,11 +75,11 @@ class NodeTestCase(Py2neoTestCase):
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
         alice, _, _ = self.graph.create(Node("Person", name="Alice"), {}, (0, "KNOWS", 1))
-        assert alice.properties == {"name": "Alice"}
+        assert dict(alice) == {"name": "Alice"}
         alice["age"] = 33
-        assert alice.properties == {"name": "Alice", "age": 33}
+        assert dict(alice) == {"name": "Alice", "age": 33}
         _ = list(self.graph.match(alice, "KNOWS"))
-        assert alice.properties == {"name": "Alice", "age": 33}
+        assert dict(alice) == {"name": "Alice", "age": 33}
 
     def test_will_error_when_refreshing_deleted_node(self):
         node = Node()

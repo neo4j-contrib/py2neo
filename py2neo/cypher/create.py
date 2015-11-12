@@ -147,9 +147,9 @@ class CreateStatement(object):
             if node.labels:
                 template += "{labels}"
                 kwargs["labels"] = "".join(":" + cypher_escape(label) for label in node.labels())
-            if node.properties:
+            if node:
                 template += " {{{name}}}"
-                self.parameters[name] = node.properties
+                self.parameters[name] = dict(node)
         return "(" + template.format(**kwargs) + ")"
 
     def _create_node(self, node, name):

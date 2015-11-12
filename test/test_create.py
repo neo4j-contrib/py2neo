@@ -33,7 +33,7 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create(properties)
         # then
         assert isinstance(created, Node)
-        assert created.properties == properties
+        assert dict(created) == properties
         assert created.bound
 
     def test_can_create_node_from_object(self):
