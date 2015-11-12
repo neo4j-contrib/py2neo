@@ -491,26 +491,26 @@ class RelationshipTestCase(TestCase):
         assert set(dave_works_for_dave.nodes()) == {dave}
         assert set(dave_works_for_dave.relationships()) == {dave_works_for_dave}
 
-    def test_construction_from_zero_arguments(self):
-        rel = Relationship()
-        assert repr(rel)
-        assert rel.start_node() is None
-        assert rel.end_node() is None
-        assert rel.type() is None
-
     def test_construction_from_one_argument(self):
-        rel = Relationship("KNOWS")
+        rel = Relationship(alice)
         assert repr(rel)
-        assert rel.start_node() is None
-        assert rel.end_node() is None
-        assert rel.type() == "KNOWS"
+        assert rel.start_node() is alice
+        assert rel.end_node() is alice
+        assert rel.type() == "TO"
 
-    def test_construction_from_two_arguments(self):
+    def test_construction_from_two_node_arguments(self):
         rel = Relationship(alice, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
-        assert rel.type() is None
+        assert rel.type() == "TO"
+
+    def test_construction_from_node_and_type_arguments(self):
+        rel = Relationship(alice, "LIKES")
+        assert repr(rel)
+        assert rel.start_node() is alice
+        assert rel.end_node() is alice
+        assert rel.type() == "LIKES"
 
     def test_construction_from_three_arguments(self):
         rel = Relationship(alice, "KNOWS", bob)
@@ -519,13 +519,18 @@ class RelationshipTestCase(TestCase):
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
 
+    def test_construction_from_subclass(self):
+        class WorksWith(Relationship):
+            pass
+        rel = WorksWith(alice, bob)
+        assert repr(rel)
+        assert rel.start_node() is alice
+        assert rel.end_node() is bob
+        assert rel.type() == "WORKS_WITH"
+
     def test_construction_from_more_arguments(self):
-        try:
+        with self.assertRaises(TypeError):
             Relationship(alice, "KNOWS", bob, carol)
-        except TypeError:
-            assert True
-        else:
-            assert False
 
     def test_equality(self):
         other_rel = alice_knows_bob

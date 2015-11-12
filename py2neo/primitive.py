@@ -17,6 +17,7 @@
 
 
 from itertools import chain
+from re import compile as re_compile
 
 from .compat import integer, string, unicode, ustr
 
@@ -29,6 +30,12 @@ __all__ = ["Graph", "TraversableGraph", "Node", "Relationship", "Path",
 # to (2 ** 64 - 1) but Neo4j is not yet on Java 8.
 JAVA_INTEGER_MIN_VALUE = -2 ** 63
 JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
+
+# Word separation patterns for re-casing strings.
+# Taken from:
+#   http://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-camel-case
+WORD_FIRST = re_compile("(.)([A-Z][a-z]+)")
+WORD_ALL = re_compile("([a-z0-9])([A-Z])")
 
 
 def coerce_atomic_property(x):
@@ -65,6 +72,11 @@ def coerce_property(x):
         return x.__class__(collection)
     else:
         return coerce_atomic_property(x)
+
+
+def relationship_case(s):
+    s1 = WORD_FIRST.sub(r"\1_\2", s)
+    return WORD_ALL.sub(r"\1_\2", s1).upper()
 
 
 class PropertySet(dict):
@@ -123,49 +135,49 @@ class PropertyContainer(object):
     """
 
     def __init__(self, **properties):
-        self.__properties = PropertySet(properties)
+        self._properties = PropertySet(properties)
 
     def __bool__(self):
-        return bool(self.__properties)
+        return bool(self._properties)
 
     def __nonzero__(self):
-        return bool(self.__properties)
+        return bool(self._properties)
 
     def __len__(self):
-        return len(self.__properties)
+        return len(self._properties)
 
     def __contains__(self, key):
-        return key in self.__properties
+        return key in self._properties
 
     def __getitem__(self, key):
-        return self.__properties.__getitem__(key)
+        return self._properties.__getitem__(key)
 
     def __setitem__(self, key, value):
-        self.__properties.__setitem__(key, value)
+        self._properties.__setitem__(key, value)
 
     def __delitem__(self, key):
-        self.__properties.__delitem__(key)
+        self._properties.__delitem__(key)
 
     def __iter__(self):
-        return iter(self.__properties)
+        return iter(self._properties)
 
     def clear(self):
-        self.__properties.clear()
+        self._properties.clear()
 
     def get(self, key, default=None):
-        return self.__properties.get(key, default)
+        return self._properties.get(key, default)
 
     def keys(self):
-        return self.__properties.keys()
+        return self._properties.keys()
 
     def setdefault(self, key, default=None):
-        return self.__properties.setdefault(key, default)
+        return self._properties.setdefault(key, default)
 
     def update(self, iterable=None, **kwargs):
-        self.__properties.update(iterable, **kwargs)
+        self._properties.update(iterable, **kwargs)
 
     def values(self):
-        return self.__properties.values()
+        return self._properties.values()
 
 
 class Graph(object):
@@ -173,9 +185,9 @@ class Graph(object):
     """
 
     def __init__(self, nodes=None, relationships=None):
-        self.__nodes = frozenset(nodes or frozenset())
-        self.__relationships = frozenset(relationships or frozenset())
-        self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
+        self._nodes = frozenset(nodes or frozenset())
+        self._relationships = frozenset(relationships or frozenset())
+        self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
 
     def __eq__(self, other):
         try:
@@ -188,9 +200,9 @@ class Graph(object):
 
     def __hash__(self):
         value = 0
-        for entity in self.__nodes:
+        for entity in self._nodes:
             value ^= hash(entity)
-        for entity in self.__relationships:
+        for entity in self._relationships:
             value ^= hash(entity)
         return value
 
@@ -198,13 +210,13 @@ class Graph(object):
         return self.size()
 
     def __iter__(self):
-        return iter(self.__relationships)
+        return iter(self._relationships)
 
     def __bool__(self):
-        return bool(self.__relationships)
+        return bool(self._relationships)
 
     def __nonzero__(self):
-        return bool(self.__relationships)
+        return bool(self._relationships)
 
     def __or__(self, other):
         return Graph(self.nodes() | other.nodes(), self.relationships() | other.relationships())
@@ -225,30 +237,30 @@ class Graph(object):
         return Graph(nodes, relationships)
 
     def nodes(self):
-        return self.__nodes
+        return self._nodes
 
     def relationships(self):
-        return self.__relationships
+        return self._relationships
 
     def order(self):
         """ Total number of unique nodes in this set.
         """
-        return len(self.__nodes)
+        return len(self._nodes)
 
     def size(self):
         """ Total number of unique relationships in this set.
         """
-        return len(self.__relationships)
+        return len(self._relationships)
 
     def labels(self):
-        return frozenset(chain(*(node.labels() for node in self.__nodes)))
+        return frozenset(chain(*(node.labels() for node in self._nodes)))
 
     def types(self):
-        return frozenset(rel.type() for rel in self.__relationships)
+        return frozenset(rel.type() for rel in self._relationships)
 
     def keys(self):
-        return (frozenset(chain(*(node.keys() for node in self.__nodes))) |
-                frozenset(chain(*(rel.keys() for rel in self.__relationships))))
+        return (frozenset(chain(*(node.keys() for node in self._nodes))) |
+                frozenset(chain(*(rel.keys() for rel in self._relationships))))
 
 
 class TraversableGraph(Graph):
@@ -258,7 +270,7 @@ class TraversableGraph(Graph):
     def __init__(self, head, *tail):
         sequence = (head,) + tail
         Graph.__init__(self, sequence[0::2], sequence[1::2])
-        self.__sequence = sequence
+        self._sequence = sequence
 
     def __eq__(self, other):
         try:
@@ -273,12 +285,12 @@ class TraversableGraph(Graph):
 
     def __hash__(self):
         value = 0
-        for item in self.__sequence:
+        for item in self._sequence:
             value ^= hash(item)
         return value
 
     def __len__(self):
-        return (len(self.__sequence) - 1) // 2
+        return (len(self._sequence) - 1) // 2
 
     def __getitem__(self, index):
         if isinstance(index, slice):
@@ -291,43 +303,43 @@ class TraversableGraph(Graph):
                 if stop < 0:
                     stop += len(self)
                 stop = 2 * stop + 1
-            return TraversableGraph(*self.__sequence[start:stop])
+            return TraversableGraph(*self._sequence[start:stop])
         else:
-            return self.__sequence[2 * index + 1]
+            return self._sequence[2 * index + 1]
 
     def __iter__(self):
-        for relationship in self.__sequence[1::2]:
+        for relationship in self._sequence[1::2]:
             yield relationship
 
     def __add__(self, other):
         assert isinstance(other, TraversableGraph)
         if self.end_node() is other.start_node():
-            seq_1 = self.__sequence[:-1]
+            seq_1 = self._sequence[:-1]
             seq_2 = other.traverse()
         elif self.length() <= 1 and self.start_node() is other.start_node():
-            seq_1 = reversed(self.__sequence[1:])
+            seq_1 = reversed(self._sequence[1:])
             seq_2 = other.traverse()
         elif other.length() <= 1 and self.end_node() is other.end_node():
-            seq_1 = self.__sequence[:-1]
+            seq_1 = self._sequence[:-1]
             seq_2 = reversed(list(other.traverse()))
         elif self.length() <= 1 and other.length() <= 1 and self.start_node() is other.end_node():
-            seq_1 = reversed(self.__sequence[1:])
+            seq_1 = reversed(self._sequence[1:])
             seq_2 = reversed(list(other.traverse()))
         else:
             raise ValueError("Cannot concatenate walkable objects with no common endpoints")
         return TraversableGraph(*chain(seq_1, seq_2))
 
     def start_node(self):
-        return self.__sequence[0]
+        return self._sequence[0]
 
     def end_node(self):
-        return self.__sequence[-1]
+        return self._sequence[-1]
 
     def length(self):
-        return (len(self.__sequence) - 1) // 2
+        return (len(self._sequence) - 1) // 2
 
     def traverse(self):
-        return iter(self.__sequence)
+        return iter(self._sequence)
 
 
 class Entity(PropertyContainer, TraversableGraph):
@@ -342,11 +354,11 @@ class Node(Entity):
     """
 
     def __init__(self, *labels, **properties):
-        self.__labels = set(labels)
+        self._labels = set(labels)
         Entity.__init__(self, self, **properties)
 
     def __repr__(self):
-        return "(%s {...})" % "".join(":" + label for label in self.__labels)
+        return "(%s {...})" % "".join(":" + label for label in self._labels)
 
     def __eq__(self, other):
         try:
@@ -362,52 +374,86 @@ class Node(Entity):
         return hash(id(self))
 
     def labels(self):
-        return self.__labels
+        return self._labels
 
     def add_label(self, label):
-        self.__labels.add(label)
+        self._labels.add(label)
 
     def clear_labels(self):
-        self.__labels.clear()
+        self._labels.clear()
 
     def discard_label(self, label):
-        self.__labels.discard(label)
+        self._labels.discard(label)
 
     def has_label(self, label):
-        return label in self.__labels
+        return label in self._labels
 
     def remove_label(self, label):
-        self.__labels.remove(label)
+        self._labels.remove(label)
 
     def update_labels(self, labels):
-        self.__labels.update(labels)
+        self._labels.update(labels)
 
 
 class Relationship(Entity):
     """ A typed edge between two graph nodes with support for properties.
     """
 
-    def __init__(self, *args, **properties):
-        num_args = len(args)
+    @classmethod
+    def default_type(cls):
+        if cls is Relationship:
+            return u"TO"
+        else:
+            return ustr(relationship_case(cls.__name__))
+
+    def __init__(self, *nodes, **properties):
+        """
+
+            >>> a = Node(name="Alice")
+            >>> b = Node(name="Bob")
+
+            >>> Relationship(a)
+            ({name:'Alice'})-[:TO]->({name:'Alice'})
+            >>> Relationship(a, b)
+            ({name:'Alice'})-[:TO]->({name:'Bob'})
+            >>> Relationship(a, "KNOWS", b)
+            ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
+
+            >>> class WorksWith(Relationship): pass
+            >>> WorksWith(a, b)
+            ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
+
+        :param nodes:
+        :param properties:
+        :return:
+        """
+        num_args = len(nodes)
         if num_args == 0:
-            nodes = (None, None)
-            self.__type = None
+            raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
-            nodes = (None, None)
-            self.__type = args[0]
+            # Relationship(a)
+            self._type = self.default_type()
+            nodes = (nodes[0], nodes[0])
         elif num_args == 2:
-            nodes = args
-            self.__type = None
+            if isinstance(nodes[1], string):
+                # Relationship(a, "TO")
+                self._type = ustr(nodes[1])
+                nodes = (nodes[0], nodes[0])
+            else:
+                # Relationship(a, b)
+                self._type = self.default_type()
+                nodes = (nodes[0], nodes[1])
         elif num_args == 3:
-            nodes = (args[0], args[2])
-            self.__type = args[1]
+            # Relationship(a, "TO", b)
+            self._type = nodes[1]
+            nodes = (nodes[0], nodes[2])
         else:
             raise TypeError("Hyperedges not supported")
         Entity.__init__(self, nodes[0], self, nodes[1], **properties)
 
     def __repr__(self):
-        if self.__type is not None:
-            value = "-[:%s]->" % self.__type
+        if self._type is not None:
+            value = "-[:%s]->" % self._type
         else:
             value = "->"
         if self.start_node() is not None:
@@ -430,7 +476,7 @@ class Relationship(Entity):
         return hash(self.nodes()) ^ hash(self.type())
 
     def type(self):
-        return self.__type
+        return self._type
 
 
 class Path(TraversableGraph):
