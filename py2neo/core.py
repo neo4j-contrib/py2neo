@@ -31,8 +31,9 @@ from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
-from py2neo.packages.httpstream.numbers import NOT_FOUND, UNAUTHORIZED
+from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.primitive import Node as PrimitiveNode
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
@@ -1161,9 +1162,6 @@ class PropertyContainer(object):
         by using the index syntax directly.
         """
         return self.__properties
-
-
-from py2neo.primitive import Node as PrimitiveNode
 
 
 class Node(Bindable, PrimitiveNode):
