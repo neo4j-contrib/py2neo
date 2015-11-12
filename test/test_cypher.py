@@ -705,13 +705,13 @@ class CypherCreateTestCase(Py2neoTestCase):
     def test_a_unique_relationship_is_really_unique(self):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
-        assert alice.degree == 1
-        assert bob.degree == 1
+        assert alice.degree() == 1
+        assert bob.degree() == 1
         statement = CreateStatement(self.graph)
         statement.create_unique(Relationship(alice, "KNOWS", bob))
         statement.execute()
-        assert alice.degree == 1
-        assert bob.degree == 1
+        assert alice.degree() == 1
+        assert bob.degree() == 1
 
     def test_unique_path_creation_can_pick_up_existing_entities(self):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
@@ -727,8 +727,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b), "
                                       "(a)-[:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
-        assert alice.degree == 2
-        assert bob.degree == 2
+        assert alice.degree() == 2
+        assert bob.degree() == 2
         statement = CreateStatement(self.graph)
         statement.create_unique(Relationship(alice, "KNOWS", bob))
         with self.assertRaises(ConstraintViolation):

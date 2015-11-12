@@ -63,15 +63,15 @@ class NodeTestCase(Py2neoTestCase):
         bob = Node("Person", name="Bob")
         carol = Node("Person", name="Carol")
         with self.assertRaises(BindError):
-            _ = alice.degree
+            _ = alice.degree()
         self.graph.create(alice)
-        assert alice.degree == 0
+        assert alice.degree() == 0
         self.graph.create(Path(alice, "KNOWS", bob))
-        assert alice.degree == 1
+        assert alice.degree() == 1
         self.graph.create(Path(alice, "KNOWS", carol))
-        assert alice.degree == 2
+        assert alice.degree() == 2
         self.graph.create(Path(carol, "KNOWS", alice))
-        assert alice.degree == 3
+        assert alice.degree() == 3
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
         alice, _, _ = self.graph.create(Node("Person", name="Alice"), {}, (0, "KNOWS", 1))

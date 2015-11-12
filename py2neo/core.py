@@ -1403,7 +1403,6 @@ class Node(Bindable, PrimitiveNode):
         Bindable.bind(self, uri, metadata)
         self.cache[uri] = self
 
-    @property
     def degree(self):
         """ The number of relationships attached to this node.
         """
