@@ -383,10 +383,19 @@ class TraversableGraphTestCase(TestCase):
 
 class NodeTestCase(TestCase):
 
+    def test_empty_node(self):
+        n = Node()
+        assert not n.__bool__()
+        assert not n.__nonzero__()
+        assert len(n) == 0
+
     def test_node(self):
         assert repr(alice)
         assert alice.start_node() == alice
         assert alice.end_node() == alice
+        assert alice.__bool__()
+        assert alice.__nonzero__()
+        assert len(alice) == 2
         assert alice.length() == 0
         assert list(alice.traverse()) == [alice]
         assert alice.labels() == {"Person", "Employee"}

@@ -125,6 +125,12 @@ class PropertyContainer(object):
     def __init__(self, **properties):
         self.__properties = PropertySet(properties)
 
+    def __bool__(self):
+        return bool(self.__properties)
+
+    def __nonzero__(self):
+        return bool(self.__properties)
+
     def __len__(self):
         return len(self.__properties)
 
