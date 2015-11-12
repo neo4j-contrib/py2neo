@@ -1408,7 +1408,6 @@ class Node(Bindable, PrimitiveNode):
         """
         return self.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} RETURN count(r)", n=self)
 
-    @property
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
         """ :const:`True` if this node exists in the database,
