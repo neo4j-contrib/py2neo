@@ -1556,7 +1556,7 @@ class Rel(Bindable, PropertyContainer):
             elif isinstance(arg, (Rel, Job)):
                 return arg
             elif isinstance(arg, Relationship):
-                return arg.rel
+                return Rel(arg.type(), **arg)
 
         inst = Rel()
 
@@ -2003,13 +2003,14 @@ class Path(object):
 
     def __getitem__(self, item):
         try:
+            rel = self.rels[item]
             if isinstance(item, slice):
                 path = Path()
                 p, q = item.start, item.stop
                 if q is not None:
                     q += 1
                 path.__nodes = self.nodes[p:q]
-                path.__rels = self.rels[item]
+                path.__rels = rel
                 return path
             else:
                 if item >= 0:
@@ -2018,7 +2019,10 @@ class Path(object):
                 else:
                     start_node = self.nodes[item - 1]
                     end_node = self.nodes[item]
-                return Relationship(start_node, self.rels[item], end_node)
+
+                r = Relationship(start_node, rel.type, end_node, **rel.properties)
+                r.bind(rel.uri)
+                return r
         except IndexError:
             raise IndexError("Path segment index out of range")
 
@@ -2121,10 +2125,12 @@ class Path(object):
         """ A tuple of all relationships in this «class.lower».
         """
         if self.__relationships is None:
-            self.__relationships = tuple(
-                Relationship(self.nodes[i], rel, self.nodes[i + 1], **rel.properties)
-                for i, rel in enumerate(self.rels)
-            )
+            relationships = []
+            for i, rel in enumerate(self.rels):
+                r = Relationship(self.nodes[i], rel.type, self.nodes[i + 1], **rel.properties)
+                r.bind(rel.uri)
+                relationships.append(r)
+            self.__relationships = relationships
         return self.__relationships
 
     @property
@@ -2230,9 +2236,7 @@ class Relationship(Bindable, PrimitiveRelationship):
             else:
                 raise TypeError("Cannot cast relationship from {0}".format(arg))
         elif len(args) == 3:
-            rel = Relationship(*args)
-            rel.properties.update(kwargs)
-            return rel
+            return Relationship(*args, **kwargs)
         elif len(args) == 4:
             props = args[3]
             props.update(kwargs)
@@ -2276,14 +2280,20 @@ class Relationship(Bindable, PrimitiveRelationship):
 
     def __init__(self, *nodes, **properties):
         n = []
+        p = {}
         for value in nodes:
             if isinstance(value, string):
                 n.append(value)
             elif isinstance(value, Rel):
                 n.append(value.type)
+            elif isinstance(value, tuple) and len(value) == 2:
+                t, props = value
+                n.append(t)
+                p.update(props)
             else:
                 n.append(Node.cast(value))
-        PrimitiveRelationship.__init__(self, *n, **properties)
+        p.update(properties)
+        PrimitiveRelationship.__init__(self, *n, **p)
         self.__stale = set()
 
     def __repr__(self):

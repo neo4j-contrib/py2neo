@@ -165,7 +165,7 @@ class CreateStatement(object):
         return [name], []
 
     def _create_relationship_nodes(self, relationship, name, unique):
-        nodes = list(relationship.nodes())
+        nodes = [relationship.start_node(), relationship.end_node()]
         node_names = []
         for i, node in enumerate(nodes):
             if isinstance(node, NodePointer):
