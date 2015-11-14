@@ -63,10 +63,10 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", 1))
         alice, bob, knows = self.batch.submit()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
-        assert knows.properties == {}
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
+        assert dict(knows) == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_nodes(self):
@@ -77,10 +77,10 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((alice, "KNOWS", bob))
         knows, = self.batch.submit()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
-        assert knows.properties == {}
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
+        assert dict(knows) == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_start_node(self):
@@ -91,10 +91,10 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((alice, "KNOWS", 0))
         bob, knows = self.batch.submit()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
-        assert knows.properties == {}
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
+        assert dict(knows) == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_with_existing_end_node(self):
@@ -105,10 +105,10 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", bob))
         alice, knows = self.batch.submit()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
-        assert knows.properties == {}
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
+        assert dict(knows) == {}
         self.recycling = [knows, alice, bob]
 
     def test_can_create_multiple_relationships(self):
@@ -121,7 +121,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         alice, bob, carol, ab, bc, ca = self.batch.submit()
         for relationship in [ab, bc, ca]:
             assert isinstance(relationship, Relationship)
-            assert relationship.type == "KNOWS"
+            assert relationship.type() == "KNOWS"
 
     def test_can_create_overlapping_relationships(self):
         self.batch.create({"name": "Alice"})
@@ -130,15 +130,15 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", 1))
         alice, bob, knows1, knows2 = self.batch.submit()
         assert isinstance(knows1, Relationship)
-        assert knows1.start_node == alice
-        assert knows1.type == "KNOWS"
-        assert knows1.end_node == bob
-        assert knows1.properties == {}
+        assert knows1.start_node() == alice
+        assert knows1.type() == "KNOWS"
+        assert knows1.end_node() == bob
+        assert dict(knows1) == {}
         assert isinstance(knows2, Relationship)
-        assert knows2.start_node == alice
-        assert knows2.type == "KNOWS"
-        assert knows2.end_node == bob
-        assert knows2.properties == {}
+        assert knows2.start_node() == alice
+        assert knows2.type() == "KNOWS"
+        assert knows2.end_node() == bob
+        assert dict(knows2) == {}
         self.recycling = [knows1, knows2, alice, bob]
 
     def test_can_create_relationship_with_properties(self):
@@ -147,9 +147,9 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", 1, {"since": 2000}))
         alice, bob, knows = self.batch.submit()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
         assert knows["since"] == 2000
         self.recycling = [knows, alice, bob]
 
@@ -163,9 +163,9 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         assert isinstance(bob, Node)
         assert bob["name"] == "Bob"
         assert isinstance(ab, Relationship)
-        assert ab.start_node == alice
-        assert ab.type == "KNOWS"
-        assert ab.end_node == bob
+        assert ab.start_node() == alice
+        assert ab.type() == "KNOWS"
+        assert ab.end_node() == bob
         self.recycling = [ab, alice, bob]
 
 
@@ -184,9 +184,9 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         path, = self.batch.submit()
         knows = path.relationships[0]
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
         assert knows["since"] == 2000
         self.recycling = [knows, alice, bob]
 
@@ -225,11 +225,11 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.get_or_create_path(None, "KNOWS", bob)
         path, = self.batch.submit()
         knows = path.relationships[0]
-        alice = knows.start_node
+        alice = knows.start_node()
         assert isinstance(knows, Relationship)
         assert isinstance(alice, Node)
-        assert knows.type == "KNOWS"
-        assert knows.end_node == bob
+        assert knows.type() == "KNOWS"
+        assert knows.end_node() == bob
         self.recycling = [knows, alice, bob]
 
     def test_can_create_relationship_and_end_node(self):
@@ -239,10 +239,10 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.get_or_create_path(alice, "KNOWS", None)
         path, = self.batch.submit()
         knows = path.relationships[0]
-        bob = knows.end_node
+        bob = knows.end_node()
         assert isinstance(knows, Relationship)
-        assert knows.start_node == alice
-        assert knows.type == "KNOWS"
+        assert knows.start_node() == alice
+        assert knows.type() == "KNOWS"
         assert isinstance(bob, Node)
         self.recycling = [knows, alice, bob]
 
@@ -323,8 +323,8 @@ class MiscellaneousTestCase(Py2neoTestCase):
         results = self.batch.submit()
         ab = results[2]
         assert isinstance(ab, Relationship)
-        assert ab.start_node["name"] == "Alice"
-        assert ab.end_node["name"] == "Bob"
+        assert ab.start_node()["name"] == "Alice"
+        assert ab.end_node()["name"] == "Bob"
 
     def test_can_handle_json_response_with_no_content(self):
         # This example might fail if the server bug is fixed that returns
@@ -445,17 +445,18 @@ class PullBatchTestCase(Py2neoTestCase):
         uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
         ab = Relationship(None, "", None)
         ab.bind(uri)
-        assert ab.type == ""
-        assert ab.properties["since"] is None
+        assert ab.type() == ""
+        assert ab["since"] is None
         self.batch.append(ab)
         self.batch.pull()
-        assert ab.type == "KNOWS"
-        assert ab.properties["since"] == 1999
+        assert ab.type() == "KNOWS"
+        assert ab["since"] == 1999
 
     def test_can_pull_rel(self):
-        uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
-        ab = Relationship(None, "", None).rel
-        ab.bind(uri)
+        path = self.cypher.evaluate("CREATE p=()-[ab:KNOWS {since:1999}]->()-[:KNOWS]->() "
+                                    "RETURN p")
+        ab = Rel("")
+        ab.bind(path.rels[0].uri)
         assert ab.type == ""
         assert ab.properties["since"] is None
         self.batch.append(ab)
@@ -474,12 +475,8 @@ class PullBatchTestCase(Py2neoTestCase):
         assert path.rels[0].properties["since"] == 1999
 
     def test_cannot_pull_none(self):
-        try:
+        with self.assertRaises(TypeError):
             self.batch.append(None)
-        except TypeError:
-            assert True
-        else:
-            assert False
 
 
 class PushBatchTestCase(Py2neoTestCase):
@@ -503,13 +500,13 @@ class PushBatchTestCase(Py2neoTestCase):
 
     def test_can_push_rel(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        rel = ab.rel
+        rel = Rel()
+        rel.bind(ab.uri)
         rel.properties["since"] = 1999
         self.graph.push(rel)
-        rel_id = rel._id
-        Rel.cache.clear()
-        rel = self.graph.relationship(rel_id).rel
-        assert rel.properties["since"] == 1999
+        assert self.cypher.evaluate("MATCH ()-[r]->() "
+                                    "WHERE id(r)={x} "
+                                    "RETURN r.since", x=rel._id) == 1999
 
     def test_cannot_push_none(self):
         with self.assertRaises(TypeError):
@@ -543,7 +540,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         path = results[0]
         assert len(path) == 1
         assert path.nodes[0]["name"] == "Alice"
-        assert path.relationships[0].type == "KNOWS"
+        assert path.relationships[0].type() == "KNOWS"
         assert path.nodes[1]["name"] == "Bob"
 
     def test_can_create_path_with_existing_nodes(self):
@@ -553,7 +550,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         path = results[0]
         assert len(path) == 1
         assert path.nodes[0] == alice
-        assert path.relationships[0].type == "KNOWS"
+        assert path.relationships[0].type() == "KNOWS"
         assert path.nodes[1] == bob
 
     def test_path_creation_is_not_idempotent(self):
@@ -578,7 +575,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         path = results[0]
         assert len(path) == 1
         assert path.nodes[0] == alice
-        assert path.relationships[0].type == "KNOWS"
+        assert path.relationships[0].type() == "KNOWS"
         assert path.nodes[1] == bob
 
     def test_path_merging_is_idempotent(self):

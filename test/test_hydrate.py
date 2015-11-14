@@ -190,7 +190,11 @@ class HydrationTestCase(Py2neoTestCase):
         }
         hydrated = Relationship.hydrate(dehydrated)
         assert isinstance(hydrated, Relationship)
-        assert hydrated.type == dehydrated["type"]
-        assert hydrated.properties == dehydrated["data"]
+        assert hydrated.start_node().bound
+        assert hydrated.start_node().uri == dehydrated["start"]
+        assert hydrated.end_node().bound
+        assert hydrated.end_node().uri == dehydrated["end"]
+        assert hydrated.type() == dehydrated["type"]
+        assert dict(hydrated) == dehydrated["data"]
         assert hydrated.bound
         assert hydrated.resource.uri == dehydrated["self"]

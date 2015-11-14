@@ -77,10 +77,10 @@ class CreateNodeJob(Job):
 
 class CreateRelationshipJob(Job):
 
-    def __init__(self, start_node, rel, end_node, **properties):
-        body = {"type": rel.type, "to": Target(end_node).uri_string}
-        if rel.properties or properties:
-            body["data"] = dict(rel.properties, **properties)
+    def __init__(self, start_node, type, end_node, **properties):
+        body = {"type": type, "to": Target(end_node).uri_string}
+        if properties:
+            body["data"] = properties
         Job.__init__(self, "POST", Target(start_node, "relationships"), body)
 
 
@@ -175,9 +175,9 @@ class WriteBatch(Batch):
         if isinstance(entity, Node):
             return self.append(CreateNodeJob(**entity))
         elif isinstance(entity, Relationship):
-            start_node = self.resolve(entity.start_node)
-            end_node = self.resolve(entity.end_node)
-            return self.append(CreateRelationshipJob(start_node, entity.rel, end_node))
+            start_node = self.resolve(entity.start_node())
+            end_node = self.resolve(entity.end_node())
+            return self.append(CreateRelationshipJob(start_node, entity.type(), end_node, **entity))
         else:
             raise TypeError(entity)
 

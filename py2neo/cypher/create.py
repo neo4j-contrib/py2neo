@@ -93,6 +93,8 @@ class CreateStatement(object):
             elif isinstance(entity, Relationship):
                 metadata = dehydrated[rel_names[0]]
                 entity.bind(metadata["self"], metadata)
+                entity.start_node().bind(metadata["start"])
+                entity.end_node().bind(metadata["end"])
             elif isinstance(entity, Path):
                 for j, node in enumerate(entity.nodes):
                     metadata = dehydrated[node_names[j]]
@@ -114,7 +116,7 @@ class CreateStatement(object):
         if isinstance(entity, Node):
             self.names.append(self._create_node(entity, name))
         elif isinstance(entity, Relationship):
-            self.names.append(self._create_path(entity, name, unique=False))
+            self.names.append(self._create_relationship(entity, name, unique=False))
         elif isinstance(entity, Path):
             self.names.append(self._create_path(entity, name, unique=False))
         else:
@@ -161,6 +163,34 @@ class CreateStatement(object):
             self.create_clause.append(self._node_pattern(node, name, full=True))
         self.return_clause.append(name)
         return [name], []
+
+    def _create_relationship_nodes(self, relationship, name, unique):
+        nodes = list(relationship.nodes())
+        node_names = []
+        for i, node in enumerate(nodes):
+            if isinstance(node, NodePointer):
+                node_names.append(_(node.address))
+                # Switch out node with object from elsewhere in entity list
+                try:
+                    target_node = self.entities[node.address]
+                except IndexError:
+                    raise IndexError("Node pointer {%s} out of range" % node.address)
+                if not isinstance(target_node, Node):
+                    raise ValueError("Pointer {%s} does not refer to a node" % node.address)
+                nodes[i] = target_node
+            elif node in self:
+                node_name = _(self.entities.index(node))
+                node_names.append(node_name)
+            elif unique and not node.bound:
+                node_name = name + "n" + ustr(i)
+                node_names.append(node_name)
+                self.return_clause.append(node_name)
+            else:
+                node_name = name + "n" + ustr(i)
+                node_names.append(node_name)
+                self._create_node(node, node_name)
+        relationship.__init__(nodes[0], relationship._type, nodes[1])
+        return node_names
 
     def _create_path_nodes(self, path, name, unique):
         node_names = []
@@ -223,3 +253,31 @@ class CreateStatement(object):
                     self.create_clause.append(template.format(**kwargs))
             self.return_clause.append(rel_name)
         return node_names, rel_names
+
+    def _create_relationship(self, relationship, name, unique):
+        node_names = self._create_relationship_nodes(relationship, name, unique)
+        rel_name = name + "r"
+        if relationship.bound:
+            self.initial_match_clause.append("MATCH ()-[{0}]->() "
+                                             "WHERE id({0})={{{0}}}".format(rel_name))
+            self.parameters[rel_name] = relationship._id
+        else:
+            if relationship:
+                template = "{start}-[{name}:{type} {{{name}}}]->{end}"
+                self.parameters[rel_name] = dict(relationship)
+            else:
+                template = "{start}-[{name}:{type}]->{end}"
+            start_node = relationship.start_node()
+            end_node = relationship.end_node()
+            start = self._node_pattern(start_node, node_names[0],
+                                       full=(unique and not start_node.bound and start_node not in self))
+            end = self._node_pattern(end_node, node_names[1],
+                                     full=(unique and not end_node.bound and end_node not in self))
+            kwargs = {"start": start, "name": rel_name,
+                      "type": cypher_escape(relationship.type()), "end": end}
+            if unique:
+                self.create_unique_clause.append(template.format(**kwargs))
+            else:
+                self.create_clause.append(template.format(**kwargs))
+        self.return_clause.append(rel_name)
+        return node_names, [rel_name]

@@ -33,7 +33,7 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.primitive import Node as PrimitiveNode
+from py2neo.primitive import Node as PrimitiveNode, Relationship as PrimitiveRelationship
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
@@ -764,14 +764,14 @@ class Graph(Bindable):
         tx = self.cypher.begin()
         for entity in entities:
             if isinstance(entity, Node):
-                tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=entity)
+                tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
             elif isinstance(entity, (Rel, Relationship)):
-                tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=entity)
+                tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
             elif isinstance(entity, (Path, Subgraph)):
                 for node in entity.nodes:
-                    tx.append("MATCH (a) WHERE id(a) = {n} RETURN count(a)", n=node)
-                for rel in entity.relationships:
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {n} RETURN count(r)", n=rel)
+                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                for rel in entity.rels:
+                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)
@@ -1337,6 +1337,9 @@ class Node(Bindable, PrimitiveNode):
         else:
             return PrimitiveNode.__eq__(self, other)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __hash__(self):
         if self.bound:
             return hash(self.resource.uri)
@@ -1896,6 +1899,30 @@ class Path(object):
                     nodes.extend(path.nodes[1:])
                     rels.extend(path.rels)
 
+        def join_relationship(relationship, index):
+            rel = Rel(relationship.type(), **relationship)
+            if relationship.bound:
+                rel.bind(relationship.uri)
+            if len(nodes) == len(rels):
+                nodes.extend(relationship.nodes())
+                rels.append(rel)
+            else:
+                # try joining forward
+                try:
+                    nodes[-1] = coalesce(nodes[-1], relationship.start_node())
+                except JoinError:
+                    # try joining backward
+                    try:
+                        nodes[-1] = coalesce(nodes[-1], relationship.end_node())
+                    except JoinError:
+                        raise JoinError("Path at position %s cannot be joined" % index)
+                    else:
+                        nodes.extend(relationship.nodes[-2::-1])
+                        rels.append(-rel)
+                else:
+                    nodes.extend(relationship.nodes[1:])
+                    rels.append(rel)
+
         def join_rel(rel, index):
             if len(nodes) == len(rels):
                 raise JoinError("Rel at position %s cannot be joined" % index)
@@ -1912,7 +1939,7 @@ class Path(object):
             if isinstance(entity, Path):
                 join_path(entity, i)
             elif isinstance(entity, Relationship):
-                join_path(entity, i)
+                join_relationship(entity, i)
             elif isinstance(entity, Rel):
                 join_rel(entity, i)
             elif isinstance(entity, (Node, NodePointer)):
@@ -2095,7 +2122,7 @@ class Path(object):
         """
         if self.__relationships is None:
             self.__relationships = tuple(
-                Relationship(self.nodes[i], rel, self.nodes[i + 1])
+                Relationship(self.nodes[i], rel, self.nodes[i + 1], **rel.properties)
                 for i, rel in enumerate(self.rels)
             )
         return self.__relationships
@@ -2144,7 +2171,7 @@ class Path(object):
                 pass
 
 
-class Relationship(object):
+class Relationship(Bindable, PrimitiveRelationship):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -2226,57 +2253,57 @@ class Relationship(object):
         self = data["self"]
         if inst is None:
             new_inst = cls(Node.hydrate({"self": data["start"]}),
-                           Rel.hydrate(data),
-                           Node.hydrate({"self": data["end"]}))
+                           data["type"],
+                           Node.hydrate({"self": data["end"]}),
+                           **data.get("data", {}))
             inst = cls.cache.setdefault(self, new_inst)
             # The check below is a workaround for http://bugs.python.org/issue19542
             # See also: https://github.com/nigelsmall/py2neo/issues/391
             if inst is None:
                 inst = cls.cache[self] = new_inst
         else:
-            Node.hydrate({"self": data["start"]}, inst.start_node)
-            Node.hydrate({"self": data["end"]}, inst.end_node)
-            Rel.hydrate(data, inst.rel)
+            Node.hydrate({"self": data["start"]}, inst.start_node())
+            Node.hydrate({"self": data["end"]}, inst.end_node())
+            inst._type = data["type"]
+            if "data" in data:
+                inst.clear()
+                inst.update(data["data"])
+            else:
+                inst.__stale.add("properties")
         cls.cache[self] = inst
+        inst.bind(self, data)
         return inst
 
-    def __init__(self, *triple, **properties):
-        try:
-            start_node, rel, end_node = triple
-        except ValueError:
-            raise TypeError("Relationships require 3 positional arguments: "
-                            "start_node, relationship_type and end_node")
-        cast_rel = Rel.cast(rel)
-        cast_rel._PropertyContainer__properties.update(properties)
-        if isinstance(cast_rel, Rev):  # always forwards
-            self.__nodes = (Node.cast(end_node), Node.cast(start_node))
-            self.__rels = (-cast_rel,)
-        else:
-            self.__nodes = (Node.cast(start_node), Node.cast(end_node))
-            self.__rels = (cast_rel,)
-        self.__relationships = None
-        self.__order = len(self.__nodes)
-        self.__size = len(self.__rels)
-        self.__metadata = None
+    def __init__(self, *nodes, **properties):
+        n = []
+        for value in nodes:
+            if isinstance(value, string):
+                n.append(value)
+            elif isinstance(value, Rel):
+                n.append(value.type)
+            else:
+                n.append(Node.cast(value))
+        PrimitiveRelationship.__init__(self, *n, **properties)
+        self.__stale = set()
 
     def __repr__(self):
         s = [self.__class__.__name__]
         if self.bound:
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
-            s.append("start=%r" % self.start_node.ref)
-            s.append("end=%r" % self.end_node.ref)
-            if self.rel._Rel__type is None:
+            s.append("start=%r" % self.start_node().ref)
+            s.append("end=%r" % self.end_node().ref)
+            if self._type is None:
                 s.append("type=?")
             else:
-                s.append("type=%r" % self.type)
-            if "properties" in self.rel._Rel__stale:
+                s.append("type=%r" % self._type)
+            if "properties" in self.__stale:
                 s.append("properties=?")
             else:
-                s.append("properties=%r" % self.properties)
+                s.append("properties=%r" % dict(self))
         else:
-            s.append("type=%r" % self.type)
-            s.append("properties=%r" % self.properties)
+            s.append("type=%r" % self._type)
+            s.append("properties=%r" % dict(self))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
@@ -2293,59 +2320,29 @@ class Relationship(object):
         return s.getvalue()
 
     def __eq__(self, other):
-        try:
-            return self.nodes == other.nodes and self.rels == other.rels
-        except AttributeError:
+        if other is None:
             return False
+        other = Relationship.cast(other)
+        if self.bound and other.bound:
+            return self.resource == other.resource
+        else:
+            return PrimitiveRelationship.__eq__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        value = 0
-        for entity in self.rels + self.nodes:
-            value ^= hash(entity)
-        return value
-
-    def __bool__(self):
-        return True
-
-    def __nonzero__(self):
-        return True
-
-    def __len__(self):
-        return 1
-
-    def __contains__(self, key):
-        return self.rel.__contains__(key)
-
-    def __getitem__(self, key):
-        return self.rel.__getitem__(key)
-
-    def __setitem__(self, key, value):
-        self.rel.__setitem__(key, value)
-
-    def __delitem__(self, key):
-        self.rel.__delitem__(key)
-
-    def __iter__(self):
-        yield self
-
-    def __reversed__(self):
-        yield self
-
-    def __add__(self, other):
-        try:
-            return Path(self, *other)
-        except TypeError:
-            return Path(self, other)
+        if self.bound:
+            return hash(self.resource.uri)
+        else:
+            return PrimitiveRelationship.__hash__(self)
 
     @property
     def _id(self):
         """ The internal ID of this relationship within the database.
         """
         if self.__id is None:
-            self.__id = self.rel._id
+            self.__id = int(self.uri.path.segments[-1])
         return self.__id
 
     def bind(self, uri, metadata=None):
@@ -2356,34 +2353,19 @@ class Relationship(object):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        self.rel.bind(uri, metadata)
+        Bindable.bind(self, uri, metadata)
         self.cache[uri] = self
         for i, key, node in [(0, "start", self.start_node), (-1, "end", self.end_node)]:
             uri = self.resource.metadata[key]
             if isinstance(node, Node):
                 node.bind(uri)
             else:
-                nodes = list(self.__nodes)
+                nodes = list(self._nodes)
                 node = Node.cache.setdefault(uri, Node())
                 if not node.bound:
                     node.bind(uri)
                 nodes[i] = node
-                self.__nodes = tuple(nodes)
-
-    @property
-    def bound(self):
-        """ :const:`True` if this relationship is bound to a remote counterpart,
-        :const:`False` otherwise.
-        """
-        return self.rel.bound
-
-    @property
-    def end_node(self):
-        """ The end node of this «class.lower».
-
-        :return: :class:`.Node`
-        """
-        return self.nodes[-1]
+                self._nodes = tuple(nodes)
 
     @property
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
@@ -2402,18 +2384,6 @@ class Relationship(object):
         return self.service_root.graph
 
     @property
-    def nodes(self):
-        """ A tuple of all nodes in this «class.lower».
-        """
-        return self.__nodes
-
-    @property
-    def order(self):
-        """ The number of nodes in this «class.lower».
-        """
-        return self.order
-
-    @property
     def properties(self):
         """ The set of properties attached to this relationship. Properties
         can also be read from and written to any :class:`Relationship`
@@ -2424,7 +2394,9 @@ class Relationship(object):
             relationship["since"] = 1999
 
         """
-        return self.rel.properties
+        if self.bound and "properties" in self.__stale:
+            self.graph.pull(self)
+        return dict(self)
 
     @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
@@ -2444,76 +2416,7 @@ class Relationship(object):
 
         :rtype: string
         """
-        return self.rel.ref
-
-    @property
-    def rel(self):
-        """ The :class:`.Rel` object within this relationship.
-        """
-        return self.__rels[0]
-
-    @property
-    def relationships(self):
-        """ A tuple of all relationships in this «class.lower».
-        """
-        return self,
-
-    @property
-    def rels(self):
-        """ A tuple of all rels in this «class.lower».
-        """
-        return self.__rels
-
-    @property
-    def resource(self):
-        """ The resource object wrapped by this relationship, if
-        bound.
-        """
-        return self.rel.resource
-
-    @property
-    def service_root(self):
-        """ The root service associated with this relationship.
-
-        :return: :class:`.ServiceRoot`
-        """
-        try:
-            return self.rel.service_root
-        except BindError:
-            try:
-                return self.start_node.service_root
-            except BindError:
-                return self.end_node.service_root
-
-    @property
-    def size(self):
-        """ The number of relationships in this relationship. This property
-        always equals 1 for a :class:`.Relationship` and is inherited from
-        the more general parent class, :class:`.Path`.
-        """
-        return 1
-
-    @property
-    def start_node(self):
-        """ The start node of this «class.lower».
-
-        :return: :class:`.Node`
-        """
-        return self.nodes[0]
-
-    @property
-    def type(self):
-        """ The type of this relationship.
-        """
-        return self.rel.type
-
-    @type.setter
-    def type(self, name):
-        """ Set the type of this relationship (only possible if not bound).
-        """
-        if self.rel.bound:
-            raise AttributeError("The type of a bound Relationship is immutable")
-        self.rel.type = name
+        return "relationship/%s" % self._id
 
     def unbind(self):
         """ Detach this relationship and its start and end
@@ -2523,7 +2426,7 @@ class Relationship(object):
             del self.cache[self.uri]
         except KeyError:
             pass
-        self.rel.unbind()
+        Bindable.unbind(self)
         for node in [self.start_node, self.end_node]:
             if isinstance(node, Node):
                 try:
@@ -2531,12 +2434,6 @@ class Relationship(object):
                 except BindError:
                     pass
         self.__id = None
-
-    @property
-    def uri(self):
-        """ The URI of this relationship, if bound.
-        """
-        return self.rel.uri
 
 
 class Subgraph(object):

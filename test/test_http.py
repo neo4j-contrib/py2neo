@@ -287,5 +287,5 @@ class EfficiencyTestCase(Py2neoTestCase):
             assert dict(alice) == {"name": "Alice"}
             assert bob.labels() == {"Person"}
             assert dict(bob) == {"name": "Bob"}
-            assert friendship.type == "KNOWS"
+            assert friendship.type() == "KNOWS"
             assert counter.response_count == 1

@@ -195,9 +195,12 @@ class CypherWriter(Writer):
     def write_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (including nodes).
         """
-        self.write(relationship.start_node)
-        self.write_rel(relationship.rel, name, properties)
-        self.write(relationship.end_node)
+        rel = Rel(relationship.type(), **relationship)
+        if relationship.bound:
+            rel.bind(relationship.uri, relationship.resource.metadata)
+        self.write(relationship.start_node())
+        self.write_rel(rel, name, properties)
+        self.write(relationship.end_node())
 
     def write_parameter(self, parameter):
         """ Write a parameter key in curly brackets.

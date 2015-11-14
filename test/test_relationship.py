@@ -51,25 +51,20 @@ class RelationshipTestCase(Py2neoTestCase):
         got = self.graph.relationship(relationship._id)
         assert got._id == relationship._id
         
-    def test_rel_and_relationship_caches_are_thread_local(self):
+    def test_relationship_cache_is_thread_local(self):
         import threading
         _, _, relationship = self.graph.create({}, {}, (0, "KNOWS", 1))
-        assert relationship.uri in Rel.cache
         assert relationship.uri in Relationship.cache
-        other_rel_cache_keys = []
         other_relationship_cache_keys = []
     
         def check_cache():
-            other_rel_cache_keys.extend(Rel.cache.keys())
             other_relationship_cache_keys.extend(Relationship.cache.keys())
     
         thread = threading.Thread(target=check_cache)
         thread.start()
         thread.join()
     
-        assert relationship.uri in Rel.cache
         assert relationship.uri in Relationship.cache
-        assert relationship.uri not in other_rel_cache_keys
         assert relationship.uri not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
@@ -105,17 +100,7 @@ class RelationshipTestCase(Py2neoTestCase):
         ab = Rel("KNOWS")
         ab.type = "LIKES"
         assert ab.type == "LIKES"
-        
-    def test_type_of_bound_relationship_is_immutable(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        with self.assertRaises(AttributeError):
-            ab.type = "LIKES"
 
-    def test_type_of_unbound_relationship_is_mutable(self):
-        ab = Relationship({}, "KNOWS", {})
-        ab.type = "LIKES"
-        assert ab.type == "LIKES"
-        
     def test_changing_type_of_unbound_rel_mirrors_to_pair_rev(self):
         rel = Rel("KNOWS")
         assert rel.pair is None
@@ -143,24 +128,10 @@ class RelationshipTestCase(Py2neoTestCase):
     def test_service_root(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         assert ab.service_root == ServiceRoot("http://localhost:7474/")
-        ab.rel.unbind()
-        assert ab.service_root == ServiceRoot("http://localhost:7474/")
-        a.unbind()
-        assert ab.service_root == ServiceRoot("http://localhost:7474/")
-        b.unbind()
-        with self.assertRaises(BindError):
-            _ = ab.service_root
 
     def test_graph(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         assert ab.graph == Graph("http://localhost:7474/db/data/")
-        ab.rel.unbind()
-        assert ab.graph == Graph("http://localhost:7474/db/data/")
-        a.unbind()
-        assert ab.graph == Graph("http://localhost:7474/db/data/")
-        b.unbind()
-        with self.assertRaises(BindError):
-            _ = ab.graph
 
     def test_rel_never_equals_none(self):
         rel = Rel("KNOWS")
@@ -169,11 +140,7 @@ class RelationshipTestCase(Py2neoTestCase):
         
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
-        assert rel.size == 1
-        
-    def test_relationship_requires_a_triple(self):
-        with self.assertRaises(TypeError):
-            Relationship({})
+        assert rel.size() == 1
 
     def test_relationship_repr(self):
         alice = Node("Person", name="Alice")
@@ -193,40 +160,6 @@ class RelationshipTestCase(Py2neoTestCase):
                                           "ref='%s' start='%s' end='%s' type='KNOWS' "
                                           "properties={}>" % (relationship.ref, alice.ref, bob.ref))
 
-    def test_unbound_rel_repr(self):
-        rel = Rel("KNOWS", since=1999)
-        assert repr(rel) == "<Rel type='KNOWS' properties={'since': 1999}>"
-
-    def test_rel_repr(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        self.graph.create(relationship)
-        rel = relationship.rel
-        if PY2:
-            assert repr(rel) == ("<Rel graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                                 "type=u'KNOWS' properties={}>" % rel.ref)
-        else:
-            assert repr(rel) == ("<Rel graph='http://localhost:7474/db/data/' ref='%s' "
-                                 "type='KNOWS' properties={}>" % rel.ref)
-
-    def test_unbound_rev_repr(self):
-        rev = Rev("KNOWS", since=1999)
-        assert repr(rev) == "<Rev type='KNOWS' properties={'since': 1999}>"
-
-    def test_rev_repr(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        self.graph.create(relationship)
-        rev = -relationship.rel
-        if PY2:
-            assert repr(rev) == ("<Rev graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                                 "type=u'KNOWS' properties={}>" % rev.ref)
-        else:
-            assert repr(rev) == ("<Rev graph='http://localhost:7474/db/data/' ref='%s' "
-                                 "type='KNOWS' properties={}>" % rev.ref)
-
     def test_relationship_str(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
@@ -235,27 +168,3 @@ class RelationshipTestCase(Py2neoTestCase):
         self.graph.create(relationship)
         assert str(relationship) == \
             '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % relationship._id
-
-    def test_rel_str(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        self.graph.create(relationship)
-        rel = relationship.rel
-        assert str(rel) == '-[r%s:KNOWS]->' % rel._id
-
-    def test_unbound_rel_str(self):
-        rel = Rel("KNOWS", since=1999)
-        assert str(rel) == '-[:KNOWS {since:1999}]->'
-
-    def test_rev_str(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        self.graph.create(relationship)
-        rev = -relationship.rel
-        assert str(rev) == '<-[r%s:KNOWS]-' % rev._id
-
-    def test_unbound_rev_str(self):
-        rev = Rev("KNOWS", since=1999)
-        assert str(rev) == '<-[:KNOWS {since:1999}]-'
