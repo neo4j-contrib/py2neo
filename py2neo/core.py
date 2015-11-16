@@ -767,10 +767,15 @@ class Graph(Bindable):
                 tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
             elif isinstance(entity, (Rel, Relationship)):
                 tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
-            elif isinstance(entity, (Path, Subgraph)):
+            elif isinstance(entity, Path):
                 for node in entity.nodes:
                     tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
-                for rel in entity.rels:
+                for rel in entity.relationships:
+                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+            elif isinstance(entity, Subgraph):
+                for node in entity.nodes:
+                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                for rel in entity.relationships:
                     tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
             else:
                 raise TypeError("Cannot determine existence of non-entity")
@@ -1904,7 +1909,8 @@ class Path(object):
             if relationship.bound:
                 rel.bind(relationship.uri)
             if len(nodes) == len(rels):
-                nodes.extend(relationship.nodes())
+                nodes.append(relationship.start_node())
+                nodes.append(relationship.end_node())
                 rels.append(rel)
             else:
                 # try joining forward
@@ -1917,10 +1923,10 @@ class Path(object):
                     except JoinError:
                         raise JoinError("Path at position %s cannot be joined" % index)
                     else:
-                        nodes.extend(relationship.nodes[-2::-1])
+                        nodes.append(relationship.start_node())
                         rels.append(-rel)
                 else:
-                    nodes.extend(relationship.nodes[1:])
+                    nodes.append(relationship.end_node())
                     rels.append(rel)
 
         def join_rel(rel, index):
@@ -2013,16 +2019,7 @@ class Path(object):
                 path.__rels = rel
                 return path
             else:
-                if item >= 0:
-                    start_node = self.nodes[item]
-                    end_node = self.nodes[item + 1]
-                else:
-                    start_node = self.nodes[item - 1]
-                    end_node = self.nodes[item]
-
-                r = Relationship(start_node, rel.type, end_node, **rel.properties)
-                r.bind(rel.uri)
-                return r
+                return self.relationships[item]
         except IndexError:
             raise IndexError("Path segment index out of range")
 
@@ -2127,8 +2124,12 @@ class Path(object):
         if self.__relationships is None:
             relationships = []
             for i, rel in enumerate(self.rels):
-                r = Relationship(self.nodes[i], rel.type, self.nodes[i + 1], **rel.properties)
-                r.bind(rel.uri)
+                if isinstance(rel, Rev):
+                    r = Relationship(self.nodes[i + 1], rel.type, self.nodes[i], **rel.properties)
+                else:
+                    r = Relationship(self.nodes[i], rel.type, self.nodes[i + 1], **rel.properties)
+                if rel.bound:
+                    r.bind(rel.uri)
                 relationships.append(r)
             self.__relationships = relationships
         return self.__relationships
@@ -2490,8 +2491,8 @@ class Subgraph(object):
         if isinstance(entity, Node):
             return entity in self.__nodes
         elif isinstance(entity, Relationship):
-            return (entity.start_node in self.__nodes and
-                    entity.end_node in self.__nodes and
+            return (entity.start_node() in self.__nodes and
+                    entity.end_node() in self.__nodes and
                     entity in self.__relationships)
         else:
             try:
@@ -2509,8 +2510,8 @@ class Subgraph(object):
         if isinstance(entity, Node):
             self.__nodes.add(entity)
         elif isinstance(entity, Relationship):
-            self.__nodes.add(entity.start_node)
-            self.__nodes.add(entity.end_node)
+            self.__nodes.add(entity.start_node())
+            self.__nodes.add(entity.end_node())
             self.__relationships.add(entity)
         else:
             for node in entity.nodes:

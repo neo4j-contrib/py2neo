@@ -244,7 +244,7 @@ class CypherTestCase(Py2neoTestCase):
             assert len(record.p.nodes) == 2
             assert record.p.nodes[0] == a
             assert record.p.nodes[1] == b
-            assert record.p.relationships[0].type == "KNOWS"
+            assert record.p.relationships[0].type() == "KNOWS"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
@@ -597,8 +597,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice.bound
         assert bob.bound
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_can_create_two_nodes_and_a_unique_relationship(self):
         alice = Node(name="Alice")
@@ -613,8 +613,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice.bound
         assert bob.bound
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_can_create_two_nodes_and_a_relationship_with_properties(self):
         alice = Node(name="Alice")
@@ -629,8 +629,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice.bound
         assert bob.bound
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_can_create_two_nodes_and_a_relationship_using_pointers(self):
         alice = Node(name="Alice")
@@ -645,8 +645,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice.bound
         assert bob.bound
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_cannot_use_a_pointer_that_does_not_refer_to_a_node(self):
         alice = Node(name="Alice")
@@ -677,8 +677,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert created == (bob, alice_knows_bob)
         assert bob.bound
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_can_create_a_relationship_to_two_existing_nodes(self):
         alice = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a")
@@ -689,8 +689,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         created = statement.execute()
         assert created == (alice_knows_bob,)
         assert alice_knows_bob.bound
-        assert alice_knows_bob.start_node is alice
-        assert alice_knows_bob.end_node is bob
+        assert alice_knows_bob.start_node() is alice
+        assert alice_knows_bob.end_node() is bob
 
     def test_can_pass_entities_that_already_exist(self):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
@@ -720,8 +720,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         statement.create_unique(Relationship(alice, "KNOWS", Node()))
         created = statement.execute()
         assert created == (alice_knows_bob,)
-        assert alice_knows_bob.start_node == alice
-        assert alice_knows_bob.end_node == bob
+        assert alice_knows_bob.start_node() == alice
+        assert alice_knows_bob.end_node() == bob
 
     def test_unique_path_not_unique_exception(self):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b), "
@@ -749,12 +749,12 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert carol.bound
         assert dave.bound
         ab, cb, cd = path.relationships
-        assert ab.start_node is alice
-        assert ab.end_node is bob
-        assert cb.start_node is carol
-        assert cb.end_node is bob
-        assert cd.start_node is carol
-        assert cd.end_node is dave
+        assert ab.start_node() is alice
+        assert ab.end_node() is bob
+        assert cb.start_node() is carol
+        assert cb.end_node() is bob
+        assert cd.start_node() is carol
+        assert cd.end_node() is dave
 
     def test_can_create_a_path_with_existing_nodes(self):
         alice = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a")
@@ -773,12 +773,12 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert bob.bound
         assert dave.bound
         ab, cb, cd = path.relationships
-        assert ab.start_node is alice
-        assert ab.end_node is bob
-        assert cb.start_node is carol
-        assert cb.end_node is bob
-        assert cd.start_node is carol
-        assert cd.end_node is dave
+        assert ab.start_node() is alice
+        assert ab.end_node() is bob
+        assert cb.start_node() is carol
+        assert cb.end_node() is bob
+        assert cd.start_node() is carol
+        assert cd.end_node() is dave
 
     def test_cannot_create_unique_zero_length_path(self):
         path = Path(Node())

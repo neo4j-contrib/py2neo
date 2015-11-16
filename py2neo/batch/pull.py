@@ -68,8 +68,8 @@ class PullBatch(Batch):
         elif isinstance(entity, Relationship):
             self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Path):
-            for rel in entity.rels:
-                self.jobs.append(PullRelationshipJob(rel))
+            for relationship in entity.relationships:
+                self.jobs.append(PullRelationshipJob(relationship))
         else:
             raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
 

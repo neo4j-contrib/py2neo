@@ -139,12 +139,6 @@ class BindUnbindTestCase(Py2neoTestCase):
         node.unbind()
         assert not node.bound
 
-    def test_can_unbind_rel_if_not_cached(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        Rel.cache.clear()
-        ab.rel.unbind()
-        assert not ab.bound
-
     def test_can_unbind_relationship_if_not_cached(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         Relationship.cache.clear()
@@ -178,30 +172,3 @@ class BindUnbindTestCase(Py2neoTestCase):
         path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
         path.unbind()
         assert not path.bound
-
-    def test_unbinding_rel_also_unbinds_rev(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        rel = ab.rel
-        assert rel.pair is None
-        rev = -rel
-        assert rel.pair is rev
-        assert rev.pair is rel
-        assert rel.bound
-        assert rev.bound
-        assert rel.resource is rev.resource
-        rel.unbind()
-        assert not rel.bound
-        assert not rev.bound
-
-    def test_unbinding_rev_also_unbinds_rel(self):
-        a, b, ab = self.graph.create({}, {}, (0, Rev("KNOWS"), 1))
-        rev = ab.rel
-        rel = -rev
-        assert rev.pair is rel
-        assert rel.pair is rev
-        assert rev.bound
-        assert rel.bound
-        assert rev.resource is rel.resource
-        rev.unbind()
-        assert not rev.bound
-        assert not rel.bound

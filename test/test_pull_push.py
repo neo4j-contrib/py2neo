@@ -67,17 +67,7 @@ class PullPushTestCase(Py2neoTestCase):
         self.graph.pull(remote)
         assert local.labels() == remote.labels()
         assert dict(local) == dict(remote)
-        
-    def test_can_push_rel(self):
-        local = Rel("KNOWS", since=1999)
-        remote = Rel("KNOWS")
-        self.graph.create({}, {}, (0, remote, 1))
-        assert remote.properties == {}
-        local.bind(remote.uri)
-        self.graph.push(local)
-        self.graph.pull(remote)
-        assert local.properties == remote.properties
-        
+
     def test_can_push_relationship(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "

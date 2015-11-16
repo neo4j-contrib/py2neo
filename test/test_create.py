@@ -76,8 +76,8 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create((nodes[0], (type_, properties), nodes[1]))
         # then
         assert isinstance(created, Relationship)
-        assert created.type == type_
-        assert created.properties == properties
+        assert created.type() == type_
+        assert dict(created) == properties
         assert created.bound
 
     def test_can_create_unique_relationship_from_tuple(self):
@@ -89,8 +89,8 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create_unique((nodes[0], (type_, properties), nodes[1]))
         # then
         assert isinstance(created, Relationship)
-        assert created.type == type_
-        assert created.properties == properties
+        assert created.type() == type_
+        assert dict(created) == properties
         assert created.bound
 
     def test_can_create_relationship_from_object(self):
@@ -103,8 +103,8 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create(relationship)
         # then
         assert isinstance(created, Relationship)
-        assert created.type == type_
-        assert created.properties == properties
+        assert created.type() == type_
+        assert dict(created) == properties
         assert created.bound
 
     def test_created_relationship_is_same_object(self):
@@ -124,15 +124,15 @@ class CreateTestCase(Py2neoTestCase):
         # then
         assert isinstance(created, Relationship)
         assert created.bound
-        assert created.start_node.bound
-        assert created.end_node.bound
+        assert created.start_node().bound
+        assert created.end_node().bound
 
     def test_can_create_nodes_plus_relationship(self):
         # when
         a, b, ab = self.graph.create(Node(), Node(), Relationship(0, "KNOWS", 1))
         # then
-        assert ab.start_node is a
-        assert ab.end_node is b
+        assert ab.start_node() is a
+        assert ab.end_node() is b
 
     def test_can_update_already_bound_rel(self):
         # given
@@ -189,9 +189,9 @@ class CreateTestCase(Py2neoTestCase):
         assert "name" in results[1]
         assert results[1]["name"] == "Bob"
         assert isinstance(results[2], Relationship)
-        assert results[2].type == "KNOWS"
-        assert results[2].start_node == results[0]
-        assert results[2].end_node == results[1]
+        assert results[2].type() == "KNOWS"
+        assert results[2].start_node() == results[0]
+        assert results[2].end_node() == results[1]
 
     def test_can_create_simple_graph_with_rel_data(self):
         results = self.graph.create(
@@ -208,9 +208,9 @@ class CreateTestCase(Py2neoTestCase):
         assert "name" in results[1]
         assert results[1]["name"] == "Bob"
         assert isinstance(results[2], Relationship)
-        assert results[2].type == "KNOWS"
-        assert results[2].start_node == results[0]
-        assert results[2].end_node == results[1]
+        assert results[2].type() == "KNOWS"
+        assert results[2].start_node() == results[0]
+        assert results[2].end_node() == results[1]
         assert "since" in results[2]
         assert results[2]["since"] == 1996
 
@@ -226,9 +226,9 @@ class CreateTestCase(Py2neoTestCase):
         assert "name" in results[0]
         assert results[0]["name"] == "Alice"
         assert isinstance(results[1], Relationship)
-        assert results[1].type == "PERSON"
-        assert results[1].start_node == ref_node
-        assert results[1].end_node == results[0]
+        assert results[1].type() == "PERSON"
+        assert results[1].start_node() == ref_node
+        assert results[1].end_node() == results[0]
         self.graph.delete(results[1], results[0], ref_node)
 
     def test_fails_on_bad_reference(self):

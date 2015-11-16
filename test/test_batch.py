@@ -466,13 +466,13 @@ class PullBatchTestCase(Py2neoTestCase):
 
     def test_can_pull_path(self):
         path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
-        assert path.rels[0].properties["since"] is None
+        assert path[0]["since"] is None
         statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
         self.cypher.execute(statement, {"ab": path.rels[0]._id})
-        assert path.rels[0].properties["since"] is None
+        assert path[0]["since"] is None
         self.batch.append(path)
         self.batch.pull()
-        assert path.rels[0].properties["since"] == 1999
+        assert path[0]["since"] == 1999
 
     def test_cannot_pull_none(self):
         with self.assertRaises(TypeError):

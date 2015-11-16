@@ -132,7 +132,11 @@ class CreateStatement(object):
         entity = Graph.cast(entity)
         index = len(self.entities)
         name = _(index)
-        if isinstance(entity, (Relationship, Path)):
+        if isinstance(entity, Relationship):
+            if not any(node.bound or node in self for node in entity.nodes()):
+                raise ValueError("At least one node must be bound to create a unique relationship")
+            self.names.append(self._create_relationship(entity, name, unique=True))
+        elif isinstance(entity, Path):
             if len(entity) == 0:
                 raise ValueError("Cannot create unique path with zero length")
             if not any(node.bound or node in self for node in entity.nodes):
@@ -189,7 +193,7 @@ class CreateStatement(object):
                 node_name = name + "n" + ustr(i)
                 node_names.append(node_name)
                 self._create_node(node, node_name)
-        relationship.__init__(nodes[0], relationship._type, nodes[1])
+        relationship.__init__(nodes[0], relationship._type, nodes[1], **relationship)
         return node_names
 
     def _create_path_nodes(self, path, name, unique):

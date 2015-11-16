@@ -60,10 +60,10 @@ class PushBatch(Batch):
         elif isinstance(entity, Rel):
             self.jobs.append(PushPropertiesJob(entity, entity.properties))
         elif isinstance(entity, Relationship):
-            self.jobs.append(PushPropertiesJob(entity, entity.properties))
+            self.jobs.append(PushPropertiesJob(entity, dict(entity)))
         elif isinstance(entity, Path):
             for relationship in entity.relationships:
-                self.jobs.append(PushPropertiesJob(relationship, relationship.properties))
+                self.jobs.append(PushPropertiesJob(relationship, dict(relationship)))
         else:
             raise TypeError("Cannot push object of type %s" % entity.__class__.__name__)
 

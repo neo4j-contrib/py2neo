@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, Relationship
+from py2neo.core import Node, Relationship, Rel
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 
 
@@ -137,7 +137,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.Node`
         """
-        return self.__relationship.start_node
+        return self.__relationship.start_node()
 
     @property
     def end_node(self):
@@ -145,7 +145,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.Node`
         """
-        return self.__relationship.end_node
+        return self.__relationship.end_node()
 
     @property
     def type(self):
@@ -153,7 +153,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: str
         """
-        return self.__relationship.type
+        return self.__relationship.type()
 
     @property
     def properties(self):
@@ -161,12 +161,12 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.PropertySet`
         """
-        return self.__relationship.properties
+        return dict(self.__relationship)
 
     def set(self, **properties):
         """ Extra properties to apply to the node.
         """
-        self.__relationship.properties.update(properties)
+        self.__relationship.update(properties)
         return self
 
     def with_return(self):
@@ -199,8 +199,9 @@ class CreateRelationship(CypherTask):
             writer.write_literal(" ")
         writer.write_literal("CREATE ")
         writer.write_literal("(a)")
-        writer.write_rel(self.__relationship.rel, "r",
-                         CypherParameter("R") if self.__relationship.properties else None)
+        rel = Rel(self.__relationship.type(), **self.__relationship)
+        writer.write_rel(rel, "r",
+                         CypherParameter("R") if self.__relationship else None)
         writer.write_literal("(b)")
         if self.__return:
             writer.write_literal(" RETURN r")
@@ -219,7 +220,7 @@ class CreateRelationship(CypherTask):
             value["B"] = self.end_node._id
         else:
             value["B"] = dict(self.end_node)
-        if self.__relationship.properties:
+        if self.__relationship:
             value["R"] = self.properties
         return value
 
