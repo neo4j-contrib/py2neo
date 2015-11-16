@@ -2394,6 +2394,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         return self.service_root.graph
 
     @property
+    @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
         """ The set of properties attached to this relationship. Properties
         can also be read from and written to any :class:`Relationship`
