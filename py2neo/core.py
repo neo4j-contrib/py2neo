@@ -2378,7 +2378,6 @@ class Relationship(Bindable, PrimitiveRelationship):
                 nodes[i] = node
                 self._nodes = tuple(nodes)
 
-    @property
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):
         """ :const:`True` if this relationship exists in the database,
