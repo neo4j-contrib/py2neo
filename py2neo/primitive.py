@@ -219,22 +219,28 @@ class Graph(object):
         return bool(self._relationships)
 
     def __or__(self, other):
-        return Graph(self.nodes() | other.nodes(), self.relationships() | other.relationships())
+        nodes = Graph.nodes
+        relationships = Graph.relationships
+        return Graph(nodes(self) | nodes(other), relationships(self) | relationships(other))
 
     def __and__(self, other):
-        return Graph(self.nodes() & other.nodes(), self.relationships() & other.relationships())
+        nodes = Graph.nodes
+        relationships = Graph.relationships
+        return Graph(nodes(self) & nodes(other), relationships(self) & relationships(other))
 
     def __sub__(self, other):
-        relationships = self.relationships() - other.relationships()
-        nodes = ((self.nodes() - other.nodes()) |
-                 set().union(*(rel.nodes() for rel in relationships)))
-        return Graph(nodes, relationships)
+        nodes = Graph.nodes
+        relationships = Graph.relationships
+        r = relationships(self) - relationships(other)
+        n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Graph(n, r)
 
     def __xor__(self, other):
-        relationships = self.relationships() ^ other.relationships()
-        nodes = ((self.nodes() ^ other.nodes()) |
-                 set().union(*(rel.nodes() for rel in relationships)))
-        return Graph(nodes, relationships)
+        nodes = Graph.nodes
+        relationships = Graph.relationships
+        r = relationships(self) ^ relationships(other)
+        n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Graph(n, r)
 
     def nodes(self):
         return self._nodes
@@ -269,7 +275,9 @@ class TraversableGraph(Graph):
 
     def __init__(self, head, *tail):
         sequence = (head,) + tail
-        Graph.__init__(self, sequence[0::2], sequence[1::2])
+        self._node_sequence = sequence[0::2]
+        self._relationship_sequence = sequence[1::2]
+        Graph.__init__(self, self._node_sequence, self._relationship_sequence)
         self._sequence = sequence
 
     def __eq__(self, other):
@@ -308,38 +316,49 @@ class TraversableGraph(Graph):
             return self._sequence[2 * index + 1]
 
     def __iter__(self):
-        for relationship in self._sequence[1::2]:
+        for relationship in self._relationship_sequence:
             yield relationship
 
     def __add__(self, other):
         assert isinstance(other, TraversableGraph)
-        if self.end_node() is other.start_node():
+        if self.end_node() == other.start_node():
+            # Try a direct append
             seq_1 = self._sequence[:-1]
             seq_2 = other.traverse()
-        elif self.length() <= 1 and self.start_node() is other.start_node():
-            seq_1 = reversed(self._sequence[1:])
-            seq_2 = other.traverse()
-        elif other.length() <= 1 and self.end_node() is other.end_node():
+        elif other.length() <= 1 and self.end_node() == other.end_node():
+            # Try reversing other
             seq_1 = self._sequence[:-1]
             seq_2 = reversed(list(other.traverse()))
-        elif self.length() <= 1 and other.length() <= 1 and self.start_node() is other.end_node():
+        elif self.length() <= 1 and self.start_node() == other.start_node():
+            # Try reversing self
+            seq_1 = reversed(self._sequence[1:])
+            seq_2 = other.traverse()
+        elif self.length() <= 1 and other.length() <= 1 and self.start_node() == other.end_node():
+            # Try reversing both
             seq_1 = reversed(self._sequence[1:])
             seq_2 = reversed(list(other.traverse()))
         else:
-            raise ValueError("Cannot concatenate walkable objects with no common endpoints")
+            raise ValueError("Cannot concatenate traversable objects with no common "
+                             "endpoints")
         return TraversableGraph(*chain(seq_1, seq_2))
 
     def start_node(self):
-        return self._sequence[0]
+        return self._node_sequence[0]
 
     def end_node(self):
-        return self._sequence[-1]
+        return self._node_sequence[-1]
 
     def length(self):
-        return (len(self._sequence) - 1) // 2
+        return len(self._relationship_sequence)
 
     def traverse(self):
         return iter(self._sequence)
+
+    def nodes(self):
+        return self._node_sequence
+
+    def relationships(self):
+        return self._relationship_sequence
 
 
 class Entity(PropertyContainer, TraversableGraph):
@@ -402,7 +421,7 @@ class Relationship(Entity):
     @classmethod
     def default_type(cls):
         if cls is Relationship:
-            return u"TO"
+            return None
         else:
             return ustr(relationship_case(cls.__name__))
 
@@ -435,9 +454,9 @@ class Relationship(Entity):
             self._type = self.default_type()
             nodes = (nodes[0], nodes[0])
         elif num_args == 2:
-            if isinstance(nodes[1], string):
+            if nodes[1] is None or isinstance(nodes[1], string):
                 # Relationship(a, "TO")
-                self._type = ustr(nodes[1])
+                self._type = nodes[1]
                 nodes = (nodes[0], nodes[0])
             else:
                 # Relationship(a, b)

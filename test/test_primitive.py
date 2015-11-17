@@ -264,6 +264,23 @@ class GraphTestCase(TestCase):
     graph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob |
              carol_married_to_dave | dave_works_for_dave)
 
+    def test_nodes(self):
+        nodes = self.graph.nodes()
+        assert isinstance(nodes, frozenset)
+        assert nodes == {alice, bob, carol, dave}
+
+    def test_relationships(self):
+        relationships = self.graph.relationships()
+        assert isinstance(relationships, frozenset)
+        assert relationships == {alice_knows_bob, alice_likes_carol, carol_dislikes_bob,
+                                 carol_married_to_dave, dave_works_for_dave}
+
+    def test_order(self):
+        assert self.graph.order() == 4
+
+    def test_size(self):
+        assert self.graph.size() == 5
+
     def test_can_infer_nodes_through_relationships(self):
         graph = Graph([], [alice_knows_bob])
         assert graph.order() == 2
@@ -307,6 +324,22 @@ class TraversableGraphTestCase(TestCase):
 
     sequence = (alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
     graph = TraversableGraph(*sequence)
+
+    def test_nodes(self):
+        nodes = self.graph.nodes()
+        assert isinstance(nodes, tuple)
+        assert nodes == (alice, bob, carol)
+
+    def test_relationships(self):
+        relationships = self.graph.relationships()
+        assert isinstance(relationships, tuple)
+        assert relationships == (alice_knows_bob, carol_dislikes_bob)
+
+    def test_order(self):
+        assert self.graph.order() == 3
+
+    def test_size(self):
+        assert self.graph.size() == 2
 
     def test_equality(self):
         other_graph = TraversableGraph(*self.sequence)
@@ -382,6 +415,22 @@ class TraversableGraphTestCase(TestCase):
 
 
 class NodeTestCase(TestCase):
+
+    def test_nodes(self):
+        nodes = alice.nodes()
+        assert isinstance(nodes, tuple)
+        assert nodes == (alice,)
+
+    def test_relationships(self):
+        relationships = alice.relationships()
+        assert isinstance(relationships, tuple)
+        assert relationships == ()
+
+    def test_order(self):
+        assert alice.order() == 1
+
+    def test_size(self):
+        assert alice.size() == 0
 
     def test_empty_node(self):
         n = Node()
@@ -467,6 +516,22 @@ class NodeTestCase(TestCase):
 
 class RelationshipTestCase(TestCase):
 
+    def test_nodes(self):
+        nodes = alice_knows_bob.nodes()
+        assert isinstance(nodes, tuple)
+        assert nodes == (alice, bob)
+
+    def test_relationships(self):
+        relationships = alice_knows_bob.relationships()
+        assert isinstance(relationships, tuple)
+        assert relationships == (alice_knows_bob,)
+
+    def test_order(self):
+        assert alice_knows_bob.order() == 2
+
+    def test_size(self):
+        assert alice_knows_bob.size() == 1
+
     def test_relationship(self):
         assert repr(alice_knows_bob)
         assert alice_knows_bob.start_node() == alice
@@ -496,14 +561,14 @@ class RelationshipTestCase(TestCase):
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
-        assert rel.type() == "TO"
+        assert rel.type() is None
 
     def test_construction_from_two_node_arguments(self):
         rel = Relationship(alice, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
-        assert rel.type() == "TO"
+        assert rel.type() is None
 
     def test_construction_from_node_and_type_arguments(self):
         rel = Relationship(alice, "LIKES")
@@ -518,6 +583,13 @@ class RelationshipTestCase(TestCase):
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
+
+    def test_construction_with_explicit_none_type(self):
+        rel = Relationship(alice, None, bob)
+        assert repr(rel)
+        assert rel.start_node() is alice
+        assert rel.end_node() is bob
+        assert rel.type() is None
 
     def test_construction_from_subclass(self):
         class WorksWith(Relationship):
@@ -544,7 +616,49 @@ class RelationshipTestCase(TestCase):
         assert alice_knows_bob != "there is no relationship"
 
 
+class RelationshipLoopTestCase(TestCase):
+
+    loop = Relationship(alice, "LIKES", alice)
+
+    def test_nodes(self):
+        nodes = self.loop.nodes()
+        assert isinstance(nodes, tuple)
+        assert nodes == (alice, alice)
+
+    def test_relationships(self):
+        relationships = self.loop.relationships()
+        assert isinstance(relationships, tuple)
+        assert relationships == (self.loop,)
+
+    def test_order(self):
+        assert self.loop.order() == 1
+
+    def test_size(self):
+        assert self.loop.size() == 1
+
+
 class PathTestCase(TestCase):
+
+    path = Path(alice, alice_knows_bob, bob, alice_knows_bob, alice, alice_likes_carol, carol)
+
+    def test_nodes(self):
+        nodes = self.path.nodes()
+        assert isinstance(nodes, tuple)
+        assert nodes == (alice, bob, alice, carol)
+
+    def test_relationships(self):
+        relationships = self.path.relationships()
+        assert isinstance(relationships, tuple)
+        assert relationships == (alice_knows_bob, alice_knows_bob, alice_likes_carol)
+
+    def test_order(self):
+        assert self.path.order() == 3
+
+    def test_size(self):
+        assert self.path.size() == 2
+
+    def test_length(self):
+        assert self.path.length() == 3
 
     def test_construction_of_path_length_0(self):
         sequence = [alice]
