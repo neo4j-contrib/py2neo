@@ -33,7 +33,10 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.primitive import Node as PrimitiveNode, Relationship as PrimitiveRelationship
+from py2neo.primitive import \
+    Node as PrimitiveNode, \
+    Relationship as PrimitiveRelationship, \
+    Path as PrimitivePath
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
@@ -768,9 +771,9 @@ class Graph(Bindable):
             elif isinstance(entity, (Rel, Relationship)):
                 tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
             elif isinstance(entity, Path):
-                for node in entity.nodes:
+                for node in entity.nodes():
                     tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
-                for rel in entity.relationships:
+                for rel in entity.relationships():
                     tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
             elif isinstance(entity, Subgraph):
                 for node in entity.nodes:
@@ -1818,7 +1821,7 @@ class Rev(Rel):
 Rel._pair_class = Rev
 
 
-class Path(object):
+class Path(PrimitivePath):
     """ A sequence of nodes connected by relationships that may
     optionally be bound to remote counterparts in a Neo4j database.
 
@@ -1864,113 +1867,136 @@ class Path(object):
         """
         node_uris = data["nodes"]
         relationship_uris = data["relationships"]
-        rel_rev = [Rel if direction == "->" else Rev for direction in data["directions"]]
+        offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
         if inst is None:
             nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
-            rels = [rel_rev[i].hydrate({"self": uri}) for i, uri in enumerate(relationship_uris)]
-            inst = Path(*round_robin(nodes, rels))
+            relationships = [Relationship.hydrate({"self": uri,
+                                                   "start": node_uris[i + offsets[i][0]],
+                                                   "end": node_uris[i + offsets[i][1]]})
+                             for i, uri in enumerate(relationship_uris)]
+            inst = Path(*round_robin(nodes, relationships))
         else:
             for i, node in enumerate(inst.nodes):
                 uri = node_uris[i]
                 Node.hydrate({"self": uri}, node)
-            for i, rel in enumerate(inst.rels):
+            for i, relationship in enumerate(inst.relationships):
                 uri = relationship_uris[i]
-                rel_rev[i].hydrate({"self": uri}, rel)
+                Relationship.hydrate({"self": uri,
+                                      "start": node_uris[i + offsets[i][0]],
+                                      "end": node_uris[i + offsets[i][1]]}, relationship)
         inst.__metadata = data
         return inst
 
-    def __init__(self, *entities):
-        nodes = []
-        rels = []
-
-        def join_path(path, index):
-            if len(nodes) == len(rels):
-                nodes.extend(path.nodes)
-                rels.extend(path.rels)
-            else:
-                # try joining forward
-                try:
-                    nodes[-1] = coalesce(nodes[-1], path.start_node)
-                except JoinError:
-                    # try joining backward
-                    try:
-                        nodes[-1] = coalesce(nodes[-1], path.end_node)
-                    except JoinError:
-                        raise JoinError("Path at position %s cannot be joined" % index)
-                    else:
-                        nodes.extend(path.nodes[-2::-1])
-                        rels.extend(-r for r in path.rels[::-1])
-                else:
-                    nodes.extend(path.nodes[1:])
-                    rels.extend(path.rels)
-
-        def join_relationship(relationship, index):
-            rel = Rel(relationship.type(), **relationship)
-            if relationship.bound:
-                rel.bind(relationship.uri)
-            if len(nodes) == len(rels):
-                nodes.append(relationship.start_node())
-                nodes.append(relationship.end_node())
-                rels.append(rel)
-            else:
-                # try joining forward
-                try:
-                    nodes[-1] = coalesce(nodes[-1], relationship.start_node())
-                except JoinError:
-                    # try joining backward
-                    try:
-                        nodes[-1] = coalesce(nodes[-1], relationship.end_node())
-                    except JoinError:
-                        raise JoinError("Path at position %s cannot be joined" % index)
-                    else:
-                        nodes.append(relationship.start_node())
-                        rels.append(-rel)
-                else:
-                    nodes.append(relationship.end_node())
-                    rels.append(rel)
-
-        def join_rel(rel, index):
-            if len(nodes) == len(rels):
-                raise JoinError("Rel at position %s cannot be joined" % index)
-            else:
-                rels.append(rel)
-
-        def join_node(node):
-            if len(nodes) == len(rels):
-                nodes.append(node)
-            else:
-                nodes[-1] = coalesce(nodes[-1], node)
-
+    def __new__(cls, *entities):
+        e = []
+        nodes = [Node.cast(a) for a in entities[::2]]
         for i, entity in enumerate(entities):
-            if isinstance(entity, Path):
-                join_path(entity, i)
-            elif isinstance(entity, Relationship):
-                join_relationship(entity, i)
-            elif isinstance(entity, Rel):
-                join_rel(entity, i)
-            elif isinstance(entity, (Node, NodePointer)):
-                join_node(entity)
-            elif len(nodes) == len(rels):
-                join_node(Node.cast(entity))
+            if i % 2 == 0:
+                e.append(nodes[i // 2])
             else:
-                join_rel(Rel.cast(entity), i)
-        join_node(None)
+                e.append(Relationship.cast(nodes[(i - 1) // 2], entity, nodes[(i + 1) // 2]))
+        return super(Path, cls).__new__(cls, *e)
 
-        self.__nodes = tuple(nodes)
-        self.__rels = tuple(rels)
-        self.__relationships = None
-        self.__order = len(self.__nodes)
-        self.__size = len(self.__rels)
-        self.__metadata = None
+    def __init__(self, *entities):
+        e = []
+        nodes = [Node.cast(a) for a in entities[::2]]
+        for i, entity in enumerate(entities):
+            if i % 2 == 0:
+                e.append(nodes[i // 2])
+            else:
+                e.append(Relationship.cast(nodes[(i - 1) // 2], entity, nodes[(i + 1) // 2]))
+        PrimitivePath.__init__(self, *e)
+        # nodes = []
+        # rels = []
+        #
+        # def join_path(path, index):
+        #     if len(nodes) == len(rels):
+        #         nodes.extend(path.nodes)
+        #         rels.extend(path.rels)
+        #     else:
+        #         # try joining forward
+        #         try:
+        #             nodes[-1] = coalesce(nodes[-1], path.start_node)
+        #         except JoinError:
+        #             # try joining backward
+        #             try:
+        #                 nodes[-1] = coalesce(nodes[-1], path.end_node)
+        #             except JoinError:
+        #                 raise JoinError("Path at position %s cannot be joined" % index)
+        #             else:
+        #                 nodes.extend(path.nodes[-2::-1])
+        #                 rels.extend(-r for r in path.rels[::-1])
+        #         else:
+        #             nodes.extend(path.nodes[1:])
+        #             rels.extend(path.rels)
+        #
+        # def join_relationship(relationship, index):
+        #     rel = Rel(relationship.type(), **relationship)
+        #     if relationship.bound:
+        #         rel.bind(relationship.uri)
+        #     if len(nodes) == len(rels):
+        #         nodes.append(relationship.start_node())
+        #         nodes.append(relationship.end_node())
+        #         rels.append(rel)
+        #     else:
+        #         # try joining forward
+        #         try:
+        #             nodes[-1] = coalesce(nodes[-1], relationship.start_node())
+        #         except JoinError:
+        #             # try joining backward
+        #             try:
+        #                 nodes[-1] = coalesce(nodes[-1], relationship.end_node())
+        #             except JoinError:
+        #                 raise JoinError("Path at position %s cannot be joined" % index)
+        #             else:
+        #                 nodes.append(relationship.start_node())
+        #                 rels.append(-rel)
+        #         else:
+        #             nodes.append(relationship.end_node())
+        #             rels.append(rel)
+        #
+        # def join_rel(rel, index):
+        #     if len(nodes) == len(rels):
+        #         raise JoinError("Rel at position %s cannot be joined" % index)
+        #     else:
+        #         rels.append(rel)
+        #
+        # def join_node(node):
+        #     if len(nodes) == len(rels):
+        #         nodes.append(node)
+        #     else:
+        #         nodes[-1] = coalesce(nodes[-1], node)
+        #
+        # for i, entity in enumerate(entities):
+        #     if isinstance(entity, Path):
+        #         join_path(entity, i)
+        #     elif isinstance(entity, Relationship):
+        #         join_relationship(entity, i)
+        #     elif isinstance(entity, Rel):
+        #         join_rel(entity, i)
+        #     elif isinstance(entity, (Node, NodePointer)):
+        #         join_node(entity)
+        #     elif len(nodes) == len(rels):
+        #         join_node(Node.cast(entity))
+        #     else:
+        #         join_rel(Rel.cast(entity), i)
+        # join_node(None)
+        #
+        # self.__nodes = tuple(nodes)
+        # self.__rels = tuple(rels)
+        # self.__relationships = None
+        # self.__order = len(self.__nodes)
+        # self.__size = len(self.__rels)
+        # self.__metadata = None
 
     def __repr__(self):
         s = [self.__class__.__name__]
         if self.bound:
             s.append("graph=%r" % self.graph.uri.string)
-            s.append("start=%r" % self.start_node.ref)
-            s.append("end=%r" % self.end_node.ref)
-        s.append("order=%r" % self.order)
-        s.append("size=%r" % self.size)
+            s.append("start=%r" % self.start_node().ref)
+            s.append("end=%r" % self.end_node().ref)
+        s.append("order=%r" % self.order())
+        s.append("size=%r" % self.size())
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
@@ -1982,64 +2008,6 @@ class Path(object):
         writer = CypherWriter(s)
         writer.write_path(self)
         return s.getvalue()
-
-    def __eq__(self, other):
-        try:
-            return self.nodes == other.nodes and self.rels == other.rels
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for entity in self.rels + self.nodes:
-            value ^= hash(entity)
-        return value
-
-    def __bool__(self):
-        return bool(self.rels)
-
-    def __nonzero__(self):
-        return bool(self.rels)
-
-    def __len__(self):
-        return self.size
-
-    def __getitem__(self, item):
-        try:
-            rel = self.rels[item]
-            if isinstance(item, slice):
-                path = Path()
-                p, q = item.start, item.stop
-                if q is not None:
-                    q += 1
-                path.__nodes = self.nodes[p:q]
-                path.__rels = rel
-                return path
-            else:
-                return self.relationships[item]
-        except IndexError:
-            raise IndexError("Path segment index out of range")
-
-    def __iter__(self):
-        return iter(self.relationships)
-
-    def __reversed__(self):
-        return iter(reversed(self.relationships))
-
-    def __add__(self, other):
-        try:
-            return Path(self, *other)
-        except TypeError:
-            return Path(self, other)
-
-    def __radd__(self, other):
-        try:
-            return self.prepend(*other)
-        except TypeError:
-            return self.prepend(other)
 
     def append(self, *others):
         """ Join another path or relationship to the end of this path to form a new path.
@@ -2062,20 +2030,12 @@ class Path(object):
             return True
 
     @property
-    def end_node(self):
-        """ The end node of this «class.lower».
-
-        :return: :class:`.Node`
-        """
-        return self.__nodes[-1]
-
-    @property
     @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
     def exists(self):
         """ :const:`True` if this path exists in the database,
         :const:`False` otherwise.
         """
-        return self.graph.exists(*(self.nodes + self.rels))
+        return self.graph.exists(*(self.nodes() + self.relationships()))
 
     @property
     def graph(self):
@@ -2084,28 +2044,6 @@ class Path(object):
         :rtype: :class:`.Graph`
         """
         return self.service_root.graph
-
-    @property
-    def nodes(self):
-        """ A tuple of all nodes in this «class.lower».
-        """
-        return self.__nodes
-
-    @property
-    def order(self):
-        """ The number of nodes in this «class.lower».
-        """
-        return self.__order
-
-    def prepend(self, *others):
-        """ Join another path or relationship to the start of this path to form a new path.
-
-        :arg others: Entities to join to the start of this path
-        :rtype: :class:`.Path`
-        """
-        p = Path(*others)
-        p = p.append(self)
-        return p
 
     def pull(self):
         """ Pull data to all entities in this path from their remote counterparts.
@@ -2116,29 +2054,6 @@ class Path(object):
         """ Push data from all entities in this path to their remote counterparts.
         """
         self.graph.push(self)
-
-    @property
-    def relationships(self):
-        """ A tuple of all relationships in this «class.lower».
-        """
-        if self.__relationships is None:
-            relationships = []
-            for i, rel in enumerate(self.rels):
-                if isinstance(rel, Rev):
-                    r = Relationship(self.nodes[i + 1], rel.type, self.nodes[i], **rel.properties)
-                else:
-                    r = Relationship(self.nodes[i], rel.type, self.nodes[i + 1], **rel.properties)
-                if rel.bound:
-                    r.bind(rel.uri)
-                relationships.append(r)
-            self.__relationships = relationships
-        return self.__relationships
-
-    @property
-    def rels(self):
-        """ A tuple of all rels in this «class.lower».
-        """
-        return self.__rels
 
     @property
     def service_root(self):
@@ -2153,25 +2068,11 @@ class Path(object):
                 pass
         raise BindError("Local path is not bound to a remote path")
 
-    @property
-    def size(self):
-        """ The number of relationships in this «class.lower».
-        """
-        return self.__size
-
-    @property
-    def start_node(self):
-        """ The start node of this «class.lower».
-
-        :return: :class:`.Node`
-        """
-        return self.__nodes[0]
-
     def unbind(self):
         """ Detach all entities in this path
         from any remote counterparts.
         """
-        for entity in self.rels + self.nodes:
+        for entity in self.relationships + self.nodes:
             try:
                 entity.unbind()
             except BindError:
@@ -2258,7 +2159,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         self = data["self"]
         if inst is None:
             new_inst = cls(Node.hydrate({"self": data["start"]}),
-                           data["type"],
+                           data.get("type"),
                            Node.hydrate({"self": data["end"]}),
                            **data.get("data", {}))
             inst = cls.cache.setdefault(self, new_inst)
@@ -2269,7 +2170,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         else:
             Node.hydrate({"self": data["start"]}, inst.start_node())
             Node.hydrate({"self": data["end"]}, inst.end_node())
-            inst._type = data["type"]
+            inst._type = data.get("type")
             if "data" in data:
                 inst.clear()
                 inst.update(data["data"])

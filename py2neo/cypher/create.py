@@ -96,10 +96,10 @@ class CreateStatement(object):
                 entity.start_node().bind(metadata["start"])
                 entity.end_node().bind(metadata["end"])
             elif isinstance(entity, Path):
-                for j, node in enumerate(entity.nodes):
+                for j, node in enumerate(entity.nodes()):
                     metadata = dehydrated[node_names[j]]
                     node.bind(metadata["self"], metadata)
-                for j, rel in enumerate(entity.rels):
+                for j, rel in enumerate(entity.relationships()):
                     metadata = dehydrated[rel_names[j]]
                     rel.bind(metadata["self"], metadata)
         return tuple(self.entities)
@@ -198,11 +198,11 @@ class CreateStatement(object):
 
     def _create_path_nodes(self, path, name, unique):
         node_names = []
-        for i, node in enumerate(path.nodes):
+        for i, node in enumerate(path.nodes()):
             if isinstance(node, NodePointer):
                 node_names.append(_(node.address))
                 # Switch out node with object from elsewhere in entity list
-                nodes = list(path.nodes)
+                nodes = list(path.nodes())
                 try:
                     target_node = self.entities[node.address]
                 except IndexError:
@@ -227,7 +227,7 @@ class CreateStatement(object):
     def _create_path(self, path, name, unique):
         node_names = self._create_path_nodes(path, name, unique)
         rel_names = []
-        for i, rel in enumerate(path.rels):
+        for i, rel in enumerate(path.relationships()):
             rel_name = name + "r" + ustr(i)
             rel_names.append(rel_name)
             if rel.bound:
@@ -235,7 +235,7 @@ class CreateStatement(object):
                                                  "WHERE id({0})={{{0}}}".format(rel_name))
                 self.parameters[rel_name] = rel._id
             else:
-                if rel.properties:
+                if rel:
                     template = "{start}-[{name}:{type} {{{name}}}]->{end}"
                     self.parameters[rel_name] = rel.properties
                 else:
@@ -243,14 +243,14 @@ class CreateStatement(object):
                 start_index, end_index = i, i + 1
                 if isinstance(rel,  Rev):
                     start_index, end_index = end_index, start_index
-                start_node = path.nodes[start_index]
-                end_node = path.nodes[end_index]
+                start_node = path.nodes()[start_index]
+                end_node = path.nodes()[end_index]
                 start = self._node_pattern(start_node, node_names[start_index],
                                            full=(unique and not start_node.bound and start_node not in self))
                 end = self._node_pattern(end_node, node_names[end_index],
                                          full=(unique and not end_node.bound and end_node not in self))
                 kwargs = {"start": start, "name": rel_name,
-                          "type": cypher_escape(rel.type), "end": end}
+                          "type": cypher_escape(rel.type()), "end": end}
                 if unique:
                     self.create_unique_clause.append(template.format(**kwargs))
                 else:
