@@ -1893,6 +1893,8 @@ class Path(PrimitivePath):
         for i, entity in enumerate(entities):
             if i % 2 == 0:
                 e.append(nodes[i // 2])
+            elif isinstance(entity, Relationship):
+                e.append(entity)
             else:
                 e.append(Relationship.cast(nodes[(i - 1) // 2], entity, nodes[(i + 1) // 2]))
         return super(Path, cls).__new__(cls, *e)
@@ -1903,6 +1905,8 @@ class Path(PrimitivePath):
         for i, entity in enumerate(entities):
             if i % 2 == 0:
                 e.append(nodes[i // 2])
+            elif isinstance(entity, Relationship):
+                e.append(entity)
             else:
                 e.append(Relationship.cast(nodes[(i - 1) // 2], entity, nodes[(i + 1) // 2]))
         PrimitivePath.__init__(self, *e)
@@ -2124,27 +2128,57 @@ class Relationship(Bindable, PrimitiveRelationship):
             <Relationship type='KNOWS' properties={'since': 1999}>
 
         """
+
+        def get_type(r):
+            if isinstance(r, string):
+                return r
+            elif hasattr(r, "type"):
+                if callable(r.type):
+                    return r.type()
+                else:
+                    return r.type
+            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+                return r[0]
+            else:
+                raise ValueError("Cannot determine relationship type from %r" % r)
+
+        def get_properties(r):
+            if isinstance(r, string):
+                return {}
+            elif hasattr(r, "type") and callable(r.type):
+                return dict(r)
+            elif hasattr(r, "properties"):
+                return r.properties
+            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+                return dict(r[1])
+            else:
+                raise ValueError("Cannot determine properties from %r" % r)
+
         if len(args) == 1 and not kwargs:
             arg = args[0]
             if isinstance(arg, Relationship):
                 return arg
             elif isinstance(arg, tuple):
                 if len(arg) == 3:
-                    return Relationship(*arg)
+                    start_node, t, end_node = arg
+                    properties = get_properties(t)
                 elif len(arg) == 4:
-                    return Relationship(arg[0], arg[1], arg[2], **arg[3])
+                    start_node, t, end_node, properties = arg
+                    properties = dict(get_properties(t), **properties)
                 else:
                     raise TypeError("Cannot cast relationship from {0}".format(arg))
             else:
                 raise TypeError("Cannot cast relationship from {0}".format(arg))
         elif len(args) == 3:
-            return Relationship(*args, **kwargs)
+            start_node, t, end_node = args
+            properties = dict(get_properties(t), **kwargs)
         elif len(args) == 4:
-            props = args[3]
-            props.update(kwargs)
-            return Relationship(*args[0:3], **props)
+            start_node, t, end_node, properties = args
+            properties = dict(get_properties(t), **properties)
+            properties.update(kwargs)
         else:
             raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
+        return Relationship(start_node, get_type(t), end_node, **properties)
 
     @classmethod
     def hydrate(cls, data, inst=None):
@@ -2186,9 +2220,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         for value in nodes:
             if isinstance(value, string):
                 n.append(value)
-            elif isinstance(value, Rel):
-                n.append(value.type)
-            elif isinstance(value, tuple) and len(value) == 2:
+            elif isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], string):
                 t, props = value
                 n.append(t)
                 p.update(props)
@@ -2329,6 +2361,13 @@ class Relationship(Bindable, PrimitiveRelationship):
         :rtype: string
         """
         return "relationship/%s" % self._id
+
+    def type(self):
+        """ The type of this relationship.
+        """
+        if self.bound and self._type is None:
+            self.graph.pull(self)
+        return self._type
 
     def unbind(self):
         """ Detach this relationship and its start and end
