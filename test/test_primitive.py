@@ -457,11 +457,11 @@ class NodeTestCase(TestCase):
         assert set(alice.relationships()) == set()
 
     def test_equality(self):
-        other_node = Node("Person", "Employee", name="Alice", age=33)
+        other_node = alice
         assert alice == other_node
 
     def test_inequality(self):
-        other_node = Node("Person", "Employee", name="Bob", age=44)
+        other_node = Node("Person", "Employee", name="Alice", age=33)
         assert alice != other_node
 
     def test_inequality_with_other_types(self):

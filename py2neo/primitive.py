@@ -320,7 +320,10 @@ class TraversableGraph(Graph):
             yield relationship
 
     def __add__(self, other):
-        assert isinstance(other, TraversableGraph)
+        if other is None:
+            return self
+        if not isinstance(other, TraversableGraph):
+            raise TypeError(other)
         if self.end_node() == other.start_node():
             # Try a direct append
             seq_1 = self._sequence[:-1]
@@ -339,7 +342,7 @@ class TraversableGraph(Graph):
             seq_2 = reversed(list(other.traverse()))
         else:
             raise ValueError("Cannot concatenate traversable objects with no common "
-                             "endpoints")
+                             "endpoints: %r, %r" % (self, other))
         return TraversableGraph(*chain(seq_1, seq_2))
 
     def start_node(self):
@@ -361,6 +364,28 @@ class TraversableGraph(Graph):
         return self._relationship_sequence
 
 
+def traverse(*traversables):
+    if not traversables:
+        return
+    traversable = traversables[0]
+    for entity in traversable.traverse():
+        yield entity
+    end_node = traversable.end_node()
+    for traversable in traversables[1:]:
+        if end_node == traversable.start_node():
+            entities = traversable.traverse()
+            end_node = traversable.end_node()
+        elif end_node == traversable.end_node():
+            entities = reversed(list(traversable.traverse()))
+            end_node = traversable.start_node()
+        else:
+            raise ValueError("Cannot append traversable %r "
+                             "to node %r" % (traversable, end_node))
+        for i, entity in enumerate(entities):
+            if i > 0:
+                yield entity
+
+
 class Entity(PropertyContainer, TraversableGraph):
 
     def __init__(self, *sequence, **properties):
@@ -380,11 +405,7 @@ class Node(Entity):
         return "(%s {...})" % "".join(":" + label for label in self._labels)
 
     def __eq__(self, other):
-        try:
-            return (other.order() == 1 and other.size() == 0 and
-                    self.labels() == other.labels() and dict(self) == dict(other))
-        except AttributeError:
-            return False
+        return self is other
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -500,12 +521,8 @@ class Relationship(Entity):
 
 class Path(TraversableGraph):
 
-    def __new__(cls, head, *tail):
-        path = TraversableGraph(*head.traverse())
-        for item in tail:
-            path += item
-        path.__class__ = cls
-        return path
+    def __init__(self, head, *tail):
+        TraversableGraph.__init__(self, *traverse(head, *tail))
 
     def __repr__(self):
         return "<Path length=%r>" % self.length()
