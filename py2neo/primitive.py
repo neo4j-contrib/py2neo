@@ -23,7 +23,7 @@ from .compat import integer, string, unicode, ustr
 
 
 __all__ = ["Graph", "TraversableGraph", "Node", "Relationship", "Path",
-           "Record", "RecordList"]
+           "Record", "RecordList", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -322,28 +322,7 @@ class TraversableGraph(Graph):
     def __add__(self, other):
         if other is None:
             return self
-        if not isinstance(other, TraversableGraph):
-            raise TypeError(other)
-        if self.end_node() == other.start_node():
-            # Try a direct append
-            seq_1 = self._sequence[:-1]
-            seq_2 = other.traverse()
-        elif other.length() <= 1 and self.end_node() == other.end_node():
-            # Try reversing other
-            seq_1 = self._sequence[:-1]
-            seq_2 = reversed(list(other.traverse()))
-        elif self.length() <= 1 and self.start_node() == other.start_node():
-            # Try reversing self
-            seq_1 = reversed(self._sequence[1:])
-            seq_2 = other.traverse()
-        elif self.length() <= 1 and other.length() <= 1 and self.start_node() == other.end_node():
-            # Try reversing both
-            seq_1 = reversed(self._sequence[1:])
-            seq_2 = reversed(list(other.traverse()))
-        else:
-            raise ValueError("Cannot concatenate traversable objects with no common "
-                             "endpoints: %r, %r" % (self, other))
-        return TraversableGraph(*chain(seq_1, seq_2))
+        return TraversableGraph(*traverse(self, other))
 
     def start_node(self):
         return self._node_sequence[0]
@@ -368,19 +347,26 @@ def traverse(*traversables):
     if not traversables:
         return
     traversable = traversables[0]
-    for entity in traversable.traverse():
+    try:
+        entities = traversable.traverse()
+    except AttributeError:
+        raise TypeError("Object %r is not traversable" % traversable)
+    for entity in entities:
         yield entity
     end_node = traversable.end_node()
     for traversable in traversables[1:]:
-        if end_node == traversable.start_node():
-            entities = traversable.traverse()
-            end_node = traversable.end_node()
-        elif end_node == traversable.end_node():
-            entities = reversed(list(traversable.traverse()))
-            end_node = traversable.start_node()
-        else:
-            raise ValueError("Cannot append traversable %r "
-                             "to node %r" % (traversable, end_node))
+        try:
+            if end_node == traversable.start_node():
+                entities = traversable.traverse()
+                end_node = traversable.end_node()
+            elif end_node == traversable.end_node():
+                entities = reversed(list(traversable.traverse()))
+                end_node = traversable.start_node()
+            else:
+                raise ValueError("Cannot append traversable %r "
+                                 "to node %r" % (traversable, end_node))
+        except AttributeError:
+            raise TypeError("Object %r is not traversable" % traversable)
         for i, entity in enumerate(entities):
             if i > 0:
                 yield entity

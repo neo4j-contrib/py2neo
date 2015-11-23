@@ -21,7 +21,7 @@
 from unittest import TestCase
 
 from py2neo.primitive import PropertySet, PropertyContainer, TraversableGraph, \
-    Graph, Node, Relationship, Path, Record, RecordList
+    Graph, Node, Relationship, Path, Record, RecordList, traverse
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -69,6 +69,10 @@ class PropertyCoercionTestCase(TestCase):
             assert True
         else:
             assert False
+
+    def test_float(self):
+        props = PropertySet({"value": 3.141})
+        assert props == {"value": 3.141}
 
     def test_byte_strings_are_supported(self):
         props = PropertySet({"value": b"hello, world"})
@@ -556,6 +560,10 @@ class RelationshipTestCase(TestCase):
         assert set(dave_works_for_dave.nodes()) == {dave}
         assert set(dave_works_for_dave.relationships()) == {dave_works_for_dave}
 
+    def test_construction_from_no_arguments(self):
+        with self.assertRaises(TypeError):
+            _ = Relationship()
+
     def test_construction_from_one_argument(self):
         rel = Relationship(alice)
         assert repr(rel)
@@ -732,6 +740,41 @@ class PathTestCase(TestCase):
         assert list(path.traverse()) == sequence
 
 
+class TraversalTestCase(TestCase):
+
+    def test_can_traverse_nothing(self):
+        result = list(traverse())
+        assert result == []
+
+    def test_can_traverse_node(self):
+        result = list(traverse(alice))
+        assert result == [alice]
+
+    def test_can_traverse_node_twice(self):
+        result = list(traverse(alice, alice))
+        assert result == [alice]
+
+    def test_can_traverse_node_and_relationship(self):
+        result = list(traverse(alice, alice_knows_bob))
+        assert result == [alice, alice_knows_bob, bob]
+
+    def test_can_traverse_node_relationship_and_node(self):
+        result = list(traverse(alice, alice_knows_bob, bob))
+        assert result == [alice, alice_knows_bob, bob]
+
+    def test_can_traverse_node_relationship_and_node_in_reverse(self):
+        result = list(traverse(bob, alice_knows_bob, alice))
+        assert result == [bob, alice_knows_bob, alice]
+
+    def test_cannot_traverse_non_traversable_as_first_argument(self):
+        with self.assertRaises(TypeError):
+            list(traverse(object()))
+
+    def test_cannot_traverse_non_traversable_as_second_argument(self):
+        with self.assertRaises(TypeError):
+            list(traverse(alice, object()))
+
+
 class ConcatenationTestCase(TestCase):
     # TODO: concatenations with items in reverse
 
@@ -758,22 +801,12 @@ class ConcatenationTestCase(TestCase):
         assert result == TraversableGraph(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_relationship_and_node(self):
-        bob_knows_alice = Relationship(bob, "KNOWS", alice)
-        result = bob_knows_alice + bob
-        assert result == TraversableGraph(alice, bob_knows_alice, bob)
-
-    def test_can_concatenate_reversed_relationship_and_node(self):
         result = alice_knows_bob + bob
         assert result == TraversableGraph(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_relationship_and_relationship(self):
         result = alice_knows_bob + carol_dislikes_bob
         assert result == TraversableGraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
-
-    def test_can_concatenate_reversed_relationship_and_reversed_relationship(self):
-        bob_knows_alice = Relationship(bob, "KNOWS", alice)
-        result = bob_knows_alice + carol_dislikes_bob
-        assert result == TraversableGraph(alice, bob_knows_alice, bob, carol_dislikes_bob, carol)
 
     def test_can_concatenate_relationship_and_path(self):
         result = alice_knows_bob + TraversableGraph(bob, carol_dislikes_bob, carol)
@@ -792,12 +825,12 @@ class ConcatenationTestCase(TestCase):
         assert result == TraversableGraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_cannot_concatenate_different_endpoints(self):
-        try:
-            result = alice + bob
-        except ValueError:
-            assert True
-        else:
-            assert False
+        with self.assertRaises(ValueError):
+            _ = alice + bob
+
+    def test_can_concatenate_node_and_none(self):
+        result = alice + None
+        assert result is alice
 
 
 class UnionTestCase(TestCase):
