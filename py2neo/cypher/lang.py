@@ -22,7 +22,7 @@ from io import StringIO
 import json
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, Rel, Rev, Path, Relationship, NodePointer
+from py2neo.core import Node, Path, Relationship, NodePointer
 from py2neo.lang import Writer
 from py2neo.util import is_collection
 
@@ -73,10 +73,8 @@ class CypherWriter(Writer):
             self.write_node(obj)
         elif isinstance(obj, NodePointer):
             self.write_node_pointer(obj)
-        elif isinstance(obj, Rel):
-            self.write_rel(obj)
         elif isinstance(obj, Relationship):
-            self.write_relationship(obj)
+            self.write_full_relationship(obj)
         elif isinstance(obj, Path):
             self.write_path(obj)
         elif isinstance(obj, CypherParameter):
@@ -135,7 +133,7 @@ class CypherWriter(Writer):
         """
         self.file.write("{")
         link = ""
-        for key, value in sorted(mapping.items()):
+        for key, value in sorted(dict(mapping).items()):
             self.file.write(link)
             self.write_identifier(key)
             self.file.write(self.key_value_separator)
@@ -150,13 +148,13 @@ class CypherWriter(Writer):
         if name:
             self.write_identifier(name)
         if node is not None:
-            for label in sorted(node.labels):
+            for label in sorted(node.labels()):
                 self.write_label(label)
             if properties is None:
-                if node.properties:
-                    if name or node.labels:
+                if node:
+                    if name or node.labels():
                         self.file.write(" ")
-                    self.write_map(node.properties)
+                    self.write_map(dict(node))
             else:
                 self.file.write(" ")
                 self.write(properties)
@@ -169,35 +167,29 @@ class CypherWriter(Writer):
         self.file.write(ustr(node_pointer.address))
         self.file.write(")")
 
-    def write_rel(self, rel, name=None, properties=None):
+    def write_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (excluding nodes).
         """
-        if isinstance(rel, Rev):
-            self.file.write("<-[")
-        else:
-            self.file.write("-[")
+        self.file.write("-[")
         if name:
             self.write_identifier(name)
         self.file.write(":")
-        self.write_identifier(rel.type)
+        self.write_identifier(relationship.type())
         if properties is None:
-            if rel.properties:
+            if relationship:
                 self.file.write(" ")
-                self.write_map(rel.properties)
+                self.write_map(relationship)
         else:
             self.file.write(" ")
             self.write(properties)
-        if isinstance(rel, Rev):
-            self.file.write("]-")
-        else:
-            self.file.write("]->")
+        self.file.write("]->")
 
-    def write_relationship(self, relationship, name=None, properties=None):
+    def write_full_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (including nodes).
         """
-        self.write(relationship.start_node)
-        self.write_rel(relationship.rel, name, properties)
-        self.write(relationship.end_node)
+        self.write(relationship.start_node())
+        self.write_relationship(relationship, name, properties)
+        self.write(relationship.end_node())
 
     def write_parameter(self, parameter):
         """ Write a parameter key in curly brackets.
@@ -209,11 +201,26 @@ class CypherWriter(Writer):
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
         """
-        nodes = path.nodes
-        self.write_node(nodes[0])
-        for i, rel in enumerate(path.rels):
-            self.write_rel(rel)
-            self.write_node(nodes[i + 1])
+        nodes = path.nodes()
+        for i, relationship in enumerate(path.relationships()):
+            node = nodes[i]
+            self.write_node(node)
+            forward = relationship.start_node() == node
+            properties = dict(relationship)
+            if forward:
+                self.file.write("-[")
+            else:
+                self.file.write("<-[")
+            self.file.write(":")
+            self.write_identifier(relationship.type())
+            if properties:
+                self.file.write(" ")
+                self.write_map(properties)
+            if forward:
+                self.file.write("]->")
+            else:
+                self.file.write("]-")
+        self.write_node(nodes[-1])
 
 
 def cypher_escape(identifier):

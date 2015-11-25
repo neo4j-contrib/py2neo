@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Relationship, ServiceRoot, BindError, Graph
 from test.util import Py2neoTestCase
-from test.compat import assert_repr
 
 
 class PathTestCase(Py2neoTestCase):
@@ -27,84 +26,84 @@ class PathTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         path = Path(alice, "KNOWS", bob)
-        assert path.order == 2
-        assert path.size == 1
+        assert path.order() == 2
+        assert path.size() == 1
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
+        nodes = path.nodes()
         assert len(path) == 1
-        assert path.nodes[0]["name"] == "Alice"
-        assert path.rels[0].type == "KNOWS"
-        assert path.nodes[-1]["name"] == "Bob"
+        assert nodes[0]["name"] == "Alice"
+        assert path[0].type() == "KNOWS"
+        assert nodes[-1]["name"] == "Bob"
         path = Path(path, "KNOWS", {"name": "Carol"})
+        nodes = path.nodes()
         assert len(path) == 2
-        assert path.nodes[0]["name"] == "Alice"
-        assert path.relationships[0].type == "KNOWS"
-        assert path.nodes[1]["name"] == "Bob"
+        assert nodes[0]["name"] == "Alice"
+        assert path[0].type() == "KNOWS"
+        assert nodes[1]["name"] == "Bob"
         path = Path({"name": "Zach"}, "KNOWS", path)
+        nodes = path.nodes()
         assert len(path) == 3
-        assert path.nodes[0]["name"] == "Zach"
-        assert path.relationships[0].type == "KNOWS"
-        assert path.nodes[1]["name"] == "Alice"
-        assert path.relationships[1].type == "KNOWS"
-        assert path.nodes[2]["name"] == "Bob"
+        assert nodes[0]["name"] == "Zach"
+        assert path[0].type() == "KNOWS"
+        assert nodes[1]["name"] == "Alice"
+        assert path[1].type() == "KNOWS"
+        assert nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
-        path = Path({"name": "Alice"},
-            "KNOWS", {"name": "Bob"},
-            "KNOWS", {"name": "Carol"},
-            "KNOWS", {"name": "Dave"},
-            "KNOWS", {"name": "Eve"},
-            "KNOWS", {"name": "Frank"},
-        )
+        a = Node(name="Alice")
+        b = Node(name="Bob")
+        c = Node(name="Carol")
+        d = Node(name="Dave")
+        e = Node(name="Eve")
+        f = Node(name="Frank")
+        path = Path(a, "KNOWS", b, "KNOWS", c, "KNOWS", d, "KNOWS", e, "KNOWS", f)
         assert len(path) == 5
-        assert path[0] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        assert path[1] == Path({"name": "Bob"}, "KNOWS", {"name": "Carol"})
-        assert path[2] == Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
-        assert path[-1] == Path({"name": "Eve"}, "KNOWS", {"name": "Frank"})
-        assert path[0:2] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"})
-        assert path[3:5] == Path({"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
-        assert path[:] == Path({"name": "Alice"}, "KNOWS", {"name": "Bob"}, "KNOWS", {"name": "Carol"}, "KNOWS", {"name": "Dave"}, "KNOWS", {"name": "Eve"}, "KNOWS", {"name": "Frank"})
+        assert path[0] == Relationship(a, "KNOWS", b)
+        assert path[1] == Relationship(b, "KNOWS", c)
+        assert path[2] == Relationship(c, "KNOWS", d)
+        assert path[-1] == Relationship(e, "KNOWS", f)
+        assert path[0:2] == Path(a, "KNOWS", b, "KNOWS", c)
+        assert path[3:5] == Path(d, "KNOWS", e, "KNOWS", f)
+        assert path[:] == Path(a, "KNOWS", b, "KNOWS", c, "KNOWS", d, "KNOWS", e, "KNOWS", f)
 
     def test_can_iterate_path(self):
-        path = Path({"name": "Alice"},
-            "KNOWS", {"name": "Bob"},
-            "KNOWS", {"name": "Carol"},
-            "KNOWS", {"name": "Dave"},
-            "KNOWS", {"name": "Eve"},
-            "KNOWS", {"name": "Frank"},
-        )
-        assert list(iter(path)) == [
-            Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
-            Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
-            Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
-            Path({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'}),
-            Path({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}),
+        a = Node(name="Alice")
+        b = Node(name="Bob")
+        c = Node(name="Carol")
+        d = Node(name="Dave")
+        e = Node(name="Eve")
+        f = Node(name="Frank")
+        path = Path(a, "KNOWS", b, "KNOWS", c, "KNOWS", d, "KNOWS", e, "KNOWS", f)
+        assert list(path) == [
+            Relationship(a, 'KNOWS', b),
+            Relationship(b, 'KNOWS', c),
+            Relationship(c, 'KNOWS', d),
+            Relationship(d, 'KNOWS', e),
+            Relationship(e, 'KNOWS', f),
         ]
         assert list(enumerate(path)) == [
-            (0, Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'})),
-            (1, Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'})),
-            (2, Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'})),
-            (3, Path({'name': 'Dave'}, 'KNOWS', {'name': 'Eve'})),
-            (4, Path({'name': 'Eve'}, 'KNOWS', {'name': 'Frank'}))
+            (0, Relationship(a, 'KNOWS', b)),
+            (1, Relationship(b, 'KNOWS', c)),
+            (2, Relationship(c, 'KNOWS', d)),
+            (3, Relationship(d, 'KNOWS', e)),
+            (4, Relationship(e, 'KNOWS', f))
         ]
 
     def test_can_join_paths(self):
-        path1 = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        path2 = Path({"name": "Carol"}, "KNOWS", {"name": "Dave"})
+        a = Node(name="Alice")
+        b = Node(name="Bob")
+        c = Node(name="Carol")
+        d = Node(name="Dave")
+        path1 = Path(a, "KNOWS", b)
+        path2 = Path(c, "KNOWS", d)
         path = Path(path1, "KNOWS", path2)
-        assert list(iter(path)) == [
-            Path({'name': 'Alice'}, 'KNOWS', {'name': 'Bob'}),
-            Path({'name': 'Bob'}, 'KNOWS', {'name': 'Carol'}),
-            Path({'name': 'Carol'}, 'KNOWS', {'name': 'Dave'}),
+        assert list(path) == [
+            Relationship(a, 'KNOWS', b),
+            Relationship(b, 'KNOWS', c),
+            Relationship(c, 'KNOWS', d),
         ]
-
-    def test_path_hashes(self):
-        p1 = Path(Node("Person", name="Alice"), Rel("KNOWS", since=1999), Node("Person", name="Bob"))
-        p2 = Path(Node("Person", name="Alice"), Rel("KNOWS", since=1999), Node("Person", name="Bob"))
-        assert hash(p1) == hash(p2)
-        self.graph.create(p1)
-        assert hash(p1) != hash(p2)
 
     def test_path_repr(self):
         alice = Node("Person", name="Alice")
@@ -112,10 +111,7 @@ class PathTestCase(Py2neoTestCase):
         path = Path(alice, "KNOWS", bob)
         assert repr(path) == "<Path order=2 size=1>"
         self.graph.create(path)
-        assert_repr(path, "<Path graph='http://localhost:7474/db/data/' "
-                          "start='%s' end='%s' order=2 size=1>" % (alice.ref, bob.ref),
-                          "<Path graph=u'http://localhost:7474/db/data/' "
-                          "start=u'%s' end=u'%s' order=2 size=1>" % (alice.ref, bob.ref))
+        assert repr(path).startswith("<Path")
 
     def test_path_str(self):
         alice = Node("Person", name="Alice")
@@ -131,9 +127,9 @@ class PathTestCase(Py2neoTestCase):
             dehydrated["directions"] = ["->"]
         hydrated = Path.hydrate(dehydrated)
         assert isinstance(hydrated, Path)
-        assert hydrated.order == 2
-        assert hydrated.size == 1
-        assert hydrated.relationships[0].type == "KNOWS"
+        assert hydrated.order() == 2
+        assert hydrated.size() == 1
+        assert hydrated[0].type() == "KNOWS"
         
     def test_can_hydrate_path_into_existing_instance(self):
         alice = Node("Person", name="Alice", age=33)
@@ -154,86 +150,18 @@ class PathTestCase(Py2neoTestCase):
             pass
         hydrated = self.graph.hydrate(dehydrated)
         assert isinstance(hydrated, Path)
-        assert hydrated.order == 3
-        assert hydrated.size == 2
-        assert hydrated.relationships[0].type == "LIKES"
-        assert hydrated.relationships[1].type == "DISLIKES"
-        
-    def test_can_append_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_1.append(path_2)
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_prepend_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_2.prepend(path_1)
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_join_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = path_1 + path_2
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-        
-    def test_can_add_node_to_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = path_1 + bob
-        assert path_2 == Path(alice, "KNOWS", bob)
-
-    def test_can_reverse_join_compatible_paths(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = bob + "KNOWS" + carol
-        path_3 = list(path_1) + path_2
-        assert path_3 == Path(alice, "KNOWS", bob, "KNOWS", carol)
-
-    def test_can_radd_node_to_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        path_1 = alice + "KNOWS" + bob
-        path_2 = path_1.__radd__(alice)
-        assert path_2 == Path(alice, "KNOWS", bob)
-
-    def test_cannot_join_incompatible_paths(self):
-        path_1 = Node(name="Alice") + "KNOWS" + Node(name="Bob")
-        path_2 = Node(name="Carol") + "KNOWS" + Node(name="Dave")
-        try:
-            _ = path_1 + path_2
-        except JoinError:
-            assert True
-        else:
-            assert False
-
-    def test_cannot_build_path_with_two_consecutive_rels(self):
-        try:
-            _ = Path(Node(name="Alice"), Rel("KNOWS"), Rel("KNOWS"), Node(name="Bob"))
-        except JoinError:
-            assert True
-        else:
-            assert False
+        assert hydrated.order() == 3
+        assert hydrated.size() == 2
+        assert hydrated[0].type() == "LIKES"
+        assert hydrated[1].type() == "DISLIKES"
 
     def test_path_equality(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
-        path_2 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path_1 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        path_2 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         assert path_1 == path_2
 
     def test_path_inequality(self):
@@ -241,8 +169,8 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
-        path_2 = Path(alice, "KNOWS", carol, Rev("KNOWS"), dave)
+        path_1 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        path_2 = Path(alice, "KNOWS", carol, Relationship(dave, "KNOWS", carol), dave)
         assert path_1 != path_2
         assert path_1 != ""
 
@@ -251,7 +179,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         assert path.__bool__()
         assert path.__nonzero__()
         assert path[0] == Relationship(alice, "LOVES", bob)
@@ -259,7 +187,7 @@ class PathTestCase(Py2neoTestCase):
         assert path[2] == Relationship(carol, "KNOWS", dave)
         assert path[-1] == Relationship(carol, "KNOWS", dave)
         assert path[0:1] == Path(alice, "LOVES", bob)
-        assert path[0:2] == Path(alice, "LOVES", bob, Rev("HATES"), carol)
+        assert path[0:2] == Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol)
         try:
             _ = path[7]
         except IndexError:
@@ -272,7 +200,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         assert path.service_root == ServiceRoot("http://localhost:7474/")
         path[0].unbind()
@@ -283,7 +211,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         try:
             assert path.service_root == ServiceRoot("http://localhost:7474/")
         except BindError:
@@ -296,7 +224,8 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path, = self.graph.create(Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave))
+        path, = self.graph.create(Path(alice, "LOVES", bob,
+                                       Relationship(carol, "HATES", bob), carol, "KNOWS", dave))
         assert path.graph == Graph("http://localhost:7474/db/data/")
 
     def test_path_direction(self):
@@ -306,12 +235,12 @@ class PathTestCase(Py2neoTestCase):
         RETURN p
         """
         path = self.cypher.evaluate(cypher)
-        assert path[0].start_node["name"] == "Alice"
-        assert path[0].end_node["name"] == "Bob"
-        assert path[1].start_node["name"] == "Carol"
-        assert path[1].end_node["name"] == "Bob"
-        assert path[2].start_node["name"] == "Carol"
-        assert path[2].end_node["name"] == "Dave"
+        assert path[0].start_node()["name"] == "Alice"
+        assert path[0].end_node()["name"] == "Bob"
+        assert path[1].start_node()["name"] == "Carol"
+        assert path[1].end_node()["name"] == "Bob"
+        assert path[2].start_node()["name"] == "Carol"
+        assert path[2].end_node()["name"] == "Dave"
 
 
 class CreatePathTestCase(Py2neoTestCase):
@@ -321,31 +250,33 @@ class CreatePathTestCase(Py2neoTestCase):
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        assert path.nodes[0] == {"name": "Alice"}
-        assert path.rels[0].type == "KNOWS"
-        assert path.nodes[1] == {"name": "Bob"}
+        nodes = path.nodes()
+        assert dict(nodes[0]) == {"name": "Alice"}
+        assert path[0].type() == "KNOWS"
+        assert dict(nodes[1]) == {"name": "Bob"}
         path, = self.graph.create(path)
-        assert isinstance(path.nodes[0], Node)
-        assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], Relationship)
-        assert path.relationships[0].type == "KNOWS"
-        assert isinstance(path.nodes[1], Node)
-        assert path.nodes[1]["name"] == "Bob"
+        assert isinstance(nodes[0], Node)
+        assert nodes[0]["name"] == "Alice"
+        assert isinstance(path[0], Relationship)
+        assert path[0].type() == "KNOWS"
+        assert isinstance(nodes[1], Node)
+        assert nodes[1]["name"] == "Bob"
 
     def test_can_create_path_with_rel_properties(self):
         path = Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
-        assert path.nodes[0] == {"name": "Alice"}
-        assert path.rels[0].type == "KNOWS"
-        assert path.rels[0].properties == {"since": 1999}
-        assert path.nodes[1] == {"name": "Bob"}
+        nodes = path.nodes()
+        assert dict(nodes[0]) == {"name": "Alice"}
+        assert path[0].type() == "KNOWS"
+        assert dict(path[0]) == {"since": 1999}
+        assert dict(nodes[1]) == {"name": "Bob"}
         path, = self.graph.create(path)
-        assert isinstance(path.nodes[0], Node)
-        assert path.nodes[0]["name"] == "Alice"
-        assert isinstance(path.relationships[0], Relationship)
-        assert path.relationships[0].type == "KNOWS"
-        assert path.relationships[0].properties == {"since": 1999}
-        assert isinstance(path.nodes[1], Node)
-        assert path.nodes[1]["name"] == "Bob"
+        assert isinstance(nodes[0], Node)
+        assert nodes[0]["name"] == "Alice"
+        assert isinstance(path[0], Relationship)
+        assert path[0].type() == "KNOWS"
+        assert dict(path[0]) == {"since": 1999}
+        assert isinstance(nodes[1], Node)
+        assert nodes[1]["name"] == "Bob"
 
 
 class CreateUniquePathTestCase(Py2neoTestCase):
@@ -358,9 +289,10 @@ class CreateUniquePathTestCase(Py2neoTestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
         ))
+        n1 = p1.nodes()
         assert isinstance(p1, Path)
         assert len(p1) == 3
-        assert p1.nodes[0] == start_node
+        assert n1[0] == start_node
 
     def test_can_create_overlapping_paths(self):
         start_node, = self.graph.create({})
@@ -370,39 +302,42 @@ class CreateUniquePathTestCase(Py2neoTestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
         ))
+        n1 = p1.nodes()
         assert isinstance(p1, Path)
         assert len(p1) == 3
-        assert p1.nodes[0] == start_node
+        assert n1[0] == start_node
         p2, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
         ))
+        n2 = p2.nodes()
         assert isinstance(p2, Path)
         assert len(p2) == 3
-        assert p1.nodes[0] == p2.nodes[0]
-        assert p1.nodes[1] == p2.nodes[1]
-        assert p1.nodes[2] == p2.nodes[2]
-        assert p1.nodes[3] != p2.nodes[3]
-        assert p1.relationships[0] == p2.relationships[0]
-        assert p1.relationships[1] == p2.relationships[1]
-        assert p1.relationships[2] != p2.relationships[2]
+        assert n1[0] == n2[0]
+        assert n1[1] == n2[1]
+        assert n1[2] == n2[2]
+        assert n1[3] != n2[3]
+        assert p1[0] == p2[0]
+        assert p1[1] == p2[1]
+        assert p1[2] != p2[2]
         p3, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
         ))
+        n3 = p3.nodes()
         assert isinstance(p3, Path)
         assert len(p3) == 3
-        assert p2.nodes[0] == p3.nodes[0]
-        assert p2.nodes[1] == p3.nodes[1]
-        assert p2.nodes[2] != p3.nodes[2]
-        assert p2.nodes[3] != p3.nodes[3]
-        assert p2.relationships[0] == p3.relationships[0]
-        assert p2.relationships[1] != p3.relationships[1]
-        assert p2.relationships[2] != p3.relationships[2]
+        assert n2[0] == n3[0]
+        assert n2[1] == n3[1]
+        assert n2[2] != n3[2]
+        assert n2[3] != n3[3]
+        assert p2[0] == p3[0]
+        assert p2[1] != p3[1]
+        assert p2[2] != p3[2]
 
     def test_can_use_node_for_nodes(self):
         start_node, = self.graph.create({})
@@ -412,21 +347,23 @@ class CreateUniquePathTestCase(Py2neoTestCase):
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
         ))
+        n1 = p1.nodes()
         p2, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},
-            "MONTH", p1.nodes[2],
+            "MONTH", n1[2],
             "DAY",   {"number": 25},
         ))
+        n2 = p2.nodes()
         assert isinstance(p2, Path)
         assert len(p2) == 3
-        assert p1.nodes[0] == p2.nodes[0]
-        assert p1.nodes[1] == p2.nodes[1]
-        assert p1.nodes[2] == p2.nodes[2]
-        assert p1.nodes[3] == p2.nodes[3]
-        assert p1.relationships[0] == p2.relationships[0]
-        assert p1.relationships[1] == p2.relationships[1]
-        assert p1.relationships[2] == p2.relationships[2]
+        assert n1[0] == n2[0]
+        assert n1[1] == n2[1]
+        assert n1[2] == n2[2]
+        assert n1[3] == n2[3]
+        assert p1[0] == p2[0]
+        assert p1[1] == p2[1]
+        assert p1[2] == p2[2]
 
 
 class PathIterationAndReversalTestCase(Py2neoTestCase):
@@ -439,7 +376,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_iterate_path_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         rels = list(path)
         # then
@@ -451,7 +389,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_make_new_path_from_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         rels = list(path)
         # when
         new_path = Path(*rels)
@@ -465,7 +404,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_make_new_path_from_path(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         new_path = Path(path)
         # then
@@ -478,7 +418,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_reverse_iterate_path_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         rels = list(reversed(path))
         # then

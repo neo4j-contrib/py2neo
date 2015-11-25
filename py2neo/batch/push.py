@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import LabelSet, Node, Relationship, Path, PropertySet, Rel
+from py2neo.core import Node, Relationship, Path
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -32,13 +32,13 @@ class PushPropertyJob(Job):
 class PushPropertiesJob(Job):
 
     def __init__(self, entity, properties):
-        Job.__init__(self, "PUT", Target(entity, "properties"), PropertySet(properties))
+        Job.__init__(self, "PUT", Target(entity, "properties"), dict(properties))
 
 
 class PushNodeLabelsJob(Job):
 
     def __init__(self, node, labels):
-        Job.__init__(self, "PUT", Target(node, "labels"), list(LabelSet(labels)))
+        Job.__init__(self, "PUT", Target(node, "labels"), set(labels))
 
 
 class PushBatch(Batch):
@@ -55,15 +55,13 @@ class PushBatch(Batch):
 
         """
         if isinstance(entity, Node):
-            self.jobs.append(PushPropertiesJob(entity, entity.properties))
-            self.jobs.append(PushNodeLabelsJob(entity, entity.labels))
-        elif isinstance(entity, Rel):
-            self.jobs.append(PushPropertiesJob(entity, entity.properties))
+            self.jobs.append(PushPropertiesJob(entity, dict(entity)))
+            self.jobs.append(PushNodeLabelsJob(entity, entity.labels()))
         elif isinstance(entity, Relationship):
-            self.jobs.append(PushPropertiesJob(entity, entity.properties))
+            self.jobs.append(PushPropertiesJob(entity, dict(entity)))
         elif isinstance(entity, Path):
-            for relationship in entity.relationships:
-                self.jobs.append(PushPropertiesJob(relationship, relationship.properties))
+            for relationship in entity.relationships():
+                self.jobs.append(PushPropertiesJob(relationship, dict(relationship)))
         else:
             raise TypeError("Cannot push object of type %s" % entity.__class__.__name__)
 

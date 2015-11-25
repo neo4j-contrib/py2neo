@@ -19,7 +19,7 @@
 import json
 
 from py2neo.compat import ustr
-from py2neo.core import Node, Rel, Rev, Path
+from py2neo.core import Node, Path
 from py2neo.lang import Writer
 from py2neo.util import is_collection
 
@@ -59,11 +59,7 @@ class GeoffWriter(Writer):
         if obj is None:
             pass
         elif isinstance(obj, Node):
-            self.write_node(id(obj), obj.labels, obj.properties)
-        elif isinstance(obj, Rev):
-            self.write_rev(obj.type, obj.properties)
-        elif isinstance(obj, Rel):
-            self.write_rel(obj.type, obj.properties)
+            self.write_node(id(obj), obj.labels(), dict(obj))
         elif isinstance(obj, Path):
             self.write_path(obj)
         elif isinstance(obj, dict):
@@ -162,7 +158,7 @@ class GeoffWriter(Writer):
         """
         nodes = path.nodes
         self.write_node(id(nodes[0]))
-        for i, rel in enumerate(path.rels):
+        for i, rel in enumerate(path.relationships()):
             if isinstance(rel, Rev):
                 self.write_rev(rel.type, rel.properties)
             else:
@@ -176,7 +172,7 @@ class GeoffWriter(Writer):
         link = ""
         for node in subgraph.nodes:
             self.file.write(link)
-            self.write_node(id(node), node.labels, node.properties)
+            self.write_node(id(node), node.labels(), dict(node))
             link = self.element_separator
         for relationship in subgraph.relationships:
             self.file.write(link)

@@ -258,8 +258,8 @@ class EfficiencyTestCase(Py2neoTestCase):
         with HTTPCounter() as counter:
             count = 0
             for node in self.graph.merge("Person", "name", "Alice"):
-                assert "Person" in node.labels
-                assert node.properties["name"] == "Alice"
+                assert "Person" in node.labels()
+                assert node["name"] == "Alice"
                 count += 1
             assert counter.response_count == 1
 
@@ -269,8 +269,8 @@ class EfficiencyTestCase(Py2neoTestCase):
         with HTTPCounter() as counter:
             count = 0
             for node in self.graph.find("Person", "name", "Alice"):
-                assert "Person" in node.labels
-                assert node.properties["name"] == "Alice"
+                assert "Person" in node.labels()
+                assert node["name"] == "Alice"
                 count += 1
             assert counter.response_count == 1
 
@@ -283,9 +283,9 @@ class EfficiencyTestCase(Py2neoTestCase):
             parameters = {"A": alice, "B": bob}
             friendship = self.cypher.evaluate(statement, parameters)
             assert counter.response_count == 1
-            assert alice.labels == {"Person"}
-            assert alice.properties == {"name": "Alice"}
-            assert bob.labels == {"Person"}
-            assert bob.properties == {"name": "Bob"}
-            assert friendship.type == "KNOWS"
+            assert alice.labels() == {"Person"}
+            assert dict(alice) == {"name": "Alice"}
+            assert bob.labels() == {"Person"}
+            assert dict(bob) == {"name": "Bob"}
+            assert friendship.type() == "KNOWS"
             assert counter.response_count == 1

@@ -106,7 +106,7 @@ class DeleteStatement(object):
             self.parameters[name] = relationship._id
 
     def _delete_path(self, path, name):
-        for i, rel in enumerate(path.relationships):
+        for i, rel in enumerate(path.relationships()):
             self._delete_relationship(rel, name + "r" + ustr(i))
-        for i, node in enumerate(path.nodes):
+        for i, node in enumerate(path.nodes()):
             self._delete_node(node, name + "n" + ustr(i))

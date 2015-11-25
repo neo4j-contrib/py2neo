@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, LabelSet, PropertySet, Relationship
+from py2neo.core import Node, Relationship
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 
 
@@ -74,7 +74,7 @@ class CreateNode(CypherTask):
 
         :rtype: :class:`py2neo.LabelSet`
         """
-        return self.__node.labels
+        return self.__node.labels()
 
     @property
     def properties(self):
@@ -82,13 +82,13 @@ class CreateNode(CypherTask):
 
         :rtype: :class:`py2neo.PropertySet`
         """
-        return self.__node.properties
+        return dict(self.__node)
 
     def set(self, *labels, **properties):
         """ Extra labels and properties to apply to the node.
         """
-        self.__node.labels.update(labels)
-        self.__node.properties.update(properties)
+        self.__node.update_labels(labels)
+        self.__node.update(properties)
         return self
 
     def with_return(self):
@@ -106,7 +106,7 @@ class CreateNode(CypherTask):
         writer.write_literal("CREATE ")
         writer.write_node(self.__node, self.cypher_name,
                           CypherParameter(self.cypher_parameter)
-                          if self.__node.properties else None)
+                          if self.__node else None)
         if self.__return:
             writer.write_literal(" RETURN ")
             writer.write_literal(self.cypher_name)
@@ -116,7 +116,7 @@ class CreateNode(CypherTask):
     def parameters(self):
         """ Dictionary of parameters.
         """
-        if self.__node.properties:
+        if self.__node:
             return {self.cypher_parameter: self.properties}
         else:
             return {}
@@ -137,7 +137,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.Node`
         """
-        return self.__relationship.start_node
+        return self.__relationship.start_node()
 
     @property
     def end_node(self):
@@ -145,7 +145,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.Node`
         """
-        return self.__relationship.end_node
+        return self.__relationship.end_node()
 
     @property
     def type(self):
@@ -153,7 +153,7 @@ class CreateRelationship(CypherTask):
 
         :rtype: str
         """
-        return self.__relationship.type
+        return self.__relationship.type()
 
     @property
     def properties(self):
@@ -161,12 +161,12 @@ class CreateRelationship(CypherTask):
 
         :rtype: :class:`py2neo.PropertySet`
         """
-        return self.__relationship.properties
+        return dict(self.__relationship)
 
     def set(self, **properties):
         """ Extra properties to apply to the node.
         """
-        self.__relationship.properties.update(properties)
+        self.__relationship.update(properties)
         return self
 
     def with_return(self):
@@ -184,7 +184,7 @@ class CreateRelationship(CypherTask):
         if self.start_node.bound:
             writer.write_literal("MATCH (a) WHERE id(a)={A} ")
         else:
-            creator = CreateNode(*self.start_node.labels, **self.start_node.properties)
+            creator = CreateNode(*self.start_node.labels(), **self.start_node)
             creator.cypher_name = "a"
             creator.cypher_parameter = "A"
             writer.write_literal(creator.statement)
@@ -192,15 +192,15 @@ class CreateRelationship(CypherTask):
         if self.end_node.bound:
             writer.write_literal("MATCH (b) WHERE id(b)={B} ")
         else:
-            creator = CreateNode(*self.start_node.labels, **self.start_node.properties)
+            creator = CreateNode(*self.start_node.labels(), **self.start_node)
             creator.cypher_name = "b"
             creator.cypher_parameter = "B"
             writer.write_literal(creator.statement)
             writer.write_literal(" ")
         writer.write_literal("CREATE ")
         writer.write_literal("(a)")
-        writer.write_rel(self.__relationship.rel, "r",
-                         CypherParameter("R") if self.__relationship.properties else None)
+        writer.write_relationship(self.__relationship, "r",
+                                  CypherParameter("R") if self.__relationship else None)
         writer.write_literal("(b)")
         if self.__return:
             writer.write_literal(" RETURN r")
@@ -214,12 +214,12 @@ class CreateRelationship(CypherTask):
         if self.start_node.bound:
             value["A"] = self.start_node._id
         else:
-            value["A"] = self.start_node.properties
+            value["A"] = dict(self.start_node)
         if self.end_node.bound:
             value["B"] = self.end_node._id
         else:
-            value["B"] = self.end_node.properties
-        if self.__relationship.properties:
+            value["B"] = dict(self.end_node)
+        if self.__relationship:
             value["R"] = self.properties
         return value
 
@@ -244,57 +244,24 @@ class MergeNode(CypherTask):
 
     def __init__(self, primary_label, primary_key=None, primary_value=None):
         CypherTask.__init__(self)
-        self.__node = Node(primary_label)
-        if primary_key is not None:
-            self.__node.properties[primary_key] = CypherParameter("A1", primary_value)
-        self.__labels = LabelSet()
-        self.__properties = PropertySet()
+        self.primary_label = primary_label
+        self.primary_key = primary_key
+        self.primary_value = primary_value
+        self.__node = Node()
         self.__return = False
 
     @property
     def labels(self):
-        """ The full set of labels to apply to the merged node.
-
-        :rtype: :class:`py2neo.LabelSet`
-        """
-        l = LabelSet(self.__labels)
-        l.update(self.__node.labels)
+        l = self.__node.labels()
+        l.add(self.primary_label)
         return l
 
     @property
     def properties(self):
-        """ The full set of properties to apply to the merged node.
-
-        :rtype: :class:`py2neo.PropertySet`
-        """
-        p = PropertySet(self.__properties)
+        p = dict(self.__node)
         if self.primary_key:
             p[self.primary_key] = self.primary_value
         return p
-
-    @property
-    def primary_label(self):
-        """ The label on which to merge.
-        """
-        return list(self.__node.labels)[0]
-
-    @property
-    def primary_key(self):
-        """ The property key on which to merge.
-        """
-        try:
-            return list(self.__node.properties.keys())[0]
-        except IndexError:
-            return None
-
-    @property
-    def primary_value(self):
-        """ The property value on which to merge.
-        """
-        try:
-            return list(self.__node.properties.values())[0].value
-        except IndexError:
-            return None
 
     def set(self, *labels, **properties):
         """ Extra labels and properties to apply to the node.
@@ -302,8 +269,8 @@ class MergeNode(CypherTask):
             >>> merge = MergeNode("Person", "name", "Bob").set("Employee", employee_id=1234)
 
         """
-        self.__labels.update(labels)
-        self.__properties.update(properties)
+        self.__node.update_labels(labels)
+        self.__node.update(properties)
         return self
 
     def with_return(self):
@@ -316,15 +283,26 @@ class MergeNode(CypherTask):
     def statement(self):
         """ The full Cypher statement.
         """
+        labels = self.__node.labels()
+        labels.discard(self.primary_label)
+        properties = dict(self.__node)
+        if self.primary_key and self.primary_key in properties:
+            del properties[self.primary_key]
         string = StringIO()
         writer = CypherWriter(string)
-        writer.write_literal("MERGE ")
-        writer.write_node(self.__node, "a")
-        if self.__labels:
+        writer.write_literal("MERGE (")
+        writer.write_identifier("a")
+        writer.write_label(self.primary_label)
+        if self.primary_key:
+            writer.write_literal(" {")
+            writer.write_identifier(self.primary_key)
+            writer.write_literal(":{A1}}")
+        writer.write_literal(")")
+        if labels:
             writer.write_literal(" SET a")
-            for label in self.__labels:
+            for label in labels:
                 writer.write_label(label)
-        if self.__properties:
+        if properties:
             writer.write_literal(" SET a={A}")
         if self.__return:
             writer.write_literal(" RETURN a")
@@ -334,11 +312,14 @@ class MergeNode(CypherTask):
     def parameters(self):
         """ Dictionary of parameters.
         """
+        properties = dict(self.__node)
+        if self.primary_key and self.primary_key in properties:
+            del properties[self.primary_key]
         parameters = {}
-        if self.__node.properties:
+        if self.primary_key:
             parameters["A1"] = self.primary_value
-        if self.__properties:
-            parameters["A"] = self.properties
+        if properties:
+            parameters["A"] = properties
         return parameters
 
 
@@ -376,7 +357,7 @@ class CreateTransaction(object):
                 entity_list[argument_index].bind(result["data"][0][0]["self"])
 
         create_entities(self.nodes,
-                        lambda n: CreateNode(*n.labels, **n.properties).with_return())
+                        lambda n: CreateNode(*n.labels(), **n).with_return())
         create_entities(self.relationships,
                         lambda r: CreateRelationship(r.start_node, r.end_node,
                                                      r.type, **r.properties).with_return())

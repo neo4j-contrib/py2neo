@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Graph, Node, Relationship, Path, PropertySet, LabelSet
+from py2neo.core import Graph, Node, Relationship, Path
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
@@ -41,22 +41,23 @@ def _create_query(graph, p, unique=False):
             values.append("n{0}".format(i))
         else:
             path.append("(n{0} {{p{0}}})".format(i))
-            params["p{0}".format(i)] = node.properties
+            params["p{0}".format(i)] = dict(node)
             values.append("n{0}".format(i))
 
-    def append_rel(i, rel):
-        if rel.properties:
-            path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel.type))
-            params["q{0}".format(i)] = PropertySet(rel.properties)
+    def append_relationship(i, relationship):
+        if relationship:
+            path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, relationship.type()))
+            params["q{0}".format(i)] = dict(relationship)
             values.append("r{0}".format(i))
         else:
-            path.append("-[r{0}:`{1}`]->".format(i, rel.type))
+            path.append("-[r{0}:`{1}`]->".format(i, relationship.type()))
             values.append("r{0}".format(i))
 
-    append_node(0, p.nodes[0])
-    for i, rel in enumerate(p.rels):
-        append_rel(i, rel)
-        append_node(i + 1, p.nodes[i + 1])
+    nodes = p.nodes()
+    append_node(0, nodes[0])
+    for i, relationship in enumerate(p.relationships()):
+        append_relationship(i, relationship)
+        append_node(i + 1, nodes[i + 1])
     clauses = list(initial_match_clause)
     if unique:
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
@@ -77,10 +78,10 @@ class CreateNodeJob(Job):
 
 class CreateRelationshipJob(Job):
 
-    def __init__(self, start_node, rel, end_node, **properties):
-        body = {"type": rel.type, "to": Target(end_node).uri_string}
-        if rel.properties or properties:
-            body["data"] = dict(rel.properties, **properties)
+    def __init__(self, start_node, type, end_node, **properties):
+        body = {"type": type, "to": Target(end_node).uri_string}
+        if properties:
+            body["data"] = properties
         Job.__init__(self, "POST", Target(start_node, "relationships"), body)
 
 
@@ -92,7 +93,8 @@ class CreatePathJob(CypherJob):
         # supported.
         if isinstance(entities[0], Graph):
             self.graph, entities = entities[0], entities[1:]
-        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities)))
+        path = Path(*(entity or {} for entity in entities))
+        CypherJob.__init__(self, *_create_query(self.graph, path))
 
 
 class CreateUniquePathJob(CypherJob):
@@ -103,7 +105,8 @@ class CreateUniquePathJob(CypherJob):
         # supported.
         if isinstance(entities[0], Graph):
             self.graph, entities = entities[0], entities[1:]
-        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities), unique=True))
+        path = Path(*(entity or {} for entity in entities))
+        CypherJob.__init__(self, *_create_query(self.graph, path, unique=True))
 
 
 class DeleteEntityJob(Job):
@@ -127,7 +130,7 @@ class DeletePropertiesJob(Job):
 class AddNodeLabelsJob(Job):
 
     def __init__(self, node, *labels):
-        Job.__init__(self, "POST", Target(node, "labels"), list(LabelSet(labels)))
+        Job.__init__(self, "POST", Target(node, "labels"), set(labels))
 
 
 class RemoveNodeLabelJob(Job):
@@ -173,11 +176,11 @@ class WriteBatch(Batch):
         """
         entity = self.graph.cast(abstract)
         if isinstance(entity, Node):
-            return self.append(CreateNodeJob(**entity.properties))
+            return self.append(CreateNodeJob(**entity))
         elif isinstance(entity, Relationship):
-            start_node = self.resolve(entity.start_node)
-            end_node = self.resolve(entity.end_node)
-            return self.append(CreateRelationshipJob(start_node, entity.rel, end_node))
+            start_node = self.resolve(entity.start_node())
+            end_node = self.resolve(entity.end_node())
+            return self.append(CreateRelationshipJob(start_node, entity.type(), end_node, **entity))
         else:
             raise TypeError(entity)
 

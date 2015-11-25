@@ -78,6 +78,4 @@ class Py2neoTestCase(TestCase):
         return node_id
 
     def get_attached_node_id(self):
-        node = Node()
-        self.graph.create(node, {}, (0, "KNOWS", 1))
-        return node._id
+        return self.cypher.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")

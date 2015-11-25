@@ -30,20 +30,21 @@ class NodeTestCase(Py2neoTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
-        assert a.labels == {"Person"}
-        assert a.properties == {"name": "Alice", "age": 33}
+        assert a.labels() == {"Person"}
+        assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_can_create_remote_node(self):
         a, = self.graph.create(Node("Person", name="Alice", age=33))
-        assert a.labels == {"Person"}
-        assert a.properties == {"name": "Alice", "age": 33}
+        assert a.labels() == {"Person"}
+        assert dict(a) == {"name": "Alice", "age": 33}
         assert a.ref.startswith("node/")
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
         alice_1.bind("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
         alice_1 = Node(name="Alice")
@@ -56,30 +57,31 @@ class NodeTestCase(Py2neoTestCase):
     def test_unbound_node_equality(self):
         alice_1 = Node("Person", name="Alice")
         alice_2 = Node("Person", name="Alice")
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_node_degree(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
         carol = Node("Person", name="Carol")
         with self.assertRaises(BindError):
-            _ = alice.degree
+            _ = alice.degree()
         self.graph.create(alice)
-        assert alice.degree == 0
+        assert alice.degree() == 0
         self.graph.create(Path(alice, "KNOWS", bob))
-        assert alice.degree == 1
+        assert alice.degree() == 1
         self.graph.create(Path(alice, "KNOWS", carol))
-        assert alice.degree == 2
+        assert alice.degree() == 2
         self.graph.create(Path(carol, "KNOWS", alice))
-        assert alice.degree == 3
+        assert alice.degree() == 3
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
         alice, _, _ = self.graph.create(Node("Person", name="Alice"), {}, (0, "KNOWS", 1))
-        assert alice.properties == {"name": "Alice"}
+        assert dict(alice) == {"name": "Alice"}
         alice["age"] = 33
-        assert alice.properties == {"name": "Alice", "age": 33}
+        assert dict(alice) == {"name": "Alice", "age": 33}
         _ = list(self.graph.match(alice, "KNOWS"))
-        assert alice.properties == {"name": "Alice", "age": 33}
+        assert dict(alice) == {"name": "Alice", "age": 33}
 
     def test_will_error_when_refreshing_deleted_node(self):
         node = Node()
@@ -101,7 +103,8 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_node_equality(self):
         alice_1 = Node(name="Alice", age=34)
         alice_2 = Node(name="Alice", age=34)
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_node_inequality(self):
         alice = Node(name="Alice", age=34)
@@ -177,11 +180,6 @@ class ConcreteNodeTestCase(Py2neoTestCase):
                           "labels=set(['Person']) properties={'name': u'Alice'}>" % node.ref)
 
     def test_node_hashes(self):
-        assert hash(Node()) == hash(Node())
-        assert hash(Node(name="Alice")) == hash(Node(name="Alice"))
-        assert hash(Node(name="Alice", age=33)) == hash(Node(age=33, name="Alice"))
-        assert (hash(Node("Person", name="Alice", age=33)) ==
-                hash(Node("Person", age=33, name="Alice")))
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")

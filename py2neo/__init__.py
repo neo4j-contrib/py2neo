@@ -31,8 +31,8 @@ from py2neo.ext import *
 from py2neo.packages.httpstream.watch import watch
 
 
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
+__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
+           "ServiceRoot",
            "authenticate", "familiar", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension",

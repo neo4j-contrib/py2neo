@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship, Path, Rel
+from py2neo.core import Node, Relationship, Path
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -63,12 +63,10 @@ class PullBatch(Batch):
         if isinstance(entity, Node):
             self.jobs.append(PullPropertiesJob(entity))
             self.jobs.append(PullNodeLabelsJob(entity))
-        elif isinstance(entity, Rel):
-            self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Relationship):
             self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Path):
-            for relationship in entity.relationships:
+            for relationship in entity.relationships():
                 self.jobs.append(PullRelationshipJob(relationship))
         else:
             raise TypeError("Cannot pull object of type %s" % entity.__class__.__name__)
@@ -81,10 +79,10 @@ class PullBatch(Batch):
             job = self.jobs[i]
             entity = job.target.entity
             if isinstance(job, PullPropertiesJob):
-                entity.properties.clear()
-                entity.properties.update(result.content)
+                entity.clear()
+                entity.update(result.content)
             elif isinstance(job, PullNodeLabelsJob):
-                entity.labels.clear()
-                entity.labels.update(result.content)
+                entity.clear_labels()
+                entity.update_labels(result.content)
             elif isinstance(job, PullRelationshipJob):
                 entity.__class__.hydrate(result.content, entity)

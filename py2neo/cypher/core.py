@@ -19,11 +19,10 @@
 from collections import OrderedDict
 import logging
 
-from py2neo import Bindable, Resource, Node, Rel, Relationship, Subgraph, Path, Finished
+from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, CypherTransactionError
-from py2neo.packages.jsonstream import assembled
 from py2neo.packages.tart.tables import TextTable
 from py2neo.util import is_collection
 
@@ -222,7 +221,7 @@ class CypherTransaction(object):
         def add_parameters(params):
             if params:
                 for k, v in dict(params).items():
-                    if isinstance(v, (Node, Rel, Relationship)):
+                    if isinstance(v, (Node, Relationship)):
                         v = v._id
                     p[k] = v
 
