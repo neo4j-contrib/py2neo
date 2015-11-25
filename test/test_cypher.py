@@ -241,10 +241,11 @@ class CypherTestCase(Py2neoTestCase):
         assert len(results) == 1
         for record in results:
             assert isinstance(record.p, Path)
-            assert len(record.p.nodes) == 2
-            assert record.p.nodes[0] == a
-            assert record.p.nodes[1] == b
-            assert record.p.relationships[0].type() == "KNOWS"
+            nodes = record.p.nodes()
+            assert len(nodes) == 2
+            assert nodes[0] == a
+            assert nodes[1] == b
+            assert record.p[0].type() == "KNOWS"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
@@ -748,7 +749,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert bob.bound
         assert carol.bound
         assert dave.bound
-        ab, cb, cd = path.relationships
+        ab, cb, cd = path.relationships()
         assert ab.start_node() is alice
         assert ab.end_node() is bob
         assert cb.start_node() is carol
@@ -768,11 +769,11 @@ class CypherCreateTestCase(Py2neoTestCase):
         statement.create(path)
         created = statement.execute()
         assert created == (path,)
-        assert path.nodes[0]._id == alice_id
-        assert path.nodes[2]._id == carol_id
+        assert path.nodes()[0]._id == alice_id
+        assert path.nodes()[2]._id == carol_id
         assert bob.bound
         assert dave.bound
-        ab, cb, cd = path.relationships
+        ab, cb, cd = path.relationships()
         assert ab.start_node() is alice
         assert ab.end_node() is bob
         assert cb.start_node() is carol

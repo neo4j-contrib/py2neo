@@ -212,11 +212,26 @@ class CypherWriter(Writer):
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
         """
-        nodes = path.nodes
-        self.write_node(nodes[0])
-        for i, rel in enumerate(path.rels):
-            self.write_rel(rel)
-            self.write_node(nodes[i + 1])
+        nodes = path.nodes()
+        for i, relationship in enumerate(path.relationships()):
+            node = nodes[i]
+            self.write_node(node)
+            forward = relationship.start_node() == node
+            properties = dict(relationship)
+            if forward:
+                self.file.write("-[")
+            else:
+                self.file.write("<-[")
+            self.file.write(":")
+            self.write_identifier(relationship.type())
+            if properties:
+                self.file.write(" ")
+                self.write_map(properties)
+            if forward:
+                self.file.write("]->")
+            else:
+                self.file.write("]-")
+        self.write_node(nodes[-1])
 
 
 def cypher_escape(identifier):

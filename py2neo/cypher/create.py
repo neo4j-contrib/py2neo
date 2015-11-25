@@ -139,7 +139,7 @@ class CreateStatement(object):
         elif isinstance(entity, Path):
             if len(entity) == 0:
                 raise ValueError("Cannot create unique path with zero length")
-            if not any(node.bound or node in self for node in entity.nodes):
+            if not any(node.bound or node in self for node in entity.nodes()):
                 raise ValueError("At least one node must be bound to create a unique path")
             self.names.append(self._create_path(entity, name, unique=True))
         else:

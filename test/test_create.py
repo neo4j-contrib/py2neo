@@ -150,11 +150,10 @@ class CreateTestCase(Py2neoTestCase):
         created, = self.graph.create(path)
         # then
         assert isinstance(created, Path)
-        assert created.nodes == nodes
-        assert created.rels[0].type == "LOVES"
-        assert created.rels[1].type == "HATES"
-        assert isinstance(created.rels[1], Rev)
-        assert created.rels[2].type == "KNOWS"
+        assert created.nodes() == nodes
+        assert created[0].type() == "LOVES"
+        assert created[1].type() == "HATES"
+        assert created[2].type() == "KNOWS"
 
     def test_cannot_create_entity_of_other_castable_type(self):
         with self.assertRaises(TypeError):

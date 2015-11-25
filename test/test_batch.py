@@ -182,7 +182,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
         path, = self.batch.submit()
-        knows = path.relationships[0]
+        knows = path[0]
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -224,7 +224,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.jobs = []
         self.batch.get_or_create_path(None, "KNOWS", bob)
         path, = self.batch.submit()
-        knows = path.relationships[0]
+        knows = path[0]
         alice = knows.start_node()
         assert isinstance(knows, Relationship)
         assert isinstance(alice, Node)
@@ -238,7 +238,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", None)
         path, = self.batch.submit()
-        knows = path.relationships[0]
+        knows = path[0]
         bob = knows.end_node()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
@@ -456,7 +456,7 @@ class PullBatchTestCase(Py2neoTestCase):
         path = self.cypher.evaluate("CREATE p=()-[ab:KNOWS {since:1999}]->()-[:KNOWS]->() "
                                     "RETURN p")
         ab = Rel("")
-        ab.bind(path.rels[0].uri)
+        ab.bind(path[0].uri)
         assert ab.type == ""
         assert ab.properties["since"] is None
         self.batch.append(ab)
@@ -539,9 +539,9 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         path = results[0]
         assert len(path) == 1
-        assert path.nodes[0]["name"] == "Alice"
-        assert path.relationships[0].type() == "KNOWS"
-        assert path.nodes[1]["name"] == "Bob"
+        assert path.nodes()[0]["name"] == "Alice"
+        assert path[0].type() == "KNOWS"
+        assert path.nodes()[1]["name"] == "Bob"
 
     def test_can_create_path_with_existing_nodes(self):
         alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
@@ -549,24 +549,24 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         path = results[0]
         assert len(path) == 1
-        assert path.nodes[0] == alice
-        assert path.relationships[0].type() == "KNOWS"
-        assert path.nodes[1] == bob
+        assert path.nodes()[0] == alice
+        assert path[0].type() == "KNOWS"
+        assert path.nodes()[1] == bob
 
     def test_path_creation_is_not_idempotent(self):
         alice, = self.graph.create({"name": "Alice"})
         self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
-        bob = path.nodes[1]
-        assert path.nodes[0] == alice
+        bob = path.nodes()[1]
+        assert path.nodes()[0] == alice
         assert bob["name"] == "Bob"
         self.batch = WriteBatch(self.graph)
         self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
-        assert path.nodes[0] == alice
-        assert path.nodes[1] != bob
+        assert path.nodes()[0] == alice
+        assert path.nodes()[1] != bob
 
     def test_can_get_or_create_path_with_existing_nodes(self):
         alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
@@ -574,24 +574,24 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.submit()
         path = results[0]
         assert len(path) == 1
-        assert path.nodes[0] == alice
-        assert path.relationships[0].type() == "KNOWS"
-        assert path.nodes[1] == bob
+        assert path.nodes()[0] == alice
+        assert path[0].type() == "KNOWS"
+        assert path.nodes()[1] == bob
 
     def test_path_merging_is_idempotent(self):
         alice, = self.graph.create({"name": "Alice"})
         self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
-        bob = path.nodes[1]
-        assert path.nodes[0] == alice
+        bob = path.nodes()[1]
+        assert path.nodes()[0] == alice
         assert bob["name"] == "Bob"
         self.batch = WriteBatch(self.graph)
         self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
-        assert path.nodes[0] == alice
-        assert path.nodes[1] == bob
+        assert path.nodes()[0] == alice
+        assert path.nodes()[1] == bob
 
     def test_can_set_property_on_preexisting_node(self):
         alice, = self.graph.create({"name": "Alice"})

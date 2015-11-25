@@ -44,19 +44,20 @@ def _create_query(graph, p, unique=False):
             params["p{0}".format(i)] = dict(node)
             values.append("n{0}".format(i))
 
-    def append_rel(i, rel):
-        if rel.properties:
-            path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, rel.type))
-            params["q{0}".format(i)] = PropertySet(rel.properties)
+    def append_relationship(i, relationship):
+        if relationship:
+            path.append("-[r{0}:`{1}` {{q{0}}}]->".format(i, relationship.type()))
+            params["q{0}".format(i)] = dict(relationship)
             values.append("r{0}".format(i))
         else:
-            path.append("-[r{0}:`{1}`]->".format(i, rel.type))
+            path.append("-[r{0}:`{1}`]->".format(i, relationship.type()))
             values.append("r{0}".format(i))
 
-    append_node(0, p.nodes[0])
-    for i, rel in enumerate(p.rels):
-        append_rel(i, rel)
-        append_node(i + 1, p.nodes[i + 1])
+    nodes = p.nodes()
+    append_node(0, nodes[0])
+    for i, relationship in enumerate(p.relationships()):
+        append_relationship(i, relationship)
+        append_node(i + 1, nodes[i + 1])
     clauses = list(initial_match_clause)
     if unique:
         clauses.append("CREATE UNIQUE p={0}".format("".join(path)))
@@ -92,7 +93,8 @@ class CreatePathJob(CypherJob):
         # supported.
         if isinstance(entities[0], Graph):
             self.graph, entities = entities[0], entities[1:]
-        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities)))
+        path = Path(*(entity or {} for entity in entities))
+        CypherJob.__init__(self, *_create_query(self.graph, path))
 
 
 class CreateUniquePathJob(CypherJob):
@@ -103,7 +105,8 @@ class CreateUniquePathJob(CypherJob):
         # supported.
         if isinstance(entities[0], Graph):
             self.graph, entities = entities[0], entities[1:]
-        CypherJob.__init__(self, *_create_query(self.graph, Path(*entities), unique=True))
+        path = Path(*(entity or {} for entity in entities))
+        CypherJob.__init__(self, *_create_query(self.graph, path, unique=True))
 
 
 class DeleteEntityJob(Job):

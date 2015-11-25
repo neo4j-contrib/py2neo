@@ -43,7 +43,8 @@ class NodeTestCase(Py2neoTestCase):
         alice_1 = Node(name="Alice")
         alice_1.bind("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
         alice_1 = Node(name="Alice")
@@ -56,7 +57,8 @@ class NodeTestCase(Py2neoTestCase):
     def test_unbound_node_equality(self):
         alice_1 = Node("Person", name="Alice")
         alice_2 = Node("Person", name="Alice")
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_node_degree(self):
         alice = Node("Person", name="Alice")
@@ -101,7 +103,8 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_node_equality(self):
         alice_1 = Node(name="Alice", age=34)
         alice_2 = Node(name="Alice", age=34)
-        assert alice_1 == alice_2
+        assert alice_1.labels() == alice_2.labels()
+        assert dict(alice_1) == dict(alice_2)
 
     def test_node_inequality(self):
         alice = Node(name="Alice", age=34)
