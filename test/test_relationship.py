@@ -98,24 +98,6 @@ class RelationshipTestCase(Py2neoTestCase):
         rel = Relationship({}, "KNOWS", {})
         assert rel.size() == 1
 
-    def test_relationship_repr(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        if PY2:
-            assert repr(relationship) == "<Relationship type=u'KNOWS' properties={}>"
-        else:
-            assert repr(relationship) == "<Relationship type='KNOWS' properties={}>"
-        self.graph.create(relationship)
-        if PY2:
-            assert repr(relationship) == ("<Relationship graph=u'http://localhost:7474/db/data/' "
-                                          "ref=u'%s' start=u'%s' end=u'%s' type=u'KNOWS' "
-                                          "properties={}>" % (relationship.ref, alice.ref, bob.ref))
-        else:
-            assert repr(relationship) == ("<Relationship graph='http://localhost:7474/db/data/' "
-                                          "ref='%s' start='%s' end='%s' type='KNOWS' "
-                                          "properties={}>" % (relationship.ref, alice.ref, bob.ref))
-
     def test_relationship_str(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
