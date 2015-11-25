@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Resource, Node, Rel, Rev, Relationship, Bindable, Path
+from py2neo.core import Resource, Node, Relationship, Bindable, Path
 from py2neo.error import BindError
 from test.util import Py2neoTestCase
 
@@ -68,7 +68,7 @@ class BindUnbindTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         assert path.bound
 
@@ -77,7 +77,7 @@ class BindUnbindTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         assert not path.bound
 
     def test_can_bind_node_to_resource(self):
@@ -91,30 +91,6 @@ class BindUnbindTestCase(Py2neoTestCase):
         assert not node.bound
         with self.assertRaises(BindError):
             _ = node.resource
-
-    def test_can_bind_rel_to_resource(self):
-        uri = "http://localhost:7474/db/relationship/1"
-        rel = Rel()
-        rel.bind(uri)
-        assert rel.bound
-        assert isinstance(rel.resource, Resource)
-        assert rel.resource.uri == uri
-        rel.unbind()
-        assert not rel.bound
-        with self.assertRaises(BindError):
-            _ = rel.resource
-
-    def test_can_bind_rev_to_resource(self):
-        uri = "http://localhost:7474/db/relationship/1"
-        rel = Rev()
-        rel.bind(uri)
-        assert rel.bound
-        assert isinstance(rel.resource, Resource)
-        assert rel.resource.uri == uri
-        rel.unbind()
-        assert not rel.bound
-        with self.assertRaises(BindError):
-            _ = rel.resource
 
     def test_can_bind_relationship_to_resource(self):
         uri = "http://localhost:7474/db/relationship/1"
@@ -159,7 +135,7 @@ class BindUnbindTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         path.unbind()
         assert not path.bound
@@ -169,6 +145,6 @@ class BindUnbindTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         path.unbind()
         assert not path.bound

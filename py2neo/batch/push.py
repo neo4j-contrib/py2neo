@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship, Path, PropertySet, Rel
+from py2neo.core import Node, Relationship, Path, PropertySet
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -57,8 +57,6 @@ class PushBatch(Batch):
         if isinstance(entity, Node):
             self.jobs.append(PushPropertiesJob(entity, dict(entity)))
             self.jobs.append(PushNodeLabelsJob(entity, entity.labels()))
-        elif isinstance(entity, Rel):
-            self.jobs.append(PushPropertiesJob(entity, entity.properties))
         elif isinstance(entity, Relationship):
             self.jobs.append(PushPropertiesJob(entity, dict(entity)))
         elif isinstance(entity, Path):

@@ -42,7 +42,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
 
 
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
+__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
            "ServiceRoot", "PropertySet", "PropertyContainer",
            "authenticate", "familiar", "rewrite",
            "Bindable", "Resource", "ResourceTemplate"]
@@ -607,7 +607,7 @@ class Graph(Bindable):
         """
         if obj is None:
             return None
-        elif isinstance(obj, (Node, NodePointer, Path, Rel, Relationship, Rev, Subgraph)):
+        elif isinstance(obj, (Node, NodePointer, Path, Relationship, Subgraph)):
             return obj
         elif isinstance(obj, dict):
             return Node.cast(obj)
@@ -768,7 +768,7 @@ class Graph(Bindable):
         for entity in entities:
             if isinstance(entity, Node):
                 tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
-            elif isinstance(entity, (Rel, Relationship)):
+            elif isinstance(entity, Relationship):
                 tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
             elif isinstance(entity, Path):
                 for node in entity.nodes():
@@ -1516,326 +1516,19 @@ class NodePointer(object):
         return hash(self.address)
 
 
-class Rel(Bindable, PropertyContainer):
-    """ A :class:`.Rel` is similar to a :class:`.Relationship` but does not
-    store information about the nodes to which it is attached. This class
-    is used internally to bundle relationship type and property details
-    for :class:`.Relationship` and :class:`.Path` objects but may also be
-    used to denote an explicit forward relationship within a :class:`.Path`.
-
-    .. seealso:: :class:`py2neo.Rev`
-
-    """
-
-    cache = ThreadLocalWeakValueDictionary()
-    pair = None
-    _pair_class = object
-
-    __id = None
-
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.«class»`. The
-        following combinations of arguments are possible::
-
-            >>> «class».cast(None)
-            >>> «class».cast()
-            <«class» type=None properties={}>
-            >>> «class».cast("KNOWS")
-            <«class» type='KNOWS' properties={}>
-            >>> «class».cast("KNOWS", since=1999)
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class».cast("KNOWS", {"since": 1999})
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class».cast(("KNOWS",))
-            <«class» type='KNOWS' properties={}>
-            >>> «class».cast(("KNOWS", {"since": 1999}))
-            <«class» type='KNOWS' properties={'since': 1999}>
-            >>> «class.lower» = «class»("KNOWS", since=1999)
-            >>> «class».cast(«class.lower»)
-            <«class» type='KNOWS' properties={'since': 1999}>
-
-        """
-        if len(args) == 1 and not kwargs:
-            from py2neo.batch import Job
-            arg = args[0]
-            if arg is None:
-                return None
-            elif isinstance(arg, (Rel, Job)):
-                return arg
-            elif isinstance(arg, Relationship):
-                return Rel(arg.type(), **arg)
-
-        inst = Rel()
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.properties.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            else:
-                inst.type = ustr(x)
-
-        for arg in args:
-            apply(arg)
-        inst.properties.update(kwargs)
-        return inst
-
-    @classmethod
-    def hydrate(cls, data, inst=None):
-        """ Hydrate a dictionary of data to produce a :class:`.«class»` instance.
-        The data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api-relationships.html#rest-api-get-relationship-by-id>`__
-        although only the ``self`` value is required.
-
-        :arg data: dictionary of data to hydrate
-        :arg inst: an existing :class:`.«class»` instance to overwrite with new values
-
-        """
-        self = data["self"]
-        if inst is None:
-            new_inst = cls()
-            new_inst.__stale.update({"properties"})
-            inst = cls.cache.setdefault(self, new_inst)
-            # The check below is a workaround for http://bugs.python.org/issue19542
-            # See also: https://github.com/nigelsmall/py2neo/issues/391
-            if inst is None:
-                inst = cls.cache[self] = new_inst
-        cls.cache[self] = inst
-        inst.bind(self, data)
-        inst.__type = data.get("type")
-        pair = inst.pair
-        if pair is not None:
-            pair._Rel__type = inst.__type
-        if "data" in data:
-            inst.__stale.discard("properties")
-            properties = data["data"]
-            properties.update(inst.properties)
-            inst._PropertyContainer__properties.clear()
-            inst._PropertyContainer__properties.update(properties)
-        return inst
-
-    def __init__(self, *type_, **properties):
-        if len(type_) > 1:
-            raise ValueError("Only one relationship type can be specified")
-        PropertyContainer.__init__(self, **properties)
-        self.__type = type_[0] if type_ else None
-        self.__stale = set()
-
-    def __repr__(self):
-        s = [self.__class__.__name__]
-        if self.bound:
-            s.append("graph=%r" % self.graph.uri.string)
-            s.append("ref=%r" % self.ref)
-            if self.__type is None:
-                s.append("type=?")
-            else:
-                s.append("type=%r" % self.type)
-            if "properties" in self.__stale:
-                s.append("properties=?")
-            else:
-                s.append("properties=%r" % self.properties)
-        else:
-            s.append("type=%r" % self.type)
-            s.append("properties=%r" % self.properties)
-        return "<" + " ".join(s) + ">"
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
-        from py2neo.cypher import CypherWriter
-        s = StringIO()
-        writer = CypherWriter(s)
-        if self.bound:
-            writer.write_rel(self, "r" + ustr(self._id))
-        else:
-            writer.write_rel(self)
-        return s.getvalue()
-
-    def __eq__(self, other):
-        if other is None:
-            return False
-        other = Rel.cast(other)
-        if self.bound and other.bound:
-            return self.resource == other.resource
-        else:
-            return self.type == other.type and self.properties == other.properties
-
-    def __hash__(self):
-        if self.bound:
-            return hash(self.resource.uri)
-        else:
-            value = PropertyContainer.__hash__(self) ^ hash(self.type)
-            if self.bound:
-                value ^= hash(self.resource.uri)
-            return value
-
-    def __pos__(self):
-        return self
-
-    def __neg__(self):
-        if self.pair is None:
-            self.pair = self._pair_class()
-            self.pair.__resource__ = self.__resource__
-            self.pair._PropertyContainer__properties = self._PropertyContainer__properties
-            self.pair._Rel__type = self.__type
-            self.pair._Rel__stale = self.__stale
-            self.pair.pair = self
-        return self.pair
-
-    def __abs__(self):
-        return self
-
-    @property
-    def _id(self):
-        """ The internal ID of this relationship within the database.
-        """
-        if self.__id is None:
-            self.__id = int(self.uri.path.segments[-1])
-        return self.__id
-
-    @property
-    def ref(self):
-        """ The URI of this relationship relative to its graph.
-
-        :rtype: string
-        """
-        return "relationship/%s" % self._id
-
-    def bind(self, uri, metadata=None):
-        """ Associate this object with a remote relationship.
-
-        :arg uri: The URI identifying the remote relationship to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
-
-        """
-        Bindable.bind(self, uri, metadata)
-        self.cache[uri] = self
-        pair = self.pair
-        if pair is not None:
-            Bindable.bind(pair, uri, metadata)
-            # make sure we're using exactly the same resource object
-            # (maybe could write a Bindable.multi_bind classmethod
-            pair.__resource__ = self.__resource__
-            pair.cache[uri] = pair
-
-    @property
-    @deprecated("Rel.exists() is deprecated, use graph.exists(rel) instead")
-    def exists(self):
-        """ :const:`True` if this relationship exists in the database,
-        :const:`False` otherwise.
-        """
-        return self.graph.exists(self)
-
-    @property
-    def properties(self):
-        """ The set of properties attached to this relationship. Properties
-        can also be read from and written to any :class:`Rel`
-        by using the index syntax directly. This means
-        the following statements are equivalent::
-
-            rel.properties["since"] = 1999
-            rel["since"] = 1999
-
-        """
-        if self.bound and "properties" in self.__stale:
-            self.graph.pull(self)
-        return super(Rel, self).properties
-
-    @deprecated("Rel.pull() is deprecated, use graph.pull(rel) instead")
-    def pull(self):
-        """ Pull data to this relationship from its remote counterpart.
-        """
-        self.graph.pull(self)
-
-    @deprecated("Rel.push() is deprecated, use graph.push(rel) instead")
-    def push(self):
-        """ Push data from this relationship to its remote counterpart.
-        """
-        self.graph.push(self)
-
-    @property
-    def type(self):
-        """ The type of this relationship.
-        """
-        if self.bound and self.__type is None:
-            self.graph.pull(self)
-        return self.__type
-
-    @type.setter
-    def type(self, name):
-        """ Set the type of this relationship (only possible if not bound).
-        """
-        if self.bound:
-            raise AttributeError("The type of a bound Rel is immutable")
-        self.__type = name
-        pair = self.pair
-        if pair is not None:
-            pair._Rel__type = name
-
-    def unbind(self):
-        """ Detach this relationship from any remote counterpart.
-        """
-        try:
-            del self.cache[self.uri]
-        except KeyError:
-            pass
-        Bindable.unbind(self)
-        self.__id = None
-        pair = self.pair
-        if pair is not None:
-            try:
-                del pair.cache[pair.uri]
-            except KeyError:
-                pass
-            Bindable.unbind(pair)
-
-
-class Rev(Rel):
-    """ A :class:`.Rev` is identical to a :class:`.Rel` but denotes a
-    reversed relationship rather than a forward one. The following
-    example shows how to build a :class:`.Path` with one forward and
-    one reversed relationship::
-
-        >>> path = Path(Node(name="A"), Rel("TO"), Node(name="B"), Rev("TO"), Node(name="C"))
-        >>> for relationship in path.relationships:
-        ...     print(relationship)
-        ({name:"A"})-[:TO]->({name:"B"})
-        ({name:"C"})-[:TO]->({name:"B"})
-
-    .. seealso:: :class:`py2neo.Rel`
-
-    """
-
-    _pair_class = Rel
-
-    def __abs__(self):
-        return self.__neg__()
-
-    def __hash__(self):
-        return -(super(Rev, self).__hash__())
-
-
-Rel._pair_class = Rev
-
-
 class Path(PrimitivePath):
     """ A sequence of nodes connected by relationships that may
     optionally be bound to remote counterparts in a Neo4j database.
 
-        >>> from py2neo import Node, Path, Rev
+        >>> from py2neo import Node, Path
         >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
-        >>> abc = Path(alice, "KNOWS", bob, Rev("KNOWS"), carol)
+        >>> abc = Path(alice, "KNOWS", bob, Relationship(carol, "KNOWS", bob), carol)
         >>> abc
         <Path order=3 size=2>
         >>> abc.nodes
         (<Node labels=set() properties={'name': 'Alice'}>,
          <Node labels=set() properties={'name': 'Bob'}>,
          <Node labels=set() properties={'name': 'Carol'}>)
-        >>> abc.rels
-        (<Rel type='KNOWS' properties={}>, <Rev type='KNOWS' properties={}>)
         >>> abc.relationships
         (<Relationship type='KNOWS' properties={}>,
          <Relationship type='KNOWS' properties={}>)
@@ -1846,7 +1539,7 @@ class Path(PrimitivePath):
         >>> abcde = Path(abc, "KNOWS", de)
         >>> abcde
         <Path order=5 size=4>
-        >>> for relationship in abcde.relationships:
+        >>> for relationship in abcde.relationships():
         ...     print(relationship)
         ({name:"Alice"})-[:KNOWS]->({name:"Bob"})
         ({name:"Carol"})-[:KNOWS]->({name:"Bob"})
@@ -1906,10 +1599,6 @@ class Path(PrimitivePath):
                 elif isinstance(entity, tuple) and len(entity) == 2:
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
-                elif isinstance(entity, Rev):
-                    entities[i] = Relationship(end_node, entity.type, start_node, **entity.properties)
-                elif isinstance(entity, Rel):
-                    entities[i] = Relationship(start_node, entity.type, end_node, **entity.properties)
         PrimitivePath.__init__(self, *entities)
 
     def __repr__(self):
@@ -2012,10 +1701,6 @@ class Relationship(Bindable, PrimitiveRelationship):
         >>> bob = Node("Person", name="Bob")
         >>> alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
 
-    .. seealso::
-       :class:`py2neo.Rel`
-       :class:`py2neo.Rev`
-
     """
 
     cache = ThreadLocalWeakValueDictionary()
@@ -2040,10 +1725,6 @@ class Relationship(Bindable, PrimitiveRelationship):
             >>> Relationship.cast(Node(), ("KNOWS", {"since": 1999}), Node())
             <Relationship type='KNOWS' properties={'since': 1999}>
             >>> Relationship.cast((Node(), ("KNOWS", {"since": 1999}), Node()))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), Rel("KNOWS", since=1999), Node())
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), Rel("KNOWS", since=1999), Node()))
             <Relationship type='KNOWS' properties={'since': 1999}>
 
         """
@@ -2143,9 +1824,6 @@ class Relationship(Bindable, PrimitiveRelationship):
                 t, props = value
                 n.append(t)
                 p.update(props)
-            elif isinstance(value, Rel):
-                n.append(value.type)
-                p.update(value.properties)
             else:
                 n.append(Node.cast(value))
         p.update(properties)
@@ -2180,9 +1858,9 @@ class Relationship(Bindable, PrimitiveRelationship):
         s = StringIO()
         writer = CypherWriter(s)
         if self.bound:
-            writer.write_relationship(self, "r" + ustr(self._id))
+            writer.write_full_relationship(self, "r" + ustr(self._id))
         else:
-            writer.write_relationship(self)
+            writer.write_full_relationship(self)
         return s.getvalue()
 
     def __eq__(self, other):

@@ -16,10 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, Rel, Rev, GraphError, ServiceRoot, BindError
-from py2neo.packages.httpstream import ClientError, Resource as _Resource
+from py2neo import Graph, Node, Relationship, ServiceRoot
+from py2neo.packages.httpstream import ClientError
 from test.util import Py2neoTestCase
-from test.compat import patch
 
 import sys
 PY2 = sys.version_info < (3,)
@@ -30,11 +29,6 @@ class DodgyClientError(ClientError):
 
 
 class RelationshipTestCase(Py2neoTestCase):
-
-    def test_rel_and_rev_hashes(self):
-        assert hash(Rel("KNOWS")) == hash(Rel("KNOWS"))
-        assert hash(Rel("KNOWS")) == -hash(Rev("KNOWS"))
-        assert hash(Rel("KNOWS", well=True, since=1999)) == hash(Rel("KNOWS", since=1999, well=True))
 
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
@@ -86,45 +80,12 @@ class RelationshipTestCase(Py2neoTestCase):
         alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
         rel = self.graph.relationship(ab._id)
         assert rel == ab
-        
-    def test_rel_cannot_have_multiple_types(self):
-        with self.assertRaises(ValueError):
-            Rel("LIKES", "HATES")
 
     def test_type_of_bound_rel_is_immutable(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         with self.assertRaises(AttributeError):
             ab.rel.type = "LIKES"
 
-    def test_type_of_unbound_rel_is_mutable(self):
-        ab = Rel("KNOWS")
-        ab.type = "LIKES"
-        assert ab.type == "LIKES"
-
-    def test_changing_type_of_unbound_rel_mirrors_to_pair_rev(self):
-        rel = Rel("KNOWS")
-        assert rel.pair is None
-        rev = -rel
-        assert rel.pair is rev
-        assert rev.pair is rel
-        assert rel.type == "KNOWS"
-        assert rev.type == "KNOWS"
-        rel.type = "LIKES"
-        assert rel.type == "LIKES"
-        assert rev.type == "LIKES"
-        
-    def test_changing_type_of_unbound_rev_mirrors_to_pair_rel(self):
-        rev = Rev("KNOWS")
-        assert rev.pair is None
-        rel = -rev
-        assert rev.pair is rel
-        assert rel.pair is rev
-        assert rev.type == "KNOWS"
-        assert rel.type == "KNOWS"
-        rev.type = "LIKES"
-        assert rev.type == "LIKES"
-        assert rel.type == "LIKES"
-        
     def test_service_root(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         assert ab.service_root == ServiceRoot("http://localhost:7474/")
@@ -133,11 +94,6 @@ class RelationshipTestCase(Py2neoTestCase):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
         assert ab.graph == Graph("http://localhost:7474/db/data/")
 
-    def test_rel_never_equals_none(self):
-        rel = Rel("KNOWS")
-        none = None
-        assert rel != none
-        
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
         assert rel.size() == 1

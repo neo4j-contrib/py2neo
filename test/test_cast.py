@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, NodePointer, Rel, Relationship
+from py2neo import Graph, Node, NodePointer, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -47,18 +47,6 @@ class CastTestCase(Py2neoTestCase):
         assert Node.cast(NodePointer(42)) == NodePointer(42)
         with self.assertRaises(TypeError):
             Node.cast(3.14)
-
-    def test_rel_cast(self):
-        knows = Rel("KNOWS", since=1999)
-        assert Rel.cast() == Rel()
-        assert Rel.cast(None) is None
-        assert Rel.cast(knows) is knows
-        assert Rel.cast("KNOWS") == Rel("KNOWS")
-        assert Rel.cast(since=1999) == Rel(since=1999)
-        assert Rel.cast("KNOWS", since=1999) == Rel("KNOWS", since=1999)
-        assert Rel.cast({"since": 1999}) == Rel(since=1999)
-        assert Rel.cast(("KNOWS", {"since": 1999})) == knows
-        assert Rel.cast(Relationship({}, "KNOWS", {})) == Rel("KNOWS")
 
     def test_can_cast_node(self):
         alice, = self.graph.create({"name": "Alice"})
@@ -104,7 +92,7 @@ class CastTestCase(Py2neoTestCase):
         assert casted["since"] == 1999
     
     
-class RelCastTestCase(Py2neoTestCase):
+class RelationshipCastTestCase(Py2neoTestCase):
     
     def test_can_cast_rel(self):
         a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))

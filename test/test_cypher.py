@@ -18,7 +18,7 @@
 
 from io import StringIO
 
-from py2neo import Node, NodePointer, Rel, Rev, Relationship, Path, Finished, GraphError
+from py2neo import Node, NodePointer, Relationship, Path, Finished, GraphError
 from py2neo.cypher import CypherEngine, CypherTransaction, \
     CreateStatement, DeleteStatement, RecordProducer, RecordList
 from py2neo.cypher.core import presubstitute
@@ -620,7 +620,7 @@ class CypherCreateTestCase(Py2neoTestCase):
     def test_can_create_two_nodes_and_a_relationship_with_properties(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
-        alice_knows_bob = Relationship(alice, Rel("KNOWS", since=1999), bob)
+        alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
         statement = CreateStatement(self.graph)
         statement.create(alice)
         statement.create(bob)
@@ -740,7 +740,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         statement = CreateStatement(self.graph)
         statement.create(path)
         created = statement.execute()
@@ -764,7 +764,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         carol = self.cypher.evaluate("CREATE (c {name:'Carol'}) RETURN c")
         carol_id = carol._id
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         statement = CreateStatement(self.graph)
         statement.create(path)
         created = statement.execute()
@@ -918,24 +918,12 @@ class CypherLangTestCase(Py2neoTestCase):
         written = string.getvalue()
         assert written == "(*42)-[:KNOWS]->()"
 
-    def test_can_write_simple_rel(self):
-        string = StringIO()
-        writer = CypherWriter(string)
-        writer.write(Rel("KNOWS"))
-        written = string.getvalue()
-        assert written == "-[:KNOWS]->"
-
-    def test_can_write_simple_rev(self):
-        string = StringIO()
-        writer = CypherWriter(string)
-        writer.write(Rev("KNOWS"))
-        written = string.getvalue()
-        assert written == "<-[:KNOWS]-"
-
     def test_can_write_simple_path(self):
+        alice, bob, carol, dave = Node(), Node(), Node(), Node()
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         string = StringIO()
         writer = CypherWriter(string)
-        writer.write(Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {}))
+        writer.write(path)
         written = string.getvalue()
         assert written == "()-[:LOVES]->()<-[:HATES]-()-[:KNOWS]->()"
 
@@ -961,7 +949,9 @@ class CypherLangTestCase(Py2neoTestCase):
         assert written == ""
 
     def test_can_write_with_wrapper_function(self):
-        written = cypher_repr(Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {}))
+        alice, bob, carol, dave = Node(), Node(), Node(), Node()
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        written = cypher_repr(path)
         assert written == "()-[:LOVES]->()<-[:HATES]-()-[:KNOWS]->()"
 
 

@@ -22,7 +22,7 @@ from io import StringIO
 import json
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, Rel, Rev, Path, Relationship, NodePointer
+from py2neo.core import Node, Path, Relationship, NodePointer
 from py2neo.lang import Writer
 from py2neo.util import is_collection
 
@@ -73,10 +73,8 @@ class CypherWriter(Writer):
             self.write_node(obj)
         elif isinstance(obj, NodePointer):
             self.write_node_pointer(obj)
-        elif isinstance(obj, Rel):
-            self.write_rel(obj)
         elif isinstance(obj, Relationship):
-            self.write_relationship(obj)
+            self.write_full_relationship(obj)
         elif isinstance(obj, Path):
             self.write_path(obj)
         elif isinstance(obj, CypherParameter):
@@ -135,7 +133,7 @@ class CypherWriter(Writer):
         """
         self.file.write("{")
         link = ""
-        for key, value in sorted(mapping.items()):
+        for key, value in sorted(dict(mapping).items()):
             self.file.write(link)
             self.write_identifier(key)
             self.file.write(self.key_value_separator)
@@ -169,37 +167,28 @@ class CypherWriter(Writer):
         self.file.write(ustr(node_pointer.address))
         self.file.write(")")
 
-    def write_rel(self, rel, name=None, properties=None):
+    def write_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (excluding nodes).
         """
-        if isinstance(rel, Rev):
-            self.file.write("<-[")
-        else:
-            self.file.write("-[")
+        self.file.write("-[")
         if name:
             self.write_identifier(name)
         self.file.write(":")
-        self.write_identifier(rel.type)
+        self.write_identifier(relationship.type())
         if properties is None:
-            if rel.properties:
+            if relationship:
                 self.file.write(" ")
-                self.write_map(rel.properties)
+                self.write_map(relationship)
         else:
             self.file.write(" ")
             self.write(properties)
-        if isinstance(rel, Rev):
-            self.file.write("]-")
-        else:
-            self.file.write("]->")
+        self.file.write("]->")
 
-    def write_relationship(self, relationship, name=None, properties=None):
+    def write_full_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (including nodes).
         """
-        rel = Rel(relationship.type(), **relationship)
-        if relationship.bound:
-            rel.bind(relationship.uri, relationship.resource.metadata)
         self.write(relationship.start_node())
-        self.write_rel(rel, name, properties)
+        self.write_relationship(relationship, name, properties)
         self.write(relationship.end_node())
 
     def write_parameter(self, parameter):

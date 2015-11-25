@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Rel, Relationship
+from py2neo import Node, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -102,75 +102,6 @@ class HydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.labels() == set(dehydrated["metadata"]["labels"])
-        assert hydrated.bound
-        assert hydrated.resource.uri == dehydrated["self"]
-
-    def test_minimal_rel_hydrate(self):
-        dehydrated = {
-            "self": "http://localhost:7474/db/data/relationship/11",
-        }
-        hydrated = Rel.hydrate(dehydrated)
-        assert isinstance(hydrated, Rel)
-        assert hydrated.bound
-        assert hydrated.resource.uri == dehydrated["self"]
-
-    def test_rel_hydrate_with_type(self):
-        dehydrated = {
-            "self": "http://localhost:7474/db/data/relationship/11",
-            "type": "KNOWS",
-        }
-        hydrated = Rel.hydrate(dehydrated)
-        assert isinstance(hydrated, Rel)
-        assert hydrated.type == dehydrated["type"]
-        assert hydrated.bound
-        assert hydrated.resource.uri == dehydrated["self"]
-
-    def test_rel_hydrate_with_properties(self):
-        dehydrated = {
-            "self": "http://localhost:7474/db/data/relationship/11",
-            "data": {
-                "since": 1999,
-            },
-        }
-        hydrated = Rel.hydrate(dehydrated)
-        assert isinstance(hydrated, Rel)
-        assert hydrated.properties == dehydrated["data"]
-        assert hydrated.bound
-        assert hydrated.resource.uri == dehydrated["self"]
-
-    def test_rel_hydrate_with_type_and_properties(self):
-        dehydrated = {
-            "self": "http://localhost:7474/db/data/relationship/11",
-            "type": "KNOWS",
-            "data": {
-                "since": 1999,
-            },
-        }
-        hydrated = Rel.hydrate(dehydrated)
-        assert isinstance(hydrated, Rel)
-        assert hydrated.type == dehydrated["type"]
-        assert hydrated.properties == dehydrated["data"]
-        assert hydrated.bound
-        assert hydrated.resource.uri == dehydrated["self"]
-
-    def test_full_rel_hydrate(self):
-        dehydrated = {
-            "extensions": {
-            },
-            "start": "http://localhost:7474/db/data/node/23",
-            "property": "http://localhost:7474/db/data/relationship/11/properties/{key}",
-            "self": "http://localhost:7474/db/data/relationship/11",
-            "properties": "http://localhost:7474/db/data/relationship/11/properties",
-            "type": "KNOWS",
-            "end": "http://localhost:7474/db/data/node/22",
-            "data": {
-                "since": 1999,
-            },
-        }
-        hydrated = Rel.hydrate(dehydrated)
-        assert isinstance(hydrated, Rel)
-        assert hydrated.type == dehydrated["type"]
-        assert hydrated.properties == dehydrated["data"]
         assert hydrated.bound
         assert hydrated.resource.uri == dehydrated["self"]
 

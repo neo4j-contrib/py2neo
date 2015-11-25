@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Rel, Relationship, Finished, GraphError
+from py2neo import Node, Relationship, Finished, GraphError
 from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase
@@ -452,18 +452,6 @@ class PullBatchTestCase(Py2neoTestCase):
         assert ab.type() == "KNOWS"
         assert ab["since"] == 1999
 
-    def test_can_pull_rel(self):
-        path = self.cypher.evaluate("CREATE p=()-[ab:KNOWS {since:1999}]->()-[:KNOWS]->() "
-                                    "RETURN p")
-        ab = Rel("")
-        ab.bind(path[0].uri)
-        assert ab.type == ""
-        assert ab.properties["since"] is None
-        self.batch.append(ab)
-        self.batch.pull()
-        assert ab.type == "KNOWS"
-        assert ab.properties["since"] == 1999
-
     def test_can_pull_path(self):
         path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
         assert path[0]["since"] is None
@@ -497,16 +485,6 @@ class PushBatchTestCase(Py2neoTestCase):
         alice["faults"] = []
         with self.assertRaises(BatchError):
             self.graph.push(alice)
-
-    def test_can_push_rel(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        rel = Rel()
-        rel.bind(ab.uri)
-        rel.properties["since"] = 1999
-        self.graph.push(rel)
-        assert self.cypher.evaluate("MATCH ()-[r]->() "
-                                    "WHERE id(r)={x} "
-                                    "RETURN r.since", x=rel._id) == 1999
 
     def test_cannot_push_none(self):
         with self.assertRaises(TypeError):

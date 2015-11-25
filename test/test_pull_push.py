@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Rel, Rev, Path
+from py2neo.core import Node, Relationship, Path
 from test.util import Py2neoTestCase
 
 
@@ -84,7 +84,7 @@ class PullPushTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         assert path[0]["amount"] is None
         assert path[1]["amount"] is None
@@ -108,7 +108,7 @@ class PullPushTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         statement = ("MATCH ()-[ab]->() WHERE id(ab)={ab} "
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "

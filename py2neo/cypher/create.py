@@ -17,7 +17,7 @@
 
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Graph, Node, NodePointer, Path, Relationship, Rev
+from py2neo.core import Graph, Node, NodePointer, Path, Relationship
 from py2neo.cypher.lang import cypher_escape
 
 
@@ -241,8 +241,6 @@ class CreateStatement(object):
                 else:
                     template = "{start}-[{name}:{type}]->{end}"
                 start_index, end_index = i, i + 1
-                if isinstance(rel,  Rev):
-                    start_index, end_index = end_index, start_index
                 start_node = path.nodes()[start_index]
                 end_node = path.nodes()[end_index]
                 start = self._node_pattern(start_node, node_names[start_index],

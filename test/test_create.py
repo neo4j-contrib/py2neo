@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Rev, Relationship, Path
+from py2neo import Node, Relationship, Path
 from test.util import Py2neoTestCase
 
 
@@ -145,7 +145,8 @@ class CreateTestCase(Py2neoTestCase):
     def test_can_create_path_from_object(self):
         # given
         nodes = self.graph.create({}, {}, {}, {})
-        path = Path(nodes[0], "LOVES", nodes[1], Rev("HATES"), nodes[2], "KNOWS", nodes[3])
+        path = Path(nodes[0], "LOVES", nodes[1], Relationship(nodes[2], "HATES", nodes[1]),
+                    nodes[2], "KNOWS", nodes[3])
         # when
         created, = self.graph.create(path)
         # then

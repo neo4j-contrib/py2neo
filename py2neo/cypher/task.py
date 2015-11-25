@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Node, Relationship, Rel
+from py2neo.core import Node, Relationship
 from py2neo.cypher.lang import CypherParameter, CypherWriter
 
 
@@ -199,9 +199,8 @@ class CreateRelationship(CypherTask):
             writer.write_literal(" ")
         writer.write_literal("CREATE ")
         writer.write_literal("(a)")
-        rel = Rel(self.__relationship.type(), **self.__relationship)
-        writer.write_rel(rel, "r",
-                         CypherParameter("R") if self.__relationship else None)
+        writer.write_relationship(self.__relationship, "r",
+                                  CypherParameter("R") if self.__relationship else None)
         writer.write_literal("(b)")
         if self.__return:
             writer.write_literal(" RETURN r")

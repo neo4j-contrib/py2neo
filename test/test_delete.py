@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Rev, Relationship, Path
+from py2neo import Node, Relationship, Path
 from py2neo.cypher.delete import DeleteStatement
 from py2neo.cypher.error import CypherError
 from test.util import Py2neoTestCase
@@ -70,7 +70,8 @@ class DeleteTestCase(Py2neoTestCase):
         self.graph.delete(alice, bob, ab)
         
     def test_can_delete_path(self):
-        path = Path({}, "LOVES", {}, Rev("HATES"), {}, "KNOWS", {})
+        alice, bob, carol, dave = Node(), Node(), Node(), Node()
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         assert self.graph.exists(path)
         self.graph.delete(path)

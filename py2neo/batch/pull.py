@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship, Path, Rel
+from py2neo.core import Node, Relationship, Path
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -63,8 +63,6 @@ class PullBatch(Batch):
         if isinstance(entity, Node):
             self.jobs.append(PullPropertiesJob(entity))
             self.jobs.append(PullNodeLabelsJob(entity))
-        elif isinstance(entity, Rel):
-            self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Relationship):
             self.jobs.append(PullRelationshipJob(entity))
         elif isinstance(entity, Path):

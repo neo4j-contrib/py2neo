@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, Rev, Relationship, JoinError, Rel, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Relationship, ServiceRoot, BindError, Graph
 from test.util import Py2neoTestCase
-from test.compat import assert_repr
 
 
 class PathTestCase(Py2neoTestCase):
@@ -156,17 +155,13 @@ class PathTestCase(Py2neoTestCase):
         assert hydrated[0].type() == "LIKES"
         assert hydrated[1].type() == "DISLIKES"
 
-    def test_cannot_build_path_with_two_consecutive_rels(self):
-        with self.assertRaises(TypeError):
-            _ = Path(Node(name="Alice"), Rel("KNOWS"), Rel("KNOWS"), Node(name="Bob"))
-
     def test_path_equality(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
-        path_2 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path_1 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        path_2 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         assert path_1 == path_2
 
     def test_path_inequality(self):
@@ -174,8 +169,8 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path_1 = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
-        path_2 = Path(alice, "KNOWS", carol, Rev("KNOWS"), dave)
+        path_1 = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        path_2 = Path(alice, "KNOWS", carol, Relationship(dave, "KNOWS", carol), dave)
         assert path_1 != path_2
         assert path_1 != ""
 
@@ -184,7 +179,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         assert path.__bool__()
         assert path.__nonzero__()
         assert path[0] == Relationship(alice, "LOVES", bob)
@@ -192,7 +187,7 @@ class PathTestCase(Py2neoTestCase):
         assert path[2] == Relationship(carol, "KNOWS", dave)
         assert path[-1] == Relationship(carol, "KNOWS", dave)
         assert path[0:1] == Path(alice, "LOVES", bob)
-        assert path[0:2] == Path(alice, "LOVES", bob, Rev("HATES"), carol)
+        assert path[0:2] == Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol)
         try:
             _ = path[7]
         except IndexError:
@@ -205,7 +200,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
         assert path.service_root == ServiceRoot("http://localhost:7474/")
         path[0].unbind()
@@ -216,7 +211,7 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave)
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         try:
             assert path.service_root == ServiceRoot("http://localhost:7474/")
         except BindError:
@@ -229,7 +224,8 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path, = self.graph.create(Path(alice, "LOVES", bob, Rev("HATES"), carol, "KNOWS", dave))
+        path, = self.graph.create(Path(alice, "LOVES", bob,
+                                       Relationship(carol, "HATES", bob), carol, "KNOWS", dave))
         assert path.graph == Graph("http://localhost:7474/db/data/")
 
     def test_path_direction(self):
@@ -380,7 +376,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_iterate_path_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         rels = list(path)
         # then
@@ -392,7 +389,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_make_new_path_from_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         rels = list(path)
         # when
         new_path = Path(*rels)
@@ -406,7 +404,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_make_new_path_from_path(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         new_path = Path(path)
         # then
@@ -419,7 +418,8 @@ class PathIterationAndReversalTestCase(Py2neoTestCase):
 
     def test_can_reverse_iterate_path_relationships(self):
         # given
-        path = Path(self.alice, "LOVES", self.bob, Rev("HATES"), self.carol, "KNOWS", self.dave)
+        path = Path(self.alice, "LOVES", self.bob, Relationship(self.carol, "HATES", self.bob),
+                    self.carol, "KNOWS", self.dave)
         # when
         rels = list(reversed(path))
         # then
