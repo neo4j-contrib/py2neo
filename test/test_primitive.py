@@ -251,7 +251,7 @@ class PropertyContainerTestCase(TestCase):
 
     def test_keys(self):
         container = PropertyContainer(name="Alice", age=33)
-        assert container.keys() == {"name", "age"}
+        assert set(container.keys()) == {"name", "age"}
 
     def test_values(self):
         container = PropertyContainer(name="Alice", age=33)
