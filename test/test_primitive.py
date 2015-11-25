@@ -739,6 +739,18 @@ class PathTestCase(TestCase):
         assert path.length() == 2
         assert list(path.traverse()) == sequence
 
+    def test_path_indexing(self):
+        sequence = [alice_knows_bob, carol_dislikes_bob, carol_married_to_dave]
+        path = Path(*sequence)
+        assert path[0] == alice_knows_bob
+        assert path[1] == carol_dislikes_bob
+        assert path[2] == carol_married_to_dave
+        assert path[-3] == alice_knows_bob
+        assert path[-2] == carol_dislikes_bob
+        assert path[-1] == carol_married_to_dave
+        with self.assertRaises(IndexError):
+            _ = path[3]
+
 
 class TraversalTestCase(TestCase):
 

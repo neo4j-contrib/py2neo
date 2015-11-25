@@ -312,6 +312,8 @@ class TraversableGraph(Graph):
                     stop += len(self)
                 stop = 2 * stop + 1
             return TraversableGraph(*self._sequence[start:stop])
+        elif index < 0:
+            return self._sequence[2 * index]
         else:
             return self._sequence[2 * index + 1]
 
@@ -508,7 +510,7 @@ class Relationship(Entity):
 class Path(TraversableGraph):
 
     def __init__(self, head, *tail):
-        TraversableGraph.__init__(self, *traverse(head, *tail))
+        TraversableGraph.__init__(self, *tuple(traverse(head, *tail)))
 
     def __repr__(self):
         return "<Path length=%r>" % self.length()
