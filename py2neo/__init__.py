@@ -32,7 +32,7 @@ from py2neo.packages.httpstream.watch import watch
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
-           "ServiceRoot", "PropertySet", "PropertyContainer",
+           "ServiceRoot",
            "authenticate", "familiar", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension",

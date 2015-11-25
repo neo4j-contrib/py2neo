@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship, Path, PropertySet
+from py2neo.core import Node, Relationship, Path
 from py2neo.batch.core import Batch, Job, Target
 
 
@@ -32,7 +32,7 @@ class PushPropertyJob(Job):
 class PushPropertiesJob(Job):
 
     def __init__(self, entity, properties):
-        Job.__init__(self, "PUT", Target(entity, "properties"), PropertySet(properties))
+        Job.__init__(self, "PUT", Target(entity, "properties"), dict(properties))
 
 
 class PushNodeLabelsJob(Job):

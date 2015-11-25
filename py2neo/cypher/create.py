@@ -227,17 +227,17 @@ class CreateStatement(object):
     def _create_path(self, path, name, unique):
         node_names = self._create_path_nodes(path, name, unique)
         rel_names = []
-        for i, rel in enumerate(path.relationships()):
+        for i, relationship in enumerate(path.relationships()):
             rel_name = name + "r" + ustr(i)
             rel_names.append(rel_name)
-            if rel.bound:
+            if relationship.bound:
                 self.initial_match_clause.append("MATCH ()-[{0}]->() "
                                                  "WHERE id({0})={{{0}}}".format(rel_name))
-                self.parameters[rel_name] = rel._id
+                self.parameters[rel_name] = relationship._id
             else:
-                if rel:
+                if relationship:
                     template = "{start}-[{name}:{type} {{{name}}}]->{end}"
-                    self.parameters[rel_name] = rel.properties
+                    self.parameters[rel_name] = dict(relationship)
                 else:
                     template = "{start}-[{name}:{type}]->{end}"
                 start_index, end_index = i, i + 1
@@ -248,7 +248,7 @@ class CreateStatement(object):
                 end = self._node_pattern(end_node, node_names[end_index],
                                          full=(unique and not end_node.bound and end_node not in self))
                 kwargs = {"start": start, "name": rel_name,
-                          "type": cypher_escape(rel.type()), "end": end}
+                          "type": cypher_escape(relationship.type()), "end": end}
                 if unique:
                     self.create_unique_clause.append(template.format(**kwargs))
                 else:

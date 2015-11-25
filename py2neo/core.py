@@ -43,7 +43,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
-           "ServiceRoot", "PropertySet", "PropertyContainer",
+           "ServiceRoot",
            "authenticate", "familiar", "rewrite",
            "Bindable", "Resource", "ResourceTemplate"]
 
@@ -1077,99 +1077,6 @@ class Graph(Bindable):
         """
         statement = "MATCH ()-[r]->() RETURN count(r)"
         return self.cypher.evaluate(statement)
-
-
-class PropertySet(dict):
-    """ A dict subclass that equates None with a non-existent key and can be
-    bound to a remote *properties* resource.
-    """
-
-    def __init__(self, iterable=None, **kwargs):
-        dict.__init__(self)
-        self.update(iterable, **kwargs)
-
-    def __eq__(self, other):
-        if not isinstance(other, PropertySet):
-            other = PropertySet(other)
-        return dict.__eq__(self, other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        x = 0
-        for key, value in self.items():
-            if isinstance(value, list):
-                x ^= hash((key, tuple(value)))
-            else:
-                x ^= hash((key, value))
-        return x
-
-    def __getitem__(self, key):
-        return dict.get(self, key)
-
-    def __setitem__(self, key, value):
-        if value is None:
-            try:
-                dict.__delitem__(self, key)
-            except KeyError:
-                pass
-        else:
-            dict.__setitem__(self, key, cast_property(value))
-
-    def setdefault(self, key, default=None):
-        if key in self:
-            value = self[key]
-        elif default is None:
-            value = None
-        else:
-            value = dict.setdefault(self, key, default)
-        return value
-
-    def update(self, iterable=None, **kwargs):
-        for key, value in dict(iterable or {}, **kwargs).items():
-            self[key] = value
-
-
-class PropertyContainer(object):
-    """ Base class for objects that contain a set of properties,
-    i.e. :py:class:`Node` and :py:class:`Relationship`.
-    """
-
-    def __init__(self, **properties):
-        self.__properties = PropertySet(properties)
-
-    def __eq__(self, other):
-        return self.properties == other.properties
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__properties)
-
-    def __contains__(self, key):
-        return key in self.properties
-
-    def __getitem__(self, key):
-        return self.properties.__getitem__(key)
-
-    def __setitem__(self, key, value):
-        self.properties.__setitem__(key, value)
-
-    def __delitem__(self, key):
-        self.properties.__delitem__(key)
-
-    def __iter__(self):
-        raise TypeError("%r object is not iterable" % self.__class__.__name__)
-
-    @property
-    def properties(self):
-        """ The set of properties attached to this «class.lower». Properties
-        can also be read from and written to any :class:`PropertyContainer`
-        by using the index syntax directly.
-        """
-        return self.__properties
 
 
 class Node(Bindable, PrimitiveNode):
