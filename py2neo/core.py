@@ -36,7 +36,8 @@ from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.primitive import \
     Node as PrimitiveNode, \
     Relationship as PrimitiveRelationship, \
-    Path as PrimitivePath
+    Path as PrimitivePath, \
+    Graph as PrimitiveGraph
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
@@ -1885,7 +1886,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         except KeyError:
             pass
         Bindable.unbind(self)
-        for node in [self.start_node, self.end_node]:
+        for node in (self.start_node(), self.end_node()):
             if isinstance(node, Node):
                 try:
                     node.unbind()
@@ -1894,77 +1895,20 @@ class Relationship(Bindable, PrimitiveRelationship):
         self.__id = None
 
 
-class Subgraph(object):
+class Subgraph(Bindable, PrimitiveGraph):
     """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
     """
 
     def __init__(self, *entities):
-        self.__nodes = set()
-        self.__relationships = set()
+        nodes = set()
+        relationships = set()
         for entity in entities:
-            self.add(entity)
+            nodes |= set(entity.nodes())
+            relationships |= set(entity.relationships())
+        PrimitiveGraph.__init__(self, nodes, relationships)
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)
-
-    def __eq__(self, other):
-        try:
-            return self.nodes == other.nodes and self.relationships == other.relationships
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for entity in self.__nodes | self.__relationships:
-            value ^= hash(entity)
-        return value
-
-    def __bool__(self):
-        return bool(self.__relationships)
-
-    def __nonzero__(self):
-        return bool(self.__relationships)
-
-    def __len__(self):
-        return self.size
-
-    def __iter__(self):
-        return iter(self.__relationships)
-
-    def __contains__(self, entity):
-        if isinstance(entity, Node):
-            return entity in self.__nodes
-        elif isinstance(entity, Relationship):
-            return (entity.start_node() in self.__nodes and
-                    entity.end_node() in self.__nodes and
-                    entity in self.__relationships)
-        else:
-            try:
-                return (all(node in self for node in entity.nodes) and
-                        all(relationship in self for relationship in entity.relationships))
-            except AttributeError:
-                return False
-
-    def add(self, entity):
-        """ Add an entity to the subgraph.
-
-        :arg entity: Entity to add
-        """
-        entity = Graph.cast(entity)
-        if isinstance(entity, Node):
-            self.__nodes.add(entity)
-        elif isinstance(entity, Relationship):
-            self.__nodes.add(entity.start_node())
-            self.__nodes.add(entity.end_node())
-            self.__relationships.add(entity)
-        else:
-            for node in entity.nodes:
-                self.__nodes.add(node)
-            for relationship in entity.relationships:
-                self.__relationships.add(relationship)
 
     @property
     def bound(self):
@@ -1984,7 +1928,7 @@ class Subgraph(object):
         """ :const:`True` if this subgraph exists in the database,
         :const:`False` otherwise.
         """
-        return self.graph.exists(*(self.__nodes | self.__relationships))
+        return self.graph.exists(self)
 
     @property
     def graph(self):
@@ -1993,24 +1937,6 @@ class Subgraph(object):
         :rtype: :class:`.Graph`
         """
         return self.service_root.graph
-
-    @property
-    def nodes(self):
-        """ The set of all nodes in this subgraph.
-        """
-        return frozenset(self.__nodes)
-
-    @property
-    def order(self):
-        """ The number of nodes in this subgraph.
-        """
-        return len(self.__nodes)
-
-    @property
-    def relationships(self):
-        """ The set of all relationships in this subgraph.
-        """
-        return frozenset(self.__relationships)
 
     @property
     def service_root(self):
@@ -2025,18 +1951,13 @@ class Subgraph(object):
                 pass
         raise BindError("Local path is not bound to a remote path")
 
-    @property
-    def size(self):
-        """ The number of relationships in this subgraph.
-        """
-        return len(self.__relationships)
-
     def unbind(self):
         """ Detach all entities in this subgraph
         from any remote counterparts.
         """
-        for entity in self.__nodes | self.__relationships:
-            try:
-                entity.unbind()
-            except BindError:
-                pass
+        for entities in (self.nodes(), self.relationships()):
+            for entity in entities:
+                try:
+                    entity.unbind()
+                except BindError:
+                    pass

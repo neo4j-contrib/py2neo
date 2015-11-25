@@ -209,8 +209,8 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_convert_to_subgraph(self):
         results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         subgraph = results.to_subgraph()
-        assert subgraph.order == 2
-        assert subgraph.size == 1
+        assert subgraph.order() == 2
+        assert subgraph.size() == 1
 
     def test_nonsense_query_with_error_handler(self):
         with self.assertRaises(CypherError):
