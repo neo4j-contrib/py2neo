@@ -769,19 +769,19 @@ class Graph(Bindable):
         results = []
         for entity in entities:
             if isinstance(entity, Node):
-                results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity))
+                results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity))
             elif isinstance(entity, Relationship):
-                results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity))
+                results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity))
             elif isinstance(entity, Path):
                 for node in entity.nodes():
-                    results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
+                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
                 for rel in entity.relationships():
-                    results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
+                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             elif isinstance(entity, Subgraph):
                 for node in entity.nodes():
-                    results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
+                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
                 for rel in entity.relationships():
-                    results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
+                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)

@@ -115,7 +115,7 @@ class CypherEngine(Bindable):
         :arg kwparameters: Extra parameters supplied by keyword.
         """
         tx = Transaction(self)
-        result = tx.execute(statement, parameters, **kwparameters)
+        result = tx.run(statement, parameters, **kwparameters)
         tx.post(commit=True)
         return result
 
@@ -126,7 +126,7 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         """
         tx = Transaction(self)
-        result = tx.execute(statement, parameters, **kwparameters)
+        result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result
 
@@ -139,7 +139,7 @@ class CypherEngine(Bindable):
         :return: Single return value or :const:`None`.
         """
         tx = Transaction(self)
-        result = tx.execute(statement, parameters, **kwparameters)
+        result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result.value()
 
@@ -160,7 +160,7 @@ class CypherEngine(Bindable):
         :rtype: :class:`py2neo.cypher.Result`
         """
         tx = Transaction(self)
-        result = tx.execute(statement, parameters, **kwparameters)
+        result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result
 
@@ -227,7 +227,11 @@ class Transaction(object):
         """
         return self._finished
 
-    def execute(self, statement, parameters=None, **kwparameters):
+    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
+    def append(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters)
+
+    def run(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
         executed.
 
@@ -337,7 +341,7 @@ class Transaction(object):
 
 
 class Result(object):
-    """ A list of records returned from the execution of a Cypher statement.
+    """ A stream of records returned from the execution of a Cypher statement.
     """
 
     def __init__(self, transaction=None):
@@ -414,6 +418,7 @@ class Result(object):
         return Subgraph(*entities)
 
 
+@deprecated("RecordStream is deprecated, use CypherEngine.run(...) instead")
 class RecordStream(object):
     """ An accessor for a sequence of records yielded by a streamed Cypher statement.
 

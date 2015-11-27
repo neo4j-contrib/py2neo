@@ -39,8 +39,8 @@ class TemporaryTransaction(object):
     def __del__(self):
         self.tx.rollback()
 
-    def execute(self, statement, parameters=None, **kwparameters):
-        return self.tx.execute(statement, parameters, **kwparameters)
+    def run(self, statement, parameters=None, **kwparameters):
+        return self.tx.run(statement, parameters, **kwparameters)
 
 
 class WriterTestCase(Py2neoTestCase):
@@ -320,7 +320,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_run_single_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished()
-        result = tx.execute("CREATE (a) RETURN a")
+        result = tx.run("CREATE (a) RETURN a")
         tx.commit()
         assert len(result) == 1
         for record in result:
@@ -330,15 +330,15 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_run_transaction_as_with_statement(self):
         with self.cypher.begin() as tx:
             assert not tx.finished()
-            tx.execute("CREATE (a) RETURN a")
+            tx.run("CREATE (a) RETURN a")
         assert tx.finished()
 
     def test_can_run_multi_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished()
-        result_1 = tx.execute("CREATE (a) RETURN a")
-        result_2 = tx.execute("CREATE (a) RETURN a")
-        result_3 = tx.execute("CREATE (a) RETURN a")
+        result_1 = tx.run("CREATE (a) RETURN a")
+        result_2 = tx.run("CREATE (a) RETURN a")
+        result_3 = tx.run("CREATE (a) RETURN a")
         tx.commit()
         for result in (result_1, result_2, result_3):
             assert len(result) == 1
@@ -351,9 +351,9 @@ class CypherTransactionTestCase(Py2neoTestCase):
         assert tx._id is None
         for i in range(10):
             assert not tx.finished()
-            result_1 = tx.execute("CREATE (a) RETURN a")
-            result_2 = tx.execute("CREATE (a) RETURN a")
-            result_3 = tx.execute("CREATE (a) RETURN a")
+            result_1 = tx.run("CREATE (a) RETURN a")
+            result_2 = tx.run("CREATE (a) RETURN a")
+            result_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             assert tx._id is not None
             for result in (result_1, result_2, result_3):
@@ -367,9 +367,9 @@ class CypherTransactionTestCase(Py2neoTestCase):
         tx = self.cypher.begin()
         for i in range(10):
             assert not tx.finished()
-            result_1 = tx.execute("CREATE (a) RETURN a")
-            result_2 = tx.execute("CREATE (a) RETURN a")
-            result_3 = tx.execute("CREATE (a) RETURN a")
+            result_1 = tx.run("CREATE (a) RETURN a")
+            result_2 = tx.run("CREATE (a) RETURN a")
+            result_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             assert tx._id is not None
             for result in (result_1, result_2, result_3):
@@ -382,7 +382,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
     def test_can_generate_transaction_error(self):
         tx = self.cypher.begin()
         try:
-            tx.execute("CRAETE (a) RETURN a")
+            tx.run("CRAETE (a) RETURN a")
             tx.commit()
         except InvalidSyntax as err:
             assert repr(err)
@@ -393,7 +393,7 @@ class CypherTransactionTestCase(Py2neoTestCase):
         tx = self.cypher.begin()
         tx.rollback()
         try:
-            tx.execute("CREATE (a) RETURN a")
+            tx.run("CREATE (a) RETURN a")
         except Finished as error:
             assert error.obj is tx
             assert repr(error) == "Transaction finished"
@@ -402,17 +402,17 @@ class CypherTransactionTestCase(Py2neoTestCase):
 
     def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
         tx = self.cypher.begin()
-        result = tx.execute("CREATE (a), (b) RETURN a, b")
+        result = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
         record = result[0]
         parameters = {"A": record["a"]._id, "B": record["b"]._id}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
-        tx.execute(statement, parameters)
-        tx.execute(statement, parameters)
+        tx.run(statement, parameters)
+        tx.run(statement, parameters)
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-        tx.execute(statement, parameters)
+        tx.run(statement, parameters)
         try:
             tx.commit()
         except TransactionError as error:
@@ -1062,7 +1062,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
+            result, = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
                                  "RETURN labels(a), a.`full name`",
                                  v="Alice Smith")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1071,7 +1071,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_set(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens`) SET a={p} "
+            result, = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
                                  "RETURN labels(a), a.`full name`",
                                  p={"full name": "Alice Smith"})
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1080,7 +1080,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  k="full name")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1089,7 +1089,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  l="Homo Sapiens")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1098,7 +1098,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  l=("Homo Sapiens", "Hunter", "Gatherer"))
             assert set(result[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
@@ -1157,4 +1157,4 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         tx = self.new_tx()
         if tx:
             with self.assertRaises(KeyError):
-                tx.execute("CREATE (a)-[ab:«t»]->(b) RETURN ab")
+                tx.run("CREATE (a)-[ab:«t»]->(b) RETURN ab")
