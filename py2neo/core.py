@@ -851,12 +851,11 @@ class Graph(Bindable):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import Result, RecordProducer
+                from py2neo.cypher import Result, Record
                 result = Result()
                 keys = data["columns"]
-                producer = RecordProducer(keys)
-                result._process(keys, [producer.produce(self.graph.hydrate(datum))
-                                       for datum in data["data"]])
+                result._process(keys, [Record(keys, self.graph.hydrate(values))
+                                       for values in data["data"]])
                 return result
             elif "neo4j_version" in data:
                 return self

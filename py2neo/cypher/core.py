@@ -20,7 +20,7 @@ from collections import OrderedDict
 import logging
 
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
-from py2neo.compat import integer, string, xstr, ustr
+from py2neo.compat import integer, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.packages.tart.tables import TextTable
@@ -29,7 +29,7 @@ from py2neo.util import is_collection
 
 
 __all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
-           "Record", "RecordProducer"]
+           "Record"]
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -282,13 +282,11 @@ class Transaction(object):
         for j_result in j["results"]:
             result = self.results.pop(0)
             keys = j_result["columns"]
-            producer = RecordProducer(keys)
             if hydrate:
-                result._process(keys, [producer.produce(self.graph.hydrate(data["rest"]))
+                result._process(keys, [Record(keys, self.graph.hydrate(data["rest"]))
                                        for data in j_result["data"]])
             else:
                 result._process(keys, [data["rest"] for data in j_result["data"]])
-        #log.info("results %r", results)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
@@ -437,11 +435,10 @@ class RecordStream(object):
         log.info("stream %r", self.columns)
 
     def __result_iterator(self):
-        columns = self.__result.keys()
-        producer = RecordProducer(columns)
-        yield tuple(columns)
+        keys = self.__result.keys()
+        yield tuple(keys)
         for values in self.__result:
-            yield producer.produce(self.graph.hydrate(values))
+            yield Record(keys, self.graph.hydrate(values))
 
     def __iter__(self):
         return self
@@ -485,28 +482,3 @@ class Record(PrimitiveRecord):
             table.append(self.values())
             out = repr(table)
         return out
-
-
-class RecordProducer(object):
-
-    def __init__(self, columns):
-        self.__columns = tuple(column for column in columns if not column.startswith("_"))
-        self.__len = len(self.__columns)
-        dct = dict.fromkeys(self.__columns)
-        dct["__producer__"] = self
-        self.__type = type(xstr("Record"), (Record,), dct)
-
-    def __repr__(self):
-        return "RecordProducer(columns=%r)" % (self.__columns,)
-
-    def __len__(self):
-        return self.__len
-
-    @property
-    def columns(self):
-        return self.__columns
-
-    def produce(self, values):
-        """ Produce a record from a set of values.
-        """
-        return Record(self.__columns, values)

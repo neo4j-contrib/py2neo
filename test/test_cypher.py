@@ -20,7 +20,7 @@ from io import StringIO
 
 from py2neo import Node, NodePointer, Relationship, Path, Finished, GraphError
 from py2neo.cypher import CypherEngine, Transaction, \
-    CreateStatement, DeleteStatement, RecordProducer, Result
+    CreateStatement, DeleteStatement
 from py2neo.cypher.core import presubstitute
 from py2neo.cypher.error.core import CypherError, TransactionError, ClientError
 from py2neo.cypher.error.statement import ConstraintViolation, InvalidSyntax
