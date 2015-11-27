@@ -333,10 +333,6 @@ class Transaction(object):
             self._finished = True
 
 
-class NotProcessedError(Exception):
-    pass
-
-
 class Result(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
