@@ -23,7 +23,7 @@ from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finis
 from py2neo.compat import integer, xstr, ustr
 from py2neo.lang import cypher_escape, TextTable
 from py2neo.cypher.error.core import CypherError, TransactionError
-from py2neo.primitive import Record as PrimitiveRecord
+from py2neo.primitive import Record
 from py2neo.util import is_collection
 
 
@@ -452,32 +452,3 @@ class RecordStream(object):
         """ Close results and free resources.
         """
         pass
-
-
-class Record(PrimitiveRecord):
-    """ A simple object containing values from a single row of a Cypher
-    result. Each value can be retrieved by column position or name,
-    supplied as either an index key or an attribute name.
-
-    Consider the record below::
-
-           | person                     | name
-        ---+----------------------------+-------
-         1 | (n1:Person {name:"Alice"}) | Alice
-
-    If this record is named ``r``, the following expressions
-    are equivalent and will return the value ``'Alice'``::
-
-        r[1]
-        r["name"]
-
-    """
-
-    def __repr__(self):
-        out = ""
-        keys = self.keys()
-        if keys:
-            table = TextTable(keys, border=True)
-            table.append(self.values())
-            out = repr(table)
-        return out
