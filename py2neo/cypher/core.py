@@ -21,9 +21,8 @@ import logging
 
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, xstr, ustr
-from py2neo.lang import cypher_escape
+from py2neo.lang import cypher_escape, TextTable
 from py2neo.cypher.error.core import CypherError, TransactionError
-from py2neo.packages.tart.tables import TextTable
 from py2neo.primitive import Record as PrimitiveRecord
 from py2neo.util import is_collection
 
