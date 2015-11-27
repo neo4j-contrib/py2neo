@@ -27,8 +27,7 @@ from py2neo.primitive import Record
 from py2neo.util import is_collection, deprecated
 
 
-__all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
-           "Record"]
+__all__ = ["CypherEngine", "Transaction", "Result"]
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -164,17 +163,6 @@ class CypherEngine(Bindable):
         tx.commit()
         return result
 
-    @deprecated("CypherEngine.stream(...) is deprecated, "
-                "use CypherEngine.run(...) instead")
-    def stream(self, statement, parameters=None, **kwparameters):
-        """ Execute the query and return a result iterator.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.RecordStream`
-        """
-        return RecordStream(self.graph, self.post(statement, parameters, **kwparameters))
-
 
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
@@ -217,55 +205,6 @@ class Transaction(object):
             return None
         else:
             return int(self._execute.uri.path.segments[-1])
-
-    def finished(self):
-        """ Indicates whether or not this transaction has been completed or is
-        still open.
-
-        :return: :py:const:`True` if this transaction has finished,
-                 :py:const:`False` otherwise
-        """
-        return self._finished
-
-    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
-    def append(self, statement, parameters=None, **kwparameters):
-        return self.run(statement, parameters, **kwparameters)
-
-    def run(self, statement, parameters=None, **kwparameters):
-        """ Add a statement to the current queue of statements to be
-        executed.
-
-        :arg statement: the statement to append
-        :arg parameters: a dictionary of execution parameters
-        """
-        self._assert_unfinished()
-
-        s = ustr(statement)
-        p = {}
-
-        def add_parameters(params):
-            if params:
-                for k, v in dict(params).items():
-                    if isinstance(v, (Node, Relationship)):
-                        v = v._id
-                    p[k] = v
-
-        if hasattr(statement, "parameters"):
-            add_parameters(statement.parameters)
-        add_parameters(dict(parameters or {}, **kwparameters))
-
-        s, p = presubstitute(s, p)
-
-        # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("append %r %r", s, p)
-        self.statements.append(OrderedDict([
-            ("statement", s),
-            ("parameters", p),
-            ("resultDataContents", ["REST"]),
-        ]))
-        result = Result(self)
-        self.results.append(result)
-        return result
 
     def post(self, commit=False, hydrate=False):
         self._assert_unfinished()
@@ -338,6 +277,58 @@ class Transaction(object):
                 self._execute.delete()
         finally:
             self._finished = True
+
+    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
+    def append(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters)
+
+    def run(self, statement, parameters=None, **kwparameters):
+        """ Add a statement to the current queue of statements to be
+        executed.
+
+        :arg statement: the statement to append
+        :arg parameters: a dictionary of execution parameters
+        """
+        self._assert_unfinished()
+
+        s = ustr(statement)
+        p = {}
+
+        def add_parameters(params):
+            if params:
+                for k, v in dict(params).items():
+                    if isinstance(v, (Node, Relationship)):
+                        v = v._id
+                    p[k] = v
+
+        if hasattr(statement, "parameters"):
+            add_parameters(statement.parameters)
+        add_parameters(dict(parameters or {}, **kwparameters))
+
+        s, p = presubstitute(s, p)
+
+        # OrderedDict is used here to avoid statement/parameters ordering bug
+        log.info("append %r %r", s, p)
+        self.statements.append(OrderedDict([
+            ("statement", s),
+            ("parameters", p),
+            ("resultDataContents", ["REST"]),
+        ]))
+        result = Result(self)
+        self.results.append(result)
+        return result
+
+    def evaluate(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters).value()
+
+    def finished(self):
+        """ Indicates whether or not this transaction has been completed or is
+        still open.
+
+        :return: :py:const:`True` if this transaction has finished,
+                 :py:const:`False` otherwise
+        """
+        return self._finished
 
 
 class Result(object):
@@ -416,49 +407,3 @@ class Result(object):
                 if isinstance(value, (Node, Relationship, Path)):
                     entities.append(value)
         return Subgraph(*entities)
-
-
-@deprecated("RecordStream is deprecated, use CypherEngine.run(...) instead")
-class RecordStream(object):
-    """ An accessor for a sequence of records yielded by a streamed Cypher statement.
-
-    ::
-
-        for record in graph.cypher.stream("MATCH (n) RETURN n LIMIT 10")
-            print record[0]
-
-    Each record returned is cast into a :py:class:`namedtuple` with names
-    derived from the resulting column names.
-
-    .. note ::
-        Results are available as returned from the server and are decoded
-        incrementally. This means that there is no need to wait for the
-        entire response to be received before processing can occur.
-    """
-
-    def __init__(self, graph, result):
-        self.graph = graph
-        self.__result = result
-        self.__result_item = self.__result_iterator()
-        self.columns = next(self.__result_item)
-        log.info("stream %r", self.columns)
-
-    def __result_iterator(self):
-        keys = self.__result.keys()
-        yield tuple(keys)
-        for values in self.__result:
-            yield Record(keys, self.graph.hydrate(values))
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return next(self.__result_item)
-
-    def next(self):
-        return self.__next__()
-
-    def close(self):
-        """ Close results and free resources.
-        """
-        pass

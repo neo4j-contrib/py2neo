@@ -665,6 +665,9 @@ class Graph(Bindable):
             self.__batch = BatchResource(self.resource.metadata["batch"])
         return self.__batch
 
+    def begin(self):
+        return self.cypher.begin()
+
     @property
     def cypher(self):
         """ The Cypher execution resource for this graph providing access to
@@ -762,6 +765,9 @@ class Graph(Bindable):
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
+    def evaluate(self, statement, parameters=None, **kwparameters):
+        return self.cypher.evaluate(statement, parameters, **kwparameters)
+
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
         """
@@ -851,7 +857,8 @@ class Graph(Bindable):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import Result, Record
+                from py2neo.cypher import Result
+                from py2neo.primitive import Record
                 result = Result()
                 keys = data["columns"]
                 result._process(keys, [Record(keys, self.graph.hydrate(values))
@@ -1066,6 +1073,9 @@ class Graph(Bindable):
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
+
+    def run(self, statement, parameters=None, **kwparameters):
+        return self.cypher.run(statement, parameters, **kwparameters)
 
     @property
     def schema(self):
