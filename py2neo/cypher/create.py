@@ -82,9 +82,7 @@ class CreateStatement(object):
         if not self.entities:
             return ()
         raw = self.graph.cypher.post(self.string, self.parameters)
-        columns = raw["columns"]
-        data = raw["data"]
-        dehydrated = dict(zip(columns, data[0]))
+        dehydrated = dict(zip(raw.keys(), raw[0]))
         for i, entity in enumerate(self.entities):
             node_names, rel_names = self.names[i]
             if isinstance(entity, Node):

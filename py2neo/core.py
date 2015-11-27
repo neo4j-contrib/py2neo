@@ -46,7 +46,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
            "ServiceRoot",
            "authenticate", "familiar", "rewrite",
-           "Graphy", "Bindable", "Resource", "ResourceTemplate"]
+           "Bindable", "Resource", "ResourceTemplate"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -562,12 +562,6 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graphy(object):
-
-    def __nodes__(self):
-        raise NotImplementedError()
-
-
 class Graph(Bindable):
     """ The `Graph` class provides a wrapper around the
     `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
@@ -772,25 +766,27 @@ class Graph(Bindable):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.cypher.begin()
+        results = []
         for entity in entities:
             if isinstance(entity, Node):
-                tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
+                results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity))
             elif isinstance(entity, Relationship):
-                tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
+                results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity))
             elif isinstance(entity, Path):
                 for node in entity.nodes():
-                    tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                    results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
                 for rel in entity.relationships():
-                    tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                    results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             elif isinstance(entity, Subgraph):
                 for node in entity.nodes():
-                    tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                    results.append(tx.execute("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
                 for rel in entity.relationships():
-                    tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                    results.append(tx.execute("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)
-        return sum(result[0][0] for result in tx.commit()) == count
+        tx.commit()
+        return sum(result[0][0] for result in results) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -809,7 +805,7 @@ class Graph(Bindable):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response["data"]:
+        for record in response:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
@@ -855,8 +851,13 @@ class Graph(Bindable):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import Result
-                return Result.hydrate(data, self)
+                from py2neo.cypher import Result, RecordProducer
+                result = Result()
+                keys = data["columns"]
+                producer = RecordProducer(keys)
+                result._process(keys, [producer.produce(self.graph.hydrate(datum))
+                                       for datum in data["data"]])
+                return result
             elif "neo4j_version" in data:
                 return self
             elif "exception" in data and ("stacktrace" in data or "stackTrace" in data):
@@ -961,7 +962,7 @@ class Graph(Bindable):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response["data"]:
+        for record in response:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
@@ -1385,7 +1386,7 @@ class Node(Bindable, PrimitiveNode):
         query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
         content = self.cypher.post(query, {"a": self._id})
         try:
-            dehydrated, label_metadata = content["data"][0]
+            dehydrated, label_metadata = content[0]
         except IndexError:
             raise GraphError("Node with ID %s not found" % self._id)
         else:

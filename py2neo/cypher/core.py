@@ -19,12 +19,12 @@
 from collections import OrderedDict
 import logging
 
-from py2neo import Graphy, Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
+from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_collection, deprecated
+from py2neo.util import is_collection
 
 
 __all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
@@ -114,7 +114,7 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
         """
-        tx = Transaction(self.uri)
+        tx = Transaction(self)
         result = tx.execute(statement, parameters, **kwparameters)
         tx.post(commit=True)
         return result
@@ -125,7 +125,7 @@ class CypherEngine(Bindable):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = Transaction(self.uri)
+        tx = Transaction(self)
         tx.execute(statement, parameters, **kwparameters)
         tx.commit()
 
@@ -136,7 +136,7 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.Result`
         """
-        tx = Transaction(self.uri)
+        tx = Transaction(self)
         result = tx.execute(statement, parameters, **kwparameters)
         tx.commit()
         return result
@@ -149,7 +149,7 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = Transaction(self.uri)
+        tx = Transaction(self)
         result = tx.execute(statement, parameters, **kwparameters)
         tx.commit()
         return result.value()
@@ -168,7 +168,7 @@ class CypherEngine(Bindable):
 
         :rtype: :class:`py2neo.cypher.Transaction`
         """
-        return Transaction(self.uri)
+        return Transaction(self)
 
 
 class Transaction(object):
@@ -178,16 +178,18 @@ class Transaction(object):
 
     error_class = TransactionError
 
-    def __init__(self, uri):
+    def __init__(self, cypher):
         log.info("begin")
         self.statements = []
         self.results = []
-        self.__begin = Resource(uri)
-        self.__begin_commit = Resource(uri + "/commit")
-        self.__execute = None
-        self.__commit = None
-        self.__finished = False
-        self.graph = self.__begin.graph
+        self.cypher = cypher
+        uri = self.cypher.resource.uri.string
+        self._begin = Resource(uri)
+        self._begin_commit = Resource(uri + "/commit")
+        self._execute = None
+        self._commit = None
+        self._finished = False
+        self.graph = self._begin.graph
 
     def __enter__(self):
         return self
@@ -198,20 +200,19 @@ class Transaction(object):
         else:
             self.rollback()
 
-    def __assert_unfinished(self):
-        if self.__finished:
+    def _assert_unfinished(self):
+        if self._finished:
             raise Finished(self)
 
     @property
     def _id(self):
         """ The internal server ID of this transaction, if available.
         """
-        if self.__execute is None:
+        if self._execute is None:
             return None
         else:
-            return int(self.__execute.uri.path.segments[-1])
+            return int(self._execute.uri.path.segments[-1])
 
-    @property
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is
         still open.
@@ -219,7 +220,7 @@ class Transaction(object):
         :return: :py:const:`True` if this transaction has finished,
                  :py:const:`False` otherwise
         """
-        return self.__finished
+        return self._finished
 
     def execute(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
@@ -228,7 +229,7 @@ class Transaction(object):
         :arg statement: the statement to append
         :arg parameters: a dictionary of execution parameters
         """
-        self.__assert_unfinished()
+        self._assert_unfinished()
 
         s = ustr(statement)
         p = {}
@@ -253,62 +254,39 @@ class Transaction(object):
             ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))
-        result = Result(self.graph)
+        result = Result(self)
         self.results.append(result)
         return result
 
-    def create(self, *labels, **properties):
-        return self.execute("CREATE (a:«l» {p}) "
-                            "RETURN a",
-                            l=labels, p=properties)
-
-    def delete(self, node):
-        pass
-
-    def relate(self, *nodes, **properties):
-        if len(nodes) != 3:
-            raise ValueError("Start node, type and end node are required")
-        start_node = last_node(nodes[0])
-        end_node = first_node(nodes[2])
-        relationship_type = nodes[1]
-        return self.execute("MATCH (a) WHERE id(a)={x} "
-                            "MATCH (b) WHERE id(b)={y} "
-                            "CREATE UNIQUE (a)-[r:«t» {p}]->(b) "
-                            "RETURN r",
-                            x=start_node._id, y=end_node._id, t=relationship_type, p=properties)
-
     def post(self, commit=False, hydrate=False):
-        self.__assert_unfinished()
+        self._assert_unfinished()
         if commit:
             log.info("commit")
-            resource = self.__commit or self.__begin_commit
-            self.__finished = True
+            resource = self._commit or self._begin_commit
+            self._finished = True
         else:
             log.info("process")
-            resource = self.__execute or self.__begin
+            resource = self._execute or self._begin
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:
-            self.__execute = Resource(location)
+            self._execute = Resource(location)
         j = rs.content
         rs.close()
         self.statements = []
         if "commit" in j:
-            self.__commit = Resource(j["commit"])
-        if "errors" in j:
-            errors = j["errors"]
-            if len(errors) >= 1:
-                error = errors[0]
-                raise self.error_class.hydrate(error)
+            self._commit = Resource(j["commit"])
+        for j_error in j["errors"]:
+            raise self.error_class.hydrate(j_error)
         for j_result in j["results"]:
             result = self.results.pop(0)
             keys = j_result["columns"]
             producer = RecordProducer(keys)
             if hydrate:
-                result.process(keys, [producer.produce(self.graph.hydrate(data["rest"]))
-                                      for data in j_result["data"]])
+                result._process(keys, [producer.produce(self.graph.hydrate(data["rest"]))
+                                       for data in j_result["data"]])
             else:
-                result.process(keys, [data["rest"] for data in j_result["data"]])
+                result._process(keys, [data["rest"] for data in j_result["data"]])
         #log.info("results %r", results)
 
     def process(self):
@@ -346,13 +324,13 @@ class Transaction(object):
     def rollback(self):
         """ Rollback the current transaction.
         """
-        self.__assert_unfinished()
+        self._assert_unfinished()
         log.info("rollback")
         try:
-            if self.__execute:
-                self.__execute.delete()
+            if self._execute:
+                self._execute.delete()
         finally:
-            self.__finished = True
+            self._finished = True
 
 
 class NotProcessedError(Exception):
@@ -363,8 +341,9 @@ class Result(object):
     """ A list of records returned from the execution of a Cypher statement.
     """
 
-    def __init__(self, graph):
-        self.graph = graph
+    def __init__(self, transaction=None):
+        assert transaction is None or isinstance(transaction, Transaction)
+        self.transaction = transaction
         self._keys = []
         self._records = []
         self._processed = False
@@ -376,7 +355,7 @@ class Result(object):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        self._assert_processed()
+        self._ensure_processed()
         out = ""
         if self._keys:
             table = TextTable([None] + self._keys, border=True)
@@ -386,51 +365,48 @@ class Result(object):
         return out
 
     def __len__(self):
-        self._assert_processed()
+        self._ensure_processed()
         return len(self._records)
 
     def __getitem__(self, item):
-        self._assert_processed()
+        self._ensure_processed()
         return self._records[item]
 
     def __iter__(self):
-        self._assert_processed()
+        self._ensure_processed()
         return iter(self._records)
 
-    def _assert_processed(self):
+    def _ensure_processed(self):
         if not self._processed:
-            raise NotProcessedError("Result not yet processed")
+            self.transaction.process()
 
-    @property
-    def processed(self):
-        return self._processed
-
-    def process(self, keys, records):
+    def _process(self, keys, records):
         self._keys = keys
         self._records = records
         self._processed = True
 
-    def value(self):
-        """ The first value from the first record of this result. If no records
+    def keys(self):
+        return self._keys
+
+    def value(self, index=0):
+        """ A single value from the first record of this result. If no records
         are available, :const:`None` is returned.
         """
-        self._assert_processed()
+        self._ensure_processed()
         try:
             record = self[0]
         except IndexError:
             return None
         else:
-            if len(record) == 0:
-                return None
-            elif len(record) == 1:
-                return record[0]
+            if len(record) > index:
+                return record[index]
             else:
-                return record
+                return None
 
     def to_subgraph(self):
         """ Convert a Result into a Subgraph.
         """
-        self._assert_processed()
+        self._ensure_processed()
         entities = []
         for record in self._records:
             for value in record:
@@ -464,10 +440,10 @@ class RecordStream(object):
         log.info("stream %r", self.columns)
 
     def __result_iterator(self):
-        columns = self.__result["columns"]
+        columns = self.__result.keys()
         producer = RecordProducer(columns)
         yield tuple(columns)
-        for values in self.__result["data"]:
+        for values in self.__result:
             yield producer.produce(self.graph.hydrate(values))
 
     def __iter__(self):
@@ -485,7 +461,7 @@ class RecordStream(object):
         pass
 
 
-class Record(Graphy, object):
+class Record(object):
     """ A simple object containing values from a single row of a Cypher
     result. Each value can be retrieved by column position or name,
     supplied as either an index key or an attribute name.
