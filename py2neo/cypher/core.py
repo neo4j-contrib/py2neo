@@ -24,6 +24,7 @@ from py2neo.compat import integer, string, xstr, ustr
 from py2neo.cypher.lang import cypher_escape
 from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.packages.tart.tables import TextTable
+from py2neo.primitive import Record as PrimitiveRecord
 from py2neo.util import is_collection
 
 
@@ -457,7 +458,7 @@ class RecordStream(object):
         pass
 
 
-class Record(object):
+class Record(PrimitiveRecord):
     """ A simple object containing values from a single row of a Cypher
     result. Each value can be retrieved by column position or name,
     supplied as either an index key or an attribute name.
@@ -473,56 +474,17 @@ class Record(object):
 
         r[1]
         r["name"]
-        r.name
 
     """
 
-    __producer__ = None
-
-    def __init__(self, values):
-        self.__values__ = tuple(values)
-        columns = self.__producer__.columns
-        for i, column in enumerate(columns):
-            setattr(self, column, values[i])
-
     def __repr__(self):
         out = ""
-        columns = self.__producer__.columns
-        if columns:
-            table = TextTable(columns, border=True)
-            table.append([getattr(self, column) for column in columns])
+        keys = self.keys()
+        if keys:
+            table = TextTable(keys, border=True)
+            table.append(self.values())
             out = repr(table)
         return out
-
-    def __eq__(self, other):
-        try:
-            return vars(self) == vars(other)
-        except TypeError:
-            return tuple(self) == tuple(other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __len__(self):
-        return len(self.__values__)
-
-    def __iter__(self):
-        return iter(self.__values__)
-
-    def __getitem__(self, item):
-        if isinstance(item, integer):
-            return self.__values__[item]
-        elif isinstance(item, string):
-            return getattr(self, item)
-        else:
-            raise LookupError(item)
-
-    def __nodes__(self):
-        """ Iterate through all nodes in this record.
-        """
-        for value in self.__values__:
-            if isinstance(value, Node):
-                yield value
 
 
 class RecordProducer(object):
@@ -547,4 +509,4 @@ class RecordProducer(object):
     def produce(self, values):
         """ Produce a record from a set of values.
         """
-        return self.__type(values)
+        return Record(self.__columns, values)

@@ -925,9 +925,9 @@ class Graph(Bindable):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        results = self.cypher.execute(statement, parameters)
-        for result in results:
-            yield result.r
+        result = self.cypher.execute(statement, parameters)
+        for record in result:
+            yield record["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
