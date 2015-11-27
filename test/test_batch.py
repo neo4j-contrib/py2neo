@@ -456,7 +456,7 @@ class PullBatchTestCase(Py2neoTestCase):
         path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
         assert path[0]["since"] is None
         statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
-        self.cypher.execute(statement, {"ab": path[0]._id})
+        self.cypher.run(statement, {"ab": path[0]._id})
         assert path[0]["since"] is None
         self.batch.append(path)
         self.batch.pull()

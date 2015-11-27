@@ -675,7 +675,7 @@ class Graph(Bindable):
 
             >>> from py2neo import Graph
             >>> graph = Graph()
-            >>> graph.cypher.execute("CREATE (a:Person {name:{N}})", {"N": "Alice"})
+            >>> graph.cypher.run("CREATE (a:Person {name:{N}})", {"N": "Alice"})
 
         :rtype: :class:`py2neo.cypher.CypherEngine`
 
@@ -760,7 +760,7 @@ class Graph(Bindable):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.cypher.execute("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
@@ -924,7 +924,7 @@ class Graph(Bindable):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        result = self.cypher.execute(statement, parameters)
+        result = self.cypher.run(statement, parameters)
         for record in result:
             yield record["r"]
 

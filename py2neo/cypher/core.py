@@ -24,7 +24,7 @@ from py2neo.compat import integer, xstr, ustr
 from py2neo.lang import cypher_escape, TextTable
 from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.primitive import Record
-from py2neo.util import is_collection
+from py2neo.util import is_collection, deprecated
 
 
 __all__ = ["CypherEngine", "Transaction", "Result", "RecordStream",
@@ -126,17 +126,6 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         """
         tx = Transaction(self)
-        tx.execute(statement, parameters, **kwparameters)
-        tx.commit()
-
-    def execute(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.Result`
-        """
-        tx = Transaction(self)
         result = tx.execute(statement, parameters, **kwparameters)
         tx.commit()
         return result
@@ -154,6 +143,29 @@ class CypherEngine(Bindable):
         tx.commit()
         return result.value()
 
+    def begin(self):
+        """ Begin a new transaction.
+
+        :rtype: :class:`py2neo.cypher.Transaction`
+        """
+        return Transaction(self)
+
+    @deprecated("CypherEngine.execute(...) is deprecated, "
+                "use CypherEngine.run(...) instead")
+    def execute(self, statement, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement.
+
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
+        :rtype: :class:`py2neo.cypher.Result`
+        """
+        tx = Transaction(self)
+        result = tx.execute(statement, parameters, **kwparameters)
+        tx.commit()
+        return result
+
+    @deprecated("CypherEngine.stream(...) is deprecated, "
+                "use CypherEngine.run(...) instead")
     def stream(self, statement, parameters=None, **kwparameters):
         """ Execute the query and return a result iterator.
 
@@ -162,13 +174,6 @@ class CypherEngine(Bindable):
         :rtype: :class:`py2neo.cypher.RecordStream`
         """
         return RecordStream(self.graph, self.post(statement, parameters, **kwparameters))
-
-    def begin(self):
-        """ Begin a new transaction.
-
-        :rtype: :class:`py2neo.cypher.Transaction`
-        """
-        return Transaction(self)
 
 
 class Transaction(object):
