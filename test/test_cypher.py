@@ -24,7 +24,7 @@ from py2neo.cypher import CypherEngine, Transaction, \
 from py2neo.cypher.core import presubstitute
 from py2neo.cypher.error.core import CypherError, TransactionError, ClientError
 from py2neo.cypher.error.statement import ConstraintViolation, InvalidSyntax
-from py2neo.cypher.lang import CypherWriter, cypher_repr
+from py2neo.lang import CypherWriter, cypher_repr
 from py2neo.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship
 from py2neo.lang import Writer
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response

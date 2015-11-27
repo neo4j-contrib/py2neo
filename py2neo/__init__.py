@@ -41,5 +41,6 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
 ]
 
 
+# TODO: remove
 node = Node.cast
 rel = Relationship.cast

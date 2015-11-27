@@ -18,7 +18,7 @@
 
 from py2neo.compat import ustr, xstr
 from py2neo.core import Graph, Node, NodePointer, Path, Relationship
-from py2neo.cypher.lang import cypher_escape
+from py2neo.lang import cypher_escape
 
 
 __all__ = ["CreateStatement"]
