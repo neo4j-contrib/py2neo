@@ -228,14 +228,9 @@ class Transaction(object):
             raise self.error_class.hydrate(j_error)
         for j_result in j["results"]:
             result = self.results.pop(0)
-            if hydrate:
-                result._data_key = "rest"
-                result._hydrate = True
-                result._process(j_result)
-            else:
-                result._data_key = "rest"
-                result._hydrate = False
-                result._process(j_result)
+            result._data_key = "rest"
+            result._hydrate = hydrate
+            result._process(j_result)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
