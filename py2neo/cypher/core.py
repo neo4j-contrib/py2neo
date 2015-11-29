@@ -73,7 +73,7 @@ def presubstitute(statement, parameters):
             statement = before + value + after
         else:
             more = False
-    parameters = {k:v for k,v in parameters.items() if k not in presub_parameters}
+    parameters = {k: v for k, v in parameters.items() if k not in presub_parameters}
     return statement, parameters
 
 
@@ -228,12 +228,14 @@ class Transaction(object):
             raise self.error_class.hydrate(j_error)
         for j_result in j["results"]:
             result = self.results.pop(0)
-            keys = j_result["columns"]
             if hydrate:
-                result._process(keys, [Record(keys, self.graph.hydrate(data["rest"]))
-                                       for data in j_result["data"]])
+                result._data_key = "rest"
+                result._hydrate = True
+                result._process(j_result)
             else:
-                result._process(keys, [data["rest"] for data in j_result["data"]])
+                result._data_key = "rest"
+                result._hydrate = False
+                result._process(j_result)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
@@ -314,7 +316,7 @@ class Transaction(object):
             ("parameters", p),
             ("resultDataContents", ["REST"]),
         ]))
-        result = Result(self)
+        result = Result(self.graph, self, data_key="rest", hydrate=True)
         self.results.append(result)
         return result
 
@@ -335,12 +337,15 @@ class Result(object):
     """ A stream of records returned from the execution of a Cypher statement.
     """
 
-    def __init__(self, transaction=None):
+    def __init__(self, graph, transaction=None, data_key=None, hydrate=False):
         assert transaction is None or isinstance(transaction, Transaction)
+        self.graph = graph
         self.transaction = transaction
         self._keys = []
         self._records = []
         self._processed = False
+        self._data_key = data_key   # TODO  "rest" or None
+        self._hydrate = hydrate     # TODO  hydrate to record or leave raw
 
     def __repr__(self):
         return "<Result>"
@@ -374,9 +379,20 @@ class Result(object):
         if not self._processed:
             self.transaction.process()
 
-    def _process(self, keys, records):
-        self._keys = keys
-        self._records = records
+    def _process(self, raw):
+        self._keys = raw["columns"]
+        if self._hydrate:
+            if self._data_key:
+                self._records = [Record(self._keys, self.graph.hydrate(values[self._data_key]))
+                                 for values in raw["data"]]
+            else:
+                self._records = [Record(self._keys, self.graph.hydrate(values))
+                                 for values in raw["data"]]
+        else:
+            if self._data_key:
+                self._records = [values[self._data_key] for values in raw["data"]]
+            else:
+                self._records = [values for values in raw["data"]]
         self._processed = True
 
     def keys(self):
