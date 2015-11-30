@@ -21,7 +21,7 @@ import logging
 
 from py2neo.compat import ustr
 from py2neo.core import NodePointer, Bindable
-from py2neo.cypher import Result
+from py2neo.cypher import Result, cypher_request
 from py2neo.error import GraphError, Finished
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -331,13 +331,11 @@ class CypherJob(Job):
     batched Cypher jobs.
     """
 
-    target = Target("cypher")
+    target = Target("transaction/commit")
 
     def __init__(self, statement, parameters=None):
-        body = {"query": ustr(statement)}
-        if parameters:
-            body["params"] = dict(parameters)
-        Job.__init__(self, "POST", self.target, body)
+        Job.__init__(self, "POST", self.target,
+                     {"statements": [cypher_request(statement, parameters)]})
 
 
 class Batch(object):

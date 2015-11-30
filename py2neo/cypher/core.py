@@ -27,7 +27,7 @@ from py2neo.primitive import Record
 from py2neo.util import is_collection, deprecated
 
 
-__all__ = ["CypherEngine", "Transaction", "Result"]
+__all__ = ["CypherEngine", "Transaction", "Result", "cypher_request"]
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -75,6 +75,31 @@ def presubstitute(statement, parameters):
             more = False
     parameters = {k: v for k, v in parameters.items() if k not in presub_parameters}
     return statement, parameters
+
+
+def cypher_request(statement, parameters, **kwparameters):
+    s = ustr(statement)
+    p = {}
+
+    def add_parameters(params):
+        if params:
+            for k, v in dict(params).items():
+                if isinstance(v, (Node, Relationship)):
+                    v = v._id
+                p[k] = v
+
+    if hasattr(statement, "parameters"):
+        add_parameters(statement.parameters)
+    add_parameters(dict(parameters or {}, **kwparameters))
+
+    s, p = presubstitute(s, p)
+
+    # OrderedDict is used here to avoid statement/parameters ordering bug
+    return OrderedDict([
+        ("statement", s),
+        ("parameters", p),
+        ("resultDataContents", ["REST"]),
+    ])
 
 
 class CypherEngine(Bindable):
@@ -287,36 +312,50 @@ class Transaction(object):
         :arg parameters: a dictionary of execution parameters
         """
         self._assert_unfinished()
-
-        s = ustr(statement)
-        p = {}
-
-        def add_parameters(params):
-            if params:
-                for k, v in dict(params).items():
-                    if isinstance(v, (Node, Relationship)):
-                        v = v._id
-                    p[k] = v
-
-        if hasattr(statement, "parameters"):
-            add_parameters(statement.parameters)
-        add_parameters(dict(parameters or {}, **kwparameters))
-
-        s, p = presubstitute(s, p)
-
-        # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("append %r %r", s, p)
-        self.statements.append(OrderedDict([
-            ("statement", s),
-            ("parameters", p),
-            ("resultDataContents", ["REST"]),
-        ]))
+        self.statements.append(cypher_request(statement, parameters, **kwparameters))
         result = Result(self.graph, self, data_key="rest", hydrate=True)
         self.results.append(result)
         return result
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters).value()
+
+    def create(self, graphy):
+        try:
+            nodes = list(graphy.nodes())
+            relationships = list(graphy.relationships())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % graphy)
+        clauses = []
+        parameters = {}
+        returns = {}
+        for i, node in enumerate(nodes):
+            node_id = "a%d" % i
+            param_id = "x%d" % i
+            if node.bound:
+                clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                parameters[param_id] = node._id
+            else:
+                label_string = "".join(":" + cypher_escape(label)
+                                       for label in sorted(node.labels()))
+                clauses.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
+                parameters[param_id] = dict(node)
+            returns[node_id] = node
+        for i, relationship in enumerate(relationships):
+            if not relationship.bound:
+                rel_id = "r%d" % i
+                start_node_id = "a%d" % nodes.index(relationship.start_node())
+                end_node_id = "a%d" % nodes.index(relationship.end_node())
+                type_string = cypher_escape(relationship.type())
+                param_id = "y%d" % i
+                clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
+                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
+                parameters[param_id] = dict(relationship)
+                returns[rel_id] = relationship
+        clauses.append("RETURN %s LIMIT 1" % ", ".join(returns))
+        statement = "\n".join(clauses)
+        result = self.run(statement, parameters)
+        return result
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is

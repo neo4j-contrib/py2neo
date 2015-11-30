@@ -834,7 +834,11 @@ class Graph(Bindable):
         
         """
         if isinstance(data, dict):
-            if "self" in data:
+            if "errors" in data and data["errors"]:
+                from py2neo.cypher import TransactionError
+                for error in data["errors"]:
+                    raise TransactionError.hydrate(error)
+            elif "self" in data:
                 if "type" in data:
                     return Relationship.hydrate(data)
                 else:
@@ -856,16 +860,15 @@ class Graph(Bindable):
                             directions.append("<-")
                     data["directions"] = directions
                 return Path.hydrate(data)
+            elif "results" in data:
+                return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
                 from py2neo.cypher import Result
-                result = Result(self, hydrate=True)
+                result = Result(self, data_key="rest", hydrate=True)
                 result._process(data)
                 return result
             elif "neo4j_version" in data:
                 return self
-            elif "exception" in data and ("stacktrace" in data or "stackTrace" in data):
-                message = data.pop("message", "The server returned an error")
-                raise GraphError(message, **data)
             else:
                 warn("Map literals returned over the Neo4j REST interface are ambiguous "
                      "and may be hydrated as graph objects")
