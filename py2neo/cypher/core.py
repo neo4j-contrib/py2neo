@@ -253,7 +253,6 @@ class Transaction(object):
             raise self.error_class.hydrate(j_error)
         for j_result in j["results"]:
             result = self.results.pop(0)
-            result._data_key = "rest"
             result._hydrate = hydrate
             result._process(j_result)
 
@@ -313,7 +312,7 @@ class Transaction(object):
         """
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        result = Result(self.graph, self, data_key="rest", hydrate=True)
+        result = Result(self.graph, self, hydrate=True)
         self.results.append(result)
         return result
 
@@ -371,14 +370,13 @@ class Result(object):
     """ A stream of records returned from the execution of a Cypher statement.
     """
 
-    def __init__(self, graph, transaction=None, data_key=None, hydrate=False):
+    def __init__(self, graph, transaction=None, hydrate=False):
         assert transaction is None or isinstance(transaction, Transaction)
         self.graph = graph
         self.transaction = transaction
         self._keys = []
         self._records = []
         self._processed = False
-        self._data_key = data_key   # TODO  "rest" or None
         self._hydrate = hydrate     # TODO  hydrate to record or leave raw
 
     def __repr__(self):
@@ -416,17 +414,10 @@ class Result(object):
     def _process(self, raw):
         self._keys = raw["columns"]
         if self._hydrate:
-            if self._data_key:
-                self._records = [Record(self._keys, self.graph.hydrate(values[self._data_key]))
-                                 for values in raw["data"]]
-            else:
-                self._records = [Record(self._keys, self.graph.hydrate(values))
-                                 for values in raw["data"]]
+            self._records = [Record(self._keys, self.graph.hydrate(values["rest"]))
+                             for values in raw["data"]]
         else:
-            if self._data_key:
-                self._records = [values[self._data_key] for values in raw["data"]]
-            else:
-                self._records = [values for values in raw["data"]]
+            self._records = [values["rest"] for values in raw["data"]]
         self._processed = True
 
     def keys(self):

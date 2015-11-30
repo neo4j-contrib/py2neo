@@ -864,7 +864,7 @@ class Graph(Bindable):
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
                 from py2neo.cypher import Result
-                result = Result(self, data_key="rest", hydrate=True)
+                result = Result(self, hydrate=True)
                 result._process(data)
                 return result
             elif "neo4j_version" in data:
