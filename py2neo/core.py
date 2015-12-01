@@ -598,9 +598,6 @@ class Graph(Bindable):
     __node_labels = None
     __relationship_types = None
 
-    # Auto-sync will be removed in 2.1
-    auto_sync_properties = False
-
     @staticmethod
     def cast(obj):
         """ Cast an general Python object to a graph-specific entity,
