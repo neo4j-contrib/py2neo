@@ -354,6 +354,7 @@ class Transaction(object):
         clauses.append("RETURN %s LIMIT 1" % ", ".join(returns))
         statement = "\n".join(clauses)
         result = self.run(statement, parameters)
+        result.cache.update(returns)
         return result
 
     def finished(self):
@@ -378,6 +379,7 @@ class Result(object):
         self._records = []
         self._processed = False
         self._hydrate = hydrate     # TODO  hydrate to record or leave raw
+        self.cache = {}
 
     def __repr__(self):
         return "<Result>"
@@ -412,10 +414,18 @@ class Result(object):
             self.transaction.process()
 
     def _process(self, raw):
-        self._keys = raw["columns"]
+        self._keys = keys = raw["columns"]
         if self._hydrate:
-            self._records = [Record(self._keys, self.graph.hydrate(values["rest"]))
-                             for values in raw["data"]]
+            hydrate = self.graph.hydrate
+            records = []
+            for record in raw["data"]:
+                values = []
+                for i, value in enumerate(record["rest"]):
+                    key = keys[i]
+                    cached = self.cache.get(key)
+                    values.append(hydrate(value, inst=cached))
+                records.append(Record(keys, values))
+            self._records = records
         else:
             self._records = [values["rest"] for values in raw["data"]]
         self._processed = True

@@ -824,7 +824,7 @@ class Graph(Bindable):
         for node in self.find(label, property_key, property_value, limit=1):
             return node
 
-    def hydrate(self, data):
+    def hydrate(self, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.Node`,
         :class:`.Relationship` or other graph object instance. The
         data structure and values expected are those produced by the
@@ -840,9 +840,9 @@ class Graph(Bindable):
                     raise TransactionError.hydrate(error)
             elif "self" in data:
                 if "type" in data:
-                    return Relationship.hydrate(data)
+                    return Relationship.hydrate(data, inst)
                 else:
-                    return Node.hydrate(data)
+                    return Node.hydrate(data, inst)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
                     from py2neo.batch import Job, Target
