@@ -17,7 +17,7 @@
 
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Graph, Node, Path, Relationship
+from py2neo.core import Node, Path, Relationship, cast
 
 
 __all__ = ["DeleteStatement"]
@@ -80,7 +80,7 @@ class DeleteStatement(object):
         :arg entity: The entity to delete.
 
         """
-        entity = Graph.cast(entity)
+        entity = cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):

@@ -38,9 +38,4 @@ __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
            "ServerPlugin", "UnmanagedExtension",
            "Bindable", "Resource", "ResourceTemplate",
            "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI",
-]
-
-
-# TODO: remove
-node = Node.cast
-rel = Relationship.cast
+           cast, cast_node, cast_relationship]

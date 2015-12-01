@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Graph, Node, Relationship, Path
+from py2neo.core import Graph, Node, Relationship, Path, cast
 from py2neo.batch.core import Batch, Job, CypherJob, Target
 from py2neo.batch.push import PushNodeLabelsJob, PushPropertiesJob, PushPropertyJob
 
@@ -174,7 +174,7 @@ class WriteBatch(Batch):
         :type abstract: abstract
         :return: batch request object
         """
-        entity = self.graph.cast(abstract)
+        entity = cast(abstract)
         if isinstance(entity, Node):
             return self.append(CreateNodeJob(**entity))
         elif isinstance(entity, Relationship):

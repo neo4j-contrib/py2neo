@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished
+from py2neo import Node, Relationship, Finished, cast_node
 from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
 from py2neo.cypher.error.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
@@ -42,7 +42,7 @@ class NodeCreationTestCase(Py2neoTestCase):
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
-        self.batch.create(Node.cast({"name": "Bob"}))
+        self.batch.create(cast_node({"name": "Bob"}))
         self.batch.create(Node(name="Carol"))
         alice, bob, carol = self.batch.submit()
         assert isinstance(alice, Node)
