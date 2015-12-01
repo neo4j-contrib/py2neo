@@ -1839,7 +1839,7 @@ class Subgraph(Bindable, PrimitiveGraph):
                     pass
 
 
-def cast(obj):
+def cast(obj, entities=None):
     """ Cast an general Python object to a graph-specific entity,
     such as a :class:`.Node` or a :class:`.Relationship`.
     """
@@ -1850,45 +1850,19 @@ def cast(obj):
     elif isinstance(obj, dict):
         return cast_node(obj)
     elif isinstance(obj, tuple):
-        return cast_relationship(obj)
+        return cast_relationship(obj, entities)
     else:
         raise TypeError(obj)
 
 
-def cast_node(*args, **kwargs):
-    """ Cast the arguments provided to a :class:`.Node` (or
-    :class:`.NodePointer`). The following combinations of
-    arguments are possible::
-
-        >>> cast_node(None)
-        >>> cast_node()
-        <Node labels=set() properties={}>
-        >>> cast_node("Person")
-        <Node labels={'Person'} properties={}>
-        >>> cast_node(name="Alice")
-        <Node labels=set() properties={'name': 'Alice'}>
-        >>> cast_node("Person", name="Alice")
-        <Node labels={'Person'} properties={'name': 'Alice'}>
-        >>> cast_node(123)
-        <NodePointer address=123>
-        >>> cast_node({"name": "Alice"})
-        <Node labels=set() properties={'name': 'Alice'}>
-        >>> node = Node("Person", name="Alice")
-        >>> cast_node(node)
-        <Node labels={'Person'} properties={'name': 'Alice'}>
-
-    """
-    if len(args) == 1 and not kwargs:
-        from py2neo.batch import Job
-        arg = args[0]
-        if arg is None:
-            return None
-        elif isinstance(arg, (Node, NodePointer, Job)):
-            return arg
-        elif isinstance(arg, integer):
-            return NodePointer(arg)
-
-    inst = Node()
+def cast_node(obj):
+    from py2neo.batch import Job
+    if obj is None:
+        return None
+    elif isinstance(obj, (Node, NodePointer, Job)):
+        return obj
+    elif isinstance(obj, integer):
+        return NodePointer(obj)
 
     def apply(x):
         if isinstance(x, dict):
@@ -1899,34 +1873,14 @@ def cast_node(*args, **kwargs):
         elif isinstance(x, string):
             inst.add_label(ustr(x))
         else:
-            raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
+            raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
 
-    for arg in args:
-        apply(arg)
-    inst.update(kwargs)
+    inst = Node()
+    apply(obj)
     return inst
 
 
-def cast_relationship(*args, **kwargs):
-    """ Cast the arguments provided to a :class:`.Relationship`. The
-    following combinations of arguments are possible::
-
-        >>> cast_relationship(Node(), "KNOWS", Node())
-        <Relationship type='KNOWS' properties={}>
-        >>> cast_relationship((Node(), "KNOWS", Node()))
-        <Relationship type='KNOWS' properties={}>
-        >>> cast_relationship(Node(), "KNOWS", Node(), since=1999)
-        <Relationship type='KNOWS' properties={'since': 1999}>
-        >>> cast_relationship(Node(), "KNOWS", Node(), {"since": 1999})
-        <Relationship type='KNOWS' properties={'since': 1999}>
-        >>> cast_relationship((Node(), "KNOWS", Node(), {"since": 1999}))
-        <Relationship type='KNOWS' properties={'since': 1999}>
-        >>> cast_relationship(Node(), ("KNOWS", {"since": 1999}), Node())
-        <Relationship type='KNOWS' properties={'since': 1999}>
-        >>> cast_relationship((Node(), ("KNOWS", {"since": 1999}), Node()))
-        <Relationship type='KNOWS' properties={'since': 1999}>
-
-    """
+def cast_relationship(obj, entities=None):
 
     def get_type(r):
         if isinstance(r, string):
@@ -1953,28 +1907,23 @@ def cast_relationship(*args, **kwargs):
         else:
             raise ValueError("Cannot determine properties from %r" % r)
 
-    if len(args) == 1 and not kwargs:
-        arg = args[0]
-        if isinstance(arg, Relationship):
-            return arg
-        elif isinstance(arg, tuple):
-            if len(arg) == 3:
-                start_node, t, end_node = arg
-                properties = get_properties(t)
-            elif len(arg) == 4:
-                start_node, t, end_node, properties = arg
-                properties = dict(get_properties(t), **properties)
-            else:
-                raise TypeError("Cannot cast relationship from {0}".format(arg))
+    if isinstance(obj, Relationship):
+        return obj
+    elif isinstance(obj, tuple):
+        if len(obj) == 3:
+            start_node, t, end_node = obj
+            properties = get_properties(t)
+        elif len(obj) == 4:
+            start_node, t, end_node, properties = obj
+            properties = dict(get_properties(t), **properties)
         else:
-            raise TypeError("Cannot cast relationship from {0}".format(arg))
-    elif len(args) == 3:
-        start_node, t, end_node = args
-        properties = dict(get_properties(t), **kwargs)
-    elif len(args) == 4:
-        start_node, t, end_node, properties = args
-        properties = dict(get_properties(t), **properties)
-        properties.update(kwargs)
+            raise TypeError("Cannot cast relationship from {0}".format(obj))
     else:
-        raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
+        raise TypeError("Cannot cast relationship from {0}".format(obj))
+
+    if entities:
+        if isinstance(start_node, integer):
+            start_node = entities[start_node]
+        if isinstance(end_node, integer):
+            end_node = entities[end_node]
     return Relationship(start_node, get_type(t), end_node, **properties)
