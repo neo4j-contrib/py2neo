@@ -1762,7 +1762,10 @@ class Subgraph(PrimitiveGraph):
     def __init__(self, *entities):
         nodes = set()
         relationships = set()
+        e = []
         for entity in entities:
+            entity = cast(entity, e)
+            e.append(entity)
             nodes |= set(entity.nodes())
             relationships |= set(entity.relationships())
         PrimitiveGraph.__init__(self, nodes, relationships)
