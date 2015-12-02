@@ -29,6 +29,12 @@ class PathTestCase(Py2neoTestCase):
         assert path.order() == 2
         assert path.size() == 1
 
+    def test_can_construct_path_with_none_node(self):
+        alice = Node(name="Alice")
+        path = Path(alice, "KNOWS", None)
+        assert path.order() == 2
+        assert path.size() == 1
+
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         nodes = path.nodes()

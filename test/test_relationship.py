@@ -30,6 +30,19 @@ class DodgyClientError(ClientError):
 
 class RelationshipTestCase(Py2neoTestCase):
 
+    def test_relationship_repr(self):
+        r = Relationship(Node(), "TO", Node())
+        assert repr(r)
+
+    def test_bound_relationship_repr(self):
+        _, _, r = self.graph.create({}, {}, (0, "KNOWS", 1))
+        assert repr(r)
+
+    def test_bound_relationship_repr_with_no_type(self):
+        _, _, r = self.graph.create({}, {}, (0, "KNOWS", 1))
+        r._type = None
+        assert repr(r)
+
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
         assert isinstance(types, frozenset)
@@ -66,7 +79,7 @@ class RelationshipTestCase(Py2neoTestCase):
         rel_id = relationship._id
         self.graph.delete(relationship)
         Relationship.cache.clear()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(IndexError):
             _ = self.graph.relationship(rel_id)
 
     def test_getting_no_relationships(self):

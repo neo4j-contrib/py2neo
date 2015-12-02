@@ -532,20 +532,13 @@ class ServiceRoot(object):
         :rtype: :class:`.Graph`
         """
         if self.__graph is None:
-            try:
-                # The graph URI used to be determined via
-                # discovery but another HTTP call sometimes
-                # caused problems in the middle of other
-                # operations (such as hydration) when using
-                # concurrent code. Therefore, the URI is now
-                # constructed manually.
-                #
-                # uri = self.resource.metadata["data"]
-                uri = self.uri.string + "db/data/"
-            except KeyError:
-                raise GraphError("No graph available for service <%s>" % self.uri)
-            else:
-                self.__graph = Graph(uri)
+            # The graph URI used to be determined via
+            # discovery but another HTTP call sometimes
+            # caused problems in the middle of other
+            # operations (such as hydration) when using
+            # concurrent code. Therefore, the URI is now
+            # constructed manually.
+            self.__graph = Graph(self.uri.string + "db/data/")
         return self.__graph
 
     @property
@@ -647,9 +640,6 @@ class Graph(Bindable):
             self.__batch = BatchResource(self.resource.metadata["batch"])
         return self.__batch
 
-    def begin(self):
-        return self.cypher.begin()
-
     @property
     def cypher(self):
         """ The Cypher execution resource for this graph providing access to
@@ -746,9 +736,6 @@ class Graph(Bindable):
             from the graph and cannot be undone.
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
-
-    def evaluate(self, statement, parameters=None, **kwparameters):
-        return self.cypher.evaluate(statement, parameters, **kwparameters)
 
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
@@ -985,8 +972,12 @@ class Graph(Bindable):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            data = {"self": uri_string}
-            return Node.cache.setdefault(uri_string, Node.hydrate(data))
+            node = self.cypher.evaluate("MATCH (a) WHERE id(a)={x} "
+                                        "RETURN a", x=id_)
+            if node is None:
+                raise IndexError("Node %d not found" % id_)
+            else:
+                return node
 
     @property
     def node_labels(self):
@@ -1037,16 +1028,12 @@ class Graph(Bindable):
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            try:
-                return Relationship.cache.setdefault(
-                    uri_string, Relationship.hydrate(resource.get().content))
-            except ClientError:
-                raise ValueError("Relationship with ID %s not found" % id_)
-            except GraphError as error:
-                if error.exception == "RelationshipNotFoundException":
-                    raise ValueError("Relationship with ID %s not found" % id_)
-                else:
-                    raise
+            relationship = self.cypher.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
+                                                "RETURN r", x=id_)
+            if relationship is None:
+                raise IndexError("Relationship %d not found" % id_)
+            else:
+                return relationship
 
     @property
     def relationship_types(self):
@@ -1055,9 +1042,6 @@ class Graph(Bindable):
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
-
-    def run(self, statement, parameters=None, **kwparameters):
-        return self.cypher.run(statement, parameters, **kwparameters)
 
     @property
     def schema(self):
@@ -1886,10 +1870,7 @@ def cast_relationship(obj, entities=None):
         if isinstance(r, string):
             return r
         elif hasattr(r, "type"):
-            if callable(r.type):
-                return r.type()
-            else:
-                return r.type
+            return r.type()
         elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
             return r[0]
         else:

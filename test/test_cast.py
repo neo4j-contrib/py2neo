@@ -150,6 +150,17 @@ class CastRelationshipTestCase(Py2neoTestCase):
         with self.assertRaises(TypeError):
             cast_relationship(("Alice", "KNOWS", "Bob", "foo", "bar", "baz"))
 
+    def test_can_cast_from_tuple_of_entities(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        casted = cast_relationship((a, r, b))
+        assert isinstance(casted, Relationship)
+        assert not casted.bound
+        assert casted.start_node() == a
+        assert casted.type() == "TO"
+        assert casted.end_node() == b
+
     def test_can_cast_relationship_with_integer_nodes(self):
         a = Node()
         b = Node()

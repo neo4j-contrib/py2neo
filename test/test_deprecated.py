@@ -18,6 +18,7 @@
 
 from warnings import catch_warnings, simplefilter
 
+from py2neo import Node, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -31,6 +32,19 @@ class DeprecatedTestCase(Py2neoTestCase):
     def tearDown(self):
         assert issubclass(self.warnings[-1].category, DeprecationWarning)
         self._catcher.__exit__()
+
+
+class PropertiesTestCase(DeprecatedTestCase):
+
+    def test_node_properties(self):
+        a = Node()
+        _ = a.properties
+
+    def test_relationship_properties(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        _ = r.properties
 
 
 class PushPullTestCase(DeprecatedTestCase):
