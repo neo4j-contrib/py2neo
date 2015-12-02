@@ -1755,7 +1755,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         self.__id = None
 
 
-class Subgraph(Bindable, PrimitiveGraph):
+class Subgraph(PrimitiveGraph):
     """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
     """
 
@@ -1769,18 +1769,6 @@ class Subgraph(Bindable, PrimitiveGraph):
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)
-
-    @property
-    def bound(self):
-        """ :const:`True` if all entities in this subgraph are bound to remote counterparts,
-        :const:`False` otherwise.
-        """
-        try:
-            _ = self.service_root
-        except BindError:
-            return False
-        else:
-            return True
 
     @property
     @deprecated("Subgraph.exists() is deprecated, use graph.exists(subgraph) instead")
@@ -1810,17 +1798,6 @@ class Subgraph(Bindable, PrimitiveGraph):
             except BindError:
                 pass
         raise BindError("Local path is not bound to a remote path")
-
-    def unbind(self):
-        """ Detach all entities in this subgraph
-        from any remote counterparts.
-        """
-        for entities in (self.nodes(), self.relationships()):
-            for entity in entities:
-                try:
-                    entity.unbind()
-                except BindError:
-                    pass
 
 
 def cast(obj, entities=None):
