@@ -447,13 +447,6 @@ class PushBatchTestCase(Py2neoTestCase):
         node = self.graph.node(node_id)
         assert node["age"] == 33
 
-    def test_cannot_push_empty_list_property(self):
-        alice = Node(name="Alice")
-        self.graph.create(alice)
-        alice["faults"] = []
-        with self.assertRaises(BatchError):
-            self.graph.push(alice)
-
     def test_cannot_push_none(self):
         with self.assertRaises(TypeError):
             self.graph.push(None)
