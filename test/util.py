@@ -79,3 +79,15 @@ class Py2neoTestCase(TestCase):
 
     def get_attached_node_id(self):
         return self.cypher.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
+
+
+class TemporaryTransaction(object):
+
+    def __init__(self, graph):
+        self.tx = graph.cypher.begin()
+
+    def __del__(self):
+        self.tx.rollback()
+
+    def run(self, statement, parameters=None, **kwparameters):
+        return self.tx.run(statement, parameters, **kwparameters)

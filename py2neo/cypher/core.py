@@ -167,6 +167,9 @@ class CypherEngine(Bindable):
         tx.commit()
         return result.value()
 
+    def create(self):
+        pass
+
     def begin(self):
         """ Begin a new transaction.
 
@@ -339,6 +342,7 @@ class Transaction(object):
                                        for label in sorted(node.labels()))
                 clauses.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
+                node.set_bind_pending(self)
             returns[node_id] = node
         for i, relationship in enumerate(relationships):
             if not relationship.bound:
@@ -351,11 +355,12 @@ class Transaction(object):
                                (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
+                relationship.set_bind_pending(self)
         clauses.append("RETURN %s LIMIT 1" % ", ".join(returns))
         statement = "\n".join(clauses)
         result = self.run(statement, parameters)
         result.cache.update(returns)
-        return result
+        #return result
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is

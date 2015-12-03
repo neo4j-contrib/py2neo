@@ -388,7 +388,15 @@ class Bindable(object):
 
     __resource__ = None
 
+    _bind_pending_tx = None
+
+    def _process_if_bind_pending(self):
+        if self._bind_pending_tx:
+            self._bind_pending_tx.process()
+            self._bind_pending_tx = None
+
     def __eq__(self, other):
+        self._process_if_bind_pending()
         try:
             return self.bound and other.bound and self.uri == other.uri
         except AttributeError:
@@ -411,12 +419,23 @@ class Bindable(object):
         else:
             self.__resource__ = Resource(uri, metadata)
         self.__resource__.error_class = self.error_class
+        self._bind_pending_tx = None
+
+    def set_bind_pending(self, tx):
+        """ Flag that this entity is due to be bound on processing of
+        the specified transaction.
+
+        :param tx:
+        :return:
+        """
+        self._bind_pending_tx = tx
 
     @property
     def bound(self):
         """ :const:`True` if this object is bound to a remote resource,
         :const:`False` otherwise.
         """
+        self._process_if_bind_pending()
         return self.__resource__ is not None
 
     @property
@@ -425,6 +444,7 @@ class Bindable(object):
 
         :rtype: :class:`.Graph`
         """
+        self._process_if_bind_pending()
         return self.service_root.graph
 
     @property
@@ -433,6 +453,7 @@ class Bindable(object):
 
         :rtype: :class:`.CypherEngine`
         """
+        self._process_if_bind_pending()
         return self.service_root.graph.cypher
 
     @property
@@ -441,6 +462,7 @@ class Bindable(object):
 
         :rtype: string
         """
+        self._process_if_bind_pending()
         return self.resource.ref
 
     @property
@@ -450,6 +472,7 @@ class Bindable(object):
         :rtype: :class:`.Resource`
         :raises: :class:`py2neo.BindError`
         """
+        self._process_if_bind_pending()
         if self.bound:
             return self.__resource__
         else:
@@ -461,17 +484,20 @@ class Bindable(object):
 
         :return: :class:`.ServiceRoot`
         """
+        self._process_if_bind_pending()
         return self.resource.service_root
 
     def unbind(self):
         """ Detach this object from any remote resource.
         """
         self.__resource__ = None
+        self._bind_pending_tx = None
 
     @property
     def uri(self):
         """ The full URI of the remote resource.
         """
+        self._process_if_bind_pending()
         resource = self.resource
         try:
             return resource.uri
@@ -613,7 +639,7 @@ class Graph(Bindable):
         return hash(self.uri)
 
     def __len__(self):
-        return self.size
+        return self.size()
 
     def __bool__(self):
         return True
@@ -993,7 +1019,6 @@ class Graph(Bindable):
         """
         webbrowser.open(self.service_root.resource.uri.string)
 
-    @property
     def order(self):
         """ The number of nodes in this graph.
         """
@@ -1054,7 +1079,6 @@ class Graph(Bindable):
             self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 
-    @property
     def size(self):
         """ The number of relationships in this graph.
         """
