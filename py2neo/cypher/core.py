@@ -167,8 +167,10 @@ class CypherEngine(Bindable):
         tx.commit()
         return result.value()
 
-    def create(self):
-        pass
+    def create(self, graphy):
+        tx = Transaction(self)
+        tx.create(graphy)
+        tx.commit()
 
     def begin(self):
         """ Begin a new transaction.
@@ -360,7 +362,6 @@ class Transaction(object):
         statement = "\n".join(clauses)
         result = self.run(statement, parameters)
         result.cache.update(returns)
-        #return result
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is
