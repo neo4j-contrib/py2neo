@@ -21,7 +21,7 @@ import os
 import sys
 
 from py2neo.core import authenticate, Node, Relationship, Path
-from py2neo.cypher.error import CypherError, CypherTransactionError
+from py2neo.cypher.error import CypherError, TransactionError
 from py2neo.env import NEO4J_URI
 from py2neo.util import compact
 
@@ -90,9 +90,9 @@ class CypherCommandLine(object):
                         values = json.loads("[" + line + "]")
                         p = dict(self.parameters)
                         p.update(zip(columns, values))
-                        self.tx.append(statement, p)
+                        self.tx.execute(statement, p)
         else:
-            self.tx.append(statement, self.parameters)
+            self.tx.execute(statement, self.parameters)
         return self.tx.process()
 
     def commit(self):
@@ -193,7 +193,7 @@ def main():
     if command_line.tx:
         try:
             command_line.commit()
-        except CypherTransactionError as error:
+        except TransactionError as error:
             sys.stderr.write(error.args[0])
             sys.stderr.write("\n")
 

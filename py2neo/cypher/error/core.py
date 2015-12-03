@@ -38,7 +38,7 @@ class CypherError(GraphError):
             self.parameters = request_body.get("params")
 
 
-class CypherTransactionError(CypherError):
+class TransactionError(CypherError):
     """ 
     """
 
@@ -58,16 +58,16 @@ class CypherTransactionError(CypherError):
         return inst
 
 
-class ClientError(CypherTransactionError):
+class ClientError(TransactionError):
     """ The Client sent a bad request - changing the request might yield a successful outcome.
     """
 
 
-class DatabaseError(CypherTransactionError):
+class DatabaseError(TransactionError):
     """ The database failed to service the request.
     """
 
 
-class TransientError(CypherTransactionError):
+class TransientError(TransactionError):
     """ The database cannot service the request right now, retrying later might yield a successful outcome.
     """

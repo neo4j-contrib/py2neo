@@ -124,14 +124,6 @@ class GraphTestCase(Py2neoTestCase):
         assert node.uri in Node.cache
         assert node.uri not in other_cache_keys
 
-    def test_can_get_node_by_id_even_when_id_does_not_exist(self):
-        node, = self.graph.create({})
-        node_id = node._id
-        self.graph.delete(node)
-        Node.cache.clear()
-        node = self.graph.node(node_id)
-        assert not self.graph.exists(node)
-
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)
 

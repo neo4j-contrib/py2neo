@@ -16,8 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished, GraphError
+from py2neo import Node, Relationship, Finished, cast_node
 from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
+from py2neo.cypher.error.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase
 
@@ -41,7 +42,7 @@ class NodeCreationTestCase(Py2neoTestCase):
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
-        self.batch.create(Node.cast({"name": "Bob"}))
+        self.batch.create(cast_node({"name": "Bob"}))
         self.batch.create(Node(name="Carol"))
         alice, bob, carol = self.batch.submit()
         assert isinstance(alice, Node)
@@ -213,8 +214,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         try:
             self.batch.submit()
         except BatchError as error:
-            cause = error.__cause__
-            assert cause.__class__.__name__ == "UniquePathNotUniqueException"
+            assert isinstance(error.__cause__, ConstraintViolation)
         else:
             assert False
 
@@ -333,28 +333,14 @@ class MiscellaneousTestCase(Py2neoTestCase):
         results = self.batch.submit()
         assert results == []
     
-    def test_cypher_job_with_bad_syntax(self):
+    def test_cypher_job_with_invalid_syntax(self):
         self.batch.append(CypherJob("X"))
         try:
             self.batch.submit()
         except BatchError as error:
             assert error.batch is self.batch
             assert error.job_id == 0
-            assert error.status_code == 400
-            assert error.uri == "cypher"
-        else:
-            assert False
-
-    def test_cypher_job_with_other_error(self):
-        statement = "MATCH (n) RETURN n LIMIT -1"
-        self.batch.append(CypherJob(statement))
-        try:
-            self.batch.submit()
-        except BatchError as error:
-            assert error.batch is self.batch
-            assert error.job_id == 0
-            assert error.status_code == 400
-            assert error.uri == "cypher"
+            assert isinstance(error.__cause__, InvalidSyntax)
         else:
             assert False
 
@@ -363,24 +349,6 @@ class MiscellaneousTestCase(Py2neoTestCase):
         self.graph.batch.submit(self.batch)
         with self.assertRaises(Finished):
             self.graph.batch.submit(self.batch)
-
-
-class BatchErrorTestCase(Py2neoTestCase):
-
-    def test_invalid_syntax_raises_cypher_error(self):
-        batch = WriteBatch(self.graph)
-        batch.append(CypherJob("X"))
-        try:
-            batch.submit()
-        except BatchError as error:
-            assert isinstance(error, BatchError)
-            cause = error.__cause__
-            assert isinstance(cause, GraphError)
-            assert cause.__class__.__name__ == "SyntaxException"
-            assert cause.exception == "SyntaxException"
-            assert cause.fullname in [None, "org.neo4j.cypher.SyntaxException"]
-        else:
-            assert False
 
 
 class BatchRequestTestCase(Py2neoTestCase):
@@ -456,7 +424,7 @@ class PullBatchTestCase(Py2neoTestCase):
         path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
         assert path[0]["since"] is None
         statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
-        self.cypher.execute(statement, {"ab": path[0]._id})
+        self.cypher.run(statement, {"ab": path[0]._id})
         assert path[0]["since"] is None
         self.batch.append(path)
         self.batch.pull()
@@ -478,13 +446,6 @@ class PushBatchTestCase(Py2neoTestCase):
         Node.cache.clear()
         node = self.graph.node(node_id)
         assert node["age"] == 33
-
-    def test_cannot_push_empty_list_property(self):
-        alice = Node(name="Alice")
-        self.graph.create(alice)
-        alice["faults"] = []
-        with self.assertRaises(BatchError):
-            self.graph.push(alice)
 
     def test_cannot_push_none(self):
         with self.assertRaises(TypeError):

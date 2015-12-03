@@ -17,8 +17,8 @@
 
 
 from py2neo.compat import ustr, xstr
-from py2neo.core import Graph, Node, NodePointer, Path, Relationship
-from py2neo.cypher.lang import cypher_escape
+from py2neo.core import Node, NodePointer, Path, Relationship, cast
+from py2neo.lang import cypher_escape
 
 
 __all__ = ["CreateStatement"]
@@ -82,9 +82,7 @@ class CreateStatement(object):
         if not self.entities:
             return ()
         raw = self.graph.cypher.post(self.string, self.parameters)
-        columns = raw["columns"]
-        data = raw["data"]
-        dehydrated = dict(zip(columns, data[0]))
+        dehydrated = dict(zip(raw.keys(), raw[0]))
         for i, entity in enumerate(self.entities):
             node_names, rel_names = self.names[i]
             if isinstance(entity, Node):
@@ -110,7 +108,7 @@ class CreateStatement(object):
         :arg entity: The entity to create.
 
         """
-        entity = Graph.cast(entity)
+        entity = cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Node):
@@ -129,7 +127,7 @@ class CreateStatement(object):
         :arg entity: The entity to add.
 
         """
-        entity = Graph.cast(entity)
+        entity = cast(entity)
         index = len(self.entities)
         name = _(index)
         if isinstance(entity, Relationship):

@@ -29,6 +29,12 @@ class PathTestCase(Py2neoTestCase):
         assert path.order() == 2
         assert path.size() == 1
 
+    def test_can_construct_path_with_none_node(self):
+        alice = Node(name="Alice")
+        path = Path(alice, "KNOWS", None)
+        assert path.order() == 2
+        assert path.size() == 1
+
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         nodes = path.nodes()
@@ -120,40 +126,6 @@ class PathTestCase(Py2neoTestCase):
         assert str(path) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
         self.graph.create(path)
         assert str(path) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
-
-    def test_can_hydrate_path(self):
-        dehydrated = self.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
-        if "directions" not in dehydrated:
-            dehydrated["directions"] = ["->"]
-        hydrated = Path.hydrate(dehydrated)
-        assert isinstance(hydrated, Path)
-        assert hydrated.order() == 2
-        assert hydrated.size() == 1
-        assert hydrated[0].type() == "KNOWS"
-        
-    def test_can_hydrate_path_into_existing_instance(self):
-        alice = Node("Person", name="Alice", age=33)
-        bob = Node("Person", name="Bob", age=44)
-        dehydrated = self.cypher.post("CREATE p=()-[:KNOWS]->() RETURN p")["data"][0][0]
-        path = Path(alice, "KNOWS", bob)
-        if "directions" not in dehydrated:
-            dehydrated["directions"] = ["->"]
-        hydrated = Path.hydrate(dehydrated, inst=path)
-        assert hydrated is path
-        
-    def test_can_hydrate_path_without_directions(self):
-        statement = "CREATE p=()-[:LIKES]->()<-[:DISLIKES]-() RETURN p"
-        dehydrated = self.cypher.post(statement)["data"][0][0]
-        try:
-            del dehydrated["directions"]
-        except KeyError:
-            pass
-        hydrated = self.graph.hydrate(dehydrated)
-        assert isinstance(hydrated, Path)
-        assert hydrated.order() == 3
-        assert hydrated.size() == 2
-        assert hydrated[0].type() == "LIKES"
-        assert hydrated[1].type() == "DISLIKES"
 
     def test_path_equality(self):
         alice = Node(name="Alice")

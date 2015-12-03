@@ -19,31 +19,16 @@
 from io import StringIO
 
 from py2neo import Node, NodePointer, Relationship, Path, Finished, GraphError
-from py2neo.cypher import CypherEngine, CypherTransaction, \
-    CreateStatement, DeleteStatement, RecordProducer, RecordList
+from py2neo.cypher import CypherEngine, Transaction, \
+    CreateStatement, DeleteStatement
 from py2neo.cypher.core import presubstitute
-from py2neo.cypher.error.core import CypherError, CypherTransactionError, ClientError
+from py2neo.cypher.error.core import CypherError, TransactionError, ClientError
 from py2neo.cypher.error.statement import ConstraintViolation, InvalidSyntax
-from py2neo.cypher.lang import CypherWriter, cypher_repr
-from py2neo.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship, \
-    CreateTransaction
+from py2neo.lang import CypherWriter, cypher_repr
+from py2neo.cypher.task import CypherTask, CreateNode, MergeNode, CreateRelationship
 from py2neo.lang import Writer
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
-from test.util import Py2neoTestCase
-
-
-class TemporaryTransaction(object):
-
-    def __init__(self, graph):
-        self.tx = graph.cypher.begin()
-
-    def __del__(self):
-        self.tx.rollback()
-
-    def execute(self, statement, parameters=None, **kwparameters):
-        self.tx.append(statement, parameters, **kwparameters)
-        result, = self.tx.process()
-        return result
+from test.util import Py2neoTestCase, TemporaryTransaction
 
 
 class WriterTestCase(Py2neoTestCase):
@@ -63,8 +48,8 @@ class CypherTestCase(Py2neoTestCase):
             (0, "KNOWS", 1),
         )
 
-    def test_can_execute_cypher(self):
-        result = self.cypher.execute("RETURN 1")
+    def test_can_run_cypher(self):
+        result = self.cypher.run("RETURN 1")
         assert len(result) == 1
         first = result[0]
         assert len(first) == 1
@@ -88,27 +73,24 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_run_parametrised_cypher_statement(self):
         self.cypher.run("MERGE (a:Person {name:{N}})", {"N": "Alice"})
 
-    def test_can_execute_cypher_statement(self):
-        results = self.cypher.execute("MERGE (a:Person {name:'Alice'}) RETURN a")
-        result = results[0].a
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
+    def test_can_run_cypher_statement(self):
+        value = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
+        assert isinstance(value, Node)
+        assert value.labels() == {"Person"}
+        assert dict(value) == {"name": "Alice"}
 
-    def test_can_execute_parametrised_cypher_statement(self):
-        results = self.cypher.execute("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-        result = results[0].a
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
+    def test_can_run_parametrised_cypher_statement(self):
+        value = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
+        assert isinstance(value, Node)
+        assert value.labels() == {"Person"}
+        assert dict(value) == {"name": "Alice"}
 
-    def test_can_execute_cypher_statement_with_node_parameter(self):
+    def test_can_run_cypher_statement_with_node_parameter(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
-        results = self.cypher.execute(statement, {"N": alice})
-        result = results[0].a
-        assert result is alice
+        result = self.cypher.run(statement, {"N": alice})
+        assert result[0]["a"] is alice
 
     def test_can_evaluate_cypher_statement(self):
         result = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
@@ -126,40 +108,17 @@ class CypherTestCase(Py2neoTestCase):
         result = self.cypher.evaluate("CREATE (a {name:{N}})", {"N": "Alice"})
         assert result is None
 
-    def test_can_stream_cypher_statement(self):
-        alice, = self.graph.create(Node(name="Alice"))
-        self.graph.create((alice, "KNOWS", {}), (alice, "KNOWS", {}), (alice, "KNOWS", {}))
-        statement = "MATCH (a) WHERE id(a) = {N} MATCH (a)-[:KNOWS]->(x) RETURN x"
-        results = self.cypher.stream(statement, {"N": alice._id})
-        for row in results:
-            matched = row.x
-            assert isinstance(matched, Node)
-
-    def test_can_stream_parametrised_cypher_statement(self):
-        results = self.cypher.stream("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-        result = next(results).a
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
-
-    def test_can_stream_cypher_statement_using_next_method(self):
-        results = self.cypher.stream("MERGE (a:Person {name:'Alice'}) RETURN a")
-        result = results.next().a
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
-
     def test_can_begin_transaction(self):
         uri = "http://localhost:7474/db/data/transaction"
         cypher = CypherEngine(uri)
         tx = cypher.begin()
-        assert isinstance(tx, CypherTransaction)
+        assert isinstance(tx, Transaction)
 
     def test_nonsense_query(self):
         statement = "SELECT z=nude(0) RETURNS x"
         try:
-            self.cypher.execute(statement)
-        except CypherTransactionError as error:
+            self.cypher.run(statement)
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
             assert error.exception == "SyntaxException"
@@ -169,27 +128,23 @@ class CypherTestCase(Py2neoTestCase):
         else:
             assert False
 
-    def test_can_run(self):
-        self.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name")
-        assert True
-
-    def test_can_execute(self):
-        results = self.cypher.execute("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+    def test_can_run_statement(self):
+        results = self.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name AS name")
         assert len(results) == 1
-        assert results[0].name == "Alice"
+        assert results[0]["name"] == "Alice"
 
-    def test_can_execute_with_parameter(self):
-        results = self.cypher.execute("CREATE (a {name:{N}}) "
-                                      "RETURN a.name AS name", {"N": "Alice"})
+    def test_can_run_with_parameter(self):
+        results = self.cypher.run("CREATE (a {name:{N}}) "
+                                  "RETURN a.name AS name", {"N": "Alice"})
         assert len(results) == 1
-        assert results[0].name == "Alice"
+        assert results[0]["name"] == "Alice"
 
-    def test_can_execute_with_entity_parameter(self):
+    def test_can_run_with_entity_parameter(self):
         alice, = self.graph.create({"name": "Alice"})
         statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
-        results = self.cypher.execute(statement, {"N": alice})
+        results = self.cypher.run(statement, {"N": alice})
         assert len(results) == 1
-        assert results[0].name == "Alice"
+        assert results[0]["name"] == "Alice"
 
     def test_can_evaluate(self):
         result = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a.name AS name")
@@ -200,21 +155,15 @@ class CypherTestCase(Py2neoTestCase):
         result = self.cypher.evaluate(statement)
         assert result is None
 
-    def test_can_stream(self):
-        stream = self.cypher.stream("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-        results = list(stream)
-        assert len(results) == 1
-        assert results[0].name == "Alice"
-
     def test_can_convert_to_subgraph(self):
-        results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         subgraph = results.to_subgraph()
         assert subgraph.order() == 2
         assert subgraph.size() == 1
 
     def test_nonsense_query_with_error_handler(self):
         with self.assertRaises(CypherError):
-            self.graph.cypher.execute("SELECT z=nude(0) RETURNS x")
+            self.cypher.run("SELECT z=nude(0) RETURNS x")
 
     def test_query(self):
         a, b, ab = self.alice_and_bob
@@ -222,14 +171,14 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
-        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
+        results = self.cypher.run(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
-            assert isinstance(record.a, Node)
-            assert isinstance(record.b, Node)
-            assert isinstance(record.ab, Relationship)
-            assert record.a_name == "Alice"
-            assert record.b_name == "Bob"
+            assert isinstance(record["a"], Node)
+            assert isinstance(record["b"], Node)
+            assert isinstance(record["ab"], Relationship)
+            assert record["a_name"] == "Alice"
+            assert record["b_name"] == "Bob"
 
     def test_query_can_return_path(self):
         a, b, ab = self.alice_and_bob
@@ -237,39 +186,39 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        results = self.graph.cypher.execute(statement, {"A": a._id, "B": b._id})
+        results = self.cypher.run(statement, {"A": a._id, "B": b._id})
         assert len(results) == 1
         for record in results:
-            assert isinstance(record.p, Path)
-            nodes = record.p.nodes()
+            assert isinstance(record["p"], Path)
+            nodes = record["p"].nodes()
             assert len(nodes) == 2
             assert nodes[0] == a
             assert nodes[1] == b
-            assert record.p[0].type() == "KNOWS"
+            assert record["p"][0].type() == "KNOWS"
 
     def test_query_can_return_collection(self):
         node, = self.graph.create({})
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node._id}
-        results = self.graph.cypher.execute(statement, params)
-        assert results[0].a_collection == [node]
+        results = self.cypher.run(statement, params)
+        assert results[0]["a_collection"] == [node]
 
     def test_param_used_once(self):
         node, = self.graph.create({})
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node._id}
-        results = self.graph.cypher.execute(statement, params)
+        results = self.cypher.run(statement, params)
         record = results[0]
-        assert record.a == node
+        assert record["a"] == node
 
     def test_param_used_twice(self):
         node, = self.graph.create({})
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node._id}
-        results = self.graph.cypher.execute(statement, params)
+        results = self.cypher.run(statement, params)
         record = results[0]
-        assert record.a == node
-        assert record.b == node
+        assert record["a"] == node
+        assert record["b"] == node
 
     def test_param_used_thrice(self):
         node, = self.graph.create({})
@@ -278,11 +227,11 @@ class CypherTestCase(Py2neoTestCase):
                     "MATCH (c) WHERE id(c)={X} " \
                     "RETURN a, b, c"
         params = {"X": node._id}
-        results = self.graph.cypher.execute(statement, params)
+        results = self.cypher.run(statement, params)
         record = results[0]
-        assert record.a == node
-        assert record.b == node
-        assert record.b == node
+        assert record["a"] == node
+        assert record["b"] == node
+        assert record["c"] == node
 
     def test_param_reused_once_after_with_statement(self):
         a, b, ab = self.alice_and_bob
@@ -294,9 +243,9 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE b.age > {min_age} "
                  "RETURN b")
         params = {"A": a._id, "min_age": 50}
-        results = self.graph.cypher.execute(query, params)
+        results = self.cypher.run(query, params)
         record = results[0]
-        assert record.b == b
+        assert record["b"] == b
 
     def test_param_reused_twice_after_with_statement(self):
         a, b, ab = self.alice_and_bob
@@ -315,15 +264,15 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE c.age > {min_age} "
                  "RETURN c")
         params = {"A": a._id, "min_age": 50}
-        results = self.graph.cypher.execute(query, params)
+        results = self.cypher.run(query, params)
         record = results[0]
-        assert record.c == c
+        assert record["c"] == c
 
     def test_invalid_syntax_raises_cypher_error(self):
         cypher = self.cypher
         try:
-            cypher.execute("X")
-        except CypherTransactionError as error:
+            cypher.run("X")
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
             self.assert_error(
@@ -334,17 +283,17 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_unique_path_not_unique_raises_cypher_error(self):
         cypher = self.cypher
-        results = cypher.execute("CREATE (a), (b) RETURN a, b")
-        parameters = {"A": results[0].a, "B": results[0].b}
+        results = cypher.run("CREATE (a), (b) RETURN a, b")
+        parameters = {"A": results[0]["a"], "B": results[0]["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
-        cypher.execute(statement, parameters)
-        cypher.execute(statement, parameters)
+        cypher.run(statement, parameters)
+        cypher.run(statement, parameters)
         try:
             statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                          "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-            cypher.execute(statement, parameters)
-        except CypherTransactionError as error:
+            cypher.run(statement, parameters)
+        except TransactionError as error:
             assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
         except CypherError as error:
             self.assert_error(
@@ -352,182 +301,6 @@ class CypherTestCase(Py2neoTestCase):
                 (_ClientError, _Response), 400)
         else:
             assert False
-
-
-class CypherTransactionTestCase(Py2neoTestCase):
-
-    def test_can_execute_single_statement_transaction(self):
-        tx = self.cypher.begin()
-        assert not tx.finished
-        tx.append("CREATE (a) RETURN a")
-        results = tx.commit()
-        assert repr(results)
-        assert len(results) == 1
-        for result in results:
-            assert len(result) == 1
-            for record in result:
-                assert isinstance(record.a, Node)
-        assert tx.finished
-
-    def test_can_execute_transaction_as_with_statement(self):
-        with self.cypher.begin() as tx:
-            assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
-        assert tx.finished
-
-    def test_can_execute_multi_statement_transaction(self):
-        tx = self.cypher.begin()
-        assert not tx.finished
-        tx.append("CREATE (a) RETURN a")
-        tx.append("CREATE (a) RETURN a")
-        tx.append("CREATE (a) RETURN a")
-        results = tx.commit()
-        assert len(results) == 3
-        for result in results:
-            assert len(result) == 1
-            for record in result:
-                assert isinstance(record.a, Node)
-        assert tx.finished
-
-    def test_can_execute_multi_execute_transaction(self):
-        tx = self.cypher.begin()
-        assert tx._id is None
-        for i in range(10):
-            assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            results = tx.process()
-            assert tx._id is not None
-            assert len(results) == 3
-            for result in results:
-                assert len(result) == 1
-                for record in result:
-                    assert isinstance(record.a, Node)
-        tx.commit()
-        assert tx.finished
-
-    def test_can_rollback_transaction(self):
-        tx = self.cypher.begin()
-        for i in range(10):
-            assert not tx.finished
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            tx.append("CREATE (a) RETURN a")
-            results = tx.process()
-            assert len(results) == 3
-            for result in results:
-                assert len(result) == 1
-                for record in result:
-                    assert isinstance(record.a, Node)
-        tx.rollback()
-        assert tx.finished
-
-    def test_can_generate_transaction_error(self):
-        tx = self.cypher.begin()
-        try:
-            tx.append("CRAETE (a) RETURN a")
-            tx.commit()
-        except InvalidSyntax as err:
-            assert repr(err)
-        else:
-            assert False
-
-    def test_cannot_append_after_transaction_finished(self):
-        tx = self.cypher.begin()
-        tx.rollback()
-        try:
-            tx.append("CREATE (a) RETURN a")
-        except Finished as error:
-            assert error.obj is tx
-            assert repr(error) == "CypherTransaction finished"
-        else:
-            assert False
-
-    def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
-        tx = self.cypher.begin()
-        tx.append("CREATE (a), (b) RETURN a, b")
-        results = tx.process()
-        result = results[0]
-        record = result[0]
-        parameters = {"A": record.a._id, "B": record.b._id}
-        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
-                     "CREATE (a)-[:KNOWS]->(b)")
-        tx.append(statement, parameters)
-        tx.append(statement, parameters)
-        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
-                     "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-        tx.append(statement, parameters)
-        try:
-            tx.commit()
-        except CypherTransactionError as error:
-            self.assert_new_error(
-                error, (ConstraintViolation, ClientError, CypherTransactionError,
-                        CypherError, GraphError), "Neo.ClientError.Statement.ConstraintViolation")
-        else:
-            assert False
-
-    def test_can_hydrate_error_for_all_known_codes(self):
-        codes = [
-            "Neo.ClientError.General.ReadOnly",
-            "Neo.ClientError.Request.Invalid",
-            "Neo.ClientError.Request.InvalidFormat",
-            "Neo.ClientError.Schema.ConstraintAlreadyExists",
-            "Neo.ClientError.Schema.ConstraintVerificationFailure",
-            "Neo.ClientError.Schema.ConstraintViolation",
-            "Neo.ClientError.Schema.IllegalTokenName",
-            "Neo.ClientError.Schema.IndexAlreadyExists",
-            "Neo.ClientError.Schema.IndexBelongsToConstraint",
-            "Neo.ClientError.Schema.LabelLimitReached",
-            "Neo.ClientError.Schema.NoSuchConstraint",
-            "Neo.ClientError.Schema.NoSuchIndex",
-            "Neo.ClientError.Statement.ArithmeticError",
-            "Neo.ClientError.Statement.ConstraintViolation",
-            "Neo.ClientError.Statement.EntityNotFound",
-            "Neo.ClientError.Statement.InvalidArguments",
-            "Neo.ClientError.Statement.InvalidSemantics",
-            "Neo.ClientError.Statement.InvalidSyntax",
-            "Neo.ClientError.Statement.InvalidType",
-            "Neo.ClientError.Statement.NoSuchLabel",
-            "Neo.ClientError.Statement.NoSuchProperty",
-            "Neo.ClientError.Statement.ParameterMissing",
-            "Neo.ClientError.Transaction.ConcurrentRequest",
-            "Neo.ClientError.Transaction.EventHandlerThrewException",
-            "Neo.ClientError.Transaction.InvalidType",
-            "Neo.ClientError.Transaction.UnknownId",
-            "Neo.DatabaseError.General.CorruptSchemaRule",
-            "Neo.DatabaseError.General.FailedIndex",
-            "Neo.DatabaseError.General.UnknownFailure",
-            "Neo.DatabaseError.Schema.ConstraintCreationFailure",
-            "Neo.DatabaseError.Schema.ConstraintDropFailure",
-            "Neo.DatabaseError.Schema.IndexCreationFailure",
-            "Neo.DatabaseError.Schema.IndexDropFailure",
-            "Neo.DatabaseError.Schema.NoSuchLabel",
-            "Neo.DatabaseError.Schema.NoSuchPropertyKey",
-            "Neo.DatabaseError.Schema.NoSuchRelationshipType",
-            "Neo.DatabaseError.Schema.NoSuchSchemaRule",
-            "Neo.DatabaseError.Statement.ExecutionFailure",
-            "Neo.DatabaseError.Transaction.CouldNotBegin",
-            "Neo.DatabaseError.Transaction.CouldNotCommit",
-            "Neo.DatabaseError.Transaction.CouldNotRollback",
-            "Neo.DatabaseError.Transaction.ReleaseLocksFailed",
-            "Neo.TransientError.Network.UnknownFailure",
-            "Neo.TransientError.Statement.ExternalResourceFailure",
-            "Neo.TransientError.Transaction.AcquireLockTimeout",
-            "Neo.TransientError.Transaction.DeadlockDetected",
-        ]
-        for code in codes:
-            data = {"code": code, "message": "X"}
-            _, classification, category, title = code.split(".")
-            error = CypherTransactionError.hydrate(data)
-            assert error.code == code
-            assert error.message == "X"
-            assert error.__class__.__name__ == title
-            assert error.__class__.__mro__[1].__name__ == classification
-            assert error.__class__.__module__ == "py2neo.cypher.error.%s" % category.lower()
-            assert isinstance(error, CypherTransactionError)
-            assert isinstance(error, CypherError)
-            assert isinstance(error, GraphError)
 
 
 class CypherCreateTestCase(Py2neoTestCase):
@@ -694,7 +467,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice_knows_bob.end_node() is bob
 
     def test_can_pass_entities_that_already_exist(self):
-        results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
         statement = CreateStatement(self.graph)
         statement.create(alice)
@@ -704,7 +477,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert created == (alice, bob, alice_knows_bob)
 
     def test_a_unique_relationship_is_really_unique(self):
-        results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
         assert alice.degree() == 1
         assert bob.degree() == 1
@@ -715,7 +488,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert bob.degree() == 1
 
     def test_unique_path_creation_can_pick_up_existing_entities(self):
-        results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
+        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
         statement = CreateStatement(self.graph)
         statement.create_unique(Relationship(alice, "KNOWS", Node()))
@@ -725,7 +498,7 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert alice_knows_bob.end_node() == bob
 
     def test_unique_path_not_unique_exception(self):
-        results = self.cypher.execute("CREATE (a)-[ab:KNOWS]->(b), "
+        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b), "
                                       "(a)-[:KNOWS]->(b) RETURN a, ab, b")
         alice, alice_knows_bob, bob = results[0]
         assert alice.degree() == 2
@@ -792,16 +565,6 @@ class CypherCreateTestCase(Py2neoTestCase):
         statement = CreateStatement(self.graph)
         with self.assertRaises(ValueError):
             statement.create_unique(path)
-
-    def test_can_create_many_nodes(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        ct = CreateTransaction(self.graph)
-        ct.append(alice)
-        ct.append(bob)
-        ct.commit()
-        assert alice.bound
-        assert bob.bound
 
 
 class CypherDeleteTestCase(Py2neoTestCase):
@@ -953,83 +716,6 @@ class CypherLangTestCase(Py2neoTestCase):
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         written = cypher_repr(path)
         assert written == "()-[:LOVES]->()<-[:HATES]-()-[:KNOWS]->()"
-
-
-class CypherResultTest(Py2neoTestCase):
-
-    def test_can_output_correct_representation_with_one_row(self):
-        results = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name,a.age")
-        representation = repr(results)
-        assert len(representation.splitlines()) == 3
-
-    def test_one_value_when_none_returned(self):
-        result = self.cypher.execute("CREATE (a {name:'Alice',age:33})")
-        value = result.one
-        assert value is None
-
-    def test_one_value_in_result(self):
-        result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name")
-        value = result.one
-        assert value == "Alice"
-
-    def test_one_record_in_result(self):
-        result = self.cypher.execute("CREATE (a {name:'Alice',age:33}) RETURN a.name,a.age")
-        value = result.one
-        assert value == ("Alice", 33)
-
-    def test_one_from_record_with_zero_columns(self):
-        producer = RecordProducer([])
-        record = producer.produce([])
-        record_list = RecordList([], [record])
-        value = record_list.one
-        assert value is None
-
-    def test_record_field_access(self):
-        statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name as name,a.age as age"
-        for record in self.cypher.execute(statement):
-            alice = record.a
-            assert record.name == alice["name"]
-            assert record.age == alice["age"]
-            assert record[1] == alice["name"]
-            assert record[2] == alice["age"]
-            assert record["name"] == alice["name"]
-            assert record["age"] == alice["age"]
-            try:
-                _ = record[object()]
-            except LookupError:
-                assert True
-            else:
-                assert False
-
-    def test_record_representation(self):
-        statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
-        for record in self.cypher.execute(statement):
-            assert repr(record)
-
-    def test_producer_representation(self):
-        producer = RecordProducer(["apple", "banana", "carrot"])
-        assert repr(producer)
-
-    def test_producer_length(self):
-        producer = RecordProducer(["apple", "banana", "carrot"])
-        assert len(producer) == 3
-
-    def test_record_equality(self):
-        statement = "MERGE (a {name:'Superfly',age:55}) RETURN a,a.name,a.age"
-        results = self.cypher.execute(statement)
-        r1 = results[0]
-        results = self.cypher.execute(statement)
-        r2 = results[0]
-        assert r1 == r2
-
-    def test_record_inequality(self):
-        statement = "CREATE (a {name:'Alice',age:33}) RETURN a,a.name,a.age"
-        results = self.cypher.execute(statement)
-        r1 = results[0]
-        statement = "CREATE (a {name:'Bob',age:44}) RETURN a,a.name,a.age"
-        results = self.cypher.execute(statement)
-        r2 = results[0]
-        assert r1 != r2
 
 
 class CypherTaskTestCase(Py2neoTestCase):
@@ -1186,7 +872,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
+            result, = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
                                  "RETURN labels(a), a.`full name`",
                                  v="Alice Smith")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1195,7 +881,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_set(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens`) SET a={p} "
+            result, = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
                                  "RETURN labels(a), a.`full name`",
                                  p={"full name": "Alice Smith"})
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1204,7 +890,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  k="full name")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1213,7 +899,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  l="Homo Sapiens")
             assert set(result[0]) == {"Homo Sapiens"}
@@ -1222,7 +908,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.execute("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
                                  "RETURN labels(a), a.`full name`",
                                  l=("Homo Sapiens", "Hunter", "Gatherer"))
             assert set(result[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
@@ -1281,4 +967,4 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         tx = self.new_tx()
         if tx:
             with self.assertRaises(KeyError):
-                tx.execute("CREATE (a)-[ab:«t»]->(b) RETURN ab")
+                tx.run("CREATE (a)-[ab:«t»]->(b) RETURN ab")

@@ -46,7 +46,8 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
            "ServiceRoot",
            "authenticate", "familiar", "rewrite",
-           "Bindable", "Resource", "ResourceTemplate"]
+           "Bindable", "Resource", "ResourceTemplate",
+           "cast", "cast_node", "cast_relationship"]
 
 
 PRODUCT = ("py2neo", __version__)
@@ -387,7 +388,15 @@ class Bindable(object):
 
     __resource__ = None
 
+    _bind_pending_tx = None
+
+    def _process_if_bind_pending(self):
+        if self._bind_pending_tx:
+            self._bind_pending_tx.process()
+            self._bind_pending_tx = None
+
     def __eq__(self, other):
+        self._process_if_bind_pending()
         try:
             return self.bound and other.bound and self.uri == other.uri
         except AttributeError:
@@ -410,12 +419,23 @@ class Bindable(object):
         else:
             self.__resource__ = Resource(uri, metadata)
         self.__resource__.error_class = self.error_class
+        self._bind_pending_tx = None
+
+    def set_bind_pending(self, tx):
+        """ Flag that this entity is due to be bound on processing of
+        the specified transaction.
+
+        :param tx:
+        :return:
+        """
+        self._bind_pending_tx = tx
 
     @property
     def bound(self):
         """ :const:`True` if this object is bound to a remote resource,
         :const:`False` otherwise.
         """
+        self._process_if_bind_pending()
         return self.__resource__ is not None
 
     @property
@@ -424,6 +444,7 @@ class Bindable(object):
 
         :rtype: :class:`.Graph`
         """
+        self._process_if_bind_pending()
         return self.service_root.graph
 
     @property
@@ -432,6 +453,7 @@ class Bindable(object):
 
         :rtype: :class:`.CypherEngine`
         """
+        self._process_if_bind_pending()
         return self.service_root.graph.cypher
 
     @property
@@ -440,6 +462,7 @@ class Bindable(object):
 
         :rtype: string
         """
+        self._process_if_bind_pending()
         return self.resource.ref
 
     @property
@@ -449,6 +472,7 @@ class Bindable(object):
         :rtype: :class:`.Resource`
         :raises: :class:`py2neo.BindError`
         """
+        self._process_if_bind_pending()
         if self.bound:
             return self.__resource__
         else:
@@ -460,17 +484,20 @@ class Bindable(object):
 
         :return: :class:`.ServiceRoot`
         """
+        self._process_if_bind_pending()
         return self.resource.service_root
 
     def unbind(self):
         """ Detach this object from any remote resource.
         """
         self.__resource__ = None
+        self._bind_pending_tx = None
 
     @property
     def uri(self):
         """ The full URI of the remote resource.
         """
+        self._process_if_bind_pending()
         resource = self.resource
         try:
             return resource.uri
@@ -531,20 +558,13 @@ class ServiceRoot(object):
         :rtype: :class:`.Graph`
         """
         if self.__graph is None:
-            try:
-                # The graph URI used to be determined via
-                # discovery but another HTTP call sometimes
-                # caused problems in the middle of other
-                # operations (such as hydration) when using
-                # concurrent code. Therefore, the URI is now
-                # constructed manually.
-                #
-                # uri = self.resource.metadata["data"]
-                uri = self.uri.string + "db/data/"
-            except KeyError:
-                raise GraphError("No graph available for service <%s>" % self.uri)
-            else:
-                self.__graph = Graph(uri)
+            # The graph URI used to be determined via
+            # discovery but another HTTP call sometimes
+            # caused problems in the middle of other
+            # operations (such as hydration) when using
+            # concurrent code. Therefore, the URI is now
+            # constructed manually.
+            self.__graph = Graph(self.uri.string + "db/data/")
         return self.__graph
 
     @property
@@ -598,25 +618,6 @@ class Graph(Bindable):
     __node_labels = None
     __relationship_types = None
 
-    # Auto-sync will be removed in 2.1
-    auto_sync_properties = False
-
-    @staticmethod
-    def cast(obj):
-        """ Cast an general Python object to a graph-specific entity,
-        such as a :class:`.Node` or a :class:`.Relationship`.
-        """
-        if obj is None:
-            return None
-        elif isinstance(obj, (Node, NodePointer, Path, Relationship, Subgraph)):
-            return obj
-        elif isinstance(obj, dict):
-            return Node.cast(obj)
-        elif isinstance(obj, tuple):
-            return Relationship.cast(obj)
-        else:
-            raise TypeError(obj)
-
     def __new__(cls, uri=None):
         if uri is None:
             uri = ServiceRoot().graph.uri.string
@@ -638,7 +639,7 @@ class Graph(Bindable):
         return hash(self.uri)
 
     def __len__(self):
-        return self.size
+        return self.size()
 
     def __bool__(self):
         return True
@@ -675,7 +676,7 @@ class Graph(Bindable):
 
             >>> from py2neo import Graph
             >>> graph = Graph()
-            >>> graph.cypher.execute("CREATE (a:Person {name:{N}})", {"N": "Alice"})
+            >>> graph.cypher.run("CREATE (a:Person {name:{N}})", {"N": "Alice"})
 
         :rtype: :class:`py2neo.cypher.CypherEngine`
 
@@ -760,31 +761,33 @@ class Graph(Bindable):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.cypher.execute("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.cypher.begin()
+        results = []
         for entity in entities:
             if isinstance(entity, Node):
-                tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity)
+                results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity))
             elif isinstance(entity, Relationship):
-                tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity)
+                results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity))
             elif isinstance(entity, Path):
                 for node in entity.nodes():
-                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
+                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
                 for rel in entity.relationships():
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             elif isinstance(entity, Subgraph):
-                for node in entity.nodes:
-                    tx.append("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node)
-                for rel in entity.relationships:
-                    tx.append("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel)
+                for node in entity.nodes():
+                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
+                for rel in entity.relationships():
+                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
             else:
                 raise TypeError("Cannot determine existence of non-entity")
         count = len(tx.statements)
-        return sum(result[0][0] for result in tx.commit()) == count
+        tx.commit()
+        return sum(result[0][0] for result in results) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -792,7 +795,7 @@ class Graph(Bindable):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.cypher.lang import cypher_escape
+        from py2neo.lang import cypher_escape
         if property_key is None:
             statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -803,7 +806,7 @@ class Graph(Bindable):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response["data"]:
+        for record in response:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
@@ -816,7 +819,7 @@ class Graph(Bindable):
         for node in self.find(label, property_key, property_value, limit=1):
             return node
 
-    def hydrate(self, data):
+    def hydrate(self, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.Node`,
         :class:`.Relationship` or other graph object instance. The
         data structure and values expected are those produced by the
@@ -826,11 +829,15 @@ class Graph(Bindable):
         
         """
         if isinstance(data, dict):
-            if "self" in data:
+            if "errors" in data and data["errors"]:
+                from py2neo.cypher import TransactionError
+                for error in data["errors"]:
+                    raise TransactionError.hydrate(error)
+            elif "self" in data:
                 if "type" in data:
-                    return Relationship.hydrate(data)
+                    return Relationship.hydrate(data, inst)
                 else:
-                    return Node.hydrate(data)
+                    return Node.hydrate(data, inst)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
                     from py2neo.batch import Job, Target
@@ -848,14 +855,15 @@ class Graph(Bindable):
                             directions.append("<-")
                     data["directions"] = directions
                 return Path.hydrate(data)
+            elif "results" in data:
+                return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import RecordList
-                return RecordList.hydrate(data, self)
+                from py2neo.cypher import Result
+                result = Result(self, hydrate=True)
+                result._process(data)
+                return result
             elif "neo4j_version" in data:
                 return self
-            elif "exception" in data and ("stacktrace" in data or "stackTrace" in data):
-                message = data.pop("message", "The server returned an error")
-                raise GraphError(message, **data)
             else:
                 warn("Map literals returned over the Neo4j REST interface are ambiguous "
                      "and may be hydrated as graph objects")
@@ -889,20 +897,20 @@ class Graph(Bindable):
             parameters = {}
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
-            start_node = Node.cast(start_node)
+            start_node = cast_node(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
-            end_node = Node.cast(end_node)
+            end_node = cast_node(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
-            start_node = Node.cast(start_node)
-            end_node = Node.cast(end_node)
+            start_node = cast_node(start_node)
+            end_node = cast_node(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
@@ -918,9 +926,9 @@ class Graph(Bindable):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        results = self.cypher.execute(statement, parameters)
-        for result in results:
-            yield result.r
+        result = self.cypher.run(statement, parameters)
+        for record in result:
+            yield record["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
@@ -940,7 +948,7 @@ class Graph(Bindable):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.cypher.lang import cypher_escape
+        from py2neo.lang import cypher_escape
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -955,7 +963,7 @@ class Graph(Bindable):
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
-        for record in response["data"]:
+        for record in response:
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
@@ -990,8 +998,12 @@ class Graph(Bindable):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            data = {"self": uri_string}
-            return Node.cache.setdefault(uri_string, Node.hydrate(data))
+            node = self.cypher.evaluate("MATCH (a) WHERE id(a)={x} "
+                                        "RETURN a", x=id_)
+            if node is None:
+                raise IndexError("Node %d not found" % id_)
+            else:
+                return node
 
     @property
     def node_labels(self):
@@ -1007,7 +1019,6 @@ class Graph(Bindable):
         """
         webbrowser.open(self.service_root.resource.uri.string)
 
-    @property
     def order(self):
         """ The number of nodes in this graph.
         """
@@ -1042,16 +1053,12 @@ class Graph(Bindable):
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            try:
-                return Relationship.cache.setdefault(
-                    uri_string, Relationship.hydrate(resource.get().content))
-            except ClientError:
-                raise ValueError("Relationship with ID %s not found" % id_)
-            except GraphError as error:
-                if error.exception == "RelationshipNotFoundException":
-                    raise ValueError("Relationship with ID %s not found" % id_)
-                else:
-                    raise
+            relationship = self.cypher.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
+                                                "RETURN r", x=id_)
+            if relationship is None:
+                raise IndexError("Relationship %d not found" % id_)
+            else:
+                return relationship
 
     @property
     def relationship_types(self):
@@ -1072,7 +1079,6 @@ class Graph(Bindable):
             self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 
-    @property
     def size(self):
         """ The number of relationships in this graph.
         """
@@ -1092,9 +1098,9 @@ class Node(Bindable, PrimitiveNode):
     All positional arguments passed to the constructor are interpreted
     as labels and all keyword arguments as properties. It is also possible to
     construct Node instances from other data types (such as a dictionary)
-    by using the :meth:`.Node.cast` class method::
+    by using the :meth:`.cast_node` class method::
 
-        >>> bob = Node.cast({"name": "Bob Robertson", "age": 44})
+        >>> bob = cast_node({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
     :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
@@ -1119,58 +1125,6 @@ class Node(Bindable, PrimitiveNode):
     cache = ThreadLocalWeakValueDictionary()
 
     __id = None
-
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Node` (or
-        :class:`.NodePointer`). The following combinations of
-        arguments are possible::
-
-            >>> Node.cast(None)
-            >>> Node.cast()
-            <Node labels=set() properties={}>
-            >>> Node.cast("Person")
-            <Node labels={'Person'} properties={}>
-            >>> Node.cast(name="Alice")
-            <Node labels=set() properties={'name': 'Alice'}>
-            >>> Node.cast("Person", name="Alice")
-            <Node labels={'Person'} properties={'name': 'Alice'}>
-            >>> Node.cast(123)
-            <NodePointer address=123>
-            >>> Node.cast({"name": "Alice"})
-            <Node labels=set() properties={'name': 'Alice'}>
-            >>> node = Node("Person", name="Alice")
-            >>> Node.cast(node)
-            <Node labels={'Person'} properties={'name': 'Alice'}>
-
-        """
-        if len(args) == 1 and not kwargs:
-            from py2neo.batch import Job
-            arg = args[0]
-            if arg is None:
-                return None
-            elif isinstance(arg, (Node, NodePointer, Job)):
-                return arg
-            elif isinstance(arg, integer):
-                return NodePointer(arg)
-
-        inst = Node()
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            elif isinstance(x, string):
-                inst.add_label(ustr(x))
-            else:
-                raise TypeError("Cannot cast %s to Node" % repr(tuple(map(type, args))))
-
-        for arg in args:
-            apply(arg)
-        inst.update(kwargs)
-        return inst
 
     @classmethod
     def hydrate(cls, data, inst=None):
@@ -1235,7 +1189,7 @@ class Node(Bindable, PrimitiveNode):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.lang import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         if self.bound:
@@ -1247,7 +1201,7 @@ class Node(Bindable, PrimitiveNode):
     def __eq__(self, other):
         if other is None:
             return False
-        other = Node.cast(other)
+        other = cast_node(other)
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1264,6 +1218,9 @@ class Node(Bindable, PrimitiveNode):
 
     def __add__(self, other):
         return Path(self, other)
+
+    def __nodes__(self):
+        yield self
 
     def __getitem__(self, item):
         if self.bound and "properties" in self.__stale:
@@ -1376,7 +1333,7 @@ class Node(Bindable, PrimitiveNode):
         query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
         content = self.cypher.post(query, {"a": self._id})
         try:
-            dehydrated, label_metadata = content["data"][0]
+            dehydrated, label_metadata = content[0]
         except IndexError:
             raise GraphError("Node with ID %s not found" % self._id)
         else:
@@ -1523,7 +1480,7 @@ class Path(PrimitivePath):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.lang import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         writer.write_path(self)
@@ -1615,79 +1572,6 @@ class Relationship(Bindable, PrimitiveRelationship):
 
     __id = None
 
-    @staticmethod
-    def cast(*args, **kwargs):
-        """ Cast the arguments provided to a :class:`.Relationship`. The
-        following combinations of arguments are possible::
-
-            >>> Relationship.cast(Node(), "KNOWS", Node())
-            <Relationship type='KNOWS' properties={}>
-            >>> Relationship.cast((Node(), "KNOWS", Node()))
-            <Relationship type='KNOWS' properties={}>
-            >>> Relationship.cast(Node(), "KNOWS", Node(), since=1999)
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), "KNOWS", Node(), {"since": 1999})
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), "KNOWS", Node(), {"since": 1999}))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast(Node(), ("KNOWS", {"since": 1999}), Node())
-            <Relationship type='KNOWS' properties={'since': 1999}>
-            >>> Relationship.cast((Node(), ("KNOWS", {"since": 1999}), Node()))
-            <Relationship type='KNOWS' properties={'since': 1999}>
-
-        """
-
-        def get_type(r):
-            if isinstance(r, string):
-                return r
-            elif hasattr(r, "type"):
-                if callable(r.type):
-                    return r.type()
-                else:
-                    return r.type
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
-                return r[0]
-            else:
-                raise ValueError("Cannot determine relationship type from %r" % r)
-
-        def get_properties(r):
-            if isinstance(r, string):
-                return {}
-            elif hasattr(r, "type") and callable(r.type):
-                return dict(r)
-            elif hasattr(r, "properties"):
-                return r.properties
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
-                return dict(r[1])
-            else:
-                raise ValueError("Cannot determine properties from %r" % r)
-
-        if len(args) == 1 and not kwargs:
-            arg = args[0]
-            if isinstance(arg, Relationship):
-                return arg
-            elif isinstance(arg, tuple):
-                if len(arg) == 3:
-                    start_node, t, end_node = arg
-                    properties = get_properties(t)
-                elif len(arg) == 4:
-                    start_node, t, end_node, properties = arg
-                    properties = dict(get_properties(t), **properties)
-                else:
-                    raise TypeError("Cannot cast relationship from {0}".format(arg))
-            else:
-                raise TypeError("Cannot cast relationship from {0}".format(arg))
-        elif len(args) == 3:
-            start_node, t, end_node = args
-            properties = dict(get_properties(t), **kwargs)
-        elif len(args) == 4:
-            start_node, t, end_node, properties = args
-            properties = dict(get_properties(t), **properties)
-            properties.update(kwargs)
-        else:
-            raise TypeError("Cannot cast relationship from {0}".format((args, kwargs)))
-        return Relationship(start_node, get_type(t), end_node, **properties)
-
     @classmethod
     def hydrate(cls, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.Relationship` instance.
@@ -1733,7 +1617,7 @@ class Relationship(Bindable, PrimitiveRelationship):
                 n.append(t)
                 p.update(props)
             else:
-                n.append(Node.cast(value))
+                n.append(cast_node(value))
         p.update(properties)
         PrimitiveRelationship.__init__(self, *n, **p)
         self.__stale = set()
@@ -1762,7 +1646,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.cypher import CypherWriter
+        from py2neo.lang import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         if self.bound:
@@ -1774,7 +1658,7 @@ class Relationship(Bindable, PrimitiveRelationship):
     def __eq__(self, other):
         if other is None:
             return False
-        other = Relationship.cast(other)
+        other = cast_relationship(other)
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1895,32 +1779,23 @@ class Relationship(Bindable, PrimitiveRelationship):
         self.__id = None
 
 
-class Subgraph(Bindable, PrimitiveGraph):
+class Subgraph(PrimitiveGraph):
     """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
     """
 
     def __init__(self, *entities):
         nodes = set()
         relationships = set()
+        e = []
         for entity in entities:
+            entity = cast(entity, e)
+            e.append(entity)
             nodes |= set(entity.nodes())
             relationships |= set(entity.relationships())
         PrimitiveGraph.__init__(self, nodes, relationships)
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)
-
-    @property
-    def bound(self):
-        """ :const:`True` if all entities in this subgraph are bound to remote counterparts,
-        :const:`False` otherwise.
-        """
-        try:
-            _ = self.service_root
-        except BindError:
-            return False
-        else:
-            return True
 
     @property
     @deprecated("Subgraph.exists() is deprecated, use graph.exists(subgraph) instead")
@@ -1951,13 +1826,89 @@ class Subgraph(Bindable, PrimitiveGraph):
                 pass
         raise BindError("Local path is not bound to a remote path")
 
-    def unbind(self):
-        """ Detach all entities in this subgraph
-        from any remote counterparts.
-        """
-        for entities in (self.nodes(), self.relationships()):
-            for entity in entities:
-                try:
-                    entity.unbind()
-                except BindError:
-                    pass
+
+def cast(obj, entities=None):
+    """ Cast an general Python object to a graph-specific entity,
+    such as a :class:`.Node` or a :class:`.Relationship`.
+    """
+    if obj is None:
+        return None
+    elif isinstance(obj, (Node, NodePointer, Path, Relationship, Subgraph)):
+        return obj
+    elif isinstance(obj, dict):
+        return cast_node(obj)
+    elif isinstance(obj, tuple):
+        return cast_relationship(obj, entities)
+    else:
+        raise TypeError(obj)
+
+
+def cast_node(obj):
+    from py2neo.batch import Job
+    if obj is None:
+        return None
+    elif isinstance(obj, (Node, NodePointer, Job)):
+        return obj
+    elif isinstance(obj, integer):
+        return NodePointer(obj)
+
+    def apply(x):
+        if isinstance(x, dict):
+            inst.update(x)
+        elif is_collection(x):
+            for item in x:
+                apply(item)
+        elif isinstance(x, string):
+            inst.add_label(ustr(x))
+        else:
+            raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
+
+    inst = Node()
+    apply(obj)
+    return inst
+
+
+def cast_relationship(obj, entities=None):
+
+    def get_type(r):
+        if isinstance(r, string):
+            return r
+        elif hasattr(r, "type"):
+            return r.type()
+        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+            return r[0]
+        else:
+            raise ValueError("Cannot determine relationship type from %r" % r)
+
+    def get_properties(r):
+        if isinstance(r, string):
+            return {}
+        elif hasattr(r, "type") and callable(r.type):
+            return dict(r)
+        elif hasattr(r, "properties"):
+            return r.properties
+        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+            return dict(r[1])
+        else:
+            raise ValueError("Cannot determine properties from %r" % r)
+
+    if isinstance(obj, Relationship):
+        return obj
+    elif isinstance(obj, tuple):
+        if len(obj) == 3:
+            start_node, t, end_node = obj
+            properties = get_properties(t)
+        elif len(obj) == 4:
+            start_node, t, end_node, properties = obj
+            properties = dict(get_properties(t), **properties)
+        else:
+            raise TypeError("Cannot cast relationship from {0}".format(obj))
+    else:
+        raise TypeError("Cannot cast relationship from {0}".format(obj))
+
+    if entities:
+        if isinstance(start_node, integer):
+            start_node = entities[start_node]
+        if isinstance(end_node, integer):
+            end_node = entities[end_node]
+    return Relationship(start_node, get_type(t), end_node, **properties)

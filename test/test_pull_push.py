@@ -118,13 +118,13 @@ class PullPushTestCase(Py2neoTestCase):
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999
-        results = self.cypher.execute(statement, parameters)
+        results = self.cypher.run(statement, parameters)
         ab_amount, bc_amount, cd_since = results[0]
         assert ab_amount is None
         assert bc_amount is None
         assert cd_since is None
         self.graph.push(path)
-        results = self.cypher.execute(statement, parameters)
+        results = self.cypher.run(statement, parameters)
         ab_amount, bc_amount, cd_since = results[0]
         assert ab_amount == "lots"
         assert bc_amount == "some"

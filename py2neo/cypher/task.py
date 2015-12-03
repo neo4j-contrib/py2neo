@@ -20,8 +20,7 @@ from io import StringIO
 
 from py2neo.compat import ustr, xstr
 from py2neo.core import Node, Relationship
-from py2neo.cypher.lang import CypherParameter, CypherWriter
-
+from py2neo.lang import CypherParameter, CypherWriter
 
 __all__ = ["CypherTask", "CreateNode", "MergeNode", "CreateRelationship"]
 
@@ -233,7 +232,7 @@ class MergeNode(CypherTask):
         >>> from py2neo import Graph
         >>> graph = Graph()
         >>> tx = graph.cypher.begin()
-        >>> tx.append(MergeNode("Person", "name", "Alice"))
+        >>> tx.execute(MergeNode("Person", "name", "Alice"))
         >>> tx.commit()
            | a
         ---+-----------------------
@@ -321,45 +320,3 @@ class MergeNode(CypherTask):
         if properties:
             parameters["A"] = properties
         return parameters
-
-
-class CreateTransaction(object):
-
-    def __init__(self, graph):
-        self.graph = graph
-        self.cypher = self.graph.cypher
-        self.nodes = set()
-        self.relationships = set()
-
-    def append(self, entity):
-        if isinstance(entity, Node):
-            self.nodes.add(entity)
-        elif isinstance(entity, Relationship):
-            self.relationships.add(entity)
-        else:
-            raise ValueError("Cannot create an entity of type " + entity.__class__.__name__)
-
-    def commit(self):
-        tx = self.cypher.begin()
-
-        def create_entities(entities, creator, commit=False):
-            entity_list = list(entities)
-            indexes = {}
-            creation_index = 0
-            for argument_index, entity in enumerate(entity_list):
-                if not entity.bound:
-                    indexes[creation_index] = argument_index
-                    tx.append(creator(entity))
-                    creation_index += 1
-            results = tx.post(commit)
-            for creation_index, result in enumerate(results):
-                argument_index = indexes[creation_index]
-                entity_list[argument_index].bind(result["data"][0][0]["self"])
-
-        create_entities(self.nodes,
-                        lambda n: CreateNode(*n.labels(), **n).with_return())
-        create_entities(self.relationships,
-                        lambda r: CreateRelationship(r.start_node, r.end_node,
-                                                     r.type, **r.properties).with_return())
-
-        tx.commit()

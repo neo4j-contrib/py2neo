@@ -20,18 +20,34 @@ from collections import OrderedDict
 import logging
 
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
-from py2neo.compat import integer, string, xstr, ustr
-from py2neo.cypher.lang import cypher_escape
-from py2neo.cypher.error.core import CypherError, CypherTransactionError
-from py2neo.packages.tart.tables import TextTable
-from py2neo.util import is_collection
+from py2neo.compat import integer, xstr, ustr
+from py2neo.lang import cypher_escape, TextTable
+from py2neo.cypher.error.core import CypherError, TransactionError
+from py2neo.primitive import Record
+from py2neo.util import is_collection, deprecated
 
 
-__all__ = ["CypherEngine", "CypherTransaction", "RecordListList", "RecordList", "RecordStream",
-           "Record", "RecordProducer"]
+__all__ = ["CypherEngine", "Transaction", "Result", "cypher_request"]
 
 
 log = logging.getLogger("py2neo.cypher")
+
+
+def first_node(x):
+    if hasattr(x, "__nodes__"):
+        try:
+            return next(x.__nodes__())
+        except StopIteration:
+            raise ValueError("No such node: %r" % x)
+    raise ValueError("No such node: %r" % x)
+
+
+def last_node(x):
+    if hasattr(x, "__nodes__"):
+        nodes = list(x.__nodes__())
+        if nodes:
+            return nodes[-1]
+    raise ValueError("No such node: %r" % x)
 
 
 def presubstitute(statement, parameters):
@@ -57,8 +73,33 @@ def presubstitute(statement, parameters):
             statement = before + value + after
         else:
             more = False
-    parameters = {k:v for k,v in parameters.items() if k not in presub_parameters}
+    parameters = {k: v for k, v in parameters.items() if k not in presub_parameters}
     return statement, parameters
+
+
+def cypher_request(statement, parameters, **kwparameters):
+    s = ustr(statement)
+    p = {}
+
+    def add_parameters(params):
+        if params:
+            for k, v in dict(params).items():
+                if isinstance(v, (Node, Relationship)):
+                    v = v._id
+                p[k] = v
+
+    if hasattr(statement, "parameters"):
+        add_parameters(statement.parameters)
+    add_parameters(dict(parameters or {}, **kwparameters))
+
+    s, p = presubstitute(s, p)
+
+    # OrderedDict is used here to avoid statement/parameters ordering bug
+    return OrderedDict([
+        ("statement", s),
+        ("parameters", p),
+        ("resultDataContents", ["REST"]),
+    ])
 
 
 class CypherEngine(Bindable):
@@ -97,10 +138,10 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
         """
-        tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
-        results = tx.post(commit=True)
-        return results[0]
+        tx = Transaction(self)
+        result = tx.run(statement, parameters, **kwparameters)
+        tx.post(commit=True)
+        return result
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement, ignoring any return value.
@@ -108,21 +149,10 @@ class CypherEngine(Bindable):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
+        tx = Transaction(self)
+        result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
-
-    def execute(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.RecordList`
-        """
-        tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
-        results = tx.commit()
-        return results[0]
+        return result
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -132,47 +162,55 @@ class CypherEngine(Bindable):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = CypherTransaction(self.uri)
-        tx.append(statement, parameters, **kwparameters)
-        results = tx.commit()
-        try:
-            return results[0][0][0]
-        except IndexError:
-            return None
+        tx = Transaction(self)
+        result = tx.run(statement, parameters, **kwparameters)
+        tx.commit()
+        return result.value()
 
-    def stream(self, statement, parameters=None, **kwparameters):
-        """ Execute the query and return a result iterator.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.RecordStream`
-        """
-        return RecordStream(self.graph, self.post(statement, parameters, **kwparameters))
+    def create(self):
+        pass
 
     def begin(self):
         """ Begin a new transaction.
 
-        :rtype: :class:`py2neo.cypher.CypherTransaction`
+        :rtype: :class:`py2neo.cypher.Transaction`
         """
-        return CypherTransaction(self.uri)
+        return Transaction(self)
+
+    @deprecated("CypherEngine.execute(...) is deprecated, "
+                "use CypherEngine.run(...) instead")
+    def execute(self, statement, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement.
+
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
+        :rtype: :class:`py2neo.cypher.Result`
+        """
+        tx = Transaction(self)
+        result = tx.run(statement, parameters, **kwparameters)
+        tx.commit()
+        return result
 
 
-class CypherTransaction(object):
+class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
     """
 
-    error_class = CypherTransactionError
+    error_class = TransactionError
 
-    def __init__(self, uri):
+    def __init__(self, cypher):
         log.info("begin")
         self.statements = []
-        self.__begin = Resource(uri)
-        self.__begin_commit = Resource(uri + "/commit")
-        self.__execute = None
-        self.__commit = None
-        self.__finished = False
-        self.graph = self.__begin.graph
+        self.results = []
+        self.cypher = cypher
+        uri = self.cypher.resource.uri.string
+        self._begin = Resource(uri)
+        self._begin_commit = Resource(uri + "/commit")
+        self._execute = None
+        self._commit = None
+        self._finished = False
+        self.graph = self._begin.graph
 
     def __enter__(self):
         return self
@@ -183,96 +221,48 @@ class CypherTransaction(object):
         else:
             self.rollback()
 
-    def __assert_unfinished(self):
-        if self.__finished:
+    def _assert_unfinished(self):
+        if self._finished:
             raise Finished(self)
 
     @property
     def _id(self):
         """ The internal server ID of this transaction, if available.
         """
-        if self.__execute is None:
+        if self._execute is None:
             return None
         else:
-            return int(self.__execute.uri.path.segments[-1])
+            return int(self._execute.uri.path.segments[-1])
 
-    @property
-    def finished(self):
-        """ Indicates whether or not this transaction has been completed or is
-        still open.
-
-        :return: :py:const:`True` if this transaction has finished,
-                 :py:const:`False` otherwise
-        """
-        return self.__finished
-
-    def append(self, statement, parameters=None, **kwparameters):
-        """ Add a statement to the current queue of statements to be
-        executed.
-
-        :arg statement: the statement to append
-        :arg parameters: a dictionary of execution parameters
-        """
-        self.__assert_unfinished()
-
-        s = ustr(statement)
-        p = {}
-
-        def add_parameters(params):
-            if params:
-                for k, v in dict(params).items():
-                    if isinstance(v, (Node, Relationship)):
-                        v = v._id
-                    p[k] = v
-
-        try:
-            add_parameters(statement.parameters)
-        except AttributeError:
-            pass
-        add_parameters(dict(parameters or {}, **kwparameters))
-
-        s, p = presubstitute(s, p)
-
-        # OrderedDict is used here to avoid statement/parameters ordering bug
-        log.info("append %r %r", s, p)
-        self.statements.append(OrderedDict([
-            ("statement", s),
-            ("parameters", p),
-            ("resultDataContents", ["REST"]),
-        ]))
-
-    def post(self, commit=False):
-        self.__assert_unfinished()
+    def post(self, commit=False, hydrate=False):
+        self._assert_unfinished()
         if commit:
             log.info("commit")
-            resource = self.__commit or self.__begin_commit
-            self.__finished = True
+            resource = self._commit or self._begin_commit
+            self._finished = True
         else:
             log.info("process")
-            resource = self.__execute or self.__begin
+            resource = self._execute or self._begin
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:
-            self.__execute = Resource(location)
+            self._execute = Resource(location)
         j = rs.content
         rs.close()
         self.statements = []
         if "commit" in j:
-            self.__commit = Resource(j["commit"])
-        if "errors" in j:
-            errors = j["errors"]
-            if len(errors) >= 1:
-                error = errors[0]
-                raise self.error_class.hydrate(error)
-        results = [{"columns": result["columns"], "data": [data["rest"] for data in result["data"]]}
-                   for result in j["results"]]
-        log.info("results %r", results)
-        return results
+            self._commit = Resource(j["commit"])
+        for j_error in j["errors"]:
+            raise self.error_class.hydrate(j_error)
+        for j_result in j["results"]:
+            result = self.results.pop(0)
+            result._hydrate = hydrate
+            result._process(j_result)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements. Along with
-        :meth:`append <.CypherTransaction.append>`, this method can be used to
+        :meth:`append <.Transaction.append>`, this method can be used to
         batch up a number of individual statements into a single HTTP request::
 
             from py2neo import Graph
@@ -292,236 +282,184 @@ class CypherTransaction(object):
 
             tx.commit()
 
-        :return: list of results from pending statements
         """
-        return RecordListList.from_results(self.post(), self.graph)
+        self.post(hydrate=True)
 
     def commit(self):
         """ Send all pending statements to the server for execution and commit
         the transaction.
-
-        :return: list of results from pending statements
         """
-        return RecordListList.from_results(self.post(commit=True), self.graph)
+        self.post(commit=True, hydrate=True)
 
     def rollback(self):
         """ Rollback the current transaction.
         """
-        self.__assert_unfinished()
+        self._assert_unfinished()
         log.info("rollback")
         try:
-            if self.__execute:
-                self.__execute.delete()
+            if self._execute:
+                self._execute.delete()
         finally:
-            self.__finished = True
+            self._finished = True
+
+    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
+    def append(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters)
+
+    def run(self, statement, parameters=None, **kwparameters):
+        """ Add a statement to the current queue of statements to be
+        executed.
+
+        :arg statement: the statement to append
+        :arg parameters: a dictionary of execution parameters
+        """
+        self._assert_unfinished()
+        self.statements.append(cypher_request(statement, parameters, **kwparameters))
+        result = Result(self.graph, self, hydrate=True)
+        self.results.append(result)
+        return result
+
+    def evaluate(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters).value()
+
+    def create(self, graphy):
+        try:
+            nodes = list(graphy.nodes())
+            relationships = list(graphy.relationships())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % graphy)
+        clauses = []
+        parameters = {}
+        returns = {}
+        for i, node in enumerate(nodes):
+            node_id = "a%d" % i
+            param_id = "x%d" % i
+            if node.bound:
+                clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                parameters[param_id] = node._id
+            else:
+                label_string = "".join(":" + cypher_escape(label)
+                                       for label in sorted(node.labels()))
+                clauses.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
+                parameters[param_id] = dict(node)
+                node.set_bind_pending(self)
+            returns[node_id] = node
+        for i, relationship in enumerate(relationships):
+            if not relationship.bound:
+                rel_id = "r%d" % i
+                start_node_id = "a%d" % nodes.index(relationship.start_node())
+                end_node_id = "a%d" % nodes.index(relationship.end_node())
+                type_string = cypher_escape(relationship.type())
+                param_id = "y%d" % i
+                clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
+                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
+                parameters[param_id] = dict(relationship)
+                returns[rel_id] = relationship
+                relationship.set_bind_pending(self)
+        clauses.append("RETURN %s LIMIT 1" % ", ".join(returns))
+        statement = "\n".join(clauses)
+        result = self.run(statement, parameters)
+        result.cache.update(returns)
+        #return result
+
+    def finished(self):
+        """ Indicates whether or not this transaction has been completed or is
+        still open.
+
+        :return: :py:const:`True` if this transaction has finished,
+                 :py:const:`False` otherwise
+        """
+        return self._finished
 
 
-class RecordListList(list):
-    """ Container for multiple RecordList instances that presents a more
-    consistent representation.
+class Result(object):
+    """ A stream of records returned from the execution of a Cypher statement.
     """
 
-    @classmethod
-    def from_results(cls, results, graph):
-        return cls(RecordList.hydrate(result, graph) for result in results)
+    def __init__(self, graph, transaction=None, hydrate=False):
+        assert transaction is None or isinstance(transaction, Transaction)
+        self.graph = graph
+        self.transaction = transaction
+        self._keys = []
+        self._records = []
+        self._processed = False
+        self._hydrate = hydrate     # TODO  hydrate to record or leave raw
+        self.cache = {}
 
     def __repr__(self):
-        out = []
-        for i in self:
-            out.append(repr(i))
-        return "\n".join(out)
+        return "<Result>"
 
+    def __str__(self):
+        return xstr(self.__unicode__())
 
-class RecordList(object):
-    """ A list of records returned from the execution of a Cypher statement.
-    """
-
-    @classmethod
-    def hydrate(cls, data, graph):
-        columns = data["columns"]
-        rows = data["data"]
-        producer = RecordProducer(columns)
-        return cls(columns, [producer.produce(graph.hydrate(row)) for row in rows])
-
-    def __init__(self, columns, records):
-        self.columns = columns
-        self.records = records
-        log.info("result %r %r", columns, len(records))
-
-    def __repr__(self):
+    def __unicode__(self):
+        self._ensure_processed()
         out = ""
-        if self.columns:
-            table = TextTable([None] + self.columns, border=True)
-            for i, record in enumerate(self.records):
+        if self._keys:
+            table = TextTable([None] + self._keys, border=True)
+            for i, record in enumerate(self._records):
                 table.append([i + 1] + list(record))
             out = repr(table)
         return out
 
     def __len__(self):
-        return len(self.records)
+        self._ensure_processed()
+        return len(self._records)
 
     def __getitem__(self, item):
-        return self.records[item]
+        self._ensure_processed()
+        return self._records[item]
 
     def __iter__(self):
-        return iter(self.records)
+        self._ensure_processed()
+        return iter(self._records)
 
-    @property
-    def one(self):
-        """ The first record from this result, reduced to a single value
-        if that record only consists of a single column. If no records
+    def _ensure_processed(self):
+        if not self._processed:
+            self.transaction.process()
+
+    def _process(self, raw):
+        self._keys = keys = raw["columns"]
+        if self._hydrate:
+            hydrate = self.graph.hydrate
+            records = []
+            for record in raw["data"]:
+                values = []
+                for i, value in enumerate(record["rest"]):
+                    key = keys[i]
+                    cached = self.cache.get(key)
+                    values.append(hydrate(value, inst=cached))
+                records.append(Record(keys, values))
+            self._records = records
+        else:
+            self._records = [values["rest"] for values in raw["data"]]
+        self._processed = True
+
+    def keys(self):
+        return self._keys
+
+    def value(self, index=0):
+        """ A single value from the first record of this result. If no records
         are available, :const:`None` is returned.
         """
+        self._ensure_processed()
         try:
             record = self[0]
         except IndexError:
             return None
         else:
-            if len(record) == 0:
-                return None
-            elif len(record) == 1:
-                return record[0]
+            if len(record) > index:
+                return record[index]
             else:
-                return record
+                return None
 
     def to_subgraph(self):
-        """ Convert a RecordList into a Subgraph.
+        """ Convert a Result into a Subgraph.
         """
+        self._ensure_processed()
         entities = []
-        for record in self.records:
+        for record in self._records:
             for value in record:
                 if isinstance(value, (Node, Relationship, Path)):
                     entities.append(value)
         return Subgraph(*entities)
-
-
-class RecordStream(object):
-    """ An accessor for a sequence of records yielded by a streamed Cypher statement.
-
-    ::
-
-        for record in graph.cypher.stream("MATCH (n) RETURN n LIMIT 10")
-            print record[0]
-
-    Each record returned is cast into a :py:class:`namedtuple` with names
-    derived from the resulting column names.
-
-    .. note ::
-        Results are available as returned from the server and are decoded
-        incrementally. This means that there is no need to wait for the
-        entire response to be received before processing can occur.
-    """
-
-    def __init__(self, graph, result):
-        self.graph = graph
-        self.__result = result
-        self.__result_item = self.__result_iterator()
-        self.columns = next(self.__result_item)
-        log.info("stream %r", self.columns)
-
-    def __result_iterator(self):
-        columns = self.__result["columns"]
-        producer = RecordProducer(columns)
-        yield tuple(columns)
-        for values in self.__result["data"]:
-            yield producer.produce(self.graph.hydrate(values))
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return next(self.__result_item)
-
-    def next(self):
-        return self.__next__()
-
-    def close(self):
-        """ Close results and free resources.
-        """
-        pass
-
-
-class Record(object):
-    """ A simple object containing values from a single row of a Cypher
-    result. Each value can be retrieved by column position or name,
-    supplied as either an index key or an attribute name.
-
-    Consider the record below::
-
-           | person                     | name
-        ---+----------------------------+-------
-         1 | (n1:Person {name:"Alice"}) | Alice
-
-    If this record is named ``r``, the following expressions
-    are equivalent and will return the value ``'Alice'``::
-
-        r[1]
-        r["name"]
-        r.name
-
-    """
-
-    __producer__ = None
-
-    def __init__(self, values):
-        self.__values__ = tuple(values)
-        columns = self.__producer__.columns
-        for i, column in enumerate(columns):
-            setattr(self, column, values[i])
-
-    def __repr__(self):
-        out = ""
-        columns = self.__producer__.columns
-        if columns:
-            table = TextTable(columns, border=True)
-            table.append([getattr(self, column) for column in columns])
-            out = repr(table)
-        return out
-
-    def __eq__(self, other):
-        try:
-            return vars(self) == vars(other)
-        except TypeError:
-            return tuple(self) == tuple(other)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __len__(self):
-        return len(self.__values__)
-
-    def __iter__(self):
-        return iter(self.__values__)
-
-    def __getitem__(self, item):
-        if isinstance(item, integer):
-            return self.__values__[item]
-        elif isinstance(item, string):
-            return getattr(self, item)
-        else:
-            raise LookupError(item)
-
-
-class RecordProducer(object):
-
-    def __init__(self, columns):
-        self.__columns = tuple(column for column in columns if not column.startswith("_"))
-        self.__len = len(self.__columns)
-        dct = dict.fromkeys(self.__columns)
-        dct["__producer__"] = self
-        self.__type = type(xstr("Record"), (Record,), dct)
-
-    def __repr__(self):
-        return "RecordProducer(columns=%r)" % (self.__columns,)
-
-    def __len__(self):
-        return self.__len
-
-    @property
-    def columns(self):
-        return self.__columns
-
-    def produce(self, values):
-        """ Produce a record from a set of values.
-        """
-        return self.__type(values)
