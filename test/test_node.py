@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, GraphError, BindError, Path
+from py2neo import Node, NodePointer, GraphError, BindError, Path, cast_node, Subgraph
 from test.compat import patch, long, assert_repr
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
@@ -34,7 +34,8 @@ class NodeTestCase(Py2neoTestCase):
         assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_can_create_remote_node(self):
-        a, = self.graph.create(Node("Person", name="Alice", age=33))
+        a = Node("Person", name="Alice", age=33)
+        self.graph.create(a)
         assert a.labels() == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
         assert a.ref.startswith("node/")
@@ -76,7 +77,8 @@ class NodeTestCase(Py2neoTestCase):
         assert alice.degree() == 3
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
-        alice, _, _ = self.graph.create(Node("Person", name="Alice"), {}, (0, "KNOWS", 1))
+        alice = Node("Person", name="Alice")
+        self.graph.create(Subgraph(alice, {}, (0, "KNOWS", 1)))
         assert dict(alice) == {"name": "Alice"}
         alice["age"] = 33
         assert dict(alice) == {"name": "Alice", "age": 33}
@@ -119,7 +121,8 @@ class AbstractNodeTestCase(Py2neoTestCase):
 class ConcreteNodeTestCase(Py2neoTestCase):
 
     def test_can_create_concrete_node(self):
-        alice, = self.graph.create({"name": "Alice", "age": 34})
+        alice = cast_node({"name": "Alice", "age": 34})
+        self.graph.create(alice)
         assert isinstance(alice, Node)
         assert alice.bound
         assert alice["name"] == "Alice"
@@ -139,27 +142,32 @@ class ConcreteNodeTestCase(Py2neoTestCase):
             "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
             "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
         }
-        foo, = self.graph.create(data)
+        foo = cast_node(data)
+        self.graph.create(foo)
         for key, value in data.items():
             self.assertEqual(foo[key], value)
 
     def test_cannot_assign_oversized_long(self):
-        foo, = self.graph.create({})
+        foo = Node()
+        self.graph.create(foo)
         with self.assertRaises(ValueError):
             foo["long"] = long("9223372036854775808")
 
     def test_cannot_assign_mixed_list(self):
-        foo, = self.graph.create({})
+        foo = Node()
+        self.graph.create(foo)
         with self.assertRaises(TypeError):
             foo["mixed_list"] = [42, "life", "universe", "everything"]
 
     def test_cannot_assign_dict(self):
-        foo, = self.graph.create({})
+        foo = Node()
+        self.graph.create(foo)
         with self.assertRaises(TypeError):
             foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
 
     def test_relative_uri_of_bound_node(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         relative_uri_string = node.ref
         assert node.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")

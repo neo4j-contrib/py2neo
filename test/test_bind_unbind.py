@@ -110,19 +110,26 @@ class BindUnbindTestCase(Py2neoTestCase):
             _ = relationship.resource
 
     def test_can_unbind_node_if_not_cached(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         Node.cache.clear()
         node.unbind()
         assert not node.bound
 
     def test_can_unbind_relationship_if_not_cached(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(ab)
         Relationship.cache.clear()
         ab.unbind()
         assert not ab.bound
 
     def test_can_unbind_relationship_with_already_unbound_nodes(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(ab)
         a.unbind()
         b.unbind()
         assert not a.bound

@@ -275,7 +275,9 @@ class EfficiencyTestCase(Py2neoTestCase):
             assert counter.response_count == 1
 
     def test_relationship_hydration_does_not_make_nodes_stale(self):
-        alice, bob = self.graph.create(Node("Person", name="Alice"), Node("Person", name="Bob"))
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        self.graph.create(alice | bob)
         with HTTPCounter() as counter:
             statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                          "CREATE (a)-[ab:KNOWS]->(b) "

@@ -69,7 +69,10 @@ class PullPushTestCase(Py2neoTestCase):
         assert dict(local) == dict(remote)
 
     def test_can_push_relationship(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(ab)
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
                                      "RETURN ab.since", i=ab._id)
         assert value is None

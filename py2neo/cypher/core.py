@@ -337,7 +337,7 @@ class Transaction(object):
             node_id = "a%d" % i
             param_id = "x%d" % i
             if node.bound:
-                clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                clauses.insert(0, "MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 parameters[param_id] = node._id
             else:
                 label_string = "".join(":" + cypher_escape(label)

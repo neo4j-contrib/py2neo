@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished, cast_node
+from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
 from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
 from py2neo.cypher.error.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
@@ -270,11 +270,10 @@ class PropertyManagementTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
-        self.alice, self.bob, self.friends = self.graph.create(
-            {"name": "Alice", "surname": "Allison"},
-            {"name": "Bob", "surname": "Robertson"},
-            (0, "KNOWS", 1, {"since": 2000}),
-        )
+        self.alice = cast_node({"name": "Alice", "surname": "Allison"})
+        self.bob = cast_node({"name": "Bob", "surname": "Robertson"})
+        self.friends = cast_relationship((self.alice, "KNOWS", self.bob, {"since": 2000}))
+        self.graph.create(self.alice | self.bob | self.friends)
 
     def _check_properties(self, entity, expected_properties):
         self.graph.pull(entity)
@@ -483,7 +482,9 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1]["name"] == "Bob"
 
     def test_can_create_path_with_existing_nodes(self):
-        alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
+        alice = cast_node({"name": "Alice"})
+        bob = cast_node({"name": "Bob"})
+        self.graph.create(alice | bob)
         self.batch.create_path(alice, "KNOWS", bob)
         results = self.batch.submit()
         path = results[0]
@@ -493,7 +494,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1] == bob
 
     def test_path_creation_is_not_idempotent(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
@@ -508,7 +510,9 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1] != bob
 
     def test_can_get_or_create_path_with_existing_nodes(self):
-        alice, bob = self.graph.create({"name": "Alice"}, {"name": "Bob"})
+        alice = Node(name="Alice")
+        bob = Node(name="Bob")
+        self.graph.create(alice | bob)
         self.batch.get_or_create_path(alice, "KNOWS", bob)
         results = self.batch.submit()
         path = results[0]
@@ -518,7 +522,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1] == bob
 
     def test_path_merging_is_idempotent(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
         results = self.batch.submit()
         path = results[0]
@@ -533,7 +538,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1] == bob
 
     def test_can_set_property_on_preexisting_node(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         self.batch.set_property(alice, "age", 34)
         self.batch.run()
         self.graph.pull(alice)
@@ -548,7 +554,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["age"] == 34
 
     def test_can_set_properties_on_preexisting_node(self):
-        alice, = self.graph.create({})
+        alice = Node()
+        self.graph.create(alice)
         self.batch.set_properties(alice, {"name": "Alice", "age": 34})
         self.batch.run()
         self.graph.pull(alice)
@@ -565,7 +572,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["age"] == 34
 
     def test_can_delete_property_on_preexisting_node(self):
-        alice, = self.graph.create({"name": "Alice", "age": 34})
+        alice = cast_node({"name": "Alice", "age": 34})
+        self.graph.create(alice)
         self.batch.delete_property(alice, "age")
         self.batch.run()
         self.graph.pull(alice)
@@ -582,7 +590,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["age"] is None
 
     def test_can_delete_properties_on_preexisting_node(self):
-        alice, = self.graph.create({"name": "Alice", "age": 34})
+        alice = cast_node({"name": "Alice", "age": 34})
+        self.graph.create(alice)
         self.batch.delete_properties(alice)
         self.batch.run()
         self.graph.pull(alice)
@@ -597,7 +606,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert not alice
 
     def test_can_add_labels_to_preexisting_node(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         self.batch.add_labels(alice, "human", "female")
         self.batch.run()
         self.graph.pull(alice)
@@ -612,7 +622,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice.labels() == {"human", "female"}
 
     def test_can_remove_labels_from_preexisting_node(self):
-        alice, = self.graph.create(Node("human", "female", name="Alice"))
+        alice = Node("human", "female", name="Alice")
+        self.graph.create(alice)
         self.batch.remove_label(alice, "human")
         self.batch.run()
         self.graph.pull(alice)
@@ -628,7 +639,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice.labels() == {"human"}
 
     def test_can_set_labels_on_preexisting_node(self):
-        alice, = self.graph.create(Node("human", "female", name="Alice"))
+        alice = Node("human", "female", name="Alice")
+        self.graph.create(alice)
         self.batch.set_labels(alice, "mystery", "badger")
         self.batch.run()
         self.graph.pull(alice)

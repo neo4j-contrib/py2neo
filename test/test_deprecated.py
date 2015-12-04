@@ -18,7 +18,7 @@
 
 from warnings import catch_warnings, simplefilter
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Subgraph
 from test.util import Py2neoTestCase
 
 
@@ -47,43 +47,24 @@ class PropertiesTestCase(DeprecatedTestCase):
         _ = r.properties
 
 
-class PushPullTestCase(DeprecatedTestCase):
-
-    def test_node_pull(self):
-        node, = self.graph.create({})
-        node.pull()
-
-    def test_node_push(self):
-        node, = self.graph.create({})
-        node.push()
-
-    def test_relationship_pull(self):
-        _, _, rel = self.graph.create({}, {}, (0, "TO", 1))
-        rel.pull()
-
-    def test_relationship_push(self):
-        _, _, rel = self.graph.create({}, {}, (0, "TO", 1))
-        rel.push()
-
-
 class NodeMatchTestCase(DeprecatedTestCase):
 
     def setUp(self):
         super(NodeMatchTestCase, self).setUp()
-        a, b, c, d, e = self.graph.create(
-            {"name": "Alice"},
-            {"name": "Bob"},
-            {"name": "Carol"},
-            {"name": "Dave"},
-            {"name": "Eve"},
+        a = Node(name="Alice")
+        b = Node(name="Bob")
+        c = Node(name="Carol")
+        d = Node(name="Dave")
+        e = Node(name="Eve")
+        self.graph.create(a | b | c | d | e)
+        rels = (
+            Relationship(a, "LOVES", b),
+            Relationship(b, "LOVES", a),
+            Relationship(b, "KNOWS", c),
+            Relationship(b, "KNOWS", d),
+            Relationship(d, "LOVES", e),
         )
-        rels = self.graph.create(
-            (a, "LOVES", b),
-            (b, "LOVES", a),
-            (b, "KNOWS", c),
-            (b, "KNOWS", d),
-            (d, "LOVES", e),
-        )
+        self.graph.create(Subgraph(*rels))
         self.sample_graph = a, b, c, d, e, rels
 
     def test_can_match_zero_outgoing(self):

@@ -29,13 +29,15 @@ class FindTestCase(Py2neoTestCase):
 
     def test_can_find_nodes_with_label(self):
         label = next(self.unique_string)
-        alice, = self.graph.create(Node(label, name="Alice"))
+        alice = Node(label, name="Alice")
+        self.graph.create(alice)
         nodes = list(self.graph.find(label))
         assert alice in nodes
 
     def test_can_find_nodes_with_label_and_property(self):
         label = next(self.unique_string)
-        alice, = self.graph.create(Node(label, name="Alice"))
+        alice = Node(label, name="Alice")
+        self.graph.create(alice)
         nodes = list(self.graph.find(label, "name", "Alice"))
         assert alice in nodes
 

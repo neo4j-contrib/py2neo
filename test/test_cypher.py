@@ -42,11 +42,11 @@ class WriterTestCase(Py2neoTestCase):
 class CypherTestCase(Py2neoTestCase):
 
     def setUp(self):
-        self.alice_and_bob = self.graph.create(
-            {"name": "Alice", "age": 66},
-            {"name": "Bob", "age": 77},
-            (0, "KNOWS", 1),
-        )
+        a = Node(name="Alice", age=66)
+        b = Node(name="Bob", age=77)
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(ab)
+        self.alice_and_bob = (a, b, ab)
 
     def test_can_run_cypher(self):
         result = self.cypher.run("RETURN 1")
@@ -140,7 +140,8 @@ class CypherTestCase(Py2neoTestCase):
         assert results[0]["name"] == "Alice"
 
     def test_can_run_with_entity_parameter(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
         results = self.cypher.run(statement, {"N": alice})
         assert len(results) == 1
@@ -197,14 +198,16 @@ class CypherTestCase(Py2neoTestCase):
             assert record["p"][0].type() == "KNOWS"
 
     def test_query_can_return_collection(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node._id}
         results = self.cypher.run(statement, params)
         assert results[0]["a_collection"] == [node]
 
     def test_param_used_once(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node._id}
         results = self.cypher.run(statement, params)
@@ -212,7 +215,8 @@ class CypherTestCase(Py2neoTestCase):
         assert record["a"] == node
 
     def test_param_used_twice(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node._id}
         results = self.cypher.run(statement, params)
@@ -221,7 +225,8 @@ class CypherTestCase(Py2neoTestCase):
         assert record["b"] == node
 
     def test_param_used_thrice(self):
-        node, = self.graph.create({})
+        node = Node()
+        self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} " \
                     "MATCH (b) WHERE id(b)={X} " \
                     "MATCH (c) WHERE id(c)={X} " \
@@ -249,10 +254,9 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_param_reused_twice_after_with_statement(self):
         a, b, ab = self.alice_and_bob
-        c, bc = self.graph.create(
-            {"name": "Carol", "age": 88},
-            (b, "KNOWS", 0),
-        )
+        c = Node(name="Carol", age=88)
+        bc = Relationship(b, "KNOWS", c)
+        self.graph.create(c | bc)
         query = ("MATCH (a) WHERE id(a)={A} "
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE a.age > {min_age} "

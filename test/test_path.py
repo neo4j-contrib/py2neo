@@ -196,8 +196,8 @@ class PathTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
-        path, = self.graph.create(Path(alice, "LOVES", bob,
-                                       Relationship(carol, "HATES", bob), carol, "KNOWS", dave))
+        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
+        self.graph.create(path)
         assert path.graph == Graph("http://localhost:7474/db/data/")
 
     def test_path_direction(self):
@@ -226,7 +226,7 @@ class CreatePathTestCase(Py2neoTestCase):
         assert dict(nodes[0]) == {"name": "Alice"}
         assert path[0].type() == "KNOWS"
         assert dict(nodes[1]) == {"name": "Bob"}
-        path, = self.graph.create(path)
+        self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
@@ -241,7 +241,7 @@ class CreatePathTestCase(Py2neoTestCase):
         assert path[0].type() == "KNOWS"
         assert dict(path[0]) == {"since": 1999}
         assert dict(nodes[1]) == {"name": "Bob"}
-        path, = self.graph.create(path)
+        self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
@@ -254,7 +254,8 @@ class CreatePathTestCase(Py2neoTestCase):
 class CreateUniquePathTestCase(Py2neoTestCase):
 
     def test_can_create_single_path(self):
-        start_node, = self.graph.create({})
+        start_node = Node()
+        self.graph.create(start_node)
         p1, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},
@@ -267,7 +268,8 @@ class CreateUniquePathTestCase(Py2neoTestCase):
         assert n1[0] == start_node
 
     def test_can_create_overlapping_paths(self):
-        start_node, = self.graph.create({})
+        start_node = Node()
+        self.graph.create(start_node)
         p1, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},
@@ -312,7 +314,8 @@ class CreateUniquePathTestCase(Py2neoTestCase):
         assert p2[2] != p3[2]
 
     def test_can_use_node_for_nodes(self):
-        start_node, = self.graph.create({})
+        start_node = Node()
+        self.graph.create(start_node)
         p1, = self.graph.create_unique(Path(
             start_node,
             "YEAR",  {"number": 2000},

@@ -34,34 +34,34 @@ class RelationshipTestCase(Py2neoTestCase):
         r = Relationship(Node(), "TO", Node())
         assert repr(r)
 
-    def test_bound_relationship_repr(self):
-        _, _, r = self.graph.create({}, {}, (0, "KNOWS", 1))
-        assert repr(r)
-
-    def test_bound_relationship_repr_with_no_type(self):
-        _, _, r = self.graph.create({}, {}, (0, "KNOWS", 1))
-        r._type = None
-        assert repr(r)
-
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
         assert isinstance(types, frozenset)
         
     def test_can_get_relationship_by_id_when_cached(self):
-        _, _, relationship = self.graph.create({}, {}, (0, "KNOWS", 1))
-        got = self.graph.relationship(relationship._id)
-        assert got is relationship
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        got = self.graph.relationship(r._id)
+        assert got is r
         
     def test_can_get_relationship_by_id_when_not_cached(self):
-        _, _, relationship = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
         Relationship.cache.clear()
-        got = self.graph.relationship(relationship._id)
-        assert got._id == relationship._id
+        got = self.graph.relationship(r._id)
+        assert got._id == r._id
         
     def test_relationship_cache_is_thread_local(self):
         import threading
-        _, _, relationship = self.graph.create({}, {}, (0, "KNOWS", 1))
-        assert relationship.uri in Relationship.cache
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        assert r.uri in Relationship.cache
         other_relationship_cache_keys = []
     
         def check_cache():
@@ -71,41 +71,41 @@ class RelationshipTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
     
-        assert relationship.uri in Relationship.cache
-        assert relationship.uri not in other_relationship_cache_keys
+        assert r.uri in Relationship.cache
+        assert r.uri not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
-        _, _, relationship = self.graph.create({}, {}, (0, "KNOWS", 1))
-        rel_id = relationship._id
-        self.graph.delete(relationship)
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        rel_id = r._id
+        self.graph.delete(r)
         Relationship.cache.clear()
         with self.assertRaises(IndexError):
             _ = self.graph.relationship(rel_id)
 
     def test_getting_no_relationships(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         rels = list(self.graph.match(alice))
         assert rels is not None
         assert isinstance(rels, list)
         assert len(rels) == 0
 
-    def test_get_relationship(self):
-        alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
-        rel = self.graph.relationship(ab._id)
-        assert rel == ab
-
-    def test_type_of_bound_rel_is_immutable(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        with self.assertRaises(AttributeError):
-            ab.rel.type = "LIKES"
-
     def test_service_root(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        assert ab.service_root == ServiceRoot("http://localhost:7474/")
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        assert r.service_root == ServiceRoot("http://localhost:7474/")
 
     def test_graph(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
-        assert ab.graph == Graph("http://localhost:7474/db/data/")
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        assert r.graph == Graph("http://localhost:7474/db/data/")
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})

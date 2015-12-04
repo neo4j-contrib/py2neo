@@ -687,7 +687,7 @@ class Graph(Bindable):
             self.__cypher = CypherEngine(metadata.get("transaction"))
         return self.__cypher
 
-    def create(self, *entities):
+    def create(self, graphy):
         """ Create one or more remote nodes, relationships or paths in a
         single transaction. The entity values provided must be either
         existing entity objects (such as nodes or relationships) or values
@@ -718,20 +718,10 @@ class Graph(Bindable):
                        can be cast to entities.
         :return: A tuple of all entities created (or ignored) of the same
                  length and order as the arguments passed in.
-        :rtype: tuple
-
-        .. warning::
-            This method will *always* return a tuple, even when creating
-            only a single entity. To automatically unpack to a single
-            item, append a trailing comma to the variable name on the
-            left of the assignment operation.
 
         """
-        from py2neo.cypher.create import CreateStatement
-        statement = CreateStatement(self)
-        for entity in entities:
-            statement.create(entity)
-        return statement.execute()
+        # TODO update examples in docstring
+        self.cypher.create(graphy)
 
     def create_unique(self, *entities):
         """ Create one or more unique paths or relationships in a single

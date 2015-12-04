@@ -26,15 +26,21 @@ class FamiliarTestCase(Py2neoTestCase):
         assert familiar()
 
     def test_one_node_is_familiar(self):
-        a, = self.graph.create({})
+        a = Node()
+        self.graph.create(a)
         assert familiar(a)
 
     def test_two_nodes_are_familiar(self):
-        a, b = self.graph.create({}, {})
+        a = Node()
+        b = Node()
+        self.graph.create(a | b)
         assert familiar(a, b)
 
     def test_three_nodes_are_familiar(self):
-        a, b, c = self.graph.create({}, {}, {})
+        a = Node()
+        b = Node()
+        c = Node()
+        self.graph.create(a | b | c)
         assert familiar(a, b, c)
 
     def test_unbound_node_cannot_be_familiar(self):

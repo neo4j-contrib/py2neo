@@ -16,25 +16,23 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Subgraph
 from test.util import Py2neoTestCase
 
 
 class MatchTestCase(Py2neoTestCase):
     
     def setUp(self):
-        stuff = self.graph.create(
-            {"name": "Alice"},
-            {"name": "Bob"},
-            {"name": "Carol"},
-            (0, "LOVES", 1),
-            (1, "LOVES", 0),
-            (0, "KNOWS", 1),
-            (1, "KNOWS", 0),
-            (1, "KNOWS", 2),
-            (2, "KNOWS", 1),
-        )
-        self.alice, self.bob, self.carol = stuff[0:3]
+        self.alice = Node(name="Alice")
+        self.bob = Node(name="Bob")
+        self.carol = Node(name="Carol")
+        s = Subgraph((self.alice, "LOVES", self.bob),
+                     (self.bob, "LOVES", self.alice),
+                     (self.alice, "KNOWS", self.bob),
+                     (self.bob, "KNOWS", self.alice),
+                     (self.bob, "KNOWS", self.carol),
+                     (self.carol, "KNOWS", self.bob))
+        self.graph.create(s)
 
     def test_can_match_start_node(self):
         relationships = list(self.graph.match(start_node=self.alice))

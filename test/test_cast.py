@@ -32,7 +32,8 @@ class CastTestCase(Py2neoTestCase):
         assert cast(None) is None
 
     def test_can_cast_node(self):
-        alice, = self.graph.create({"name": "Alice"})
+        alice = Node(name="Alice")
+        self.graph.create(alice)
         casted = cast(alice)
         assert isinstance(casted, Node)
         assert casted.bound
@@ -45,7 +46,10 @@ class CastTestCase(Py2neoTestCase):
         assert casted["name"] == "Alice"
 
     def test_can_cast_rel(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(ab)
         casted = cast(ab)
         assert isinstance(casted, Relationship)
         assert casted.bound
@@ -94,7 +98,10 @@ class CastNodeTestCase(Py2neoTestCase):
 class CastRelationshipTestCase(Py2neoTestCase):
     
     def test_can_cast_relationship(self):
-        a, b, ab = self.graph.create({}, {}, (0, "KNOWS", 1))
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "KNOWS", b)
+        self.graph.create(a | b | ab)
         casted = cast_relationship(ab)
         assert isinstance(casted, Relationship)
         assert casted.bound
