@@ -687,7 +687,7 @@ class Graph(Bindable):
             self.__cypher = CypherEngine(metadata.get("transaction"))
         return self.__cypher
 
-    def create(self, graphy):
+    def create(self, g):
         """ Create one or more remote nodes, relationships or paths in a
         single transaction. The entity values provided must be either
         existing entity objects (such as nodes or relationships) or values
@@ -721,7 +721,7 @@ class Graph(Bindable):
 
         """
         # TODO update examples in docstring
-        self.cypher.create(graphy)
+        self.cypher.create(g)
 
     def create_unique(self, *entities):
         """ Create one or more unique paths or relationships in a single

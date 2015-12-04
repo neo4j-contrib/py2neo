@@ -195,6 +195,26 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert self.graph.order() == 3
         assert self.graph.size() == 3
 
+    def test_create_is_idempotent(self):
+        self.graph.delete_all()
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        with self.cypher.begin() as tx:
+            tx.create(r)
+        assert a.bound
+        assert b.bound
+        assert r.bound
+        assert self.graph.order() == 2
+        assert self.graph.size() == 1
+        with self.cypher.begin() as tx:
+            tx.create(r)
+        assert a.bound
+        assert b.bound
+        assert r.bound
+        assert self.graph.order() == 2
+        assert self.graph.size() == 1
+
 
 class TransactionErrorTestCase(Py2neoTestCase):
 

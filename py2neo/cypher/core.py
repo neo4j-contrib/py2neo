@@ -167,9 +167,9 @@ class CypherEngine(Bindable):
         tx.commit()
         return result.value()
 
-    def create(self, graphy):
+    def create(self, g):
         tx = Transaction(self)
-        tx.create(graphy)
+        tx.create(g)
         tx.commit()
 
     def begin(self):
@@ -324,12 +324,12 @@ class Transaction(object):
     def evaluate(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters).value()
 
-    def create(self, graphy):
+    def create(self, g):
         try:
-            nodes = list(graphy.nodes())
-            relationships = list(graphy.relationships())
+            nodes = list(g.nodes())
+            relationships = list(g.relationships())
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % graphy)
+            raise TypeError("Object %r is not graphy" % g)
         clauses = []
         parameters = {}
         returns = {}
