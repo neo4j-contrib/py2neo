@@ -177,16 +177,6 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         with self.assertRaises(BindError):
             _ = node.ref
 
-    def test_node_repr(self):
-        node = Node("Person", name="Alice")
-        assert_repr(node, "<Node labels={'Person'} properties={'name': 'Alice'}>",
-                          "<Node labels=set(['Person']) properties={'name': u'Alice'}>")
-        self.graph.create(node)
-        assert_repr(node, "<Node graph='http://localhost:7474/db/data/' ref='%s' "
-                          "labels={'Person'} properties={'name': 'Alice'}>" % node.ref,
-                          "<Node graph=u'http://localhost:7474/db/data/' ref=u'%s' "
-                          "labels=set(['Person']) properties={'name': u'Alice'}>" % node.ref)
-
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
@@ -194,10 +184,6 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         node_2.bind(node_1.uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)
-
-    def test_stale_node_repr(self):
-        node = Node.hydrate({"self": "http://localhost:7474/db/data/node/0"})
-        assert repr(node).startswith("<Node")
 
     def test_node_str(self):
         node = Node("Person", name="Alice")
