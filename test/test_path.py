@@ -256,12 +256,13 @@ class CreateUniquePathTestCase(Py2neoTestCase):
     def test_can_create_single_path(self):
         start_node = Node()
         self.graph.create(start_node)
-        p1, = self.graph.create_unique(Path(
+        p1 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        ))
+        )
+        self.graph.create_unique(p1)
         n1 = p1.nodes()
         assert isinstance(p1, Path)
         assert len(p1) == 3
@@ -270,22 +271,24 @@ class CreateUniquePathTestCase(Py2neoTestCase):
     def test_can_create_overlapping_paths(self):
         start_node = Node()
         self.graph.create(start_node)
-        p1, = self.graph.create_unique(Path(
+        p1 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25, "name": "Christmas Day"},
-        ))
+        )
+        self.graph.create_unique(p1)
         n1 = p1.nodes()
         assert isinstance(p1, Path)
         assert len(p1) == 3
         assert n1[0] == start_node
-        p2, = self.graph.create_unique(Path(
+        p2 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 24, "name": "Christmas Eve"},
-        ))
+        )
+        self.graph.create_unique(p2)
         n2 = p2.nodes()
         assert isinstance(p2, Path)
         assert len(p2) == 3
@@ -296,12 +299,13 @@ class CreateUniquePathTestCase(Py2neoTestCase):
         assert p1[0] == p2[0]
         assert p1[1] == p2[1]
         assert p1[2] != p2[2]
-        p3, = self.graph.create_unique(Path(
+        p3 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 11, "name": "November"},
             "DAY",   {"number": 5, "name": "Bonfire Night"},
-        ))
+        )
+        self.graph.create_unique(p3)
         n3 = p3.nodes()
         assert isinstance(p3, Path)
         assert len(p3) == 3
@@ -316,19 +320,21 @@ class CreateUniquePathTestCase(Py2neoTestCase):
     def test_can_use_node_for_nodes(self):
         start_node = Node()
         self.graph.create(start_node)
-        p1, = self.graph.create_unique(Path(
+        p1 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", {"number": 12, "name": "December"},
             "DAY",   {"number": 25},
-        ))
+        )
+        self.graph.create_unique(p1)
         n1 = p1.nodes()
-        p2, = self.graph.create_unique(Path(
+        p2 = Path(
             start_node,
             "YEAR",  {"number": 2000},
             "MONTH", n1[2],
             "DAY",   {"number": 25},
-        ))
+        )
+        self.graph.create_unique(p2)
         n2 = p2.nodes()
         assert isinstance(p2, Path)
         assert len(p2) == 3

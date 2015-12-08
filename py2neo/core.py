@@ -723,17 +723,19 @@ class Graph(Bindable):
         # TODO update examples in docstring
         self.cypher.create(g)
 
-    def create_unique(self, *entities):
+    def create_unique(self, t):
         """ Create one or more unique paths or relationships in a single
         transaction. This is similar to :meth:`create` but uses a Cypher
         `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
         clause to ensure that only relationships that do not already exist are created.
         """
-        from py2neo.cypher.create import CreateStatement
-        statement = CreateStatement(self)
-        for entity in entities:
-            statement.create_unique(entity)
-        return statement.execute()
+        # TODO update examples in docstring
+        self.cypher.create_unique(t)
+        # from py2neo.cypher.create import CreateStatement
+        # statement = CreateStatement(self)
+        # for entity in entities:
+        #     statement.create_unique(entity)
+        # return statement.execute()
 
     def delete(self, *entities):
         """ Delete one or more nodes, relationships and/or paths.
@@ -1681,17 +1683,19 @@ class Relationship(Bindable, PrimitiveRelationship):
         """
         Bindable.bind(self, uri, metadata)
         self.cache[uri] = self
-        for i, key, node in [(0, "start", self.start_node), (-1, "end", self.end_node)]:
-            uri = self.resource.metadata[key]
-            if isinstance(node, Node):
-                node.bind(uri)
+
+        for node, position in [(self.start_node(), "start"), (self.end_node(), "end")]:
+            if not isinstance(node, Node):
+                continue
+            new_node_uri = self.resource.metadata[position]
+            if node.bound:
+                node_uri = node.uri.string
+                if new_node_uri != node_uri:
+                    raise BindError("%s node of relationship %r cannot be bound to "
+                                    "%r when already bound to %r" %
+                                    (position.title(), self._id, new_node_uri, node_uri))
             else:
-                nodes = list(self._nodes)
-                node = Node.cache.setdefault(uri, Node())
-                if not node.bound:
-                    node.bind(uri)
-                nodes[i] = node
-                self._nodes = tuple(nodes)
+                node.bind(new_node_uri)
 
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):

@@ -561,10 +561,7 @@ class CypherCreateTestCase2(Py2neoTestCase):
         carol = Node(name="Carol")
         dave = Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        statement = CreateStatement(self.graph)
-        statement.create(path)
-        created = statement.execute()
-        assert created == (path,)
+        self.graph.create(path)
         assert alice.bound
         assert bob.bound
         assert carol.bound
@@ -585,10 +582,7 @@ class CypherCreateTestCase2(Py2neoTestCase):
         carol_id = carol._id
         dave = Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        statement = CreateStatement(self.graph)
-        statement.create(path)
-        created = statement.execute()
-        assert created == (path,)
+        self.graph.create(path)
         assert path.nodes()[0]._id == alice_id
         assert path.nodes()[2]._id == carol_id
         assert bob.bound

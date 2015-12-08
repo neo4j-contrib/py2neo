@@ -216,6 +216,76 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert self.graph.size() == 1
 
 
+class TransactionCreateUniqueTestCase(Py2neoTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
+        self.a = Node("Person", name="Alice")
+        self.b = Node("Person", name="Bob")
+        self.ab = Relationship(self.a, "KNOWS", self.b, since=1999)
+        with self.cypher.begin() as tx:
+            tx.create(self.ab)
+
+    def test_can_create_path_when_none_exists(self):
+        c = Node("Person", name="Carol")
+        ac = Relationship(self.a, "KNOWS", c)
+        with self.cypher.begin() as tx:
+            tx.create_unique(ac)
+        assert c != self.b
+        assert c.bound
+        assert ac.bound
+        assert ac.start_node() == self.a
+        assert ac.end_node() == c
+        assert self.graph.order() == 3
+        assert self.graph.size() == 2
+
+    def test_can_create_path_when_one_exists(self):
+        b = Node("Person", name="Bob")
+        ab = Relationship(self.a, "KNOWS", b)
+        with self.cypher.begin() as tx:
+            tx.create_unique(ab)
+        assert b._id == self.b._id
+        assert ab._id == self.ab._id
+        assert b.bound
+        assert ab.bound
+        assert ab.start_node() == self.a
+        assert ab.end_node() == b
+        assert self.graph.order() == 2
+        assert self.graph.size() == 1
+
+    def test_can_create_path_beyond_existing_path(self):
+        c = Node("Person", name="Carol")
+        bc = Relationship(self.b, "KNOWS", c)
+        with self.cypher.begin() as tx:
+            tx.create_unique(self.ab + bc)
+        assert c.bound
+        assert bc.bound
+        assert bc.start_node() == self.b
+        assert bc.end_node() == c
+        assert self.graph.order() == 3
+        assert self.graph.size() == 2
+
+    def test_can_create_path_with_reversed_relationship(self):
+        c = Node("Person", name="Carol")
+        cb = Relationship(c, "KNOWS", self.b)
+        with self.cypher.begin() as tx:
+            tx.create_unique(self.ab + cb)
+        assert c.bound
+        assert cb.bound
+        assert cb.start_node() == c
+        assert cb.end_node() == self.b
+        assert self.graph.order() == 3
+        assert self.graph.size() == 2
+
+    def test_cannot_create_unique_without_bound_nodes(self):
+        a = Node("Person", name="Alice")
+        b = Node("Person", name="Bob")
+        r = Relationship(a, "KNOWS", b, since=1999)
+        with self.assertRaises(ValueError):
+            with self.cypher.begin() as tx:
+                tx.create_unique(r)
+
+
 class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_can_generate_transaction_error(self):

@@ -23,7 +23,7 @@ from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finis
 from py2neo.compat import integer, xstr, ustr
 from py2neo.lang import cypher_escape, TextTable
 from py2neo.cypher.error.core import CypherError, TransactionError
-from py2neo.primitive import Record
+from py2neo.primitive import TraversableGraph, Record
 from py2neo.util import is_collection, deprecated
 
 
@@ -172,6 +172,11 @@ class CypherEngine(Bindable):
         tx.create(g)
         tx.commit()
 
+    def create_unique(self, t):
+        tx = Transaction(self)
+        tx.create_unique(t)
+        tx.commit()
+
     def begin(self):
         """ Begin a new transaction.
 
@@ -249,17 +254,17 @@ class Transaction(object):
         location = rs.location
         if location:
             self._execute = Resource(location)
-        j = rs.content
+        raw = rs.content
         rs.close()
         self.statements = []
-        if "commit" in j:
-            self._commit = Resource(j["commit"])
-        for j_error in j["errors"]:
-            raise self.error_class.hydrate(j_error)
-        for j_result in j["results"]:
+        if "commit" in raw:
+            self._commit = Resource(raw["commit"])
+        for raw_error in raw["errors"]:
+            raise self.error_class.hydrate(raw_error)
+        for raw_result in raw["results"]:
             result = self.results.pop(0)
             result._hydrate = hydrate
-            result._process(j_result)
+            result._process(raw_result)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
@@ -330,19 +335,20 @@ class Transaction(object):
             relationships = list(g.relationships())
         except AttributeError:
             raise TypeError("Object %r is not graphy" % g)
-        clauses = []
+        reads = []
+        writes = []
         parameters = {}
         returns = {}
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
             if node.bound:
-                clauses.insert(0, "MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 parameters[param_id] = node._id
             else:
                 label_string = "".join(":" + cypher_escape(label)
                                        for label in sorted(node.labels()))
-                clauses.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
+                writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
                 node.set_bind_pending(self)
             returns[node_id] = node
@@ -353,13 +359,57 @@ class Transaction(object):
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
                 type_string = cypher_escape(relationship.type())
                 param_id = "y%d" % i
-                clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
-                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
+                writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
+                              (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
                 relationship.set_bind_pending(self)
-        clauses.append("RETURN %s LIMIT 1" % ", ".join(returns))
-        statement = "\n".join(clauses)
+        statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
+        result = self.run(statement, parameters)
+        result.cache.update(returns)
+
+    def create_unique(self, t):
+        if not isinstance(t, TraversableGraph):
+            raise ValueError("Object %r is not traversable" % t)
+        if not any(node.bound for node in t.nodes()):
+            raise ValueError("At least one node must be bound")
+        matches = []
+        pattern = []
+        writes = []
+        parameters = {}
+        returns = {}
+        node = None
+        for i, entity in enumerate(t.traverse()):
+            if i % 2 == 0:
+                # node
+                node_id = "a%d" % i
+                param_id = "x%d" % i
+                if entity.bound:
+                    matches.append("MATCH (%s) "
+                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                    pattern.append("(%s)" % node_id)
+                    parameters[param_id] = entity._id
+                else:
+                    label_string = "".join(":" + cypher_escape(label)
+                                           for label in sorted(entity.labels()))
+                    pattern.append("(%s%s {%s})" % (node_id, label_string, param_id))
+                    parameters[param_id] = dict(entity)
+                    entity.set_bind_pending(self)
+                returns[node_id] = node = entity
+            else:
+                # relationship
+                rel_id = "r%d" % i
+                param_id = "x%d" % i
+                type_string = cypher_escape(entity.type())
+                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
+                pattern.append(template % (rel_id, type_string))
+                writes.append("SET %s={%s}" % (rel_id, param_id))
+                parameters[param_id] = dict(entity)
+                if not entity.bound:
+                    entity.set_bind_pending(self)
+                returns[rel_id] = entity
+        statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
+                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
         result = self.run(statement, parameters)
         result.cache.update(returns)
 
