@@ -95,7 +95,7 @@ class GraphTestCase(Py2neoTestCase):
         assert isinstance(ab, Relationship)
         assert ab.bound
         assert self.graph.exists(ab)
-        self.graph.delete(ab, ab.start_node(), ab.end_node())
+        self.graph.delete(ab | ab.start_node() | ab.end_node())
         assert not self.graph.exists(ab)
 
     def test_can_get_node_by_id_when_cached(self):

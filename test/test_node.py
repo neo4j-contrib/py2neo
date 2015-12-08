@@ -89,7 +89,7 @@ class NodeTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         self.graph.delete(node)
-        with self.assertRaises(GraphError):
+        with self.assertRaises(BindError):
             node.refresh()
 
 

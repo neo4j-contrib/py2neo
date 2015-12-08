@@ -101,7 +101,7 @@ class SchemaTestCase(Py2neoTestCase):
         self.schema.drop_uniqueness_constraint(label_1, "name")
         with self.assertRaises(GraphError):
             self.schema.drop_uniqueness_constraint(label_1, "name")
-        self.graph.delete(a, b)
+        self.graph.delete(a | b)
 
     def test_drop_index_handles_404_errors_correctly(self):
         with patch.object(_Resource, "delete") as mocked:

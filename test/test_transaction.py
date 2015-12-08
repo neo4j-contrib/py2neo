@@ -286,6 +286,36 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
                 tx.create_unique(r)
 
 
+class TransactionDeleteTestCase(Py2neoTestCase):
+
+    def test_can_delete_relationship(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        assert self.graph.exists(r)
+        with self.cypher.begin() as tx:
+            tx.delete(r)
+        assert not self.graph.exists(r)
+        assert not self.graph.exists(a)
+        assert not self.graph.exists(b)
+
+
+class TransactionDetachTestCase(Py2neoTestCase):
+
+    def test_can_detach_relationship(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        assert self.graph.exists(r)
+        with self.cypher.begin() as tx:
+            tx.detach(r)
+        assert not self.graph.exists(r)
+        assert self.graph.exists(a)
+        assert self.graph.exists(b)
+
+
 class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_can_generate_transaction_error(self):

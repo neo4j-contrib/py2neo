@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo import Node, NodePointer, Relationship, Path, GraphError
-from py2neo.cypher import CypherEngine, Transaction, DeleteStatement
+from py2neo.cypher import CypherEngine, Transaction
 from py2neo.cypher.core import presubstitute
 from py2neo.cypher.error.core import CypherError, TransactionError
 from py2neo.lang import CypherWriter, cypher_repr
@@ -346,20 +346,6 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert ca.end_node() == a
         assert self.graph.order() == 3
         assert self.graph.size() == 3
-
-
-class CypherDeleteTestCase(Py2neoTestCase):
-
-    def test_statement_representations_return_cypher(self):
-        node = Node()
-        self.graph.create(node)
-        statement = DeleteStatement(self.graph)
-        statement.delete(node)
-        assert node in statement
-        s = 'MATCH (_0) WHERE id(_0)={_0}\nDELETE _0'
-        assert statement.__repr__() == s
-        assert statement.__str__() == s
-        assert statement.__unicode__() == s
 
 
 class CypherLangTestCase(Py2neoTestCase):

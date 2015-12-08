@@ -731,20 +731,11 @@ class Graph(Bindable):
         """
         # TODO update examples in docstring
         self.cypher.create_unique(t)
-        # from py2neo.cypher.create import CreateStatement
-        # statement = CreateStatement(self)
-        # for entity in entities:
-        #     statement.create_unique(entity)
-        # return statement.execute()
 
-    def delete(self, *entities):
+    def delete(self, g):
         """ Delete one or more nodes, relationships and/or paths.
         """
-        from py2neo.cypher.delete import DeleteStatement
-        statement = DeleteStatement(self)
-        for entity in entities:
-            statement.delete(entity)
-        return statement.execute()
+        self.cypher.delete(g)
 
     def delete_all(self):
         """ Delete all nodes and relationships from the graph.
@@ -755,31 +746,42 @@ class Graph(Bindable):
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
+    def detach(self, g):
+        """ Delete one or more relationships.
+        """
+        self.cypher.detach(g)
+
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.cypher.begin()
         results = []
         for entity in entities:
-            if isinstance(entity, Node):
-                results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=entity))
-            elif isinstance(entity, Relationship):
-                results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=entity))
-            elif isinstance(entity, Path):
-                for node in entity.nodes():
-                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
-                for rel in entity.relationships():
-                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
-            elif isinstance(entity, Subgraph):
-                for node in entity.nodes():
-                    results.append(tx.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node))
-                for rel in entity.relationships():
-                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r) = {x} RETURN count(r)", x=rel))
-            else:
-                raise TypeError("Cannot determine existence of non-entity")
+            try:
+                if isinstance(entity, Node):
+                    results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=entity))
+                elif isinstance(entity, Relationship):
+                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=entity))
+                elif isinstance(entity, Path):
+                    for node in entity.nodes():
+                        results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
+                    for rel in entity.relationships():
+                        results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
+                elif isinstance(entity, Subgraph):
+                    for node in entity.nodes():
+                        results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
+                    for rel in entity.relationships():
+                        results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
+                else:
+                    raise TypeError("Cannot determine existence of non-entity")
+            except BindError:
+                pass
         count = len(tx.statements)
         tx.commit()
-        return sum(result[0][0] for result in results) == count
+        if count == 0:
+            return None
+        else:
+            return sum(result.value() for result in results) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -1764,12 +1766,6 @@ class Relationship(Bindable, PrimitiveRelationship):
         except KeyError:
             pass
         Bindable.unbind(self)
-        for node in (self.start_node(), self.end_node()):
-            if isinstance(node, Node):
-                try:
-                    node.unbind()
-                except BindError:
-                    pass
         self.__id = None
 
 

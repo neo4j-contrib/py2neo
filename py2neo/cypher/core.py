@@ -177,6 +177,16 @@ class CypherEngine(Bindable):
         tx.create_unique(t)
         tx.commit()
 
+    def delete(self, g):
+        tx = Transaction(self)
+        tx.delete(g)
+        tx.commit()
+
+    def detach(self, g):
+        tx = Transaction(self)
+        tx.detach(g)
+        tx.commit()
+
     def begin(self):
         """ Begin a new transaction.
 
@@ -412,6 +422,56 @@ class Transaction(object):
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
         result = self.run(statement, parameters)
         result.cache.update(returns)
+
+    def delete(self, g):
+        try:
+            nodes = list(g.nodes())
+            relationships = list(g.relationships())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % g)
+        matches = []
+        deletes = []
+        parameters = {}
+        for i, relationship in enumerate(relationships):
+            if relationship.bound:
+                rel_id = "r%d" % i
+                param_id = "y%d" % i
+                matches.append("MATCH ()-[%s]->() "
+                               "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
+                deletes.append("DELETE %s" % rel_id)
+                parameters[param_id] = relationship._id
+                relationship.unbind()
+        for i, node in enumerate(nodes):
+            if node.bound:
+                node_id = "a%d" % i
+                param_id = "x%d" % i
+                matches.append("MATCH (%s) "
+                               "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                deletes.append("DELETE %s" % node_id)
+                parameters[param_id] = node._id
+                node.unbind()
+        statement = "\n".join(matches + deletes)
+        self.run(statement, parameters)
+
+    def detach(self, g):
+        try:
+            relationships = list(g.relationships())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % g)
+        matches = []
+        deletes = []
+        parameters = {}
+        for i, relationship in enumerate(relationships):
+            if relationship.bound:
+                rel_id = "r%d" % i
+                param_id = "y%d" % i
+                matches.append("MATCH ()-[%s]->() "
+                               "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
+                deletes.append("DELETE %s" % rel_id)
+                parameters[param_id] = relationship._id
+                relationship.unbind()
+        statement = "\n".join(matches + deletes)
+        self.run(statement, parameters)
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed or is
