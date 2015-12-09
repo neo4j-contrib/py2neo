@@ -33,23 +33,6 @@ __all__ = ["CypherEngine", "Transaction", "Result", "cypher_request"]
 log = logging.getLogger("py2neo.cypher")
 
 
-def first_node(x):
-    if hasattr(x, "__nodes__"):
-        try:
-            return next(x.__nodes__())
-        except StopIteration:
-            raise ValueError("No such node: %r" % x)
-    raise ValueError("No such node: %r" % x)
-
-
-def last_node(x):
-    if hasattr(x, "__nodes__"):
-        nodes = list(x.__nodes__())
-        if nodes:
-            return nodes[-1]
-    raise ValueError("No such node: %r" % x)
-
-
 def presubstitute(statement, parameters):
     more = True
     presub_parameters = []
