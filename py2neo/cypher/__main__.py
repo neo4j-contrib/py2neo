@@ -20,6 +20,7 @@ import json
 import os
 import sys
 
+from py2neo.compat import ustr
 from py2neo.core import authenticate, Node, Relationship, Path
 from py2neo.status import CypherError, TransactionError
 from py2neo.env import NEO4J_URI
@@ -125,14 +126,6 @@ def dehydrate(value):
     return out
 
 
-def write_result(result):
-    from py2neo.lang import TextTable
-    table = TextTable(result.keys(), border=True)
-    for record in result:
-        table.append(record)
-    print(table)
-
-
 def main():
     import sys
     from py2neo.core import ServiceRoot
@@ -198,8 +191,7 @@ def main():
                                                      for value in record))
                             out.write("\n")
                     else:
-                        #out.write(repr(result))
-                        write_result(result)
+                        out.write(ustr(result))
                     out.write("\n")
     if command_line.tx:
         try:

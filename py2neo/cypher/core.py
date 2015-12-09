@@ -21,7 +21,7 @@ import logging
 
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, xstr, ustr
-from py2neo.lang import cypher_escape, TextTable
+from py2neo.lang import cypher_escape
 from py2neo.status import CypherError, TransactionError
 from py2neo.primitive import TraversableGraph, Record
 from py2neo.util import is_collection, deprecated
@@ -488,13 +488,16 @@ class Result(object):
 
     def __unicode__(self):
         self._ensure_processed()
-        out = ""
-        if self._keys:
-            table = TextTable([None] + self._keys, border=True)
-            for i, record in enumerate(self._records):
-                table.append([i + 1] + list(record))
-            out = repr(table)
-        return out
+        widths = [len(key) for key in self._keys]
+        for record in self._records:
+            for i, value in enumerate(record):
+                widths[i] = max(widths[i], len(ustr(value)))
+        templates = [u" {:%d} " % width for width in widths]
+        out = [u"".join(templates[i].format(key) for i, key in enumerate(self._keys)),
+               u"".join("-" * (width + 2) for width in widths)]
+        for i, record in enumerate(self._records):
+            out.append("".join(templates[i].format(value) for i, value in enumerate(record)))
+        return u"\n".join(out) + u"\n"
 
     def __len__(self):
         self._ensure_processed()

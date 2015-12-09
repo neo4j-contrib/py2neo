@@ -22,7 +22,7 @@ from io import StringIO
 import json
 import sys
 
-from py2neo.compat import ustr, xstr, integer
+from py2neo.compat import ustr, xstr
 from py2neo.core import Node, Path, Relationship
 from py2neo.primitive import Record
 from py2neo.util import is_collection
@@ -37,51 +37,6 @@ class Writer(object):
 
     def write(self, obj):
         raise NotImplementedError("Method not implemented")
-
-
-class TextTable(object):
-
-    @classmethod
-    def cell(cls, value, size):
-        if value == "#" or isinstance(value, (integer, float, complex)):
-            text = ustr(value).rjust(size)
-        else:
-            text = ustr(value).ljust(size)
-        return text
-
-    def __init__(self, header, border=False):
-        self.__header = list(map(ustr, header))
-        self.__rows = []
-        self.__widths = list(map(len, self.__header))
-        self.__repr = None
-        self.border = border
-
-    def __repr__(self):
-        if self.__repr is None:
-            widths = self.__widths
-            if self.border:
-                lines = [
-                    " " + " | ".join(self.cell(value, widths[i]) for i, value in enumerate(self.__header)) + "\n",
-                    "-" + "-+-".join("-" * widths[i] for i, value in enumerate(self.__header)) + "-\n",
-                ]
-                for row in self.__rows:
-                    lines.append(" " + " | ".join(self.cell(value, widths[i]) for i, value in enumerate(row)) + "\n")
-            else:
-                lines = [
-                    " ".join(self.cell(value, widths[i]) for i, value in enumerate(self.__header)) + "\n",
-                ]
-                for row in self.__rows:
-                    lines.append(" ".join(self.cell(value, widths[i]) for i, value in enumerate(row)) + "\n")
-            self.__repr = "".join(lines)
-            if sys.version_info < (3,):
-                self.__repr = self.__repr.encode("utf-8")
-        return self.__repr
-
-    def append(self, row):
-        row = list(row)
-        self.__rows.append(row)
-        self.__widths = [max(self.__widths[i], len(ustr(value))) for i, value in enumerate(row)]
-        self.__repr = None
 
 
 class CypherWriter(Writer):
@@ -197,29 +152,6 @@ class CypherWriter(Writer):
                 self.write(properties)
         self.file.write(")")
 
-    def write_relationship_detail(self, name=None, type=None, properties=None):
-        """ Write a relationship (excluding nodes).
-        """
-        self.file.write("[")
-        if name:
-            self.write_identifier(name)
-        if type:
-            self.file.write(":")
-            self.write_identifier(type)
-        if properties:
-            self.file.write(" ")
-            self.write_map(properties)
-        self.file.write("]")
-
-    def write_relationship(self, relationship, name=None, properties=None):
-        """ Write a relationship (including nodes).
-        """
-        self.write_node(relationship.start_node())
-        self.file.write("-")
-        self.write_relationship_detail(name, relationship.type(), properties)
-        self.file.write("->")
-        self.write_node(relationship.end_node())
-
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
         """
@@ -239,14 +171,28 @@ class CypherWriter(Writer):
                 self.file.write("-")
         self.write_node(nodes[-1])
 
-    def write_record(self, record):
-        out = ""
-        keys = record.keys()
-        if keys:
-            table = TextTable(keys, border=True)
-            table.append(record.values())
-            out = repr(table)
-        self.file.write(out)
+    def write_relationship(self, relationship, name=None, properties=None):
+        """ Write a relationship (including nodes).
+        """
+        self.write_node(relationship.start_node())
+        self.file.write("-")
+        self.write_relationship_detail(name, relationship.type(), properties)
+        self.file.write("->")
+        self.write_node(relationship.end_node())
+
+    def write_relationship_detail(self, name=None, type=None, properties=None):
+        """ Write a relationship (excluding nodes).
+        """
+        self.file.write("[")
+        if name:
+            self.write_identifier(name)
+        if type:
+            self.file.write(":")
+            self.write_identifier(type)
+        if properties:
+            self.file.write(" ")
+            self.write_map(properties)
+        self.file.write("]")
 
 
 def cypher_escape(identifier):
