@@ -569,17 +569,6 @@ class Result(object):
             else:
                 return None
 
-    def to_subgraph(self):
-        """ Convert a Result into a Subgraph.
-        """
-        self._ensure_processed()
-        entities = []
-        for record in self._records:
-            for value in record:
-                if isinstance(value, (Node, Relationship, Path)):
-                    entities.append(value)
-        return Subgraph(*entities)
-
 
 class CypherCommandLine(object):
 

@@ -142,12 +142,6 @@ class CypherTestCase(Py2neoTestCase):
         result = self.cypher.evaluate(statement)
         assert result is None
 
-    def test_can_convert_to_subgraph(self):
-        results = self.cypher.run("CREATE (a)-[ab:KNOWS]->(b) RETURN a, ab, b")
-        subgraph = results.to_subgraph()
-        assert subgraph.order() == 2
-        assert subgraph.size() == 1
-
     def test_nonsense_query_with_error_handler(self):
         with self.assertRaises(CypherError):
             self.cypher.run("SELECT z=nude(0) RETURNS x")
