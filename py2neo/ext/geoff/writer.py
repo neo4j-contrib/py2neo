@@ -17,14 +17,23 @@
 
 
 import json
+import sys
 
 from py2neo.compat import ustr
 from py2neo.core import Node, Path
-from py2neo.lang import Writer
 from py2neo.util import is_collection
 
 
 __all__ = ["GeoffWriter"]
+
+
+class Writer(object):
+
+    def __init__(self, file=None):
+        self.file = file or sys.stdout
+
+    def write(self, obj):
+        raise NotImplementedError("Method not implemented")
 
 
 class GeoffWriter(Writer):

@@ -27,19 +27,10 @@ from py2neo.core import Node, Path, Relationship
 from py2neo.primitive import Record
 from py2neo.util import is_collection
 
-__all__ = list(map(xstr, ["Writer", "CypherWriter", "cypher_escape", "cypher_repr"]))
+__all__ = list(map(xstr, ["CypherWriter", "cypher_escape", "cypher_repr"]))
 
 
-class Writer(object):
-
-    def __init__(self, file=None):
-        self.file = file or sys.stdout
-
-    def write(self, obj):
-        raise NotImplementedError("Method not implemented")
-
-
-class CypherWriter(Writer):
+class CypherWriter(object):
     """ Writer for Cypher data. This can be used to write to any
     file-like object, such as standard output::
 
@@ -58,7 +49,7 @@ class CypherWriter(Writer):
     default_key_value_separator = ":"
 
     def __init__(self, file=None, **kwargs):
-        Writer.__init__(self, file)
+        self.file = file or sys.stdout
         self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
         self.key_value_separator = \
             kwargs.get("key_value_separator", self.default_key_value_separator)

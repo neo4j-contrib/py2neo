@@ -21,17 +21,9 @@ from io import StringIO
 from py2neo import Node, Relationship, Path, GraphError
 from py2neo.cypher import CypherEngine, Transaction, presubstitute
 from py2neo.status import CypherError, TransactionError
-from py2neo.lang import Writer, CypherWriter, cypher_repr
+from py2neo.lang import CypherWriter, cypher_repr
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
 from test.util import Py2neoTestCase, TemporaryTransaction
-
-
-class WriterTestCase(Py2neoTestCase):
-
-    def test_base_writer_cannot_write(self):
-        writer = Writer()
-        with self.assertRaises(NotImplementedError):
-            writer.write(None)
 
 
 class CypherTestCase(Py2neoTestCase):
