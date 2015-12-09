@@ -15,11 +15,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+""" Usage: {script} [«options»] «statement» [ [«options»] «statement» ... ]
+
+Execute a Cypher statement against a Neo4j database.
+
+General Options:
+  -? --help              display this help text
+  -A --auth «user:pass»  set auth details
+
+Parameter Options:
+  -f «parameter-file»
+  -p «name» «value»
+
+Environment:
+  NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
+
+Report bugs to nigel@py2neo.org
+"""
+
 
 from collections import OrderedDict
+import json
 import logging
+import os
 
-from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
+from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished, authenticate
+from py2neo.env import NEO4J_URI
 from py2neo.compat import integer, xstr, ustr
 from py2neo.lang import cypher_escape
 from py2neo.status import CypherError, TransactionError
@@ -560,3 +581,98 @@ class Result(object):
                 if isinstance(value, (Node, Relationship, Path)):
                     entities.append(value)
         return Subgraph(*entities)
+
+
+class CypherCommandLine(object):
+
+    def __init__(self, graph):
+        self.parameters = {}
+        self.parameter_filename = None
+        self.graph = graph
+        self.tx = None
+
+    def begin(self):
+        self.tx = self.graph.cypher.begin()
+
+    def set_parameter(self, key, value):
+        try:
+            self.parameters[key] = json.loads(value)
+        except ValueError:
+            self.parameters[key] = value
+
+    def set_parameter_filename(self, filename):
+        self.parameter_filename = filename
+
+    def run(self, statement):
+        import codecs
+        results = []
+        if self.parameter_filename:
+            columns = None
+            with codecs.open(self.parameter_filename, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if columns is None:
+                        columns = line.split(",")
+                    elif line:
+                        values = json.loads("[" + line + "]")
+                        p = dict(self.parameters)
+                        p.update(zip(columns, values))
+                        results.append(self.tx.run(statement, p))
+        else:
+            results.append(self.tx.run(statement, self.parameters))
+        self.tx.process()
+        return results
+
+    def commit(self):
+        self.tx.commit()
+
+
+def main():
+    import sys
+    from py2neo.core import ServiceRoot
+    script, args = sys.argv[0], sys.argv[1:]
+    if not args:
+        args = ["-?"]
+    uri = NEO4J_URI.resolve("/")
+    service_root = ServiceRoot(uri.string)
+    out = sys.stdout
+    command_line = CypherCommandLine(service_root.graph)
+    while args:
+        arg = args.pop(0)
+        if arg.startswith("-"):
+            if arg in ("-?", "--help"):
+                sys.stderr.write(__doc__.format(script=os.path.basename(script)))
+                sys.stderr.write("\n")
+                sys.exit(0)
+            elif arg in ("-A", "--auth"):
+                user_name, password = args.pop(0).partition(":")[0::2]
+                authenticate(service_root.uri.host_port, user_name, password)
+            elif arg in ("-p", "--parameter"):
+                key = args.pop(0)
+                value = args.pop(0)
+                command_line.set_parameter(key, value)
+            elif arg in ("-f",):
+                command_line.set_parameter_filename(args.pop(0))
+            else:
+                raise ValueError("Unrecognised option %s" % arg)
+        else:
+            if not command_line.tx:
+                command_line.begin()
+            try:
+                results = command_line.run(arg)
+            except CypherError as error:
+                sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
+            else:
+                for result in results:
+                    out.write(ustr(result))
+                    out.write("\n")
+    if command_line.tx:
+        try:
+            command_line.commit()
+        except TransactionError as error:
+            sys.stderr.write(error.args[0])
+            sys.stderr.write("\n")
+
+
+if __name__ == "__main__":
+    main()
