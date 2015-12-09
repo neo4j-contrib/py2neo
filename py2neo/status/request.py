@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status.core import ClientError
+from py2neo.status import ClientError
 
 
 class Invalid(ClientError):

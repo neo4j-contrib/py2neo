@@ -16,8 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Resource, Node, Relationship, Bindable, Path
-from py2neo.error import BindError
+from py2neo import Resource, Node, Relationship, Bindable, Path, BindError
 from test.util import Py2neoTestCase
 
 

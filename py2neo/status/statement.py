@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status.core import ClientError, DatabaseError, TransientError
+from py2neo.status import ClientError, DatabaseError, TransientError
 
 
 class ArithmeticError(ClientError):

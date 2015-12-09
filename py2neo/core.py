@@ -27,7 +27,6 @@ import webbrowser
 from py2neo import __version__
 from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
-from py2neo.error import BindError, GraphError, JoinError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
@@ -38,6 +37,7 @@ from py2neo.primitive import \
     Relationship as PrimitiveRelationship, \
     Path as PrimitivePath, \
     Graph as PrimitiveGraph
+from py2neo.status import BindError, GraphError, JoinError, Unauthorized
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated

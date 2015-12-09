@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status.core import TransientError
+from py2neo.status import TransientError
 
 
 class UnknownFailure(TransientError):
