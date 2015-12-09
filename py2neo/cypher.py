@@ -38,17 +38,15 @@ from collections import OrderedDict
 import json
 import logging
 import os
+from io import StringIO
+from sys import stdout
 
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished, authenticate
 from py2neo.env import NEO4J_URI
 from py2neo.compat import integer, xstr, ustr
-from py2neo.lang import cypher_escape
 from py2neo.status import CypherError, TransactionError
 from py2neo.primitive import TraversableGraph, Record
 from py2neo.util import is_collection, deprecated
-
-
-__all__ = ["CypherEngine", "Transaction", "Result", "cypher_request"]
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -625,6 +623,187 @@ class CypherCommandLine(object):
 
     def commit(self):
         self.tx.commit()
+
+
+class CypherWriter(object):
+    """ Writer for Cypher data. This can be used to write to any
+    file-like object, such as standard output::
+
+        >>> from py2neo.cypher import CypherWriter
+        >>> from py2neo import Node
+        >>> from sys import stdout
+        >>> writer = CypherWriter(stdout)
+        >>> writer.write(Node("Person", name="Alice"))
+        (:Person {name:"Alice"})
+
+    """
+
+    safe_first_chars = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+    safe_chars = u"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+
+    default_sequence_separator = ","
+    default_key_value_separator = ":"
+
+    def __init__(self, file=None, **kwargs):
+        self.file = file or stdout
+        self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
+        self.key_value_separator = \
+            kwargs.get("key_value_separator", self.default_key_value_separator)
+
+    def write(self, obj):
+        """ Write any entity, value or collection.
+        """
+        if obj is None:
+            pass
+        elif isinstance(obj, Node):
+            self.write_node(obj)
+        elif isinstance(obj, Relationship):
+            self.write_relationship(obj, properties=obj)
+        elif isinstance(obj, Path):
+            self.write_path(obj)
+        elif isinstance(obj, Record):
+            self.write_record(obj)
+        elif isinstance(obj, dict):
+            self.write_map(obj)
+        elif is_collection(obj):
+            self.write_list(obj)
+        else:
+            self.write_value(obj)
+
+    def write_value(self, value):
+        """ Write a value.
+        """
+        self.file.write(ustr(json.dumps(value, ensure_ascii=False)))
+
+    def write_identifier(self, identifier):
+        """ Write an identifier.
+        """
+        if not identifier:
+            raise ValueError("Invalid identifier")
+        identifier = ustr(identifier)
+        safe = (identifier[0] in self.safe_first_chars and
+                all(ch in self.safe_chars for ch in identifier[1:]))
+        if not safe:
+            self.file.write("`")
+            self.file.write(identifier.replace("`", "``"))
+            self.file.write("`")
+        else:
+            self.file.write(identifier)
+
+    def write_list(self, collection):
+        """ Write a list.
+        """
+        self.file.write("[")
+        link = ""
+        for value in collection:
+            self.file.write(link)
+            self.write(value)
+            link = self.sequence_separator
+        self.file.write("]")
+
+    def write_literal(self, text):
+        """ Write literal text.
+        """
+        self.file.write(ustr(text))
+
+    def write_map(self, mapping):
+        """ Write a map.
+        """
+        self.file.write("{")
+        link = ""
+        for key, value in sorted(dict(mapping).items()):
+            self.file.write(link)
+            self.write_identifier(key)
+            self.file.write(self.key_value_separator)
+            self.write(value)
+            link = self.sequence_separator
+        self.file.write("}")
+
+    def write_node(self, node, name=None, properties=None):
+        """ Write a node.
+        """
+        self.file.write("(")
+        if name:
+            self.write_identifier(name)
+        if node is not None:
+            for label in sorted(node.labels()):
+                self.write_literal(":")
+                self.write_identifier(label)
+            if properties is None:
+                if node:
+                    if name or node.labels():
+                        self.file.write(" ")
+                    self.write_map(dict(node))
+            else:
+                self.file.write(" ")
+                self.write(properties)
+        self.file.write(")")
+
+    def write_path(self, path):
+        """ Write a :class:`py2neo.Path`.
+        """
+        nodes = path.nodes()
+        for i, relationship in enumerate(path):
+            node = nodes[i]
+            self.write_node(node)
+            forward = relationship.start_node() == node
+            if forward:
+                self.file.write("-")
+            else:
+                self.file.write("<-")
+            self.write_relationship_detail(type=relationship.type(), properties=relationship)
+            if forward:
+                self.file.write("->")
+            else:
+                self.file.write("-")
+        self.write_node(nodes[-1])
+
+    def write_relationship(self, relationship, name=None, properties=None):
+        """ Write a relationship (including nodes).
+        """
+        self.write_node(relationship.start_node())
+        self.file.write("-")
+        self.write_relationship_detail(name, relationship.type(), properties)
+        self.file.write("->")
+        self.write_node(relationship.end_node())
+
+    def write_relationship_detail(self, name=None, type=None, properties=None):
+        """ Write a relationship (excluding nodes).
+        """
+        self.file.write("[")
+        if name:
+            self.write_identifier(name)
+        if type:
+            self.file.write(":")
+            self.write_identifier(type)
+        if properties:
+            self.file.write(" ")
+            self.write_map(properties)
+        self.file.write("]")
+
+
+def cypher_escape(identifier):
+    """ Escape a Cypher identifier in backticks.
+
+    ::
+
+        >>> cypher_escape("this is a `label`")
+        '`this is a ``label```'
+
+    """
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write_identifier(identifier)
+    return string.getvalue()
+
+
+def cypher_repr(obj):
+    """ Generate the Cypher representation of an object.
+    """
+    string = StringIO()
+    writer = CypherWriter(string)
+    writer.write(obj)
+    return string.getvalue()
 
 
 def main():

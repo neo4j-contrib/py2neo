@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from __future__ import division, unicode_literals
+from __future__ import division
 
 import base64
 from io import StringIO
@@ -789,7 +789,7 @@ class Graph(Bindable):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.lang import cypher_escape
+        from py2neo.cypher import cypher_escape
         if property_key is None:
             statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -942,7 +942,7 @@ class Graph(Bindable):
         """
         if not label:
             raise ValueError("Empty label")
-        from py2neo.lang import cypher_escape
+        from py2neo.cypher import cypher_escape
         if property_key is None:
             statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
             parameters = {}
@@ -1183,7 +1183,7 @@ class Node(Bindable, PrimitiveNode):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.lang import CypherWriter
+        from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         if self.bound:
@@ -1474,7 +1474,7 @@ class Path(PrimitivePath):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.lang import CypherWriter
+        from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         writer.write_path(self)
@@ -1640,7 +1640,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         return xstr(self.__unicode__())
 
     def __unicode__(self):
-        from py2neo.lang import CypherWriter
+        from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
         writer.write_relationship(self, "r%s" % self._id if self.bound else "", self)

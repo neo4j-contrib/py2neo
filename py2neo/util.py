@@ -20,8 +20,6 @@ Utility module
 """
 
 
-from __future__ import unicode_literals
-
 try:
     from configparser import SafeConfigParser
 except ImportError:
