@@ -27,7 +27,7 @@ from py2neo.core import Node, Path, Relationship
 from py2neo.primitive import Record
 from py2neo.util import is_collection
 
-__all__ = list(map(xstr, ["Writer", "CypherParameter", "CypherWriter", "cypher_escape", "cypher_repr"]))
+__all__ = list(map(xstr, ["Writer", "CypherWriter", "cypher_escape", "cypher_repr"]))
 
 
 class Writer(object):
@@ -84,15 +84,6 @@ class TextTable(object):
         self.__repr = None
 
 
-class CypherParameter(object):
-    """ Object representing a parameter within a Cypher statement.
-    """
-
-    def __init__(self, key, value=None):
-        self.key = key
-        self.value = value
-
-
 class CypherWriter(Writer):
     """ Writer for Cypher data. This can be used to write to any
     file-like object, such as standard output::
@@ -128,8 +119,6 @@ class CypherWriter(Writer):
             self.write_relationship(obj, properties=obj)
         elif isinstance(obj, Path):
             self.write_path(obj)
-        elif isinstance(obj, CypherParameter):
-            self.write_parameter(obj)
         elif isinstance(obj, Record):
             self.write_record(obj)
         elif isinstance(obj, dict):
@@ -230,13 +219,6 @@ class CypherWriter(Writer):
         self.write_relationship_detail(name, relationship.type(), properties)
         self.file.write("->")
         self.write_node(relationship.end_node())
-
-    def write_parameter(self, parameter):
-        """ Write a parameter key in curly brackets.
-        """
-        self.file.write("{")
-        self.file.write(ustr(parameter.key))
-        self.file.write("}")
 
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
