@@ -1643,10 +1643,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         from py2neo.lang import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        if self.bound:
-            writer.write_full_relationship(self, "r" + ustr(self._id))
-        else:
-            writer.write_full_relationship(self)
+        writer.write_relationship(self, "r%s" % self._id if self.bound else "", self)
         return s.getvalue()
 
     def __eq__(self, other):

@@ -77,8 +77,9 @@ class CypherCommandLine(object):
     def set_parameter_filename(self, filename):
         self.parameter_filename = filename
 
-    def execute(self, statement):
+    def run(self, statement):
         import codecs
+        results = []
         if self.parameter_filename:
             columns = None
             with codecs.open(self.parameter_filename, encoding="utf-8") as f:
@@ -90,10 +91,11 @@ class CypherCommandLine(object):
                         values = json.loads("[" + line + "]")
                         p = dict(self.parameters)
                         p.update(zip(columns, values))
-                        self.tx.execute(statement, p)
+                        results.append(self.tx.run(statement, p))
         else:
-            self.tx.execute(statement, self.parameters)
-        return self.tx.process()
+            results.append(self.tx.run(statement, self.parameters))
+        self.tx.process()
+        return results
 
     def commit(self):
         self.tx.commit()
@@ -121,6 +123,14 @@ def dehydrate(value):
     else:
         out = value
     return out
+
+
+def write_result(result):
+    from py2neo.lang import TextTable
+    table = TextTable(result.keys(), border=True)
+    for record in result:
+        table.append(record)
+    print(table)
 
 
 def main():
@@ -164,7 +174,7 @@ def main():
             if not command_line.tx:
                 command_line.begin()
             try:
-                results = command_line.execute(arg)
+                results = command_line.run(arg)
             except CypherError as error:
                 sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
             else:
@@ -188,7 +198,8 @@ def main():
                                                      for value in record))
                             out.write("\n")
                     else:
-                        out.write(repr(result))
+                        #out.write(repr(result))
+                        write_result(result)
                     out.write("\n")
     if command_line.tx:
         try:

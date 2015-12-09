@@ -373,22 +373,14 @@ class CypherLangTestCase(Py2neoTestCase):
     def test_cannot_write_empty_identifier(self):
         string = StringIO()
         writer = CypherWriter(string)
-        try:
+        with self.assertRaises(ValueError):
             writer.write_identifier("")
-        except ValueError:
-            assert True
-        else:
-            assert False
 
     def test_cannot_write_none_identifier(self):
         string = StringIO()
         writer = CypherWriter(string)
-        try:
+        with self.assertRaises(ValueError):
             writer.write_identifier(None)
-        except ValueError:
-            assert True
-        else:
-            assert False
 
     def test_can_write_simple_node(self):
         string = StringIO()
@@ -432,20 +424,6 @@ class CypherLangTestCase(Py2neoTestCase):
             {"name": "Fred"}, ("LIVES WITH", {"place": "Bedrock"}), {"name": "Wilma"}))
         written = string.getvalue()
         assert written == '({name:"Fred"})-[:`LIVES WITH` {place:"Bedrock"}]->({name:"Wilma"})'
-
-    def test_can_write_node_pointer(self):
-        string = StringIO()
-        writer = CypherWriter(string)
-        writer.write(NodePointer(42))
-        written = string.getvalue()
-        assert written == "(*42)"
-
-    def test_can_write_relationship_containing_node_pointer(self):
-        string = StringIO()
-        writer = CypherWriter(string)
-        writer.write(Relationship(NodePointer(42), "KNOWS", {}))
-        written = string.getvalue()
-        assert written == "(*42)-[:KNOWS]->()"
 
     def test_can_write_simple_path(self):
         alice, bob, carol, dave = Node(), Node(), Node(), Node()

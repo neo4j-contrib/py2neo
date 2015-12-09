@@ -112,10 +112,10 @@ class RelationshipTestCase(Py2neoTestCase):
         assert rel.size() == 1
 
     def test_relationship_str(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        relationship = Relationship(alice, "KNOWS", bob)
-        assert str(relationship) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
-        self.graph.create(relationship)
-        assert str(relationship) == \
-            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % relationship._id
+        a = Node("Person", name="Alice")
+        b = Node("Person", name="Bob")
+        r = Relationship(a, "KNOWS", b)
+        assert str(r) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
+        self.graph.create(r)
+        assert str(r) == \
+            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r._id
