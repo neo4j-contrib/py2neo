@@ -21,7 +21,7 @@ from io import StringIO
 from py2neo import Node, NodePointer, Relationship, Path, GraphError
 from py2neo.cypher import CypherEngine, Transaction
 from py2neo.cypher.core import presubstitute
-from py2neo.cypher.error.core import CypherError, TransactionError
+from py2neo.status.core import CypherError, TransactionError
 from py2neo.lang import CypherWriter, cypher_repr
 from py2neo.lang import Writer
 from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response

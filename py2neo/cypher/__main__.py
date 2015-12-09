@@ -21,7 +21,7 @@ import os
 import sys
 
 from py2neo.core import authenticate, Node, Relationship, Path
-from py2neo.cypher.error import CypherError, TransactionError
+from py2neo.status import CypherError, TransactionError
 from py2neo.env import NEO4J_URI
 from py2neo.util import compact
 

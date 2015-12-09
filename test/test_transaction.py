@@ -17,8 +17,8 @@
 
 
 from py2neo import Node, Relationship, Finished, GraphError
-from py2neo.cypher import TransactionError, ClientError, CypherError
-from py2neo.cypher.error.statement import InvalidSyntax, ConstraintViolation
+from py2neo.status import ClientError, CypherError, TransactionError
+from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from test.util import Py2neoTestCase
 
 
@@ -407,7 +407,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
             assert error.message == "X"
             assert error.__class__.__name__ == title
             assert error.__class__.__mro__[1].__name__ == classification
-            assert error.__class__.__module__ == "py2neo.cypher.error.%s" % category.lower()
+            assert error.__class__.__module__ == "py2neo.status.%s" % category.lower()
             assert isinstance(error, TransactionError)
             assert isinstance(error, CypherError)
             assert isinstance(error, GraphError)

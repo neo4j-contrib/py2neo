@@ -21,4 +21,3 @@ Cypher is the built-in query language for Neo4j.
 
 
 from py2neo.cypher.core import *
-from py2neo.cypher.error.core import *

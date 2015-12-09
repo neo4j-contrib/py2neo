@@ -50,7 +50,7 @@ class TransactionError(CypherError):
         code = data["code"]
         message = data["message"]
         _, classification, category, title = code.split(".")
-        error_module = import_module("py2neo.cypher.error." + category.lower())
+        error_module = import_module("py2neo.status." + category.lower())
         error_cls = getattr(error_module, title)
         inst = error_cls(message)
         inst.code = code

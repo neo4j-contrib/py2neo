@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.cypher.error.core import ClientError, DatabaseError
+from py2neo.status.core import ClientError, DatabaseError
 
 
 class ConstraintAlreadyExists(ClientError):

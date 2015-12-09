@@ -22,7 +22,7 @@ import logging
 from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finished
 from py2neo.compat import integer, xstr, ustr
 from py2neo.lang import cypher_escape, TextTable
-from py2neo.cypher.error.core import CypherError, TransactionError
+from py2neo.status import CypherError, TransactionError
 from py2neo.primitive import TraversableGraph, Record
 from py2neo.util import is_collection, deprecated
 

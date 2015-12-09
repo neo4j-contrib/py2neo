@@ -824,7 +824,7 @@ class Graph(Bindable):
         """
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
-                from py2neo.cypher import TransactionError
+                from py2neo.status import TransactionError
                 for error in data["errors"]:
                     raise TransactionError.hydrate(error)
             elif "self" in data:

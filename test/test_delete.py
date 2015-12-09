@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship, Path
-from py2neo.cypher.error import CypherError
+from py2neo.status import CypherError
 from test.util import Py2neoTestCase
 
 
