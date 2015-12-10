@@ -630,8 +630,8 @@ class CypherWriter(object):
     safe_first_chars = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
     safe_chars = u"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
 
-    default_sequence_separator = ","
-    default_key_value_separator = ":"
+    default_sequence_separator = u","
+    default_key_value_separator = u":"
 
     def __init__(self, file=None, **kwargs):
         self.file = file or stdout
@@ -650,8 +650,6 @@ class CypherWriter(object):
             self.write_relationship(obj, properties=obj)
         elif isinstance(obj, Path):
             self.write_path(obj)
-        elif isinstance(obj, Record):
-            self.write_record(obj)
         elif isinstance(obj, dict):
             self.write_map(obj)
         elif is_collection(obj):
@@ -673,22 +671,22 @@ class CypherWriter(object):
         safe = (identifier[0] in self.safe_first_chars and
                 all(ch in self.safe_chars for ch in identifier[1:]))
         if not safe:
-            self.file.write("`")
-            self.file.write(identifier.replace("`", "``"))
-            self.file.write("`")
+            self.file.write(u"`")
+            self.file.write(identifier.replace(u"`", u"``"))
+            self.file.write(u"`")
         else:
             self.file.write(identifier)
 
     def write_list(self, collection):
         """ Write a list.
         """
-        self.file.write("[")
-        link = ""
+        self.file.write(u"[")
+        link = u""
         for value in collection:
             self.file.write(link)
             self.write(value)
             link = self.sequence_separator
-        self.file.write("]")
+        self.file.write(u"]")
 
     def write_literal(self, text):
         """ Write literal text.
@@ -698,35 +696,35 @@ class CypherWriter(object):
     def write_map(self, mapping):
         """ Write a map.
         """
-        self.file.write("{")
-        link = ""
+        self.file.write(u"{")
+        link = u""
         for key, value in sorted(dict(mapping).items()):
             self.file.write(link)
             self.write_identifier(key)
             self.file.write(self.key_value_separator)
             self.write(value)
             link = self.sequence_separator
-        self.file.write("}")
+        self.file.write(u"}")
 
     def write_node(self, node, name=None, properties=None):
         """ Write a node.
         """
-        self.file.write("(")
+        self.file.write(u"(")
         if name:
             self.write_identifier(name)
         if node is not None:
             for label in sorted(node.labels()):
-                self.write_literal(":")
+                self.write_literal(u":")
                 self.write_identifier(label)
             if properties is None:
                 if node:
                     if name or node.labels():
-                        self.file.write(" ")
+                        self.file.write(u" ")
                     self.write_map(dict(node))
             else:
-                self.file.write(" ")
+                self.file.write(u" ")
                 self.write(properties)
-        self.file.write(")")
+        self.file.write(u")")
 
     def write_path(self, path):
         """ Write a :class:`py2neo.Path`.
@@ -737,38 +735,38 @@ class CypherWriter(object):
             self.write_node(node)
             forward = relationship.start_node() == node
             if forward:
-                self.file.write("-")
+                self.file.write(u"-")
             else:
-                self.file.write("<-")
+                self.file.write(u"<-")
             self.write_relationship_detail(type=relationship.type(), properties=relationship)
             if forward:
-                self.file.write("->")
+                self.file.write(u"->")
             else:
-                self.file.write("-")
+                self.file.write(u"-")
         self.write_node(nodes[-1])
 
     def write_relationship(self, relationship, name=None, properties=None):
         """ Write a relationship (including nodes).
         """
         self.write_node(relationship.start_node())
-        self.file.write("-")
+        self.file.write(u"-")
         self.write_relationship_detail(name, relationship.type(), properties)
-        self.file.write("->")
+        self.file.write(u"->")
         self.write_node(relationship.end_node())
 
     def write_relationship_detail(self, name=None, type=None, properties=None):
         """ Write a relationship (excluding nodes).
         """
-        self.file.write("[")
+        self.file.write(u"[")
         if name:
             self.write_identifier(name)
         if type:
-            self.file.write(":")
+            self.file.write(u":")
             self.write_identifier(type)
         if properties:
-            self.file.write(" ")
+            self.file.write(u" ")
             self.write_map(properties)
-        self.file.write("]")
+        self.file.write(u"]")
 
 
 def cypher_escape(identifier):
