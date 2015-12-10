@@ -35,9 +35,9 @@ from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.primitive import \
     Node as PrimitiveNode, \
     Relationship as PrimitiveRelationship, \
-    Path as PrimitivePath
+    Path as PrimitivePath, \
+    coerce_property
 from py2neo.status import BindError, GraphError, JoinError, Unauthorized
-from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
 
@@ -956,7 +956,7 @@ class Graph(Bindable):
         else:
             statement = "MERGE (n:%s {%s:{V}}) RETURN n,labels(n)" % (
                 cypher_escape(label), cypher_escape(property_key))
-            parameters = {"V": cast_property(property_value)}
+            parameters = {"V": coerce_property(property_value)}
         if limit:
             statement += " LIMIT %s" % limit
         response = self.cypher.post(statement, parameters)
