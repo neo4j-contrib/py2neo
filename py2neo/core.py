@@ -36,7 +36,7 @@ from py2neo.primitive import \
     Node as PrimitiveNode, \
     Relationship as PrimitiveRelationship, \
     Path as PrimitivePath, \
-    Graph as PrimitiveGraph
+    Subgraph as PrimitiveSubgraph
 from py2neo.status import BindError, GraphError, JoinError, Unauthorized
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
@@ -1766,7 +1766,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         self.__id = None
 
 
-class Subgraph(PrimitiveGraph):
+class Subgraph(PrimitiveSubgraph):
     """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
     """
 
@@ -1779,7 +1779,7 @@ class Subgraph(PrimitiveGraph):
             e.append(entity)
             nodes |= set(entity.nodes())
             relationships |= set(entity.relationships())
-        PrimitiveGraph.__init__(self, nodes, relationships)
+        PrimitiveSubgraph.__init__(self, nodes, relationships)
 
     def __repr__(self):
         return "<Subgraph order=%s size=%s>" % (self.order, self.size)

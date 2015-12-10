@@ -22,7 +22,7 @@ from re import compile as re_compile
 from .compat import integer, string, unicode, ustr
 
 
-__all__ = ["Graph", "TraversableGraph", "Node", "Relationship", "Path",
+__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "Path",
            "Record", "RecordList", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
@@ -180,7 +180,7 @@ class PropertyContainer(object):
         return self._properties.values()
 
 
-class Graph(object):
+class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
 
@@ -219,28 +219,28 @@ class Graph(object):
         return bool(self._relationships)
 
     def __or__(self, other):
-        nodes = Graph.nodes
-        relationships = Graph.relationships
-        return Graph(nodes(self) | nodes(other), relationships(self) | relationships(other))
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) | nodes(other), relationships(self) | relationships(other))
 
     def __and__(self, other):
-        nodes = Graph.nodes
-        relationships = Graph.relationships
-        return Graph(nodes(self) & nodes(other), relationships(self) & relationships(other))
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) & nodes(other), relationships(self) & relationships(other))
 
     def __sub__(self, other):
-        nodes = Graph.nodes
-        relationships = Graph.relationships
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
         r = relationships(self) - relationships(other)
         n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
-        return Graph(n, r)
+        return Subgraph(n, r)
 
     def __xor__(self, other):
-        nodes = Graph.nodes
-        relationships = Graph.relationships
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
         r = relationships(self) ^ relationships(other)
         n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
-        return Graph(n, r)
+        return Subgraph(n, r)
 
     def nodes(self):
         return self._nodes
@@ -269,7 +269,7 @@ class Graph(object):
                 frozenset(chain(*(rel.keys() for rel in self._relationships))))
 
 
-class TraversableGraph(Graph):
+class TraversableSubgraph(Subgraph):
     """ A graph with traversal information.
     """
 
@@ -277,7 +277,7 @@ class TraversableGraph(Graph):
         sequence = (head,) + tail
         self._node_sequence = sequence[0::2]
         self._relationship_sequence = sequence[1::2]
-        Graph.__init__(self, self._node_sequence, self._relationship_sequence)
+        Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
         self._sequence = sequence
 
     def __eq__(self, other):
@@ -311,7 +311,7 @@ class TraversableGraph(Graph):
                 if stop < 0:
                     stop += len(self)
                 stop = 2 * stop + 1
-            return TraversableGraph(*self._sequence[start:stop])
+            return TraversableSubgraph(*self._sequence[start:stop])
         elif index < 0:
             return self._sequence[2 * index]
         else:
@@ -324,7 +324,7 @@ class TraversableGraph(Graph):
     def __add__(self, other):
         if other is None:
             return self
-        return TraversableGraph(*traverse(self, other))
+        return TraversableSubgraph(*traverse(self, other))
 
     def start_node(self):
         return self._node_sequence[0]
@@ -374,11 +374,11 @@ def traverse(*traversables):
                 yield entity
 
 
-class Entity(PropertyContainer, TraversableGraph):
+class Entity(PropertyContainer, TraversableSubgraph):
 
     def __init__(self, *sequence, **properties):
         PropertyContainer.__init__(self, **properties)
-        TraversableGraph.__init__(self, *sequence)
+        TraversableSubgraph.__init__(self, *sequence)
 
 
 class Node(Entity):
@@ -507,16 +507,16 @@ class Relationship(Entity):
         return self._type
 
 
-class Path(TraversableGraph):
+class Path(TraversableSubgraph):
 
     def __init__(self, head, *tail):
-        TraversableGraph.__init__(self, *tuple(traverse(head, *tail)))
+        TraversableSubgraph.__init__(self, *tuple(traverse(head, *tail)))
 
     def __repr__(self):
         return "<Path length=%r>" % self.length()
 
 
-class Record(tuple, Graph):
+class Record(tuple, Subgraph):
 
     def __new__(cls, keys, values):
         if len(keys) == len(values):
@@ -533,7 +533,7 @@ class Record(tuple, Graph):
                 nodes.extend(value.nodes())
             if hasattr(value, "relationships"):
                 relationships.extend(value.relationships())
-        Graph.__init__(self, nodes, relationships)
+        Subgraph.__init__(self, nodes, relationships)
         self.__repr = None
 
     def __repr__(self):
@@ -572,7 +572,7 @@ class Record(tuple, Graph):
         return tuple(self)
 
 
-class RecordList(Graph):
+class RecordList(Subgraph):
 
     def __init__(self, records):
         keys = set()
@@ -582,7 +582,7 @@ class RecordList(Graph):
             keys.update(record.keys())
             nodes.extend(record.nodes())
             relationships.extend(record.relationships())
-        Graph.__init__(self, nodes, relationships)
+        Subgraph.__init__(self, nodes, relationships)
         self.__keys = frozenset(keys)
         self.__records = list(records)
 

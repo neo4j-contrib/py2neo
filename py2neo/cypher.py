@@ -45,7 +45,7 @@ from py2neo import Bindable, Resource, Node, Relationship, Subgraph, Path, Finis
 from py2neo.env import NEO4J_URI
 from py2neo.compat import integer, xstr, ustr
 from py2neo.status import CypherError, TransactionError
-from py2neo.primitive import TraversableGraph, Record
+from py2neo.primitive import TraversableSubgraph, Record
 from py2neo.util import is_collection, deprecated
 
 
@@ -381,7 +381,7 @@ class Transaction(object):
         result.cache.update(returns)
 
     def create_unique(self, t):
-        if not isinstance(t, TraversableGraph):
+        if not isinstance(t, TraversableSubgraph):
             raise ValueError("Object %r is not traversable" % t)
         if not any(node.bound for node in t.nodes()):
             raise ValueError("At least one node must be bound")
