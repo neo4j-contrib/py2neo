@@ -18,7 +18,7 @@
 
 from warnings import catch_warnings, simplefilter
 
-from py2neo import Node, Relationship, Subgraph
+from py2neo import Node, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -64,7 +64,7 @@ class NodeMatchTestCase(DeprecatedTestCase):
             Relationship(b, "KNOWS", d),
             Relationship(d, "LOVES", e),
         )
-        self.graph.create(Subgraph(*rels))
+        self.graph.create(rels[0] | rels[1] | rels[2] | rels[3] | rels[4])
         self.sample_graph = a, b, c, d, e, rels
 
     def test_can_match_zero_outgoing(self):

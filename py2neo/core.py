@@ -35,15 +35,14 @@ from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.primitive import \
     Node as PrimitiveNode, \
     Relationship as PrimitiveRelationship, \
-    Path as PrimitivePath, \
-    Subgraph as PrimitiveSubgraph
+    Path as PrimitivePath
 from py2neo.status import BindError, GraphError, JoinError, Unauthorized
 from py2neo.types import cast_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
 
 
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Subgraph",
+__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer",
            "ServiceRoot",
            "authenticate", "familiar", "rewrite",
            "Bindable", "Resource", "ResourceTemplate",
@@ -767,13 +766,17 @@ class Graph(Bindable):
                         results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
                     for rel in entity.relationships():
                         results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
-                elif isinstance(entity, Subgraph):
-                    for node in entity.nodes():
-                        results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
-                    for rel in entity.relationships():
-                        results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
                 else:
-                    raise TypeError("Cannot determine existence of non-entity")
+                    try:
+                        nodes = entity.nodes()
+                        relationships = entity.relationships()
+                    except AttributeError:
+                        raise TypeError("Object %r is not graphy" % entity)
+                    else:
+                        for node in nodes:
+                            results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
+                        for rel in relationships:
+                            results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
             except BindError:
                 pass
         count = len(tx.statements)
@@ -1375,181 +1378,6 @@ class NodePointer(object):
         return hash(self.address)
 
 
-class Path(PrimitivePath):
-    """ A sequence of nodes connected by relationships that may
-    optionally be bound to remote counterparts in a Neo4j database.
-
-        >>> from py2neo import Node, Path
-        >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
-        >>> abc = Path(alice, "KNOWS", bob, Relationship(carol, "KNOWS", bob), carol)
-        >>> abc
-        <Path order=3 size=2>
-        >>> abc.nodes
-        (<Node labels=set() properties={'name': 'Alice'}>,
-         <Node labels=set() properties={'name': 'Bob'}>,
-         <Node labels=set() properties={'name': 'Carol'}>)
-        >>> abc.relationships
-        (<Relationship type='KNOWS' properties={}>,
-         <Relationship type='KNOWS' properties={}>)
-        >>> dave, eve = Node(name="Dave"), Node(name="Eve")
-        >>> de = Path(dave, "KNOWS", eve)
-        >>> de
-        <Path order=2 size=1>
-        >>> abcde = Path(abc, "KNOWS", de)
-        >>> abcde
-        <Path order=5 size=4>
-        >>> for relationship in abcde.relationships():
-        ...     print(relationship)
-        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})
-        ({name:"Carol"})-[:KNOWS]->({name:"Bob"})
-        ({name:"Carol"})-[:KNOWS]->({name:"Dave"})
-        ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
-
-    """
-
-    @classmethod
-    def hydrate(cls, data, inst=None):
-        """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
-        The data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api-graph-algos.html#rest-api-find-one-of-the-shortest-paths>`__.
-
-        :arg data: dictionary of data to hydrate
-        :arg inst: an existing :class:`.Path` instance to overwrite with new values
-
-        """
-        node_uris = data["nodes"]
-        relationship_uris = data["relationships"]
-        offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-        if inst is None:
-            nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
-            relationships = [Relationship.hydrate({"self": uri,
-                                                   "start": node_uris[i + offsets[i][0]],
-                                                   "end": node_uris[i + offsets[i][1]]})
-                             for i, uri in enumerate(relationship_uris)]
-            inst = Path(*round_robin(nodes, relationships))
-        else:
-            for i, node in enumerate(inst.nodes()):
-                uri = node_uris[i]
-                Node.hydrate({"self": uri}, node)
-            for i, relationship in enumerate(inst.relationships()):
-                uri = relationship_uris[i]
-                Relationship.hydrate({"self": uri,
-                                      "start": node_uris[i + offsets[i][0]],
-                                      "end": node_uris[i + offsets[i][1]]}, relationship)
-        inst.__metadata = data
-        return inst
-
-    def __init__(self, *entities):
-        entities = list(entities)
-        for i, entity in enumerate(entities):
-            if entity is None:
-                entities[i] = Node()
-            elif isinstance(entity, dict):
-                entities[i] = Node(**entity)
-        for i, entity in enumerate(entities):
-            try:
-                start_node = entities[i - 1].end_node()
-                end_node = entities[i + 1].start_node()
-            except (IndexError, AttributeError):
-                pass
-            else:
-                if isinstance(entity, string):
-                    entities[i] = Relationship(start_node, entity, end_node)
-                elif isinstance(entity, tuple) and len(entity) == 2:
-                    t, properties = entity
-                    entities[i] = Relationship(start_node, t, end_node, **properties)
-        PrimitivePath.__init__(self, *entities)
-
-    def __repr__(self):
-        s = [self.__class__.__name__]
-        if self.bound:
-            s.append("graph=%r" % self.graph.uri.string)
-            s.append("start=%r" % self.start_node().ref)
-            s.append("end=%r" % self.end_node().ref)
-        s.append("order=%r" % self.order())
-        s.append("size=%r" % self.size())
-        return "<" + " ".join(s) + ">"
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
-        from py2neo.cypher import CypherWriter
-        s = StringIO()
-        writer = CypherWriter(s)
-        writer.write_path(self)
-        return s.getvalue()
-
-    def append(self, *others):
-        """ Join another path or relationship to the end of this path to form a new path.
-
-        :arg others: Entities to join to the end of this path
-        :rtype: :class:`.Path`
-        """
-        return Path(self, *others)
-
-    @property
-    def bound(self):
-        """ :const:`True` if this path is bound to a remote counterpart,
-        :const:`False` otherwise.
-        """
-        try:
-            _ = self.service_root
-        except BindError:
-            return False
-        else:
-            return True
-
-    @property
-    @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
-    def exists(self):
-        """ :const:`True` if this path exists in the database,
-        :const:`False` otherwise.
-        """
-        return self.graph.exists(*(self.nodes() + self.relationships()))
-
-    @property
-    def graph(self):
-        """ The parent graph of this path.
-
-        :rtype: :class:`.Graph`
-        """
-        return self.service_root.graph
-
-    def pull(self):
-        """ Pull data to all entities in this path from their remote counterparts.
-        """
-        self.graph.pull(self)
-
-    def push(self):
-        """ Push data from all entities in this path to their remote counterparts.
-        """
-        self.graph.push(self)
-
-    @property
-    def service_root(self):
-        """ The root service associated with this path.
-
-        :return: :class:`.ServiceRoot`
-        """
-        for relationship in self:
-            try:
-                return relationship.service_root
-            except BindError:
-                pass
-        raise BindError("Local path is not bound to a remote path")
-
-    def unbind(self):
-        """ Detach all entities in this path
-        from any remote counterparts.
-        """
-        for entity in self.relationships() + self.nodes():
-            try:
-                entity.unbind()
-            except BindError:
-                pass
-
-
 class Relationship(Bindable, PrimitiveRelationship):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
@@ -1766,43 +1594,160 @@ class Relationship(Bindable, PrimitiveRelationship):
         self.__id = None
 
 
-class Subgraph(PrimitiveSubgraph):
-    """ A general collection of :class:`.Node` and :class:`.Relationship` objects.
+class Path(PrimitivePath):
+    """ A sequence of nodes connected by relationships that may
+    optionally be bound to remote counterparts in a Neo4j database.
+
+        >>> from py2neo import Node, Path
+        >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
+        >>> abc = Path(alice, "KNOWS", bob, Relationship(carol, "KNOWS", bob), carol)
+        >>> abc
+        <Path order=3 size=2>
+        >>> abc.nodes
+        (<Node labels=set() properties={'name': 'Alice'}>,
+         <Node labels=set() properties={'name': 'Bob'}>,
+         <Node labels=set() properties={'name': 'Carol'}>)
+        >>> abc.relationships
+        (<Relationship type='KNOWS' properties={}>,
+         <Relationship type='KNOWS' properties={}>)
+        >>> dave, eve = Node(name="Dave"), Node(name="Eve")
+        >>> de = Path(dave, "KNOWS", eve)
+        >>> de
+        <Path order=2 size=1>
+        >>> abcde = Path(abc, "KNOWS", de)
+        >>> abcde
+        <Path order=5 size=4>
+        >>> for relationship in abcde.relationships():
+        ...     print(relationship)
+        ({name:"Alice"})-[:KNOWS]->({name:"Bob"})
+        ({name:"Carol"})-[:KNOWS]->({name:"Bob"})
+        ({name:"Carol"})-[:KNOWS]->({name:"Dave"})
+        ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
+
     """
 
+    @classmethod
+    def hydrate(cls, data, inst=None):
+        """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
+        The data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api-graph-algos.html#rest-api-find-one-of-the-shortest-paths>`__.
+
+        :arg data: dictionary of data to hydrate
+        :arg inst: an existing :class:`.Path` instance to overwrite with new values
+
+        """
+        node_uris = data["nodes"]
+        relationship_uris = data["relationships"]
+        offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
+        if inst is None:
+            nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
+            relationships = [Relationship.hydrate({"self": uri,
+                                                   "start": node_uris[i + offsets[i][0]],
+                                                   "end": node_uris[i + offsets[i][1]]})
+                             for i, uri in enumerate(relationship_uris)]
+            inst = Path(*round_robin(nodes, relationships))
+        else:
+            for i, node in enumerate(inst.nodes()):
+                uri = node_uris[i]
+                Node.hydrate({"self": uri}, node)
+            for i, relationship in enumerate(inst.relationships()):
+                uri = relationship_uris[i]
+                Relationship.hydrate({"self": uri,
+                                      "start": node_uris[i + offsets[i][0]],
+                                      "end": node_uris[i + offsets[i][1]]}, relationship)
+        inst.__metadata = data
+        return inst
+
     def __init__(self, *entities):
-        nodes = set()
-        relationships = set()
-        e = []
-        for entity in entities:
-            entity = cast(entity, e)
-            e.append(entity)
-            nodes |= set(entity.nodes())
-            relationships |= set(entity.relationships())
-        PrimitiveSubgraph.__init__(self, nodes, relationships)
+        entities = list(entities)
+        for i, entity in enumerate(entities):
+            if entity is None:
+                entities[i] = Node()
+            elif isinstance(entity, dict):
+                entities[i] = Node(**entity)
+        for i, entity in enumerate(entities):
+            try:
+                start_node = entities[i - 1].end_node()
+                end_node = entities[i + 1].start_node()
+            except (IndexError, AttributeError):
+                pass
+            else:
+                if isinstance(entity, string):
+                    entities[i] = Relationship(start_node, entity, end_node)
+                elif isinstance(entity, tuple) and len(entity) == 2:
+                    t, properties = entity
+                    entities[i] = Relationship(start_node, t, end_node, **properties)
+        PrimitivePath.__init__(self, *entities)
 
     def __repr__(self):
-        return "<Subgraph order=%s size=%s>" % (self.order, self.size)
+        s = [self.__class__.__name__]
+        if self.bound:
+            s.append("graph=%r" % self.graph.uri.string)
+            s.append("start=%r" % self.start_node().ref)
+            s.append("end=%r" % self.end_node().ref)
+        s.append("order=%r" % self.order())
+        s.append("size=%r" % self.size())
+        return "<" + " ".join(s) + ">"
+
+    def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
+        from py2neo.cypher import CypherWriter
+        s = StringIO()
+        writer = CypherWriter(s)
+        writer.write_path(self)
+        return s.getvalue()
+
+    def append(self, *others):
+        """ Join another path or relationship to the end of this path to form a new path.
+
+        :arg others: Entities to join to the end of this path
+        :rtype: :class:`.Path`
+        """
+        return Path(self, *others)
 
     @property
-    @deprecated("Subgraph.exists() is deprecated, use graph.exists(subgraph) instead")
-    def exists(self):
-        """ :const:`True` if this subgraph exists in the database,
+    def bound(self):
+        """ :const:`True` if this path is bound to a remote counterpart,
         :const:`False` otherwise.
         """
-        return self.graph.exists(self)
+        try:
+            _ = self.service_root
+        except BindError:
+            return False
+        else:
+            return True
+
+    @property
+    @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
+    def exists(self):
+        """ :const:`True` if this path exists in the database,
+        :const:`False` otherwise.
+        """
+        return self.graph.exists(*(self.nodes() + self.relationships()))
 
     @property
     def graph(self):
-        """ The parent graph of this subgraph.
+        """ The parent graph of this path.
 
         :rtype: :class:`.Graph`
         """
         return self.service_root.graph
 
+    def pull(self):
+        """ Pull data to all entities in this path from their remote counterparts.
+        """
+        self.graph.pull(self)
+
+    def push(self):
+        """ Push data from all entities in this path to their remote counterparts.
+        """
+        self.graph.push(self)
+
     @property
     def service_root(self):
-        """ The root service associated with this subgraph.
+        """ The root service associated with this path.
 
         :return: :class:`.ServiceRoot`
         """
@@ -1813,6 +1758,16 @@ class Subgraph(PrimitiveSubgraph):
                 pass
         raise BindError("Local path is not bound to a remote path")
 
+    def unbind(self):
+        """ Detach all entities in this path
+        from any remote counterparts.
+        """
+        for entity in self.relationships() + self.nodes():
+            try:
+                entity.unbind()
+            except BindError:
+                pass
+
 
 def cast(obj, entities=None):
     """ Cast an general Python object to a graph-specific entity,
@@ -1820,7 +1775,7 @@ def cast(obj, entities=None):
     """
     if obj is None:
         return None
-    elif isinstance(obj, (Node, NodePointer, Path, Relationship, Subgraph)):
+    elif isinstance(obj, (Node, NodePointer, Path, Relationship)):
         return obj
     elif isinstance(obj, dict):
         return cast_node(obj)

@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, GraphError, BindError, Path, cast_node, Subgraph
-from test.compat import patch, long, assert_repr
+from py2neo import Node, NodePointer, BindError, Relationship, Path, cast_node
+from test.compat import long, assert_repr
 from test.util import Py2neoTestCase
-from py2neo.packages.httpstream import ClientError, Resource as _Resource
+from py2neo.packages.httpstream import ClientError
 
 
 class DodgyClientError(ClientError):
@@ -77,13 +77,14 @@ class NodeTestCase(Py2neoTestCase):
         assert alice.degree() == 3
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
-        alice = Node("Person", name="Alice")
-        self.graph.create(Subgraph(alice, {}, (0, "KNOWS", 1)))
-        assert dict(alice) == {"name": "Alice"}
-        alice["age"] = 33
-        assert dict(alice) == {"name": "Alice", "age": 33}
-        _ = list(self.graph.match(alice, "KNOWS"))
-        assert dict(alice) == {"name": "Alice", "age": 33}
+        a = Node("Person", name="Alice")
+        b = Node()
+        self.graph.create(a | b | Relationship(a, "KNOWS", b))
+        assert dict(a) == {"name": "Alice"}
+        a["age"] = 33
+        assert dict(a) == {"name": "Alice", "age": 33}
+        _ = list(self.graph.match(a, "KNOWS"))
+        assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_will_error_when_refreshing_deleted_node(self):
         node = Node()
