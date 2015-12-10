@@ -22,7 +22,7 @@ To watch Cypher traffic::
 To watch batch traffic::
 
     >>> from py2neo import watch
-    >>> watch("py2neo.batch")
+    >>> watch("py2neo.ext.batch")
 
 
 .. autofunction:: py2neo.watch

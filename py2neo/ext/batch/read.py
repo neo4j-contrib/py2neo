@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.batch.core import Batch
+from py2neo.ext.batch.core import Batch
 
 
 __all__ = ["ReadBatch"]

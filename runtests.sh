@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 
+if [ "$1" == "" ]
+then
+    TEST=test
+else
+    TEST=$1
+fi
 
-# TODO: start/stop database
-# TODO: check coverage is installed
-
-coverage run -m unittest discover -vfs test
+coverage run -m unittest discover -vfs "${TEST}"
 STATUS=$?
 if [ "${STATUS}" == "0" ]
 then

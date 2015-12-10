@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
-from py2neo.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
+from py2neo.ext.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase

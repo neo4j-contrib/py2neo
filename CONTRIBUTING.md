@@ -55,7 +55,6 @@ Package Structure
 The py2neo package structure is as follows:
 
 - **py2neo** - core functionality
-  - **py2neo.batch** - batch support
   - **py2neo.cypher** - Cypher language support
   - **py2neo.ext** - non-core extensions
   - **py2neo.legacy** - legacy functionality

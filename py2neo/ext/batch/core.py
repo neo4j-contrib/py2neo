@@ -31,7 +31,7 @@ from py2neo.util import pendulate, raise_from
 __all__ = ["BatchError", "BatchResource", "Target", "Job", "JobResult", "CypherJob", "Batch"]
 
 
-log = logging.getLogger("py2neo.batch")
+log = logging.getLogger("py2neo.ext.batch")
 
 
 class BatchError(GraphError):

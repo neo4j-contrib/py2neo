@@ -78,13 +78,7 @@ function test {
         echo "Starting tests"
         export NEO4J_HOME="$HOME"
         export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
-        $HOME/runtests.sh
-        #if [ "$1" == "" ]
-        #then
-        #    py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
-        #else
-        #    py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
-        #fi
+        $HOME/runtests.sh $1
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
@@ -237,10 +231,18 @@ case $COMMAND in
         ;;
     test)
         NEO4J_VERSIONS="2.0 2.1 2.2 2.3"
-        test $ARGS
+        test
         ;;
     test-latest)
         NEO4J_VERSIONS="2.3"
-        test $ARGS
+        test
+        ;;
+    test-ext)
+        NEO4J_VERSIONS="2.0 2.1 2.2 2.3"
+        test text_ext
+        ;;
+    test-ext-latest)
+        NEO4J_VERSIONS="2.3"
+        test test_ext
         ;;
 esac

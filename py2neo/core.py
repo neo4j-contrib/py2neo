@@ -159,7 +159,7 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
 
 
 def node_like(obj):
-    from py2neo.batch import Job
+    from py2neo.ext.batch import Job
     return obj is None or isinstance(obj, (Node, NodePointer, Job))
 
 
@@ -651,17 +651,17 @@ class Graph(Bindable):
 
     @property
     def batch(self):
-        """ A :class:`py2neo.batch.BatchResource` instance attached to this
+        """ A :class:`py2neo.ext.batch.BatchResource` instance attached to this
         graph. This resource exposes methods for submitting iterable
-        collections of :class:`py2neo.batch.Job` objects to the server and
+        collections of :class:`py2neo.ext.batch.Job` objects to the server and
         will often be used indirectly via classes such as
-        :class:`py2neo.batch.PullBatch` or :class:`py2neo.batch.PushBatch`.
+        :class:`py2neo.ext.batch.PullBatch` or :class:`py2neo.ext.batch.PushBatch`.
 
-        :rtype: :class:`py2neo.batch.BatchResource`
+        :rtype: :class:`py2neo.ext.batch.BatchResource`
 
         """
         if self.__batch is None:
-            from py2neo.batch import BatchResource
+            from py2neo.ext.batch import BatchResource
             self.__batch = BatchResource(self.resource.metadata["batch"])
         return self.__batch
 
@@ -837,7 +837,7 @@ class Graph(Bindable):
                     return Node.hydrate(data, inst)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
-                    from py2neo.batch import Job, Target
+                    from py2neo.ext.batch import Job, Target
                     node_uris = data["nodes"]
                     relationship_uris = data["relationships"]
                     jobs = [Job("GET", Target(uri)) for uri in relationship_uris]
@@ -1026,7 +1026,7 @@ class Graph(Bindable):
         """ Pull data to one or more entities from their remote counterparts.
         """
         if entities:
-            from py2neo.batch.pull import PullBatch
+            from py2neo.ext.batch.pull import PullBatch
             batch = PullBatch(self)
             for entity in entities:
                 batch.append(entity)
@@ -1036,7 +1036,7 @@ class Graph(Bindable):
         """ Push data from one or more entities to their remote counterparts.
         """
         if entities:
-            from py2neo.batch.push import PushBatch
+            from py2neo.ext.batch.push import PushBatch
             batch = PushBatch(self)
             for entity in entities:
                 batch.append(entity)
@@ -1786,7 +1786,7 @@ def cast(obj, entities=None):
 
 
 def cast_node(obj):
-    from py2neo.batch import Job
+    from py2neo.ext.batch import Job
     if obj is None:
         return None
     elif isinstance(obj, (Node, NodePointer, Job)):

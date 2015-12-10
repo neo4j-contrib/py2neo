@@ -17,7 +17,7 @@
 
 
 from py2neo.core import Node, Relationship, Path
-from py2neo.batch.core import Batch, Job, Target
+from py2neo.ext.batch.core import Batch, Job, Target
 
 
 __all__ = ["PushPropertyJob", "PushPropertiesJob", "PushNodeLabelsJob", "PushBatch"]
