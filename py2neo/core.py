@@ -158,28 +158,6 @@ def rewrite(from_scheme_host_port, to_scheme_host_port):
         _http_rewrites[from_scheme_host_port] = to_scheme_host_port
 
 
-def node_like(obj):
-    from py2neo.ext.batch import Job
-    return obj is None or isinstance(obj, (Node, NodePointer, Job))
-
-
-def coalesce(n, m):
-    # Attempt to unify two nodes together into a single node.
-    if not node_like(n) or not node_like(m):
-        raise TypeError("Can only join Node, NodePointer, Job or None")
-    if n is None:
-        return m
-    elif m is None or n is m:
-        return n
-    elif isinstance(n, NodePointer) or isinstance(m, NodePointer):
-        if isinstance(n, NodePointer) and isinstance(m, NodePointer) and n.address == m.address:
-            return n
-    elif n.bound and m.bound:
-        if n.resource == m.resource:
-            return n
-    raise JoinError("Cannot join nodes {} and {}".format(n, m))
-
-
 class Resource(_Resource):
     """ Base class for all local resources mapped to remote counterparts.
     """
