@@ -10,6 +10,6 @@ python:
 
 script:
   - sudo apt-get update && sudo apt-get install oracle-java8-installer
-  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle/bin
+  - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
   - pip install --upgrade pip
   - ONLINE=1 ./bau test
