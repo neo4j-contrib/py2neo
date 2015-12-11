@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError, DatabaseError
+from py2neo.status import ClientError, DatabaseError, TransientError
 
 
 class ConstraintAlreadyExists(ClientError):
@@ -56,6 +56,12 @@ class IndexBelongsToConstraint(ClientError):
     """
 
 
+class IndexLimitReached(ClientError):
+    """ The maximum number of index entries supported has been reached,
+    no more entities can be indexed.
+    """
+
+
 class LabelLimitReached(ClientError):
     """ The maximum number of labels supported has been reached, no
     more labels can be created.
@@ -81,6 +87,11 @@ class ConstraintCreationFailure(DatabaseError):
 
 class ConstraintDropFailure(DatabaseError):
     """ The database failed to drop a requested constraint.
+    """
+
+
+class DuplicateSchemaRule(DatabaseError):
+    """ The request referred to a schema rule that defined multiple times.
     """
 
 
@@ -111,4 +122,10 @@ class NoSuchRelationshipType(DatabaseError):
 
 class NoSuchSchemaRule(DatabaseError):
     """ The request referred to a schema rule that does not exist.
+    """
+
+
+class ModifiedConcurrently(TransientError):
+    """ The database schema was modified while this transaction was
+    running, the transaction should be retried.
     """

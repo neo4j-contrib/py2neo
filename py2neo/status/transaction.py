@@ -31,6 +31,11 @@ class EventHandlerThrewException(ClientError):
     """
 
 
+class HookFailed(ClientError):
+    """ Transaction hook failure.
+    """
+
+
 class InvalidType(ClientError):
     """ The transaction is of the wrong type to service the request.
     For instance, a transaction that has had schema modifications
@@ -39,8 +44,20 @@ class InvalidType(ClientError):
     """
 
 
+class MarkedAsFailed(ClientError):
+    """ Transaction was marked as both successful and failed. Failure
+    takes precedence and so this transaction was rolled back although
+    it may have looked like it was going to be committed.
+    """
+
+
 class UnknownId(ClientError):
     """ The request referred to a transaction that does not exist.
+    """
+
+
+class ValidationFailed(ClientError):
+    """ Transaction changes did not pass validation checks.
     """
 
 
@@ -59,6 +76,11 @@ class CouldNotRollback(DatabaseError):
     """
 
 
+class CouldNotWriteToLog(DatabaseError):
+    """ The database was unable to write transaction to log.
+    """
+
+
 class ReleaseLocksFailed(DatabaseError):
     """ The transaction was unable to release one or more of its locks.
     """
@@ -67,6 +89,11 @@ class ReleaseLocksFailed(DatabaseError):
 class AcquireLockTimeout(TransientError):
     """ The transaction was unable to acquire a lock, for instance due
     to a timeout or the transaction thread being interrupted.
+    """
+
+
+class ConstraintsChanged(TransientError):
+    """ Database constraints changed since the start of this transaction.
     """
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError, DatabaseError
+from py2neo.status import ClientError, DatabaseError, TransientError
 
 
 class ReadOnly(ClientError):
@@ -40,4 +40,11 @@ class FailedIndex(DatabaseError):
 
 class UnknownFailure(DatabaseError):
     """ An unknown failure occurred.
+    """
+
+
+class DatabaseUnavailable(TransientError):
+    """ The database is not currently available to serve your request,
+    refer to the database logs for more details. Retrying your request
+    at a later time may succeed.
     """

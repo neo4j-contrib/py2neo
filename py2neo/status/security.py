@@ -16,15 +16,26 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError
+from py2neo.status import ClientError, TransientError
 
 
-class Invalid(ClientError):
-    """ The client provided an invalid request.
+class AuthenticationFailed(ClientError):
+    """ The client provided an incorrect username and/or password.
     """
 
 
-class InvalidFormat(ClientError):
-    """ The client provided a request that was missing required fields,
-    or had values that are not allowed.
+class AuthenticationRateLimit(ClientError):
+    """ The client has provided incorrect authentication details
+    too many times in a row.
+    """
+
+
+class AuthorizationFailed(ClientError):
+    """ The client does not have privileges to perform the operation
+    requested.
+    """
+
+
+class ModifiedConcurrently(TransientError):
+    """ The user was modified concurrently to this request.
     """
