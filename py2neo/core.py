@@ -37,14 +37,14 @@ from py2neo.primitive import \
     Relationship as PrimitiveRelationship, \
     Path as PrimitivePath, \
     coerce_property
-from py2neo.status import BindError, GraphError, JoinError, Unauthorized
+from py2neo.status import BindError, GraphError, Unauthorized
 from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
 
 
 __all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer",
            "ServiceRoot",
-           "authenticate", "familiar", "rewrite",
+           "authenticate", "rewrite",
            "Bindable", "Resource", "ResourceTemplate",
            "cast", "cast_node", "cast_relationship"]
 
@@ -111,23 +111,6 @@ def authenticate(host_port, user_name, password):
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = 'Basic ' + base64.b64encode(credentials).decode("ASCII")
     _add_header("Authorization", value, host_port=host_port)
-
-
-def familiar(*objects):
-    """ Check all objects belong to the same remote service.
-
-    :arg objects: Bound objects to compare.
-    :return: :const:`True` if all objects belong to the same remote service,
-             :const:`False` otherwise.
-    """
-    service_roots = set()
-    for obj in objects:
-        if not obj.bound:
-            raise ValueError("Can only determine familiarity of bound objects")
-        service_roots.add(obj.service_root)
-        if len(service_roots) > 1:
-            return False
-    return True
 
 
 def rewrite(from_scheme_host_port, to_scheme_host_port):
