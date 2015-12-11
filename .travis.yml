@@ -1,7 +1,6 @@
 language: python
 
-jdk:
-  - oraclejdk8
+sudo: required
 
 python:
   - "2.7"
@@ -10,4 +9,5 @@ python:
   - "3.5"
 
 script:
+  - sudo apt-get update && sudo apt-get install oracle-java8-installer
   - ONLINE=1 ./bau test
