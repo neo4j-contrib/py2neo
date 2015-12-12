@@ -17,10 +17,17 @@
 
 
 from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
-from py2neo.ext.batch import WriteBatch, CypherJob, BatchError, Job, Target, PullBatch
+from py2neo.ext.batch import BatchRunner, WriteBatch, CypherJob, \
+    BatchError, Job, Target, PullBatch
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase
+
+
+class BatchTestCase(Py2neoTestCase):
+    def __init__(self, *args, **kwargs):
+        super(BatchTestCase, self).__init__(*args, **kwargs)
+        self.runner = BatchRunner(self.graph)
 
 
 class NodeCreationTestCase(Py2neoTestCase):
@@ -345,9 +352,9 @@ class MiscellaneousTestCase(Py2neoTestCase):
 
     def test_cannot_resubmit_finished_job(self):
         self.batch.append(CypherJob("CREATE (a)"))
-        self.graph.batch.submit(self.batch)
+        self.runner.submit(self.batch)
         with self.assertRaises(Finished):
-            self.graph.batch.submit(self.batch)
+            self.runner.submit(self.batch)
 
 
 class BatchRequestTestCase(Py2neoTestCase):

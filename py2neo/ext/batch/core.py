@@ -28,7 +28,7 @@ from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import pendulate, raise_from
 
 
-__all__ = ["BatchError", "BatchResource", "Target", "Job", "JobResult", "CypherJob", "Batch"]
+__all__ = ["BatchError", "BatchRunner", "Target", "Job", "JobResult", "CypherJob", "Batch"]
 
 
 log = logging.getLogger("py2neo.ext.batch")
@@ -53,7 +53,7 @@ class BatchError(GraphError):
         self.location = location
 
 
-class BatchResource(Bindable):
+class BatchRunner(Bindable):
     """ Resource for batch execution.
     """
 
@@ -63,7 +63,7 @@ class BatchResource(Bindable):
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            inst = super(BatchResource, cls).__new__(cls)
+            inst = super(BatchRunner, cls).__new__(cls)
             inst.bind(uri)
             cls.__instances[uri] = inst
         return inst
@@ -340,7 +340,7 @@ class CypherJob(Job):
 
 class Batch(object):
     """ A collection of :class:`.Job` objects that can be submitted
-    to a :class:`.BatchResource`. References to previous jobs are only
+    to a :class:`.BatchRunner`. References to previous jobs are only
     valid **within the same batch** and will not work across batches.
     """
 

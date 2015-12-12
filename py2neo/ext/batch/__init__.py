@@ -25,7 +25,7 @@ from py2neo.ext.batch.write import *
 
 __all__ = [
 
-    "BatchResource",
+    "BatchRunner",
 
     "Batch",
     "WriteBatch",

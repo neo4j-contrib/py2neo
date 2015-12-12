@@ -19,7 +19,7 @@ use Cypher transactions instead when working with these.
 Batch Resource
 ==============
 
-.. autoclass:: py2neo.batch.BatchResource
+.. autoclass:: py2neo.batch.BatchRunner
    :members:
 
 

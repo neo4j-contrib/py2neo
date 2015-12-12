@@ -612,18 +612,18 @@ class Graph(Bindable):
 
     @property
     def batch(self):
-        """ A :class:`py2neo.ext.batch.BatchResource` instance attached to this
+        """ A :class:`py2neo.ext.batch.BatchRunner` instance attached to this
         graph. This resource exposes methods for submitting iterable
         collections of :class:`py2neo.ext.batch.Job` objects to the server and
         will often be used indirectly via classes such as
         :class:`py2neo.ext.batch.PullBatch` or :class:`py2neo.ext.batch.PushBatch`.
 
-        :rtype: :class:`py2neo.ext.batch.BatchResource`
+        :rtype: :class:`py2neo.ext.batch.BatchRunner`
 
         """
         if self.__batch is None:
-            from py2neo.ext.batch import BatchResource
-            self.__batch = BatchResource(self.resource.metadata["batch"])
+            from py2neo.ext.batch import BatchRunner
+            self.__batch = BatchRunner(self.resource.metadata["batch"])
         return self.__batch
 
     @property
@@ -986,22 +986,51 @@ class Graph(Bindable):
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
         """
-        if entities:
-            from py2neo.ext.batch.pull import PullBatch
-            batch = PullBatch(self)
-            for entity in entities:
-                batch.append(entity)
-            batch.pull()
+        if not entities:
+            return
+        nodes = {}
+        relationships = set()
+        for entity in entities:
+            for node in entity.nodes():
+                nodes[node] = None
+            relationships.update(entity.relationships())
+        tx = self.cypher.begin()
+        for node in nodes:
+            result = tx.run("MATCH (a) WHERE id(a)={x} "
+                            "RETURN a, labels(a)", x=node._id)
+            result.cache["a"] = node
+            nodes[node] = result
+        for relationship in relationships:
+            result = tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                            "RETURN r", x=relationship._id)
+            result.cache["r"] = relationship
+        tx.commit()
+        for node, result in nodes.items():
+            labels = node.labels()
+            labels.clear()
+            labels.update(result[0][1])
 
     def push(self, *entities):
         """ Push data from one or more entities to their remote counterparts.
         """
-        if entities:
-            from py2neo.ext.batch.push import PushBatch
-            batch = PushBatch(self)
-            for entity in entities:
-                batch.append(entity)
-            batch.push()
+        batch = []
+        i = 0
+        for entity in entities:
+            for node in entity.nodes():
+                batch.append({"id": i, "method": "PUT",
+                              "to": "node/%d/properties" % node._id,
+                              "body": dict(node)})
+                i += 1
+                batch.append({"id": i, "method": "PUT",
+                              "to": "node/%d/labels" % node._id,
+                              "body": list(node.labels())})
+                i += 1
+            for relationship in entity.relationships():
+                batch.append({"id": i, "method": "PUT",
+                              "to": "relationship/%d/properties" % relationship._id,
+                              "body": dict(relationship)})
+                i += 1
+        self.graph.resource.resolve("batch").post(batch)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
