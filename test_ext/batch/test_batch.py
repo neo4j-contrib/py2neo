@@ -18,7 +18,7 @@
 
 from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
 from py2neo.ext.batch import BatchRunner, WriteBatch, CypherJob, \
-    BatchError, Job, Target, PullBatch
+    BatchError, Job, Target
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase
@@ -37,21 +37,15 @@ class NodeCreationTestCase(Py2neoTestCase):
 
     def test_can_create_single_empty_node(self):
         self.batch.create(Node())
-        a, = self.batch.submit()
+        a, = self.batch.run()
         assert isinstance(a, Node)
         assert not a
-
-    def test_can_create_single_node_with_streaming(self):
-        self.batch.create(Node(name="Alice"))
-        for result in self.batch.stream():
-            assert isinstance(result, Node)
-            assert dict(result) == {"name": "Alice"}
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
         self.batch.create(cast_node({"name": "Bob"}))
         self.batch.create(Node(name="Carol"))
-        alice, bob, carol = self.batch.submit()
+        alice, bob, carol = self.batch.run()
         assert isinstance(alice, Node)
         assert isinstance(bob, Node)
         assert isinstance(carol, Node)
@@ -69,7 +63,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
-        alice, bob, knows = self.batch.submit()
+        alice, bob, knows = self.batch.run()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -80,10 +74,10 @@ class RelationshipCreationTestCase(Py2neoTestCase):
     def test_can_create_relationship_with_existing_nodes(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
-        alice, bob = self.batch.submit()
+        alice, bob = self.batch.run()
         self.batch.jobs = []
         self.batch.create((alice, "KNOWS", bob))
-        knows, = self.batch.submit()
+        knows, = self.batch.run()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -93,11 +87,11 @@ class RelationshipCreationTestCase(Py2neoTestCase):
 
     def test_can_create_relationship_with_existing_start_node(self):
         self.batch.create({"name": "Alice"})
-        alice, = self.batch.submit()
+        alice, = self.batch.run()
         self.batch.jobs = []
         self.batch.create({"name": "Bob"})
         self.batch.create((alice, "KNOWS", 0))
-        bob, knows = self.batch.submit()
+        bob, knows = self.batch.run()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -107,11 +101,11 @@ class RelationshipCreationTestCase(Py2neoTestCase):
 
     def test_can_create_relationship_with_existing_end_node(self):
         self.batch.create({"name": "Bob"})
-        bob, = self.batch.submit()
+        bob, = self.batch.run()
         self.batch.jobs = []
         self.batch.create({"name": "Alice"})
         self.batch.create((0, "KNOWS", bob))
-        alice, knows = self.batch.submit()
+        alice, knows = self.batch.run()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -126,7 +120,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((1, "KNOWS", 2))
         self.batch.create((2, "KNOWS", 0))
-        alice, bob, carol, ab, bc, ca = self.batch.submit()
+        alice, bob, carol, ab, bc, ca = self.batch.run()
         for relationship in [ab, bc, ca]:
             assert isinstance(relationship, Relationship)
             assert relationship.type() == "KNOWS"
@@ -136,7 +130,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((0, "KNOWS", 1))
-        alice, bob, knows1, knows2 = self.batch.submit()
+        alice, bob, knows1, knows2 = self.batch.run()
         assert isinstance(knows1, Relationship)
         assert knows1.start_node() == alice
         assert knows1.type() == "KNOWS"
@@ -153,7 +147,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1, {"since": 2000}))
-        alice, bob, knows = self.batch.submit()
+        alice, bob, knows = self.batch.run()
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
         assert knows.type() == "KNOWS"
@@ -165,7 +159,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.batch.create(Node(name="Alice"))
         self.batch.create(Node(name="Bob"))
         self.batch.create(Relationship(0, "KNOWS", 1))
-        alice, bob, ab = self.batch.submit()
+        alice, bob, ab = self.batch.run()
         assert isinstance(alice, Node)
         assert alice["name"] == "Alice"
         assert isinstance(bob, Node)
@@ -185,11 +179,11 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
     def test_can_create_relationship_if_none_exists(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
-        alice, bob = self.batch.submit()
+        alice, bob = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
-        path, = self.batch.submit()
+        path, = self.batch.run()
         knows = path[0]
         assert isinstance(knows, Relationship)
         assert knows.start_node() == alice
@@ -201,13 +195,13 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
     def test_will_get_relationship_if_one_exists(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
-        alice, bob = self.batch.submit()
+        alice, bob = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
         self.batch.get_or_create_path(
             alice, ("KNOWS", {"since": 2000}), bob)
-        path1, path2 = self.batch.submit()
+        path1, path2 = self.batch.run()
         assert path1 == path2
 
     def test_will_fail_batch_if_more_than_one_exists(self):
@@ -215,11 +209,11 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
         self.batch.create((0, "KNOWS", 1))
-        alice, bob, k1, k2 = self.batch.submit()
+        alice, bob, k1, k2 = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", bob)
         try:
-            self.batch.submit()
+            self.batch.run()
         except BatchError as error:
             assert isinstance(error.__cause__, ConstraintViolation)
         else:
@@ -227,10 +221,10 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
 
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})
-        bob, = self.batch.submit()
+        bob, = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(None, "KNOWS", bob)
-        path, = self.batch.submit()
+        path, = self.batch.run()
         knows = path[0]
         alice = knows.start_node()
         assert isinstance(knows, Relationship)
@@ -241,10 +235,10 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
 
     def test_can_create_relationship_and_end_node(self):
         self.batch.create({"name": "Alice"})
-        alice, = self.batch.submit()
+        alice, = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", None)
-        path, = self.batch.submit()
+        path, = self.batch.run()
         knows = path[0]
         bob = knows.end_node()
         assert isinstance(knows, Relationship)
@@ -263,7 +257,7 @@ class DeletionTestCase(Py2neoTestCase):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
-        alice, bob, ab = self.batch.submit()
+        alice, bob, ab = self.batch.run()
         assert self.graph.exists(alice, bob, ab)
         self.batch.jobs = []
         self.batch.delete(ab)
@@ -306,14 +300,14 @@ class PropertyManagementTestCase(Py2neoTestCase):
         self.batch.run()
         self._check_properties(self.alice, props)
 
-    def test_can_add_delete_node_property(self):
+    def test_can_delete_node_property(self):
         self.batch.delete_property(self.alice, "surname")
         self.batch.run()
         self._check_properties(self.alice, {"name": "Alice"})
 
-    def test_can_add_delete_all_node_properties(self):
+    def test_can_delete_all_node_properties(self):
         self.batch.delete_properties(self.alice)
-        self.batch.run()
+        r = self.batch.run()
         self._check_properties(self.alice, {})
 
 
@@ -321,12 +315,13 @@ class MiscellaneousTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
+        self.runner = self.batch.runner
 
     def test_can_use_return_values_as_references(self):
         a = self.batch.create(Node(name="Alice"))
         b = self.batch.create(Node(name="Bob"))
         self.batch.create(Relationship(a, "KNOWS", b))
-        results = self.batch.submit()
+        results = self.batch.run()
         ab = results[2]
         assert isinstance(ab, Relationship)
         assert ab.start_node()["name"] == "Alice"
@@ -336,13 +331,13 @@ class MiscellaneousTestCase(Py2neoTestCase):
         # This example might fail if the server bug is fixed that returns
         # a 200 response with application/json content-type and no content.
         self.batch.create((0, "KNOWS", 1))
-        results = self.batch.submit()
+        results = self.batch.run()
         assert results == []
     
     def test_cypher_job_with_invalid_syntax(self):
         self.batch.append(CypherJob("X"))
         try:
-            self.batch.submit()
+            self.batch.run()
         except BatchError as error:
             assert error.batch is self.batch
             assert error.job_id == 0
@@ -352,9 +347,9 @@ class MiscellaneousTestCase(Py2neoTestCase):
 
     def test_cannot_resubmit_finished_job(self):
         self.batch.append(CypherJob("CREATE (a)"))
-        self.runner.submit(self.batch)
+        self.runner.run(self.batch)
         with self.assertRaises(Finished):
-            self.runner.submit(self.batch)
+            self.runner.run(self.batch)
 
 
 class BatchRequestTestCase(Py2neoTestCase):
@@ -390,74 +385,6 @@ class BatchRequestTestCase(Py2neoTestCase):
         assert hash(request_1) != hash(request_2)
 
 
-class PullBatchTestCase(Py2neoTestCase):
-
-    def setUp(self):
-        self.batch = PullBatch(self.graph)
-
-    def test_can_pull_node(self):
-        uri = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a").uri
-        alice = Node()
-        alice.bind(uri)
-        assert alice["name"] is None
-        self.batch.append(alice)
-        self.batch.pull()
-        assert alice["name"] == "Alice"
-
-    def test_can_pull_node_with_label(self):
-        uri = self.cypher.evaluate("CREATE (a:Person {name:'Alice'}) RETURN a").uri
-        alice = Node()
-        alice.bind(uri)
-        assert "Person" not in alice.labels()
-        assert alice["name"] is None
-        self.batch.append(alice)
-        self.batch.pull()
-        assert "Person" in alice.labels()
-        assert alice["name"] == "Alice"
-
-    def test_can_pull_relationship(self):
-        uri = self.cypher.evaluate("CREATE ()-[ab:KNOWS {since:1999}]->() RETURN ab").uri
-        ab = Relationship(None, "", None)
-        ab.bind(uri)
-        assert ab.type() == ""
-        assert ab["since"] is None
-        self.batch.append(ab)
-        self.batch.pull()
-        assert ab.type() == "KNOWS"
-        assert ab["since"] == 1999
-
-    def test_can_pull_path(self):
-        path = self.cypher.evaluate("CREATE p=()-[:KNOWS]->()-[:KNOWS]->() RETURN p")
-        assert path[0]["since"] is None
-        statement = "MATCH ()-[ab]->() WHERE id(ab)={ab} SET ab.since=1999"
-        self.cypher.run(statement, {"ab": path[0]._id})
-        assert path[0]["since"] is None
-        self.batch.append(path)
-        self.batch.pull()
-        assert path[0]["since"] == 1999
-
-    def test_cannot_pull_none(self):
-        with self.assertRaises(TypeError):
-            self.batch.append(None)
-
-
-class PushBatchTestCase(Py2neoTestCase):
-
-    def test_can_push_node(self):
-        alice = Node(name="Alice")
-        self.graph.create(alice)
-        alice["age"] = 33
-        self.graph.push(alice)
-        node_id = alice._id
-        Node.cache.clear()
-        node = self.graph.node(node_id)
-        assert node["age"] == 33
-
-    def test_cannot_push_none(self):
-        with self.assertRaises(TypeError):
-            self.graph.push(None)
-
-
 class WriteBatchTestCase(Py2neoTestCase):
 
     def setUp(self):
@@ -481,7 +408,7 @@ class WriteBatchTestCase(Py2neoTestCase):
 
     def test_can_create_path_with_new_nodes(self):
         self.batch.create_path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         assert len(path) == 1
         assert path.nodes()[0]["name"] == "Alice"
@@ -493,7 +420,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         bob = cast_node({"name": "Bob"})
         self.graph.create(alice | bob)
         self.batch.create_path(alice, "KNOWS", bob)
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         assert len(path) == 1
         assert path.nodes()[0] == alice
@@ -504,14 +431,14 @@ class WriteBatchTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         self.graph.create(alice)
         self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         bob = path.nodes()[1]
         assert path.nodes()[0] == alice
         assert bob["name"] == "Bob"
         self.batch = WriteBatch(self.graph)
         self.batch.create_path(alice, "KNOWS", {"name": "Bob"})
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         assert path.nodes()[0] == alice
         assert path.nodes()[1] != bob
@@ -521,7 +448,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         bob = Node(name="Bob")
         self.graph.create(alice | bob)
         self.batch.get_or_create_path(alice, "KNOWS", bob)
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         assert len(path) == 1
         assert path.nodes()[0] == alice
@@ -532,14 +459,14 @@ class WriteBatchTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         self.graph.create(alice)
         self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         bob = path.nodes()[1]
         assert path.nodes()[0] == alice
         assert bob["name"] == "Bob"
         self.batch = WriteBatch(self.graph)
         self.batch.get_or_create_path(alice, "KNOWS", {"name": "Bob"})
-        results = self.batch.submit()
+        results = self.batch.run()
         path = results[0]
         assert path.nodes()[0] == alice
         assert path.nodes()[1] == bob
@@ -555,7 +482,7 @@ class WriteBatchTestCase(Py2neoTestCase):
     def test_can_set_property_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice"})
         self.batch.set_property(alice, "age", 34)
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
         assert alice["age"] == 34
@@ -572,7 +499,7 @@ class WriteBatchTestCase(Py2neoTestCase):
     def test_can_set_properties_on_node_in_same_batch(self):
         alice = self.batch.create({})
         self.batch.set_properties(alice, {"name": "Alice", "age": 34})
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
         assert alice["name"] == "Alice"
@@ -590,7 +517,7 @@ class WriteBatchTestCase(Py2neoTestCase):
     def test_can_delete_property_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice", "age": 34})
         self.batch.delete_property(alice, "age")
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
         assert alice["name"] == "Alice"
@@ -607,7 +534,7 @@ class WriteBatchTestCase(Py2neoTestCase):
     def test_can_delete_properties_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice", "age": 34})
         self.batch.delete_properties(alice)
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
         assert not alice
@@ -623,7 +550,7 @@ class WriteBatchTestCase(Py2neoTestCase):
     def test_can_add_labels_to_node_in_same_batch(self):
         a = self.batch.create({"name": "Alice"})
         self.batch.add_labels(a, "human", "female")
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(a)]
         self.graph.pull(alice)
         assert alice.labels() == {"human", "female"}
@@ -640,7 +567,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         alice = self.batch.create({"name": "Alice"})
         self.batch.add_labels(alice, "human", "female")
         self.batch.remove_label(alice, "female")
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
         assert alice.labels() == {"human"}
@@ -657,7 +584,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.create({"name": "Alice"})
         self.batch.add_labels(0, "human", "female")
         self.batch.set_labels(0, "mystery", "badger")
-        results = self.batch.submit()
+        results = self.batch.run()
         alice = results[0]
         self.graph.pull(alice)
         assert alice.labels() == {"mystery", "badger"}
