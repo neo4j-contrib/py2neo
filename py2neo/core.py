@@ -611,22 +611,6 @@ class Graph(Bindable):
         return entity.bound and entity.uri.string.startswith(entity.uri.string)
 
     @property
-    def batch(self):
-        """ A :class:`py2neo.ext.batch.BatchRunner` instance attached to this
-        graph. This resource exposes methods for submitting iterable
-        collections of :class:`py2neo.ext.batch.Job` objects to the server and
-        will often be used indirectly via classes such as
-        :class:`py2neo.ext.batch.PullBatch` or :class:`py2neo.ext.batch.PushBatch`.
-
-        :rtype: :class:`py2neo.ext.batch.BatchRunner`
-
-        """
-        if self.__batch is None:
-            from py2neo.ext.batch import BatchRunner
-            self.__batch = BatchRunner(self.resource.metadata["batch"])
-        return self.__batch
-
-    @property
     def cypher(self):
         """ The Cypher execution resource for this graph providing access to
         all Cypher functionality for the underlying database, both simple
@@ -1137,17 +1121,13 @@ class Node(Bindable, PrimitiveNode):
         inst.bind(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
-            properties = data["data"]
-            properties.update(inst)
             inst.clear()
-            inst.update(properties)
+            inst.update(data["data"])
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
-            labels = set(metadata["labels"])
-            labels.update(inst.labels())
             inst.clear_labels()
-            inst.update_labels(labels)
+            inst.update_labels(metadata["labels"])
         return inst
 
     def __init__(self, *labels, **properties):
