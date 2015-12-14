@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, NodePointer, BindError, Relationship, Path, cast_node
+from py2neo import Node, BindError, Relationship, Path, cast_node
 from test.compat import long, assert_repr
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError
@@ -191,27 +191,3 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         assert str(node) == '(:Person {name:"Alice"})'
         self.graph.create(node)
         assert str(node) == '(n%s:Person {name:"Alice"})' % node._id
-
-
-class NodePointerTestCase(Py2neoTestCase):
-
-    def test_node_pointer_equality(self):
-        p1 = NodePointer(42)
-        p2 = NodePointer(42)
-        assert p1 == p2
-
-    def test_node_pointer_inequality(self):
-        p1 = NodePointer(42)
-        p2 = NodePointer(69)
-        assert p1 != p2
-
-    def test_node_pointer_hashes(self):
-        assert hash(NodePointer(42)) == hash(NodePointer(42))
-
-    def test_node_pointer_repr(self):
-        pointer = NodePointer(3456)
-        assert_repr(pointer, "<NodePointer address=3456>")
-
-    def test_node_pointer_str(self):
-        pointer = NodePointer(3456)
-        assert str(pointer) == "{3456}"

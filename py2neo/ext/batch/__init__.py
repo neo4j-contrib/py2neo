@@ -19,8 +19,8 @@
 import json
 import logging
 
-from py2neo.compat import ustr
-from py2neo.core import NodePointer, Bindable, Graph, Path, Node, Relationship, cast
+from py2neo.compat import ustr, xstr, integer
+from py2neo.core import Bindable, Graph, Path, Node, Relationship, NodeProxy, cast as core_cast
 from py2neo.cypher import Result, cypher_request
 from py2neo.status import GraphError, Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -28,6 +28,44 @@ from py2neo.util import pendulate, raise_from
 
 
 log = logging.getLogger("py2neo.ext.batch")
+
+
+def cast(obj):
+    if isinstance(obj, integer):
+        obj = NodePointer(obj)
+    elif isinstance(obj, tuple):
+        obj = tuple(NodePointer(x) if isinstance(x, integer) else x for x in obj)
+    return core_cast(obj)
+
+
+class NodePointer(NodeProxy):
+    """ Pointer to a :class:`Node` object. This can be used in a batch
+    context to point to a node not yet created.
+    """
+
+    #: The address or index to which this pointer points.
+    address = None
+
+    def __init__(self, address):
+        self.address = address
+
+    def __repr__(self):
+        return "<NodePointer address=%s>" % self.address
+
+    def __str__(self):
+        return xstr(self.__unicode__())
+
+    def __unicode__(self):
+        return "{%s}" % self.address
+
+    def __eq__(self, other):
+        return self.address == other.address
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.address)
 
 
 def _create_query(p, unique=False):
@@ -200,7 +238,7 @@ class Target(object):
         return uri_string
 
 
-class Job(object):
+class Job(NodeProxy):
     """ A single request for inclusion within a :class:`.Batch`.
     """
 

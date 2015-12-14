@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.ext.batch import ReadBatch, WriteBatch, Job, Target
-from py2neo.core import Node, Relationship, NodePointer, cast_node, cast_relationship
+from py2neo.ext.batch import ReadBatch, WriteBatch, Job, Target, NodePointer
+from py2neo.core import Node, Relationship, cast_node, cast_relationship
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 
 

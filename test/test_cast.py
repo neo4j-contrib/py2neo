@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, NodePointer, Relationship, cast, cast_node, cast_relationship
+from py2neo import  Node, Relationship, cast, cast_node, cast_relationship
 from test.util import Py2neoTestCase
 
 
@@ -89,8 +89,6 @@ class CastNodeTestCase(Py2neoTestCase):
         assert_node(cast_node({"name": "Alice"}), name="Alice")
         assert_node(cast_node(("Person", "Employee", {"name": "Alice", "age": 33})),
                     "Person", "Employee", name="Alice", age=33)
-        assert cast_node(42) == NodePointer(42)
-        assert cast_node(NodePointer(42)) == NodePointer(42)
         with self.assertRaises(TypeError):
             cast_node(3.14)
 

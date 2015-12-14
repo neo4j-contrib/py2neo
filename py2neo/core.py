@@ -42,7 +42,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     raise_from, ThreadLocalWeakValueDictionary, deprecated
 
 
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer",
+__all__ = ["Graph", "Node", "Relationship", "Path",
            "ServiceRoot",
            "authenticate", "rewrite",
            "Bindable", "Resource", "ResourceTemplate",
@@ -1315,34 +1315,10 @@ class Node(Bindable, PrimitiveNode):
         self.__id = None
 
 
-class NodePointer(object):
-    """ Pointer to a :class:`Node` object. This can be used in a batch
-    context to point to a node not yet created.
+class NodeProxy(object):
+    """ Base class for objects that can be used in place of a node.
     """
-
-    #: The address or index to which this pointer points.
-    address = None
-
-    def __init__(self, address):
-        self.address = address
-
-    def __repr__(self):
-        return "<NodePointer address=%s>" % self.address
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
-        return "{%s}" % self.address
-
-    def __eq__(self, other):
-        return self.address == other.address
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.address)
+    pass
 
 
 class Relationship(Bindable, PrimitiveRelationship):
@@ -1742,7 +1718,7 @@ def cast(obj, entities=None):
     """
     if obj is None:
         return None
-    elif isinstance(obj, (Node, NodePointer, Path, Relationship)):
+    elif isinstance(obj, (Node, NodeProxy, Relationship, Path)):
         return obj
     elif isinstance(obj, dict):
         return cast_node(obj)
@@ -1753,13 +1729,8 @@ def cast(obj, entities=None):
 
 
 def cast_node(obj):
-    from py2neo.ext.batch import Job
-    if obj is None:
-        return None
-    elif isinstance(obj, (Node, NodePointer, Job)):
+    if obj is None or isinstance(obj, (Node, NodeProxy)):
         return obj
-    elif isinstance(obj, integer):
-        return NodePointer(obj)
 
     def apply(x):
         if isinstance(x, dict):

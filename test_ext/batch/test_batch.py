@@ -18,7 +18,7 @@
 
 from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
 from py2neo.ext.batch import BatchRunner, WriteBatch, CypherJob, \
-    BatchError, Job, Target
+    BatchError, Job, Target, NodePointer
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from py2neo.ext.mandex import ManualIndexWriteBatch
 from test.util import Py2neoTestCase
@@ -158,7 +158,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
     def test_create_function(self):
         self.batch.create(Node(name="Alice"))
         self.batch.create(Node(name="Bob"))
-        self.batch.create(Relationship(0, "KNOWS", 1))
+        self.batch.create((0, "KNOWS", 1))
         alice, bob, ab = self.batch.run()
         assert isinstance(alice, Node)
         assert alice["name"] == "Alice"
@@ -588,3 +588,23 @@ class WriteBatchTestCase(Py2neoTestCase):
         alice = results[0]
         self.graph.pull(alice)
         assert alice.labels() == {"mystery", "badger"}
+
+
+class NodePointerTestCase(Py2neoTestCase):
+
+    def test_node_pointer_equality(self):
+        p1 = NodePointer(42)
+        p2 = NodePointer(42)
+        assert p1 == p2
+
+    def test_node_pointer_inequality(self):
+        p1 = NodePointer(42)
+        p2 = NodePointer(69)
+        assert p1 != p2
+
+    def test_node_pointer_hashes(self):
+        assert hash(NodePointer(42)) == hash(NodePointer(42))
+
+    def test_node_pointer_str(self):
+        pointer = NodePointer(3456)
+        assert str(pointer) == "{3456}"
