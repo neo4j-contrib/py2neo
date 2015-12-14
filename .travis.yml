@@ -13,3 +13,4 @@ script:
   - export JAVA_HOME=/usr/lib/jvm/java-8-oracle
   - pip install --upgrade pip
   - ONLINE=1 ./bau test
+  - ONLINE=1 ./bau test-ext
