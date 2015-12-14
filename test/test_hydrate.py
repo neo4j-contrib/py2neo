@@ -21,7 +21,11 @@ from test.util import Py2neoTestCase
 
 
 class HydrationTestCase(Py2neoTestCase):
-    
+
+    def setUp(self):
+        Node.cache.clear()
+        Relationship.cache.clear()
+
     def test_minimal_node_hydrate(self):
         dehydrated = {
             "self": "http://localhost:7474/db/data/node/0",
