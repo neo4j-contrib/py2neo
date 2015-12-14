@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2012-2014 Nigel Small
+# Copyright 2012-2015 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 
 LATEST_2_0_VERSION="2.0.4"
-LATEST_2_1_VERSION="2.1.5"
+LATEST_2_1_VERSION="2.1.8"
 LATEST_2_2_VERSION="2.2.7"
 LATEST_2_3_VERSION="2.3.1"
 LATEST_3_0_VERSION="3.0.0-M01"
@@ -241,7 +241,7 @@ case $COMMAND in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        NEO4J_VERSIONS="3.0 2.3 2.2 2.0"
         test
         ;;
     test-latest)
@@ -249,7 +249,7 @@ case $COMMAND in
         test
         ;;
     test-ext)
-        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        NEO4J_VERSIONS="3.0 2.3 2.2 2.0"
         test text_ext
         ;;
     test-ext-latest)
