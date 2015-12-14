@@ -782,16 +782,13 @@ class Graph(Bindable):
                     return Node.hydrate(data, inst)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
-                    from py2neo.ext.batch import Job, Target
-                    node_uris = data["nodes"]
-                    relationship_uris = data["relationships"]
-                    jobs = [Job("GET", Target(uri)) for uri in relationship_uris]
                     directions = []
-                    for i, result in enumerate(self.batch.submit(jobs)):
-                        rel_data = result.content
-                        start = rel_data["start"]
-                        end = rel_data["end"]
-                        if start == node_uris[i] and end == node_uris[i + 1]:
+                    relationships = self.cypher.evaluate(
+                        "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
+                        x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
+                    node_uris = data["nodes"]
+                    for i, relationship in enumerate(relationships):
+                        if relationship.start_node().uri == node_uris[i]:
                             directions.append("->")
                         else:
                             directions.append("<-")
