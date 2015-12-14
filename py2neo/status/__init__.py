@@ -19,6 +19,8 @@
 from importlib import import_module
 import json
 
+from py2neo.compat import xstr
+
 
 class BindError(Exception):
     """ Raised when a local graph entity is not or cannot be bound
@@ -53,11 +55,7 @@ class GraphError(Exception):
     def __new__(cls, *args, **kwargs):
         try:
             exception = kwargs["exception"]
-            try:
-                error_cls = type(exception, (cls,), {})
-            except TypeError:
-                # for Python 2.x
-                error_cls = type(str(exception), (cls,), {})
+            error_cls = type(xstr(exception), (cls,), {})
         except KeyError:
             error_cls = cls
         return Exception.__new__(error_cls, *args)
@@ -88,10 +86,6 @@ class CypherError(GraphError):
 
     def __init__(self, message, **kwargs):
         GraphError.__init__(self, message, **kwargs)
-        if self.request:
-            request_body = json.loads(self.request.body)
-            self.statement = request_body.get("query")
-            self.parameters = request_body.get("params")
 
 
 class TransactionError(CypherError):

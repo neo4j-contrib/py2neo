@@ -24,7 +24,7 @@ from py2neo.core import Bindable, Graph, Path, Node, Relationship, NodeProxy, ca
 from py2neo.cypher import Result, cypher_request
 from py2neo.status import GraphError, Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
-from py2neo.util import pendulate, raise_from
+from py2neo.util import raise_from
 
 
 log = logging.getLogger("py2neo.ext.batch")
@@ -36,6 +36,16 @@ def cast(obj):
     elif isinstance(obj, tuple):
         obj = tuple(NodePointer(x) if isinstance(x, integer) else x for x in obj)
     return core_cast(obj)
+
+
+def pendulate(collection):
+    count = len(collection)
+    for i in range(count):
+        if i % 2 == 0:
+            index = i // 2
+        else:
+            index = count - ((i + 1) // 2)
+        yield index, collection[index]
 
 
 class NodePointer(NodeProxy):

@@ -16,7 +16,14 @@
 # limitations under the License.
 
 
+try:
+    from configparser import SafeConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser
+
+import os
 from sys import version_info
+
 
 if version_info >= (3,):
 
@@ -49,7 +56,23 @@ if version_info >= (3,):
         """
         return ustr(s, encoding)
 
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            with open(filename) as f:
+                data = f.read()
+            self.read_string("[%s]\n%s" % (section, data), filename)
+
 else:
+    import codecs
+    from io import StringIO
+
     integer = (int, long)
     string = (str, unicode)
     unicode = unicode
@@ -79,3 +102,19 @@ else:
             return s
         else:
             return unicode(s).encode(encoding)
+
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            data = StringIO()
+            data.write("[%s]\n" % section)
+            with codecs.open(filename, encoding="utf-8") as f:
+                data.write(f.read())
+            data.seek(0, os.SEEK_SET)
+            self.readfp(data)

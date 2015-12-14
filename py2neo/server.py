@@ -32,11 +32,10 @@ import shlex
 import sys
 
 from py2neo import ServiceRoot
-from py2neo.compat import ustr
+from py2neo.compat import ustr, PropertiesParser
 from py2neo.env import NEO4J_DIST, NEO4J_HOME
 from py2neo.packages.httpstream import download as _download
 from py2neo.store import GraphStore
-from py2neo.util import PropertiesParser
 
 
 __all__ = ["dist_name", "dist_archive_name", "download", "GraphServer", "GraphServerProcess"]
