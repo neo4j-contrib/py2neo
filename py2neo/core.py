@@ -46,10 +46,6 @@ __all__ = ["DBMS",
            "relationship"]
 
 
-NON_ALPHA_NUM = re.compile("[^0-9A-Za-z_]")
-SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
-
-
 class DBMS(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
