@@ -20,7 +20,8 @@ import logging
 from unittest import skipUnless
 
 from py2neo import Unauthorized
-from py2neo.core import Graph, Node, _add_header, _get_headers, rewrite, Resource, GraphError
+from py2neo.core import Graph, Node, GraphError
+from py2neo.http import _add_header, _get_headers, rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 from test.util import Py2neoTestCase
