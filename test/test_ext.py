@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from py2neo import Resource
 from py2neo.ext import ServerPlugin, UnmanagedExtension
 from test.util import Py2neoTestCase
 from test.compat import patch
@@ -38,7 +39,7 @@ class ServerPluginTestCase(Py2neoTestCase):
     def test_can_init_server_plugin(self):
         metadata = self.graph.resource.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.bind(self.graph.uri, metadata)
+        self.graph.resource = Resource(self.graph.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 

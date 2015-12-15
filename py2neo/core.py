@@ -542,7 +542,7 @@ class ServiceRoot(object):
         return self.resource.uri
 
 
-class Graph(Bindable):
+class Graph(object):
     """ The `Graph` class provides a wrapper around the
     `REST API <http://docs.neo4j.org/chunked/stable/rest-api.html>`_ exposed
     by a running Neo4j database server and is identified by the base URI of
@@ -571,9 +571,7 @@ class Graph(Bindable):
 
     __instances = {}
 
-    __batch = None
     __cypher = None
-    __legacy = None
     __schema = None
     __node_labels = None
     __relationship_types = None
@@ -588,7 +586,7 @@ class Graph(Bindable):
             inst = cls.__instances[key]
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
-            inst.bind(uri)
+            inst.resource = Resource(uri)
             cls.__instances[key] = inst
         return inst
 
@@ -1011,7 +1009,7 @@ class Graph(Bindable):
                               "to": "relationship/%d/properties" % relationship._id,
                               "body": dict(relationship)})
                 i += 1
-        self.graph.resource.resolve("batch").post(batch)
+        self.resource.resolve("batch").post(batch)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -1047,6 +1045,10 @@ class Graph(Bindable):
             self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 
+    @property
+    def service_root(self):
+        return self.resource.service_root
+
     def size(self):
         """ The number of relationships in this graph.
         """
@@ -1057,6 +1059,10 @@ class Graph(Bindable):
         """ Returns :py:`True` if auth is supported by this version of Neo4j.
         """
         return self.neo4j_version >= (2, 2)
+
+    @property
+    def uri(self):
+        return self.resource.uri
 
 
 class Node(Bindable, PrimitiveNode):
