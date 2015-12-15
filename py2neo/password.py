@@ -22,7 +22,7 @@ import base64
 import os
 import sys
 
-from py2neo import GraphError, Bindable, ServiceRoot
+from py2neo import GraphError, Resource, ServiceRoot
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
@@ -59,7 +59,7 @@ def auth_header_value(user_name, password, realm=None):
     return value
 
 
-class UserManager(Bindable):
+class UserManager(object):
     """ User management service.
     """
 
@@ -75,19 +75,11 @@ class UserManager(Bindable):
         inst.resource._headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
         return inst
 
-    __instances = {}
-
     #: Instance metadata, updated on refresh.
     metadata = None
 
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(UserManager, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self.resource = Resource(uri)
 
     def refresh(self):
         """ Refresh the stored metadata.
@@ -114,20 +106,12 @@ class UserManager(Bindable):
         return self.metadata["password_change_required"]
 
 
-class PasswordManager(Bindable):
+class PasswordManager(object):
     """ Password management service.
     """
 
-    __instances = {}
-
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(PasswordManager, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self.resource = Resource(uri)
 
     def change(self, new_password):
         """ Change the authentication password.
