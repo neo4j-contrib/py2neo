@@ -1183,9 +1183,6 @@ class Node(Bindable, PrimitiveNode):
     def __add__(self, other):
         return Path(self, other)
 
-    def __nodes__(self):
-        yield self
-
     def __getitem__(self, item):
         if self.bound and "properties" in self.__stale:
             self.refresh()
