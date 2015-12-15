@@ -1065,7 +1065,7 @@ class Entity(object):
             return resource.uri_template
 
 
-class Node(Entity, PrimitiveNode):
+class Node(PrimitiveNode, Entity):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1329,7 +1329,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(Entity, PrimitiveRelationship):
+class Relationship(PrimitiveRelationship, Entity):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
