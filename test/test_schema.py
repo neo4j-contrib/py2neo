@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import GraphError, Node, cast_node
+from py2neo import GraphError, Node, node
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 from test.util import Py2neoTestCase
 from test.compat import patch
@@ -38,7 +38,7 @@ class SchemaTestCase(Py2neoTestCase):
     def test_schema_index(self):
         label_1 = next(self.unique_string)
         label_2 = next(self.unique_string)
-        munich = cast_node({'name': "München", 'key': "09162000"})
+        munich = node({'name': "München", 'key': "09162000"})
         self.graph.create(munich)
         munich.clear_labels()
         munich.update_labels({label_1, label_2})

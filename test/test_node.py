@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, BindError, Relationship, Path, cast_node
-from test.compat import long, assert_repr
+from py2neo import Node, BindError, Relationship, Path, node
+from test.compat import long
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError
 
@@ -87,11 +87,11 @@ class NodeTestCase(Py2neoTestCase):
         assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_will_error_when_refreshing_deleted_node(self):
-        node = Node()
-        self.graph.create(node)
-        self.graph.delete(node)
+        a = Node()
+        self.graph.create(a)
+        self.graph.delete(a)
         with self.assertRaises(BindError):
-            node.refresh()
+            a.refresh()
 
 
 class AbstractNodeTestCase(Py2neoTestCase):
@@ -122,7 +122,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
 class ConcreteNodeTestCase(Py2neoTestCase):
 
     def test_can_create_concrete_node(self):
-        alice = cast_node({"name": "Alice", "age": 34})
+        alice = node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
         assert alice.bound
@@ -143,7 +143,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
             "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
             "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
         }
-        foo = cast_node(data)
+        foo = node(data)
         self.graph.create(foo)
         for key, value in data.items():
             self.assertEqual(foo[key], value)
@@ -167,16 +167,16 @@ class ConcreteNodeTestCase(Py2neoTestCase):
             foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
 
     def test_relative_uri_of_bound_node(self):
-        node = Node()
-        self.graph.create(node)
-        relative_uri_string = node.ref
-        assert node.uri.string.endswith(relative_uri_string)
+        a = Node()
+        self.graph.create(a)
+        relative_uri_string = a.ref
+        assert a.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
 
     def test_relative_uri_of_unbound_node(self):
-        node = Node()
+        a = Node()
         with self.assertRaises(BindError):
-            _ = node.ref
+            _ = a.ref
 
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")
@@ -187,7 +187,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         assert hash(node_1) == hash(node_2)
 
     def test_node_str(self):
-        node = Node("Person", name="Alice")
-        assert str(node) == '(:Person {name:"Alice"})'
-        self.graph.create(node)
-        assert str(node) == '(n%s:Person {name:"Alice"})' % node._id
+        a = Node("Person", name="Alice")
+        assert str(a) == '(:Person {name:"Alice"})'
+        self.graph.create(a)
+        assert str(a) == '(n%s:Person {name:"Alice"})' % a._id

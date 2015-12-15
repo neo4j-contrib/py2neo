@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 
 from py2neo.ext.batch import ReadBatch, WriteBatch, Job, Target, NodePointer
-from py2neo.core import Node, Relationship, cast_node, cast_relationship
+from py2neo.core import Node, Relationship, node, relationship
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 
 
@@ -183,21 +183,21 @@ class ManualIndexWriteBatch(WriteBatch):
     def _create_in_index(self, cls, index, key, value, abstract, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
         if cls is Node:
-            node = cast_node(abstract)
+            a = node(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "properties": dict(node),
+                "properties": dict(a),
             })
         elif cls is Relationship:
-            relationship = cast_relationship(abstract)
+            r = relationship(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "start": self._uri_for(abstract.start_node()),
                 "type": str(abstract.type()),
                 "end": self._uri_for(abstract.end_node()),
-                "properties": dict(relationship),
+                "properties": dict(r),
             })
         else:
             raise TypeError(cls)
@@ -243,9 +243,9 @@ class ManualIndexWriteBatch(WriteBatch):
         """
         query = "uniqueness=get_or_create"
         if cls is Node:
-            return self._create_in_index(cls, index, key, value, cast_node(abstract), query)
+            return self._create_in_index(cls, index, key, value, node(abstract), query)
         elif cls is Relationship:
-            return self._create_in_index(cls, index, key, value, cast_relationship(abstract), query)
+            return self._create_in_index(cls, index, key, value, relationship(abstract), query)
         else:
             raise TypeError("Unindexable class")
 

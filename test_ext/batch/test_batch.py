@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
+from py2neo import Node, Relationship, Finished, node, relationship
 from py2neo.ext.batch import BatchRunner, WriteBatch, CypherJob, \
     BatchError, Job, Target, NodePointer
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
@@ -43,7 +43,7 @@ class NodeCreationTestCase(Py2neoTestCase):
 
     def test_can_create_multiple_nodes(self):
         self.batch.create({"name": "Alice"})
-        self.batch.create(cast_node({"name": "Bob"}))
+        self.batch.create(node({"name": "Bob"}))
         self.batch.create(Node(name="Carol"))
         alice, bob, carol = self.batch.run()
         assert isinstance(alice, Node)
@@ -271,9 +271,9 @@ class PropertyManagementTestCase(Py2neoTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
-        self.alice = cast_node({"name": "Alice", "surname": "Allison"})
-        self.bob = cast_node({"name": "Bob", "surname": "Robertson"})
-        self.friends = cast_relationship((self.alice, "KNOWS", self.bob, {"since": 2000}))
+        self.alice = node({"name": "Alice", "surname": "Allison"})
+        self.bob = node({"name": "Bob", "surname": "Robertson"})
+        self.friends = relationship((self.alice, "KNOWS", self.bob, {"since": 2000}))
         self.graph.create(self.alice | self.bob | self.friends)
 
     def _check_properties(self, entity, expected_properties):
@@ -416,8 +416,8 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[1]["name"] == "Bob"
 
     def test_can_create_path_with_existing_nodes(self):
-        alice = cast_node({"name": "Alice"})
-        bob = cast_node({"name": "Bob"})
+        alice = node({"name": "Alice"})
+        bob = node({"name": "Bob"})
         self.graph.create(alice | bob)
         self.batch.create_path(alice, "KNOWS", bob)
         results = self.batch.run()
@@ -506,7 +506,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["age"] == 34
 
     def test_can_delete_property_on_preexisting_node(self):
-        alice = cast_node({"name": "Alice", "age": 34})
+        alice = node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         self.batch.delete_property(alice, "age")
         self.batch.run()
@@ -524,7 +524,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["age"] is None
 
     def test_can_delete_properties_on_preexisting_node(self):
-        alice = cast_node({"name": "Alice", "age": 34})
+        alice = node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         self.batch.delete_properties(alice)
         self.batch.run()
