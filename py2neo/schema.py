@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Bindable, ResourceTemplate, GraphError
+from py2neo import ResourceTemplate, GraphError
 from py2neo.packages.httpstream import Response
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 
@@ -24,26 +24,17 @@ from py2neo.packages.httpstream.numbers import NOT_FOUND
 __all__ = ["SchemaResource"]
 
 
-class SchemaResource(Bindable):
+class SchemaResource(object):
     """ The schema resource attached to a `Graph` instance.
     """
 
-    __instances = {}
-
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(SchemaResource, cls).__new__(cls)
-            inst.bind(uri)
-            inst._index_template = ResourceTemplate(uri + "/index/{label}")
-            inst._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
-            inst._uniqueness_constraint_template = \
-                ResourceTemplate(uri + "/constraint/{label}/uniqueness")
-            inst._uniqueness_constraint_key_template = \
-                ResourceTemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self._index_template = ResourceTemplate(uri + "/index/{label}")
+        self._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
+        self._uniqueness_constraint_template = \
+            ResourceTemplate(uri + "/constraint/{label}/uniqueness")
+        self._uniqueness_constraint_key_template = \
+            ResourceTemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
 
     def create_index(self, label, property_key):
         """ Create a schema index for a label and property
