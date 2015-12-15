@@ -21,7 +21,7 @@
 from unittest import TestCase
 
 from py2neo.primitive import PropertySet, PropertyContainer, TraversableSubgraph, \
-    Subgraph, Node, Relationship, Path, Record, RecordList, traverse
+    Subgraph, Node, Relationship, Path, Record, traverse
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -40,8 +40,6 @@ record_a = Record(record_keys, [1001, alice])
 record_b = Record(record_keys, [1002, bob])
 record_c = Record(record_keys, [1003, carol])
 record_d = Record(record_keys, [1004, dave])
-
-record_list = RecordList([record_a, record_b, record_c, record_d])
 
 
 class PropertyCoercionTestCase(TestCase):
@@ -352,7 +350,8 @@ class TraversableSubgraphTestCase(TestCase):
         assert hash(self.subgraph) == hash(other_subgraph)
 
     def test_inequality(self):
-        other_subgraph = TraversableSubgraph(alice, alice_likes_carol, carol, carol_dislikes_bob, bob)
+        other_subgraph = TraversableSubgraph(alice, alice_likes_carol, carol,
+                                             carol_dislikes_bob, bob)
         assert self.subgraph != other_subgraph
         assert hash(self.subgraph) != hash(other_subgraph)
 
@@ -834,7 +833,8 @@ class ConcatenationTestCase(TestCase):
         assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_can_concatenate_path_and_path(self):
-        result = TraversableSubgraph(alice, alice_knows_bob, bob) + TraversableSubgraph(bob, carol_dislikes_bob, carol)
+        result = (TraversableSubgraph(alice, alice_knows_bob, bob) +
+                  TraversableSubgraph(bob, carol_dislikes_bob, carol))
         assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_cannot_concatenate_different_endpoints(self):
@@ -966,25 +966,3 @@ class RecordTestCase(TestCase):
         assert record.relationships() == {alice_knows_bob}
         assert list(record.keys()) == keys
         assert list(record.values()) == values
-
-
-class RecordListTestCase(TestCase):
-
-    def test_record_list_length(self):
-        assert len(record_list) == 4
-
-    def test_record_iter(self):
-        listed = list(record_list)
-        assert listed == [record_a, record_b, record_c, record_d]
-
-    def test_record_list_get_item(self):
-        assert record_list[0] == record_a
-        assert record_list[1] == record_b
-        assert record_list[2] == record_c
-        assert record_list[3] == record_d
-
-    def test_record_list_get_slice(self):
-        assert record_list[0:2] == RecordList([record_a, record_b])
-
-    def test_record_keys(self):
-        assert record_list.keys() == set(record_keys)

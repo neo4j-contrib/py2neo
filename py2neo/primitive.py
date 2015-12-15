@@ -23,7 +23,7 @@ from .compat import integer, string, unicode, ustr
 
 
 __all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "Path",
-           "Record", "RecordList", "traverse"]
+           "Record", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -570,33 +570,3 @@ class Record(tuple, Subgraph):
 
     def values(self):
         return tuple(self)
-
-
-class RecordList(Subgraph):
-
-    def __init__(self, records):
-        keys = set()
-        nodes = []
-        relationships = []
-        for record in records:
-            keys.update(record.keys())
-            nodes.extend(record.nodes())
-            relationships.extend(record.relationships())
-        Subgraph.__init__(self, nodes, relationships)
-        self.__keys = frozenset(keys)
-        self.__records = list(records)
-
-    def __len__(self):
-        return len(self.__records)
-
-    def __getitem__(self, item):
-        if isinstance(item, slice):
-            return self.__class__(self.__records[item.start:item.stop])
-        else:
-            return self.__records[item]
-
-    def __iter__(self):
-        return iter(self.__records)
-
-    def keys(self):
-        return self.__keys
