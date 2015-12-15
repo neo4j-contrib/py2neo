@@ -20,7 +20,7 @@ import json
 import logging
 
 from py2neo.compat import ustr, xstr, integer
-from py2neo.core import Bindable, Graph, Path, Node, Relationship, NodeProxy, cast as core_cast
+from py2neo.core import Resource, Graph, Path, Node, Relationship, NodeProxy, cast as core_cast
 from py2neo.cypher import Result, cypher_request
 from py2neo.status import GraphError, Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -139,20 +139,12 @@ class BatchError(GraphError):
         self.location = location
 
 
-class BatchRunner(Bindable):
+class BatchRunner(object):
     """ Resource for batch execution.
     """
 
-    __instances = {}
-
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(BatchRunner, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self.resource = Resource(uri)
 
     def post(self, batch):
         """ Post a batch of jobs to the server and receive a raw
