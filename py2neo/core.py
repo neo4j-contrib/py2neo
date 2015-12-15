@@ -1053,6 +1053,11 @@ class Graph(Bindable):
         statement = "MATCH ()-[r]->() RETURN count(r)"
         return self.cypher.evaluate(statement)
 
+    def supports_auth(self):
+        """ Returns :py:`True` if auth is supported by this version of Neo4j.
+        """
+        return self.neo4j_version >= (2, 2)
+
 
 class Node(Bindable, PrimitiveNode):
     """ A graph node that may optionally be bound to a remote counterpart
