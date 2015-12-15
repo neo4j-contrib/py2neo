@@ -104,7 +104,7 @@ def cypher_request(statement, parameters, **kwparameters):
     ])
 
 
-class CypherEngine(Bindable):
+class CypherEngine(object):
     """ Service wrapper for all Cypher functionality, providing access
     to transactions as well as single statement execution and streaming.
 
@@ -121,16 +121,8 @@ class CypherEngine(Bindable):
 
     error_class = CypherError
 
-    __instances = {}
-
-    def __new__(cls, transaction_uri):
-        try:
-            inst = cls.__instances[transaction_uri]
-        except KeyError:
-            inst = super(CypherEngine, cls).__new__(cls)
-            inst.bind(transaction_uri)
-            cls.__instances[transaction_uri] = inst
-        return inst
+    def __init__(self, transaction_uri):
+        self.transaction_uri = transaction_uri
 
     def post(self, statement, parameters=None, **kwparameters):
         """ Post a Cypher statement to this resource, optionally with
@@ -222,8 +214,7 @@ class Transaction(object):
         log.info("begin")
         self.statements = []
         self.results = []
-        self.cypher = cypher
-        uri = self.cypher.resource.uri.string
+        uri = cypher.transaction_uri
         self._begin = Resource(uri)
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None

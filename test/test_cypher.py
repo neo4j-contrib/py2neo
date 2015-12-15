@@ -42,30 +42,19 @@ class CypherTestCase(Py2neoTestCase):
         value = first[0]
         assert value == 1
 
-    def test_can_create_cypher_engine(self):
-        uri = "http://localhost:7474/db/data/transaction"
-        cypher = CypherEngine(uri)
-        assert cypher.uri == uri
-
-    def test_cypher_engines_with_identical_arguments_are_same_objects(self):
-        uri = "http://localhost:7474/db/data/cypher"
-        cypher_1 = CypherEngine(uri)
-        cypher_2 = CypherEngine(uri)
-        assert cypher_1 is cypher_2
-
     def test_can_run_cypher_statement(self):
         self.cypher.run("MERGE (a:Person {name:'Alice'})")
 
     def test_can_run_parametrised_cypher_statement(self):
         self.cypher.run("MERGE (a:Person {name:{N}})", {"N": "Alice"})
 
-    def test_can_run_cypher_statement(self):
+    def test_can_run_cypher_statement_1(self):
         value = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
         assert value.labels() == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
-    def test_can_run_parametrised_cypher_statement(self):
+    def test_can_run_parametrised_cypher_statement_1(self):
         value = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(value, Node)
         assert value.labels() == {"Person"}
