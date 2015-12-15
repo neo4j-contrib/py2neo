@@ -17,6 +17,7 @@
 
 
 import logging
+from py2neo import Unauthorized
 
 from py2neo.core import Graph, Node, _add_header, _get_headers, rewrite, Resource, GraphError
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
@@ -291,3 +292,22 @@ class EfficiencyTestCase(Py2neoTestCase):
             assert dict(bob) == {"name": "Bob"}
             assert friendship.type() == "KNOWS"
             assert counter.response_count == 1
+
+
+class AuthTestCase(Py2neoTestCase):
+
+    def test_can_raise_unauthorized_on_get(self):
+        with self.assertRaises(Unauthorized):
+            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").get().content
+
+    def test_can_raise_unauthorized_on_put(self):
+        with self.assertRaises(Unauthorized):
+            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").put({}).content
+
+    def test_can_raise_unauthorized_on_post(self):
+        with self.assertRaises(Unauthorized):
+            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").post({}).content
+
+    def test_can_raise_unauthorized_on_delete(self):
+        with self.assertRaises(Unauthorized):
+            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").delete().content
