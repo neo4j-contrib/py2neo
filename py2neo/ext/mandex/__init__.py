@@ -17,7 +17,7 @@
 
 
 from py2neo.ext.mandex.batch import *
-from py2neo.core import Bindable, Node, Relationship, Resource, ResourceTemplate
+from py2neo.core import Graph, Node, Relationship, Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
@@ -26,19 +26,11 @@ from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 __all__ = ["ManualIndexManager", "ManualIndex", "ManualIndexReadBatch", "ManualIndexWriteBatch"]
 
 
-class ManualIndexManager(Bindable):
+class ManualIndexManager(object):
 
-    __instances = {}
-
-    def __new__(cls, graph):
-        try:
-            inst = cls.__instances[graph.uri]
-        except KeyError:
-            inst = super(ManualIndexManager, cls).__new__(cls)
-            inst.bind(graph.uri)
-            inst._indexes = {Node: {}, Relationship: {}}
-            cls.__instances[graph.uri] = inst
-        return inst
+    def __init__(self, graph):
+        self.graph = graph
+        self._indexes = {Node: {}, Relationship: {}}
 
     def _index_manager(self, content_type):
         """ Fetch the index management resource for the given `content_type`.
@@ -47,9 +39,9 @@ class ManualIndexManager(Bindable):
         :return:
         """
         if content_type is Node:
-            uri = self.resource.metadata["node_index"]
+            uri = self.graph.resource.metadata["node_index"]
         elif content_type is Relationship:
-            uri = self.resource.metadata["relationship_index"]
+            uri = self.graph.resource.metadata["relationship_index"]
         else:
             raise TypeError("Indexes can manage either Nodes or Relationships")
         return Resource(uri)
@@ -185,34 +177,21 @@ class ManualIndexManager(Bindable):
         return None
 
 
-class ManualIndex(Bindable):
+class ManualIndex(object):
     """ Searchable database index which can contain either nodes or
     relationships.
 
     .. seealso:: :py:func:`Graph.get_or_create_index`
     """
 
-    __instances = {}
-
-    def __new__(cls, content_type, uri, name=None):
-        """ Fetch a cached instance if one is available, otherwise create,
-        cache and return a new instance.
-
-        :param uri: URI of the cached resource
-        :return: a resource instance
-        """
-        inst = super(ManualIndex, cls).__new__(cls)
-        return cls.__instances.setdefault(uri, inst)
-
     def __init__(self, content_type, uri, name=None):
-        Bindable.__init__(self)
         self._content_type = content_type
         key_value_pos = uri.find("/{key}/{value}")
         if key_value_pos >= 0:
             self._searcher = ResourceTemplate(uri)
-            self.bind(uri[:key_value_pos])
+            self.resource = Resource(uri[:key_value_pos])
         else:
-            self.bind(uri)
+            self.resource = Resource(uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
         uri = self.resource.uri
         self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
@@ -220,12 +199,13 @@ class ManualIndex(Bindable):
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
         self._name = name or uri.path.segments[-1]
         self.__searcher_stem_cache = {}
+        self.graph = Graph(uri.resolve("/db/data/").string)
 
     def __repr__(self):
         return "{0}({1}, {2})".format(
             self.__class__.__name__,
             self._content_type.__name__,
-            repr(self.uri.string)
+            repr(self.resource.uri.string)
         )
 
     def _searcher_stem_for_key(self, key):
@@ -290,6 +270,10 @@ class ManualIndex(Bindable):
         """
         return self._name
 
+    @property
+    def ref(self):
+        return self.resource.uri.string[len(self.graph.uri.string):]
+
     def get(self, key, value):
         """ Fetch a list of all entities from the index which are associated
         with the `key`:`value` pair supplied::
@@ -319,7 +303,7 @@ class ManualIndex(Bindable):
             batch.add_to_index(Relationship, self, key, value, 0)
         else:
             raise TypeError(self._content_type)
-        entity, index_entry = batch.submit()
+        entity, index_entry = batch.run()
         return entity
 
     def _create_unique(self, key, value, abstract):

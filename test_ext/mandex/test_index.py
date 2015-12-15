@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,26 +16,12 @@
 # limitations under the License.
 
 
-from __future__ import unicode_literals
-
-import logging
-
-import pytest
 from py2neo import Node
-from py2neo.ext.mandex import ManualIndex, ManualIndexManager
+from py2neo.ext.mandex import ManualIndex
+from .util import IndexTestCase
 
 
-logging.basicConfig(level=logging.DEBUG)
-
-
-class TestCreationAndDeletion(object):
-    graph = None
-    index_manager = None
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.index_manager = ManualIndexManager(self.graph)
+class CreationAndDeletionTestCase(IndexTestCase):
 
     def test_can_create_index_object_with_colon_in_name(self):
         if self.graph.neo4j_version >= (2, 2):
@@ -83,12 +69,10 @@ class TestCreationAndDeletion(object):
         assert foo is None
 
 
-class TestNodeIndex(object):
+class NodeIndexTestCase(IndexTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
-        self.index = index_manager.get_or_create_index(Node, "node_test_index")
+    def setUp(self):
+        self.index = self.index_manager.get_or_create_index(Node, "node_test_index")
 
     def test_add_existing_node_to_index(self):
         if self.graph.neo4j_version >= (2, 2):
@@ -163,11 +147,10 @@ class TestNodeIndex(object):
         if self.graph.neo4j_version >= (2, 2):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
-        alice, bob, carol = self.graph.create(
-            {"name": "Alice Smith"},
-            {"name": "Bob Smith"},
-            {"name": "Carol Smith"}
-        )
+        alice = Node(name="Alice Smith")
+        bob = Node(name="Bob Smith")
+        carol = Node(name="Carol Smith")
+        self.graph.create(alice | bob | carol)
         self.index.add("surname", "Smith", alice)
         self.index.add("surname", "Smith", bob)
         self.index.add("surname", "Smith", carol)
@@ -177,7 +160,7 @@ class TestNodeIndex(object):
         assert len(entities) == 3
         for entity in entities:
             assert entity in (alice, bob, carol)
-        self.graph.delete(alice, bob, carol)
+        self.graph.delete(alice | bob | carol)
 
     def test_create_node(self):
         if self.graph.neo4j_version >= (2, 2):
@@ -227,9 +210,9 @@ class TestNodeIndex(object):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
         self.graph.delete(*self.index.get("surname", "Smith"))
-        alice, bob = self.graph.create(
-            {"name": "Alice Smith"}, {"name": "Bob Smith"}
-        )
+        alice = Node(name="Alice Smith")
+        bob = Node(name="Bob Smith")
+        self.graph.create(alice | bob)
         # add Alice to the index - this should be successful
         result = self.index.add_if_none("surname", "Smith", alice)
         assert result == alice
@@ -246,42 +229,46 @@ class TestNodeIndex(object):
         assert isinstance(entities, list)
         assert len(entities) == 1
         assert entities[0] == alice
-        self.graph.delete(alice, bob)
+        self.graph.delete(alice | bob)
 
     def test_node_index_query(self):
         if self.graph.neo4j_version >= (2, 2):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
-        red, green, blue = self.graph.create({}, {}, {})
+        red = Node()
+        green = Node()
+        blue = Node()
+        red, green, blue = self.graph.create(red | green | blue)
         self.index.add("colour", "red", red)
         self.index.add("colour", "green", green)
         self.index.add("colour", "blue", blue)
-        colours_containing_R = self.index.query("colour:*r*")
-        assert red in colours_containing_R
-        assert green in colours_containing_R
-        assert blue not in colours_containing_R
-        self.graph.delete(red, green, blue)
+        colours_containing_r = self.index.query("colour:*r*")
+        assert red in colours_containing_r
+        assert green in colours_containing_r
+        assert blue not in colours_containing_r
+        self.graph.delete(red | green | blue)
 
     def test_node_index_query_utf8(self):
         if self.graph.neo4j_version >= (2, 2):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
-        red, green, blue = self.graph.create({}, {}, {})
+        red = Node()
+        green = Node()
+        blue = Node()
+        red, green, blue = self.graph.create(red | green | blue)
         self.index.add("colour", "красный", red)
         self.index.add("colour", "зеленый", green)
         self.index.add("colour", "синий", blue)
-        colours_containing_R = self.index.query("colour:*ный*")
-        assert red in colours_containing_R
-        assert green in colours_containing_R
-        assert blue not in colours_containing_R
-        self.graph.delete(red, green, blue)
+        colours_containing_r = self.index.query("colour:*ный*")
+        assert red in colours_containing_r
+        assert green in colours_containing_r
+        assert blue not in colours_containing_r
+        self.graph.delete(red | green | blue)
 
 
-class TestRemoval(object):
+class RemovalTestCase(IndexTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def setUp(self):
         if self.graph.neo4j_version >= (2, 2):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
@@ -290,9 +277,9 @@ class TestRemoval(object):
         except LookupError:
             pass
         self.index = self.index_manager.get_or_create_index(Node, "node_removal_test_index")
-        self.fred, self.wilma, = self.graph.create(
-            {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
-        )
+        self.fred = Node(name="Fred Flintstone")
+        self.wilma = Node(name="Wilma Flintstone")
+        self.graph.create(self.fred | self.wilma)
         self.index.add("name", "Fred", self.fred)
         self.index.add("name", "Wilma", self.wilma)
         self.index.add("name", "Flintstone", self.fred)
@@ -350,14 +337,14 @@ class TestRemoval(object):
         self.check("flintstones", "%", self.wilma)
 
 
-class TestIndexedNode(object):
+class IndexedNodeTestCase(IndexTestCase):
 
-    def test_get_or_create_indexed_node_with_int_property(self, graph):
-        if graph.neo4j_version >= (2, 2):
+    def test_get_or_create_indexed_node_with_int_property(self):
+        if self.graph.neo4j_version >= (2, 2):
             # Skip due to legacy index bug in milestone (may be fixed in GA)
             return
-        fred = graph.legacy.get_or_create_indexed_node(
-            index_name="person", key="name", value="Fred", properties={"level" : 1})
+        fred = self.graph.legacy.get_or_create_indexed_node(
+            index_name="person", key="name", value="Fred", properties={"level": 1})
         assert isinstance(fred, Node)
         assert fred["level"] == 1
-        graph.delete(fred)
+        self.graph.delete(fred)

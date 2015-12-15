@@ -16,32 +16,29 @@
 # limitations under the License.
 
 
-import pytest
-
 from py2neo.core import Node, Relationship
 from py2neo.ext.mandex import ManualIndexManager, ManualIndexWriteBatch
+from .util import IndexTestCase
 
 
-class TestIndexedNodeCreation(object):
+class IndexedNodeCreationTestCase(IndexTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
+    def setUp(self):
         try:
-            index_manager.delete_index(Node, "People")
+            self.index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = index_manager.get_or_create_index(Node, "People")
-        self.batch = ManualIndexWriteBatch(graph)
-        self.graph = graph
+        self.people = self.index_manager.get_or_create_index(Node, "People")
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_create_single_indexed_node(self):
         properties = {"name": "Alice Smith"}
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(properties)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
-        alice, index_entry = self.batch.submit()
+        alice, index_entry = self.batch.run()
         assert isinstance(alice, Node)
-        assert alice.properties == properties
+        assert dict(alice) == properties
         self.graph.delete(alice)
 
     def test_can_create_two_similarly_indexed_nodes(self):
@@ -50,64 +47,63 @@ class TestIndexedNodeCreation(object):
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(alice_props)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
-        alice, alice_index_entry = self.batch.submit()
+        alice, alice_index_entry = self.batch.run()
         assert isinstance(alice, Node)
-        assert alice.properties == alice_props
+        assert dict(alice) == alice_props
         self.batch.jobs = []
         # create Bob
         bob_props = {"name": "Bob Smith"}
         # need to execute a pair of commands as "create in index" not available
         self.batch.create(bob_props)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", 0)
-        bob, bob_index_entry = self.batch.submit()
+        bob, bob_index_entry = self.batch.run()
         assert isinstance(bob, Node)
-        assert bob.properties == bob_props
+        assert dict(bob) == bob_props
         # check entries
         smiths = self.people.get("surname", "Smith")
         assert len(smiths) == 2
         assert alice in smiths
         assert bob in smiths
         # done
-        self.graph.delete(alice, bob)
+        self.graph.delete(alice | bob)
 
     def test_can_get_or_create_uniquely_indexed_node(self):
         # create Alice
         alice_props = {"name": "Alice Smith"}
         self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", alice_props)
-        alice, = self.batch.submit()
+        alice, = self.batch.run()
         assert isinstance(alice, Node)
-        assert alice.properties == alice_props
+        assert dict(alice) == alice_props
         self.batch.jobs = []
         # create Bob
         bob_props = {"name": "Bob Smith"}
         self.batch.get_or_create_in_index(Node, self.people, "surname", "Smith", bob_props)
-        bob, = self.batch.submit()
+        bob, = self.batch.run()
         assert isinstance(bob, Node)
-        assert bob.properties != bob_props
-        assert bob.properties == alice_props
+        assert dict(bob) != bob_props
+        assert dict(bob) == alice_props
         assert bob == alice
         # check entries
         smiths = self.people.get("surname", "Smith")
         assert len(smiths) == 1
         assert alice in smiths
         # done
-        self.graph.delete(alice, bob)
+        self.graph.delete(alice | bob)
 
 
-class TestIndexedNodeAddition(object):
+class IndexedNodeAdditionTestCase(IndexTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
+    def setUp(self):
         try:
-            index_manager.delete_index(Node, "People")
+            self.index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.people = index_manager.get_or_create_index(Node, "People")
-        self.batch = ManualIndexWriteBatch(graph)
-        self.graph = graph
+        self.people = self.index_manager.get_or_create_index(Node, "People")
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def test_can_add_single_node(self):
-        alice, = self.graph.create({"name": "Alice Smith"})
+        alice = Node(name="Alice Smith")
+        self.graph.create(alice)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", alice)
         self.batch.run()
         # check entries
@@ -118,11 +114,12 @@ class TestIndexedNodeAddition(object):
         self.graph.delete(alice)
 
     def test_can_add_two_similar_nodes(self):
-        alice, bob = self.graph.create(
-            {"name": "Alice Smith"}, {"name": "Bob Smith"})
+        alice = Node(name="Alice Smith")
+        bob = Node(name="Bob Smith")
+        self.graph.create(alice | bob)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", alice)
         self.batch.add_to_index(Node, self.people, "surname", "Smith", bob)
-        nodes = self.batch.submit()
+        nodes = self.batch.run()
         assert nodes[0] != nodes[1]
         # check entries
         smiths = self.people.get("surname", "Smith")
@@ -130,37 +127,39 @@ class TestIndexedNodeAddition(object):
         assert alice in smiths
         assert bob in smiths
         # done
-        self.graph.delete(alice, bob)
+        self.graph.delete(alice | bob)
 
     def test_can_add_nodes_only_if_none_exist(self):
-        alice, bob = self.graph.create(
-            {"name": "Alice Smith"}, {"name": "Bob Smith"})
+        alice = Node(name="Alice Smith")
+        bob = Node(name="Bob Smith")
+        self.graph.create(alice | bob)
         self.batch.get_or_add_to_index(Node, self.people, "surname", "Smith", alice)
         self.batch.get_or_add_to_index(Node, self.people, "surname", "Smith", bob)
-        nodes = self.batch.submit()
+        nodes = self.batch.run()
         assert nodes[0] == nodes[1]
         # check entries
         smiths = self.people.get("surname", "Smith")
         assert len(smiths) == 1
         assert alice in smiths
         # done
-        self.graph.delete(alice, bob)
+        self.graph.delete(alice | bob)
 
 
-class TestIndexedRelationshipAddition(object):
+class IndexedRelationshipAdditionTestCase(IndexTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
+    def setUp(self):
         try:
-            index_manager.delete_index(Relationship, "Friendships")
+            self.index_manager.delete_index(Relationship, "Friendships")
         except LookupError:
             pass
-        self.friendships = index_manager.get_or_create_index(Relationship, "Friendships")
-        self.batch = ManualIndexWriteBatch(graph)
-        self.graph = graph
+        self.friendships = self.index_manager.get_or_create_index(Relationship, "Friendships")
+        self.batch = ManualIndexWriteBatch(self.graph)
 
-    def test_can_add_single_relationship(self, graph):
-        alice, bob, ab = self.graph.create({"name": "Alice"}, {"name": "Bob"}, (0, "KNOWS", 1))
+    def test_can_add_single_relationship(self):
+        alice = Node(name="Alice Smith")
+        bob = Node(name="Bob Smith")
+        ab = Relationship(alice, "KNOWS", bob)
+        self.graph.create(alice | bob | ab)
         self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab)
         self.batch.run()
         # check entries
@@ -170,59 +169,25 @@ class TestIndexedRelationshipAddition(object):
         # done
         self.recycling = [ab, alice, bob]
 
-    def test_can_add_two_similar_relationships(self, graph):
-        alice, bob, ab1, ab2 = self.graph.create(
-            {"name": "Alice"}, {"name": "Bob"},
-            (0, "KNOWS", 1), (0, "KNOWS", 1))
-        self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab1)
-        self.batch.add_to_index(Relationship, self.friendships, "friends", "alice_&_bob", ab2)
-        self.batch.run()
-        # check entries
-        entries = self.friendships.get("friends", "alice_&_bob")
-        assert len(entries) == 2
-        assert ab1 in entries
-        assert ab2 in entries
-        # done
-        self.recycling = [ab1, ab2, alice, bob]
 
-    def test_can_add_relationships_only_if_none_exist(self):
-        alice, bob, ab1, ab2 = self.graph.create(
-            {"name": "Alice"}, {"name": "Bob"},
-            (0, "KNOWS", 1), (0, "KNOWS", 1))
-        self.batch.get_or_add_to_index(Relationship, self.friendships,
-                                       "friends", "alice_&_bob", ab1)
-        self.batch.get_or_add_to_index(Relationship, self.friendships,
-                                       "friends", "alice_&_bob", ab2)
-        results = self.batch.submit()
-        assert results[0] == results[1]
-        # check entries
-        entries = self.friendships.get("friends", "alice_&_bob")
-        assert len(entries) == 1
-        assert ab1 in entries
-        # done
-        self.recycling = [ab1, ab2, alice, bob]
+class IndexedNodeRemovalTestCase(IndexTestCase):
 
-
-class TestIndexedNodeRemoval(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
+    def setUp(self):
         try:
-            index_manager.delete_index(Node, "node_removal_test_index")
+            self.index_manager.delete_index(Node, "node_removal_test_index")
         except LookupError:
             pass
-        self.index = index_manager.get_or_create_index(Node, "node_removal_test_index")
-        self.fred, self.wilma, = graph.create(
-            {"name": "Fred Flintstone"}, {"name": "Wilma Flintstone"},
-        )
+        self.index = self.index_manager.get_or_create_index(Node, "node_removal_test_index")
+        self.fred = Node(name="Fred Flintstone")
+        self.wilma = Node(name="Wilma Flintstone")
+        self.graph.create(self.fred | self.wilma)
         self.index.add("name", "Fred", self.fred)
         self.index.add("name", "Wilma", self.wilma)
         self.index.add("name", "Flintstone", self.fred)
         self.index.add("name", "Flintstone", self.wilma)
         self.index.add("flintstones", "%", self.fred)
         self.index.add("flintstones", "%", self.wilma)
-        self.batch = ManualIndexWriteBatch(graph)
+        self.batch = ManualIndexWriteBatch(self.graph)
 
     def check(self, key, value, *entities):
         e = self.index.get(key, value)

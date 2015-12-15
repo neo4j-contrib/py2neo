@@ -187,17 +187,17 @@ class ManualIndexWriteBatch(WriteBatch):
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "properties": node.properties,
+                "properties": dict(node),
             })
         elif cls is Relationship:
             relationship = cast_relationship(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
-                "start": self._uri_for(abstract.start_node),
-                "type": str(abstract.type),
-                "end": self._uri_for(abstract.end_node),
-                "properties": relationship.properties,
+                "start": self._uri_for(abstract.start_node()),
+                "type": str(abstract.type()),
+                "end": self._uri_for(abstract.end_node()),
+                "properties": dict(relationship),
             })
         else:
             raise TypeError(cls)
