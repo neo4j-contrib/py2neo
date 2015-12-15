@@ -41,7 +41,7 @@ import os
 from io import StringIO
 from sys import stdout
 
-from py2neo import Bindable, Resource, Node, Relationship, Path, Finished, authenticate
+from py2neo import Entity, Resource, Node, Relationship, Path, Finished, authenticate
 from py2neo.env import NEO4J_URI
 from py2neo.compat import integer, xstr, ustr
 from py2neo.status import CypherError, TransactionError

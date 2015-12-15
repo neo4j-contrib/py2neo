@@ -38,6 +38,6 @@ __all__ = ["ServiceRoot", "Graph",
            "authenticate", "rewrite", "watch",
            "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
            "ServerPlugin", "UnmanagedExtension",
-           "Bindable", "Resource", "ResourceTemplate",
+           "Entity", "Resource", "ResourceTemplate",
            "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI",
            "cast", "cast_node", "cast_relationship"]

@@ -45,7 +45,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
 __all__ = ["Graph", "Node", "Relationship", "Path",
            "ServiceRoot",
            "authenticate", "rewrite",
-           "Bindable", "Resource", "ResourceTemplate",
+           "Entity", "Resource", "ResourceTemplate",
            "cast", "cast_node", "cast_relationship"]
 
 
@@ -338,133 +338,6 @@ class ResourceTemplate(_ResourceTemplate):
         return resource
 
 
-class Bindable(object):
-    """ Base class for objects that can be optionally bound to a remote resource. This
-    class is essentially a container for a :class:`.Resource` instance.
-    """
-
-    #: The class of error raised by failure responses from the contained resource.
-    error_class = GraphError
-
-    __resource__ = None
-
-    _bind_pending_tx = None
-
-    def _process_if_bind_pending(self):
-        if self._bind_pending_tx:
-            self._bind_pending_tx.process()
-            self._bind_pending_tx = None
-
-    def __eq__(self, other):
-        self._process_if_bind_pending()
-        try:
-            return self.bound and other.bound and self.uri == other.uri
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def bind(self, uri, metadata=None):
-        """ Associate this «class.lower» with a remote resource.
-
-        :arg uri: The URI identifying the remote resource to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
-
-        """
-        if "{" in uri and "}" in uri:
-            if metadata:
-                raise ValueError("Initial metadata cannot be passed to a resource template")
-            self.__resource__ = ResourceTemplate(uri)
-        else:
-            self.__resource__ = Resource(uri, metadata)
-        self.__resource__.error_class = self.error_class
-        self._bind_pending_tx = None
-
-    def set_bind_pending(self, tx):
-        """ Flag that this entity is due to be bound on processing of
-        the specified transaction.
-
-        :param tx:
-        :return:
-        """
-        self._bind_pending_tx = tx
-
-    @property
-    def bound(self):
-        """ :const:`True` if this object is bound to a remote resource,
-        :const:`False` otherwise.
-        """
-        self._process_if_bind_pending()
-        return self.__resource__ is not None
-
-    @property
-    def graph(self):
-        """ The graph associated with the remote resource.
-
-        :rtype: :class:`.Graph`
-        """
-        self._process_if_bind_pending()
-        return self.service_root.graph
-
-    @property
-    def cypher(self):
-        """ The Cypher engine associated with the remote resource.
-
-        :rtype: :class:`.CypherEngine`
-        """
-        self._process_if_bind_pending()
-        return self.service_root.graph.cypher
-
-    @property
-    def ref(self):
-        """ The URI of the remote resource relative to its graph.
-
-        :rtype: string
-        """
-        self._process_if_bind_pending()
-        return self.resource.ref
-
-    @property
-    def resource(self):
-        """ The remote resource to which this object is bound.
-
-        :rtype: :class:`.Resource`
-        :raises: :class:`py2neo.BindError`
-        """
-        self._process_if_bind_pending()
-        if self.bound:
-            return self.__resource__
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
-
-    @property
-    def service_root(self):
-        """ The root service associated with the remote resource.
-
-        :return: :class:`.ServiceRoot`
-        """
-        self._process_if_bind_pending()
-        return self.resource.service_root
-
-    def unbind(self):
-        """ Detach this object from any remote resource.
-        """
-        self.__resource__ = None
-        self._bind_pending_tx = None
-
-    @property
-    def uri(self):
-        """ The full URI of the remote resource.
-        """
-        self._process_if_bind_pending()
-        resource = self.resource
-        try:
-            return resource.uri
-        except AttributeError:
-            return resource.uri_template
-
-
 class ServiceRoot(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
@@ -498,7 +371,7 @@ class ServiceRoot(object):
 
     def __repr__(self):
         return "<ServiceRoot uri=%r>" % self.uri.string
-    
+
     def __eq__(self, other):
         try:
             return self.uri == other.uri
@@ -766,7 +639,7 @@ class Graph(object):
         `REST API <http://neo4j.com/docs/stable/rest-api.html>`__.
 
         :arg data: dictionary of data to hydrate
-        
+
         """
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
@@ -1065,7 +938,134 @@ class Graph(object):
         return self.resource.uri
 
 
-class Node(Bindable, PrimitiveNode):
+class Entity(object):
+    """ Base class for objects that can be optionally bound to a remote resource. This
+    class is essentially a container for a :class:`.Resource` instance.
+    """
+
+    #: The class of error raised by failure responses from the contained resource.
+    error_class = GraphError
+
+    __resource__ = None
+
+    _bind_pending_tx = None
+
+    def _process_if_bind_pending(self):
+        if self._bind_pending_tx:
+            self._bind_pending_tx.process()
+            self._bind_pending_tx = None
+
+    def __eq__(self, other):
+        self._process_if_bind_pending()
+        try:
+            return self.bound and other.bound and self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def bind(self, uri, metadata=None):
+        """ Associate this «class.lower» with a remote resource.
+
+        :arg uri: The URI identifying the remote resource to which to bind.
+        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
+
+        """
+        if "{" in uri and "}" in uri:
+            if metadata:
+                raise ValueError("Initial metadata cannot be passed to a resource template")
+            self.__resource__ = ResourceTemplate(uri)
+        else:
+            self.__resource__ = Resource(uri, metadata)
+        self.__resource__.error_class = self.error_class
+        self._bind_pending_tx = None
+
+    def set_bind_pending(self, tx):
+        """ Flag that this entity is due to be bound on processing of
+        the specified transaction.
+
+        :param tx:
+        :return:
+        """
+        self._bind_pending_tx = tx
+
+    @property
+    def bound(self):
+        """ :const:`True` if this object is bound to a remote resource,
+        :const:`False` otherwise.
+        """
+        self._process_if_bind_pending()
+        return self.__resource__ is not None
+
+    @property
+    def graph(self):
+        """ The graph associated with the remote resource.
+
+        :rtype: :class:`.Graph`
+        """
+        self._process_if_bind_pending()
+        return self.service_root.graph
+
+    @property
+    def cypher(self):
+        """ The Cypher engine associated with the remote resource.
+
+        :rtype: :class:`.CypherEngine`
+        """
+        self._process_if_bind_pending()
+        return self.service_root.graph.cypher
+
+    @property
+    def ref(self):
+        """ The URI of the remote resource relative to its graph.
+
+        :rtype: string
+        """
+        self._process_if_bind_pending()
+        return self.resource.ref
+
+    @property
+    def resource(self):
+        """ The remote resource to which this object is bound.
+
+        :rtype: :class:`.Resource`
+        :raises: :class:`py2neo.BindError`
+        """
+        self._process_if_bind_pending()
+        if self.bound:
+            return self.__resource__
+        else:
+            raise BindError("Local entity is not bound to a remote entity")
+
+    @property
+    def service_root(self):
+        """ The root service associated with the remote resource.
+
+        :return: :class:`.ServiceRoot`
+        """
+        self._process_if_bind_pending()
+        return self.resource.service_root
+
+    def unbind(self):
+        """ Detach this object from any remote resource.
+        """
+        self.__resource__ = None
+        self._bind_pending_tx = None
+
+    @property
+    def uri(self):
+        """ The full URI of the remote resource.
+        """
+        self._process_if_bind_pending()
+        resource = self.resource
+        try:
+            return resource.uri
+        except AttributeError:
+            return resource.uri_template
+
+
+class Node(Entity, PrimitiveNode):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -1222,7 +1222,7 @@ class Node(Bindable, PrimitiveNode):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        Bindable.bind(self, uri, metadata)
+        Entity.bind(self, uri, metadata)
         self.cache[uri] = self
 
     def degree(self):
@@ -1319,7 +1319,7 @@ class Node(Bindable, PrimitiveNode):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Bindable.unbind(self)
+        Entity.unbind(self)
         self.__id = None
 
 
@@ -1329,7 +1329,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(Bindable, PrimitiveRelationship):
+class Relationship(Entity, PrimitiveRelationship):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -1459,7 +1459,7 @@ class Relationship(Bindable, PrimitiveRelationship):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        Bindable.bind(self, uri, metadata)
+        Entity.bind(self, uri, metadata)
         self.cache[uri] = self
 
         for node, position in [(self.start_node(), "start"), (self.end_node(), "end")]:
@@ -1541,7 +1541,7 @@ class Relationship(Bindable, PrimitiveRelationship):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Bindable.unbind(self)
+        Entity.unbind(self)
         self.__id = None
 
 
