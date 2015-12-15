@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, ServiceRoot
+from py2neo import Graph, Node, Relationship, DBMS
 from py2neo.packages.httpstream import ClientError
 from test.util import Py2neoTestCase
 
@@ -93,12 +93,12 @@ class RelationshipTestCase(Py2neoTestCase):
         assert isinstance(rels, list)
         assert len(rels) == 0
 
-    def test_service_root(self):
+    def test_dbms(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.service_root == ServiceRoot("http://localhost:7474/")
+        assert r.dbms == DBMS("http://localhost:7474/")
 
     def test_graph(self):
         a = Node()

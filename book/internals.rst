@@ -3,10 +3,10 @@ API: Internals
 ==============
 
 
-Service Root
-============
+Database Management System
+==========================
 
-.. autoclass:: py2neo.ServiceRoot
+.. autoclass:: py2neo.DBMS
    :members:
 
 

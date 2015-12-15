@@ -143,12 +143,12 @@ class Resource(_Resource):
         self.__last_get_response = None
 
         uri = uri.string
-        service_root_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
-        if service_root_uri == uri:
-            self.__service_root = self
+        dbms_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
+        if dbms_uri == uri:
+            self.__dbms = self
         else:
-            from py2neo.core import ServiceRoot
-            self.__service_root = ServiceRoot(service_root_uri)
+            from py2neo.core import DBMS
+            self.__dbms = DBMS(dbms_uri)
         self.__ref = NotImplemented
 
     @property
@@ -157,7 +157,7 @@ class Resource(_Resource):
 
         :rtype: :class:`.Graph`
         """
-        return self.__service_root.graph
+        return self.__dbms.graph
 
     @property
     def headers(self):
@@ -188,12 +188,12 @@ class Resource(_Resource):
         return Resource(_Resource.resolve(self, reference, strict).uri)
 
     @property
-    def service_root(self):
+    def dbms(self):
         """ The root service associated with this resource.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.DBMS`
         """
-        return self.__service_root
+        return self.__dbms
 
     def get(self, headers=None, redirect_limit=5, **kwargs):
         """ Perform an HTTP GET to this resource.

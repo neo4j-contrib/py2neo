@@ -35,7 +35,7 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated
 
 
-__all__ = ["ServiceRoot",
+__all__ = ["DBMS",
            "Graph",
            "Entity",
            "Node",
@@ -50,7 +50,7 @@ NON_ALPHA_NUM = re.compile("[^0-9A-Za-z_]")
 SIMPLE_NAME = re.compile(r"[A-Za-z_][0-9A-Za-z_]*")
 
 
-class ServiceRoot(object):
+class DBMS(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
     the constructor, a value is taken from the ``NEO4J_URI`` environment
@@ -75,14 +75,14 @@ class ServiceRoot(object):
             if NEO4J_AUTH:
                 user_name, password = NEO4J_AUTH.partition(":")[0::2]
                 authenticate(URI(uri).host_port, user_name, password)
-            inst = super(ServiceRoot, cls).__new__(cls)
+            inst = super(DBMS, cls).__new__(cls)
             inst.__resource = Resource(uri)
             inst.__graph = None
             cls.__instances[uri] = inst
         return inst
 
     def __repr__(self):
-        return "<ServiceRoot uri=%r>" % self.uri.string
+        return "<DBMS uri=%r>" % self.uri.string
 
     def __eq__(self, other):
         try:
@@ -163,7 +163,7 @@ class Graph(object):
 
     def __new__(cls, uri=None):
         if uri is None:
-            uri = ServiceRoot().graph.uri.string
+            uri = DBMS().graph.uri.string
         if not uri.endswith("/"):
             uri += "/"
         key = (cls, uri)
@@ -258,6 +258,10 @@ class Graph(object):
         """
         # TODO update examples in docstring
         self.cypher.create_unique(t)
+
+    @property
+    def dbms(self):
+        return self.resource.dbms
 
     def delete(self, g):
         """ Delete one or more nodes, relationships and/or paths.
@@ -539,7 +543,7 @@ class Graph(object):
         """ Open a page in the default system web browser pointing at
         the Neo4j browser application for this graph.
         """
-        webbrowser.open(self.service_root.resource.uri.string)
+        webbrowser.open(self.dbms.resource.uri.string)
 
     def order(self):
         """ The number of nodes in this graph.
@@ -630,10 +634,6 @@ class Graph(object):
             self.__schema = SchemaResource(self.uri.string + "schema")
         return self.__schema
 
-    @property
-    def service_root(self):
-        return self.resource.service_root
-
     def size(self):
         """ The number of relationships in this graph.
         """
@@ -717,7 +717,7 @@ class Entity(object):
         :rtype: :class:`.Graph`
         """
         self._process_if_bind_pending()
-        return self.service_root.graph
+        return self.dbms.graph
 
     @property
     def cypher(self):
@@ -726,7 +726,7 @@ class Entity(object):
         :rtype: :class:`.CypherEngine`
         """
         self._process_if_bind_pending()
-        return self.service_root.graph.cypher
+        return self.dbms.graph.cypher
 
     @property
     def ref(self):
@@ -751,13 +751,13 @@ class Entity(object):
             raise BindError("Local entity is not bound to a remote entity")
 
     @property
-    def service_root(self):
+    def dbms(self):
         """ The root service associated with the remote resource.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.DBMS`
         """
         self._process_if_bind_pending()
-        return self.resource.service_root
+        return self.resource.dbms
 
     def unbind(self):
         """ Detach this object from any remote resource.
@@ -1200,7 +1200,7 @@ class Relationship(PrimitiveRelationship, Entity):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.dbms.graph
 
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
@@ -1376,7 +1376,7 @@ class Path(PrimitivePath):
         :const:`False` otherwise.
         """
         try:
-            _ = self.service_root
+            _ = self.dbms
         except BindError:
             return False
         else:
@@ -1396,7 +1396,7 @@ class Path(PrimitivePath):
 
         :rtype: :class:`.Graph`
         """
-        return self.service_root.graph
+        return self.dbms.graph
 
     def pull(self):
         """ Pull data to all entities in this path from their remote counterparts.
@@ -1409,14 +1409,14 @@ class Path(PrimitivePath):
         self.graph.push(self)
 
     @property
-    def service_root(self):
+    def dbms(self):
         """ The root service associated with this path.
 
-        :return: :class:`.ServiceRoot`
+        :return: :class:`.DBMS`
         """
         for relationship in self:
             try:
-                return relationship.service_root
+                return relationship.dbms
             except BindError:
                 pass
         raise BindError("Local path is not bound to a remote path")

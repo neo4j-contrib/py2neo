@@ -33,5 +33,5 @@ NEO4J_DIST = os.getenv("NEO4J_DIST", "http://dist.neo4j.org/")
 #: Default path for GraphServer instances.
 NEO4J_HOME = os.getenv("NEO4J_HOME", ".")
 
-#: Default URI for ServiceRoot instances.
+#: Default URI for DBMS instances.
 NEO4J_URI = URI(os.getenv("NEO4J_URI", "http://localhost:7474/"))

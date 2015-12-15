@@ -35,7 +35,7 @@ from py2neo.ext import *
 from py2neo.packages.httpstream.watch import watch
 
 
-__all__ = ["ServiceRoot", "Graph",
+__all__ = ["DBMS", "Graph",
            "Subgraph", "TraversableSubgraph", "traverse",
            "Node", "Relationship", "Path",
            "authenticate", "rewrite", "watch",

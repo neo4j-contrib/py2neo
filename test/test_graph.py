@@ -71,7 +71,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_open_browser(self):
         with patch("webbrowser.open") as mocked:
             self.graph.open_browser()
-            assert mocked.called_once_with(self.graph.service_root.resource.uri.string)
+            assert mocked.called_once_with(self.graph.dbms.resource.uri.string)
 
     def test_graph_is_not_equal_to_non_graph(self):
         graph = Graph()

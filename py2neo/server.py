@@ -31,7 +31,7 @@ from subprocess import check_output, CalledProcessError
 import shlex
 import sys
 
-from py2neo import ServiceRoot
+from py2neo import DBMS
 from py2neo.compat import ustr, PropertiesParser
 from py2neo.env import NEO4J_DIST, NEO4J_HOME
 from py2neo.packages.httpstream import download as _download
@@ -84,8 +84,8 @@ class GraphServerProcess(object):
     #: The server installation behind this process.
     server = None
 
-    #: The service root exposed by this server process.
-    service_root = None
+    #: The DBMS exposed by this server process.
+    dbms = None
 
     #: The PID of this process.
     pid = None
@@ -93,9 +93,9 @@ class GraphServerProcess(object):
     #: The JVM arguments with which this process was started.
     jvm_arguments = None
 
-    def __init__(self, server, service_root, **kwargs):
+    def __init__(self, server, dbms, **kwargs):
         self.server = server
-        self.service_root = service_root
+        self.dbms = dbms
         self.pid = kwargs.get("pid")
         self.jvm_arguments = kwargs.get("jvm_arguments")
 
@@ -111,7 +111,7 @@ class GraphServerProcess(object):
         :rtype: :class:`py2neo.Graph`
 
         """
-        return self.service_root.graph
+        return self.dbms.graph
 
 
 class GraphServer(object):
@@ -200,7 +200,7 @@ class GraphServer(object):
                     uri = line.partition(" ")[0]
             if not uri:
                 raise RuntimeError("Unable to parse output from server startup")
-            return GraphServerProcess(self, ServiceRoot(uri), **kwargs)
+            return GraphServerProcess(self, DBMS(uri), **kwargs)
 
     def stop(self):
         """ Stop the server.
@@ -279,13 +279,13 @@ class GraphServer(object):
             sys.stdout.write(line)
 
     @property
-    def service_root(self):
-        """ The service root exposed by this server.
+    def dbms(self):
+        """ The DBMS exposed by this server.
 
-        :return: :class:`py2neo.ServiceRoot`
+        :return: :class:`py2neo.DBMS`
 
         """
-        return ServiceRoot("http://localhost:%s" % self.info["NEO4J_SERVER_PORT"])
+        return DBMS("http://localhost:%s" % self.info["NEO4J_SERVER_PORT"])
 
     @property
     def graph(self):
@@ -294,7 +294,7 @@ class GraphServer(object):
         :return: :class:`py2neo.Graph`
 
         """
-        return self.service_root.graph
+        return self.dbms.graph
 
 
 def _help(script):

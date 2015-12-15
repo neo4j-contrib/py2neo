@@ -786,14 +786,14 @@ def cypher_repr(obj):
 
 def main():
     import sys
-    from py2neo.core import ServiceRoot
+    from py2neo.core import DBMS
     script, args = sys.argv[0], sys.argv[1:]
     if not args:
         args = ["-?"]
     uri = NEO4J_URI.resolve("/")
-    service_root = ServiceRoot(uri.string)
+    dbms = DBMS(uri.string)
     out = sys.stdout
-    command_line = CypherCommandLine(service_root.graph)
+    command_line = CypherCommandLine(dbms.graph)
     while args:
         arg = args.pop(0)
         if arg.startswith("-"):
@@ -803,7 +803,7 @@ def main():
                 sys.exit(0)
             elif arg in ("-A", "--auth"):
                 user_name, password = args.pop(0).partition(":")[0::2]
-                authenticate(service_root.uri.host_port, user_name, password)
+                authenticate(dbms.uri.host_port, user_name, password)
             elif arg in ("-p", "--parameter"):
                 key = args.pop(0)
                 value = args.pop(0)

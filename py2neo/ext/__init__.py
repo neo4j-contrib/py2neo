@@ -39,7 +39,7 @@ class UnmanagedExtension(object):
 
     def __init__(self, graph, path):
         self.graph = graph
-        self.resource = Resource(graph.service_root.uri.resolve(path))
+        self.resource = Resource(graph.dbms.uri.resolve(path))
         try:
             self.resource.get()
         except GraphError:

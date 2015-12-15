@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, Relationship, ServiceRoot, BindError, Graph
+from py2neo import Node, Path, Relationship, DBMS, BindError, Graph
 from test.util import Py2neoTestCase
 
 
@@ -167,25 +167,25 @@ class PathTestCase(Py2neoTestCase):
         else:
             assert False
 
-    def test_service_root_on_bound_path(self):
+    def test_dbms_on_bound_path(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         self.graph.create(path)
-        assert path.service_root == ServiceRoot("http://localhost:7474/")
+        assert path.dbms == DBMS("http://localhost:7474/")
         path[0].unbind()
-        assert path.service_root == ServiceRoot("http://localhost:7474/")
+        assert path.dbms == DBMS("http://localhost:7474/")
 
-    def test_service_root_on_unbound_path(self):
+    def test_dbms_on_unbound_path(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         carol = Node(name="Carol")
         dave = Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         try:
-            assert path.service_root == ServiceRoot("http://localhost:7474/")
+            assert path.dbms == DBMS("http://localhost:7474/")
         except BindError:
             assert True
         else:
