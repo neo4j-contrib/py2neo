@@ -41,10 +41,11 @@ import os
 from io import StringIO
 from sys import stdout
 
-from py2neo import Entity, Resource, Node, Relationship, Path, Finished, authenticate
-from py2neo.env import NEO4J_URI
 from py2neo.compat import integer, xstr, ustr
-from py2neo.status import CypherError, TransactionError
+from py2neo.core import Node, Relationship, Path
+from py2neo.env import NEO4J_URI
+from py2neo.http import Resource, authenticate
+from py2neo.status import CypherError, TransactionError, Finished
 from py2neo.primitive import TraversableSubgraph, Record
 from py2neo.util import is_collection, deprecated
 
