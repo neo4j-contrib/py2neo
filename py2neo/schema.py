@@ -16,12 +16,10 @@
 # limitations under the License.
 
 
-from py2neo import ResourceTemplate, GraphError
+from py2neo.http import ResourceTemplate
 from py2neo.packages.httpstream import Response
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-
-
-__all__ = ["SchemaResource"]
+from py2neo.status import GraphError
 
 
 class SchemaResource(object):

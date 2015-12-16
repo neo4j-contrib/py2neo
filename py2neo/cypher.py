@@ -608,15 +608,7 @@ class CypherCommandLine(object):
 
 class CypherWriter(object):
     """ Writer for Cypher data. This can be used to write to any
-    file-like object, such as standard output::
-
-        >>> from py2neo.cypher import CypherWriter
-        >>> from py2neo import Node
-        >>> from sys import stdout
-        >>> writer = CypherWriter(stdout)
-        >>> writer.write(Node("Person", name="Alice"))
-        (:Person {name:"Alice"})
-
+    file-like object, such as standard output.
     """
 
     safe_first_chars = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
