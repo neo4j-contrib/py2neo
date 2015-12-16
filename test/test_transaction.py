@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship, Finished, GraphError
-from py2neo.status import ClientError, CypherError, TransactionError
+from py2neo.status import ClientError, CypherError
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from test.util import Py2neoTestCase
 
@@ -343,10 +343,10 @@ class TransactionErrorTestCase(Py2neoTestCase):
         tx.run(statement, parameters)
         try:
             tx.commit()
-        except TransactionError as error:
+        except CypherError as error:
             self.assert_new_error(
-                error, (ConstraintViolation, ClientError, TransactionError,
-                        CypherError, GraphError), "Neo.ClientError.Statement.ConstraintViolation")
+                error, (ConstraintViolation, ClientError, CypherError,
+                        GraphError), "Neo.ClientError.Statement.ConstraintViolation")
         else:
             assert False
 
@@ -402,12 +402,11 @@ class TransactionErrorTestCase(Py2neoTestCase):
         for code in codes:
             data = {"code": code, "message": "X"}
             _, classification, category, title = code.split(".")
-            error = TransactionError.hydrate(data)
+            error = CypherError.hydrate(data)
             assert error.code == code
             assert error.message == "X"
             assert error.__class__.__name__ == title
             assert error.__class__.__mro__[1].__name__ == classification
             assert error.__class__.__module__ == "py2neo.status.%s" % category.lower()
-            assert isinstance(error, TransactionError)
             assert isinstance(error, CypherError)
             assert isinstance(error, GraphError)

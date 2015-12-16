@@ -17,7 +17,6 @@
 
 
 from io import StringIO
-import re
 from warnings import warn
 import webbrowser
 
@@ -355,9 +354,9 @@ class Graph(object):
         """
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
-                from py2neo.status import TransactionError
+                from py2neo.status import CypherError
                 for error in data["errors"]:
-                    raise TransactionError.hydrate(error)
+                    raise CypherError.hydrate(error)
             elif "self" in data:
                 if "type" in data:
                     return Relationship.hydrate(data, inst)

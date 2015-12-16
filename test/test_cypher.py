@@ -18,10 +18,9 @@
 
 from io import StringIO
 
-from py2neo import Node, Relationship, Path, GraphError
+from py2neo.core import Node, Relationship, Path
 from py2neo.cypher import CypherEngine, Transaction, presubstitute, CypherWriter, cypher_repr
-from py2neo.status import CypherError, TransactionError
-from py2neo.packages.httpstream import ClientError as _ClientError, Response as _Response
+from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
 
 
@@ -93,13 +92,8 @@ class CypherTestCase(Py2neoTestCase):
         statement = "SELECT z=nude(0) RETURNS x"
         try:
             self.cypher.run(statement)
-        except TransactionError as error:
-            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
-            assert error.exception == "SyntaxException"
-            assert error.fullname in [None, "org.neo4j.cypher.SyntaxException"]
-            assert error.statement == statement
-            assert not error.parameters
+            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         else:
             assert False
 
@@ -245,12 +239,8 @@ class CypherTestCase(Py2neoTestCase):
         cypher = self.cypher
         try:
             cypher.run("X")
-        except TransactionError as error:
-            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         except CypherError as error:
-            self.assert_error(
-                error, (CypherError, GraphError), "org.neo4j.cypher.SyntaxException",
-                (_ClientError, _Response), 400)
+            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
         else:
             assert False
 
@@ -266,12 +256,8 @@ class CypherTestCase(Py2neoTestCase):
             statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                          "CREATE UNIQUE (a)-[:KNOWS]->(b)")
             cypher.run(statement, parameters)
-        except TransactionError as error:
-            assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
         except CypherError as error:
-            self.assert_error(
-                error, (CypherError, GraphError), "org.neo4j.cypher.UniquePathNotUniqueException",
-                (_ClientError, _Response), 400)
+            assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
         else:
             assert False
 

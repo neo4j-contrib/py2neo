@@ -45,11 +45,6 @@ class GraphError(Exception):
     """
 
     __cause__ = None
-    exception = None
-    fullname = None
-    request = None
-    response = None
-    stacktrace = None
 
     def __new__(cls, *args, **kwargs):
         try:
@@ -71,18 +66,6 @@ class Unauthorized(GraphError):
 
 
 class CypherError(GraphError):
-
-    default_message = "The server returned a Cypher error"
-    status_code_map = {}
-
-    statement = None
-    parameters = None
-
-    def __init__(self, message, **kwargs):
-        GraphError.__init__(self, message, **kwargs)
-
-
-class TransactionError(CypherError):
     """
     """
 
@@ -101,17 +84,20 @@ class TransactionError(CypherError):
         inst.message = message
         return inst
 
+    def __init__(self, message, **kwargs):
+        GraphError.__init__(self, message, **kwargs)
 
-class ClientError(TransactionError):
+
+class ClientError(CypherError):
     """ The Client sent a bad request - changing the request might yield a successful outcome.
     """
 
 
-class DatabaseError(TransactionError):
+class DatabaseError(CypherError):
     """ The database failed to service the request.
     """
 
 
-class TransientError(TransactionError):
+class TransientError(CypherError):
     """ The database cannot service the request right now, retrying later might yield a successful outcome.
     """

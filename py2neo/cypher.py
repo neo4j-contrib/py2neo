@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ from py2neo.compat import integer, xstr, ustr
 from py2neo.core import Node, Relationship, Path
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
-from py2neo.status import CypherError, TransactionError, Finished
+from py2neo.status import CypherError, Finished
 from py2neo.primitive import TraversableSubgraph, Record
 from py2neo.util import is_collection, deprecated
 
@@ -209,7 +209,7 @@ class Transaction(object):
     statements to be executed within a single server transaction.
     """
 
-    error_class = TransactionError
+    error_class = CypherError
 
     def __init__(self, cypher):
         log.info("begin")
@@ -819,7 +819,7 @@ def main():
     if command_line.tx:
         try:
             command_line.commit()
-        except TransactionError as error:
+        except CypherError as error:
             sys.stderr.write(error.args[0])
             sys.stderr.write("\n")
 

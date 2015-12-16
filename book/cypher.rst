@@ -108,7 +108,7 @@ Exceptions
 .. autoexception:: py2neo.cypher.CypherError
    :members:
 
-.. autoexception:: py2neo.cypher.TransactionError
+.. autoexception:: py2neo.cypher.CypherError
    :members:
 
 
