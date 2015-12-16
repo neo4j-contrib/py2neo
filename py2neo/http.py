@@ -24,7 +24,8 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.status import GraphError, Unauthorized
+from py2neo.status import GraphError
+from py2neo.status.security import AuthorizationFailed
 from py2neo.util import raise_from
 
 
@@ -210,7 +211,7 @@ class Resource(_Resource):
             response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise AuthorizationFailed(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -235,7 +236,7 @@ class Resource(_Resource):
             response = self.__base.put(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise AuthorizationFailed(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -259,7 +260,7 @@ class Resource(_Resource):
             response = self.__base.post(body, headers, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise AuthorizationFailed(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -282,7 +283,7 @@ class Resource(_Resource):
             response = self.__base.delete(headers, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise AuthorizationFailed(self.uri.string)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:

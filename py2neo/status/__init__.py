@@ -60,11 +60,6 @@ class GraphError(Exception):
             setattr(self, key.lower(), value)
 
 
-class Unauthorized(GraphError):
-    """ Raised when a request is made to Neo4j without required credentials.
-    """
-
-
 class CypherError(GraphError):
     """
     """
