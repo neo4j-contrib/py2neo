@@ -17,7 +17,6 @@
 
 
 from importlib import import_module
-import json
 
 from py2neo.compat import xstr
 
@@ -64,11 +63,6 @@ class GraphError(Exception):
         Exception.__init__(self, *args)
         for key, value in kwargs.items():
             setattr(self, key.lower(), value)
-
-
-class JoinError(Exception):
-    """ Raised when two graph entities cannot be joined together.
-    """
 
 
 class Unauthorized(GraphError):
