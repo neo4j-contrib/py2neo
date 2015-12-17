@@ -539,15 +539,30 @@ class Cursor(object):
         self._processed = True
 
     def keys(self):
+        """ Return the keys for the currently selected record.
+        """
         if self._position == 0:
             return None
         else:
             return self._keys
 
     def position(self):
+        """ Return the current cursor position. Position zero indicates
+        that no record is currently selected, position one is that of
+        the first record available, and so on.
+        """
         return self._position
 
     def move(self, amount=1):
+        """ Attempt to move the cursor one position forward (or by
+        another amount if explicitly specified). The cursor will move
+        position by up to, but never more than, the amount specified.
+        If not enough scope for movement remains, only that remainder
+        will be consumed. The total amount moved is returned.
+
+        :param amount: the amount by which to move the cursor
+        :return: the amount that the cursor was able to move
+        """
         if not self._processed:
             self.transaction.process()
         amount = int(amount)
@@ -565,6 +580,11 @@ class Cursor(object):
         return moved
 
     def current(self, *keys):
+        """ Return the current record.
+
+        :param keys:
+        :return:
+        """
         if self._position == 0:
             return None
         elif keys:
@@ -573,16 +593,32 @@ class Cursor(object):
             return self._records[self._position - 1]
 
     def select(self, *keys):
+        """ Fetch and return the next record, if available.
+
+        :param keys:
+        :return:
+        """
         if self.move():
             return self.current(*keys)
         else:
             return None
 
     def collect(self, *keys):
+        """ Consume and yield all remaining records.
+
+        :param keys:
+        :return:
+        """
         while self.move():
             yield self.current(*keys)
 
     def evaluate(self, key=0):
+        """ Select the next available record and return the value from
+        its first field (or another field if explicitly specified).
+
+        :param key:
+        :return:
+        """
         record = self.select()
         if record is None:
             return None
@@ -590,9 +626,16 @@ class Cursor(object):
             return record[key]
 
     def close(self):
+        """ Close this cursor and free up all associated resources.
+        """
         pass
 
     def dump(self, *keys):
+        """ Consume all records from this cursor and write in tabular
+        form to the console.
+
+        :param keys:
+        """
         if not self._processed:
             self.transaction.process()
         if keys:
