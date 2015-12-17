@@ -498,23 +498,7 @@ class Cursor(object):
         self.cache = {}
 
     def __repr__(self):
-        return "<Cursor>"
-    #
-    # def __str__(self):
-    #     return xstr(self.__unicode__())
-    #
-    # def __unicode__(self):
-    #     self._ensure_processed()
-    #     widths = [len(key) for key in self._keys]
-    #     for record in self._records:
-    #         for i, value in enumerate(record):
-    #             widths[i] = max(widths[i], len(ustr(value)))
-    #     templates = [u" {:%d} " % width for width in widths]
-    #     out = [u"".join(templates[i].format(key) for i, key in enumerate(self._keys)),
-    #            u"".join("-" * (width + 2) for width in widths)]
-    #     for i, record in enumerate(self._records):
-    #         out.append("".join(templates[i].format(value) for i, value in enumerate(record)))
-    #     return u"\n".join(out) + u"\n"
+        return "<Cursor position=%r keys=%r>" % (self._position, self.keys())
 
     def __len__(self):
         record = self.current()
@@ -536,10 +520,6 @@ class Cursor(object):
             raise TypeError("No current record")
         else:
             return iter(record)
-
-    def _ensure_processed(self):
-        if not self._processed:
-            self.transaction.process()
 
     def _process(self, raw):
         self._keys = keys = tuple(raw["columns"])
@@ -568,7 +548,8 @@ class Cursor(object):
         return self._position
 
     def move(self, amount=1):
-        self._ensure_processed()
+        if not self._processed:
+            self.transaction.process()
         amount = int(amount)
         step = 1 if amount >= 0 else -1
         moved = 0
@@ -610,6 +591,24 @@ class Cursor(object):
 
     def close(self):
         pass
+
+    def dump(self, *keys):
+        if not self._processed:
+            self.transaction.process()
+        if keys:
+            records = list(self.collect(*keys))
+        else:
+            keys = self._keys
+            records = list(self.collect())
+        widths = [len(key) for key in keys]
+        for record in records:
+            for i, value in enumerate(record):
+                widths[i] = max(widths[i], len(ustr(value)))
+        templates = [u" {:%d} " % width for width in widths]
+        print(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
+        print(u"".join("-" * (width + 2) for width in widths))
+        for i, record in enumerate(records):
+            print(u"".join(templates[i].format(value) for i, value in enumerate(record)))
 
 
 class CypherCommandLine(object):
