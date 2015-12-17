@@ -251,17 +251,6 @@ class EfficiencyTestCase(Py2neoTestCase):
                 count += 1
             assert counter.response_count == 1
 
-    def test_find_needs_one_response(self):
-        _ = self.graph.neo4j_version
-        self.graph.merge("Person", "name", "Alice")
-        with HTTPCounter() as counter:
-            count = 0
-            for node in self.graph.find("Person", "name", "Alice"):
-                assert "Person" in node.labels()
-                assert node["name"] == "Alice"
-                count += 1
-            assert counter.response_count == 1
-
     def test_relationship_hydration_does_not_make_nodes_stale(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
