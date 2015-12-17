@@ -27,10 +27,11 @@ class TransactionRunTestCase(Py2neoTestCase):
     def test_can_run_single_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished()
-        result = tx.run("CREATE (a) RETURN a")
+        cursor = tx.run("CREATE (a) RETURN a")
         tx.commit()
-        assert len(result) == 1
-        for record in result:
+        records = list(cursor.collect())
+        assert len(records) == 1
+        for record in records:
             assert isinstance(record["a"], Node)
         assert tx.finished()
 
@@ -43,13 +44,14 @@ class TransactionRunTestCase(Py2neoTestCase):
     def test_can_run_multi_statement_transaction(self):
         tx = self.cypher.begin()
         assert not tx.finished()
-        result_1 = tx.run("CREATE (a) RETURN a")
-        result_2 = tx.run("CREATE (a) RETURN a")
-        result_3 = tx.run("CREATE (a) RETURN a")
+        cursor_1 = tx.run("CREATE (a) RETURN a")
+        cursor_2 = tx.run("CREATE (a) RETURN a")
+        cursor_3 = tx.run("CREATE (a) RETURN a")
         tx.commit()
-        for result in (result_1, result_2, result_3):
-            assert len(result) == 1
-            for record in result:
+        for cursor in (cursor_1, cursor_2, cursor_3):
+            records = list(cursor.collect())
+            assert len(records) == 1
+            for record in records:
                 assert isinstance(record["a"], Node)
         assert tx.finished()
 
@@ -58,14 +60,15 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert tx._id is None
         for i in range(10):
             assert not tx.finished()
-            result_1 = tx.run("CREATE (a) RETURN a")
-            result_2 = tx.run("CREATE (a) RETURN a")
-            result_3 = tx.run("CREATE (a) RETURN a")
+            cursor_1 = tx.run("CREATE (a) RETURN a")
+            cursor_2 = tx.run("CREATE (a) RETURN a")
+            cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             assert tx._id is not None
-            for result in (result_1, result_2, result_3):
-                assert len(result) == 1
-                for record in result:
+            for cursor in (cursor_1, cursor_2, cursor_3):
+                records = list(cursor.collect())
+                assert len(records) == 1
+                for record in records:
                     assert isinstance(record["a"], Node)
         tx.commit()
         assert tx.finished()
@@ -74,14 +77,15 @@ class TransactionRunTestCase(Py2neoTestCase):
         tx = self.cypher.begin()
         for i in range(10):
             assert not tx.finished()
-            result_1 = tx.run("CREATE (a) RETURN a")
-            result_2 = tx.run("CREATE (a) RETURN a")
-            result_3 = tx.run("CREATE (a) RETURN a")
+            cursor_1 = tx.run("CREATE (a) RETURN a")
+            cursor_2 = tx.run("CREATE (a) RETURN a")
+            cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             assert tx._id is not None
-            for result in (result_1, result_2, result_3):
-                assert len(result) == 1
-                for record in result:
+            for cursor in (cursor_1, cursor_2, cursor_3):
+                records = list(cursor.collect())
+                assert len(records) == 1
+                for record in records:
                     assert isinstance(record["a"], Node)
         tx.rollback()
         assert tx.finished()
@@ -330,9 +334,9 @@ class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
         tx = self.cypher.begin()
-        result = tx.run("CREATE (a), (b) RETURN a, b")
+        cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
-        record = result[0]
+        record = cursor.select()
         parameters = {"A": record["a"]._id, "B": record["b"]._id}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")

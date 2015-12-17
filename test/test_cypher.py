@@ -33,13 +33,18 @@ class CypherTestCase(Py2neoTestCase):
         self.graph.create(ab)
         self.alice_and_bob = (a, b, ab)
 
-    def test_can_run_cypher(self):
-        result = self.cypher.run("RETURN 1")
-        assert len(result) == 1
-        first = result[0]
+    def test_can_get_list_of_records(self):
+        records = list(self.cypher.run("RETURN 1").collect())
+        assert len(records) == 1
+        first = records[0]
         assert len(first) == 1
         value = first[0]
         assert value == 1
+
+    def test_can_cursor_through_records(self):
+        cursor = self.cypher.run("RETURN 1")
+        for record in cursor.collect():
+            assert record.values() == (1,)
 
     def test_can_run_cypher_statement(self):
         self.cypher.run("MERGE (a:Person {name:'Alice'})")
@@ -63,24 +68,24 @@ class CypherTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
-        result = self.cypher.run(statement, {"N": alice})
-        assert result[0]["a"] is alice
+        record = self.cypher.run(statement, {"N": alice}).select()
+        assert record["a"] is alice
 
     def test_can_evaluate_cypher_statement(self):
-        result = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
+        value = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
+        assert isinstance(value, Node)
+        assert value.labels() == {"Person"}
+        assert dict(value) == {"name": "Alice"}
 
     def test_can_evaluate_parametrised_cypher_statement(self):
-        result = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
-        assert isinstance(result, Node)
-        assert result.labels() == {"Person"}
-        assert dict(result) == {"name": "Alice"}
+        value = self.cypher.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
+        assert isinstance(value, Node)
+        assert value.labels() == {"Person"}
+        assert dict(value) == {"name": "Alice"}
 
     def test_evaluate_with_no_results_returns_none(self):
-        result = self.cypher.evaluate("CREATE (a {name:{N}})", {"N": "Alice"})
-        assert result is None
+        value = self.cypher.evaluate("CREATE (a {name:{N}})", {"N": "Alice"})
+        assert value is None
 
     def test_can_begin_transaction(self):
         uri = "http://localhost:7474/db/data/transaction"
@@ -98,32 +103,35 @@ class CypherTestCase(Py2neoTestCase):
             assert False
 
     def test_can_run_statement(self):
-        results = self.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-        assert len(results) == 1
-        assert results[0]["name"] == "Alice"
+        cursor = self.cypher.run("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+        records = list(cursor.collect())
+        assert len(records) == 1
+        assert records[0]["name"] == "Alice"
 
     def test_can_run_with_parameter(self):
-        results = self.cypher.run("CREATE (a {name:{N}}) "
-                                  "RETURN a.name AS name", {"N": "Alice"})
-        assert len(results) == 1
-        assert results[0]["name"] == "Alice"
+        cursor = self.cypher.run("CREATE (a {name:{N}}) "
+                                 "RETURN a.name AS name", {"N": "Alice"})
+        records = list(cursor.collect())
+        assert len(records) == 1
+        assert records[0]["name"] == "Alice"
 
     def test_can_run_with_entity_parameter(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
-        results = self.cypher.run(statement, {"N": alice})
-        assert len(results) == 1
-        assert results[0]["name"] == "Alice"
+        cursor = self.cypher.run(statement, {"N": alice})
+        records = list(cursor.collect())
+        assert len(records) == 1
+        assert records[0]["name"] == "Alice"
 
     def test_can_evaluate(self):
-        result = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-        assert result == "Alice"
+        value = self.cypher.evaluate("CREATE (a {name:'Alice'}) RETURN a.name AS name")
+        assert value == "Alice"
 
     def test_can_evaluate_where_none_returned(self):
         statement = "MATCH (a) WHERE 2 + 2 = 5 RETURN a.name AS name"
-        result = self.cypher.evaluate(statement)
-        assert result is None
+        value = self.cypher.evaluate(statement)
+        assert value is None
 
     def test_nonsense_query_with_error_handler(self):
         with self.assertRaises(CypherError):
@@ -135,9 +143,10 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
-        results = self.cypher.run(statement, {"A": a._id, "B": b._id})
-        assert len(results) == 1
-        for record in results:
+        cursor = self.cypher.run(statement, {"A": a._id, "B": b._id})
+        records = list(cursor.collect())
+        assert len(records) == 1
+        for record in records:
             assert isinstance(record["a"], Node)
             assert isinstance(record["b"], Node)
             assert isinstance(record["ab"], Relationship)
@@ -150,9 +159,10 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        results = self.cypher.run(statement, {"A": a._id, "B": b._id})
-        assert len(results) == 1
-        for record in results:
+        cursor = self.cypher.run(statement, {"A": a._id, "B": b._id})
+        records = list(cursor.collect())
+        assert len(records) == 1
+        for record in records:
             assert isinstance(record["p"], Path)
             nodes = record["p"].nodes()
             assert len(nodes) == 2
@@ -165,16 +175,16 @@ class CypherTestCase(Py2neoTestCase):
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node._id}
-        results = self.cypher.run(statement, params)
-        assert results[0]["a_collection"] == [node]
+        cursor = self.cypher.run(statement, params)
+        assert cursor.select()["a_collection"] == [node]
 
     def test_param_used_once(self):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node._id}
-        results = self.cypher.run(statement, params)
-        record = results[0]
+        cursor = self.cypher.run(statement, params)
+        record = cursor.select()
         assert record["a"] == node
 
     def test_param_used_twice(self):
@@ -182,8 +192,8 @@ class CypherTestCase(Py2neoTestCase):
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node._id}
-        results = self.cypher.run(statement, params)
-        record = results[0]
+        cursor = self.cypher.run(statement, params)
+        record = cursor.select()
         assert record["a"] == node
         assert record["b"] == node
 
@@ -195,8 +205,8 @@ class CypherTestCase(Py2neoTestCase):
                     "MATCH (c) WHERE id(c)={X} " \
                     "RETURN a, b, c"
         params = {"X": node._id}
-        results = self.cypher.run(statement, params)
-        record = results[0]
+        cursor = self.cypher.run(statement, params)
+        record = cursor.select()
         assert record["a"] == node
         assert record["b"] == node
         assert record["c"] == node
@@ -211,8 +221,7 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE b.age > {min_age} "
                  "RETURN b")
         params = {"A": a._id, "min_age": 50}
-        results = self.cypher.run(query, params)
-        record = results[0]
+        record = self.cypher.run(query, params).select()
         assert record["b"] == b
 
     def test_param_reused_twice_after_with_statement(self):
@@ -231,8 +240,7 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE c.age > {min_age} "
                  "RETURN c")
         params = {"A": a._id, "min_age": 50}
-        results = self.cypher.run(query, params)
-        record = results[0]
+        record = self.cypher.run(query, params).select()
         assert record["c"] == c
 
     def test_invalid_syntax_raises_cypher_error(self):
@@ -246,8 +254,9 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_unique_path_not_unique_raises_cypher_error(self):
         cypher = self.cypher
-        results = cypher.run("CREATE (a), (b) RETURN a, b")
-        parameters = {"A": results[0]["a"], "B": results[0]["b"]}
+        cursor = cypher.run("CREATE (a), (b) RETURN a, b")
+        record = cursor.select()
+        parameters = {"A": record["a"], "B": record["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
         cypher.run(statement, parameters)
@@ -428,47 +437,47 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
-                                 "RETURN labels(a), a.`full name`",
-                                 v="Alice Smith")
-            assert set(result[0]) == {"Homo Sapiens"}
-            assert result[1] == "Alice Smith"
+            record = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
+                            "RETURN labels(a), a.`full name`",
+                            v="Alice Smith").select()
+            assert set(record[0]) == {"Homo Sapiens"}
+            assert record[1] == "Alice Smith"
 
     def test_can_use_parameter_for_property_set(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
-                                 "RETURN labels(a), a.`full name`",
-                                 p={"full name": "Alice Smith"})
-            assert set(result[0]) == {"Homo Sapiens"}
-            assert result[1] == "Alice Smith"
+            record = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
+                            "RETURN labels(a), a.`full name`",
+                            p={"full name": "Alice Smith"}).select()
+            assert set(record[0]) == {"Homo Sapiens"}
+            assert record[1] == "Alice Smith"
 
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
-                                 "RETURN labels(a), a.`full name`",
-                                 k="full name")
-            assert set(result[0]) == {"Homo Sapiens"}
-            assert result[1] == "Alice Smith"
+            record = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+                            "RETURN labels(a), a.`full name`",
+                            k="full name").select()
+            assert set(record[0]) == {"Homo Sapiens"}
+            assert record[1] == "Alice Smith"
 
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
-                                 "RETURN labels(a), a.`full name`",
-                                 l="Homo Sapiens")
-            assert set(result[0]) == {"Homo Sapiens"}
-            assert result[1] == "Alice Smith"
+            record = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                            "RETURN labels(a), a.`full name`",
+                            l="Homo Sapiens").select()
+            assert set(record[0]) == {"Homo Sapiens"}
+            assert record[1] == "Alice Smith"
 
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            result, = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
-                                 "RETURN labels(a), a.`full name`",
-                                 l=("Homo Sapiens", "Hunter", "Gatherer"))
-            assert set(result[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
-            assert result[1] == "Alice Smith"
+            record = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                            "RETURN labels(a), a.`full name`",
+                            l=("Homo Sapiens", "Hunter", "Gatherer")).select()
+            assert set(record[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
+            assert record[1] == "Alice Smith"
 
     def test_can_use_parameter_mixture(self):
         statement = u"CREATE (a:«l» {«k»:{v}})"
@@ -481,7 +490,8 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         statement = u"CREATE (a:«l» {«k»:{v}})-->(a:«l» {«k»:{v}})"
         parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
         s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})-->(a:`Homo Sapiens` {`full name`:{v}})"
+        assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})-->" \
+                    "(a:`Homo Sapiens` {`full name`:{v}})"
         assert p == {"v": "Alice Smith"}
 
     def test_can_use_simple_parameter_for_relationship_type(self):

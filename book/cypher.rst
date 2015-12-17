@@ -67,7 +67,7 @@ Records
 .. autoclass:: py2neo.cypher.Record
    :members:
 
-.. autoclass:: py2neo.cypher.Result
+.. autoclass:: py2neo.cypher.Cursor
    :members:
 
 .. autoclass:: py2neo.cypher.RecordStream

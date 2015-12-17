@@ -21,7 +21,7 @@ import logging
 
 from py2neo.compat import ustr, xstr, integer
 from py2neo.core import Resource, Graph, Path, Node, Relationship, NodeProxy, graphy as core_cast
-from py2neo.cypher import Result, cypher_request
+from py2neo.cypher import Cursor, cypher_request
 from py2neo.status import GraphError, Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import raise_from
@@ -314,15 +314,16 @@ class JobResult(object):
                 raise_from(BatchError(message, batch, job_id, status_code, uri, location), error)
             else:
                 # If Cypher results, reduce to single row or single value if possible
-                if isinstance(body, Result):
-                    num_rows = len(body)
-                    if num_rows == 0:
+                if isinstance(body, Cursor):
+                    if body.move():
+                        record = body.current()
+                        width = len(record)
+                        if width == 1:
+                            body = record[0]
+                        else:
+                            body = record
+                    else:
                         body = None
-                    elif num_rows == 1:
-                        body = body[0]
-                        num_columns = len(body)
-                        if num_columns == 1:
-                            body = body[0]
         return cls(batch, job_id, uri, status_code, location, body)
 
     #: The :class:`.Batch` from which this result was returned.

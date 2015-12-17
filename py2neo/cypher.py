@@ -158,9 +158,12 @@ class CypherEngine(object):
         :return: Single return value or :const:`None`.
         """
         tx = Transaction(self)
-        result = tx.run(statement, parameters, **kwparameters)
+        cursor = tx.run(statement, parameters, **kwparameters)
         tx.commit()
-        return result.value()
+        if cursor.move():
+            return cursor[0]
+        else:
+            return None
 
     def create(self, g):
         tx = Transaction(self)
@@ -196,7 +199,7 @@ class CypherEngine(object):
 
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.Result`
+        :rtype: :class:`py2neo.cypher.Cursor`
         """
         tx = Transaction(self)
         result = tx.run(statement, parameters, **kwparameters)
@@ -326,12 +329,16 @@ class Transaction(object):
         """
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        result = Result(self.graph, self, hydrate=True)
+        result = Cursor(self.graph, self, hydrate=True)
         self.results.append(result)
         return result
 
     def evaluate(self, statement, parameters=None, **kwparameters):
-        return self.run(statement, parameters, **kwparameters).value()
+        cursor = self.run(statement, parameters, **kwparameters)
+        if cursor.move():
+            return cursor[0]
+        else:
+            return None
 
     def create(self, g):
         try:
@@ -477,57 +484,72 @@ class Transaction(object):
         return self._finished
 
 
-class Result(object):
-    """ A stream of records returned from the execution of a Cypher statement.
+class CursorError(Exception):
+    pass
+
+
+class Cursor(object):
+    """ A navigable reader for the stream of records made available from running
+    a Cypher statement.
     """
 
     def __init__(self, graph, transaction=None, hydrate=False):
         assert transaction is None or isinstance(transaction, Transaction)
         self.graph = graph
         self.transaction = transaction
-        self._keys = []
+        self._keys = ()
         self._records = []
+        self._position = 0
         self._processed = False
         self._hydrate = hydrate     # TODO  hydrate to record or leave raw
         self.cache = {}
 
     def __repr__(self):
-        return "<Result>"
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
-        self._ensure_processed()
-        widths = [len(key) for key in self._keys]
-        for record in self._records:
-            for i, value in enumerate(record):
-                widths[i] = max(widths[i], len(ustr(value)))
-        templates = [u" {:%d} " % width for width in widths]
-        out = [u"".join(templates[i].format(key) for i, key in enumerate(self._keys)),
-               u"".join("-" * (width + 2) for width in widths)]
-        for i, record in enumerate(self._records):
-            out.append("".join(templates[i].format(value) for i, value in enumerate(record)))
-        return u"\n".join(out) + u"\n"
+        return "<Cursor>"
+    #
+    # def __str__(self):
+    #     return xstr(self.__unicode__())
+    #
+    # def __unicode__(self):
+    #     self._ensure_processed()
+    #     widths = [len(key) for key in self._keys]
+    #     for record in self._records:
+    #         for i, value in enumerate(record):
+    #             widths[i] = max(widths[i], len(ustr(value)))
+    #     templates = [u" {:%d} " % width for width in widths]
+    #     out = [u"".join(templates[i].format(key) for i, key in enumerate(self._keys)),
+    #            u"".join("-" * (width + 2) for width in widths)]
+    #     for i, record in enumerate(self._records):
+    #         out.append("".join(templates[i].format(value) for i, value in enumerate(record)))
+    #     return u"\n".join(out) + u"\n"
 
     def __len__(self):
+        position = self._position
+        if position == 0:
+            raise CursorError("No current record")
         self._ensure_processed()
-        return len(self._records)
+        return len(self._records[position - 1])
 
     def __getitem__(self, item):
+        position = self._position
+        if position == 0:
+            raise CursorError("No current record")
         self._ensure_processed()
-        return self._records[item]
+        return self._records[position - 1][item]
 
     def __iter__(self):
+        position = self._position
+        if position == 0:
+            raise CursorError("No current record")
         self._ensure_processed()
-        return iter(self._records)
+        return iter(self._records[position - 1])
 
     def _ensure_processed(self):
         if not self._processed:
             self.transaction.process()
 
     def _process(self, raw):
-        self._keys = keys = raw["columns"]
+        self._keys = keys = tuple(raw["columns"])
         if self._hydrate:
             hydrate = self.graph.hydrate
             records = []
@@ -546,20 +568,40 @@ class Result(object):
     def keys(self):
         return self._keys
 
-    def value(self, index=0):
-        """ A single value from the first record of this result. If no records
-        are available, :const:`None` is returned.
-        """
+    def position(self):
+        return self._position
+
+    def current(self):
+        return self._records[self._position - 1]
+
+    def move(self, amount=1):
         self._ensure_processed()
-        try:
-            record = self[0]
-        except IndexError:
-            return None
-        else:
-            if len(record) > index:
-                return record[index]
+        amount = int(amount)
+        step = 1 if amount >= 0 else -1
+        moved = 0
+        record_count = len(self._records)
+        while moved != amount:
+            position = self._position
+            new_position = position + step
+            if 0 <= new_position <= record_count:
+                self._position = new_position
+                moved += step
             else:
-                return None
+                break
+        return moved
+
+    def collect(self):
+        while self.move():
+            yield self.current()
+
+    def select(self):
+        if self.move():
+            return self.current()
+        else:
+            raise CursorError("No such record")
+
+    def close(self):
+        pass
 
 
 class CypherCommandLine(object):

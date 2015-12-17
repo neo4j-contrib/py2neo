@@ -138,24 +138,6 @@ class ClientErrorTestCase(Py2neoTestCase):
         else:
             assert False
 
-    def test_can_handle_409(self):
-        node_id = self.get_attached_node_id()
-        resource = Resource("http://localhost:7474/db/data/node/%s" % node_id)
-        try:
-            resource.delete()
-        except GraphError as error:
-            try:
-                self.assert_error(
-                    error, (GraphError,), "org.neo4j.server.rest.web.OperationFailureException",
-                    (_ClientError, _Response), 409)
-            except AssertionError:
-                self.assert_error(
-                    error, (GraphError,), "org.neo4j.graphdb.ConstraintViolationException",
-                    (_ClientError, _Response), 409)
-
-        else:
-            assert False
-
 
 class ServerErrorTestCase(Py2neoTestCase):
 

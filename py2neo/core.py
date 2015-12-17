@@ -311,7 +311,7 @@ class Graph(object):
         if count == 0:
             return None
         else:
-            return sum(result.value() for result in results) == count
+            return sum(result.select()[0] for result in results) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -329,11 +329,12 @@ class Graph(object):
             parameters = {"V": property_value}
         if limit:
             statement += " LIMIT %s" % limit
-        response = self.cypher.post(statement, parameters)
-        for record in response:
-            dehydrated = record[0]
-            dehydrated.setdefault("metadata", {})["labels"] = record[1]
-            yield self.hydrate(dehydrated)
+        cursor = self.cypher.run(statement, parameters)
+        while cursor.move():
+            a = cursor[0]
+            a.labels().update(cursor[1])
+            yield a
+        cursor.close()
 
     def find_one(self, label, property_key=None, property_value=None):
         """ Find a single node by label and optional property. This method is
@@ -379,8 +380,8 @@ class Graph(object):
             elif "results" in data:
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import Result
-                result = Result(self, hydrate=True)
+                from py2neo.cypher import Cursor
+                result = Cursor(self, hydrate=True)
                 result._process(data)
                 return result
             elif "neo4j_version" in data:
@@ -447,9 +448,9 @@ class Graph(object):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        result = self.cypher.run(statement, parameters)
-        for record in result:
-            yield record["r"]
+        cursor = self.cypher.run(statement, parameters)
+        while cursor.move():
+            yield cursor["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
@@ -483,8 +484,8 @@ class Graph(object):
             parameters = {"V": coerce_property(property_value)}
         if limit:
             statement += " LIMIT %s" % limit
-        response = self.cypher.post(statement, parameters)
-        for record in response:
+        cursor = self.cypher.post(statement, parameters)
+        for record in cursor.collect():
             dehydrated = record[0]
             dehydrated.setdefault("metadata", {})["labels"] = record[1]
             yield self.hydrate(dehydrated)
@@ -571,7 +572,7 @@ class Graph(object):
         for node, result in nodes.items():
             labels = node.labels()
             labels.clear()
-            labels.update(result[0][1])
+            labels.update(result.select()[1])
 
     def push(self, *entities):
         """ Push data from one or more entities to their remote counterparts.
@@ -1012,7 +1013,7 @@ class Node(PrimitiveNode, Entity):
         query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
         content = self.cypher.post(query, {"a": self._id})
         try:
-            dehydrated, label_metadata = content[0]
+            dehydrated, label_metadata = content.select()
         except IndexError:
             raise GraphError("Node with ID %s not found" % self._id)
         else:

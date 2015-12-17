@@ -134,7 +134,7 @@ call the :func:`execute <py2neo.cypher.CypherEngine.execute>` method::
      1 | (n2:Person {name:"Carol"})
 
 
-The object returned from this call is a :class:`Result <py2neo.cypher.Result>` which is
+The object returned from this call is a :class:`Cursor <py2neo.cypher.Cursor>` which is
 rendered by default as a table of results. Each item in this list is a
 :class:`Record <py2neo.cypher.Record>` instance::
 
