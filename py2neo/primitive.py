@@ -570,3 +570,6 @@ class Record(tuple, Subgraph):
 
     def values(self):
         return tuple(self)
+
+    def select(self, *keys):
+        return Record(keys, [self[key] for key in keys])

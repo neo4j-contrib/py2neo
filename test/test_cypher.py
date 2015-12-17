@@ -68,8 +68,8 @@ class CypherTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
-        record = self.cypher.run(statement, {"N": alice}).select()
-        assert record["a"] is alice
+        a = self.cypher.run(statement, {"N": alice}).evaluate("a")
+        assert a is alice
 
     def test_can_evaluate_cypher_statement(self):
         value = self.cypher.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
@@ -437,47 +437,47 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_value(self):
         tx = self.new_tx()
         if tx:
-            record = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
-                            "RETURN labels(a), a.`full name`",
-                            v="Alice Smith").select()
-            assert set(record[0]) == {"Homo Sapiens"}
-            assert record[1] == "Alice Smith"
+            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
+                                       "RETURN labels(a), a.`full name`",
+                                       v="Alice Smith").select()
+            assert set(labels) == {"Homo Sapiens"}
+            assert full_name == "Alice Smith"
 
     def test_can_use_parameter_for_property_set(self):
         tx = self.new_tx()
         if tx:
-            record = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
-                            "RETURN labels(a), a.`full name`",
-                            p={"full name": "Alice Smith"}).select()
-            assert set(record[0]) == {"Homo Sapiens"}
-            assert record[1] == "Alice Smith"
+            labels, full_name = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
+                                       "RETURN labels(a), a.`full name`",
+                                       p={"full name": "Alice Smith"}).select()
+            assert set(labels) == {"Homo Sapiens"}
+            assert full_name == "Alice Smith"
 
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            record = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
-                            "RETURN labels(a), a.`full name`",
-                            k="full name").select()
-            assert set(record[0]) == {"Homo Sapiens"}
-            assert record[1] == "Alice Smith"
+            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+                                       "RETURN labels(a), a.`full name`",
+                                       k="full name").select()
+            assert set(labels) == {"Homo Sapiens"}
+            assert full_name == "Alice Smith"
 
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            record = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
-                            "RETURN labels(a), a.`full name`",
-                            l="Homo Sapiens").select()
-            assert set(record[0]) == {"Homo Sapiens"}
-            assert record[1] == "Alice Smith"
+            labels, full_name = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                                       "RETURN labels(a), a.`full name`",
+                                       l="Homo Sapiens").select()
+            assert set(labels) == {"Homo Sapiens"}
+            assert full_name == "Alice Smith"
 
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            record = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
-                            "RETURN labels(a), a.`full name`",
-                            l=("Homo Sapiens", "Hunter", "Gatherer")).select()
-            assert set(record[0]) == {"Homo Sapiens", "Hunter", "Gatherer"}
-            assert record[1] == "Alice Smith"
+            labels, full_name = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+                                       "RETURN labels(a), a.`full name`",
+                                       l=("Homo Sapiens", "Hunter", "Gatherer")).select()
+            assert set(labels) == {"Homo Sapiens", "Hunter", "Gatherer"}
+            assert full_name == "Alice Smith"
 
     def test_can_use_parameter_mixture(self):
         statement = u"CREATE (a:«l» {«k»:{v}})"

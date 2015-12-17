@@ -160,10 +160,7 @@ class CypherEngine(object):
         tx = Transaction(self)
         cursor = tx.run(statement, parameters, **kwparameters)
         tx.commit()
-        if cursor.move():
-            return cursor[0]
-        else:
-            return None
+        return cursor.evaluate(0)
 
     def create(self, g):
         tx = Transaction(self)
@@ -334,11 +331,7 @@ class Transaction(object):
         return result
 
     def evaluate(self, statement, parameters=None, **kwparameters):
-        cursor = self.run(statement, parameters, **kwparameters)
-        if cursor.move():
-            return cursor[0]
-        else:
-            return None
+        return self.run(statement, parameters, **kwparameters).evaluate(0)
 
     def create(self, g):
         try:
@@ -524,25 +517,25 @@ class Cursor(object):
     #     return u"\n".join(out) + u"\n"
 
     def __len__(self):
-        position = self._position
-        if position == 0:
-            raise CursorError("No current record")
-        self._ensure_processed()
-        return len(self._records[position - 1])
+        record = self.current()
+        if record is None:
+            raise TypeError("No current record")
+        else:
+            return len(record)
 
     def __getitem__(self, item):
-        position = self._position
-        if position == 0:
-            raise CursorError("No current record")
-        self._ensure_processed()
-        return self._records[position - 1][item]
+        record = self.current()
+        if record is None:
+            raise TypeError("No current record")
+        else:
+            return record[item]
 
     def __iter__(self):
-        position = self._position
-        if position == 0:
-            raise CursorError("No current record")
-        self._ensure_processed()
-        return iter(self._records[position - 1])
+        record = self.current()
+        if record is None:
+            raise TypeError("No current record")
+        else:
+            return iter(record)
 
     def _ensure_processed(self):
         if not self._processed:
@@ -566,13 +559,13 @@ class Cursor(object):
         self._processed = True
 
     def keys(self):
-        return self._keys
+        if self._position == 0:
+            return None
+        else:
+            return self._keys
 
     def position(self):
         return self._position
-
-    def current(self):
-        return self._records[self._position - 1]
 
     def move(self, amount=1):
         self._ensure_processed()
@@ -590,15 +583,30 @@ class Cursor(object):
                 break
         return moved
 
-    def collect(self):
-        while self.move():
-            yield self.current()
-
-    def select(self):
-        if self.move():
-            return self.current()
+    def current(self, *keys):
+        if self._position == 0:
+            return None
+        elif keys:
+            return self._records[self._position - 1].select(*keys)
         else:
-            raise CursorError("No such record")
+            return self._records[self._position - 1]
+
+    def select(self, *keys):
+        if self.move():
+            return self.current(*keys)
+        else:
+            return None
+
+    def collect(self, *keys):
+        while self.move():
+            yield self.current(*keys)
+
+    def evaluate(self, key=0):
+        record = self.select()
+        if record is None:
+            return None
+        else:
+            return record[key]
 
     def close(self):
         pass

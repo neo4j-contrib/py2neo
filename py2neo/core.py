@@ -281,18 +281,22 @@ class Graph(object):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.cypher.begin()
-        results = []
+        cursors = []
         for entity in entities:
             try:
                 if isinstance(entity, Node):
-                    results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=entity))
+                    cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                          "RETURN count(a)", x=entity))
                 elif isinstance(entity, Relationship):
-                    results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=entity))
+                    cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                          "RETURN count(r)", x=entity))
                 elif isinstance(entity, Path):
                     for node in entity.nodes():
-                        results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
+                        cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                              "RETURN count(a)", x=node))
                     for rel in entity.relationships():
-                        results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
+                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                              "RETURN count(r)", x=rel))
                 else:
                     try:
                         nodes = entity.nodes()
@@ -301,9 +305,11 @@ class Graph(object):
                         raise TypeError("Object %r is not graphy" % entity)
                     else:
                         for node in nodes:
-                            results.append(tx.run("MATCH (a) WHERE id(a)={x} RETURN count(a)", x=node))
+                            cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                                  "RETURN count(a)", x=node))
                         for rel in relationships:
-                            results.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN count(r)", x=rel))
+                            cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                                  "RETURN count(r)", x=rel))
             except BindError:
                 pass
         count = len(tx.statements)
@@ -311,7 +317,7 @@ class Graph(object):
         if count == 0:
             return None
         else:
-            return sum(result.select()[0] for result in results) == count
+            return sum(cursor.evaluate() for cursor in cursors) == count
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -560,19 +566,19 @@ class Graph(object):
             relationships.update(entity.relationships())
         tx = self.cypher.begin()
         for node in nodes:
-            result = tx.run("MATCH (a) WHERE id(a)={x} "
+            cursor = tx.run("MATCH (a) WHERE id(a)={x} "
                             "RETURN a, labels(a)", x=node._id)
-            result.cache["a"] = node
-            nodes[node] = result
+            cursor.cache["a"] = node
+            nodes[node] = cursor
         for relationship in relationships:
-            result = tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+            cursor = tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                             "RETURN r", x=relationship._id)
-            result.cache["r"] = relationship
+            cursor.cache["r"] = relationship
         tx.commit()
-        for node, result in nodes.items():
+        for node, cursor in nodes.items():
             labels = node.labels()
             labels.clear()
-            labels.update(result.select()[1])
+            labels.update(cursor.evaluate(1))
 
     def push(self, *entities):
         """ Push data from one or more entities to their remote counterparts.
