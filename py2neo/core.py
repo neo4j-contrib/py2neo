@@ -1292,7 +1292,7 @@ class Path(PrimitivePath):
     """
 
     @classmethod
-    def hydrate(cls, data, inst=None):
+    def hydrate(cls, data):
         """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
         The data structure and values expected are those produced by the
         `REST API <http://neo4j.com/docs/stable/rest-api-graph-algos.html#rest-api-find-one-of-the-shortest-paths>`__.
@@ -1304,22 +1304,12 @@ class Path(PrimitivePath):
         node_uris = data["nodes"]
         relationship_uris = data["relationships"]
         offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-        if inst is None:
-            nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
-            relationships = [Relationship.hydrate({"self": uri,
-                                                   "start": node_uris[i + offsets[i][0]],
-                                                   "end": node_uris[i + offsets[i][1]]})
-                             for i, uri in enumerate(relationship_uris)]
-            inst = Path(*round_robin(nodes, relationships))
-        else:
-            for i, node in enumerate(inst.nodes()):
-                uri = node_uris[i]
-                Node.hydrate({"self": uri}, node)
-            for i, relationship in enumerate(inst.relationships()):
-                uri = relationship_uris[i]
-                Relationship.hydrate({"self": uri,
-                                      "start": node_uris[i + offsets[i][0]],
-                                      "end": node_uris[i + offsets[i][1]]}, relationship)
+        nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
+        relationships = [Relationship.hydrate({"self": uri,
+                                               "start": node_uris[i + offsets[i][0]],
+                                               "end": node_uris[i + offsets[i][1]]})
+                         for i, uri in enumerate(relationship_uris)]
+        inst = Path(*round_robin(nodes, relationships))
         inst.__metadata = data
         return inst
 
