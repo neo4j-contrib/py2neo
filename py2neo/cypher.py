@@ -636,13 +636,11 @@ class Cursor(object):
 
         :param keys:
         """
-        if not self._processed:
-            self.transaction.process()
         if keys:
             records = list(self.collect(*keys))
         else:
-            keys = self._keys
             records = list(self.collect())
+            keys = self._keys
         widths = [len(key) for key in keys]
         for record in records:
             for i, value in enumerate(record):
