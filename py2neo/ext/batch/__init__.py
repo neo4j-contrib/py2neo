@@ -86,7 +86,7 @@ def _create_query(p, unique=False):
         if node is None:
             path.append("(n{0})".format(i))
             values.append("n{0}".format(i))
-        elif node.bound:
+        elif node.bound():
             path.append("(n{0})".format(i))
             initial_match_clause.append("MATCH (n{0}) WHERE id(n{0})={{i{0}}}".format(i))
             params["i{0}".format(i)] = node._id

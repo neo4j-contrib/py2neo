@@ -84,7 +84,7 @@ class GraphTestCase(Py2neoTestCase):
         a = Node()
         self.graph.create(a)
         assert isinstance(a, Node)
-        assert a.bound
+        assert a.bound()
         assert self.graph.exists(a)
         self.graph.delete(a)
         assert not self.graph.exists(a)
@@ -93,7 +93,7 @@ class GraphTestCase(Py2neoTestCase):
         ab = Relationship(Node(), "KNOWS", Node())
         self.graph.create(ab)
         assert isinstance(ab, Relationship)
-        assert ab.bound
+        assert ab.bound()
         assert self.graph.exists(ab)
         self.graph.delete(ab | ab.start_node() | ab.end_node())
         assert not self.graph.exists(ab)
@@ -153,7 +153,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_create_single_empty_node(self):
         a = Node()
         self.graph.create(a)
-        assert a.bound
+        assert a.bound()
 
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")

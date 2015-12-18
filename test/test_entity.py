@@ -26,7 +26,7 @@ class EntityTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Entity()
         entity.bind(uri)
-        assert entity.bound
+        assert entity.bound()
         assert entity.uri == uri
 
     def test_can_create_entity_with_initial_uri_and_metadata(self):
@@ -34,42 +34,25 @@ class EntityTestCase(Py2neoTestCase):
         metadata = {"foo": "bar"}
         entity = Entity()
         entity.bind(uri, metadata)
-        assert entity.bound
+        assert entity.bound()
         assert entity.uri == uri
         assert entity.resource.metadata == metadata
 
     def test_default_state_for_node_is_unbound(self):
         node = Node()
-        assert not node.bound
+        assert not node.bound()
         with self.assertRaises(BindError):
             _ = node.resource
-
-    def test_bound_path_is_bound(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        self.graph.create(path)
-        assert path.bound
-
-    def test_unbound_path_is_not_bound(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        assert not path.bound
 
     def test_can_bind_node_to_resource(self):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
         node.bind(uri)
-        assert node.bound
+        assert node.bound()
         assert isinstance(node.resource, Resource)
         assert node.resource.uri == uri
         node.unbind()
-        assert not node.bound
+        assert not node.bound()
         with self.assertRaises(BindError):
             _ = node.resource
 
@@ -82,11 +65,11 @@ class EntityTestCase(Py2neoTestCase):
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
         relationship.bind(uri, metadata=metadata)
-        assert relationship.bound
+        assert relationship.bound()
         assert isinstance(relationship.resource, Resource)
         assert relationship.resource.uri == uri
         relationship.unbind()
-        assert not relationship.bound
+        assert not relationship.bound()
         with self.assertRaises(BindError):
             _ = relationship.resource
 
@@ -95,7 +78,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(node)
         Node.cache.clear()
         node.unbind()
-        assert not node.bound
+        assert not node.bound()
 
     def test_can_unbind_relationship_if_not_cached(self):
         a = Node()
@@ -104,7 +87,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(ab)
         Relationship.cache.clear()
         ab.unbind()
-        assert not ab.bound
+        assert not ab.bound()
 
     def test_can_unbind_relationship_with_already_unbound_nodes(self):
         a = Node()
@@ -113,7 +96,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(ab)
         a.unbind()
         b.unbind()
-        assert not a.bound
-        assert not b.bound
+        assert not a.bound()
+        assert not b.bound()
         ab.unbind()
-        assert not ab.bound
+        assert not ab.bound()
