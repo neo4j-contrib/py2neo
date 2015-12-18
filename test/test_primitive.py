@@ -21,7 +21,8 @@
 from unittest import TestCase
 
 from py2neo.primitive import PropertySet, PropertyContainer, TraversableSubgraph, \
-    Subgraph, Node, Relationship, Path, Record, traverse
+    Subgraph, Node, Relationship, Path, traverse
+from py2neo.cypher import Record
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)

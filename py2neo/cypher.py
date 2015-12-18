@@ -41,12 +41,12 @@ import os
 from io import StringIO
 from sys import stdout
 
-from py2neo.compat import integer, xstr, ustr
+from py2neo.compat import integer, string, ustr
 from py2neo.core import Node, Relationship, Path
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
 from py2neo.status import CypherError, Finished
-from py2neo.primitive import TraversableSubgraph, Record
+from py2neo.primitive import TraversableSubgraph, Subgraph
 from py2neo.util import is_collection, deprecated
 
 
@@ -656,6 +656,65 @@ class Cursor(object):
             out.write(u"\n")
 
 
+class Record(tuple, Subgraph):
+
+    def __new__(cls, keys, values):
+        if len(keys) == len(values):
+            return super(Record, cls).__new__(cls, values)
+        else:
+            raise ValueError("Keys and values must be of equal length")
+
+    def __init__(self, keys, values):
+        self.__keys = tuple(keys)
+        nodes = []
+        relationships = []
+        for value in values:
+            if hasattr(value, "nodes"):
+                nodes.extend(value.nodes())
+            if hasattr(value, "relationships"):
+                relationships.extend(value.relationships())
+        Subgraph.__init__(self, nodes, relationships)
+        self.__repr = None
+
+    def __repr__(self):
+        r = self.__repr
+        if r is None:
+            s = ["("]
+            for i, key in enumerate(self.__keys):
+                if i > 0:
+                    s.append(", ")
+                s.append(repr(key))
+                s.append(": ")
+                s.append(repr(self[i]))
+            s.append(")")
+            r = self.__repr = "".join(s)
+        return r
+
+    def __getitem__(self, item):
+        if isinstance(item, string):
+            try:
+                return tuple.__getitem__(self, self.__keys.index(item))
+            except ValueError:
+                raise KeyError(item)
+        elif isinstance(item, slice):
+            return self.__class__(self.__keys[item.start:item.stop],
+                                  tuple.__getitem__(self, item))
+        else:
+            return tuple.__getitem__(self, item)
+
+    def __getslice__(self, i, j):
+        return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
+
+    def keys(self):
+        return self.__keys
+
+    def values(self):
+        return tuple(self)
+
+    def select(self, *keys):
+        return Record(keys, [self[key] for key in keys])
+
+
 class CypherCommandLine(object):
 
     def __init__(self, graph):
@@ -865,10 +924,10 @@ def cypher_escape(identifier):
 def cypher_repr(obj):
     """ Generate the Cypher representation of an object.
     """
-    string = StringIO()
-    writer = CypherWriter(string)
+    s = StringIO()
+    writer = CypherWriter(s)
     writer.write(obj)
-    return string.getvalue()
+    return s.getvalue()
 
 
 def main():

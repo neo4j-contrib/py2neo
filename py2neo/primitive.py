@@ -22,8 +22,7 @@ from re import compile as re_compile
 from .compat import integer, string, unicode, ustr
 
 
-__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "Path",
-           "Record", "traverse"]
+__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "Path", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -514,62 +513,3 @@ class Path(TraversableSubgraph):
 
     def __repr__(self):
         return "<Path length=%r>" % self.length()
-
-
-class Record(tuple, Subgraph):
-
-    def __new__(cls, keys, values):
-        if len(keys) == len(values):
-            return super(Record, cls).__new__(cls, values)
-        else:
-            raise ValueError("Keys and values must be of equal length")
-
-    def __init__(self, keys, values):
-        self.__keys = tuple(keys)
-        nodes = []
-        relationships = []
-        for value in values:
-            if hasattr(value, "nodes"):
-                nodes.extend(value.nodes())
-            if hasattr(value, "relationships"):
-                relationships.extend(value.relationships())
-        Subgraph.__init__(self, nodes, relationships)
-        self.__repr = None
-
-    def __repr__(self):
-        r = self.__repr
-        if r is None:
-            s = ["("]
-            for i, key in enumerate(self.__keys):
-                if i > 0:
-                    s.append(", ")
-                s.append(repr(key))
-                s.append(": ")
-                s.append(repr(self[i]))
-            s.append(")")
-            r = self.__repr = "".join(s)
-        return r
-
-    def __getitem__(self, item):
-        if isinstance(item, string):
-            try:
-                return tuple.__getitem__(self, self.__keys.index(item))
-            except ValueError:
-                raise KeyError(item)
-        elif isinstance(item, slice):
-            return self.__class__(self.__keys[item.start:item.stop],
-                                  tuple.__getitem__(self, item))
-        else:
-            return tuple.__getitem__(self, item)
-
-    def __getslice__(self, i, j):
-        return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
-
-    def keys(self):
-        return self.__keys
-
-    def values(self):
-        return tuple(self)
-
-    def select(self, *keys):
-        return Record(keys, [self[key] for key in keys])
