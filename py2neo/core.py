@@ -1110,23 +1110,14 @@ class Relationship(PrimitiveRelationship, Entity):
         self.__stale = set()
 
     def __repr__(self):
-        s = [self.__class__.__name__]
+        s = ["Relationship"]
         if self.bound:
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
             s.append("start=%r" % self.start_node().ref)
             s.append("end=%r" % self.end_node().ref)
-            if self._type is None:
-                s.append("type=?")
-            else:
-                s.append("type=%r" % self._type)
-            if "properties" in self.__stale:
-                s.append("properties=?")
-            else:
-                s.append("properties=%r" % dict(self))
-        else:
-            s.append("type=%r" % self._type)
-            s.append("properties=%r" % dict(self))
+        s.append("type=%r" % self._type)
+        s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):

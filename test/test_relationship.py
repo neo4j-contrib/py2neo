@@ -31,8 +31,19 @@ class DodgyClientError(ClientError):
 class RelationshipTestCase(Py2neoTestCase):
 
     def test_relationship_repr(self):
-        r = Relationship(Node(), "TO", Node())
-        assert repr(r)
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "TO", b)
+        r = repr(ab)
+        assert r.startswith("<Relationship")
+
+    def test_bound_relationship_repr(self):
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "TO", b)
+        self.graph.create(ab)
+        r = repr(ab)
+        assert r.startswith("<Relationship")
 
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
