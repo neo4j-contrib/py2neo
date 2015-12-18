@@ -120,9 +120,6 @@ class Resource(_Resource):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
-    #: The class of error raised by failure responses from this resource.
-    error_class = GraphError
-
     def __init__(self, uri, metadata=None, headers=None):
         uri = URI(uri)
         scheme_host_port = (uri.scheme, uri.host, uri.port)
@@ -217,7 +214,7 @@ class Resource(_Resource):
             else:
                 content = {}
             message = content.pop("message", "HTTP GET returned response %s" % error.status_code)
-            raise_from(self.error_class(message, **content), error)
+            raise_from(GraphError(message, **content), error)
         else:
             self.__last_get_response = response
             return response
@@ -242,7 +239,7 @@ class Resource(_Resource):
             else:
                 content = {}
             message = content.pop("message", "HTTP PUT returned response %s" % error.status_code)
-            raise_from(self.error_class(message, **content), error)
+            raise_from(GraphError(message, **content), error)
         else:
             return response
 
@@ -266,7 +263,7 @@ class Resource(_Resource):
             else:
                 content = {}
             message = content.pop("message", "HTTP POST returned response %s" % error.status_code)
-            raise_from(self.error_class(message, **content), error)
+            raise_from(GraphError(message, **content), error)
         else:
             return response
 
@@ -289,7 +286,7 @@ class Resource(_Resource):
             else:
                 content = {}
             message = content.pop("message", "HTTP DELETE returned response %s" % error.status_code)
-            raise_from(self.error_class(message, **content), error)
+            raise_from(GraphError(message, **content), error)
         else:
             return response
 
@@ -309,6 +306,4 @@ class ResourceTemplate(_ResourceTemplate):
         :arg values: A set of named values to plug into the template URI.
         :rtype: :class:`.Resource`
         """
-        resource = Resource(self.uri_template.expand(**values))
-        resource.error_class = self.error_class
-        return resource
+        return Resource(self.uri_template.expand(**values))

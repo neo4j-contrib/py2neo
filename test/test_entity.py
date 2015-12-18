@@ -38,24 +38,6 @@ class EntityTestCase(Py2neoTestCase):
         assert entity.uri == uri
         assert entity.resource.metadata == metadata
 
-    def test_can_create_entity_with_initial_uri_template(self):
-        uri = "http://localhost:7474/db/data/node/{node_id}"
-        entity = Entity()
-        entity.bind(uri)
-        assert entity.bound
-        assert entity.uri == uri
-
-    def test_cannot_create_entity_with_initial_uri_template_and_metadata(self):
-        uri = "http://localhost:7474/db/data/node/{node_id}"
-        metadata = {"foo": "bar"}
-        service = Entity()
-        try:
-            service.bind(uri, metadata)
-        except ValueError:
-            assert True
-        else:
-            assert False
-
     def test_default_state_for_node_is_unbound(self):
         node = Node()
         assert not node.bound

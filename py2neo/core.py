@@ -670,7 +670,7 @@ class Entity(object):
     #: The class of error raised by failure responses from the contained resource.
     error_class = GraphError
 
-    __resource__ = None
+    _resource = None
 
     _bind_pending_tx = None
 
@@ -696,13 +696,7 @@ class Entity(object):
         :arg metadata: Dictionary of initial metadata to attach to the contained resource.
 
         """
-        if "{" in uri and "}" in uri:
-            if metadata:
-                raise ValueError("Initial metadata cannot be passed to a resource template")
-            self.__resource__ = ResourceTemplate(uri)
-        else:
-            self.__resource__ = Resource(uri, metadata)
-        self.__resource__.error_class = self.error_class
+        self._resource = Resource(uri, metadata)
         self._bind_pending_tx = None
 
     def set_bind_pending(self, tx):
@@ -720,7 +714,7 @@ class Entity(object):
         :const:`False` otherwise.
         """
         self._process_if_bind_pending()
-        return self.__resource__ is not None
+        return self._resource is not None
 
     @property
     def graph(self):
@@ -741,6 +735,12 @@ class Entity(object):
         return self.dbms.graph.cypher
 
     @property
+    def _id(self):
+        """ The internal ID of this relationship within the database.
+        """
+        return int(self.uri.path.segments[-1])
+
+    @property
     def ref(self):
         """ The URI of the remote resource relative to its graph.
 
@@ -758,7 +758,7 @@ class Entity(object):
         """
         self._process_if_bind_pending()
         if self.bound:
-            return self.__resource__
+            return self._resource
         else:
             raise BindError("Local entity is not bound to a remote entity")
 
@@ -774,7 +774,7 @@ class Entity(object):
     def unbind(self):
         """ Detach this object from any remote resource.
         """
-        self.__resource__ = None
+        self._resource = None
         self._bind_pending_tx = None
 
     @property
@@ -826,8 +826,6 @@ class Node(PrimitiveNode, Entity):
     """
 
     cache = ThreadLocalWeakValueDictionary()
-
-    __id = None
 
     @classmethod
     def hydrate(cls, data, inst=None):
@@ -906,30 +904,12 @@ class Node(PrimitiveNode, Entity):
         return PrimitiveNode.__getitem__(self, item)
 
     @property
-    def _id(self):
-        """ The internal ID of this node within the database.
-        """
-        if self.__id is None:
-            self.__id = int(self.uri.path.segments[-1])
-        return self.__id
-
-    @property
     def ref(self):
         """ The URI of this node relative to its graph.
 
         :rtype: string
         """
         return "node/%s" % self._id
-
-    def bind(self, uri, metadata=None):
-        """ Associate this node with a remote node.
-
-        :arg uri: The URI identifying the remote node to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
-
-        """
-        Entity.bind(self, uri, metadata)
-        self.cache[uri] = self
 
     def degree(self):
         """ The number of relationships attached to this node.
@@ -996,7 +976,6 @@ class Node(PrimitiveNode, Entity):
         except KeyError:
             pass
         Entity.unbind(self)
-        self.__id = None
 
 
 class NodeProxy(object):
@@ -1019,8 +998,6 @@ class Relationship(PrimitiveRelationship, Entity):
 
     cache = ThreadLocalWeakValueDictionary()
 
-    __id = None
-
     @classmethod
     def hydrate(cls, data, inst=None):
         """ Hydrate a dictionary of data to produce a :class:`.Relationship` instance.
@@ -1032,10 +1009,12 @@ class Relationship(PrimitiveRelationship, Entity):
 
         """
         self = data["self"]
+        start = data["start"]
+        end = data["end"]
         if inst is None:
-            new_inst = cls(Node.hydrate({"self": data["start"]}),
+            new_inst = cls(Node.hydrate({"self": start}),
                            data.get("type"),
-                           Node.hydrate({"self": data["end"]}),
+                           Node.hydrate({"self": end}),
                            **data.get("data", {}))
             inst = cls.cache.setdefault(self, new_inst)
             # The check below is a workaround for http://bugs.python.org/issue19542
@@ -1043,8 +1022,8 @@ class Relationship(PrimitiveRelationship, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         else:
-            Node.hydrate({"self": data["start"]}, inst.start_node())
-            Node.hydrate({"self": data["end"]}, inst.end_node())
+            Node.hydrate({"self": start}, inst.start_node())
+            Node.hydrate({"self": end}, inst.end_node())
             inst._type = data.get("type")
             if "data" in data:
                 inst.clear()
@@ -1110,49 +1089,9 @@ class Relationship(PrimitiveRelationship, Entity):
         else:
             return PrimitiveRelationship.__hash__(self)
 
-    @property
-    def _id(self):
-        """ The internal ID of this relationship within the database.
-        """
-        if self.__id is None:
-            self.__id = int(self.uri.path.segments[-1])
-        return self.__id
-
-    def bind(self, uri, metadata=None):
-        """ Associate this relationship with a remote relationship. The start and
-        end nodes will also be associated with their corresponding remote nodes.
-
-        :arg uri: The URI identifying the remote relationship to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
-
-        """
-        Entity.bind(self, uri, metadata)
-        self.cache[uri] = self
-
-        for node, position in [(self.start_node(), "start"), (self.end_node(), "end")]:
-            if not isinstance(node, Node):
-                continue
-            new_node_uri = self.resource.metadata[position]
-            if node.bound:
-                node_uri = node.uri.string
-                if new_node_uri != node_uri:
-                    raise BindError("%s node of relationship %r cannot be bound to "
-                                    "%r when already bound to %r" %
-                                    (position.title(), self._id, new_node_uri, node_uri))
-            else:
-                node.bind(new_node_uri)
-
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):
         return self.graph.exists(self)
-
-    @property
-    def graph(self):
-        """ The parent graph of this relationship.
-
-        :rtype: :class:`.Graph`
-        """
-        return self.dbms.graph
 
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
@@ -1193,7 +1132,6 @@ class Relationship(PrimitiveRelationship, Entity):
         except KeyError:
             pass
         Entity.unbind(self)
-        self.__id = None
 
 
 class Path(PrimitivePath):
