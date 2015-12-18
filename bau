@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2012-2014 Nigel Small
+# Copyright 2012-2015 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 # limitations under the License.
 
 
-LATEST_1_8_VERSION="1.8.3"
-LATEST_1_9_VERSION="1.9.8"
 LATEST_2_0_VERSION="2.0.4"
-LATEST_2_1_VERSION="2.1.4"
-LATEST_VERSION=$LATEST_2_1_VERSION
+LATEST_2_1_VERSION="2.1.5"
+LATEST_2_2_VERSION="2.2.7"
+LATEST_2_3_VERSION="2.3.1"
+LATEST_3_0_VERSION="3.0.0-M01"
+LATEST_VERSION=$LATEST_3_0_VERSION
 
 SELF=$0
 COMMAND=$1
@@ -31,18 +32,37 @@ DOWN="$HOME/.bau/down"
 LOG="$HOME/.bau/log"
 RUN="$HOME/.bau/run"
 
-function install_test_dependencies {
+function install_dependencies {
     if [ "$ONLINE" ]
     then
-        echo "Ensuring testing dependencies are up to date"
-        pip install --upgrade mock pytest pytest-cov
+        echo "Ensuring dependencies are up to date"
+        pip install --upgrade $(find . -name *requirements.txt | xargs cat)
+        EXIT_CODE=$?
+        if [ "$EXIT_CODE" != "0" ]
+        then
+            echo "Exiting on code $EXIT_CODE after failure to install dependencies"
+            exit $EXIT_CODE
+        fi
     fi
 }
 
+function check_license {
+    pushd "$HOME" > /dev/null
+    find py2neo -name '*.py' | grep -v -e '^py2neo/ext/' -e '/packages/' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    popd > /dev/null
+}
+
 function test {
+    UNLICENSED=`check_license`
+    if [ "$UNLICENSED" ]
+    then
+        echo "The following files do not contain Apache license details:"
+        echo "$UNLICENSED"
+        exit 1
+    fi
     echo "Running test suite"
     echo ""
-    install_test_dependencies
+    install_dependencies
     pushd "$HOME" > /dev/null
     for NEO4J_VERSION in $NEO4J_VERSIONS
     do
@@ -51,12 +71,20 @@ function test {
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
         trap neo4j_stop_and_exit SIGINT SIGTERM
         neo4j_start
-        py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
+        sleep 3
+        echo "Setting password"
+        NEW_PASSWORD="password"
+        python -m py2neo.password neo4j neo4j $NEW_PASSWORD
+        sleep 3
+        echo "Starting tests"
+        export NEO4J_HOME="$HOME"
+        export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
+        $HOME/runtests.sh $1
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
         rm -rf "$LOG/$NEO4J_VERSION/htmlcov"
-        mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
+        #mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
         echo ""
         if [ "$EXIT_CODE" != "0" ]
         then
@@ -70,6 +98,12 @@ function test {
     echo ""
 }
 
+function build_book {
+    install_dependencies
+    make -C $HOME/book html
+    xdg-open $HOME/book/_build/html/index.html 2> /dev/null
+}
+
 function download {
     mkdir -p "$DOWN" 2> /dev/null
     pushd "$DOWN" > /dev/null
@@ -81,10 +115,40 @@ function neo4j_set_dist {
     EDITION=$NEO4J_EDITION
     if [ "$EDITION" == "" ]
     then
-        EDITION="community"
+        EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "2.1" ] || [ "$VERSION" == "" ]
+    if [ "$VERSION" == "3.0" ] || [ "$VERSION" == "" ]
+    then
+        VERSION=$LATEST_3_0_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.     ::::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       :::     ::  ::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    ::  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     '::::' ::  ::::"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.3" ]
+    then
+        VERSION=$LATEST_2_3_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.    .::::."
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'       ::: "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ..  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: :: '::::'"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.2" ]
+    then
+        VERSION=$LATEST_2_2_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.    .::::."
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'       .:' "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       .:'   "
+        echo "::::   ::  :::::   :::::      ::   ::     :::::: :: ::::::"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.1" ]
     then
         VERSION=$LATEST_2_1_VERSION
         echo ""
@@ -102,26 +166,6 @@ function neo4j_set_dist {
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
         echo " :: :: :: ::...:: ::   :: ::  ::   ::       .:'     ::  ::"
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ::  ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
-    elif [ "$VERSION" == "1.9" ]
-    then
-        VERSION=$LATEST_1_9_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::      ':::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::          ::"
-        echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
-        echo "                                 :::"
-    elif [ "$VERSION" == "1.8" ]
-    then
-        VERSION=$LATEST_1_8_VERSION
-        echo ""
-        echo ":::   ::::                  ::     ''      .::       ::::"
-        echo " :::.  ::  :::::   :::::   ::     :::     ''::      ::  ::"
-        echo " :: :: :: ::...:: ::   :: ::  ::   ::       ::       ::::"
-        echo " ::  '::: ::''''' ::   :: :::::::  ::       ::      ::  ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
         echo "                                 :::"
     fi
@@ -150,6 +194,7 @@ function neo4j_start {
     cp "$DOWN/$ARCHIVE" "$RUN"
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
+    #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
     $DIST/bin/neo4j start
     popd > /dev/null
 }
@@ -183,18 +228,32 @@ function neo4j {
 }
 
 case $COMMAND in
+    book)
+        build_book
+        ;;
     download)
         download $ARGS
         ;;
     neo4j)
         neo4j $ARGS
         ;;
+    check-license)
+        check_license
+        ;;
     test)
-        NEO4J_VERSIONS="1.8 1.9 2.0 2.1"
-        test $ARGS
+        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        test
         ;;
     test-latest)
-        NEO4J_VERSIONS="2.1"
-        test $ARGS
+        NEO4J_VERSIONS="3.0"
+        test
+        ;;
+    test-ext)
+        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        test text_ext
+        ;;
+    test-ext-latest)
+        NEO4J_VERSIONS="3.0"
+        test test_ext
         ;;
 esac

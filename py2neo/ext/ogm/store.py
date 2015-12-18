@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
 #
@@ -15,82 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-""" The ogm module provides Object to Graph Mapping features similar to ORM
-facilities available for relational databases. All functionality is available
-through the :py:class:`Store` class which is bound to a specific
-:py:class:`neo4j.Graph` instance on creation.
-
-Conceptually, a mapped object "owns" a single node within the graph along with
-all of that node's outgoing relationships. These features are managed via a
-pair of attributes called `__node__` and `__rel__` which store details of the
-mapped node and the outgoing relationships respectively. The only specific
-requirement for a mapped object is that it has a nullary constructor which can
-be used to create new instances.
-
-The `__node__` attribute holds a :py:class:`neo4j.Node` object which is the
-node to which this object is mapped. If the attribute does not exist, or is
-:py:const:`None`, the object is considered "unsaved".
-
-The `__rel__` attribute holds a dictionary of outgoing relationship details.
-Each key corresponds to a relationship type and each value to a list of
-2-tuples representing the outgoing relationships of that type. Within each
-2-tuple, the first value holds a dictionary of relationship properties (which
-may be empty) and the second value holds the endpoint. The endpoint may be
-either a :py:class:`neo4j.Node` instance or another mapped object. Any such
-objects which are unsaved will be lazily saved as required by creation of the
-relationship itself. The following data structure outline shows an example of
-a `__rel__` attribute (where `alice` and `bob` represent other mapped objects::
-
-    {
-        "LIKES": [
-            ({}, alice),
-            ({"since": 1999}, bob)
-        ]
-    }
-
-To manage relationships, use the :py:func:`Store.relate` and
-:py:func:`Store.separate` methods. Neither method makes any calls to the
-database and operates only on the local `__rel__` attribute. Changes must be
-explicitly saved via one of the available save methods. The
-:py:func:`Store.load_related` method loads all objects marked as related by
-the `__rel__` attribute.
-
-The code below shows an example of usage::
-
-    from py2neo import neo4j, ogm
-
-    class Person(object):
-
-        def __init__(self, email=None, name=None, age=None):
-            self.email = email
-            self.name = name
-            self.age = age
-
-        def __str__(self):
-            return self.name
-
-    graph = neo4j.Graph()
-    store = ogm.Store(graph)
-
-    alice = Person("alice@example.com", "Alice", 34)
-    store.save_unique("People", "email", alice.email, alice)
-
-    bob = Person("bob@example.org", "Bob", 66)
-    carol = Person("carol@example.net", "Carol", 42)
-    store.relate(alice, "LIKES", bob)     # these relationships are not saved
-    store.relate(alice, "LIKES", carol)   # until `alice` is saved
-    store.save(alice)
-
-    friends = store.load_related(alice, "LIKES", Person)
-    print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
-
-"""
-
 
 from __future__ import unicode_literals
 
-from py2neo.batch import WriteBatch
-from py2neo.core import Node
+from py2neo import Node
+from py2neo.ext.batch import WriteBatch
+from py2neo.ext.mandex import ManualIndexManager
+
+
+__all__ = ["Store", "NotSaved"]
 
 
 class NotSaved(ValueError):
@@ -100,17 +33,18 @@ class NotSaved(ValueError):
 
 
 class Store(object):
+    """ Virtual storage mapped onto an existing graph in which
+    objects can be stored.
+    """
 
     def __init__(self, graph):
         self.graph = graph
-        if self.graph.supports_optional_match:
-            self.__delete_query = ("START a=node({A}) "
-                                   "OPTIONAL MATCH a-[r]-b "
-                                   "DELETE r, a")
-        else:
-            self.__delete_query = ("START a=node({A}) "
-                                   "MATCH a-[r?]-b "
-                                   "DELETE r, a")
+        self.index_manager = ManualIndexManager(self.graph)
+        self.__delete_query = (
+            "MATCH (a) WHERE id(a)={A} "
+            "OPTIONAL MATCH a-[r]-b "
+            "DELETE r, a"
+        )
 
     def _assert_saved(self, subj):
         try:
@@ -224,7 +158,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: a list of `cls` instances
         """
-        index = self.graph.legacy.get_index(Node, index_name)
+        index = self.index_manager.get_index(Node, index_name)
         nodes = index.get(key, value)
         return [self.load(cls, node) for node in nodes]
 
@@ -237,7 +171,7 @@ class Store(object):
         :param cls: the class of the object to be returned
         :return: as instance of `cls` containing the loaded data
         """
-        index = self.graph.legacy.get_index(Node, index_name)
+        index = self.index_manager.get_index(Node, index_name)
         nodes = index.get(key, value)
         if not nodes:
             return None
@@ -255,7 +189,7 @@ class Store(object):
         """
         self._assert_saved(subj)
         # naively copy properties from node to object
-        properties = subj.__node__.get_properties()
+        properties = subj.__node__.properties
         for key in subj.__dict__:
             if not key.startswith("_") and key not in properties:
                 setattr(subj, key, None)
@@ -266,7 +200,7 @@ class Store(object):
         for rel in subj.__node__.match():
             if rel.type not in subj.__rel__:
                 subj.__rel__[rel.type] = []
-            subj.__rel__[rel.type].append((rel.get_properties(), rel.end_node))
+            subj.__rel__[rel.type].append((rel.properties, rel.end_node))
 
     def save(self, subj, node=None):
         """ Save an object to a database node.
@@ -283,9 +217,10 @@ class Store(object):
             if not key.startswith("_"):
                 props[key] = value
         if hasattr(subj, "__node__"):
-            subj.__node__.set_properties(props)
-            self.graph.cypher.run("START a=node({a}) MATCH (a)-[r]->(b) DELETE r",
-                                  {"a": subj.__node__})
+            subj.__node__.properties.clear()
+            subj.__node__.properties.update(props)
+            self.graph.cypher.execute("MATCH (a) WHERE id(a)={a} MATCH (a)-[r]->(b) DELETE r",
+                                      {"a": subj.__node__})
         else:
             subj.__node__, = self.graph.create(props)
         # write rels
@@ -309,7 +244,7 @@ class Store(object):
         :param value: the index value
         :param subj: one or more objects to save
         """
-        index = self.graph.legacy.get_or_create_index(Node, index_name)
+        index = self.index_manager.get_or_create_index(Node, index_name)
         for subj in subj:
             index.add(key, value, self.save(self._get_node(subj)))
 
@@ -322,7 +257,7 @@ class Store(object):
         :param value: the index value
         :param subj: the object to save
         """
-        index = self.graph.legacy.get_or_create_index(Node, index_name)
+        index = self.index_manager.get_or_create_index(Node, index_name)
         node = index.get_or_create(key, value, {})
         self.save(subj, node)
 

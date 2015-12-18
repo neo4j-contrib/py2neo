@@ -1,28 +1,111 @@
-Batches
-=======
+==========
+API: Batch
+==========
 
-Py2neo interacts with Neo4j via its REST API interface and so every interaction
-requires a separate HTTP request to be sent. However, when working at scale,
-for tasks such as bulk data loading, communication can be prohibitively slow
-using this step-by-step approach.
+The Neo4j batch resource is designed to allow multiple REST calls to be passed to the server in a
+single request and be executed in a single transaction. While this remains a good choice for some
+legacy use cases, many are better served by a `Cypher transaction <py2neo.cypher.Transaction>`_
+instead.
 
-Batches allow multiple requests to be grouped and sent together, cutting down
-on network traffic and latency. Such requests also have the advantage of being
-executed within a single transaction.
+Batches offer a limited capability to refer to one job from another **within the same batch**. This
+can be useful when building a batch that creates both nodes and relationships between those new
+nodes. Note though that certain combinations of such cross-referencing are not possible,
+particularly when creating nodes within a legacy index.
 
-Unfortunately, it is not practical to mix both read and write operations into
-a single batch due to restrictions within the underlying implementation. For
-this reason, py2neo provides two separate batch classes:
-:py:class:`ReadBatch <py2neo.batch.ReadBatch>` and
-:py:class:`WriteBatch <py2neo.batch.WriteBatch>`.
-The latter is the more comprehensive, as can be seen below.
+Labels and schema indexes are also poorly supported by the batch facility and it is recommended to
+use Cypher transactions instead when working with these.
 
-.. autoclass:: py2neo.batch.ReadBatch
-    :members: clear, stream, submit, append_cypher, get_indexed_nodes
 
-.. autoclass:: py2neo.batch.WriteBatch
-    :members: clear, run, stream, submit, append_cypher, create, create_path,
-        delete, delete_properties, delete_property, get_or_create_path,
-        set_properties, set_property, add_labels, remove_label, set_labels,
-        add_to_index, add_to_index_or_fail, get_or_add_to_index,
-        create_in_index_or_fail, get_or_create_in_index, remove_from_index
+Batch Resource
+==============
+
+.. autoclass:: py2neo.batch.BatchRunner
+   :members:
+
+
+Batch Instances
+===============
+
+.. autoclass:: py2neo.batch.Batch
+   :members:
+
+.. autoclass:: py2neo.batch.PullBatch
+   :members:
+
+.. autoclass:: py2neo.batch.PushBatch
+   :members:
+
+
+Jobs
+====
+
+.. autoclass:: py2neo.batch.Job
+   :members:
+
+.. autoclass:: py2neo.batch.JobResult
+   :members:
+
+.. autoclass:: py2neo.batch.Target
+   :members:
+
+.. autoclass:: py2neo.NodePointer
+   :members:
+
+
+Job Types
+---------
+
+.. autoclass:: py2neo.batch.AddNodeLabelsJob
+   :members:
+
+.. autoclass:: py2neo.batch.CreateNodeJob
+   :members:
+
+.. autoclass:: py2neo.batch.CreatePathJob
+   :members:
+
+.. autoclass:: py2neo.batch.CreateRelationshipJob
+   :members:
+
+.. autoclass:: py2neo.batch.CreateUniquePathJob
+   :members:
+
+.. autoclass:: py2neo.batch.CypherJob
+   :members:
+
+.. autoclass:: py2neo.batch.DeleteEntityJob
+   :members:
+
+.. autoclass:: py2neo.batch.DeletePropertiesJob
+   :members:
+
+.. autoclass:: py2neo.batch.DeletePropertyJob
+   :members:
+
+.. autoclass:: py2neo.batch.PullNodeLabelsJob
+   :members:
+
+.. autoclass:: py2neo.batch.PullPropertiesJob
+   :members:
+
+.. autoclass:: py2neo.batch.PullRelationshipJob
+   :members:
+
+.. autoclass:: py2neo.batch.PushNodeLabelsJob
+   :members:
+
+.. autoclass:: py2neo.batch.PushPropertiesJob
+   :members:
+
+.. autoclass:: py2neo.batch.PushPropertyJob
+   :members:
+
+.. autoclass:: py2neo.batch.RemoveNodeLabelJob
+   :members:
+
+
+Exceptions
+==========
+
+.. autoclass:: py2neo.batch.BatchError
+   :members:

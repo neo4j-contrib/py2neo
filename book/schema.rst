@@ -1,5 +1,6 @@
-Schema
-======
+===========
+API: Schema
+===========
 
-.. autoclass:: py2neo.neo4j.Schema
-    :members:
+.. automodule:: py2neo.schema
+   :members:

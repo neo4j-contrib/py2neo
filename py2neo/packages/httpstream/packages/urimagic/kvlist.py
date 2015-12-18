@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 # Copyright 2014, Nigel Small
 #
@@ -67,11 +67,18 @@ class KeyValueList(list):
         IndexError: list index out of range
 
         """
-        got = list.__getitem__(self, index)
-        if isinstance(index, slice):
-            return KeyValueList(got)
+        try:
+            got = list.__getitem__(self, index)
+        except TypeError:
+            try:
+                return next(self.get(index))
+            except StopIteration:
+                return None
         else:
-            return got
+            if isinstance(index, slice):
+                return KeyValueList(got)
+            else:
+                return got
 
     def __getslice__(self, start, end):
         """ Get a slice of items.

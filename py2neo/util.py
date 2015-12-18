@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
+# -*- encoding: utf-8 -*-
 
 # Copyright 2011-2014, Nigel Small
 #
@@ -20,48 +20,20 @@ Utility module
 """
 
 
-from __future__ import unicode_literals
-
 from itertools import cycle, islice
+import os
 import re
-import warnings
 import sys
+from threading import local
+import warnings
+from weakref import WeakValueDictionary
+
+from py2neo.compat import SafeConfigParser
 
 
-__all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all", "ustr", "pendulate",
-           "is_integer"]
-
-
-def numberise(n):
-    """ Convert a value to an integer if possible. If not, simply return
-        the input value.
-    """
-    if n == "NaN":
-        return None
-    try:
-        return int(n)
-    except ValueError:
-        return n
-
-
-# TODO: replace all usages with PropertySet constructor
-def compact(obj):
-    """ Return a copy of an object with all :py:const:`None` values removed.
-    """
-    if isinstance(obj, dict):
-        return dict((key, value) for key, value in obj.items() if value is not None)
-    else:
-        return obj.__class__(value for value in obj if value is not None)
-
-
-def flatten(*values):
-    for value in values:
-        if hasattr(value, "__iter__"):
-            for val in value:
-                yield val
-        else:
-            yield value
+__all__ = ["numberise", "round_robin", "deprecated",
+           "version_tuple", "is_collection", "has_all",
+           "PropertiesParser", "ThreadLocalWeakValueDictionary"]
 
 
 def round_robin(*iterables):
@@ -110,17 +82,12 @@ VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
 
 def version_tuple(string):
     numbers = VERSION.match(string)
-    if numbers:
-        version = [int(n) for n in numbers.group(0).split(".")]
-        extra = string[len(numbers.group(0)):]
-        while extra.startswith(".") or extra.startswith("-"):
-            extra = extra[1:]
-    else:
-        version = []
-        extra = string
-    while len(version) < 3:
-        version += [0]
-    version += [extra]
+    version = [int(n) for n in numbers.group(0).split(".")]
+    extra = string[len(numbers.group(0)):]
+    while extra.startswith(".") or extra.startswith("-"):
+        extra = extra[1:]
+    if extra:
+        version += [extra]
     return tuple(version)
 
 
@@ -145,49 +112,13 @@ def is_collection(obj):
     return False
 
 
-try:
-    long
-except NameError:
-    # Python 3
-    is_integer = lambda x: isinstance(x, int)
-else:
-    # Python 2
-    is_integer = lambda x: isinstance(x, (int, long))
-
-
 has_all = lambda iterable, items: all(item in iterable for item in items)
-
-
-try:
-    unicode
-except NameError:
-    # Python 3
-    def ustr(s, encoding="utf-8"):
-        if isinstance(s, str):
-            return s
-        try:
-            return s.decode(encoding)
-        except AttributeError:
-            return str(s)
-else:
-    # Python 2
-    def ustr(s, encoding="utf-8"):
-        if isinstance(s, str):
-            return s.decode(encoding)
-        else:
-            return unicode(s)
-
-
-def pendulate(collection):
-    count = len(collection)
-    for i in range(count):
-        if i % 2 == 0:
-            index = i // 2
-        else:
-            index = count - ((i + 1) // 2)
-        yield index, collection[index]
 
 
 def raise_from(exception, cause):
     exception.__cause__ = cause
     raise exception
+
+
+class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):
+    pass
