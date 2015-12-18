@@ -1285,16 +1285,6 @@ class Path(PrimitivePath):
                 pass
         raise BindError("Local path is not bound to a remote path")
 
-    def unbind(self):
-        """ Detach all entities in this path
-        from any remote counterparts.
-        """
-        for entity in self.relationships() + self.nodes():
-            try:
-                entity.unbind()
-            except BindError:
-                pass
-
 
 def cast(obj, entities=None):
     """ Cast a general Python object to a graph-specific entity,

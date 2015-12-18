@@ -117,22 +117,3 @@ class EntityTestCase(Py2neoTestCase):
         assert not b.bound
         ab.unbind()
         assert not ab.bound
-
-    def test_can_unbind_bound_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        self.graph.create(path)
-        path.unbind()
-        assert not path.bound
-
-    def test_can_unbind_unbound_path_without_error(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        path.unbind()
-        assert not path.bound
