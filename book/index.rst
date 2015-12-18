@@ -36,18 +36,14 @@ Contents
 .. toctree::
    :maxdepth: 2
 
-   intro
-   essentials
+   graph-data
+   database-servers
    cypher
-   schema
-   internals
-   server
-   store
-   batch
-   legacy
+   ext/batch
    ext/calendar
    ext/geoff
    ext/gremlin
+   ext/mandex
    ext/neobox
    ext/ogm
    ext/spatial

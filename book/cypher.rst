@@ -1,6 +1,6 @@
-===========
-API: Cypher
-===========
+======
+Cypher
+======
 
 Py2neo provides Cypher execution functionality via the HTTP transactional endpoint or, if unavailable, the legacy endpoint.
 This is typically accessed via the :attr:`py2neo.Graph.cypher` attribute from where transactions may be created and simple execution may be carried out.

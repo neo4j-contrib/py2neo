@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Py2neo'
-copyright = '2011-2014, Nigel Small'
+copyright = '2011-2015, Nigel Small'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -120,7 +120,7 @@ html_theme_options = {
     'logo_align': 'left',
     'github_user': 'nigelsmall',
     'github_repo': 'py2neo',
-    'github_branch': 'release/' + release,
+    'github_branch': 'v3',
     'travis_button': True,
 }
 
@@ -287,7 +287,7 @@ texinfo_documents = [
 epub_title = 'Py2neo'
 epub_author = 'Nigel Small'
 epub_publisher = 'Nigel Small'
-epub_copyright = '2014, Nigel Small'
+epub_copyright = '2015, Nigel Small'
 
 # The basename for the epub file. It defaults to the project name.
 #epub_basename = 'Py2neo'

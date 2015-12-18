@@ -821,15 +821,6 @@ class Node(PrimitiveNode, Entity):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        """ Hydrate a dictionary of data to produce a :class:`.Node` instance.
-        The data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api-nodes.html#rest-api-get-node>`__
-        although only the ``self`` value is required.
-
-        :arg data: dictionary of data to hydrate
-        :arg inst: an existing :class:`.Node` instance to overwrite with new values
-
-        """
         self = data["self"]
         if inst is None:
             new_inst = cls()
@@ -946,9 +937,6 @@ class Node(PrimitiveNode, Entity):
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
-        """ :const:`True` if this node exists in the database,
-        :const:`False` otherwise.
-        """
         return self.graph.exists(self)
 
     def labels(self):
@@ -960,56 +948,29 @@ class Node(PrimitiveNode, Entity):
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
-        """ Return an iterator for all relationships attached to this node
-        that match the specified criteria. See :meth:`.Graph.match` for
-        argument details.
-        """
         return self.graph.match(self, rel_type, other_node, True, limit)
 
     @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        """ Return an iterator for all incoming relationships to this node
-        that match the specified criteria. See :meth:`.Graph.match` for
-        argument details.
-        """
         return self.graph.match(start_node, rel_type, self, False, limit)
 
     @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        """ Return an iterator for all outgoing relationships from this node
-        that match the specified criteria. See :meth:`.Graph.match` for
-        argument details.
-        """
         return self.graph.match(self, rel_type, end_node, False, limit)
 
     @property
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
-        """ The set of properties attached to this node. Properties
-        can also be read from and written to any :class:`Node`
-        by using the index syntax directly. This means
-        the following statements are equivalent::
-
-            node.properties["name"] = "Alice"
-            node["name"] = "Alice"
-
-        """
         if self.bound and "properties" in self.__stale:
             self.refresh()
         return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):
-        """ Pull data to this node from its remote counterpart. Consider
-        using :meth:`.Graph.pull` instead for batches of nodes.
-        """
         self.graph.pull(self)
 
     @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
-        """ Push data from this node to its remote counterpart. Consider
-        using :meth:`.Graph.push` instead for batches of nodes.
-        """
         self.graph.push(self)
 
     def refresh(self):
@@ -1182,9 +1143,6 @@ class Relationship(PrimitiveRelationship, Entity):
 
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):
-        """ :const:`True` if this relationship exists in the database,
-        :const:`False` otherwise.
-        """
         return self.graph.exists(self)
 
     @property
@@ -1198,29 +1156,16 @@ class Relationship(PrimitiveRelationship, Entity):
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
-        """ The set of properties attached to this relationship. Properties
-        can also be read from and written to any :class:`Relationship`
-        by using the index syntax directly. This means
-        the following statements are equivalent::
-
-            relationship.properties["since"] = 1999
-            relationship["since"] = 1999
-
-        """
         if self.bound and "properties" in self.__stale:
             self.graph.pull(self)
         return dict(self)
 
     @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
-        """ Pull data to this relationship from its remote counterpart.
-        """
         self.graph.pull(self)
 
     @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
     def push(self):
-        """ Push data from this relationship to its remote counterpart.
-        """
         self.graph.push(self)
 
     @property
@@ -1368,9 +1313,6 @@ class Path(PrimitivePath):
     @property
     @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
     def exists(self):
-        """ :const:`True` if this path exists in the database,
-        :const:`False` otherwise.
-        """
         return self.graph.exists(*(self.nodes() + self.relationships()))
 
     @property

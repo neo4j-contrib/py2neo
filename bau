@@ -248,7 +248,7 @@ case $COMMAND in
         NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
         test
         ;;
-    test-latest)
+    quicktest)
         NEO4J_VERSIONS="3.0"
         test
         ;;
