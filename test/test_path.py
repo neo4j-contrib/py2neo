@@ -111,14 +111,6 @@ class PathTestCase(Py2neoTestCase):
             Relationship(c, 'KNOWS', d),
         ]
 
-    def test_path_repr(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        path = Path(alice, "KNOWS", bob)
-        assert repr(path) == "<Path order=2 size=1>"
-        self.graph.create(path)
-        assert repr(path).startswith("<Path")
-
     def test_path_str(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")

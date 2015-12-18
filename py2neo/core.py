@@ -1208,9 +1208,6 @@ class Path(PrimitivePath):
                     entities[i] = Relationship(start_node, t, end_node, **properties)
         PrimitivePath.__init__(self, *entities)
 
-    def __repr__(self):
-        return "<Path order=%r size=%r>" % (self.order(), self.size())
-
     def __str__(self):
         return xstr(self.__unicode__())
 
