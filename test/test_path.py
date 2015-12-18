@@ -167,39 +167,6 @@ class PathTestCase(Py2neoTestCase):
         else:
             assert False
 
-    def test_dbms_on_bound_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        self.graph.create(path)
-        assert path.dbms == DBMS("http://localhost:7474/")
-        path[0].unbind()
-        assert path.dbms == DBMS("http://localhost:7474/")
-
-    def test_dbms_on_unbound_path(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        try:
-            assert path.dbms == DBMS("http://localhost:7474/")
-        except BindError:
-            assert True
-        else:
-            assert False
-
-    def test_graph(self):
-        alice = Node(name="Alice")
-        bob = Node(name="Bob")
-        carol = Node(name="Carol")
-        dave = Node(name="Dave")
-        path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
-        self.graph.create(path)
-        assert path.graph == Graph("http://localhost:7474/db/data/")
-
     def test_path_direction(self):
         cypher = """\
         CREATE p=({name:'Alice'})-[:KNOWS]->({name:'Bob'})<-[:DISLIKES]-

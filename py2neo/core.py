@@ -1229,42 +1229,6 @@ class Path(PrimitivePath):
         """
         return Path(self, *others)
 
-    @property
-    @deprecated("Path.exists() is deprecated, use graph.exists(path) instead")
-    def exists(self):
-        return self.graph.exists(*(self.nodes() + self.relationships()))
-
-    @property
-    def graph(self):
-        """ The parent graph of this path.
-
-        :rtype: :class:`.Graph`
-        """
-        return self.dbms.graph
-
-    def pull(self):
-        """ Pull data to all entities in this path from their remote counterparts.
-        """
-        self.graph.pull(self)
-
-    def push(self):
-        """ Push data from all entities in this path to their remote counterparts.
-        """
-        self.graph.push(self)
-
-    @property
-    def dbms(self):
-        """ The root service associated with this path.
-
-        :return: :class:`.DBMS`
-        """
-        for relationship in self:
-            try:
-                return relationship.dbms
-            except BindError:
-                pass
-        raise BindError("Local path is not bound to a remote path")
-
 
 def cast(obj, entities=None):
     """ Cast a general Python object to a graph-specific entity,
