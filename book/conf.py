@@ -116,7 +116,7 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'logo': 'py2neo-2.0.200x260.png',
+    'logo': 'py2neo-v3.280x336.png',
     'logo_align': 'left',
     'github_user': 'nigelsmall',
     'github_repo': 'py2neo',

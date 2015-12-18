@@ -1,6 +1,6 @@
-=====================
-The Py2neo 3 Handbook
-=====================
+======================
+The Py2neo v3 Handbook
+======================
 
 Py2neo is a client library and comprehensive toolkit for working with Neo4j from within Python
 applications and from the command line. The core library has no external dependencies and has been
