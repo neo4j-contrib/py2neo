@@ -1221,14 +1221,6 @@ class Path(PrimitivePath):
         writer.write_path(self)
         return s.getvalue()
 
-    def append(self, *others):
-        """ Join another path or relationship to the end of this path to form a new path.
-
-        :arg others: Entities to join to the end of this path
-        :rtype: :class:`.Path`
-        """
-        return Path(self, *others)
-
 
 def cast(obj, entities=None):
     """ Cast a general Python object to a graph-specific entity,
