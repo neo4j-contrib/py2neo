@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import  Node, Relationship, graphy, node, relationship
+from py2neo import  Node, Relationship, cast, cast_node, cast_relationship
 from test.util import Py2neoTestCase
 
 
@@ -29,18 +29,18 @@ def assert_node(node, *labels, **properties):
 class GraphyCastTestCase(Py2neoTestCase):
 
     def test_cast(self):
-        assert graphy(None) is None
+        assert cast(None) is None
 
     def test_can_cast_node(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
-        casted = graphy(alice)
+        casted = cast(alice)
         assert isinstance(casted, Node)
         assert casted.bound
         assert casted["name"] == "Alice"
 
     def test_can_cast_dict(self):
-        casted = graphy({"name": "Alice"})
+        casted = cast({"name": "Alice"})
         assert isinstance(casted, Node)
         assert not casted.bound
         assert casted["name"] == "Alice"
@@ -50,7 +50,7 @@ class GraphyCastTestCase(Py2neoTestCase):
         b = Node()
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
-        casted = graphy(ab)
+        casted = cast(ab)
         assert isinstance(casted, Relationship)
         assert casted.bound
         assert casted.start_node() == a
@@ -60,7 +60,7 @@ class GraphyCastTestCase(Py2neoTestCase):
     def test_can_cast_3_tuple(self):
         alice = Node()
         bob = Node()
-        casted = graphy((alice, "KNOWS", bob))
+        casted = cast((alice, "KNOWS", bob))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() is alice
@@ -70,7 +70,7 @@ class GraphyCastTestCase(Py2neoTestCase):
     def test_can_cast_4_tuple(self):
         alice = Node()
         bob = Node()
-        casted = graphy((alice, "KNOWS", bob, {"since": 1999}))
+        casted = cast((alice, "KNOWS", bob, {"since": 1999}))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() is alice
@@ -83,14 +83,14 @@ class NodeCastTestCase(Py2neoTestCase):
 
     def test_cast_node(self):
         alice = Node("Person", "Employee", name="Alice", age=33)
-        assert node(None) is None
-        assert node(alice) is alice
-        assert_node(node("Person"), "Person")
-        assert_node(node({"name": "Alice"}), name="Alice")
-        assert_node(node(("Person", "Employee", {"name": "Alice", "age": 33})),
+        assert cast_node(None) is None
+        assert cast_node(alice) is alice
+        assert_node(cast_node("Person"), "Person")
+        assert_node(cast_node({"name": "Alice"}), name="Alice")
+        assert_node(cast_node(("Person", "Employee", {"name": "Alice", "age": 33})),
                     "Person", "Employee", name="Alice", age=33)
         with self.assertRaises(TypeError):
-            node(3.14)
+            cast_node(3.14)
 
     
 class RelationshipCastTestCase(Py2neoTestCase):
@@ -100,7 +100,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         b = Node()
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(a | b | ab)
-        casted = relationship(ab)
+        casted = cast_relationship(ab)
         assert isinstance(casted, Relationship)
         assert casted.bound
         assert casted.start_node() == a
@@ -109,20 +109,20 @@ class RelationshipCastTestCase(Py2neoTestCase):
         
     def test_cannot_cast_0_tuple(self):
         with self.assertRaises(TypeError):
-            relationship(())
+            cast_relationship(())
 
     def test_cannot_cast_1_tuple(self):
         with self.assertRaises(TypeError):
-            relationship(("Alice",))
+            cast_relationship(("Alice",))
 
     def test_cannot_cast_2_tuple(self):
         with self.assertRaises(TypeError):
-            relationship(("Alice", "KNOWS"))
+            cast_relationship(("Alice", "KNOWS"))
 
     def test_can_cast_3_tuple(self):
         alice = Node()
         bob = Node()
-        casted = relationship((alice, "KNOWS", bob))
+        casted = cast_relationship((alice, "KNOWS", bob))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() == alice
@@ -132,7 +132,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
     def test_can_cast_3_tuple_with_unbound_rel(self):
         alice = Node()
         bob = Node()
-        casted = relationship((alice, ("KNOWS", {"since": 1999}), bob))
+        casted = cast_relationship((alice, ("KNOWS", {"since": 1999}), bob))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() == alice
@@ -143,7 +143,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
     def test_can_cast_4_tuple(self):
         alice = Node()
         bob = Node()
-        casted = relationship((alice, "KNOWS", bob, {"since": 1999}))
+        casted = cast_relationship((alice, "KNOWS", bob, {"since": 1999}))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() == alice
@@ -153,13 +153,13 @@ class RelationshipCastTestCase(Py2neoTestCase):
         
     def test_cannot_cast_6_tuple(self):
         with self.assertRaises(TypeError):
-            relationship(("Alice", "KNOWS", "Bob", "foo", "bar", "baz"))
+            cast_relationship(("Alice", "KNOWS", "Bob", "foo", "bar", "baz"))
 
     def test_can_cast_from_tuple_of_entities(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
-        casted = relationship((a, r, b))
+        casted = cast_relationship((a, r, b))
         assert isinstance(casted, Relationship)
         assert not casted.bound
         assert casted.start_node() == a
@@ -170,7 +170,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         a = Node()
         b = Node()
         nodes = [a, b]
-        r = relationship((0, "TO", 1), nodes)
+        r = cast_relationship((0, "TO", 1), nodes)
         assert r.start_node() is a
         assert r.end_node() is b
         assert r.type() == "TO"

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, BindError, Relationship, Path, node
+from py2neo import Node, BindError, Relationship, Path, cast_node
 from test.compat import long
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError
@@ -122,7 +122,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
 class ConcreteNodeTestCase(Py2neoTestCase):
 
     def test_can_create_concrete_node(self):
-        alice = node({"name": "Alice", "age": 34})
+        alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
         assert alice.bound
@@ -143,7 +143,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
             "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
             "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
         }
-        foo = node(data)
+        foo = cast_node(data)
         self.graph.create(foo)
         for key, value in data.items():
             self.assertEqual(foo[key], value)

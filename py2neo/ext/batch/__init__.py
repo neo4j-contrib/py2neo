@@ -20,7 +20,7 @@ import json
 import logging
 
 from py2neo.compat import ustr, xstr, integer
-from py2neo.core import Resource, Graph, Path, Node, Relationship, NodeProxy, graphy as core_cast
+from py2neo.core import Resource, Graph, Path, Node, Relationship, NodeProxy, cast as core_cast
 from py2neo.cypher import Cursor, cypher_request
 from py2neo.status import GraphError, Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, node
+from py2neo import Graph, Node, Relationship, cast_node
 from test.util import Py2neoTestCase
 from test.compat import patch, assert_repr
 
@@ -162,7 +162,7 @@ class GraphTestCase(Py2neoTestCase):
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):
-        a = node({"number": 13, "foo": "bar", "true": False, "fish": "chips"})
+        a = cast_node({"number": 13, "foo": "bar", "true": False, "fish": "chips"})
         self.graph.create(a)
         assert len(a) == 4
         assert a["fish"] == "chips"
@@ -171,7 +171,7 @@ class GraphTestCase(Py2neoTestCase):
         assert not a["true"]
 
     def test_create_node_with_null_properties(self):
-        a = node({"foo": "bar", "no-foo": None})
+        a = cast_node({"foo": "bar", "no-foo": None})
         self.graph.create(a)
         assert a["foo"] == "bar"
         assert a["no-foo"] is None

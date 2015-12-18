@@ -17,7 +17,7 @@
 
 
 from py2neo.ext.batch import ReadBatch, WriteBatch, Job, Target, NodePointer
-from py2neo.core import Node, Relationship, node, relationship
+from py2neo.core import Node, Relationship, cast_node, cast_relationship
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 
 
@@ -183,14 +183,14 @@ class ManualIndexWriteBatch(WriteBatch):
     def _create_in_index(self, cls, index, key, value, abstract, query=None):
         uri = self._uri_for(self._index(cls, index), query=query)
         if cls is Node:
-            a = node(abstract)
+            a = cast_node(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
                 "properties": dict(a),
             })
         elif cls is Relationship:
-            r = relationship(abstract)
+            r = cast_relationship(abstract)
             return self.append_post(uri, {
                 "key": key,
                 "value": value,
@@ -243,9 +243,9 @@ class ManualIndexWriteBatch(WriteBatch):
         """
         query = "uniqueness=get_or_create"
         if cls is Node:
-            return self._create_in_index(cls, index, key, value, node(abstract), query)
+            return self._create_in_index(cls, index, key, value, cast_node(abstract), query)
         elif cls is Relationship:
-            return self._create_in_index(cls, index, key, value, relationship(abstract), query)
+            return self._create_in_index(cls, index, key, value, cast_relationship(abstract), query)
         else:
             raise TypeError("Unindexable class")
 

@@ -40,9 +40,9 @@ __all__ = ["DBMS",
            "Node",
            "Relationship",
            "Path",
-           "graphy",
-           "node",
-           "relationship"]
+           "cast",
+           "cast_node",
+           "cast_relationship"]
 
 
 class DBMS(object):
@@ -425,20 +425,20 @@ class Graph(object):
             parameters = {}
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
-            start_node = node(start_node)
+            start_node = cast_node(start_node)
             if not start_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
-            end_node = node(end_node)
+            end_node = cast_node(end_node)
             if not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
-            start_node = node(start_node)
-            end_node = node(end_node)
+            start_node = cast_node(start_node)
+            end_node = cast_node(end_node)
             if not start_node.bound or not end_node.bound:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
@@ -793,7 +793,7 @@ class Node(PrimitiveNode, Entity):
     construct Node instances from other data types (such as a dictionary)
     by using the :meth:`.cast_node` class method::
 
-        >>> bob = node({"name": "Bob Robertson", "age": 44})
+        >>> bob = cast_node({"name": "Bob Robertson", "age": 44})
 
     Labels and properties can be accessed and modified using the
     :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
@@ -890,7 +890,7 @@ class Node(PrimitiveNode, Entity):
     def __eq__(self, other):
         if other is None:
             return False
-        other = node(other)
+        other = cast_node(other)
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1104,7 +1104,7 @@ class Relationship(PrimitiveRelationship, Entity):
                 n.append(t)
                 p.update(props)
             else:
-                n.append(node(value))
+                n.append(cast_node(value))
         p.update(properties)
         PrimitiveRelationship.__init__(self, *n, **p)
         self.__stale = set()
@@ -1142,7 +1142,7 @@ class Relationship(PrimitiveRelationship, Entity):
     def __eq__(self, other):
         if other is None:
             return False
-        other = relationship(other)
+        other = cast_relationship(other)
         if self.bound and other.bound:
             return self.resource == other.resource
         else:
@@ -1434,7 +1434,7 @@ class Path(PrimitivePath):
                 pass
 
 
-def graphy(obj, entities=None):
+def cast(obj, entities=None):
     """ Cast a general Python object to a graph-specific entity,
     such as a :class:`.Node` or a :class:`.Relationship`.
     """
@@ -1443,14 +1443,14 @@ def graphy(obj, entities=None):
     elif isinstance(obj, (Node, NodeProxy, Relationship, Path)):
         return obj
     elif isinstance(obj, dict):
-        return node(obj)
+        return cast_node(obj)
     elif isinstance(obj, tuple):
-        return relationship(obj, entities)
+        return cast_relationship(obj, entities)
     else:
         raise TypeError(obj)
 
 
-def node(obj):
+def cast_node(obj):
     if obj is None or isinstance(obj, (Node, NodeProxy)):
         return obj
 
@@ -1470,7 +1470,7 @@ def node(obj):
     return inst
 
 
-def relationship(obj, entities=None):
+def cast_relationship(obj, entities=None):
 
     def get_type(r):
         if isinstance(r, string):
