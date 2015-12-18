@@ -272,11 +272,6 @@ class Graph(object):
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
-    def detach(self, g):
-        """ Delete one or more relationships.
-        """
-        self.cypher.detach(g)
-
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
         """
@@ -284,32 +279,18 @@ class Graph(object):
         cursors = []
         for entity in entities:
             try:
-                if isinstance(entity, Node):
-                    cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
-                                          "RETURN count(a)", x=entity))
-                elif isinstance(entity, Relationship):
-                    cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                          "RETURN count(r)", x=entity))
-                elif isinstance(entity, Path):
-                    for node in entity.nodes():
-                        cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
-                                              "RETURN count(a)", x=node))
-                    for rel in entity.relationships():
-                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                              "RETURN count(r)", x=rel))
+                try:
+                    nodes = entity.nodes()
+                    relationships = entity.relationships()
+                except AttributeError:
+                    raise TypeError("Object %r is not graphy" % entity)
                 else:
-                    try:
-                        nodes = entity.nodes()
-                        relationships = entity.relationships()
-                    except AttributeError:
-                        raise TypeError("Object %r is not graphy" % entity)
-                    else:
-                        for node in nodes:
-                            cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
-                                                  "RETURN count(a)", x=node))
-                        for rel in relationships:
-                            cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                                  "RETURN count(r)", x=rel))
+                    for a in nodes:
+                        cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                              "RETURN count(a)", x=a))
+                    for r in relationships:
+                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                              "RETURN count(r)", x=r))
             except BindError:
                 pass
         count = len(tx.statements)
@@ -602,6 +583,30 @@ class Graph(object):
                 i += 1
         self.resource.resolve("batch").post(batch)
 
+    def related(self, *entities):
+        """ Determine whether a number of relationships exist within the database.
+        """
+        tx = self.cypher.begin()
+        cursors = []
+        for entity in entities:
+            try:
+                try:
+                    relationships = entity.relationships()
+                except AttributeError:
+                    raise TypeError("Object %r is not graphy" % entity)
+                else:
+                    for r in relationships:
+                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                              "RETURN count(r)", x=r))
+            except BindError:
+                pass
+        count = len(tx.statements)
+        tx.commit()
+        if count == 0:
+            return None
+        else:
+            return sum(cursor.evaluate() for cursor in cursors) == count
+
     def relationship(self, id_):
         """ Fetch a relationship by ID.
         """
@@ -624,6 +629,11 @@ class Graph(object):
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
+
+    def separate(self, g):
+        """ Delete one or more relationships.
+        """
+        self.cypher.separate(g)
 
     @property
     def schema(self):

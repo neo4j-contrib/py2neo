@@ -305,17 +305,17 @@ class TransactionDeleteTestCase(Py2neoTestCase):
         assert not self.graph.exists(b)
 
 
-class TransactionDetachTestCase(Py2neoTestCase):
+class TransactionSeparateTestCase(Py2neoTestCase):
 
-    def test_can_detach_relationship(self):
+    def test_can_delete_relationship_by_separating(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         assert self.graph.exists(r)
         with self.cypher.begin() as tx:
-            tx.detach(r)
-        assert not self.graph.exists(r)
+            tx.separate(r)
+        assert not self.graph.related(r)
         assert self.graph.exists(a)
         assert self.graph.exists(b)
 
