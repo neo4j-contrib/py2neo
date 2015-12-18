@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from io import StringIO
 from py2neo.primitive import Record
 from test.util import Py2neoTestCase
 
@@ -47,6 +49,20 @@ class CursorMovementTestCase(Py2neoTestCase):
         cursor = self.cypher.run("RETURN 1")
         assert cursor.move(0) == 0
         assert cursor.position() == 0
+
+
+class CursorKeysTestCase(Py2neoTestCase):
+
+    def test_keys_is_none_at_start(self):
+        cursor = self.cypher.run("RETURN 1")
+        assert cursor.keys() is None
+
+    def test_keys_updates_after_move(self):
+        cursor = self.cypher.run("UNWIND range(1, 10) AS n RETURN n")
+        n = 0
+        while cursor.move():
+            n += 1
+            assert list(cursor.keys()) == ["n"]
 
 
 class CursorCurrentTestCase(Py2neoTestCase):
@@ -164,3 +180,52 @@ class CursorEvaluationTestCase(Py2neoTestCase):
         cursor.move()
         value = cursor.evaluate()
         assert value is None
+
+
+class CursorMagicTestCase(Py2neoTestCase):
+
+    def test_repr(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        r = repr(cursor)
+        assert r.startswith("<Cursor")
+
+    def test_len_returns_length_of_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        cursor.move()
+        assert len(cursor) == 3
+
+    def test_len_fails_with_no_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        with self.assertRaises(TypeError):
+            _ = len(cursor)
+
+    def test_getitem_returns_item_in_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        cursor.move()
+        assert cursor[0] == 1
+        assert cursor[1] == 2
+        assert cursor[2] == 3
+
+    def test_getitem_fails_with_no_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        with self.assertRaises(TypeError):
+            _ = cursor[0]
+
+    def test_iter_iterates_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        cursor.move()
+        assert list(cursor) == [1, 2, 3]
+
+    def test_iter_fails_with_no_record(self):
+        cursor = self.cypher.run("RETURN 1, 2, 3")
+        with self.assertRaises(TypeError):
+            _ = list(cursor)
+
+
+class CursorDumpTestCase(Py2neoTestCase):
+
+    def test_dump(self):
+        s = StringIO()
+        cursor = self.cypher.run("RETURN 1")
+        cursor.dump(out=s)
+        assert s.getvalue()

@@ -28,6 +28,11 @@ class DodgyClientError(ClientError):
 
 class NodeTestCase(Py2neoTestCase):
 
+    def test_repr(self):
+        a = Node()
+        r = repr(a)
+        assert r.startswith("<Node")
+
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
         assert a.labels() == {"Person"}

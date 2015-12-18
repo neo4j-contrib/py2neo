@@ -858,21 +858,12 @@ class Node(PrimitiveNode, Entity):
         self.__stale = set()
 
     def __repr__(self):
-        s = [self.__class__.__name__]
+        s = ["Node"]
         if self.bound:
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
-            if "labels" in self.__stale:
-                s.append("labels=?")
-            else:
-                s.append("labels=%r" % set(self.labels()))
-            if "properties" in self.__stale:
-                s.append("properties=?")
-            else:
-                s.append("properties=%r" % dict(self))
-        else:
-            s.append("labels=%r" % set(self.labels()))
-            s.append("properties=%r" % dict(self))
+        s.append("labels=%s" % "?" if "labels" in self.__stale else repr(set(self.labels())))
+        s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):

@@ -30,7 +30,7 @@ class DodgyClientError(ClientError):
 
 class RelationshipTestCase(Py2neoTestCase):
 
-    def test_relationship_repr(self):
+    def test_repr(self):
         a = Node()
         b = Node()
         ab = Relationship(a, "TO", b)

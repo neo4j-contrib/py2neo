@@ -628,12 +628,15 @@ class Cursor(object):
         """
         pass
 
-    def dump(self, *keys):
+    def dump(self, out=None, keys=None):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
+        :param out:
         :param keys:
         """
+        if out is None:
+            out = stdout
         if keys:
             records = list(self.collect(*keys))
         else:
@@ -644,10 +647,13 @@ class Cursor(object):
             for i, value in enumerate(record):
                 widths[i] = max(widths[i], len(ustr(value)))
         templates = [u" {:%d} " % width for width in widths]
-        print(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
-        print(u"".join("-" * (width + 2) for width in widths))
+        out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
+        out.write("\n")
+        out.write(u"".join("-" * (width + 2) for width in widths))
+        out.write("\n")
         for i, record in enumerate(records):
-            print(u"".join(templates[i].format(value) for i, value in enumerate(record)))
+            out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
+            out.write("\n")
 
 
 class CypherCommandLine(object):
@@ -672,23 +678,23 @@ class CypherCommandLine(object):
 
     def run(self, statement):
         import codecs
-        results = []
+        cursors = []
         if self.parameter_filename:
-            columns = None
+            keys = None
             with codecs.open(self.parameter_filename, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
-                    if columns is None:
-                        columns = line.split(",")
+                    if keys is None:
+                        keys = line.split(",")
                     elif line:
                         values = json.loads("[" + line + "]")
                         p = dict(self.parameters)
-                        p.update(zip(columns, values))
-                        results.append(self.tx.run(statement, p))
+                        p.update(zip(keys, values))
+                        cursors.append(self.tx.run(statement, p))
         else:
-            results.append(self.tx.run(statement, self.parameters))
+            cursors.append(self.tx.run(statement, self.parameters))
         self.tx.process()
-        return results
+        return cursors
 
     def commit(self):
         self.tx.commit()
@@ -897,12 +903,12 @@ def main():
             if not command_line.tx:
                 command_line.begin()
             try:
-                results = command_line.run(arg)
+                cursors = command_line.run(arg)
             except CypherError as error:
                 sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
             else:
-                for result in results:
-                    out.write(ustr(result))
+                for cursor in cursors:
+                    cursor.dump(out)
                     out.write("\n")
     if command_line.tx:
         try:
