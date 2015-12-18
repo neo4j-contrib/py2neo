@@ -36,7 +36,11 @@ function install_dependencies {
     if [ "$ONLINE" ]
     then
         echo "Ensuring dependencies are up to date"
-        pip install --upgrade $(find . -name *requirements.txt | xargs cat)
+        pip install --upgrade -r test_requirements.txt
+        for REQUIREMENTS in "$(find py2neo/ext -name requirements.txt)"
+        do
+            pip install --upgrade -r $REQUIREMENTS
+        done
         EXIT_CODE=$?
         if [ "$EXIT_CODE" != "0" ]
         then
