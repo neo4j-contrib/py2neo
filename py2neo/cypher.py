@@ -91,8 +91,6 @@ def cypher_request(statement, parameters, **kwparameters):
                     v = v._id
                 p[k] = v
 
-    if hasattr(statement, "parameters"):
-        add_parameters(statement.parameters)
     add_parameters(dict(parameters or {}, **kwparameters))
 
     s, p = presubstitute(s, p)
@@ -160,7 +158,7 @@ class CypherEngine(object):
         tx = Transaction(self)
         cursor = tx.run(statement, parameters, **kwparameters)
         tx.commit()
-        return cursor.evaluate(0)
+        return cursor.evaluate()
 
     def create(self, g):
         tx = Transaction(self)
