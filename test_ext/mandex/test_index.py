@@ -24,16 +24,10 @@ from .util import IndexTestCase
 class CreationAndDeletionTestCase(IndexTestCase):
 
     def test_can_create_index_object_with_colon_in_name(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         uri = 'http://localhost:7474/db/data/index/node/foo%3Abar/{key}/{value}'
         ManualIndex(Node, uri)
 
     def test_can_delete_create_and_delete_index(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "foo")
         except LookupError:
@@ -50,9 +44,6 @@ class CreationAndDeletionTestCase(IndexTestCase):
         assert foo is None
 
     def test_can_delete_create_and_delete_index_with_colon_in_name(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "foo:bar")
         except LookupError:
@@ -75,10 +66,8 @@ class NodeIndexTestCase(IndexTestCase):
         self.index = self.index_manager.get_or_create_index(Node, "node_test_index")
 
     def test_add_existing_node_to_index(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        alice, = self.graph.create({"name": "Alice Smith"})
+        alice = Node(name="Alice Smith")
+        self.graph.create(alice)
         self.index.add("surname", "Smith", alice)
         entities = self.index.get("surname", "Smith")
         assert entities is not None
@@ -88,10 +77,8 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice)
 
     def test_add_existing_node_to_index_with_spaces_in_key_and_value(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        alice, = self.graph.create({"name": "Alice von Schmidt"})
+        alice = Node(name="Alice von Schmidt")
+        self.graph.create(alice)
         self.index.add("family name", "von Schmidt", alice)
         entities = self.index.get("family name", "von Schmidt")
         assert entities is not None
@@ -101,10 +88,8 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice)
 
     def test_add_existing_node_to_index_with_odd_chars_in_key_and_value(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        alice, = self.graph.create({"name": "Alice Smith"})
+        alice = Node(name="Alice Smith")
+        self.graph.create(alice)
         self.index.add("@!%#", "!\"$%^&*()", alice)
         entities = self.index.get("@!%#", "!\"$%^&*()")
         assert entities is not None
@@ -114,10 +99,8 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice)
 
     def test_add_existing_node_to_index_with_slash_in_key(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        node, = self.graph.create({"foo": "bar"})
+        node = Node(foo="bar")
+        self.graph.create(node)
         key = "foo/bar"
         value = "bar"
         self.index.add(key, value, node)
@@ -129,10 +112,8 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(node)
 
     def test_add_existing_node_to_index_with_slash_in_value(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        node, = self.graph.create({"foo": "bar"})
+        node = Node(foo="bar")
+        self.graph.create(node)
         key = "foo"
         value = "foo/bar"
         self.index.add(key, value, node)
@@ -144,9 +125,6 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(node)
 
     def test_add_multiple_existing_nodes_to_index_under_same_key_and_value(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         alice = Node(name="Alice Smith")
         bob = Node(name="Bob Smith")
         carol = Node(name="Carol Smith")
@@ -163,9 +141,6 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice | bob | carol)
 
     def test_create_node(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         alice = self.index.create("surname", "Smith", {"name": "Alice Smith"})
         assert alice is not None
         assert isinstance(alice, Node)
@@ -175,9 +150,6 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice)
 
     def test_get_or_create_node(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
         assert alice is not None
         assert isinstance(alice, Node)
@@ -193,9 +165,6 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice)
 
     def test_create_if_none(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         alice = self.index.create_if_none("surname", "Smith", {"name": "Alice Smith"})
         assert alice is not None
         assert isinstance(alice, Node)
@@ -206,10 +175,8 @@ class NodeIndexTestCase(IndexTestCase):
             assert alice is None
 
     def test_add_node_if_none(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        self.graph.delete(*self.index.get("surname", "Smith"))
+        for node in self.index.get("surname", "Smith"):
+            self.graph.delete(node)
         alice = Node(name="Alice Smith")
         bob = Node(name="Bob Smith")
         self.graph.create(alice | bob)
@@ -232,13 +199,10 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(alice | bob)
 
     def test_node_index_query(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         red = Node()
         green = Node()
         blue = Node()
-        red, green, blue = self.graph.create(red | green | blue)
+        self.graph.create(red | green | blue)
         self.index.add("colour", "red", red)
         self.index.add("colour", "green", green)
         self.index.add("colour", "blue", blue)
@@ -249,13 +213,10 @@ class NodeIndexTestCase(IndexTestCase):
         self.graph.delete(red | green | blue)
 
     def test_node_index_query_utf8(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         red = Node()
         green = Node()
         blue = Node()
-        red, green, blue = self.graph.create(red | green | blue)
+        self.graph.create(red | green | blue)
         self.index.add("colour", "красный", red)
         self.index.add("colour", "зеленый", green)
         self.index.add("colour", "синий", blue)
@@ -269,9 +230,6 @@ class NodeIndexTestCase(IndexTestCase):
 class RemovalTestCase(IndexTestCase):
 
     def setUp(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "node_removal_test_index")
         except LookupError:
@@ -288,18 +246,12 @@ class RemovalTestCase(IndexTestCase):
         self.index.add("flintstones", "%", self.wilma)
 
     def check(self, key, value, *entities):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         e = self.index.get(key, value)
         assert len(entities) == len(e)
         for entity in entities:
             assert entity in e
 
     def test_remove_key_value_entity(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         self.index.remove(key="name", value="Flintstone", entity=self.fred)
         self.check("name", "Fred", self.fred)
         self.check("name", "Wilma", self.wilma)
@@ -307,9 +259,6 @@ class RemovalTestCase(IndexTestCase):
         self.check("flintstones", "%", self.fred, self.wilma)
 
     def test_remove_key_value(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         self.index.remove(key="name", value="Flintstone")
         self.check("name", "Fred", self.fred)
         self.check("name", "Wilma", self.wilma)
@@ -317,9 +266,6 @@ class RemovalTestCase(IndexTestCase):
         self.check("flintstones", "%", self.fred, self.wilma)
 
     def test_remove_key_entity(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         self.index.remove(key="name", entity=self.fred)
         self.check("name", "Fred")
         self.check("name", "Wilma", self.wilma)
@@ -327,9 +273,6 @@ class RemovalTestCase(IndexTestCase):
         self.check("flintstones", "%", self.fred, self.wilma)
 
     def test_remove_entity(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         self.index.remove(entity=self.fred)
         self.check("name", "Fred")
         self.check("name", "Wilma", self.wilma)
@@ -340,10 +283,7 @@ class RemovalTestCase(IndexTestCase):
 class IndexedNodeTestCase(IndexTestCase):
 
     def test_get_or_create_indexed_node_with_int_property(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
-        fred = self.graph.legacy.get_or_create_indexed_node(
+        fred = self.index_manager.get_or_create_indexed_node(
             index_name="person", key="name", value="Fred", properties={"level": 1})
         assert isinstance(fred, Node)
         assert fred["level"] == 1

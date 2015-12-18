@@ -23,9 +23,6 @@ from .util import IndexTestCase
 class IndexQueryTestCase(IndexTestCase):
     
     def test_can_query_node_index(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "people")
         except LookupError:
@@ -38,13 +35,9 @@ class IndexQueryTestCase(IndexTestCase):
         people.create("name", "Eve", {"name": "Eve"})
         f = people.create("name", "Frank", {"name": "Frank"})
         for person in people.query("name:*a*"):
-            print(person)
             assert person in (c, d, f)
         
     def test_can_query_node_index_with_score_by_index(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "people")
         except LookupError:
@@ -57,14 +50,10 @@ class IndexQueryTestCase(IndexTestCase):
         people.create("name", "Eve", {"name": "Eve"})
         f = people.create("name", "Frank", {"name": "Frank"})
         for person, score in people.query_by_index("name:*a*"):
-            print(person)
             assert person in (c, d, f)
             assert isinstance(score, float)
         
     def test_can_query_node_index_with_score_by_relevance(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "people")
         except LookupError:
@@ -77,14 +66,10 @@ class IndexQueryTestCase(IndexTestCase):
         people.create("name", "Eve", {"name": "Eve"})
         f = people.create("name", "Frank", {"name": "Frank"})
         for person, score in people.query_by_relevance("name:*a*"):
-            print(person)
             assert person in (c, d, f)
             assert isinstance(score, float)
         
     def test_can_query_node_index_with_score_by_score(self):
-        if self.graph.neo4j_version >= (2, 2):
-            # Skip due to legacy index bug in milestone (may be fixed in GA)
-            return
         try:
             self.index_manager.delete_index(Node, "people")
         except LookupError:
@@ -97,6 +82,5 @@ class IndexQueryTestCase(IndexTestCase):
         people.create("name", "Eve", {"name": "Eve"})
         f = people.create("name", "Frank", {"name": "Frank"})
         for person, score in people.query_by_score("name:*a*"):
-            print(person)
             assert person in (c, d, f)
             assert isinstance(score, float)
