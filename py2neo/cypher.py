@@ -648,12 +648,12 @@ class Cursor(object):
                 widths[i] = max(widths[i], len(ustr(value)))
         templates = [u" {:%d} " % width for width in widths]
         out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
-        out.write("\n")
+        out.write(u"\n")
         out.write(u"".join("-" * (width + 2) for width in widths))
-        out.write("\n")
+        out.write(u"\n")
         for i, record in enumerate(records):
             out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
-            out.write("\n")
+            out.write(u"\n")
 
 
 class CypherCommandLine(object):
