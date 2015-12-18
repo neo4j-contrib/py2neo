@@ -248,12 +248,4 @@ case $COMMAND in
         NEO4J_VERSIONS="3.0"
         test
         ;;
-    test-ext)
-        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
-        test text_ext
-        ;;
-    test-ext-latest)
-        NEO4J_VERSIONS="3.0"
-        test test_ext
-        ;;
 esac

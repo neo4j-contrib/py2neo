@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 
-if [ "$1" == "" ]
-then
-    TEST=test
-else
-    TEST=$1
-fi
-
-coverage run -m unittest discover -vfs "${TEST}"
+coverage run -m unittest discover -vf
 STATUS=$?
 if [ "${STATUS}" == "0" ]
 then
