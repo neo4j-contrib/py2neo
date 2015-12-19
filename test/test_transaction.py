@@ -314,7 +314,7 @@ class TransactionSeparateTestCase(Py2neoTestCase):
         self.graph.create(r)
         assert self.graph.exists(r)
         with self.cypher.begin() as tx:
-            tx.separate(r)
+            tx.detach(r)
         assert not self.graph.exists(r)
         assert self.graph.exists(a)
         assert self.graph.exists(b)

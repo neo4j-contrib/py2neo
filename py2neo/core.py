@@ -272,6 +272,11 @@ class Graph(object):
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
+    def detach(self, g):
+        """ Delete one or more relationships.
+        """
+        self.cypher.detach(g)
+
     def exists(self, *entities):
         """ Determine whether a number of graph entities all exist within the database.
         """
@@ -605,11 +610,6 @@ class Graph(object):
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
-
-    def separate(self, g):
-        """ Delete one or more relationships.
-        """
-        self.cypher.separate(g)
 
     @property
     def schema(self):

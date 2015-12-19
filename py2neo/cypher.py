@@ -175,9 +175,9 @@ class CypherEngine(object):
         tx.delete(g)
         tx.commit()
 
-    def separate(self, g):
+    def detach(self, g):
         tx = Transaction(self)
-        tx.separate(g)
+        tx.detach(g)
         tx.commit()
 
     def begin(self):
@@ -445,7 +445,7 @@ class Transaction(object):
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
-    def separate(self, g):
+    def detach(self, g):
         try:
             relationships = list(g.relationships())
         except AttributeError:
