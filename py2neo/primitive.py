@@ -397,24 +397,6 @@ class Node(PropertyContainer, TraversableSubgraph):
     def labels(self):
         return self._labels
 
-    def add_label(self, label):
-        self._labels.add(label)
-
-    def clear_labels(self):
-        self._labels.clear()
-
-    def discard_label(self, label):
-        self._labels.discard(label)
-
-    def has_label(self, label):
-        return label in self._labels
-
-    def remove_label(self, label):
-        self._labels.remove(label)
-
-    def update_labels(self, labels):
-        self._labels.update(labels)
-
 
 class Relationship(PropertyContainer, TraversableSubgraph):
     """ A typed edge between two graph nodes with support for properties.

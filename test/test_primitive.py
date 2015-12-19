@@ -475,48 +475,48 @@ class NodeTestCase(TestCase):
 
     def test_can_add_label(self):
         node = Node("Person", name="Alice")
-        node.add_label("Employee")
+        node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_add_label_is_idempotent(self):
         node = Node("Person", name="Alice")
-        node.add_label("Employee")
-        node.add_label("Employee")
+        node.labels().add("Employee")
+        node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_can_remove_label(self):
         node = Node("Person", "Employee", name="Alice")
-        node.remove_label("Employee")
+        node.labels().remove("Employee")
         assert node.labels() == {"Person"}
 
     def test_removing_non_existent_label_fails(self):
         node = Node("Person", name="Alice")
         with self.assertRaises(KeyError):
-            node.remove_label("Employee")
+            node.labels().remove("Employee")
 
     def test_can_discard_label(self):
         node = Node("Person", "Employee", name="Alice")
-        node.discard_label("Employee")
+        node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_discarding_non_existent_label_is_ignored(self):
         node = Node("Person", name="Alice")
-        node.discard_label("Employee")
+        node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_can_clear_labels(self):
         node = Node("Person", "Employee", name="Alice")
-        node.clear_labels()
+        node.labels().clear()
         assert node.labels() == set()
 
     def test_has_label(self):
         node = Node("Person", name="Alice")
-        assert node.has_label("Person")
-        assert not node.has_label("Employee")
+        assert "Person" in node.labels()
+        assert "Employee" not in node.labels()
 
     def test_update_labels(self):
         node = Node("Person", name="Alice")
-        node.update_labels({"Person", "Employee"})
+        node.labels().update({"Person", "Employee"})
         assert node.labels() == {"Person", "Employee"}
 
 

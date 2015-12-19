@@ -821,8 +821,9 @@ class Node(PrimitiveNode, Entity):
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
-            inst.clear_labels()
-            inst.update_labels(metadata["labels"])
+            labels = inst.labels()
+            labels.clear()
+            labels.update(metadata["labels"])
         return inst
 
     def __init__(self, *labels, **properties):
@@ -1207,7 +1208,7 @@ def cast_node(obj):
             for item in x:
                 apply(item)
         elif isinstance(x, string):
-            inst.add_label(ustr(x))
+            inst.labels().add(ustr(x))
         else:
             raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
 
