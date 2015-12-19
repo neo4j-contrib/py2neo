@@ -16,18 +16,6 @@ Nodes & Relationships
    :members:
    :inherited-members:
 
-.. autoclass:: py2neo.Entity
-   :members:
-   :inherited-members:
-
-.. autoclass:: py2neo.PropertyContainer
-   :members:
-   :inherited-members:
-
-.. autoclass:: py2neo.PropertySet
-   :members:
-   :inherited-members:
-
 
 Graph Arithmetic
 ================

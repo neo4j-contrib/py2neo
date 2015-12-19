@@ -642,11 +642,7 @@ class Entity(object):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    #: The class of error raised by failure responses from the contained resource.
-    error_class = GraphError
-
     _resource = None
-
     _bind_pending_tx = None
 
     def _process_if_bind_pending(self):
@@ -665,22 +661,10 @@ class Entity(object):
         return not self.__eq__(other)
 
     def bind(self, uri, metadata=None):
-        """ Associate this «class.lower» with a remote resource.
-
-        :arg uri: The URI identifying the remote resource to which to bind.
-        :arg metadata: Dictionary of initial metadata to attach to the contained resource.
-
-        """
         self._resource = Resource(uri, metadata)
         self._bind_pending_tx = None
 
     def set_bind_pending(self, tx):
-        """ Flag that this entity is due to be bound on processing of
-        the specified transaction.
-
-        :param tx:
-        :return:
-        """
         self._bind_pending_tx = tx
 
     def bound(self):
@@ -746,8 +730,6 @@ class Entity(object):
         return self.resource.dbms
 
     def unbind(self):
-        """ Detach this object from any remote resource.
-        """
         self._resource = None
         self._bind_pending_tx = None
 
@@ -1122,8 +1104,6 @@ class Node(PropertyNode, Entity):
         self.graph.push(self)
 
     def unbind(self):
-        """ Detach this node from any remote counterpart.
-        """
         try:
             del self.cache[self.uri]
         except KeyError:
