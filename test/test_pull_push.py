@@ -28,7 +28,7 @@ class PullTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert local.labels() == set()
         assert dict(local) == {}
-        local.bind(remote.uri)
+        local._bind(remote.uri)
         self.graph.pull(local)
         assert local.labels() == remote.labels()
         assert dict(local) == dict(remote)
@@ -39,7 +39,7 @@ class PullTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert local.labels() == set()
         assert dict(local) == {}
-        local.bind(remote.uri)
+        local._bind(remote.uri)
         self.graph.pull(local)
         assert local.labels() == remote.labels()
         assert dict(local) == dict(remote)
@@ -133,7 +133,7 @@ class PushTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert remote.labels() == set()
         assert dict(remote) == {}
-        local.bind(remote.uri)
+        local._bind(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
         assert local.labels() == remote.labels()
@@ -145,7 +145,7 @@ class PushTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert remote.labels() == set()
         assert dict(remote) == {}
-        local.bind(remote.uri)
+        local._bind(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
         assert local.labels() == remote.labels()

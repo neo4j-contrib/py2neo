@@ -104,13 +104,6 @@ class RelationshipTestCase(Py2neoTestCase):
         assert isinstance(rels, list)
         assert len(rels) == 0
 
-    def test_dbms(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        self.graph.create(r)
-        assert r.dbms == DBMS("http://localhost:7474/")
-
     def test_graph(self):
         a = Node()
         b = Node()

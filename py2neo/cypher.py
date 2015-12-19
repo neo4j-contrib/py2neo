@@ -351,7 +351,7 @@ class Transaction(object):
                                        for label in sorted(node.labels()))
                 writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
-                node.set_bind_pending(self)
+                node._set_bind_pending(self)
             returns[node_id] = node
         for i, relationship in enumerate(relationships):
             if not relationship.bound():
@@ -364,7 +364,7 @@ class Transaction(object):
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
-                relationship.set_bind_pending(self)
+                relationship._set_bind_pending(self)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         result = self.run(statement, parameters)
         result.cache.update(returns)
@@ -395,7 +395,7 @@ class Transaction(object):
                                            for label in sorted(entity.labels()))
                     pattern.append("(%s%s {%s})" % (node_id, label_string, param_id))
                     parameters[param_id] = dict(entity)
-                    entity.set_bind_pending(self)
+                    entity._set_bind_pending(self)
                 returns[node_id] = node = entity
             else:
                 # relationship
@@ -407,7 +407,7 @@ class Transaction(object):
                 writes.append("SET %s={%s}" % (rel_id, param_id))
                 parameters[param_id] = dict(entity)
                 if not entity.bound():
-                    entity.set_bind_pending(self)
+                    entity._set_bind_pending(self)
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
@@ -431,7 +431,7 @@ class Transaction(object):
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = relationship._id
-                relationship.unbind()
+                relationship._unbind()
         for i, node in enumerate(nodes):
             if node.bound():
                 node_id = "a%d" % i
@@ -440,7 +440,7 @@ class Transaction(object):
                                "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 deletes.append("DELETE %s" % node_id)
                 parameters[param_id] = node._id
-                node.unbind()
+                node._unbind()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
@@ -460,7 +460,7 @@ class Transaction(object):
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = relationship._id
-                relationship.unbind()
+                relationship._unbind()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 

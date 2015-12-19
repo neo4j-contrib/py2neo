@@ -645,56 +645,48 @@ class Entity(object):
     _resource = None
     _bind_pending_tx = None
 
-    def _process_if_bind_pending(self):
-        if self._bind_pending_tx:
-            self._bind_pending_tx.process()
-            self._bind_pending_tx = None
-
     def __eq__(self, other):
-        self._process_if_bind_pending()
         try:
-            return self.bound() and other.bound() and self.uri == other.uri
+            return self.resource and other.resource and self.uri == other.uri
         except AttributeError:
             return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def bind(self, uri, metadata=None):
+    def _set_bind_pending(self, tx):
+        self._bind_pending_tx = tx
+
+    def _bind(self, uri, metadata=None):
         self._resource = Resource(uri, metadata)
         self._bind_pending_tx = None
 
-    def set_bind_pending(self, tx):
-        self._bind_pending_tx = tx
+    def _unbind(self):
+        self._resource = None
+        self._bind_pending_tx = None
 
     def bound(self):
         """ :const:`True` if this object is bound to a remote resource,
         :const:`False` otherwise.
         """
-        self._process_if_bind_pending()
-        return self._resource is not None
+        try:
+            _ = self.resource
+        except BindError:
+            return False
+        else:
+            return True
 
     @property
     def graph(self):
-        """ The graph associated with the remote resource.
+        """ The graph associated with this entity.
 
         :rtype: :class:`.Graph`
         """
-        self._process_if_bind_pending()
-        return self.dbms.graph
-
-    @property
-    def cypher(self):
-        """ The Cypher engine associated with the remote resource.
-
-        :rtype: :class:`.CypherEngine`
-        """
-        self._process_if_bind_pending()
-        return self.dbms.graph.cypher
+        return self.resource.dbms.graph
 
     @property
     def _id(self):
-        """ The internal ID of this relationship within the database.
+        """ The internal ID of this entity within the database.
         """
         return int(self.uri.path.segments[-1])
 
@@ -704,40 +696,27 @@ class Entity(object):
 
         :rtype: string
         """
-        self._process_if_bind_pending()
-        return self.resource.ref
+        return self.uri.string[len(self.graph.uri.string):]
 
     @property
     def resource(self):
-        """ The remote resource to which this object is bound.
+        """ The remote resource to which this entity is bound.
 
         :rtype: :class:`.Resource`
         :raises: :class:`py2neo.BindError`
         """
-        self._process_if_bind_pending()
-        if self.bound():
+        if self._bind_pending_tx:
+            self._bind_pending_tx.process()
+            self._bind_pending_tx = None
+        if self._resource:
             return self._resource
         else:
             raise BindError("Local entity is not bound to a remote entity")
 
     @property
-    def dbms(self):
-        """ The root service associated with the remote resource.
-
-        :return: :class:`.DBMS`
-        """
-        self._process_if_bind_pending()
-        return self.resource.dbms
-
-    def unbind(self):
-        self._resource = None
-        self._bind_pending_tx = None
-
-    @property
     def uri(self):
         """ The full URI of the remote resource.
         """
-        self._process_if_bind_pending()
         resource = self.resource
         try:
             return resource.uri
@@ -987,7 +966,7 @@ class Node(PropertyNode, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
-        inst.bind(self, data)
+        inst._bind(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
             inst.clear()
@@ -1052,18 +1031,11 @@ class Node(PropertyNode, Entity):
             self.graph.pull(self)
         return PropertyNode.__getitem__(self, item)
 
-    @property
-    def ref(self):
-        """ The URI of this node relative to its graph.
-
-        :rtype: string
-        """
-        return "node/%s" % self._id
-
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        return self.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} RETURN count(r)", n=self)
+        return self.graph.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} "
+                                          "RETURN count(r)", n=self)
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
@@ -1103,12 +1075,12 @@ class Node(PropertyNode, Entity):
     def push(self):
         self.graph.push(self)
 
-    def unbind(self):
+    def _unbind(self):
         try:
             del self.cache[self.uri]
         except KeyError:
             pass
-        Entity.unbind(self)
+        Entity._unbind(self)
 
 
 class NodeProxy(object):
@@ -1236,7 +1208,7 @@ class Relationship(PropertyRelationship, Entity):
             else:
                 inst.__stale.add("properties")
         cls.cache[self] = inst
-        inst.bind(self, data)
+        inst._bind(self, data)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1313,14 +1285,6 @@ class Relationship(PropertyRelationship, Entity):
     def push(self):
         self.graph.push(self)
 
-    @property
-    def ref(self):
-        """ The URI of this relationship relative to its graph.
-
-        :rtype: string
-        """
-        return "relationship/%s" % self._id
-
     def type(self):
         """ The type of this relationship.
         """
@@ -1328,7 +1292,7 @@ class Relationship(PropertyRelationship, Entity):
             self.graph.pull(self)
         return self._type
 
-    def unbind(self):
+    def _unbind(self):
         """ Detach this relationship and its start and end
         nodes from any remote counterparts.
         """
@@ -1336,7 +1300,7 @@ class Relationship(PropertyRelationship, Entity):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Entity.unbind(self)
+        Entity._unbind(self)
 
 
 class Path(TraversableSubgraph):

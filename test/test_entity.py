@@ -25,7 +25,7 @@ class EntityTestCase(Py2neoTestCase):
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Entity()
-        entity.bind(uri)
+        entity._bind(uri)
         assert entity.bound()
         assert entity.uri == uri
 
@@ -33,7 +33,7 @@ class EntityTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         metadata = {"foo": "bar"}
         entity = Entity()
-        entity.bind(uri, metadata)
+        entity._bind(uri, metadata)
         assert entity.bound()
         assert entity.uri == uri
         assert entity.resource.metadata == metadata
@@ -47,11 +47,11 @@ class EntityTestCase(Py2neoTestCase):
     def test_can_bind_node_to_resource(self):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
-        node.bind(uri)
+        node._bind(uri)
         assert node.bound()
         assert isinstance(node.resource, Resource)
         assert node.resource.uri == uri
-        node.unbind()
+        node._unbind()
         assert not node.bound()
         with self.assertRaises(BindError):
             _ = node.resource
@@ -64,11 +64,11 @@ class EntityTestCase(Py2neoTestCase):
         }
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
-        relationship.bind(uri, metadata=metadata)
+        relationship._bind(uri, metadata=metadata)
         assert relationship.bound()
         assert isinstance(relationship.resource, Resource)
         assert relationship.resource.uri == uri
-        relationship.unbind()
+        relationship._unbind()
         assert not relationship.bound()
         with self.assertRaises(BindError):
             _ = relationship.resource
@@ -77,7 +77,7 @@ class EntityTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         Node.cache.clear()
-        node.unbind()
+        node._unbind()
         assert not node.bound()
 
     def test_can_unbind_relationship_if_not_cached(self):
@@ -86,7 +86,7 @@ class EntityTestCase(Py2neoTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         Relationship.cache.clear()
-        ab.unbind()
+        ab._unbind()
         assert not ab.bound()
 
     def test_can_unbind_relationship_with_already_unbound_nodes(self):
@@ -94,9 +94,9 @@ class EntityTestCase(Py2neoTestCase):
         b = Node()
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
-        a.unbind()
-        b.unbind()
+        a._unbind()
+        b._unbind()
         assert not a.bound()
         assert not b.bound()
-        ab.unbind()
+        ab._unbind()
         assert not ab.bound()
