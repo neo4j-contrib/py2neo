@@ -899,7 +899,7 @@ class Node(PrimitiveNode, Entity):
 
     def __getitem__(self, item):
         if self.bound() and "properties" in self.__stale:
-            self.refresh()
+            self.graph.pull(self)
         return PrimitiveNode.__getitem__(self, item)
 
     @property
@@ -923,7 +923,7 @@ class Node(PrimitiveNode, Entity):
         """ The set of labels attached to this node.
         """
         if self.bound() and "labels" in self.__stale:
-            self.refresh()
+            self.graph.pull(self)
         return PrimitiveNode.labels(self)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
@@ -942,7 +942,7 @@ class Node(PrimitiveNode, Entity):
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
         if self.bound() and "properties" in self.__stale:
-            self.refresh()
+            self.graph.pull(self)
         return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
@@ -952,20 +952,6 @@ class Node(PrimitiveNode, Entity):
     @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
         self.graph.push(self)
-
-    def refresh(self):
-        # Non-destructive pull.
-        # Note: this may fail if attempted against an entity mid-transaction
-        # that has not yet been committed.
-        query = "MATCH (a) WHERE id(a)={a} RETURN a,labels(a)"
-        content = self.cypher.post(query, {"a": self._id})
-        try:
-            dehydrated, label_metadata = content.select()
-        except IndexError:
-            raise GraphError("Node with ID %s not found" % self._id)
-        else:
-            dehydrated.setdefault("metadata", {})["labels"] = label_metadata
-            Node.hydrate(dehydrated, self)
 
     def unbind(self):
         """ Detach this node from any remote counterpart.

@@ -91,13 +91,6 @@ class NodeTestCase(Py2neoTestCase):
         _ = list(self.graph.match(a, "KNOWS"))
         assert dict(a) == {"name": "Alice", "age": 33}
 
-    def test_will_error_when_refreshing_deleted_node(self):
-        a = Node()
-        self.graph.create(a)
-        self.graph.delete(a)
-        with self.assertRaises(BindError):
-            a.refresh()
-
 
 class AbstractNodeTestCase(Py2neoTestCase):
 
