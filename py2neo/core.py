@@ -25,8 +25,8 @@ from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.primitive import \
-    Node as PrimitiveNode, \
-    Relationship as PrimitiveRelationship, \
+    PropertyNode, \
+    PropertyRelationship, \
     TraversableSubgraph, traverse, coerce_property
 from py2neo.status import BindError, GraphError
 from py2neo.util import is_collection, round_robin, version_tuple, \
@@ -560,7 +560,7 @@ class Graph(object):
             cursor.cache["r"] = relationship
         tx.commit()
         for node, cursor in nodes.items():
-            labels = PrimitiveNode.labels(node)
+            labels = PropertyNode.labels(node)
             labels.clear()
             labels.update(cursor.evaluate(1))
 
@@ -762,7 +762,7 @@ class Entity(object):
             return resource.uri_template
 
 
-class Node(PrimitiveNode, Entity):
+class Node(PropertyNode, Entity):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
     may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
@@ -826,7 +826,7 @@ class Node(PrimitiveNode, Entity):
         return inst
 
     def __init__(self, *labels, **properties):
-        PrimitiveNode.__init__(self, *labels, **properties)
+        PropertyNode.__init__(self, *labels, **properties)
         self.__stale = set()
 
     def __repr__(self):
@@ -858,7 +858,7 @@ class Node(PrimitiveNode, Entity):
         if self.bound() and other.bound():
             return self.resource == other.resource
         else:
-            return PrimitiveNode.__eq__(self, other)
+            return PropertyNode.__eq__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -867,7 +867,7 @@ class Node(PrimitiveNode, Entity):
         if self.bound():
             return hash(self.resource.uri)
         else:
-            return PrimitiveNode.__hash__(self)
+            return PropertyNode.__hash__(self)
 
     def __add__(self, other):
         return Path(self, other)
@@ -875,7 +875,7 @@ class Node(PrimitiveNode, Entity):
     def __getitem__(self, item):
         if self.bound() and "properties" in self.__stale:
             self.graph.pull(self)
-        return PrimitiveNode.__getitem__(self, item)
+        return PropertyNode.__getitem__(self, item)
 
     @property
     def ref(self):
@@ -899,7 +899,7 @@ class Node(PrimitiveNode, Entity):
         """
         if self.bound() and "labels" in self.__stale:
             self.graph.pull(self)
-        return PrimitiveNode.labels(self)
+        return PropertyNode.labels(self)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
@@ -944,7 +944,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(PrimitiveRelationship, Entity):
+class Relationship(PropertyRelationship, Entity):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -1007,7 +1007,7 @@ class Relationship(PrimitiveRelationship, Entity):
             else:
                 n.append(cast_node(value))
         p.update(properties)
-        PrimitiveRelationship.__init__(self, *n, **p)
+        PropertyRelationship.__init__(self, *n, **p)
         self.__stale = set()
 
     def __repr__(self):
@@ -1038,7 +1038,7 @@ class Relationship(PrimitiveRelationship, Entity):
         if self.bound() and other.bound():
             return self.resource == other.resource
         else:
-            return PrimitiveRelationship.__eq__(self, other)
+            return PropertyRelationship.__eq__(self, other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1047,7 +1047,7 @@ class Relationship(PrimitiveRelationship, Entity):
         if self.bound():
             return hash(self.resource.uri)
         else:
-            return PrimitiveRelationship.__hash__(self)
+            return PropertyRelationship.__hash__(self)
 
     @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
     def exists(self):

@@ -22,20 +22,20 @@ from unittest import TestCase
 
 from py2neo.core import Path
 from py2neo.primitive import PropertySet, PropertyContainer, TraversableSubgraph, \
-    Subgraph, Node, Relationship, traverse
+    Subgraph, PropertyNode, PropertyRelationship, traverse
 from py2neo.cypher import Record
 
 
-alice = Node("Person", "Employee", name="Alice", age=33)
-bob = Node("Person")
-carol = Node("Person")
-dave = Node("Person")
+alice = PropertyNode("Person", "Employee", name="Alice", age=33)
+bob = PropertyNode("Person")
+carol = PropertyNode("Person")
+dave = PropertyNode("Person")
 
-alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
-alice_likes_carol = Relationship(alice, "LIKES", carol)
-carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
-carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
-dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
+alice_knows_bob = PropertyRelationship(alice, "KNOWS", bob, since=1999)
+alice_likes_carol = PropertyRelationship(alice, "LIKES", carol)
+carol_dislikes_bob = PropertyRelationship(carol, "DISLIKES", bob)
+carol_married_to_dave = PropertyRelationship(carol, "MARRIED_TO", dave)
+dave_works_for_dave = PropertyRelationship(dave, "WORKS_FOR", dave)
 
 record_keys = ["employee_id", "Person"]
 record_a = Record(record_keys, [1001, alice])
@@ -420,7 +420,7 @@ class TraversableSubgraphTestCase(TestCase):
                                                       carol_married_to_dave, dave)
 
 
-class NodeTestCase(TestCase):
+class PropertyNodeTestCase(TestCase):
 
     def test_nodes(self):
         nodes = alice.nodes()
@@ -439,7 +439,7 @@ class NodeTestCase(TestCase):
         assert alice.size() == 0
 
     def test_empty_node(self):
-        n = Node()
+        n = PropertyNode()
         assert not n.__bool__()
         assert not n.__nonzero__()
         assert len(n) == 0
@@ -467,60 +467,60 @@ class NodeTestCase(TestCase):
         assert alice == other_node
 
     def test_inequality(self):
-        other_node = Node("Person", "Employee", name="Alice", age=33)
+        other_node = PropertyNode("Person", "Employee", name="Alice", age=33)
         assert alice != other_node
 
     def test_inequality_with_other_types(self):
         assert alice != "this is not a node"
 
     def test_can_add_label(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_add_label_is_idempotent(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         node.labels().add("Employee")
         node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_can_remove_label(self):
-        node = Node("Person", "Employee", name="Alice")
+        node = PropertyNode("Person", "Employee", name="Alice")
         node.labels().remove("Employee")
         assert node.labels() == {"Person"}
 
     def test_removing_non_existent_label_fails(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         with self.assertRaises(KeyError):
             node.labels().remove("Employee")
 
     def test_can_discard_label(self):
-        node = Node("Person", "Employee", name="Alice")
+        node = PropertyNode("Person", "Employee", name="Alice")
         node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_discarding_non_existent_label_is_ignored(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_can_clear_labels(self):
-        node = Node("Person", "Employee", name="Alice")
+        node = PropertyNode("Person", "Employee", name="Alice")
         node.labels().clear()
         assert node.labels() == set()
 
     def test_has_label(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         assert "Person" in node.labels()
         assert "Employee" not in node.labels()
 
     def test_update_labels(self):
-        node = Node("Person", name="Alice")
+        node = PropertyNode("Person", name="Alice")
         node.labels().update({"Person", "Employee"})
         assert node.labels() == {"Person", "Employee"}
 
 
-class RelationshipTestCase(TestCase):
+class PropertyRelationshipTestCase(TestCase):
 
     def test_nodes(self):
         nodes = alice_knows_bob.nodes()
@@ -564,45 +564,45 @@ class RelationshipTestCase(TestCase):
 
     def test_construction_from_no_arguments(self):
         with self.assertRaises(TypeError):
-            _ = Relationship()
+            _ = PropertyRelationship()
 
     def test_construction_from_one_argument(self):
-        rel = Relationship(alice)
+        rel = PropertyRelationship(alice)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() is None
 
     def test_construction_from_two_node_arguments(self):
-        rel = Relationship(alice, bob)
+        rel = PropertyRelationship(alice, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
 
     def test_construction_from_node_and_type_arguments(self):
-        rel = Relationship(alice, "LIKES")
+        rel = PropertyRelationship(alice, "LIKES")
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() == "LIKES"
 
     def test_construction_from_three_arguments(self):
-        rel = Relationship(alice, "KNOWS", bob)
+        rel = PropertyRelationship(alice, "KNOWS", bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
 
     def test_construction_with_explicit_none_type(self):
-        rel = Relationship(alice, None, bob)
+        rel = PropertyRelationship(alice, None, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
 
     def test_construction_from_subclass(self):
-        class WorksWith(Relationship):
+        class WorksWith(PropertyRelationship):
             pass
         rel = WorksWith(alice, bob)
         assert repr(rel)
@@ -612,23 +612,23 @@ class RelationshipTestCase(TestCase):
 
     def test_construction_from_more_arguments(self):
         with self.assertRaises(TypeError):
-            Relationship(alice, "KNOWS", bob, carol)
+            PropertyRelationship(alice, "KNOWS", bob, carol)
 
     def test_equality(self):
         other_rel = alice_knows_bob
         assert alice_knows_bob == other_rel
 
     def test_inequality(self):
-        other_rel = Relationship(alice, "KNOWS", bob, since=1999)
+        other_rel = PropertyRelationship(alice, "KNOWS", bob, since=1999)
         assert alice != other_rel
 
     def test_inequality_with_other_types(self):
         assert alice_knows_bob != "there is no relationship"
 
 
-class RelationshipLoopTestCase(TestCase):
+class PropertyRelationshipLoopTestCase(TestCase):
 
-    loop = Relationship(alice, "LIKES", alice)
+    loop = PropertyRelationship(alice, "LIKES", alice)
 
     def test_nodes(self):
         nodes = self.loop.nodes()
@@ -801,7 +801,7 @@ class ConcatenationTestCase(TestCase):
         assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_node_and_reversed_relationship(self):
-        bob_knows_alice = Relationship(bob, "KNOWS", alice)
+        bob_knows_alice = PropertyRelationship(bob, "KNOWS", alice)
         result = alice + bob_knows_alice
         assert result == TraversableSubgraph(alice, bob_knows_alice, bob)
 

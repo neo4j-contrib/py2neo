@@ -22,7 +22,7 @@ from re import compile as re_compile
 from .compat import integer, string, unicode, ustr
 
 
-__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "traverse"]
+__all__ = ["Subgraph", "TraversableSubgraph", "PropertyNode", "PropertyRelationship", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -373,7 +373,7 @@ def traverse(*traversables):
                 yield entity
 
 
-class Node(PropertyContainer, TraversableSubgraph):
+class PropertyNode(PropertyContainer, TraversableSubgraph):
     """ A graph vertex with support for labels and properties.
     """
 
@@ -398,13 +398,13 @@ class Node(PropertyContainer, TraversableSubgraph):
         return self._labels
 
 
-class Relationship(PropertyContainer, TraversableSubgraph):
+class PropertyRelationship(PropertyContainer, TraversableSubgraph):
     """ A typed edge between two graph nodes with support for properties.
     """
 
     @classmethod
     def default_type(cls):
-        if cls is Relationship:
+        if cls is PropertyRelationship:
             return None
         else:
             return ustr(relationship_case(cls.__name__))
@@ -412,17 +412,17 @@ class Relationship(PropertyContainer, TraversableSubgraph):
     def __init__(self, *nodes, **properties):
         """
 
-            >>> a = Node(name="Alice")
-            >>> b = Node(name="Bob")
+            >>> a = PropertyNode(name="Alice")
+            >>> b = PropertyNode(name="Bob")
 
-            >>> Relationship(a)
+            >>> PropertyRelationship(a)
             ({name:'Alice'})-[:TO]->({name:'Alice'})
-            >>> Relationship(a, b)
+            >>> PropertyRelationship(a, b)
             ({name:'Alice'})-[:TO]->({name:'Bob'})
-            >>> Relationship(a, "KNOWS", b)
+            >>> PropertyRelationship(a, "KNOWS", b)
             ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
 
-            >>> class WorksWith(Relationship): pass
+            >>> class WorksWith(PropertyRelationship): pass
             >>> WorksWith(a, b)
             ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
 
