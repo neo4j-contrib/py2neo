@@ -772,6 +772,9 @@ class Subgraph(object):
         self._relationships = frozenset(relationships or frozenset())
         self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
 
+    def __repr__(self):
+        return "<Subgraph order=%d size=%d>" % (self.order(), self.size())
+
     def __eq__(self, other):
         try:
             return self.nodes() == other.nodes() and self.relationships() == other.relationships()
@@ -863,6 +866,10 @@ class TraversableSubgraph(Subgraph):
         Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
         self._sequence = sequence
 
+    def __repr__(self):
+        return "<TraversableSubgraph order=%d size=%d length=%d>" % \
+               (self.order(), self.size(), self.length())
+
     def __eq__(self, other):
         try:
             other_traversal = tuple(other.traverse())
@@ -928,8 +935,6 @@ class TraversableSubgraph(Subgraph):
         return self._relationship_sequence
 
 
-
-
 class PropertyNode(PropertyContainer, TraversableSubgraph):
     """ A graph vertex with support for labels and properties.
     """
@@ -937,9 +942,6 @@ class PropertyNode(PropertyContainer, TraversableSubgraph):
         self._labels = set(labels)
         PropertyContainer.__init__(self, **properties)
         TraversableSubgraph.__init__(self, self)
-
-    def __repr__(self):
-        return "(%s {...})" % "".join(":" + label for label in self._labels)
 
     def __eq__(self, other):
         return self is other
@@ -1190,17 +1192,6 @@ class PropertyRelationship(PropertyContainer, TraversableSubgraph):
             raise TypeError("Hyperedges not supported")
         PropertyContainer.__init__(self, **properties)
         TraversableSubgraph.__init__(self, nodes[0], self, nodes[1])
-
-    def __repr__(self):
-        if self._type is not None:
-            value = "-[:%s]->" % self._type
-        else:
-            value = "->"
-        if self.start_node() is not None:
-            value = repr(self.start_node()) + value
-        if self.end_node() is not None:
-            value += repr(self.end_node())
-        return value
 
     def __eq__(self, other):
         try:
