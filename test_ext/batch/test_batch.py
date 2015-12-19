@@ -258,13 +258,13 @@ class DeletionTestCase(Py2neoTestCase):
         self.batch.create({"name": "Bob"})
         self.batch.create((0, "KNOWS", 1))
         alice, bob, ab = self.batch.run()
-        assert self.graph.exists(alice, bob, ab)
+        assert self.graph.exists(alice | bob | ab)
         self.batch.jobs = []
         self.batch.delete(ab)
         self.batch.delete(alice)
         self.batch.delete(bob)
         self.batch.run()
-        assert not self.graph.exists(alice, bob, ab)
+        assert not self.graph.exists(alice | bob | ab)
 
 
 class PropertyManagementTestCase(Py2neoTestCase):

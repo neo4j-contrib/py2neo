@@ -276,27 +276,26 @@ class Graph(object):
         """
         self.cypher.detach(g)
 
-    def exists(self, *entities):
+    def exists(self, g):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.cypher.begin()
         cursors = []
-        for entity in entities:
+        try:
             try:
-                try:
-                    nodes = entity.nodes()
-                    relationships = entity.relationships()
-                except AttributeError:
-                    raise TypeError("Object %r is not graphy" % entity)
-                else:
-                    for a in nodes:
-                        cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
-                                              "RETURN count(a)", x=a))
-                    for r in relationships:
-                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                              "RETURN count(r)", x=r))
-            except BindError:
-                return False
+                nodes = g.nodes()
+                relationships = g.relationships()
+            except AttributeError:
+                raise TypeError("Object %r is not graphy" % g)
+            else:
+                for a in nodes:
+                    cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                          "RETURN count(a)", x=a))
+                for r in relationships:
+                    cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                          "RETURN count(r)", x=r))
+        except BindError:
+            return False
         count = len(tx.statements)
         tx.commit()
         if count == 0:

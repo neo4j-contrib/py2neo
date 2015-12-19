@@ -35,25 +35,25 @@ class DeleteTestCase(Py2neoTestCase):
         bob = Node("Person", name="Bob")
         ab = Relationship(alice, "KNOWS", bob)
         self.graph.create(alice | bob | ab)
-        assert self.graph.exists(alice, bob, ab)
+        assert self.graph.exists(alice | bob | ab)
         self.graph.delete(ab | alice | bob)
-        assert not self.graph.exists(alice, bob, ab)
+        assert not self.graph.exists(alice | bob | ab)
 
     def test_can_delete_nodes_and_relationship_nodes_first(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
         ab = Relationship(alice, "KNOWS", bob)
         self.graph.create(alice | bob | ab)
-        assert self.graph.exists(alice, bob, ab)
+        assert self.graph.exists(alice | bob | ab)
         self.graph.delete(alice | bob | ab)
-        assert not self.graph.exists(alice, bob, ab)
+        assert not self.graph.exists(alice | bob | ab)
 
     def test_cannot_delete_related_node(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
         ab = Relationship(alice, "KNOWS", bob)
         self.graph.create(alice | bob | ab)
-        assert self.graph.exists(alice, bob, ab)
+        assert self.graph.exists(alice | bob | ab)
         with self.assertRaises(CypherError):
             self.graph.delete(alice)
         self.graph.delete(alice | bob | ab)
