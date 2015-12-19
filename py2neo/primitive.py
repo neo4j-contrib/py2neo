@@ -373,20 +373,14 @@ def traverse(*traversables):
                 yield entity
 
 
-class Entity(PropertyContainer, TraversableSubgraph):
-
-    def __init__(self, *sequence, **properties):
-        PropertyContainer.__init__(self, **properties)
-        TraversableSubgraph.__init__(self, *sequence)
-
-
-class Node(Entity):
+class Node(PropertyContainer, TraversableSubgraph):
     """ A graph vertex with support for labels and properties.
     """
 
     def __init__(self, *labels, **properties):
         self._labels = set(labels)
-        Entity.__init__(self, self, **properties)
+        PropertyContainer.__init__(self, **properties)
+        TraversableSubgraph.__init__(self, self)
 
     def __repr__(self):
         return "(%s {...})" % "".join(":" + label for label in self._labels)
@@ -422,7 +416,7 @@ class Node(Entity):
         self._labels.update(labels)
 
 
-class Relationship(Entity):
+class Relationship(PropertyContainer, TraversableSubgraph):
     """ A typed edge between two graph nodes with support for properties.
     """
 
@@ -476,7 +470,8 @@ class Relationship(Entity):
             nodes = (nodes[0], nodes[2])
         else:
             raise TypeError("Hyperedges not supported")
-        Entity.__init__(self, nodes[0], self, nodes[1], **properties)
+        PropertyContainer.__init__(self, **properties)
+        TraversableSubgraph.__init__(self, nodes[0], self, nodes[1])
 
     def __repr__(self):
         if self._type is not None:
