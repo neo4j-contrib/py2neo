@@ -42,11 +42,10 @@ from io import StringIO
 from sys import stdout
 
 from py2neo.compat import integer, string, ustr
-from py2neo.core import Node, Relationship, Path
+from py2neo.graph import Node, Relationship, Path, Subgraph, TraversableSubgraph
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
 from py2neo.status import CypherError, Finished
-from py2neo.primitive import TraversableSubgraph, Subgraph
 from py2neo.util import is_collection, deprecated
 
 
@@ -932,7 +931,7 @@ def cypher_repr(obj):
 
 def main():
     import sys
-    from py2neo.core import DBMS
+    from py2neo.graph import DBMS
     script, args = sys.argv[0], sys.argv[1:]
     if not args:
         args = ["-?"]

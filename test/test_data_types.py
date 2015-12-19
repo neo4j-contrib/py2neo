@@ -20,9 +20,9 @@
 
 from unittest import TestCase
 
-from py2neo.core import Path
-from py2neo.primitive import PropertySet, PropertyContainer, TraversableSubgraph, \
-    Subgraph, PropertyNode, PropertyRelationship, traverse
+from py2neo.data import PropertySet, PropertyContainer
+from py2neo.graph import Subgraph, TraversableSubgraph, PropertyNode, PropertyRelationship, \
+    Path, traverse
 from py2neo.cypher import Record
 
 

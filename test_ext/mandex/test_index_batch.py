@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.core import Node, Relationship
+from py2neo.graph import Node, Relationship
 from py2neo.ext.mandex import ManualIndexManager, ManualIndexWriteBatch
 from .util import IndexTestCase
 

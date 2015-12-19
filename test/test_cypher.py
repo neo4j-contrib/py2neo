@@ -18,7 +18,7 @@
 
 from io import StringIO
 
-from py2neo.core import Node, Relationship, Path
+from py2neo.graph import Node, Relationship, Path
 from py2neo.cypher import CypherEngine, Transaction, presubstitute, CypherWriter, cypher_repr
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction

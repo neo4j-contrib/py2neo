@@ -17,6 +17,7 @@
 
 
 from io import StringIO
+from itertools import chain
 from warnings import warn
 import webbrowser
 
@@ -24,21 +25,21 @@ from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.primitive import \
-    PropertyNode, \
-    PropertyRelationship, \
-    TraversableSubgraph, traverse, coerce_property
+from py2neo.data import PropertyContainer, coerce_property
 from py2neo.status import BindError, GraphError
 from py2neo.util import is_collection, round_robin, version_tuple, \
-    ThreadLocalWeakValueDictionary, deprecated
+    ThreadLocalWeakValueDictionary, deprecated, relationship_case
 
 
 __all__ = ["DBMS",
            "Graph",
            "Entity",
+           "Subgraph",
+           "TraversableSubgraph",
            "Node",
            "Relationship",
            "Path",
+           "traverse",
            "cast",
            "cast_node",
            "cast_relationship"]
@@ -762,6 +763,197 @@ class Entity(object):
             return resource.uri_template
 
 
+class Subgraph(object):
+    """ Arbitrary, unordered collection of nodes and relationships.
+    """
+
+    def __init__(self, nodes=None, relationships=None):
+        self._nodes = frozenset(nodes or frozenset())
+        self._relationships = frozenset(relationships or frozenset())
+        self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
+
+    def __eq__(self, other):
+        try:
+            return self.nodes() == other.nodes() and self.relationships() == other.relationships()
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for entity in self._nodes:
+            value ^= hash(entity)
+        for entity in self._relationships:
+            value ^= hash(entity)
+        return value
+
+    def __len__(self):
+        return self.size()
+
+    def __iter__(self):
+        return iter(self._relationships)
+
+    def __bool__(self):
+        return bool(self._relationships)
+
+    def __nonzero__(self):
+        return bool(self._relationships)
+
+    def __or__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) | nodes(other), relationships(self) | relationships(other))
+
+    def __and__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) & nodes(other), relationships(self) & relationships(other))
+
+    def __sub__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        r = relationships(self) - relationships(other)
+        n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Subgraph(n, r)
+
+    def __xor__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        r = relationships(self) ^ relationships(other)
+        n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Subgraph(n, r)
+
+    def nodes(self):
+        return self._nodes
+
+    def relationships(self):
+        return self._relationships
+
+    def order(self):
+        """ Total number of unique nodes in this set.
+        """
+        return len(self._nodes)
+
+    def size(self):
+        """ Total number of unique relationships in this set.
+        """
+        return len(self._relationships)
+
+    def labels(self):
+        return frozenset(chain(*(node.labels() for node in self._nodes)))
+
+    def types(self):
+        return frozenset(rel.type() for rel in self._relationships)
+
+    def keys(self):
+        return (frozenset(chain(*(node.keys() for node in self._nodes))) |
+                frozenset(chain(*(rel.keys() for rel in self._relationships))))
+
+
+class TraversableSubgraph(Subgraph):
+    """ A graph with traversal information.
+    """
+
+    def __init__(self, head, *tail):
+        sequence = (head,) + tail
+        self._node_sequence = sequence[0::2]
+        self._relationship_sequence = sequence[1::2]
+        Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
+        self._sequence = sequence
+
+    def __eq__(self, other):
+        try:
+            other_traversal = tuple(other.traverse())
+        except AttributeError:
+            return False
+        else:
+            return tuple(self.traverse()) == other_traversal
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for item in self._sequence:
+            value ^= hash(item)
+        return value
+
+    def __len__(self):
+        return (len(self._sequence) - 1) // 2
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start, stop = index.start, index.stop
+            if start is not None:
+                if start < 0:
+                    start += len(self)
+                start *= 2
+            if stop is not None:
+                if stop < 0:
+                    stop += len(self)
+                stop = 2 * stop + 1
+            return TraversableSubgraph(*self._sequence[start:stop])
+        elif index < 0:
+            return self._sequence[2 * index]
+        else:
+            return self._sequence[2 * index + 1]
+
+    def __iter__(self):
+        for relationship in self._relationship_sequence:
+            yield relationship
+
+    def __add__(self, other):
+        if other is None:
+            return self
+        return TraversableSubgraph(*traverse(self, other))
+
+    def start_node(self):
+        return self._node_sequence[0]
+
+    def end_node(self):
+        return self._node_sequence[-1]
+
+    def length(self):
+        return len(self._relationship_sequence)
+
+    def traverse(self):
+        return iter(self._sequence)
+
+    def nodes(self):
+        return self._node_sequence
+
+    def relationships(self):
+        return self._relationship_sequence
+
+
+
+
+class PropertyNode(PropertyContainer, TraversableSubgraph):
+    """ A graph vertex with support for labels and properties.
+    """
+    def __init__(self, *labels, **properties):
+        self._labels = set(labels)
+        PropertyContainer.__init__(self, **properties)
+        TraversableSubgraph.__init__(self, self)
+
+    def __repr__(self):
+        return "(%s {...})" % "".join(":" + label for label in self._labels)
+
+    def __eq__(self, other):
+        return self is other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(id(self))
+
+    def labels(self):
+        return self._labels
+
+
 class Node(PropertyNode, Entity):
     """ A graph node that may optionally be bound to a remote counterpart
     in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
@@ -797,7 +989,6 @@ class Node(PropertyNode, Entity):
     dictionary is in how it handles :const:`None` and missing values. As with actual Neo4j
     properties, missing values and those equal to :const:`None` are equivalent.
     """
-
     cache = ThreadLocalWeakValueDictionary()
 
     @classmethod
@@ -944,6 +1135,90 @@ class NodeProxy(object):
     pass
 
 
+class PropertyRelationship(PropertyContainer, TraversableSubgraph):
+    """ A typed edge between two graph nodes with support for properties.
+    """
+    @classmethod
+    def default_type(cls):
+        if cls is PropertyRelationship:
+            return None
+        else:
+            return ustr(relationship_case(cls.__name__))
+
+    def __init__(self, *nodes, **properties):
+        """
+
+            >>> a = PropertyNode(name="Alice")
+            >>> b = PropertyNode(name="Bob")
+
+            >>> PropertyRelationship(a)
+            ({name:'Alice'})-[:TO]->({name:'Alice'})
+            >>> PropertyRelationship(a, b)
+            ({name:'Alice'})-[:TO]->({name:'Bob'})
+            >>> PropertyRelationship(a, "KNOWS", b)
+            ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
+
+            >>> class WorksWith(PropertyRelationship): pass
+            >>> WorksWith(a, b)
+            ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
+
+        :param nodes:
+        :param properties:
+        :return:
+        """
+        num_args = len(nodes)
+        if num_args == 0:
+            raise TypeError("Relationships must specify at least one endpoint")
+        elif num_args == 1:
+            # Relationship(a)
+            self._type = self.default_type()
+            nodes = (nodes[0], nodes[0])
+        elif num_args == 2:
+            if nodes[1] is None or isinstance(nodes[1], string):
+                # Relationship(a, "TO")
+                self._type = nodes[1]
+                nodes = (nodes[0], nodes[0])
+            else:
+                # Relationship(a, b)
+                self._type = self.default_type()
+                nodes = (nodes[0], nodes[1])
+        elif num_args == 3:
+            # Relationship(a, "TO", b)
+            self._type = nodes[1]
+            nodes = (nodes[0], nodes[2])
+        else:
+            raise TypeError("Hyperedges not supported")
+        PropertyContainer.__init__(self, **properties)
+        TraversableSubgraph.__init__(self, nodes[0], self, nodes[1])
+
+    def __repr__(self):
+        if self._type is not None:
+            value = "-[:%s]->" % self._type
+        else:
+            value = "->"
+        if self.start_node() is not None:
+            value = repr(self.start_node()) + value
+        if self.end_node() is not None:
+            value += repr(self.end_node())
+        return value
+
+    def __eq__(self, other):
+        try:
+            return (self.nodes() == other.nodes() and other.size() == 1 and
+                    self.type() == other.type() and dict(self) == dict(other))
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.nodes()) ^ hash(self.type())
+
+    def type(self):
+        return self._type
+
+
 class Relationship(PropertyRelationship, Entity):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
@@ -955,7 +1230,6 @@ class Relationship(PropertyRelationship, Entity):
         >>> alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
 
     """
-
     cache = ThreadLocalWeakValueDictionary()
 
     @classmethod
@@ -1125,7 +1399,6 @@ class Path(TraversableSubgraph):
         ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
 
     """
-
     @classmethod
     def hydrate(cls, data):
         """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
@@ -1178,6 +1451,35 @@ class Path(TraversableSubgraph):
         writer = CypherWriter(s)
         writer.write_path(self)
         return s.getvalue()
+
+
+def traverse(*traversables):
+    if not traversables:
+        return
+    traversable = traversables[0]
+    try:
+        entities = traversable.traverse()
+    except AttributeError:
+        raise TypeError("Object %r is not traversable" % traversable)
+    for entity in entities:
+        yield entity
+    end_node = traversable.end_node()
+    for traversable in traversables[1:]:
+        try:
+            if end_node == traversable.start_node():
+                entities = traversable.traverse()
+                end_node = traversable.end_node()
+            elif end_node == traversable.end_node():
+                entities = reversed(list(traversable.traverse()))
+                end_node = traversable.start_node()
+            else:
+                raise ValueError("Cannot append traversable %r "
+                                 "to node %r" % (traversable, end_node))
+        except AttributeError:
+            raise TypeError("Object %r is not traversable" % traversable)
+        for i, entity in enumerate(entities):
+            if i > 0:
+                yield entity
 
 
 def cast(obj, entities=None):

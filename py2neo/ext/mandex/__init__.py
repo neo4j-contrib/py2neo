@@ -17,7 +17,7 @@
 
 
 from py2neo.ext.mandex.batch import *
-from py2neo.core import Graph, Node, Relationship
+from py2neo.graph import Graph, Node, Relationship
 from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED

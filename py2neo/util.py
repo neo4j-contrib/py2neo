@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,19 +21,25 @@ Utility module
 
 
 from itertools import cycle, islice
-import os
 import re
-import sys
 from threading import local
 import warnings
 from weakref import WeakValueDictionary
 
-from py2neo.compat import SafeConfigParser
 
-
-__all__ = ["numberise", "round_robin", "deprecated",
+__all__ = ["round_robin", "deprecated", "relationship_case",
            "version_tuple", "is_collection", "has_all",
            "PropertiesParser", "ThreadLocalWeakValueDictionary"]
+
+
+# Word separation patterns for re-casing strings.
+WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
+WORD_ALL = re.compile("([a-z0-9])([A-Z])")
+
+
+def relationship_case(s):
+    s1 = WORD_FIRST.sub(r"\1_\2", s)
+    return WORD_ALL.sub(r"\1_\2", s1).upper()
 
 
 def round_robin(*iterables):

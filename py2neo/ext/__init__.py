@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Resource, GraphError
+from py2neo.http import Resource
+from py2neo.status import GraphError
 
 
 class ServerPlugin(object):

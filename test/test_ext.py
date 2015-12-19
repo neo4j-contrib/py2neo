@@ -63,7 +63,7 @@ class NaughtyExtension(UnmanagedExtension):
 class UnmanagedExtensionTestCase(Py2neoTestCase):
 
     def test_can_init_unmanaged_extension(self):
-        with patch("py2neo.core.Resource.get"):
+        with patch("py2neo.http.Resource.get"):
             plugin = FakeExtension(self.graph)
             assert plugin.resource.uri == "http://localhost:7474/fake/"
 

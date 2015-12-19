@@ -145,7 +145,7 @@ class Resource(_Resource):
         if dbms_uri == uri:
             self.__dbms = self
         else:
-            from py2neo.core import DBMS
+            from py2neo.graph import DBMS
             self.__dbms = DBMS(dbms_uri)
         self.__ref = NotImplemented
 
