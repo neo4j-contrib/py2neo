@@ -28,7 +28,7 @@ class PullTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert local.labels() == set()
         assert dict(local) == {}
-        local._bind(remote.uri)
+        local._set_identity(remote.uri)
         self.graph.pull(local)
         assert local.labels() == remote.labels()
         assert dict(local) == dict(remote)
@@ -39,7 +39,7 @@ class PullTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert local.labels() == set()
         assert dict(local) == {}
-        local._bind(remote.uri)
+        local._set_identity(remote.uri)
         self.graph.pull(local)
         assert local.labels() == remote.labels()
         assert dict(local) == dict(remote)
@@ -133,7 +133,7 @@ class PushTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert remote.labels() == set()
         assert dict(remote) == {}
-        local._bind(remote.uri)
+        local._set_identity(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
         assert local.labels() == remote.labels()
@@ -145,7 +145,7 @@ class PushTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert remote.labels() == set()
         assert dict(remote) == {}
-        local._bind(remote.uri)
+        local._set_identity(remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
         assert local.labels() == remote.labels()
@@ -157,12 +157,12 @@ class PushTestCase(Py2neoTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab._id)
+                                     "RETURN ab.since", i=ab)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
         value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab._id)
+                                     "RETURN ab.since", i=ab)
         assert value == 1999
 
     def test_can_push_path(self):
@@ -176,7 +176,7 @@ class PushTestCase(Py2neoTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "RETURN ab.amount, bc.amount, cd.since")
-        parameters = {"ab": path[0]._id, "bc": path[1]._id, "cd": path[2]._id}
+        parameters = {"ab": path[0], "bc": path[1], "cd": path[2]}
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999

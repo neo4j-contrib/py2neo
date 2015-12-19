@@ -26,7 +26,7 @@ from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.data import PropertyContainer, coerce_property
-from py2neo.status import BindError, GraphError
+from py2neo.status import BindError
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case
 
@@ -186,7 +186,7 @@ class Graph(object):
         return True
 
     def __contains__(self, entity):
-        return entity.bound() and entity.uri.string.startswith(entity.uri.string)
+        return entity.identity() and entity.uri.string.startswith(entity.uri.string)
 
     @property
     def cypher(self):
@@ -395,10 +395,10 @@ class Graph(object):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node.properties["name"])
 
-        :arg start_node: :attr:`~py2neo.Node.bound()` start :class:`~py2neo.Node` to match or
+        :arg start_node: :attr:`~py2neo.Node.identity()` start :class:`~py2neo.Node` to match or
                            :const:`None` if any
         :arg rel_type: type of relationships to match or :const:`None` if any
-        :arg end_node: :attr:`~py2neo.Node.bound()` end :class:`~py2neo.Node` to match or
+        :arg end_node: :attr:`~py2neo.Node.identity()` end :class:`~py2neo.Node` to match or
                          :const:`None` if any
         :arg bidirectional: :const:`True` if reversed relationships should also be included
         :arg limit: maximum number of relationships to match or :const:`None` if no limit
@@ -411,20 +411,20 @@ class Graph(object):
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
             start_node = cast_node(start_node)
-            if not start_node.bound():
+            if not start_node.identity():
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
             end_node = cast_node(end_node)
-            if not end_node.bound():
+            if not end_node.identity():
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
             start_node = cast_node(start_node)
             end_node = cast_node(end_node)
-            if not start_node.bound() or not end_node.bound():
+            if not start_node.identity() or not end_node.identity():
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
         if rel_type is None:
@@ -552,12 +552,12 @@ class Graph(object):
         tx = self.cypher.begin()
         for node in nodes:
             cursor = tx.run("MATCH (a) WHERE id(a)={x} "
-                            "RETURN a, labels(a)", x=node._id)
+                            "RETURN a, labels(a)", x=node)
             cursor.cache["a"] = node
             nodes[node] = cursor
         for relationship in relationships:
             cursor = tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                            "RETURN r", x=relationship._id)
+                            "RETURN r", x=relationship)
             cursor.cache["r"] = relationship
         tx.commit()
         for node, cursor in nodes.items():
@@ -572,17 +572,21 @@ class Graph(object):
         i = 0
         for entity in entities:
             for node in entity.nodes():
+                if not node.identity():
+                    continue
                 batch.append({"id": i, "method": "PUT",
-                              "to": "node/%d/properties" % node._id,
+                              "to": "%s/properties" % node.identity().ref,
                               "body": dict(node)})
                 i += 1
                 batch.append({"id": i, "method": "PUT",
-                              "to": "node/%d/labels" % node._id,
+                              "to": "%s/labels" % node.identity().ref,
                               "body": list(node.labels())})
                 i += 1
             for relationship in entity.relationships():
+                if not relationship.identity():
+                    continue
                 batch.append({"id": i, "method": "PUT",
-                              "to": "relationship/%d/properties" % relationship._id,
+                              "to": "%s/properties" % relationship.identity().ref,
                               "body": dict(relationship)})
                 i += 1
         self.resource.resolve("batch").post(batch)
@@ -637,13 +641,24 @@ class Graph(object):
         return self.resource.uri
 
 
+class Identity(object):
+
+    def __init__(self, uri, metadata=None):
+        self.resource = resource = Resource(uri, metadata)
+        self.graph = graph = resource.graph
+        self.uri = uri = resource.uri.string
+        self.ref = uri[len(graph.uri.string):]
+        self._id = int(self.ref.rpartition("/")[2])
+
+
 class Entity(object):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
 
+    _identity = None
     _resource = None
-    _bind_pending_tx = None
+    _identity_pending_tx = None
 
     def __eq__(self, other):
         try:
@@ -654,27 +669,24 @@ class Entity(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def _set_bind_pending(self, tx):
-        self._bind_pending_tx = tx
+    def _set_identity_pending(self, tx):
+        self._identity_pending_tx = tx
 
-    def _bind(self, uri, metadata=None):
+    def _set_identity(self, uri, metadata=None):
+        self._identity = Identity(uri, metadata)
         self._resource = Resource(uri, metadata)
-        self._bind_pending_tx = None
+        self._identity_pending_tx = None
 
-    def _unbind(self):
+    def _clear_identity(self):
+        self._identity = None
         self._resource = None
-        self._bind_pending_tx = None
+        self._identity_pending_tx = None
 
-    def bound(self):
-        """ :const:`True` if this object is bound to a remote resource,
-        :const:`False` otherwise.
-        """
-        try:
-            _ = self.resource
-        except BindError:
-            return False
-        else:
-            return True
+    def identity(self):
+        if self._identity_pending_tx:
+            self._identity_pending_tx.process()
+            self._identity_pending_tx = None
+        return self._identity
 
     @property
     def graph(self):
@@ -705,9 +717,9 @@ class Entity(object):
         :rtype: :class:`.Resource`
         :raises: :class:`py2neo.BindError`
         """
-        if self._bind_pending_tx:
-            self._bind_pending_tx.process()
-            self._bind_pending_tx = None
+        if self._identity_pending_tx:
+            self._identity_pending_tx.process()
+            self._identity_pending_tx = None
         if self._resource:
             return self._resource
         else:
@@ -966,7 +978,7 @@ class Node(PropertyNode, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
-        inst._bind(self, data)
+        inst._set_identity(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
             inst.clear()
@@ -985,7 +997,7 @@ class Node(PropertyNode, Entity):
 
     def __repr__(self):
         s = ["Node"]
-        if self.bound():
+        if self.identity():
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
         s.append("labels=%s" % "?" if "labels" in self.__stale else repr(set(self.labels())))
@@ -999,17 +1011,18 @@ class Node(PropertyNode, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        if self.bound():
-            writer.write_node(self, "n" + ustr(self._id))
-        else:
+        i = self.identity()
+        if i is None:
             writer.write_node(self)
+        else:
+            writer.write_node(self, "n" + ustr(i._id))
         return s.getvalue()
 
     def __eq__(self, other):
         if other is None:
             return False
         other = cast_node(other)
-        if self.bound() and other.bound():
+        if self.identity() and other.identity():
             return self.resource == other.resource
         else:
             return PropertyNode.__eq__(self, other)
@@ -1018,7 +1031,7 @@ class Node(PropertyNode, Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.bound():
+        if self.identity():
             return hash(self.resource.uri)
         else:
             return PropertyNode.__hash__(self)
@@ -1027,7 +1040,7 @@ class Node(PropertyNode, Entity):
         return Path(self, other)
 
     def __getitem__(self, item):
-        if self.bound() and "properties" in self.__stale:
+        if self.identity() and "properties" in self.__stale:
             self.graph.pull(self)
         return PropertyNode.__getitem__(self, item)
 
@@ -1044,7 +1057,7 @@ class Node(PropertyNode, Entity):
     def labels(self):
         """ The set of labels attached to this node.
         """
-        if self.bound() and "labels" in self.__stale:
+        if self.identity() and "labels" in self.__stale:
             self.graph.pull(self)
         return PropertyNode.labels(self)
 
@@ -1063,7 +1076,7 @@ class Node(PropertyNode, Entity):
     @property
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
-        if self.bound() and "properties" in self.__stale:
+        if self.identity() and "properties" in self.__stale:
             self.graph.pull(self)
         return dict(self)
 
@@ -1075,12 +1088,12 @@ class Node(PropertyNode, Entity):
     def push(self):
         self.graph.push(self)
 
-    def _unbind(self):
+    def _clear_identity(self):
         try:
             del self.cache[self.uri]
         except KeyError:
             pass
-        Entity._unbind(self)
+        Entity._clear_identity(self)
 
 
 class NodeProxy(object):
@@ -1208,7 +1221,7 @@ class Relationship(PropertyRelationship, Entity):
             else:
                 inst.__stale.add("properties")
         cls.cache[self] = inst
-        inst._bind(self, data)
+        inst._set_identity(self, data)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1229,7 +1242,7 @@ class Relationship(PropertyRelationship, Entity):
 
     def __repr__(self):
         s = ["Relationship"]
-        if self.bound():
+        if self.identity():
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
             s.append("start=%r" % self.start_node().ref)
@@ -1245,14 +1258,14 @@ class Relationship(PropertyRelationship, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        writer.write_relationship(self, "r%s" % self._id if self.bound() else "", self)
+        writer.write_relationship(self, "r%s" % self._id if self.identity() else "", self)
         return s.getvalue()
 
     def __eq__(self, other):
         if other is None:
             return False
         other = cast_relationship(other)
-        if self.bound() and other.bound():
+        if self.identity() and other.identity():
             return self.resource == other.resource
         else:
             return PropertyRelationship.__eq__(self, other)
@@ -1261,7 +1274,7 @@ class Relationship(PropertyRelationship, Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.bound():
+        if self.identity():
             return hash(self.resource.uri)
         else:
             return PropertyRelationship.__hash__(self)
@@ -1273,7 +1286,7 @@ class Relationship(PropertyRelationship, Entity):
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
-        if self.bound() and "properties" in self.__stale:
+        if self.identity() and "properties" in self.__stale:
             self.graph.pull(self)
         return dict(self)
 
@@ -1288,11 +1301,11 @@ class Relationship(PropertyRelationship, Entity):
     def type(self):
         """ The type of this relationship.
         """
-        if self.bound() and self._type is None:
+        if self.identity() and self._type is None:
             self.graph.pull(self)
         return self._type
 
-    def _unbind(self):
+    def _clear_identity(self):
         """ Detach this relationship and its start and end
         nodes from any remote counterparts.
         """
@@ -1300,7 +1313,7 @@ class Relationship(PropertyRelationship, Entity):
             del self.cache[self.uri]
         except KeyError:
             pass
-        Entity._unbind(self)
+        Entity._clear_identity(self)
 
 
 class Path(TraversableSubgraph):

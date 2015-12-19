@@ -19,10 +19,11 @@
 import logging
 from unittest import skipUnless
 
-from py2neo.graph import Graph, Node, GraphError
+from py2neo.graph import Graph, Node
 from py2neo.http import _add_header, _get_headers, rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
+from py2neo.status import GraphError
 from py2neo.status.security import AuthorizationFailed
 from test.util import Py2neoTestCase
 from test.compat import patch

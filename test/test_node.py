@@ -47,17 +47,17 @@ class NodeTestCase(Py2neoTestCase):
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
-        alice_1._bind("http://localhost:7474/db/data/node/1")
+        alice_1._set_identity("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
         assert alice_1.labels() == alice_2.labels()
         assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
         alice_1 = Node(name="Alice")
-        alice_1._bind("http://localhost:7474/db/data/node/1")
+        alice_1._set_identity("http://localhost:7474/db/data/node/1")
         Node.cache.clear()
         alice_2 = Node(name="Alice")
-        alice_2._bind(alice_1.uri)
+        alice_2._set_identity(alice_1.uri)
         assert alice_1 == alice_2
 
     def test_unbound_node_equality(self):
@@ -97,7 +97,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
         assert isinstance(alice, Node)
-        assert not alice.bound()
+        assert not alice.identity()
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -123,7 +123,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
-        assert alice.bound()
+        assert alice.identity()
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -180,7 +180,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")
-        node_2._bind(node_1.uri)
+        node_2._set_identity(node_1.uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)
 

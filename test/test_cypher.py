@@ -143,7 +143,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
-        cursor = self.cypher.run(statement, {"A": a._id, "B": b._id})
+        cursor = self.cypher.run(statement, {"A": a, "B": b})
         records = list(cursor.collect())
         assert len(records) == 1
         for record in records:
@@ -159,7 +159,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        cursor = self.cypher.run(statement, {"A": a._id, "B": b._id})
+        cursor = self.cypher.run(statement, {"A": a, "B": b})
         records = list(cursor.collect())
         assert len(records) == 1
         for record in records:
@@ -174,7 +174,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
-        params = {"N": node._id}
+        params = {"N": node}
         cursor = self.cypher.run(statement, params)
         assert cursor.select()["a_collection"] == [node]
 
@@ -182,7 +182,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
-        params = {"X": node._id}
+        params = {"X": node}
         cursor = self.cypher.run(statement, params)
         record = cursor.select()
         assert record["a"] == node
@@ -191,7 +191,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
-        params = {"X": node._id}
+        params = {"X": node}
         cursor = self.cypher.run(statement, params)
         record = cursor.select()
         assert record["a"] == node
@@ -204,7 +204,7 @@ class CypherTestCase(Py2neoTestCase):
                     "MATCH (b) WHERE id(b)={X} " \
                     "MATCH (c) WHERE id(c)={X} " \
                     "RETURN a, b, c"
-        params = {"X": node._id}
+        params = {"X": node}
         cursor = self.cypher.run(statement, params)
         record = cursor.select()
         assert record["a"] == node
@@ -220,7 +220,7 @@ class CypherTestCase(Py2neoTestCase):
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE b.age > {min_age} "
                  "RETURN b")
-        params = {"A": a._id, "min_age": 50}
+        params = {"A": a, "min_age": 50}
         record = self.cypher.run(query, params).select()
         assert record["b"] == b
 
@@ -239,7 +239,7 @@ class CypherTestCase(Py2neoTestCase):
                  "MATCH (b)-[:KNOWS]->(c) "
                  "WHERE c.age > {min_age} "
                  "RETURN c")
-        params = {"A": a._id, "min_age": 50}
+        params = {"A": a, "min_age": 50}
         record = self.cypher.run(query, params).select()
         assert record["c"] == c
 
@@ -276,16 +276,16 @@ class CypherCreateTestCase(Py2neoTestCase):
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
         self.cypher.create(a)
-        assert a.bound()
+        assert a.identity()
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
         self.cypher.create(r)
-        assert a.bound()
-        assert b.bound()
-        assert r.bound()
+        assert a.identity()
+        assert b.identity()
+        assert r.identity()
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -298,16 +298,16 @@ class CypherCreateTestCase(Py2neoTestCase):
         bc = Relationship(b, "TO", c)
         ca = Relationship(c, "TO", a)
         self.cypher.create(ab | bc | ca)
-        assert a.bound()
-        assert b.bound()
-        assert c.bound()
-        assert ab.bound()
+        assert a.identity()
+        assert b.identity()
+        assert c.identity()
+        assert ab.identity()
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert bc.bound()
+        assert bc.identity()
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert ca.bound()
+        assert ca.identity()
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert self.graph.order() == 3
