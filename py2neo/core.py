@@ -562,7 +562,7 @@ class Graph(object):
             cursor.cache["r"] = relationship
         tx.commit()
         for node, cursor in nodes.items():
-            labels = node.labels()
+            labels = PrimitiveNode.labels(node)
             labels.clear()
             labels.update(cursor.evaluate(1))
 
