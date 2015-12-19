@@ -292,7 +292,7 @@ class Graph(object):
                         cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                                               "RETURN count(r)", x=r))
             except BindError:
-                pass
+                return False
         count = len(tx.statements)
         tx.commit()
         if count == 0:
@@ -582,30 +582,6 @@ class Graph(object):
                               "body": dict(relationship)})
                 i += 1
         self.resource.resolve("batch").post(batch)
-
-    def related(self, *entities):
-        """ Determine whether a number of relationships exist within the database.
-        """
-        tx = self.cypher.begin()
-        cursors = []
-        for entity in entities:
-            try:
-                try:
-                    relationships = entity.relationships()
-                except AttributeError:
-                    raise TypeError("Object %r is not graphy" % entity)
-                else:
-                    for r in relationships:
-                        cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                              "RETURN count(r)", x=r))
-            except BindError:
-                pass
-        count = len(tx.statements)
-        tx.commit()
-        if count == 0:
-            return None
-        else:
-            return sum(cursor.evaluate() for cursor in cursors) == count
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
