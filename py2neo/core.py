@@ -22,13 +22,12 @@ import webbrowser
 
 from py2neo.compat import integer, string, ustr, xstr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
-from py2neo.http import authenticate, Resource, ResourceTemplate
+from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.primitive import \
     Node as PrimitiveNode, \
     Relationship as PrimitiveRelationship, \
-    Path as PrimitivePath, \
-    coerce_property
+    TraversableSubgraph, traverse, coerce_property
 from py2neo.status import BindError, GraphError
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated
@@ -1095,7 +1094,7 @@ class Relationship(PrimitiveRelationship, Entity):
         Entity.unbind(self)
 
 
-class Path(PrimitivePath):
+class Path(TraversableSubgraph):
     """ A sequence of nodes connected by relationships that may
     optionally be bound to remote counterparts in a Neo4j database.
 
@@ -1168,7 +1167,7 @@ class Path(PrimitivePath):
                 elif isinstance(entity, tuple) and len(entity) == 2:
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
-        PrimitivePath.__init__(self, *entities)
+        TraversableSubgraph.__init__(self, *tuple(traverse(*entities)))
 
     def __str__(self):
         return xstr(self.__unicode__())

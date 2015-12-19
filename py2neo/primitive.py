@@ -22,7 +22,7 @@ from re import compile as re_compile
 from .compat import integer, string, unicode, ustr
 
 
-__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "Path", "traverse"]
+__all__ = ["Subgraph", "TraversableSubgraph", "Node", "Relationship", "traverse"]
 
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
@@ -499,12 +499,3 @@ class Relationship(PropertyContainer, TraversableSubgraph):
 
     def type(self):
         return self._type
-
-
-class Path(TraversableSubgraph):
-
-    def __init__(self, head, *tail):
-        TraversableSubgraph.__init__(self, *tuple(traverse(head, *tail)))
-
-    def __repr__(self):
-        return "<Path length=%r>" % self.length()
