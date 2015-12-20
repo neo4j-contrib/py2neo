@@ -97,7 +97,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
         assert isinstance(alice, Node)
-        assert not alice.remote()
+        assert not alice.remote
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -123,7 +123,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
-        assert alice.remote()
+        assert alice.remote
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 

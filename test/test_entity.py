@@ -26,7 +26,7 @@ class EntityTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Entity()
         entity._set_remote(uri)
-        assert entity.remote()
+        assert entity.remote
         assert entity.uri == uri
 
     def test_can_create_entity_with_initial_uri_and_metadata(self):
@@ -34,13 +34,13 @@ class EntityTestCase(Py2neoTestCase):
         metadata = {"foo": "bar"}
         entity = Entity()
         entity._set_remote(uri, metadata)
-        assert entity.remote()
+        assert entity.remote
         assert entity.uri == uri
         assert entity.resource.metadata == metadata
 
     def test_default_state_for_node_is_unbound(self):
         node = Node()
-        assert not node.remote()
+        assert not node.remote
         with self.assertRaises(BindError):
             _ = node.resource
 
@@ -48,11 +48,11 @@ class EntityTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
         node._set_remote(uri)
-        assert node.remote()
+        assert node.remote
         assert isinstance(node.resource, Resource)
         assert node.resource.uri == uri
         node._clear_remote()
-        assert not node.remote()
+        assert not node.remote
         with self.assertRaises(BindError):
             _ = node.resource
 
@@ -65,11 +65,11 @@ class EntityTestCase(Py2neoTestCase):
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
         relationship._set_remote(uri, metadata=metadata)
-        assert relationship.remote()
+        assert relationship.remote
         assert isinstance(relationship.resource, Resource)
         assert relationship.resource.uri == uri
         relationship._clear_remote()
-        assert not relationship.remote()
+        assert not relationship.remote
         with self.assertRaises(BindError):
             _ = relationship.resource
 
@@ -78,7 +78,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(node)
         Node.cache.clear()
         node._clear_remote()
-        assert not node.remote()
+        assert not node.remote
 
     def test_can_unbind_relationship_if_not_cached(self):
         a = Node()
@@ -87,7 +87,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(ab)
         Relationship.cache.clear()
         ab._clear_remote()
-        assert not ab.remote()
+        assert not ab.remote
 
     def test_can_unbind_relationship_with_already_unbound_nodes(self):
         a = Node()
@@ -96,7 +96,7 @@ class EntityTestCase(Py2neoTestCase):
         self.graph.create(ab)
         a._clear_remote()
         b._clear_remote()
-        assert not a.remote()
-        assert not b.remote()
+        assert not a.remote
+        assert not b.remote
         ab._clear_remote()
-        assert not ab.remote()
+        assert not ab.remote

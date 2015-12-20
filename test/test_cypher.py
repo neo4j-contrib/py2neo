@@ -276,16 +276,16 @@ class CypherCreateTestCase(Py2neoTestCase):
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
         self.cypher.create(a)
-        assert a.remote()
+        assert a.remote
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
         self.cypher.create(r)
-        assert a.remote()
-        assert b.remote()
-        assert r.remote()
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -298,16 +298,16 @@ class CypherCreateTestCase(Py2neoTestCase):
         bc = Relationship(b, "TO", c)
         ca = Relationship(c, "TO", a)
         self.cypher.create(ab | bc | ca)
-        assert a.remote()
-        assert b.remote()
-        assert c.remote()
-        assert ab.remote()
+        assert a.remote
+        assert b.remote
+        assert c.remote
+        assert ab.remote
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert bc.remote()
+        assert bc.remote
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert ca.remote()
+        assert ca.remote
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert self.graph.order() == 3
