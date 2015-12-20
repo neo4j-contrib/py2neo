@@ -57,7 +57,7 @@ class NodeTestCase(Py2neoTestCase):
         alice_1._set_remote("http://localhost:7474/db/data/node/1")
         Node.cache.clear()
         alice_2 = Node(name="Alice")
-        alice_2._set_remote(alice_1.uri)
+        alice_2._set_remote(alice_1.remote.uri)
         assert alice_1 == alice_2
 
     def test_unbound_node_equality(self):
@@ -168,14 +168,14 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         a = Node()
         self.graph.create(a)
         relative_uri_string = a.remote.ref
-        assert a.uri.string.endswith(relative_uri_string)
+        assert a.remote.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
 
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")
-        node_2._set_remote(node_1.uri)
+        node_2._set_remote(node_1.remote.uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)
 

@@ -232,7 +232,7 @@ class ManualIndex(object):
         self.resource.post({
             "key": key,
             "value": value,
-            "uri": entity.uri.string,
+            "uri": entity.remote.uri.string,
         })
         return entity
 
@@ -251,7 +251,7 @@ class ManualIndex(object):
         rs = self._get_or_create.post({
             "key": key,
             "value": value,
-            "uri": entity.uri.string,
+            "uri": entity.remote.uri.string,
         })
         if rs.status_code == CREATED:
             return entity

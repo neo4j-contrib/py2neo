@@ -72,7 +72,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.uri in Relationship.cache
+        assert r.remote.uri in Relationship.cache
         other_relationship_cache_keys = []
     
         def check_cache():
@@ -82,8 +82,8 @@ class RelationshipTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
     
-        assert r.uri in Relationship.cache
-        assert r.uri not in other_relationship_cache_keys
+        assert r.remote.uri in Relationship.cache
+        assert r.remote.uri not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
         a = Node()

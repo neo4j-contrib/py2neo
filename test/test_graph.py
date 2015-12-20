@@ -101,7 +101,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_get_node_by_id_when_cached(self):
         node = Node()
         self.graph.create(node)
-        assert node.uri in Node.cache
+        assert node.remote.uri in Node.cache
         got = self.graph.node(node.remote._id)
         assert got is node
 
@@ -109,7 +109,7 @@ class GraphTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         Node.cache.clear()
-        assert node.uri not in Node.cache
+        assert node.remote.uri not in Node.cache
         got = self.graph.node(node.remote._id)
         assert got.remote._id == node.remote._id
 
@@ -117,7 +117,7 @@ class GraphTestCase(Py2neoTestCase):
         import threading
         node = Node()
         self.graph.create(node)
-        assert node.uri in Node.cache
+        assert node.remote.uri in Node.cache
         other_cache_keys = []
 
         def check_cache():
@@ -127,8 +127,8 @@ class GraphTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
 
-        assert node.uri in Node.cache
-        assert node.uri not in other_cache_keys
+        assert node.remote.uri in Node.cache
+        assert node.remote.uri not in other_cache_keys
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)

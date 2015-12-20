@@ -33,7 +33,7 @@ class HydrationTestCase(Py2neoTestCase):
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
         assert hydrated.remote
-        assert hydrated.resource.uri == dehydrated["self"]
+        assert hydrated.remote.uri == dehydrated["self"]
 
     def test_node_hydrate_with_properties(self):
         dehydrated = {
@@ -47,7 +47,7 @@ class HydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.remote
-        assert hydrated.resource.uri == dehydrated["self"]
+        assert hydrated.remote.uri == dehydrated["self"]
 
     def test_full_node_hydrate_without_labels(self):
         dehydrated = {
@@ -75,7 +75,7 @@ class HydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.remote
-        assert hydrated.resource.uri == dehydrated["self"]
+        assert hydrated.remote.uri == dehydrated["self"]
 
     def test_full_node_hydrate_with_labels(self):
         dehydrated = {
@@ -107,7 +107,7 @@ class HydrationTestCase(Py2neoTestCase):
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.labels() == set(dehydrated["metadata"]["labels"])
         assert hydrated.remote
-        assert hydrated.resource.uri == dehydrated["self"]
+        assert hydrated.remote.uri == dehydrated["self"]
 
     def test_full_relationship_hydrate(self):
         dehydrated = {
@@ -126,10 +126,10 @@ class HydrationTestCase(Py2neoTestCase):
         hydrated = Relationship.hydrate(dehydrated)
         assert isinstance(hydrated, Relationship)
         assert hydrated.start_node().remote
-        assert hydrated.start_node().uri == dehydrated["start"]
+        assert hydrated.start_node().remote.uri == dehydrated["start"]
         assert hydrated.end_node().remote
-        assert hydrated.end_node().uri == dehydrated["end"]
+        assert hydrated.end_node().remote.uri == dehydrated["end"]
         assert hydrated.type() == dehydrated["type"]
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.remote
-        assert hydrated.resource.uri == dehydrated["self"]
+        assert hydrated.remote.uri == dehydrated["self"]

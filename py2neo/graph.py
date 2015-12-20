@@ -186,7 +186,7 @@ class Graph(object):
         return True
 
     def __contains__(self, entity):
-        return entity.remote and entity.uri.string.startswith(entity.uri.string)
+        return entity.remote and entity.remote.uri.string.startswith(self.resource.uri.string)
 
     @property
     def cypher(self):
@@ -704,16 +704,6 @@ class Entity(object):
         else:
             raise BindError("Local entity is not bound to a remote entity")
 
-    @property
-    def uri(self):
-        """ The full URI of the remote resource.
-        """
-        remote = self.remote
-        if remote:
-            return remote.uri
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
-
 
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
@@ -1073,7 +1063,7 @@ class Node(PropertyNode, Entity):
 
     def _clear_remote(self):
         try:
-            del self.cache[self.uri]
+            del self.cache[self.remote.uri]
         except KeyError:
             pass
         Entity._clear_remote(self)
@@ -1294,7 +1284,7 @@ class Relationship(PropertyRelationship, Entity):
         nodes from any remote counterparts.
         """
         try:
-            del self.cache[self.uri]
+            del self.cache[self.remote.uri]
         except KeyError:
             pass
         Entity._clear_remote(self)

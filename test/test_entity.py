@@ -27,7 +27,7 @@ class EntityTestCase(Py2neoTestCase):
         entity = Entity()
         entity._set_remote(uri)
         assert entity.remote
-        assert entity.uri == uri
+        assert entity.remote.uri == uri
 
     def test_can_create_entity_with_initial_uri_and_metadata(self):
         uri = "http://localhost:7474/db/data/node/1"
@@ -35,7 +35,7 @@ class EntityTestCase(Py2neoTestCase):
         entity = Entity()
         entity._set_remote(uri, metadata)
         assert entity.remote
-        assert entity.uri == uri
+        assert entity.remote.uri == uri
         assert entity.resource.metadata == metadata
 
     def test_default_state_for_node_is_unbound(self):
@@ -50,7 +50,7 @@ class EntityTestCase(Py2neoTestCase):
         node._set_remote(uri)
         assert node.remote
         assert isinstance(node.resource, Resource)
-        assert node.resource.uri == uri
+        assert node.remote.uri == uri
         node._clear_remote()
         assert not node.remote
         with self.assertRaises(BindError):
@@ -67,7 +67,7 @@ class EntityTestCase(Py2neoTestCase):
         relationship._set_remote(uri, metadata=metadata)
         assert relationship.remote
         assert isinstance(relationship.resource, Resource)
-        assert relationship.resource.uri == uri
+        assert relationship.remote.uri == uri
         relationship._clear_remote()
         assert not relationship.remote
         with self.assertRaises(BindError):
