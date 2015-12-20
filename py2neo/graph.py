@@ -364,7 +364,7 @@ class Graph(object):
                         x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
                     node_uris = data["nodes"]
                     for i, relationship in enumerate(relationships):
-                        if relationship.start_node().uri == node_uris[i]:
+                        if relationship.start_node().resource.uri == node_uris[i]:
                             directions.append("->")
                         else:
                             directions.append("<-")
