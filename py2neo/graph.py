@@ -657,14 +657,12 @@ class Entity(object):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    _resource = None
-
     _remote = None
     _remote_pending_tx = None
 
     def __eq__(self, other):
         try:
-            return self.resource and other.resource and self.uri == other.uri
+            return self.remote and other.remote
         except AttributeError:
             return False
 
@@ -676,12 +674,10 @@ class Entity(object):
 
     def _set_remote(self, uri, metadata=None):
         self._remote = EntityResource(uri, metadata)
-        self._resource = Resource(uri, metadata)
         self._remote_pending_tx = None
 
     def _clear_remote(self):
         self._remote = None
-        self._resource = None
         self._remote_pending_tx = None
 
     @property
@@ -690,19 +686,6 @@ class Entity(object):
             self._remote_pending_tx.process()
             self._remote_pending_tx = None
         return self._remote
-
-    @property
-    def resource(self):
-        """ The remote resource to which this entity is bound.
-
-        :rtype: :class:`.Resource`
-        :raises: :class:`py2neo.BindError`
-        """
-        remote = self.remote
-        if remote:
-            return remote
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
 
 
 class Subgraph(object):
@@ -992,7 +975,7 @@ class Node(PropertyNode, Entity):
             return False
         other = cast_node(other)
         if self.remote and other.remote:
-            return self.resource == other.resource
+            return self.remote == other.remote
         else:
             return PropertyNode.__eq__(self, other)
 
@@ -1001,7 +984,7 @@ class Node(PropertyNode, Entity):
 
     def __hash__(self):
         if self.remote:
-            return hash(self.resource.uri)
+            return hash(self.remote.uri)
         else:
             return PropertyNode.__hash__(self)
 
@@ -1239,7 +1222,7 @@ class Relationship(PropertyRelationship, Entity):
             return False
         other = cast_relationship(other)
         if self.remote and other.remote:
-            return self.resource == other.resource
+            return self.remote == other.remote
         else:
             return PropertyRelationship.__eq__(self, other)
 
@@ -1248,7 +1231,7 @@ class Relationship(PropertyRelationship, Entity):
 
     def __hash__(self):
         if self.remote:
-            return hash(self.resource.uri)
+            return hash(self.remote.uri)
         else:
             return PropertyRelationship.__hash__(self)
 

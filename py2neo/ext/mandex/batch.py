@@ -85,9 +85,11 @@ class ManualIndexWriteBatch(WriteBatch):
         else:
             if hasattr(resource, "remote"):
                 graph_uri = resource.remote.graph.uri.string
+                entity_uri = resource.remote.uri.string
             else:
                 graph_uri = resource.graph.uri.string
-            uri = resource.resource.uri.string[len(graph_uri):]
+                entity_uri = resource.resource.uri.string
+            uri = entity_uri[len(graph_uri):]
         if segments:
             if not uri.endswith("/"):
                 uri += "/"

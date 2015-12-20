@@ -396,7 +396,7 @@ class ManualIndex(object):
             t.expand(key=key, value=value, entity=entity.remote._id).delete()
         elif key and value:
             uris = [
-                URI(entity.resource.metadata["indexed"])
+                URI(entity.remote.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
             batch = ManualIndexWriteBatch(self.graph)

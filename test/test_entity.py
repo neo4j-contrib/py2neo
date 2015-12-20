@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource, Node, Relationship, Entity, Path, BindError
+from py2neo import Resource, Node, Relationship, Entity
 from test.util import Py2neoTestCase
 
 
@@ -36,25 +36,21 @@ class EntityTestCase(Py2neoTestCase):
         entity._set_remote(uri, metadata)
         assert entity.remote
         assert entity.remote.uri == uri
-        assert entity.resource.metadata == metadata
+        assert entity.remote.metadata == metadata
 
     def test_default_state_for_node_is_unbound(self):
         node = Node()
         assert not node.remote
-        with self.assertRaises(BindError):
-            _ = node.resource
 
     def test_can_bind_node_to_resource(self):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
         node._set_remote(uri)
         assert node.remote
-        assert isinstance(node.resource, Resource)
+        assert isinstance(node.remote, Resource)
         assert node.remote.uri == uri
         node._clear_remote()
         assert not node.remote
-        with self.assertRaises(BindError):
-            _ = node.resource
 
     def test_can_bind_relationship_to_resource(self):
         uri = "http://localhost:7474/db/relationship/1"
@@ -66,12 +62,10 @@ class EntityTestCase(Py2neoTestCase):
         # Pass in metadata to avoid callback to server
         relationship._set_remote(uri, metadata=metadata)
         assert relationship.remote
-        assert isinstance(relationship.resource, Resource)
+        assert isinstance(relationship.remote, Resource)
         assert relationship.remote.uri == uri
         relationship._clear_remote()
         assert not relationship.remote
-        with self.assertRaises(BindError):
-            _ = relationship.resource
 
     def test_can_unbind_node_if_not_cached(self):
         node = Node()
