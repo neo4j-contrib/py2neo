@@ -248,8 +248,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         ab = Relationship(self.a, "KNOWS", b)
         with self.cypher.begin() as tx:
             tx.create_unique(ab)
-        assert b._id == self.b._id
-        assert ab._id == self.ab._id
+        assert b.remote._id == self.b.remote._id
+        assert ab.remote._id == self.ab.remote._id
         assert b.remote
         assert ab.remote
         assert ab.start_node() == self.a
@@ -337,7 +337,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
         record = cursor.select()
-        parameters = {"A": record["a"]._id, "B": record["b"]._id}
+        parameters = {"A": record["a"], "B": record["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
         tx.run(statement, parameters)

@@ -154,14 +154,14 @@ class NodeIndexTestCase(IndexTestCase):
         assert alice is not None
         assert isinstance(alice, Node)
         assert alice["name"] == "Alice Smith"
-        alice_id = alice._id
+        alice_id = alice.remote._id
         for i in range(10):
             # subsequent calls return the same object as node already exists
             alice = self.index.get_or_create("surname", "Smith", {"name": "Alice Smith"})
             assert alice is not None
             assert isinstance(alice, Node)
             assert alice["name"] == "Alice Smith"
-            assert alice_id == alice._id
+            assert alice_id == alice.remote._id
         self.graph.delete(alice)
 
     def test_create_if_none(self):

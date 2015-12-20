@@ -54,7 +54,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        got = self.graph.relationship(r._id)
+        got = self.graph.relationship(r.remote._id)
         assert got is r
         
     def test_can_get_relationship_by_id_when_not_cached(self):
@@ -63,8 +63,8 @@ class RelationshipTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         Relationship.cache.clear()
-        got = self.graph.relationship(r._id)
-        assert got._id == r._id
+        got = self.graph.relationship(r.remote._id)
+        assert got.remote._id == r.remote._id
         
     def test_relationship_cache_is_thread_local(self):
         import threading
@@ -90,7 +90,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        rel_id = r._id
+        rel_id = r.remote._id
         self.graph.delete(r)
         Relationship.cache.clear()
         with self.assertRaises(IndexError):
@@ -123,4 +123,4 @@ class RelationshipTestCase(Py2neoTestCase):
         assert str(r) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
         self.graph.create(r)
         assert str(r) == \
-            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r._id
+            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r.remote._id

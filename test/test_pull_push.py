@@ -58,9 +58,9 @@ class PullTestCase(Py2neoTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
-        id_0 = path[0]._id
-        id_1 = path[1]._id
-        id_2 = path[2]._id
+        id_0 = path[0].remote._id
+        id_1 = path[1].remote._id
+        id_2 = path[2].remote._id
         parameters = {"ab": id_0, "bc": id_1, "cd": id_2}
         self.cypher.run(statement, parameters)
         self.graph.pull(path)
@@ -74,7 +74,7 @@ class PullTestCase(Py2neoTestCase):
             for new_labels in label_sets:
                 node = Node(*old_labels)
                 self.graph.create(node)
-                node_id = node._id
+                node_id = node.remote._id
                 assert node.labels() == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
@@ -98,7 +98,7 @@ class PullTestCase(Py2neoTestCase):
             for new_props in property_sets:
                 node = Node(**old_props)
                 self.graph.create(node)
-                node_id = node._id
+                node_id = node.remote._id
                 assert dict(node) == old_props
                 self.graph.cypher.run("MATCH (a) WHERE id(a)={x} SET a={y}",
                                       x=node_id, y=new_props)
@@ -115,7 +115,7 @@ class PullTestCase(Py2neoTestCase):
                 b = Node()
                 relationship = Relationship(a, "TO", b, **old_props)
                 self.graph.create(relationship)
-                relationship_id = relationship._id
+                relationship_id = relationship.remote._id
                 assert dict(relationship) == old_props
                 self.graph.cypher.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
                                       x=relationship_id, y=new_props)

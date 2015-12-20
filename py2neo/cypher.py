@@ -42,7 +42,7 @@ from io import StringIO
 from sys import stdout
 
 from py2neo.compat import integer, string, ustr
-from py2neo.graph import Node, Relationship, Path, Subgraph, TraversableSubgraph
+from py2neo.graph import Node, Relationship, Path, Subgraph, TraversableSubgraph, Entity
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
 from py2neo.status import CypherError, Finished
@@ -86,8 +86,11 @@ def cypher_request(statement, parameters, **kwparameters):
     def add_parameters(params):
         if params:
             for k, v in dict(params).items():
-                if isinstance(v, (Node, Relationship)):
-                    v = v._id
+                if isinstance(v, Entity):
+                    if v.remote:
+                        v = v.remote._id
+                    else:
+                        raise TypeError("Cannot pass an unbound entity as a parameter")
                 p[k] = v
 
     add_parameters(dict(parameters or {}, **kwparameters))
@@ -345,7 +348,7 @@ class Transaction(object):
             param_id = "x%d" % i
             if node.remote:
                 reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = node._id
+                parameters[param_id] = node.remote._id
             else:
                 label_string = "".join(":" + cypher_escape(label)
                                        for label in sorted(node.labels()))
@@ -389,7 +392,7 @@ class Transaction(object):
                     matches.append("MATCH (%s) "
                                    "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                     pattern.append("(%s)" % node_id)
-                    parameters[param_id] = entity._id
+                    parameters[param_id] = entity.remote._id
                 else:
                     label_string = "".join(":" + cypher_escape(label)
                                            for label in sorted(entity.labels()))
@@ -430,7 +433,7 @@ class Transaction(object):
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship._id
+                parameters[param_id] = relationship.remote._id
                 relationship._clear_remote()
         for i, node in enumerate(nodes):
             if node.remote:
@@ -439,7 +442,7 @@ class Transaction(object):
                 matches.append("MATCH (%s) "
                                "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = node._id
+                parameters[param_id] = node.remote._id
                 node._clear_remote()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
@@ -459,7 +462,7 @@ class Transaction(object):
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship._id
+                parameters[param_id] = relationship.remote._id
                 relationship._clear_remote()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)

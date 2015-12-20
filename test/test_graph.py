@@ -102,7 +102,7 @@ class GraphTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         assert node.uri in Node.cache
-        got = self.graph.node(node._id)
+        got = self.graph.node(node.remote._id)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
@@ -110,8 +110,8 @@ class GraphTestCase(Py2neoTestCase):
         self.graph.create(node)
         Node.cache.clear()
         assert node.uri not in Node.cache
-        got = self.graph.node(node._id)
-        assert got._id == node._id
+        got = self.graph.node(node.remote._id)
+        assert got.remote._id == node.remote._id
 
     def test_node_cache_is_thread_local(self):
         import threading
@@ -158,7 +158,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")
         self.graph.create(a1)
-        a2 = self.graph.node(a1._id)
+        a2 = self.graph.node(a1.remote._id)
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):

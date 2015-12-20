@@ -393,7 +393,7 @@ class ManualIndex(object):
         """
         if key and value and entity:
             t = ResourceTemplate(self.resource.uri.string + "/{key}/{value}/{entity}")
-            t.expand(key=key, value=value, entity=entity._id).delete()
+            t.expand(key=key, value=value, entity=entity.remote._id).delete()
         elif key and value:
             uris = [
                 URI(entity.resource.metadata["indexed"])
@@ -405,10 +405,10 @@ class ManualIndex(object):
             batch.run()
         elif key and entity:
             t = ResourceTemplate(self.resource.uri.string + "/{key}/{entity}")
-            t.expand(key=key, entity=entity._id).delete()
+            t.expand(key=key, entity=entity.remote._id).delete()
         elif entity:
             t = ResourceTemplate(self.resource.uri.string + "/{entity}")
-            t.expand(entity=entity._id).delete()
+            t.expand(entity=entity.remote._id).delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 

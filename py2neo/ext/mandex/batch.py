@@ -285,11 +285,11 @@ class ManualIndexWriteBatch(WriteBatch):
         """
         index = self._index(cls, index)
         if key and value and entity:
-            uri = self._uri_for(index, key, value, entity._id)
+            uri = self._uri_for(index, key, value, entity.remote._id)
         elif key and entity:
-            uri = self._uri_for(index, key, entity._id)
+            uri = self._uri_for(index, key, entity.remote._id)
         elif entity:
-            uri = self._uri_for(index, entity._id)
+            uri = self._uri_for(index, entity.remote._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self.append_delete(uri)

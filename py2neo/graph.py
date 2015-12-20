@@ -283,20 +283,23 @@ class Graph(object):
         tx = self.cypher.begin()
         cursors = []
         try:
-            try:
-                nodes = g.nodes()
-                relationships = g.relationships()
-            except AttributeError:
-                raise TypeError("Object %r is not graphy" % g)
-            else:
-                for a in nodes:
+            nodes = g.nodes()
+            relationships = g.relationships()
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % g)
+        else:
+            for a in nodes:
+                if a.remote:
                     cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
                                           "RETURN count(a)", x=a))
-                for r in relationships:
+                else:
+                    return False
+            for r in relationships:
+                if r.remote:
                     cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                                           "RETURN count(r)", x=r))
-        except BindError:
-            return False
+                else:
+                    return False
         count = len(tx.statements)
         tx.commit()
         if count == 0:
@@ -687,16 +690,6 @@ class Entity(object):
             self._remote_pending_tx.process()
             self._remote_pending_tx = None
         return self._remote
-
-    @property
-    def _id(self):
-        """ The internal ID of this entity within the database.
-        """
-        remote = self.remote
-        if remote:
-            return remote._id
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
 
     @property
     def resource(self):
@@ -1248,7 +1241,7 @@ class Relationship(PropertyRelationship, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        writer.write_relationship(self, "r%s" % self._id if self.remote else "", self)
+        writer.write_relationship(self, "r%s" % self.remote._id if self.remote else "", self)
         return s.getvalue()
 
     def __eq__(self, other):
