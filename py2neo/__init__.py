@@ -21,7 +21,7 @@ __copyright__ = "2011-2015, Nigel Small"
 __email__ = "nigel@py2neo.org"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "3.1b1"
+__version__ = "3b1"
 
 PRODUCT = ("py2neo", __version__)
 

@@ -9,7 +9,7 @@ carefully designed to be easy and intuitive to use.
 Releases
 ========
 
-The latest release of py2neo is **3.1b1**.
+The latest release of py2neo is **3b1**.
 
 
 Requirements
