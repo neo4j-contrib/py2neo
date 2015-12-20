@@ -87,8 +87,8 @@ def cypher_request(statement, parameters, **kwparameters):
         if params:
             for k, v in dict(params).items():
                 if isinstance(v, Entity):
-                    if v.remote:
-                        v = v.remote._id
+                    if v.resource:
+                        v = v.resource._id
                     else:
                         raise TypeError("Cannot pass an unbound entity as a parameter")
                 p[k] = v
@@ -346,9 +346,9 @@ class Transaction(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            if node.remote:
+            if node.resource:
                 reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = node.remote._id
+                parameters[param_id] = node.resource._id
             else:
                 label_string = "".join(":" + cypher_escape(label)
                                        for label in sorted(node.labels()))
@@ -357,7 +357,7 @@ class Transaction(object):
                 node._set_remote_pending(self)
             returns[node_id] = node
         for i, relationship in enumerate(relationships):
-            if not relationship.remote:
+            if not relationship.resource:
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
@@ -375,7 +375,7 @@ class Transaction(object):
     def create_unique(self, t):
         if not isinstance(t, TraversableSubgraph):
             raise ValueError("Object %r is not traversable" % t)
-        if not any(node.remote for node in t.nodes()):
+        if not any(node.resource for node in t.nodes()):
             raise ValueError("At least one node must be bound")
         matches = []
         pattern = []
@@ -388,11 +388,11 @@ class Transaction(object):
                 # node
                 node_id = "a%d" % i
                 param_id = "x%d" % i
-                if entity.remote:
+                if entity.resource:
                     matches.append("MATCH (%s) "
                                    "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                     pattern.append("(%s)" % node_id)
-                    parameters[param_id] = entity.remote._id
+                    parameters[param_id] = entity.resource._id
                 else:
                     label_string = "".join(":" + cypher_escape(label)
                                            for label in sorted(entity.labels()))
@@ -409,7 +409,7 @@ class Transaction(object):
                 pattern.append(template % (rel_id, type_string))
                 writes.append("SET %s={%s}" % (rel_id, param_id))
                 parameters[param_id] = dict(entity)
-                if not entity.remote:
+                if not entity.resource:
                     entity._set_remote_pending(self)
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
@@ -427,23 +427,23 @@ class Transaction(object):
         deletes = []
         parameters = {}
         for i, relationship in enumerate(relationships):
-            if relationship.remote:
+            if relationship.resource:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship.remote._id
-                relationship._clear_remote()
+                parameters[param_id] = relationship.resource._id
+                relationship._del_resource()
         for i, node in enumerate(nodes):
-            if node.remote:
+            if node.resource:
                 node_id = "a%d" % i
                 param_id = "x%d" % i
                 matches.append("MATCH (%s) "
                                "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = node.remote._id
-                node._clear_remote()
+                parameters[param_id] = node.resource._id
+                node._del_resource()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
@@ -456,14 +456,14 @@ class Transaction(object):
         deletes = []
         parameters = {}
         for i, relationship in enumerate(relationships):
-            if relationship.remote:
+            if relationship.resource:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship.remote._id
-                relationship._clear_remote()
+                parameters[param_id] = relationship.resource._id
+                relationship._del_resource()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 

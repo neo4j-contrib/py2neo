@@ -73,7 +73,7 @@ class Py2neoTestCase(TestCase):
     def get_non_existent_node_id(self):
         node = Node()
         self.graph.create(node)
-        node_id = node.remote._id
+        node_id = node.resource._id
         self.graph.delete(node)
         return node_id
 

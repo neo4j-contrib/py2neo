@@ -186,7 +186,7 @@ class Graph(object):
         return True
 
     def __contains__(self, entity):
-        return entity.remote and entity.remote.uri.string.startswith(self.resource.uri.string)
+        return entity.resource and entity.resource.uri.string.startswith(self.resource.uri.string)
 
     @property
     def cypher(self):
@@ -289,13 +289,13 @@ class Graph(object):
             raise TypeError("Object %r is not graphy" % g)
         else:
             for a in nodes:
-                if a.remote:
+                if a.resource:
                     cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
                                           "RETURN count(a)", x=a))
                 else:
                     return False
             for r in relationships:
-                if r.remote:
+                if r.resource:
                     cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                                           "RETURN count(r)", x=r))
                 else:
@@ -414,20 +414,20 @@ class Graph(object):
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
             start_node = cast_node(start_node)
-            if not start_node.remote:
+            if not start_node.resource:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
             end_node = cast_node(end_node)
-            if not end_node.remote:
+            if not end_node.resource:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
             start_node = cast_node(start_node)
             end_node = cast_node(end_node)
-            if not start_node.remote or not end_node.remote:
+            if not start_node.resource or not end_node.resource:
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
         if rel_type is None:
@@ -575,21 +575,21 @@ class Graph(object):
         i = 0
         for entity in entities:
             for node in entity.nodes():
-                if not node.remote:
+                if not node.resource:
                     continue
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % node.remote.ref,
+                              "to": "%s/properties" % node.resource.ref,
                               "body": dict(node)})
                 i += 1
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/labels" % node.remote.ref,
+                              "to": "%s/labels" % node.resource.ref,
                               "body": list(node.labels())})
                 i += 1
             for relationship in entity.relationships():
-                if not relationship.remote:
+                if not relationship.resource:
                     continue
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % relationship.remote.ref,
+                              "to": "%s/properties" % relationship.resource.ref,
                               "body": dict(relationship)})
                 i += 1
         self.resource.resolve("batch").post(batch)
@@ -657,12 +657,12 @@ class Entity(object):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    _remote = None
-    _remote_pending_tx = None
+    _resource = None
+    _resource_pending_tx = None
 
     def __eq__(self, other):
         try:
-            return self.remote and other.remote
+            return self.resource and other.resource
         except AttributeError:
             return False
 
@@ -670,22 +670,22 @@ class Entity(object):
         return not self.__eq__(other)
 
     def _set_remote_pending(self, tx):
-        self._remote_pending_tx = tx
+        self._resource_pending_tx = tx
 
-    def _set_remote(self, uri, metadata=None):
-        self._remote = EntityResource(uri, metadata)
-        self._remote_pending_tx = None
+    def _set_resource(self, uri, metadata=None):
+        self._resource = EntityResource(uri, metadata)
+        self._resource_pending_tx = None
 
-    def _clear_remote(self):
-        self._remote = None
-        self._remote_pending_tx = None
+    def _del_resource(self):
+        self._resource = None
+        self._resource_pending_tx = None
 
     @property
-    def remote(self):
-        if self._remote_pending_tx:
-            self._remote_pending_tx.process()
-            self._remote_pending_tx = None
-        return self._remote
+    def resource(self):
+        if self._resource_pending_tx:
+            self._resource_pending_tx.process()
+            self._resource_pending_tx = None
+        return self._resource
 
 
 class Subgraph(object):
@@ -930,7 +930,7 @@ class Node(PropertyNode, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
-        inst._set_remote(self, data)
+        inst._set_resource(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
             inst.clear()
@@ -949,7 +949,7 @@ class Node(PropertyNode, Entity):
 
     def __repr__(self):
         s = ["Node"]
-        if self.remote:
+        if self.resource:
             s.append("graph=%r" % self.graph.uri.string)
             s.append("ref=%r" % self.ref)
         s.append("labels=%s" % "?" if "labels" in self.__stale else repr(set(self.labels())))
@@ -963,7 +963,7 @@ class Node(PropertyNode, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        i = self.remote
+        i = self.resource
         if i is None:
             writer.write_node(self)
         else:
@@ -974,8 +974,8 @@ class Node(PropertyNode, Entity):
         if other is None:
             return False
         other = cast_node(other)
-        if self.remote and other.remote:
-            return self.remote == other.remote
+        if self.resource and other.resource:
+            return self.resource == other.resource
         else:
             return PropertyNode.__eq__(self, other)
 
@@ -983,8 +983,8 @@ class Node(PropertyNode, Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.remote:
-            return hash(self.remote.uri)
+        if self.resource:
+            return hash(self.resource.uri)
         else:
             return PropertyNode.__hash__(self)
 
@@ -992,14 +992,14 @@ class Node(PropertyNode, Entity):
         return Path(self, other)
 
     def __getitem__(self, item):
-        if self.remote and "properties" in self.__stale:
-            self.remote.graph.pull(self)
+        if self.resource and "properties" in self.__stale:
+            self.resource.graph.pull(self)
         return PropertyNode.__getitem__(self, item)
 
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        remote = self.remote
+        remote = self.resource
         if remote is None:
             raise TypeError("Cannot determine degree of node not "
                             "bound to a remote resource")
@@ -1008,48 +1008,48 @@ class Node(PropertyNode, Entity):
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
-        return self.remote.graph.exists(self)
+        return self.resource.graph.exists(self)
 
     def labels(self):
         """ The set of labels attached to this node.
         """
-        if self.remote and "labels" in self.__stale:
-            self.remote.graph.pull(self)
+        if self.resource and "labels" in self.__stale:
+            self.resource.graph.pull(self)
         return PropertyNode.labels(self)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
-        return self.remote.graph.match(self, rel_type, other_node, True, limit)
+        return self.resource.graph.match(self, rel_type, other_node, True, limit)
 
     @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        return self.remote.graph.match(start_node, rel_type, self, False, limit)
+        return self.resource.graph.match(start_node, rel_type, self, False, limit)
 
     @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        return self.remote.graph.match(self, rel_type, end_node, False, limit)
+        return self.resource.graph.match(self, rel_type, end_node, False, limit)
 
     @property
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
-        if self.remote and "properties" in self.__stale:
-            self.remote.graph.pull(self)
+        if self.resource and "properties" in self.__stale:
+            self.resource.graph.pull(self)
         return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):
-        self.remote.graph.pull(self)
+        self.resource.graph.pull(self)
 
     @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
-        self.remote.graph.push(self)
+        self.resource.graph.push(self)
 
-    def _clear_remote(self):
+    def _del_resource(self):
         try:
-            del self.cache[self.remote.uri]
+            del self.cache[self.resource.uri]
         except KeyError:
             pass
-        Entity._clear_remote(self)
+        Entity._del_resource(self)
 
 
 class NodeProxy(object):
@@ -1177,7 +1177,7 @@ class Relationship(PropertyRelationship, Entity):
             else:
                 inst.__stale.add("properties")
         cls.cache[self] = inst
-        inst._set_remote(self, data)
+        inst._set_resource(self, data)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1198,11 +1198,11 @@ class Relationship(PropertyRelationship, Entity):
 
     def __repr__(self):
         s = ["Relationship"]
-        if self.remote:
-            s.append("graph=%r" % self.remote.graph.uri.string)
-            s.append("ref=%r" % self.remote.ref)
-            s.append("start=%r" % self.start_node().remote.ref)
-            s.append("end=%r" % self.end_node().remote.ref)
+        if self.resource:
+            s.append("graph=%r" % self.resource.graph.uri.string)
+            s.append("ref=%r" % self.resource.ref)
+            s.append("start=%r" % self.start_node().resource.ref)
+            s.append("end=%r" % self.end_node().resource.ref)
         s.append("type=%r" % self._type)
         s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
         return "<" + " ".join(s) + ">"
@@ -1214,15 +1214,15 @@ class Relationship(PropertyRelationship, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        writer.write_relationship(self, "r%s" % self.remote._id if self.remote else "", self)
+        writer.write_relationship(self, "r%s" % self.resource._id if self.resource else "", self)
         return s.getvalue()
 
     def __eq__(self, other):
         if other is None:
             return False
         other = cast_relationship(other)
-        if self.remote and other.remote:
-            return self.remote == other.remote
+        if self.resource and other.resource:
+            return self.resource == other.resource
         else:
             return PropertyRelationship.__eq__(self, other)
 
@@ -1230,47 +1230,47 @@ class Relationship(PropertyRelationship, Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.remote:
-            return hash(self.remote.uri)
+        if self.resource:
+            return hash(self.resource.uri)
         else:
             return PropertyRelationship.__hash__(self)
 
     @deprecated("Relationship.exists() is deprecated, "
                 "use graph.exists(relationship) instead")
     def exists(self):
-        return self.remote.graph.exists(self)
+        return self.resource.graph.exists(self)
 
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
-        if self.remote and "properties" in self.__stale:
-            self.remote.graph.pull(self)
+        if self.resource and "properties" in self.__stale:
+            self.resource.graph.pull(self)
         return dict(self)
 
     @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
-        self.remote.graph.pull(self)
+        self.resource.graph.pull(self)
 
     @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
     def push(self):
-        self.remote.graph.push(self)
+        self.resource.graph.push(self)
 
     def type(self):
         """ The type of this relationship.
         """
-        if self.remote and self._type is None:
-            self.remote.graph.pull(self)
+        if self.resource and self._type is None:
+            self.resource.graph.pull(self)
         return self._type
 
-    def _clear_remote(self):
+    def _del_resource(self):
         """ Detach this relationship and its start and end
         nodes from any remote counterparts.
         """
         try:
-            del self.cache[self.remote.uri]
+            del self.cache[self.resource.uri]
         except KeyError:
             pass
-        Entity._clear_remote(self)
+        Entity._del_resource(self)
 
 
 class Path(TraversableSubgraph):

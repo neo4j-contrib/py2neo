@@ -232,7 +232,7 @@ class ManualIndex(object):
         self.resource.post({
             "key": key,
             "value": value,
-            "uri": entity.remote.uri.string,
+            "uri": entity.resource.uri.string,
         })
         return entity
 
@@ -251,7 +251,7 @@ class ManualIndex(object):
         rs = self._get_or_create.post({
             "key": key,
             "value": value,
-            "uri": entity.remote.uri.string,
+            "uri": entity.resource.uri.string,
         })
         if rs.status_code == CREATED:
             return entity
@@ -393,10 +393,10 @@ class ManualIndex(object):
         """
         if key and value and entity:
             t = ResourceTemplate(self.resource.uri.string + "/{key}/{value}/{entity}")
-            t.expand(key=key, value=value, entity=entity.remote._id).delete()
+            t.expand(key=key, value=value, entity=entity.resource._id).delete()
         elif key and value:
             uris = [
-                URI(entity.remote.metadata["indexed"])
+                URI(entity.resource.metadata["indexed"])
                 for entity in self.get(key, value)
             ]
             batch = ManualIndexWriteBatch(self.graph)
@@ -405,10 +405,10 @@ class ManualIndex(object):
             batch.run()
         elif key and entity:
             t = ResourceTemplate(self.resource.uri.string + "/{key}/{entity}")
-            t.expand(key=key, entity=entity.remote._id).delete()
+            t.expand(key=key, entity=entity.resource._id).delete()
         elif entity:
             t = ResourceTemplate(self.resource.uri.string + "/{entity}")
-            t.expand(entity=entity.remote._id).delete()
+            t.expand(entity=entity.resource._id).delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 

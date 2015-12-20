@@ -84,7 +84,7 @@ class GraphTestCase(Py2neoTestCase):
         a = Node()
         self.graph.create(a)
         assert isinstance(a, Node)
-        assert a.remote
+        assert a.resource
         assert self.graph.exists(a)
         self.graph.delete(a)
         assert not self.graph.exists(a)
@@ -93,7 +93,7 @@ class GraphTestCase(Py2neoTestCase):
         ab = Relationship(Node(), "KNOWS", Node())
         self.graph.create(ab)
         assert isinstance(ab, Relationship)
-        assert ab.remote
+        assert ab.resource
         assert self.graph.exists(ab)
         self.graph.delete(ab | ab.start_node() | ab.end_node())
         assert not self.graph.exists(ab)
@@ -101,23 +101,23 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_get_node_by_id_when_cached(self):
         node = Node()
         self.graph.create(node)
-        assert node.remote.uri in Node.cache
-        got = self.graph.node(node.remote._id)
+        assert node.resource.uri in Node.cache
+        got = self.graph.node(node.resource._id)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
         node = Node()
         self.graph.create(node)
         Node.cache.clear()
-        assert node.remote.uri not in Node.cache
-        got = self.graph.node(node.remote._id)
-        assert got.remote._id == node.remote._id
+        assert node.resource.uri not in Node.cache
+        got = self.graph.node(node.resource._id)
+        assert got.resource._id == node.resource._id
 
     def test_node_cache_is_thread_local(self):
         import threading
         node = Node()
         self.graph.create(node)
-        assert node.remote.uri in Node.cache
+        assert node.resource.uri in Node.cache
         other_cache_keys = []
 
         def check_cache():
@@ -127,8 +127,8 @@ class GraphTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
 
-        assert node.remote.uri in Node.cache
-        assert node.remote.uri not in other_cache_keys
+        assert node.resource.uri in Node.cache
+        assert node.resource.uri not in other_cache_keys
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)
@@ -153,12 +153,12 @@ class GraphTestCase(Py2neoTestCase):
     def test_create_single_empty_node(self):
         a = Node()
         self.graph.create(a)
-        assert a.remote
+        assert a.resource
 
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")
         self.graph.create(a1)
-        a2 = self.graph.node(a1.remote._id)
+        a2 = self.graph.node(a1.resource._id)
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):

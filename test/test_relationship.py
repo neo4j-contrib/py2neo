@@ -54,7 +54,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        got = self.graph.relationship(r.remote._id)
+        got = self.graph.relationship(r.resource._id)
         assert got is r
         
     def test_can_get_relationship_by_id_when_not_cached(self):
@@ -63,8 +63,8 @@ class RelationshipTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         Relationship.cache.clear()
-        got = self.graph.relationship(r.remote._id)
-        assert got.remote._id == r.remote._id
+        got = self.graph.relationship(r.resource._id)
+        assert got.resource._id == r.resource._id
         
     def test_relationship_cache_is_thread_local(self):
         import threading
@@ -72,7 +72,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.remote.uri in Relationship.cache
+        assert r.resource.uri in Relationship.cache
         other_relationship_cache_keys = []
     
         def check_cache():
@@ -82,15 +82,15 @@ class RelationshipTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
     
-        assert r.remote.uri in Relationship.cache
-        assert r.remote.uri not in other_relationship_cache_keys
+        assert r.resource.uri in Relationship.cache
+        assert r.resource.uri not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        rel_id = r.remote._id
+        rel_id = r.resource._id
         self.graph.delete(r)
         Relationship.cache.clear()
         with self.assertRaises(IndexError):
@@ -109,8 +109,8 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.remote
-        assert r.remote.graph == Graph("http://localhost:7474/db/data/")
+        assert r.resource
+        assert r.resource.graph == Graph("http://localhost:7474/db/data/")
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
@@ -123,4 +123,4 @@ class RelationshipTestCase(Py2neoTestCase):
         assert str(r) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
         self.graph.create(r)
         assert str(r) == \
-            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r.remote._id
+            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r.resource._id

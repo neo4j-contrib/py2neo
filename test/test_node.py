@@ -43,21 +43,21 @@ class NodeTestCase(Py2neoTestCase):
         self.graph.create(a)
         assert a.labels() == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
-        assert a.remote.ref.startswith("node/")
+        assert a.resource.ref.startswith("node/")
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
-        alice_1._set_remote("http://localhost:7474/db/data/node/1")
+        alice_1._set_resource("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
         assert alice_1.labels() == alice_2.labels()
         assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
         alice_1 = Node(name="Alice")
-        alice_1._set_remote("http://localhost:7474/db/data/node/1")
+        alice_1._set_resource("http://localhost:7474/db/data/node/1")
         Node.cache.clear()
         alice_2 = Node(name="Alice")
-        alice_2._set_remote(alice_1.remote.uri)
+        alice_2._set_resource(alice_1.resource.uri)
         assert alice_1 == alice_2
 
     def test_unbound_node_equality(self):
@@ -97,7 +97,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
         assert isinstance(alice, Node)
-        assert not alice.remote
+        assert not alice.resource
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -123,7 +123,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
-        assert alice.remote
+        assert alice.resource
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -167,15 +167,15 @@ class ConcreteNodeTestCase(Py2neoTestCase):
     def test_relative_uri_of_bound_node(self):
         a = Node()
         self.graph.create(a)
-        relative_uri_string = a.remote.ref
-        assert a.remote.uri.string.endswith(relative_uri_string)
+        relative_uri_string = a.resource.ref
+        assert a.resource.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
 
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")
-        node_2._set_remote(node_1.remote.uri)
+        node_2._set_resource(node_1.resource.uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)
 
@@ -183,4 +183,4 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         a = Node("Person", name="Alice")
         assert str(a) == '(:Person {name:"Alice"})'
         self.graph.create(a)
-        assert str(a) == '(n%s:Person {name:"Alice"})' % a.remote._id
+        assert str(a) == '(n%s:Person {name:"Alice"})' % a.resource._id

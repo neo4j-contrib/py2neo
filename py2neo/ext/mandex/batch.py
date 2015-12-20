@@ -83,12 +83,8 @@ class ManualIndexWriteBatch(WriteBatch):
         elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            if hasattr(resource, "remote"):
-                graph_uri = resource.remote.graph.uri.string
-                entity_uri = resource.remote.uri.string
-            else:
-                graph_uri = resource.graph.uri.string
-                entity_uri = resource.resource.uri.string
+            graph_uri = resource.resource.graph.uri.string
+            entity_uri = resource.resource.uri.string
             uri = entity_uri[len(graph_uri):]
         if segments:
             if not uri.endswith("/"):
@@ -287,11 +283,11 @@ class ManualIndexWriteBatch(WriteBatch):
         """
         index = self._index(cls, index)
         if key and value and entity:
-            uri = self._uri_for(index, key, value, entity.remote._id)
+            uri = self._uri_for(index, key, value, entity.resource._id)
         elif key and entity:
-            uri = self._uri_for(index, key, entity.remote._id)
+            uri = self._uri_for(index, key, entity.resource._id)
         elif entity:
-            uri = self._uri_for(index, entity.remote._id)
+            uri = self._uri_for(index, entity.resource._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self.append_delete(uri)
