@@ -31,7 +31,7 @@ from py2neo.ext import *
 from py2neo.graph import *
 from py2neo.http import *
 from py2neo.packages.httpstream.watch import watch
-from py2neo.status import BindError, Finished, GraphError
+from py2neo.status import Finished, GraphError
 
 
 __all__ = ["DBMS", "Graph", "Entity",
@@ -39,6 +39,6 @@ __all__ = ["DBMS", "Graph", "Entity",
            "traverse", "cast", "cast_node", "cast_relationship",
            "Node", "Relationship", "Path",
            "authenticate", "rewrite", "watch",
-           "BindError", "Finished", "GraphError",
+           "Finished", "GraphError",
            "ServerPlugin", "UnmanagedExtension",
            "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI"]

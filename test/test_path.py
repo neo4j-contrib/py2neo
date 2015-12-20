@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, Relationship, DBMS, BindError, Graph
+from py2neo import Node, Path, Relationship, Graph
 from test.util import Py2neoTestCase
 
 

@@ -21,12 +21,6 @@ from importlib import import_module
 from py2neo.compat import xstr
 
 
-class BindError(Exception):
-    """ Raised when a local graph entity is not or cannot be bound
-    to a remote graph entity.
-    """
-
-
 class Finished(Exception):
     """ Raised when actions are attempted against a finished object
     that is no longer available for use.

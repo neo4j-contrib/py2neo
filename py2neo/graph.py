@@ -26,7 +26,6 @@ from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.data import PropertyContainer, coerce_property
-from py2neo.status import BindError
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case
 
