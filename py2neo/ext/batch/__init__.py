@@ -230,7 +230,10 @@ class Target(object):
             uri_string = "{{{0}}}".format(self.entity.address)
         else:
             try:
-                uri_string = self.entity.ref
+                remote = self.entity.remote
+                if remote is None:
+                    raise ValueError("Cannot determine URI for unbound entity")
+                uri_string = remote.ref
             except AttributeError:
                 uri_string = ustr(self.entity)
         if self.segments:

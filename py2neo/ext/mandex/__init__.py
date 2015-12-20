@@ -271,10 +271,6 @@ class ManualIndex(object):
         """
         return self._name
 
-    @property
-    def ref(self):
-        return self.resource.uri.string[len(self.graph.uri.string):]
-
     def get(self, key, value):
         """ Fetch a list of all entities from the index which are associated
         with the `key`:`value` pair supplied::

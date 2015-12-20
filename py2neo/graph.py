@@ -711,18 +711,6 @@ class Entity(object):
             raise BindError("Local entity is not bound to a remote entity")
 
     @property
-    def ref(self):
-        """ The URI of the remote resource relative to its graph.
-
-        :rtype: string
-        """
-        remote = self.remote
-        if remote:
-            return remote.ref
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
-
-    @property
     def resource(self):
         """ The remote resource to which this entity is bound.
 
@@ -1254,9 +1242,9 @@ class Relationship(PropertyRelationship, Entity):
         s = ["Relationship"]
         if self.remote:
             s.append("graph=%r" % self.graph.uri.string)
-            s.append("ref=%r" % self.ref)
-            s.append("start=%r" % self.start_node().ref)
-            s.append("end=%r" % self.end_node().ref)
+            s.append("ref=%r" % self.remote.ref)
+            s.append("start=%r" % self.start_node().remote.ref)
+            s.append("end=%r" % self.end_node().remote.ref)
         s.append("type=%r" % self._type)
         s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
         return "<" + " ".join(s) + ">"

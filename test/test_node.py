@@ -43,7 +43,7 @@ class NodeTestCase(Py2neoTestCase):
         self.graph.create(a)
         assert a.labels() == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
-        assert a.ref.startswith("node/")
+        assert a.remote.ref.startswith("node/")
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
@@ -167,14 +167,9 @@ class ConcreteNodeTestCase(Py2neoTestCase):
     def test_relative_uri_of_bound_node(self):
         a = Node()
         self.graph.create(a)
-        relative_uri_string = a.ref
+        relative_uri_string = a.remote.ref
         assert a.uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
-
-    def test_relative_uri_of_unbound_node(self):
-        a = Node()
-        with self.assertRaises(BindError):
-            _ = a.ref
 
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")

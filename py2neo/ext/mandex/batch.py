@@ -83,7 +83,7 @@ class ManualIndexWriteBatch(WriteBatch):
         elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            uri = resource.ref
+            uri = resource.resource.uri.string[len(resource.graph.uri.string):]
         if segments:
             if not uri.endswith("/"):
                 uri += "/"
