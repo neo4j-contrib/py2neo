@@ -109,7 +109,8 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.graph == Graph("http://localhost:7474/db/data/")
+        assert r.remote
+        assert r.remote.graph == Graph("http://localhost:7474/db/data/")
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})

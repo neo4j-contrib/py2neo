@@ -70,7 +70,7 @@ class NodeTestCase(Py2neoTestCase):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
         carol = Node("Person", name="Carol")
-        with self.assertRaises(BindError):
+        with self.assertRaises(TypeError):
             _ = alice.degree()
         self.graph.create(alice)
         assert alice.degree() == 0

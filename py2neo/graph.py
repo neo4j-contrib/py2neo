@@ -689,18 +689,6 @@ class Entity(object):
         return self._remote
 
     @property
-    def graph(self):
-        """ The graph associated with this entity.
-
-        :rtype: :class:`.Graph`
-        """
-        remote = self.remote
-        if remote:
-            return remote.graph
-        else:
-            raise BindError("Local entity is not bound to a remote entity")
-
-    @property
     def _id(self):
         """ The internal ID of this entity within the database.
         """
@@ -1039,52 +1027,56 @@ class Node(PropertyNode, Entity):
 
     def __getitem__(self, item):
         if self.remote and "properties" in self.__stale:
-            self.graph.pull(self)
+            self.remote.graph.pull(self)
         return PropertyNode.__getitem__(self, item)
 
     def degree(self):
         """ The number of relationships attached to this node.
         """
-        return self.graph.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} "
-                                          "RETURN count(r)", n=self)
+        remote = self.remote
+        if remote is None:
+            raise TypeError("Cannot determine degree of node not "
+                            "bound to a remote resource")
+        return remote.graph.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} "
+                                            "RETURN count(r)", n=self)
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
-        return self.graph.exists(self)
+        return self.remote.graph.exists(self)
 
     def labels(self):
         """ The set of labels attached to this node.
         """
         if self.remote and "labels" in self.__stale:
-            self.graph.pull(self)
+            self.remote.graph.pull(self)
         return PropertyNode.labels(self)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
-        return self.graph.match(self, rel_type, other_node, True, limit)
+        return self.remote.graph.match(self, rel_type, other_node, True, limit)
 
     @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        return self.graph.match(start_node, rel_type, self, False, limit)
+        return self.remote.graph.match(start_node, rel_type, self, False, limit)
 
     @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        return self.graph.match(self, rel_type, end_node, False, limit)
+        return self.remote.graph.match(self, rel_type, end_node, False, limit)
 
     @property
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
         if self.remote and "properties" in self.__stale:
-            self.graph.pull(self)
+            self.remote.graph.pull(self)
         return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):
-        self.graph.pull(self)
+        self.remote.graph.pull(self)
 
     @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
-        self.graph.push(self)
+        self.remote.graph.push(self)
 
     def _clear_remote(self):
         try:
@@ -1241,7 +1233,7 @@ class Relationship(PropertyRelationship, Entity):
     def __repr__(self):
         s = ["Relationship"]
         if self.remote:
-            s.append("graph=%r" % self.graph.uri.string)
+            s.append("graph=%r" % self.remote.graph.uri.string)
             s.append("ref=%r" % self.remote.ref)
             s.append("start=%r" % self.start_node().remote.ref)
             s.append("end=%r" % self.end_node().remote.ref)
@@ -1277,30 +1269,31 @@ class Relationship(PropertyRelationship, Entity):
         else:
             return PropertyRelationship.__hash__(self)
 
-    @deprecated("Relationship.exists() is deprecated, use graph.exists(relationship) instead")
+    @deprecated("Relationship.exists() is deprecated, "
+                "use graph.exists(relationship) instead")
     def exists(self):
-        return self.graph.exists(self)
+        return self.remote.graph.exists(self)
 
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
         if self.remote and "properties" in self.__stale:
-            self.graph.pull(self)
+            self.remote.graph.pull(self)
         return dict(self)
 
     @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
-        self.graph.pull(self)
+        self.remote.graph.pull(self)
 
     @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
     def push(self):
-        self.graph.push(self)
+        self.remote.graph.push(self)
 
     def type(self):
         """ The type of this relationship.
         """
         if self.remote and self._type is None:
-            self.graph.pull(self)
+            self.remote.graph.pull(self)
         return self._type
 
     def _clear_remote(self):
