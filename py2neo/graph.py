@@ -668,7 +668,7 @@ class Entity(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def _set_remote_pending(self, tx):
+    def _set_resource_pending(self, tx):
         self._resource_pending_tx = tx
 
     def _set_resource(self, uri, metadata=None):

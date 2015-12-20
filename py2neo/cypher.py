@@ -354,7 +354,7 @@ class Transaction(object):
                                        for label in sorted(node.labels()))
                 writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
-                node._set_remote_pending(self)
+                node._set_resource_pending(self)
             returns[node_id] = node
         for i, relationship in enumerate(relationships):
             if not relationship.resource:
@@ -367,7 +367,7 @@ class Transaction(object):
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
-                relationship._set_remote_pending(self)
+                relationship._set_resource_pending(self)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         result = self.run(statement, parameters)
         result.cache.update(returns)
@@ -398,7 +398,7 @@ class Transaction(object):
                                            for label in sorted(entity.labels()))
                     pattern.append("(%s%s {%s})" % (node_id, label_string, param_id))
                     parameters[param_id] = dict(entity)
-                    entity._set_remote_pending(self)
+                    entity._set_resource_pending(self)
                 returns[node_id] = node = entity
             else:
                 # relationship
@@ -410,7 +410,7 @@ class Transaction(object):
                 writes.append("SET %s={%s}" % (rel_id, param_id))
                 parameters[param_id] = dict(entity)
                 if not entity.resource:
-                    entity._set_remote_pending(self)
+                    entity._set_resource_pending(self)
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
