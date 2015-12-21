@@ -8,32 +8,32 @@ Before connecting to a Neo4j server, it's useful to become familiar with the fun
 Nodes & Relationships
 =====================
 
-.. autoclass:: py2neo.Node
+.. autoclass:: py2neo.graph.Node
+   :show-inheritance:
    :members:
-   :inherited-members:
 
-.. autoclass:: py2neo.Relationship
+.. autoclass:: py2neo.graph.Relationship
+   :show-inheritance:
    :members:
-   :inherited-members:
 
 
 Graph Arithmetic
 ================
 
-.. autoclass:: py2neo.Subgraph
+.. autoclass:: py2neo.graph.Subgraph
+   :show-inheritance:
    :members:
-   :inherited-members:
 
 
 Paths & Traversal
 =================
 
-.. autoclass:: py2neo.Path
+.. autoclass:: py2neo.graph.Path
+   :show-inheritance:
    :members:
-   :inherited-members:
 
-.. autoclass:: py2neo.TraversableSubgraph
+.. autoclass:: py2neo.graph.TraversableSubgraph
+   :show-inheritance:
    :members:
-   :inherited-members:
 
 .. autofunction:: py2neo.traverse

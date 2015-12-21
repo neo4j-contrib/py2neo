@@ -681,6 +681,8 @@ class Entity(object):
 
     @property
     def resource(self):
+        """ Remote resource with which this entity is associated.
+        """
         if self._resource_pending_tx:
             self._resource_pending_tx.process()
             self._resource_pending_tx = None
@@ -753,9 +755,13 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def nodes(self):
+        """ Set of all nodes in this subgraph.
+        """
         return self._nodes
 
     def relationships(self):
+        """ Set of all relationships in this subgraph.
+        """
         return self._relationships
 
     def order(self):
@@ -769,12 +775,18 @@ class Subgraph(object):
         return len(self._relationships)
 
     def labels(self):
+        """ Set of all node labels used in this subgraph.
+        """
         return frozenset(chain(*(node.labels() for node in self._nodes)))
 
     def types(self):
+        """ Set of all relationship types used in this subgraph.
+        """
         return frozenset(rel.type() for rel in self._relationships)
 
     def keys(self):
+        """ Set of all property keys used in this subgraph.
+        """
         return (frozenset(chain(*(node.keys() for node in self._nodes))) |
                 frozenset(chain(*(rel.keys() for rel in self._relationships))))
 
@@ -841,21 +853,33 @@ class TraversableSubgraph(Subgraph):
         return TraversableSubgraph(*traverse(self, other))
 
     def start_node(self):
+        """ The first node in a traversal of this subgraph.
+        """
         return self._node_sequence[0]
 
     def end_node(self):
+        """ The last node in a traversal of this subgraph.
+        """
         return self._node_sequence[-1]
 
     def length(self):
+        """ The total number of relationships traversed.
+        """
         return len(self._relationship_sequence)
 
     def traverse(self):
+        """ Traverse all nodes and relationships in order.
+        """
         return iter(self._sequence)
 
     def nodes(self):
+        """ Set of all nodes in this subgraph.
+        """
         return self._node_sequence
 
     def relationships(self):
+        """ Set of all relationships in this subgraph.
+        """
         return self._relationship_sequence
 
 
@@ -881,40 +905,18 @@ class PropertyNode(PropertyContainer, TraversableSubgraph):
 
 
 class Node(PropertyNode, Entity):
-    """ A graph node that may optionally be bound to a remote counterpart
-    in a Neo4j database. Nodes may contain a set of named :attr:`~py2neo.Node.properties` and
-    may have one or more :attr:`labels <py2neo.Node.labels>` applied to them::
-
-        >>> from py2neo import Node
-        >>> alice = Node("Person", name="Alice")
-        >>> banana = Node("Fruit", "Food", colour="yellow", tasty=True)
+    """ A node is a fundamental unit of data storage within a property
+    graph that may optionally be connected, via relationships, to
+    other nodes.
 
     All positional arguments passed to the constructor are interpreted
-    as labels and all keyword arguments as properties. It is also possible to
-    construct Node instances from other data types (such as a dictionary)
-    by using the :meth:`.cast_node` class method::
+    as labels and all keyword arguments as properties::
 
-        >>> bob = cast_node({"name": "Bob Robertson", "age": 44})
+        >>> from py2neo import Node
+        >>> a = Node("Person", name="Alice")
 
-    Labels and properties can be accessed and modified using the
-    :attr:`labels <py2neo.Node.labels>` and :attr:`~py2neo.Node.properties`
-    attributes respectively. The former is an instance of :class:`.LabelSet`,
-    which extends the built-in :class:`set` class, and the latter is an
-    instance of :class:`.PropertySet` which extends :class:`dict`.
-
-        >>> alice["name"]
-        'Alice'
-        >>> alice.labels()
-        {'Person'}
-        >>> alice.add_label("Employee")
-        >>> alice["employee_no"] = 3456
-        >>> alice
-        <Node labels={'Employee', 'Person'} properties={'employee_no': 3456, 'name': 'Alice'}>
-
-    One of the core differences between a :class:`.PropertySet` and a standard
-    dictionary is in how it handles :const:`None` and missing values. As with actual Neo4j
-    properties, missing values and those equal to :const:`None` are equivalent.
     """
+
     cache = ThreadLocalWeakValueDictionary()
 
     @classmethod
@@ -1145,14 +1147,6 @@ class Relationship(PropertyRelationship, Entity):
 
     @classmethod
     def hydrate(cls, data, inst=None):
-        """ Hydrate a dictionary of data to produce a :class:`.Relationship` instance.
-        The data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api-relationships.html#rest-api-get-relationship-by-id>`__.
-
-        :arg data: dictionary of data to hydrate
-        :arg inst: an existing :class:`.Relationship` instance to overwrite with new values
-
-        """
         self = data["self"]
         start = data["start"]
         end = data["end"]
@@ -1305,14 +1299,6 @@ class Path(TraversableSubgraph):
     """
     @classmethod
     def hydrate(cls, data):
-        """ Hydrate a dictionary of data to produce a :class:`.Path` instance.
-        The data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api-graph-algos.html#rest-api-find-one-of-the-shortest-paths>`__.
-
-        :arg data: dictionary of data to hydrate
-        :arg inst: an existing :class:`.Path` instance to overwrite with new values
-
-        """
         node_uris = data["nodes"]
         relationship_uris = data["relationships"]
         offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
