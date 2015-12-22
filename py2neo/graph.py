@@ -30,20 +30,6 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case
 
 
-__all__ = ["DBMS",
-           "Graph",
-           "Entity",
-           "Subgraph",
-           "TraversableSubgraph",
-           "Node",
-           "Relationship",
-           "Path",
-           "traverse",
-           "cast",
-           "cast_node",
-           "cast_relationship"]
-
-
 class DBMS(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to

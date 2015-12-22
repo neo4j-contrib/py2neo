@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,13 +32,3 @@ from py2neo.graph import *
 from py2neo.http import *
 from py2neo.packages.httpstream.watch import watch
 from py2neo.status import Finished, GraphError
-
-
-__all__ = ["DBMS", "Graph", "Entity",
-           "Subgraph", "TraversableSubgraph",
-           "traverse", "cast", "cast_node", "cast_relationship",
-           "Node", "Relationship", "Path",
-           "authenticate", "rewrite", "watch",
-           "Finished", "GraphError",
-           "ServerPlugin", "UnmanagedExtension",
-           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI"]
