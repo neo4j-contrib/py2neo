@@ -32,6 +32,9 @@ class NodeTestCase(Py2neoTestCase):
         a = Node()
         r = repr(a)
         assert r.startswith("<Node")
+        self.graph.create(a)
+        r = repr(a)
+        assert r.startswith("<Node")
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)

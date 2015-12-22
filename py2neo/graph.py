@@ -951,8 +951,8 @@ class Node(PropertyNode, Entity):
     def __repr__(self):
         s = ["Node"]
         if self.resource:
-            s.append("graph=%r" % self.graph.uri.string)
-            s.append("ref=%r" % self.ref)
+            s.append("graph=%r" % self.resource.graph.uri.string)
+            s.append("ref=%r" % self.resource.ref)
         s.append("labels=%s" % "?" if "labels" in self.__stale else repr(set(self.labels())))
         s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
         return "<" + " ".join(s) + ">"
