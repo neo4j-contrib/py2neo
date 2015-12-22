@@ -21,15 +21,15 @@
 from unittest import TestCase
 
 from py2neo.data import PropertySet, PropertyContainer
-from py2neo.graph import Subgraph, TraversableSubgraph, PropertyNode, PropertyRelationship, \
+from py2neo.graph import Subgraph, TraversableSubgraph, Node, PropertyRelationship, \
     Path, traverse
 from py2neo.cypher import Record
 
 
-alice = PropertyNode("Person", "Employee", name="Alice", age=33)
-bob = PropertyNode("Person")
-carol = PropertyNode("Person")
-dave = PropertyNode("Person")
+alice = Node("Person", "Employee", name="Alice", age=33)
+bob = Node("Person")
+carol = Node("Person")
+dave = Node("Person")
 
 alice_knows_bob = PropertyRelationship(alice, "KNOWS", bob, since=1999)
 alice_likes_carol = PropertyRelationship(alice, "LIKES", carol)
@@ -55,20 +55,12 @@ class PropertyCoercionTestCase(TestCase):
         assert props == {"value": 1}
 
     def test_integer_too_high(self):
-        try:
+        with self.assertRaises(ValueError):
             PropertySet({"value": 2 ** 64})
-        except ValueError:
-            assert True
-        else:
-            assert False
 
     def test_integer_too_low(self):
-        try:
+        with self.assertRaises(ValueError):
             PropertySet({"value": -(2 ** 64)})
-        except ValueError:
-            assert True
-        else:
-            assert False
 
     def test_float(self):
         props = PropertySet({"value": 3.141})
@@ -83,12 +75,8 @@ class PropertyCoercionTestCase(TestCase):
         assert props == {"value": u"hello, world"}
 
     def test_byte_arrays_are_not_supported(self):
-        try:
+        with self.assertRaises(TypeError):
             PropertySet({"value": bytearray(b"hello, world")})
-        except TypeError:
-            assert True
-        else:
-            assert False
 
     def test_homogenous_list(self):
         props = PropertySet({"value": [1, 2, 3]})
@@ -99,12 +87,8 @@ class PropertyCoercionTestCase(TestCase):
         assert props == {"value": [u"hello", u"world"]}
 
     def test_heterogenous_list(self):
-        try:
+        with self.assertRaises(TypeError):
             PropertySet({"value": [True, 2, u"three"]})
-        except TypeError:
-            assert True
-        else:
-            assert False
 
 
 class PropertySetTestCase(TestCase):
@@ -420,7 +404,7 @@ class TraversableSubgraphTestCase(TestCase):
                                                       carol_married_to_dave, dave)
 
 
-class PropertyNodeTestCase(TestCase):
+class NodeTestCase(TestCase):
 
     def test_nodes(self):
         nodes = alice.nodes()
@@ -439,7 +423,7 @@ class PropertyNodeTestCase(TestCase):
         assert alice.size() == 0
 
     def test_empty_node(self):
-        n = PropertyNode()
+        n = Node()
         assert not n.__bool__()
         assert not n.__nonzero__()
         assert len(n) == 0
@@ -467,55 +451,55 @@ class PropertyNodeTestCase(TestCase):
         assert alice == other_node
 
     def test_inequality(self):
-        other_node = PropertyNode("Person", "Employee", name="Alice", age=33)
+        other_node = Node("Person", "Employee", name="Alice", age=33)
         assert alice != other_node
 
     def test_inequality_with_other_types(self):
         assert alice != "this is not a node"
 
     def test_can_add_label(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_add_label_is_idempotent(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         node.labels().add("Employee")
         node.labels().add("Employee")
         assert node.labels() == {"Person", "Employee"}
 
     def test_can_remove_label(self):
-        node = PropertyNode("Person", "Employee", name="Alice")
+        node = Node("Person", "Employee", name="Alice")
         node.labels().remove("Employee")
         assert node.labels() == {"Person"}
 
     def test_removing_non_existent_label_fails(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         with self.assertRaises(KeyError):
             node.labels().remove("Employee")
 
     def test_can_discard_label(self):
-        node = PropertyNode("Person", "Employee", name="Alice")
+        node = Node("Person", "Employee", name="Alice")
         node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_discarding_non_existent_label_is_ignored(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         node.labels().discard("Employee")
         assert node.labels() == {"Person"}
 
     def test_can_clear_labels(self):
-        node = PropertyNode("Person", "Employee", name="Alice")
+        node = Node("Person", "Employee", name="Alice")
         node.labels().clear()
         assert node.labels() == set()
 
     def test_has_label(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         assert "Person" in node.labels()
         assert "Employee" not in node.labels()
 
     def test_update_labels(self):
-        node = PropertyNode("Person", name="Alice")
+        node = Node("Person", name="Alice")
         node.labels().update({"Person", "Employee"})
         assert node.labels() == {"Person", "Employee"}
 

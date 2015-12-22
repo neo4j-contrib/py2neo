@@ -563,7 +563,7 @@ class Graph(object):
             cursor.cache["r"] = relationship
         tx.commit()
         for node, cursor in nodes.items():
-            labels = PropertyNode.labels(node)
+            labels = node._labels
             labels.clear()
             labels.update(cursor.evaluate(1))
 
@@ -883,28 +883,7 @@ class TraversableSubgraph(Subgraph):
         return self._relationship_sequence
 
 
-class PropertyNode(PropertyContainer, TraversableSubgraph):
-    """ A graph vertex with support for labels and properties.
-    """
-    def __init__(self, *labels, **properties):
-        self._labels = set(labels)
-        PropertyContainer.__init__(self, **properties)
-        TraversableSubgraph.__init__(self, self)
-
-    def __eq__(self, other):
-        return self is other
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(id(self))
-
-    def labels(self):
-        return self._labels
-
-
-class Node(PropertyNode, Entity):
+class Node(PropertyContainer, TraversableSubgraph, Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.
@@ -945,7 +924,9 @@ class Node(PropertyNode, Entity):
         return inst
 
     def __init__(self, *labels, **properties):
-        PropertyNode.__init__(self, *labels, **properties)
+        self._labels = set(labels)
+        PropertyContainer.__init__(self, **properties)
+        TraversableSubgraph.__init__(self, self)
         self.__stale = set()
 
     def __repr__(self):
@@ -978,7 +959,7 @@ class Node(PropertyNode, Entity):
         if self.resource and other.resource:
             return self.resource == other.resource
         else:
-            return PropertyNode.__eq__(self, other)
+            return self is other
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -987,15 +968,12 @@ class Node(PropertyNode, Entity):
         if self.resource:
             return hash(self.resource.uri)
         else:
-            return PropertyNode.__hash__(self)
-
-    def __add__(self, other):
-        return Path(self, other)
+            return hash(id(self))
 
     def __getitem__(self, item):
         if self.resource and "properties" in self.__stale:
             self.resource.graph.pull(self)
-        return PropertyNode.__getitem__(self, item)
+        return PropertyContainer.__getitem__(self, item)
 
     def degree(self):
         """ The number of relationships attached to this node.
@@ -1016,7 +994,7 @@ class Node(PropertyNode, Entity):
         """
         if self.resource and "labels" in self.__stale:
             self.resource.graph.pull(self)
-        return PropertyNode.labels(self)
+        return self._labels
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
