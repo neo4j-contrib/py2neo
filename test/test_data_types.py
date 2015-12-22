@@ -21,7 +21,7 @@
 from unittest import TestCase
 
 from py2neo.data import PropertySet, PropertyContainer
-from py2neo.graph import Subgraph, TraversableSubgraph, Node, PropertyRelationship, \
+from py2neo.graph import Subgraph, TraversableSubgraph, Node, Relationship, \
     Path, traverse
 from py2neo.cypher import Record
 
@@ -31,11 +31,11 @@ bob = Node("Person")
 carol = Node("Person")
 dave = Node("Person")
 
-alice_knows_bob = PropertyRelationship(alice, "KNOWS", bob, since=1999)
-alice_likes_carol = PropertyRelationship(alice, "LIKES", carol)
-carol_dislikes_bob = PropertyRelationship(carol, "DISLIKES", bob)
-carol_married_to_dave = PropertyRelationship(carol, "MARRIED_TO", dave)
-dave_works_for_dave = PropertyRelationship(dave, "WORKS_FOR", dave)
+alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
+alice_likes_carol = Relationship(alice, "LIKES", carol)
+carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
+carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
+dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
 
 record_keys = ["employee_id", "Person"]
 record_a = Record(record_keys, [1001, alice])
@@ -504,7 +504,7 @@ class NodeTestCase(TestCase):
         assert node.labels() == {"Person", "Employee"}
 
 
-class PropertyRelationshipTestCase(TestCase):
+class RelationshipTestCase(TestCase):
 
     def test_nodes(self):
         nodes = alice_knows_bob.nodes()
@@ -548,45 +548,45 @@ class PropertyRelationshipTestCase(TestCase):
 
     def test_construction_from_no_arguments(self):
         with self.assertRaises(TypeError):
-            _ = PropertyRelationship()
+            _ = Relationship()
 
     def test_construction_from_one_argument(self):
-        rel = PropertyRelationship(alice)
+        rel = Relationship(alice)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() is None
 
     def test_construction_from_two_node_arguments(self):
-        rel = PropertyRelationship(alice, bob)
+        rel = Relationship(alice, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
 
     def test_construction_from_node_and_type_arguments(self):
-        rel = PropertyRelationship(alice, "LIKES")
+        rel = Relationship(alice, "LIKES")
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() == "LIKES"
 
     def test_construction_from_three_arguments(self):
-        rel = PropertyRelationship(alice, "KNOWS", bob)
+        rel = Relationship(alice, "KNOWS", bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
 
     def test_construction_with_explicit_none_type(self):
-        rel = PropertyRelationship(alice, None, bob)
+        rel = Relationship(alice, None, bob)
         assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
 
     def test_construction_from_subclass(self):
-        class WorksWith(PropertyRelationship):
+        class WorksWith(Relationship):
             pass
         rel = WorksWith(alice, bob)
         assert repr(rel)
@@ -596,23 +596,23 @@ class PropertyRelationshipTestCase(TestCase):
 
     def test_construction_from_more_arguments(self):
         with self.assertRaises(TypeError):
-            PropertyRelationship(alice, "KNOWS", bob, carol)
+            Relationship(alice, "KNOWS", bob, carol)
 
     def test_equality(self):
         other_rel = alice_knows_bob
         assert alice_knows_bob == other_rel
 
     def test_inequality(self):
-        other_rel = PropertyRelationship(alice, "KNOWS", bob, since=1999)
+        other_rel = Relationship(alice, "KNOWS", bob, since=1999)
         assert alice != other_rel
 
     def test_inequality_with_other_types(self):
         assert alice_knows_bob != "there is no relationship"
 
 
-class PropertyRelationshipLoopTestCase(TestCase):
+class RelationshipLoopTestCase(TestCase):
 
-    loop = PropertyRelationship(alice, "LIKES", alice)
+    loop = Relationship(alice, "LIKES", alice)
 
     def test_nodes(self):
         nodes = self.loop.nodes()
@@ -785,7 +785,7 @@ class ConcatenationTestCase(TestCase):
         assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_node_and_reversed_relationship(self):
-        bob_knows_alice = PropertyRelationship(bob, "KNOWS", alice)
+        bob_knows_alice = Relationship(bob, "KNOWS", alice)
         result = alice + bob_knows_alice
         assert result == TraversableSubgraph(alice, bob_knows_alice, bob)
 

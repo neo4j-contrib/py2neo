@@ -1037,80 +1037,7 @@ class NodeProxy(object):
     pass
 
 
-class PropertyRelationship(PropertyContainer, TraversableSubgraph):
-    """ A typed edge between two graph nodes with support for properties.
-    """
-    @classmethod
-    def default_type(cls):
-        if cls is PropertyRelationship:
-            return None
-        else:
-            return ustr(relationship_case(cls.__name__))
-
-    def __init__(self, *nodes, **properties):
-        """
-
-            >>> a = PropertyNode(name="Alice")
-            >>> b = PropertyNode(name="Bob")
-
-            >>> PropertyRelationship(a)
-            ({name:'Alice'})-[:TO]->({name:'Alice'})
-            >>> PropertyRelationship(a, b)
-            ({name:'Alice'})-[:TO]->({name:'Bob'})
-            >>> PropertyRelationship(a, "KNOWS", b)
-            ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
-
-            >>> class WorksWith(PropertyRelationship): pass
-            >>> WorksWith(a, b)
-            ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
-
-        :param nodes:
-        :param properties:
-        :return:
-        """
-        num_args = len(nodes)
-        if num_args == 0:
-            raise TypeError("Relationships must specify at least one endpoint")
-        elif num_args == 1:
-            # Relationship(a)
-            self._type = self.default_type()
-            nodes = (nodes[0], nodes[0])
-        elif num_args == 2:
-            if nodes[1] is None or isinstance(nodes[1], string):
-                # Relationship(a, "TO")
-                self._type = nodes[1]
-                nodes = (nodes[0], nodes[0])
-            else:
-                # Relationship(a, b)
-                self._type = self.default_type()
-                nodes = (nodes[0], nodes[1])
-        elif num_args == 3:
-            # Relationship(a, "TO", b)
-            self._type = nodes[1]
-            nodes = (nodes[0], nodes[2])
-        else:
-            raise TypeError("Hyperedges not supported")
-        PropertyContainer.__init__(self, **properties)
-        TraversableSubgraph.__init__(self, nodes[0], self, nodes[1])
-
-    def __eq__(self, other):
-        try:
-            return (self.nodes() == other.nodes() and other.size() == 1 and
-                    self.type() == other.type() and dict(self) == dict(other))
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.nodes()) ^ hash(self.type())
-
-    def type(self):
-        return self._type
-
-
-class Relationship(PropertyRelationship, Entity):
+class Relationship(PropertyContainer, TraversableSubgraph, Entity):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -1120,8 +1047,37 @@ class Relationship(PropertyRelationship, Entity):
         >>> bob = Node("Person", name="Bob")
         >>> alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
 
+
+
+        >>> a = PropertyNode(name="Alice")
+        >>> b = PropertyNode(name="Bob")
+
+        >>> Relationship(a)
+        ({name:'Alice'})-[:TO]->({name:'Alice'})
+        >>> Relationship(a, b)
+        ({name:'Alice'})-[:TO]->({name:'Bob'})
+        >>> Relationship(a, "KNOWS", b)
+        ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
+
+        >>> class WorksWith(Relationship): pass
+        >>> WorksWith(a, b)
+        ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
+
+    :param nodes:
+    :param properties:
+    :return:
     """
+
     cache = ThreadLocalWeakValueDictionary()
+
+    @classmethod
+    def default_type(cls):
+        if cls is Relationship:
+            return None
+        elif issubclass(cls, Relationship):
+            return ustr(relationship_case(cls.__name__))
+        else:
+            raise TypeError("Class %s is not a relationship subclass" % cls.__name__)
 
     @classmethod
     def hydrate(cls, data, inst=None):
@@ -1164,7 +1120,32 @@ class Relationship(PropertyRelationship, Entity):
             else:
                 n.append(cast_node(value))
         p.update(properties)
-        PropertyRelationship.__init__(self, *n, **p)
+
+        num_args = len(n)
+        if num_args == 0:
+            raise TypeError("Relationships must specify at least one endpoint")
+        elif num_args == 1:
+            # Relationship(a)
+            self._type = self.default_type()
+            n = (n[0], n[0])
+        elif num_args == 2:
+            if n[1] is None or isinstance(n[1], string):
+                # Relationship(a, "TO")
+                self._type = n[1]
+                n = (n[0], n[0])
+            else:
+                # Relationship(a, b)
+                self._type = self.default_type()
+                n = (n[0], n[1])
+        elif num_args == 3:
+            # Relationship(a, "TO", b)
+            self._type = n[1]
+            n = (n[0], n[2])
+        else:
+            raise TypeError("Hyperedges not supported")
+        PropertyContainer.__init__(self, **p)
+        TraversableSubgraph.__init__(self, n[0], self, n[1])
+
         self.__stale = set()
 
     def __repr__(self):
@@ -1191,11 +1172,18 @@ class Relationship(PropertyRelationship, Entity):
     def __eq__(self, other):
         if other is None:
             return False
-        other = cast_relationship(other)
-        if self.resource and other.resource:
-            return self.resource == other.resource
+        try:
+            other = cast_relationship(other)
+        except TypeError:
+            return False
         else:
-            return PropertyRelationship.__eq__(self, other)
+            if self.resource and other.resource:
+                return self.resource == other.resource
+            try:
+                return (self.nodes() == other.nodes() and other.size() == 1 and
+                        self.type() == other.type() and dict(self) == dict(other))
+            except AttributeError:
+                return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -1204,7 +1192,7 @@ class Relationship(PropertyRelationship, Entity):
         if self.resource:
             return hash(self.resource.uri)
         else:
-            return PropertyRelationship.__hash__(self)
+            return hash(self.nodes()) ^ hash(self.type())
 
     @deprecated("Relationship.exists() is deprecated, "
                 "use graph.exists(relationship) instead")
@@ -1420,9 +1408,9 @@ def cast_relationship(obj, entities=None):
             start_node, t, end_node, properties = obj
             properties = dict(get_properties(t), **properties)
         else:
-            raise TypeError("Cannot cast relationship from {0}".format(obj))
+            raise TypeError("Cannot cast relationship from %r" % obj)
     else:
-        raise TypeError("Cannot cast relationship from {0}".format(obj))
+        raise TypeError("Cannot cast relationship from %r" % obj)
 
     if entities:
         if isinstance(start_node, integer):
