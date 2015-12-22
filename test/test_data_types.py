@@ -21,8 +21,7 @@
 from unittest import TestCase
 
 from py2neo.data import PropertySet, PropertyContainer
-from py2neo.graph import Subgraph, TraversableSubgraph, Node, Relationship, \
-    Path, traverse
+from py2neo.graph import Subgraph, TraversableSubgraph, Node, Relationship, Path, traverse
 from py2neo.cypher import Record
 
 
@@ -774,7 +773,6 @@ class TraversalTestCase(TestCase):
 
 
 class ConcatenationTestCase(TestCase):
-    # TODO: concatenations with items in reverse
 
     def test_can_concatenate_node_and_node(self):
         result = alice + alice
