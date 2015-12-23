@@ -920,8 +920,8 @@ class Node(PropertyContainer, TraversableSubgraph, Entity):
         if self.resource:
             s.append("graph=%r" % self.resource.graph.uri.string)
             s.append("ref=%r" % self.resource.ref)
-        s.append("labels=%s" % "?" if "labels" in self.__stale else repr(set(self.labels())))
-        s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
+        s.append("labels=%s" % ("?" if "labels" in self.__stale else repr(set(self.labels()))))
+        s.append("properties=%s" % ("?" if "properties" in self.__stale else repr(dict(self))))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
@@ -1136,13 +1136,14 @@ class Relationship(PropertyContainer, TraversableSubgraph, Entity):
 
     def __repr__(self):
         s = ["Relationship"]
-        if self.resource:
-            s.append("graph=%r" % self.resource.graph.uri.string)
-            s.append("ref=%r" % self.resource.ref)
-            s.append("start=%r" % self.start_node().resource.ref)
-            s.append("end=%r" % self.end_node().resource.ref)
+        resource = self.resource
+        if resource:
+            s.append("graph=%r" % resource.graph.uri.string)
+            s.append("ref=%r" % resource.ref)
+            s.append("start=%r" % self.start_node())
+            s.append("end=%r" % self.end_node())
         s.append("type=%r" % self._type)
-        s.append("properties=%s" % "?" if "properties" in self.__stale else repr(dict(self)))
+        s.append("properties=%s" % ("?" if "properties" in self.__stale else repr(dict(self))))
         return "<" + " ".join(s) + ">"
 
     def __str__(self):
