@@ -22,9 +22,21 @@ The default type of such relationships is derived from the class name::
     >>> ac.type()
     'WORKS_WITH'
 
-As well as nodes and relationships, composite types :class:`.Subgraph` and :class:`.TraversableSubgraph` are also available.
-These both allow arbitrary collections of nodes and relationships to be combined into a single object.
-The latter also allows for traversal information to be stored, giving the structure a natural order.
+Collections of nodes and relationships may be contained in a :class:`.Subgraph` object.
+The simplest way to form :class:`.Subgraph` instances is by combining nodes and relationships with standard set operations.
+For example::
+
+    >>> s = ab | ac
+    >>> s
+    <Subgraph order=3 size=2>
+    >>> s.nodes()
+    frozenset({<Node labels={'Person'} properties={'name': 'Alice'}>,
+               <Node labels={'Person'} properties={'name': 'Bob'}>,
+               <Node labels={'Person'} properties={'name': 'Carol'}>})
+    >>> s.relationships()
+    frozenset({<Relationship type='WORKS_WITH' properties={}>,
+               <Relationship type='KNOWS' properties={}>})
+
 
 ===================  ===========
 Type                 Description

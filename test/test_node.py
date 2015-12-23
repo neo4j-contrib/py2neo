@@ -186,4 +186,4 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         a = Node("Person", name="Alice")
         assert str(a) == '(:Person {name:"Alice"})'
         self.graph.create(a)
-        assert str(a) == '(n%s:Person {name:"Alice"})' % a.resource._id
+        assert str(a) == '(a%d:Person {name:"Alice"})' % a.resource._id

@@ -873,15 +873,9 @@ class CypherWriter(object):
             node = nodes[i]
             self.write_node(node)
             forward = relationship.start_node() == node
-            if forward:
-                self.file.write(u"-")
-            else:
-                self.file.write(u"<-")
+            self.file.write(u"-" if forward else u"<-")
             self.write_relationship_detail(type=relationship.type(), properties=relationship)
-            if forward:
-                self.file.write(u"->")
-            else:
-                self.file.write(u"-")
+            self.file.write(u"->" if forward else u"-")
         self.write_node(nodes[-1])
 
     def write_relationship(self, relationship, name=None, properties=None):

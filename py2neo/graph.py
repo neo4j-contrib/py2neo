@@ -931,11 +931,11 @@ class Node(PropertyContainer, TraversableSubgraph, Entity):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        i = self.resource
-        if i is None:
-            writer.write_node(self)
+        resource = self.resource
+        if resource:
+            writer.write_node(self, "a%d" % resource._id)
         else:
-            writer.write_node(self, "n" + ustr(i._id))
+            writer.write_node(self)
         return s.getvalue()
 
     def __eq__(self, other):
