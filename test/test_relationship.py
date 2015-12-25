@@ -16,12 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, DBMS
+from py2neo import Graph, Node, Relationship
 from py2neo.packages.httpstream import ClientError
 from test.util import Py2neoTestCase
-
-import sys
-PY2 = sys.version_info < (3,)
 
 
 class DodgyClientError(ClientError):
