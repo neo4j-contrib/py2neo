@@ -114,7 +114,7 @@ class GraphTestCase(Py2neoTestCase):
         assert got.resource._id == node.resource._id
 
     def test_node_cache_is_thread_local(self):
-        import threading
+        from threading import Thread
         node = Node()
         self.graph.create(node)
         assert node.resource.uri in Node.cache
@@ -123,7 +123,7 @@ class GraphTestCase(Py2neoTestCase):
         def check_cache():
             other_cache_keys.extend(Node.cache.keys())
 
-        thread = threading.Thread(target=check_cache)
+        thread = Thread(target=check_cache)
         thread.start()
         thread.join()
 
