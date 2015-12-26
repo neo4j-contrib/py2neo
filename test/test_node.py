@@ -28,14 +28,6 @@ class DodgyClientError(ClientError):
 
 class NodeTestCase(Py2neoTestCase):
 
-    def test_repr(self):
-        a = Node()
-        r = repr(a)
-        assert r.startswith("<Node")
-        self.graph.create(a)
-        r = repr(a)
-        assert r.startswith("<Node")
-
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
         assert a.labels() == {"Person"}
@@ -181,9 +173,3 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         node_2._set_resource(node_1.resource.uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)
-
-    def test_node_str(self):
-        a = Node("Person", name="Alice")
-        assert str(a) == '(:Person {name:"Alice"})'
-        self.graph.create(a)
-        assert str(a) == '(a%d:Person {name:"Alice"})' % a.resource._id

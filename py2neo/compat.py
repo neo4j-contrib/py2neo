@@ -21,11 +21,13 @@ try:
 except ImportError:
     from ConfigParser import SafeConfigParser
 
+from io import StringIO
 import os
 from sys import version_info
 
 
 if version_info >= (3,):
+    ReprIO = StringIO
 
     integer = int
     string = (bytes, str)
@@ -76,11 +78,15 @@ if version_info >= (3,):
 
 else:
     import codecs
-    from io import StringIO
 
     integer = (int, long)
     string = (str, unicode)
     unicode = unicode
+
+    class ReprIO(StringIO):
+
+        def getvalue(self, *args, **kwargs):
+            return StringIO.getvalue(self, *args, **kwargs).encode("utf-8")
 
     def bstr(s, encoding="utf-8"):
         if isinstance(s, bytes):

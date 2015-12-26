@@ -49,7 +49,19 @@ from py2neo.status import CypherError, Finished
 from py2neo.util import is_collection, deprecated
 
 
+BASE62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
 log = logging.getLogger("py2neo.cypher")
+
+
+def base62(x):
+    if x == 0:
+        return "0"
+    digits = []
+    while x:
+        x, d = divmod(x, 62)
+        digits.insert(0, BASE62_DIGITS[d])
+    return "".join(digits)
 
 
 def presubstitute(statement, parameters):
@@ -786,9 +798,9 @@ class CypherWriter(object):
         elif isinstance(obj, Node):
             self.write_node(obj)
         elif isinstance(obj, Relationship):
-            self.write_relationship(obj, properties=obj)
+            self.write_relationship(obj)
         elif isinstance(obj, Path):
-            self.write_path(obj)
+            self.write_traversable_subgraph(obj)
         elif isinstance(obj, dict):
             self.write_map(obj)
         elif is_collection(obj):
@@ -845,61 +857,73 @@ class CypherWriter(object):
             link = self.sequence_separator
         self.file.write(u"}")
 
-    def write_node(self, node, name=None, properties=None):
+    def write_node(self, node, name=None, full=True):
         """ Write a node.
         """
         self.file.write(u"(")
-        if name:
-            self.write_identifier(name)
-        if node is not None:
+        if name is None:
+            resource = node.resource
+            name = ("a%d" % resource._id) if resource else ("_%s" % base62(id(node)))
+        self.write_identifier(name)
+        if full:
             for label in sorted(node.labels()):
                 self.write_literal(u":")
                 self.write_identifier(label)
-            if properties is None:
-                if node:
-                    if name or node.labels():
-                        self.file.write(u" ")
-                    self.write_map(dict(node))
-            else:
+            if node:
                 self.file.write(u" ")
-                self.write(properties)
+                self.write_map(dict(node))
         self.file.write(u")")
 
-    def write_path(self, path):
-        """ Write a :class:`py2neo.Path`.
-        """
-        nodes = path.nodes()
-        for i, relationship in enumerate(path):
-            node = nodes[i]
-            self.write_node(node)
-            forward = relationship.start_node() == node
-            self.file.write(u"-" if forward else u"<-")
-            self.write_relationship_detail(type=relationship.type(), properties=relationship)
-            self.file.write(u"->" if forward else u"-")
-        self.write_node(nodes[-1])
-
-    def write_relationship(self, relationship, name=None, properties=None):
+    def write_relationship(self, relationship, name=None):
         """ Write a relationship (including nodes).
         """
-        self.write_node(relationship.start_node())
+        self.write_node(relationship.start_node(), full=False)
         self.file.write(u"-")
-        self.write_relationship_detail(name, relationship.type(), properties)
+        self.write_relationship_detail(relationship, name)
         self.file.write(u"->")
-        self.write_node(relationship.end_node())
+        self.write_node(relationship.end_node(), full=False)
 
-    def write_relationship_detail(self, name=None, type=None, properties=None):
+    def write_relationship_detail(self, relationship, name=None):
         """ Write a relationship (excluding nodes).
         """
         self.file.write(u"[")
-        if name:
-            self.write_identifier(name)
+        if name is None:
+            resource = relationship.resource
+            name = ("r%d" % resource._id) if resource else ("_%s" % base62(id(relationship)))
+        self.write_identifier(name)
         if type:
             self.file.write(u":")
-            self.write_identifier(type)
-        if properties:
+            self.write_identifier(relationship.type())
+        if relationship:
             self.file.write(u" ")
-            self.write_map(properties)
+            self.write_map(relationship)
         self.file.write(u"]")
+
+    def write_subgraph(self, subgraph):
+        """ Write a subgraph.
+        """
+        self.write_literal("{")
+        for i, node in enumerate(subgraph.nodes()):
+            if i > 0:
+                self.write_literal(", ")
+            self.write_node(node)
+        for relationship in subgraph.relationships():
+            self.write_literal(", ")
+            self.write_relationship(relationship)
+        self.write_literal("}")
+
+    def write_traversable_subgraph(self, traversable):
+        """ Write a traversable subgraph.
+        """
+        nodes = traversable.nodes()
+        for i, relationship in enumerate(traversable):
+            node = nodes[i]
+            self.write_node(node, full=False)
+            forward = relationship.start_node() == node
+            self.file.write(u"-" if forward else u"<-")
+            self.write_relationship_detail(relationship)
+            self.file.write(u"->" if forward else u"-")
+        self.write_node(nodes[-1], full=False)
 
 
 def cypher_escape(identifier):

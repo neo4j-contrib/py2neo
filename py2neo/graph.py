@@ -21,7 +21,7 @@ from itertools import chain
 from warnings import warn
 import webbrowser
 
-from py2neo.compat import integer, string, ustr, xstr
+from py2neo.compat import integer, string, ustr, xstr, ReprIO
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
@@ -645,15 +645,6 @@ class Entity(object):
     _resource = None
     _resource_pending_tx = None
 
-    def __eq__(self, other):
-        try:
-            return self.resource and other.resource
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def _set_resource_pending(self, tx):
         self._resource_pending_tx = tx
 
@@ -685,7 +676,11 @@ class Subgraph(object):
         self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
 
     def __repr__(self):
-        return "<Subgraph order=%d size=%d>" % (self.order(), self.size())
+        from py2neo.cypher import CypherWriter
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_subgraph(self)
+        return r.getvalue()
 
     def __eq__(self, other):
         try:
@@ -789,8 +784,11 @@ class TraversableSubgraph(Subgraph):
         self._sequence = sequence
 
     def __repr__(self):
-        return "<TraversableSubgraph order=%d size=%d length=%d>" % \
-               (self.order(), self.size(), self.length())
+        from py2neo.cypher import CypherWriter
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_traversable_subgraph(self)
+        return r.getvalue()
 
     def __eq__(self, other):
         try:
@@ -916,27 +914,11 @@ class Node(PropertyContainer, TraversableSubgraph, Entity):
         self.__stale = set()
 
     def __repr__(self):
-        s = ["Node"]
-        if self.resource:
-            s.append("graph=%r" % self.resource.graph.uri.string)
-            s.append("ref=%r" % self.resource.ref)
-        s.append("labels=%s" % ("?" if "labels" in self.__stale else repr(set(self.labels()))))
-        s.append("properties=%s" % ("?" if "properties" in self.__stale else repr(dict(self))))
-        return "<" + " ".join(s) + ">"
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        s = StringIO()
-        writer = CypherWriter(s)
-        resource = self.resource
-        if resource:
-            writer.write_node(self, "a%d" % resource._id)
-        else:
-            writer.write_node(self)
-        return s.getvalue()
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_node(self)
+        return r.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1135,26 +1117,11 @@ class Relationship(PropertyContainer, TraversableSubgraph, Entity):
         self.__stale = set()
 
     def __repr__(self):
-        s = ["Relationship"]
-        resource = self.resource
-        if resource:
-            s.append("graph=%r" % resource.graph.uri.string)
-            s.append("ref=%r" % resource.ref)
-            s.append("start=%r" % self.start_node())
-            s.append("end=%r" % self.end_node())
-        s.append("type=%r" % self._type)
-        s.append("properties=%s" % ("?" if "properties" in self.__stale else repr(dict(self))))
-        return "<" + " ".join(s) + ">"
-
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
         from py2neo.cypher import CypherWriter
-        s = StringIO()
-        writer = CypherWriter(s)
-        writer.write_relationship(self, "r%s" % self.resource._id if self.resource else "", self)
-        return s.getvalue()
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_relationship(self)
+        return r.getvalue()
 
     def __eq__(self, other):
         if other is None:
@@ -1292,7 +1259,7 @@ class Path(TraversableSubgraph):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        writer.write_path(self)
+        writer.write_traversable_subgraph(self)
         return s.getvalue()
 
 

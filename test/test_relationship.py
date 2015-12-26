@@ -27,21 +27,6 @@ class DodgyClientError(ClientError):
 
 class RelationshipTestCase(Py2neoTestCase):
 
-    def test_repr(self):
-        a = Node()
-        b = Node()
-        ab = Relationship(a, "TO", b)
-        r = repr(ab)
-        assert r.startswith("<Relationship")
-
-    def test_bound_relationship_repr(self):
-        a = Node()
-        b = Node()
-        ab = Relationship(a, "TO", b)
-        self.graph.create(ab)
-        r = repr(ab)
-        assert r.startswith("<Relationship")
-
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
         assert isinstance(types, frozenset)
@@ -112,12 +97,3 @@ class RelationshipTestCase(Py2neoTestCase):
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
         assert rel.size() == 1
-
-    def test_relationship_str(self):
-        a = Node("Person", name="Alice")
-        b = Node("Person", name="Bob")
-        r = Relationship(a, "KNOWS", b)
-        assert str(r) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
-        self.graph.create(r)
-        assert str(r) == \
-            '(:Person {name:"Alice"})-[r%s:KNOWS]->(:Person {name:"Bob"})' % r.resource._id

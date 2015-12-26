@@ -111,14 +111,6 @@ class PathTestCase(Py2neoTestCase):
             Relationship(c, 'KNOWS', d),
         ]
 
-    def test_path_str(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        path = Path(alice, "KNOWS", bob)
-        assert str(path) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
-        self.graph.create(path)
-        assert str(path) == '(:Person {name:"Alice"})-[:KNOWS]->(:Person {name:"Bob"})'
-
     def test_path_equality(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")

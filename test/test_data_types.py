@@ -428,7 +428,6 @@ class NodeTestCase(TestCase):
         assert len(n) == 0
 
     def test_node(self):
-        assert repr(alice)
         assert alice.start_node() == alice
         assert alice.end_node() == alice
         assert alice.__bool__()
@@ -522,7 +521,6 @@ class RelationshipTestCase(TestCase):
         assert alice_knows_bob.size() == 1
 
     def test_relationship(self):
-        assert repr(alice_knows_bob)
         assert alice_knows_bob.start_node() == alice
         assert alice_knows_bob.end_node() == bob
         assert alice_knows_bob.length() == 1
@@ -551,35 +549,30 @@ class RelationshipTestCase(TestCase):
 
     def test_construction_from_one_argument(self):
         rel = Relationship(alice)
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() is None
 
     def test_construction_from_two_node_arguments(self):
         rel = Relationship(alice, bob)
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
 
     def test_construction_from_node_and_type_arguments(self):
         rel = Relationship(alice, "LIKES")
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
         assert rel.type() == "LIKES"
 
     def test_construction_from_three_arguments(self):
         rel = Relationship(alice, "KNOWS", bob)
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
 
     def test_construction_with_explicit_none_type(self):
         rel = Relationship(alice, None, bob)
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() is None
@@ -588,7 +581,6 @@ class RelationshipTestCase(TestCase):
         class WorksWith(Relationship):
             pass
         rel = WorksWith(alice, bob)
-        assert repr(rel)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "WORKS_WITH"
@@ -656,7 +648,6 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_0(self):
         sequence = [alice]
         path = Path(*sequence)
-        assert repr(path)
         assert path.order() == 1
         assert path.size() == 0
         assert path.length() == 0
@@ -670,7 +661,6 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_1(self):
         sequence = [alice, alice_knows_bob, bob]
         path = Path(*sequence)
-        assert repr(path)
         assert path.order() == 2
         assert path.size() == 1
         assert path.length() == 1
@@ -684,7 +674,6 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_2(self):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol]
         path = Path(*sequence)
-        assert repr(path)
         assert path.order() == 3
         assert path.size() == 2
         assert path.length() == 2
@@ -699,7 +688,6 @@ class PathTestCase(TestCase):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol,
                     alice_likes_carol, alice, alice_knows_bob, bob]
         path = Path(*sequence)
-        assert repr(path)
         assert path.order() == 3
         assert path.size() == 3
         assert path.length() == 4
@@ -713,7 +701,6 @@ class PathTestCase(TestCase):
     def test_construction_of_path_with_loop(self):
         sequence = [carol, carol_married_to_dave, dave, dave_works_for_dave, dave]
         path = Path(*sequence)
-        assert repr(path)
         assert path.order() == 2
         assert path.size() == 2
         assert path.length() == 2
