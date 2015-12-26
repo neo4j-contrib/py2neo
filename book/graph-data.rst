@@ -22,7 +22,7 @@ The default type of such relationships is derived from the class name::
     >>> ac.type()
     'WORKS_WITH'
 
-Collections of nodes and relationships may be contained in a :class:`.Subgraph` object.
+Arbitrary collections of nodes and relationships may be contained in a :class:`.Subgraph` object.
 The simplest way to form :class:`.Subgraph` instances is by combining nodes and relationships with standard set operations.
 For example::
 

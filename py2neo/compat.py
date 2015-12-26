@@ -54,7 +54,12 @@ if version_info >= (3,):
     def xstr(s, encoding="utf-8"):
         """ Convert argument to string type returned by __str__.
         """
-        return ustr(s, encoding)
+        if isinstance(s, str):
+            return s
+        elif isinstance(s, bytes):
+            return s.decode(encoding)
+        else:
+            return str(s)
 
     class PropertiesParser(SafeConfigParser):
 
