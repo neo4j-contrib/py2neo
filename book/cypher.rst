@@ -54,12 +54,6 @@ Records
 .. autoclass:: py2neo.cypher.Cursor
    :members:
 
-.. autoclass:: py2neo.cypher.RecordStream
-   :members:
-
-.. autoclass:: py2neo.cypher.RecordProducer
-   :members:
-
 
 
 Builders
@@ -76,154 +70,154 @@ Builders
 Exceptions
 ==========
 
-.. autoexception:: py2neo.cypher.CypherError
+.. autoexception:: py2neo.status.CypherError
    :members:
 
 
 Client Errors
 -------------
 
-.. autoexception:: py2neo.cypher.ClientError
+.. autoexception:: py2neo.status.ClientError
    :members:
 
-.. autoexception:: py2neo.cypher.error.request.Invalid
+.. autoexception:: py2neo.status.request.Invalid
    :members:
 
-.. autoexception:: py2neo.cypher.error.request.InvalidFormat
+.. autoexception:: py2neo.status.request.InvalidFormat
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.ConstraintAlreadyExists
+.. autoexception:: py2neo.status.schema.ConstraintAlreadyExists
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.ConstraintVerificationFailure
+.. autoexception:: py2neo.status.schema.ConstraintVerificationFailure
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.ConstraintViolation
+.. autoexception:: py2neo.status.schema.ConstraintViolation
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.IllegalTokenName
+.. autoexception:: py2neo.status.schema.IllegalTokenName
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.IndexAlreadyExists
+.. autoexception:: py2neo.status.schema.IndexAlreadyExists
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.IndexBelongsToConstraint
+.. autoexception:: py2neo.status.schema.IndexBelongsToConstraint
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.LabelLimitReached
+.. autoexception:: py2neo.status.schema.LabelLimitReached
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchConstraint
+.. autoexception:: py2neo.status.schema.NoSuchConstraint
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchIndex
+.. autoexception:: py2neo.status.schema.NoSuchIndex
    :members:
 
-.. autoexception:: py2neo.cypher.error.statement.ArithmeticError
+.. autoexception:: py2neo.status.statement.ArithmeticError
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.ConstraintViolation
+.. autoexception:: py2neo.status.statement.ConstraintViolation
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.EntityNotFound
+.. autoexception:: py2neo.status.statement.EntityNotFound
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.InvalidArguments
+.. autoexception:: py2neo.status.statement.InvalidArguments
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.InvalidSemantics
+.. autoexception:: py2neo.status.statement.InvalidSemantics
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.InvalidSyntax
+.. autoexception:: py2neo.status.statement.InvalidSyntax
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.InvalidType
+.. autoexception:: py2neo.status.statement.InvalidType
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.NoSuchLabel
+.. autoexception:: py2neo.status.statement.NoSuchLabel
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.NoSuchProperty
+.. autoexception:: py2neo.status.statement.NoSuchProperty
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.ParameterMissing
+.. autoexception:: py2neo.status.statement.ParameterMissing
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.ConcurrentRequest
+.. autoexception:: py2neo.status.transaction.ConcurrentRequest
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.EventHandlerThrewException
+.. autoexception:: py2neo.status.transaction.EventHandlerThrewException
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.InvalidType
+.. autoexception:: py2neo.status.transaction.InvalidType
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.UnknownId
+.. autoexception:: py2neo.status.transaction.UnknownId
     :members:
 
 
 Database Errors
 ---------------
 
-.. autoexception:: py2neo.cypher.DatabaseError
+.. autoexception:: py2neo.status.DatabaseError
    :members:
 
-.. autoexception:: py2neo.cypher.error.schema.ConstraintCreationFailure
+.. autoexception:: py2neo.status.schema.ConstraintCreationFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.ConstraintDropFailure
+.. autoexception:: py2neo.status.schema.ConstraintDropFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.IndexCreationFailure
+.. autoexception:: py2neo.status.schema.IndexCreationFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.IndexDropFailure
+.. autoexception:: py2neo.status.schema.IndexDropFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchLabel
+.. autoexception:: py2neo.status.schema.NoSuchLabel
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchPropertyKey
+.. autoexception:: py2neo.status.schema.NoSuchPropertyKey
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchRelationshipType
+.. autoexception:: py2neo.status.schema.NoSuchRelationshipType
     :members:
 
-.. autoexception:: py2neo.cypher.error.schema.NoSuchSchemaRule
+.. autoexception:: py2neo.status.schema.NoSuchSchemaRule
     :members:
 
-.. autoexception:: py2neo.cypher.error.statement.ExecutionFailure
+.. autoexception:: py2neo.status.statement.ExecutionFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.CouldNotBegin
+.. autoexception:: py2neo.status.transaction.CouldNotBegin
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.CouldNotCommit
+.. autoexception:: py2neo.status.transaction.CouldNotCommit
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.CouldNotRollback
+.. autoexception:: py2neo.status.transaction.CouldNotRollback
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.ReleaseLocksFailed
+.. autoexception:: py2neo.status.transaction.ReleaseLocksFailed
     :members:
 
 
 Transient Errors
 ----------------
 
-.. autoexception:: py2neo.cypher.TransientError
+.. autoexception:: py2neo.status.TransientError
    :members:
 
-.. autoexception:: py2neo.cypher.error.network.UnknownFailure
+.. autoexception:: py2neo.status.network.UnknownFailure
    :members:
 
-.. autoexception:: py2neo.cypher.error.statement.ExternalResourceFailure
+.. autoexception:: py2neo.status.statement.ExternalResourceFailure
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.AcquireLockTimeout
+.. autoexception:: py2neo.status.transaction.AcquireLockTimeout
     :members:
 
-.. autoexception:: py2neo.cypher.error.transaction.DeadlockDetected
+.. autoexception:: py2neo.status.transaction.DeadlockDetected
     :members:
 
 

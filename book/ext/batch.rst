@@ -19,93 +19,87 @@ use Cypher transactions instead when working with these.
 Batch Resource
 ==============
 
-.. autoclass:: py2neo.batch.BatchRunner
+.. autoclass:: py2neo.ext.batch.BatchRunner
    :members:
 
 
 Batch Instances
 ===============
 
-.. autoclass:: py2neo.batch.Batch
-   :members:
-
-.. autoclass:: py2neo.batch.PullBatch
-   :members:
-
-.. autoclass:: py2neo.batch.PushBatch
+.. autoclass:: py2neo.ext.batch.Batch
    :members:
 
 
 Jobs
 ====
 
-.. autoclass:: py2neo.batch.Job
+.. autoclass:: py2neo.ext.batch.Job
    :members:
 
-.. autoclass:: py2neo.batch.JobResult
+.. autoclass:: py2neo.ext.batch.JobResult
    :members:
 
-.. autoclass:: py2neo.batch.Target
+.. autoclass:: py2neo.ext.batch.Target
    :members:
 
-.. autoclass:: py2neo.NodePointer
+.. autoclass:: py2neo.ext.batch.NodePointer
    :members:
 
 
 Job Types
 ---------
 
-.. autoclass:: py2neo.batch.AddNodeLabelsJob
+.. autoclass:: py2neo.ext.batch.AddNodeLabelsJob
    :members:
 
-.. autoclass:: py2neo.batch.CreateNodeJob
+.. autoclass:: py2neo.ext.batch.CreateNodeJob
    :members:
 
-.. autoclass:: py2neo.batch.CreatePathJob
+.. autoclass:: py2neo.ext.batch.CreatePathJob
    :members:
 
-.. autoclass:: py2neo.batch.CreateRelationshipJob
+.. autoclass:: py2neo.ext.batch.CreateRelationshipJob
    :members:
 
-.. autoclass:: py2neo.batch.CreateUniquePathJob
+.. autoclass:: py2neo.ext.batch.CreateUniquePathJob
    :members:
 
-.. autoclass:: py2neo.batch.CypherJob
+.. autoclass:: py2neo.ext.batch.CypherJob
    :members:
 
-.. autoclass:: py2neo.batch.DeleteEntityJob
+.. autoclass:: py2neo.ext.batch.DeleteEntityJob
    :members:
 
-.. autoclass:: py2neo.batch.DeletePropertiesJob
+.. autoclass:: py2neo.ext.batch.DeletePropertiesJob
    :members:
 
-.. autoclass:: py2neo.batch.DeletePropertyJob
+.. autoclass:: py2neo.ext.batch.DeletePropertyJob
    :members:
 
-.. autoclass:: py2neo.batch.PullNodeLabelsJob
+.. autoclass:: py2neo.ext.batch.PullNodeLabelsJob
    :members:
 
-.. autoclass:: py2neo.batch.PullPropertiesJob
+.. autoclass:: py2neo.ext.batch.PullPropertiesJob
    :members:
 
-.. autoclass:: py2neo.batch.PullRelationshipJob
+.. autoclass:: py2neo.ext.batch.PullRelationshipJob
    :members:
 
-.. autoclass:: py2neo.batch.PushNodeLabelsJob
+.. autoclass:: py2neo.ext.batch.PushNodeLabelsJob
    :members:
 
-.. autoclass:: py2neo.batch.PushPropertiesJob
+.. autoclass:: py2neo.ext.batch.PushPropertiesJob
    :members:
 
-.. autoclass:: py2neo.batch.PushPropertyJob
+.. autoclass:: py2neo.ext.batch.PushPropertyJob
    :members:
 
-.. autoclass:: py2neo.batch.RemoveNodeLabelJob
+.. autoclass:: py2neo.ext.batch.RemoveNodeLabelJob
    :members:
 
 
 Exceptions
 ==========
 
-.. autoclass:: py2neo.batch.BatchError
+.. autoclass:: py2neo.ext.batch.BatchError
    :members:

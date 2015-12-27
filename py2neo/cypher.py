@@ -477,10 +477,6 @@ class Transaction(object):
         return self._finished
 
 
-class CursorError(Exception):
-    pass
-
-
 class Cursor(object):
     """ A navigable reader for the stream of records made available from running
     a Cypher statement.
