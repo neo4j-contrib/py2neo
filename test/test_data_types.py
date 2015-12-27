@@ -21,7 +21,7 @@
 from unittest import TestCase
 
 from py2neo.data import PropertySet, PropertyContainer
-from py2neo.graph import Subgraph, TraversableSubgraph, Node, Relationship, Path, traverse
+from py2neo.graph import Subgraph, Walkable, Node, Relationship, Path, walk
 from py2neo.cypher import Record
 
 
@@ -308,99 +308,99 @@ class SubgraphTestCase(TestCase):
         assert self.subgraph.keys() == {"name", "age", "since"}
 
 
-class TraversableSubgraphTestCase(TestCase):
+class WalkableTestCase(TestCase):
 
     sequence = (alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
-    subgraph = TraversableSubgraph(*sequence)
+    walkable = Walkable(*sequence)
 
     def test_nodes(self):
-        nodes = self.subgraph.nodes()
+        nodes = self.walkable.nodes()
         assert isinstance(nodes, tuple)
         assert nodes == (alice, bob, carol)
 
     def test_relationships(self):
-        relationships = self.subgraph.relationships()
+        relationships = self.walkable.relationships()
         assert isinstance(relationships, tuple)
         assert relationships == (alice_knows_bob, carol_dislikes_bob)
 
     def test_order(self):
-        assert self.subgraph.order() == 3
+        assert self.walkable.order() == 3
 
     def test_size(self):
-        assert self.subgraph.size() == 2
+        assert self.walkable.size() == 2
 
     def test_equality(self):
-        other_subgraph = TraversableSubgraph(*self.sequence)
-        assert self.subgraph == other_subgraph
-        assert hash(self.subgraph) == hash(other_subgraph)
+        other_subgraph = Walkable(*self.sequence)
+        assert self.walkable == other_subgraph
+        assert hash(self.walkable) == hash(other_subgraph)
 
     def test_inequality(self):
-        other_subgraph = TraversableSubgraph(alice, alice_likes_carol, carol,
-                                             carol_dislikes_bob, bob)
-        assert self.subgraph != other_subgraph
-        assert hash(self.subgraph) != hash(other_subgraph)
+        other_subgraph = Walkable(alice, alice_likes_carol, carol,
+                                  carol_dislikes_bob, bob)
+        assert self.walkable != other_subgraph
+        assert hash(self.walkable) != hash(other_subgraph)
 
     def test_inequality_with_other_types(self):
-        assert self.subgraph != "this is not a graph"
+        assert self.walkable != "this is not a graph"
 
     def test_iteration(self):
-        assert tuple(iter(self.subgraph)) == (alice_knows_bob, carol_dislikes_bob)
+        assert tuple(iter(self.walkable)) == (alice_knows_bob, carol_dislikes_bob)
 
     def test_slicing(self):
         sequence = (alice, alice_knows_bob, bob, carol_dislikes_bob, carol,
                     carol_married_to_dave, dave, dave_works_for_dave, dave)
-        subgraph = TraversableSubgraph(*sequence)
+        subgraph = Walkable(*sequence)
         assert subgraph[0] == alice_knows_bob
         assert subgraph[1] == carol_dislikes_bob
         assert subgraph[2] == carol_married_to_dave
         assert subgraph[3] == dave_works_for_dave
-        assert subgraph[0:0] == TraversableSubgraph(alice)
-        assert subgraph[0:1] == TraversableSubgraph(alice, alice_knows_bob, bob)
-        assert subgraph[0:2] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                    carol_dislikes_bob, carol)
-        assert subgraph[0:3] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                    carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave)
-        assert subgraph[0:4] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                    carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[0:5] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                    carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[0:] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                   carol_dislikes_bob, carol,
-                                                   carol_married_to_dave, dave,
-                                                   dave_works_for_dave, dave)
-        assert subgraph[:1] == TraversableSubgraph(alice, alice_knows_bob, bob)
-        assert subgraph[1:1] == TraversableSubgraph(bob)
-        assert subgraph[1:2] == TraversableSubgraph(bob, carol_dislikes_bob, carol)
-        assert subgraph[1:3] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave)
-        assert subgraph[1:4] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[1:5] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                    carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[1:] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                   carol_married_to_dave, dave,
-                                                   dave_works_for_dave, dave)
-        assert subgraph[:2] == TraversableSubgraph(alice, alice_knows_bob, bob,
-                                                   carol_dislikes_bob, carol)
-        assert subgraph[2:2] == TraversableSubgraph(carol)
-        assert subgraph[2:3] == TraversableSubgraph(carol, carol_married_to_dave, dave)
-        assert subgraph[2:4] == TraversableSubgraph(carol, carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[2:5] == TraversableSubgraph(carol, carol_married_to_dave, dave,
-                                                    dave_works_for_dave, dave)
-        assert subgraph[2:] == TraversableSubgraph(carol, carol_married_to_dave, dave,
-                                                   dave_works_for_dave, dave)
-        assert subgraph[1:-1] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                     carol_married_to_dave, dave)
-        assert subgraph[-3:-1] == TraversableSubgraph(bob, carol_dislikes_bob, carol,
-                                                      carol_married_to_dave, dave)
+        assert subgraph[0:0] == Walkable(alice)
+        assert subgraph[0:1] == Walkable(alice, alice_knows_bob, bob)
+        assert subgraph[0:2] == Walkable(alice, alice_knows_bob, bob,
+                                         carol_dislikes_bob, carol)
+        assert subgraph[0:3] == Walkable(alice, alice_knows_bob, bob,
+                                         carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave)
+        assert subgraph[0:4] == Walkable(alice, alice_knows_bob, bob,
+                                         carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[0:5] == Walkable(alice, alice_knows_bob, bob,
+                                         carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[0:] == Walkable(alice, alice_knows_bob, bob,
+                                        carol_dislikes_bob, carol,
+                                        carol_married_to_dave, dave,
+                                        dave_works_for_dave, dave)
+        assert subgraph[:1] == Walkable(alice, alice_knows_bob, bob)
+        assert subgraph[1:1] == Walkable(bob)
+        assert subgraph[1:2] == Walkable(bob, carol_dislikes_bob, carol)
+        assert subgraph[1:3] == Walkable(bob, carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave)
+        assert subgraph[1:4] == Walkable(bob, carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[1:5] == Walkable(bob, carol_dislikes_bob, carol,
+                                         carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[1:] == Walkable(bob, carol_dislikes_bob, carol,
+                                        carol_married_to_dave, dave,
+                                        dave_works_for_dave, dave)
+        assert subgraph[:2] == Walkable(alice, alice_knows_bob, bob,
+                                        carol_dislikes_bob, carol)
+        assert subgraph[2:2] == Walkable(carol)
+        assert subgraph[2:3] == Walkable(carol, carol_married_to_dave, dave)
+        assert subgraph[2:4] == Walkable(carol, carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[2:5] == Walkable(carol, carol_married_to_dave, dave,
+                                         dave_works_for_dave, dave)
+        assert subgraph[2:] == Walkable(carol, carol_married_to_dave, dave,
+                                        dave_works_for_dave, dave)
+        assert subgraph[1:-1] == Walkable(bob, carol_dislikes_bob, carol,
+                                          carol_married_to_dave, dave)
+        assert subgraph[-3:-1] == Walkable(bob, carol_dislikes_bob, carol,
+                                           carol_married_to_dave, dave)
 
 
 class NodeTestCase(TestCase):
@@ -434,7 +434,7 @@ class NodeTestCase(TestCase):
         assert alice.__nonzero__()
         assert len(alice) == 2
         assert alice.length() == 0
-        assert list(alice.traverse()) == [alice]
+        assert list(alice.walk()) == [alice]
         assert alice.labels() == {"Person", "Employee"}
         assert dict(alice) == {"name": "Alice", "age": 33}
         assert dict(alice)["name"] == "Alice"
@@ -524,7 +524,7 @@ class RelationshipTestCase(TestCase):
         assert alice_knows_bob.start_node() == alice
         assert alice_knows_bob.end_node() == bob
         assert alice_knows_bob.length() == 1
-        assert list(alice_knows_bob.traverse()) == [alice, alice_knows_bob, bob]
+        assert list(alice_knows_bob.walk()) == [alice, alice_knows_bob, bob]
         assert alice_knows_bob.type() == "KNOWS"
         assert dict(alice_knows_bob) == {"since": 1999}
         assert alice_knows_bob["since"] == 1999
@@ -537,7 +537,7 @@ class RelationshipTestCase(TestCase):
         assert dave_works_for_dave.start_node() == dave
         assert dave_works_for_dave.end_node() == dave
         assert dave_works_for_dave.length() == 1
-        assert list(dave_works_for_dave.traverse()) == [dave, dave_works_for_dave, dave]
+        assert list(dave_works_for_dave.walk()) == [dave, dave_works_for_dave, dave]
         assert dave_works_for_dave.order() == 1
         assert dave_works_for_dave.size() == 1
         assert set(dave_works_for_dave.nodes()) == {dave}
@@ -656,7 +656,7 @@ class PathTestCase(TestCase):
         assert path.start_node() == alice
         assert path.end_node() == alice
         assert path.length() == 0
-        assert list(path.traverse()) == sequence
+        assert list(path.walk()) == sequence
 
     def test_construction_of_path_length_1(self):
         sequence = [alice, alice_knows_bob, bob]
@@ -669,7 +669,7 @@ class PathTestCase(TestCase):
         assert path.start_node() == alice
         assert path.end_node() == bob
         assert path.length() == 1
-        assert list(path.traverse()) == sequence
+        assert list(path.walk()) == sequence
 
     def test_construction_of_path_length_2(self):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol]
@@ -682,7 +682,7 @@ class PathTestCase(TestCase):
         assert path.start_node() == alice
         assert path.end_node() == carol
         assert path.length() == 2
-        assert list(path.traverse()) == sequence
+        assert list(path.walk()) == sequence
 
     def test_construction_of_path_with_revisits(self):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol,
@@ -696,7 +696,7 @@ class PathTestCase(TestCase):
         assert path.start_node() == alice
         assert path.end_node() == bob
         assert path.length() == 4
-        assert list(path.traverse()) == sequence
+        assert list(path.walk()) == sequence
 
     def test_construction_of_path_with_loop(self):
         sequence = [carol, carol_married_to_dave, dave, dave_works_for_dave, dave]
@@ -709,7 +709,7 @@ class PathTestCase(TestCase):
         assert path.start_node() == carol
         assert path.end_node() == dave
         assert path.length() == 2
-        assert list(path.traverse()) == sequence
+        assert list(path.walk()) == sequence
 
     def test_path_indexing(self):
         sequence = [alice_knows_bob, carol_dislikes_bob, carol_married_to_dave]
@@ -724,89 +724,89 @@ class PathTestCase(TestCase):
             _ = path[3]
 
 
-class TraversalTestCase(TestCase):
+class WalkTestCase(TestCase):
 
-    def test_can_traverse_nothing(self):
-        result = list(traverse())
+    def test_can_walk_nothing(self):
+        result = list(walk())
         assert result == []
 
-    def test_can_traverse_node(self):
-        result = list(traverse(alice))
+    def test_can_walk_node(self):
+        result = list(walk(alice))
         assert result == [alice]
 
-    def test_can_traverse_node_twice(self):
-        result = list(traverse(alice, alice))
+    def test_can_walk_node_twice(self):
+        result = list(walk(alice, alice))
         assert result == [alice]
 
-    def test_can_traverse_node_and_relationship(self):
-        result = list(traverse(alice, alice_knows_bob))
+    def test_can_walk_node_and_relationship(self):
+        result = list(walk(alice, alice_knows_bob))
         assert result == [alice, alice_knows_bob, bob]
 
-    def test_can_traverse_node_relationship_and_node(self):
-        result = list(traverse(alice, alice_knows_bob, bob))
+    def test_can_walk_node_relationship_and_node(self):
+        result = list(walk(alice, alice_knows_bob, bob))
         assert result == [alice, alice_knows_bob, bob]
 
-    def test_can_traverse_node_relationship_and_node_in_reverse(self):
-        result = list(traverse(bob, alice_knows_bob, alice))
+    def test_can_walk_node_relationship_and_node_in_reverse(self):
+        result = list(walk(bob, alice_knows_bob, alice))
         assert result == [bob, alice_knows_bob, alice]
 
-    def test_cannot_traverse_non_traversable_as_first_argument(self):
+    def test_cannot_walk_non_walkable_as_first_argument(self):
         with self.assertRaises(TypeError):
-            list(traverse(object()))
+            list(walk(object()))
 
-    def test_cannot_traverse_non_traversable_as_second_argument(self):
+    def test_cannot_walk_non_walkable_as_second_argument(self):
         with self.assertRaises(TypeError):
-            list(traverse(alice, object()))
+            list(walk(alice, object()))
 
 
 class ConcatenationTestCase(TestCase):
 
     def test_can_concatenate_node_and_node(self):
         result = alice + alice
-        assert result == TraversableSubgraph(alice)
+        assert result == Walkable(alice)
 
     def test_can_concatenate_node_and_relationship(self):
         result = alice + alice_knows_bob
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
+        assert result == Walkable(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_node_and_reversed_relationship(self):
         bob_knows_alice = Relationship(bob, "KNOWS", alice)
         result = alice + bob_knows_alice
-        assert result == TraversableSubgraph(alice, bob_knows_alice, bob)
+        assert result == Walkable(alice, bob_knows_alice, bob)
 
     def test_can_concatenate_node_and_path(self):
-        path = TraversableSubgraph(alice, alice_knows_bob, bob)
+        path = Walkable(alice, alice_knows_bob, bob)
         result = alice + path
         assert result == path
 
     def test_can_concatenate_node_and_reversed_path(self):
-        result = alice + TraversableSubgraph(bob, alice_knows_bob, alice)
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
+        result = alice + Walkable(bob, alice_knows_bob, alice)
+        assert result == Walkable(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_relationship_and_node(self):
         result = alice_knows_bob + bob
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
+        assert result == Walkable(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_relationship_and_relationship(self):
         result = alice_knows_bob + carol_dislikes_bob
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
+        assert result == Walkable(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_can_concatenate_relationship_and_path(self):
-        result = alice_knows_bob + TraversableSubgraph(bob, carol_dislikes_bob, carol)
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
+        result = alice_knows_bob + Walkable(bob, carol_dislikes_bob, carol)
+        assert result == Walkable(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_can_concatenate_path_and_node(self):
-        result = TraversableSubgraph(alice, alice_knows_bob, bob) + bob
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob)
+        result = Walkable(alice, alice_knows_bob, bob) + bob
+        assert result == Walkable(alice, alice_knows_bob, bob)
 
     def test_can_concatenate_path_and_relationship(self):
-        result = TraversableSubgraph(alice, alice_knows_bob, bob) + carol_dislikes_bob
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
+        result = Walkable(alice, alice_knows_bob, bob) + carol_dislikes_bob
+        assert result == Walkable(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_can_concatenate_path_and_path(self):
-        result = (TraversableSubgraph(alice, alice_knows_bob, bob) +
-                  TraversableSubgraph(bob, carol_dislikes_bob, carol))
-        assert result == TraversableSubgraph(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
+        result = (Walkable(alice, alice_knows_bob, bob) +
+                  Walkable(bob, carol_dislikes_bob, carol))
+        assert result == Walkable(alice, alice_knows_bob, bob, carol_dislikes_bob, carol)
 
     def test_cannot_concatenate_different_endpoints(self):
         with self.assertRaises(ValueError):

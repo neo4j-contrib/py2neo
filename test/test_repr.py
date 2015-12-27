@@ -19,7 +19,7 @@
 import re
 
 from py2neo.cypher import base62
-from py2neo.graph import Node, Relationship, Subgraph, TraversableSubgraph
+from py2neo.graph import Node, Relationship, Subgraph, Walkable
 from test.util import Py2neoTestCase
 
 
@@ -57,7 +57,7 @@ class ReprTestCase(Py2neoTestCase):
             else:
                 assert re.match(r'\(.*\)-\[_[0-9A-Za-z]+:(TO|FROM)\]->\(.*\)', repr(ab))
 
-    def test_traversable_subgraph_repr(self):
+    def test_walkable_repr(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         c = Node("Person", name="Carol")
@@ -65,7 +65,7 @@ class ReprTestCase(Py2neoTestCase):
         ab = Relationship(a, "LOVES", b)
         cb = Relationship(c, "HATES", b)
         cd = Relationship(c, "KNOWS", d)
-        t = TraversableSubgraph(a, ab, b, cb, c, cd, d)
+        t = Walkable(a, ab, b, cb, c, cd, d)
         r = repr(t)
         expected = "(_%s)-[_%s:LOVES]->(_%s)<-[_%s:HATES]-(_%s)-[_%s:KNOWS]->" \
                    "(_%s)" % (base62(id(a)), base62(id(t[0])),

@@ -28,14 +28,18 @@ For example::
 
     >>> s = ab | ac
     >>> s
-    <Subgraph order=3 size=2>
+    {(_dq3ITO64:Person {name:"Carol"}),
+     (_dq3ITNw8:Person {name:"Alice"}),
+     (_dq3ITNzk:Person {name:"Bob"}),
+     (_dq3ITNw8)-[_dq3ITO2S:KNOWS]->(_dq3ITNzk),
+     (_dq3ITNw8)-[_dq3ITO7s:WORKS_WITH]->(_dq3ITO64)}
     >>> s.nodes()
-    frozenset({<Node labels={'Person'} properties={'name': 'Alice'}>,
-               <Node labels={'Person'} properties={'name': 'Bob'}>,
-               <Node labels={'Person'} properties={'name': 'Carol'}>})
+    frozenset({(_dq3ITO64:Person {name:"Carol"}),
+               (_dq3ITNw8:Person {name:"Alice"}),
+               (_dq3ITNzk:Person {name:"Bob"})})
     >>> s.relationships()
-    frozenset({<Relationship type='WORKS_WITH' properties={}>,
-               <Relationship type='KNOWS' properties={}>})
+    frozenset({(_dq3ITNw8)-[_dq3ITO2S:KNOWS]->(_dq3ITNzk),
+               (_dq3ITNw8)-[_dq3ITO7s:WORKS_WITH]->(_dq3ITO64)})
 
 
 ===================  ===========
@@ -44,7 +48,7 @@ Type                 Description
 Node                 A fundamental unit of data storage within a property graph that may optionally be connected, via relationships, to other nodes.
 Relationship
 Subgraph
-TraversableSubgraph
+Walkable
 ===================  ===========
 
 The simplest way to form :class:`.Subgraph` instances is by combining nodes and relationships with set operations::
@@ -71,7 +75,7 @@ difference            ``s1 - s2``
 symmetric difference  ``s1 ^ s2``
 ====================  ===========  ===========
 
-Likewise, :class:`.TraversableSubgraph` instances can be formed by concatenating nodes and relationships::
+Likewise, :class:`.Walkable` instances can be formed by concatenating nodes and relationships::
 
     >>> t = ab + ac
 
@@ -97,7 +101,7 @@ API
    :show-inheritance:
    :members:
 
-.. autoclass:: py2neo.graph.TraversableSubgraph
+.. autoclass:: py2neo.graph.Walkable
    :show-inheritance:
    :members:
 

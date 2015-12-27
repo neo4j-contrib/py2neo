@@ -42,7 +42,7 @@ from io import StringIO
 from sys import stdout
 
 from py2neo.compat import integer, string, ustr
-from py2neo.graph import Node, Relationship, Path, Subgraph, TraversableSubgraph, Entity
+from py2neo.graph import Node, Relationship, Path, Subgraph, Walkable, Entity
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
 from py2neo.status import CypherError, Finished
@@ -385,8 +385,8 @@ class Transaction(object):
         result.cache.update(returns)
 
     def create_unique(self, t):
-        if not isinstance(t, TraversableSubgraph):
-            raise ValueError("Object %r is not traversable" % t)
+        if not isinstance(t, Walkable):
+            raise ValueError("Object %r is not walkable" % t)
         if not any(node.resource for node in t.nodes()):
             raise ValueError("At least one node must be bound")
         matches = []
@@ -395,7 +395,7 @@ class Transaction(object):
         parameters = {}
         returns = {}
         node = None
-        for i, entity in enumerate(t.traverse()):
+        for i, entity in enumerate(t.walk()):
             if i % 2 == 0:
                 # node
                 node_id = "a%d" % i
@@ -800,7 +800,7 @@ class CypherWriter(object):
         elif isinstance(obj, Relationship):
             self.write_relationship(obj)
         elif isinstance(obj, Path):
-            self.write_traversable_subgraph(obj)
+            self.write_walkable(obj)
         elif isinstance(obj, dict):
             self.write_map(obj)
         elif is_collection(obj):
@@ -912,11 +912,11 @@ class CypherWriter(object):
             self.write_relationship(relationship)
         self.write_literal("}")
 
-    def write_traversable_subgraph(self, traversable):
-        """ Write a traversable subgraph.
+    def write_walkable(self, walkable):
+        """ Write a walkable.
         """
-        nodes = traversable.nodes()
-        for i, relationship in enumerate(traversable):
+        nodes = walkable.nodes()
+        for i, relationship in enumerate(walkable):
             node = nodes[i]
             self.write_node(node, full=False)
             forward = relationship.start_node() == node
@@ -935,10 +935,10 @@ def cypher_escape(identifier):
         '`this is a ``label```'
 
     """
-    string = StringIO()
-    writer = CypherWriter(string)
+    s = StringIO()
+    writer = CypherWriter(s)
     writer.write_identifier(identifier)
-    return string.getvalue()
+    return s.getvalue()
 
 
 def cypher_repr(obj):

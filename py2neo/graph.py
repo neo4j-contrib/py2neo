@@ -772,8 +772,8 @@ class Subgraph(object):
                 frozenset(chain(*(rel.keys() for rel in self._relationships))))
 
 
-class TraversableSubgraph(Subgraph):
-    """ A graph with traversal information.
+class Walkable(Subgraph):
+    """ A subgraph with added traversal information.
     """
 
     def __init__(self, head, *tail):
@@ -787,16 +787,16 @@ class TraversableSubgraph(Subgraph):
         from py2neo.cypher import CypherWriter
         r = ReprIO()
         writer = CypherWriter(r)
-        writer.write_traversable_subgraph(self)
+        writer.write_walkable(self)
         return r.getvalue()
 
     def __eq__(self, other):
         try:
-            other_traversal = tuple(other.traverse())
+            other_walk = tuple(other.walk())
         except AttributeError:
             return False
         else:
-            return tuple(self.traverse()) == other_traversal
+            return tuple(self.walk()) == other_walk
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -821,7 +821,7 @@ class TraversableSubgraph(Subgraph):
                 if stop < 0:
                     stop += len(self)
                 stop = 2 * stop + 1
-            return TraversableSubgraph(*self._sequence[start:stop])
+            return Walkable(*self._sequence[start:stop])
         elif index < 0:
             return self._sequence[2 * index]
         else:
@@ -834,7 +834,7 @@ class TraversableSubgraph(Subgraph):
     def __add__(self, other):
         if other is None:
             return self
-        return TraversableSubgraph(*traverse(self, other))
+        return Walkable(*walk(self, other))
 
     def start_node(self):
         """ The first node in a traversal of this subgraph.
@@ -847,11 +847,11 @@ class TraversableSubgraph(Subgraph):
         return self._node_sequence[-1]
 
     def length(self):
-        """ The total number of relationships traversed.
+        """ The total number of relationships walkd.
         """
         return len(self._relationship_sequence)
 
-    def traverse(self):
+    def walk(self):
         """ Traverse all nodes and relationships in order.
         """
         return iter(self._sequence)
@@ -867,7 +867,7 @@ class TraversableSubgraph(Subgraph):
         return self._relationship_sequence
 
 
-class Node(PropertyContainer, TraversableSubgraph, Entity):
+class Node(PropertyContainer, Walkable, Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.
@@ -910,7 +910,7 @@ class Node(PropertyContainer, TraversableSubgraph, Entity):
     def __init__(self, *labels, **properties):
         self._labels = set(labels)
         PropertyContainer.__init__(self, **properties)
-        TraversableSubgraph.__init__(self, self)
+        Walkable.__init__(self, self)
         self.__stale = set()
 
     def __repr__(self):
@@ -1005,7 +1005,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(PropertyContainer, TraversableSubgraph, Entity):
+class Relationship(PropertyContainer, Walkable, Entity):
     """ A graph relationship that may optionally be bound to a remote counterpart
     in a Neo4j database. Relationships require a triple of start node, relationship
     type and end node and may also optionally be given one or more properties::
@@ -1112,7 +1112,7 @@ class Relationship(PropertyContainer, TraversableSubgraph, Entity):
         else:
             raise TypeError("Hyperedges not supported")
         PropertyContainer.__init__(self, **p)
-        TraversableSubgraph.__init__(self, n[0], self, n[1])
+        Walkable.__init__(self, n[0], self, n[1])
 
         self.__stale = set()
 
@@ -1186,7 +1186,7 @@ class Relationship(PropertyContainer, TraversableSubgraph, Entity):
         Entity._del_resource(self)
 
 
-class Path(TraversableSubgraph):
+class Path(Walkable):
     """ A sequence of nodes connected by relationships that may
     optionally be bound to remote counterparts in a Neo4j database.
 
@@ -1250,7 +1250,7 @@ class Path(TraversableSubgraph):
                 elif isinstance(entity, tuple) and len(entity) == 2:
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
-        TraversableSubgraph.__init__(self, *tuple(traverse(*entities)))
+        Walkable.__init__(self, *tuple(walk(*entities)))
 
     def __str__(self):
         return xstr(self.__unicode__())
@@ -1259,34 +1259,34 @@ class Path(TraversableSubgraph):
         from py2neo.cypher import CypherWriter
         s = StringIO()
         writer = CypherWriter(s)
-        writer.write_traversable_subgraph(self)
+        writer.write_walkable(self)
         return s.getvalue()
 
 
-def traverse(*traversables):
-    if not traversables:
+def walk(*walkables):
+    if not walkables:
         return
-    traversable = traversables[0]
+    walkable = walkables[0]
     try:
-        entities = traversable.traverse()
+        entities = walkable.walk()
     except AttributeError:
-        raise TypeError("Object %r is not traversable" % traversable)
+        raise TypeError("Object %r is not walkable" % walkable)
     for entity in entities:
         yield entity
-    end_node = traversable.end_node()
-    for traversable in traversables[1:]:
+    end_node = walkable.end_node()
+    for walkable in walkables[1:]:
         try:
-            if end_node == traversable.start_node():
-                entities = traversable.traverse()
-                end_node = traversable.end_node()
-            elif end_node == traversable.end_node():
-                entities = reversed(list(traversable.traverse()))
-                end_node = traversable.start_node()
+            if end_node == walkable.start_node():
+                entities = walkable.walk()
+                end_node = walkable.end_node()
+            elif end_node == walkable.end_node():
+                entities = reversed(list(walkable.walk()))
+                end_node = walkable.start_node()
             else:
-                raise ValueError("Cannot append traversable %r "
-                                 "to node %r" % (traversable, end_node))
+                raise ValueError("Cannot append walkable %r "
+                                 "to node %r" % (walkable, end_node))
         except AttributeError:
-            raise TypeError("Object %r is not traversable" % traversable)
+            raise TypeError("Object %r is not walkable" % walkable)
         for i, entity in enumerate(entities):
             if i > 0:
                 yield entity
