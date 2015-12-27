@@ -30,6 +30,9 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case, base62
 
 
+entity_name_length = 5
+
+
 class DBMS(object):
     """ Wrapper for the base REST resource exposed by a running Neo4j
     server, corresponding to the ``/`` URI. If no URI is supplied to
@@ -1266,13 +1269,13 @@ class Path(Walkable):
 def entity_name(entity):
     resource = entity.resource
     if resource:
-        if isinstance(entity, Node):
-            prefix = ""
-        else:
-            prefix = entity.__class__.__name__[0].lower()
-        return "%s%d" % (prefix, resource._id)
+        prefix = entity.__class__.__name__[0].lower()
+        name = "%s%d" % (prefix, resource._id)
     else:
-        return base62(hash(entity))[-5:]
+        name = base62(hash(entity))[-entity_name_length:]
+        if name[0] in "0123456789":
+            name = "_" + name
+    return name
 
 
 def walk(*walkables):

@@ -26,7 +26,7 @@ class ReprTestCase(Py2neoTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")
-        assert re.match(r'\(_[0-9A-Za-z]+:Person \{name:"Alice"\}\)', repr(a))
+        assert re.match(r'\([0-9A-Za-z]+:Person \{name:"Alice"\}\)', repr(a))
         self.graph.create(a)
         assert re.match(r'\(n[0-9]+:Person \{name:"Alice"\}\)', repr(a))
 
@@ -50,7 +50,7 @@ class ReprTestCase(Py2neoTestCase):
         assert len(items) == 4
         for i, item in enumerate(items):
             if 0 <= i < 2:
-                assert re.match(r'\(_[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
+                assert re.match(r'\([0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
             else:
                 assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
 
