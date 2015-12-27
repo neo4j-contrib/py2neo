@@ -45,22 +45,6 @@ Transactions
    :members:
 
 
-Tasks
-=====
-
-CypherTasks are self-contained bundles of Cypher statements and parameters intended for use within
-:class:`Cypher transactions <.Transaction>`.
-
-.. autoclass:: py2neo.cypher.CypherTask
-   :members:
-
-.. autoclass:: py2neo.cypher.CreateNode
-   :members:
-
-.. autoclass:: py2neo.cypher.MergeNode
-   :members:
-
-
 Records
 =======
 
@@ -77,22 +61,9 @@ Records
    :members:
 
 
-Subgraph
-========
-
-.. autoclass:: py2neo.Subgraph
-   :members:
-   :inherited-members:
-
 
 Builders
 ========
-
-.. autoclass:: py2neo.cypher.CreateStatement
-   :members:
-
-.. autoclass:: py2neo.cypher.DeleteStatement
-   :members:
 
 .. autoclass:: py2neo.cypher.CypherWriter
    :members:
@@ -104,9 +75,6 @@ Builders
 
 Exceptions
 ==========
-
-.. autoexception:: py2neo.cypher.CypherError
-   :members:
 
 .. autoexception:: py2neo.cypher.CypherError
    :members:

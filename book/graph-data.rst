@@ -41,28 +41,28 @@ For example::
     frozenset({(_dq3ITNw8)-[_dq3ITO2S:KNOWS]->(_dq3ITNzk),
                (_dq3ITNw8)-[_dq3ITO7s:WORKS_WITH]->(_dq3ITO64)})
 
+A :class:`.Walkable` is a subgraph with added traversal information.
+These can be formed by concatenating nodes and relationships::
 
-===================  ===========
-Type                 Description
-===================  ===========
-Node                 A fundamental unit of data storage within a property graph that may optionally be connected, via relationships, to other nodes.
-Relationship
-Subgraph
-Walkable
-===================  ===========
+    >>> t = ab + ac
 
-The simplest way to form :class:`.Subgraph` instances is by combining nodes and relationships with set operations::
 
-    >>> s = ab | ac
-    >>> s
-    <Subgraph order=3 size=2>
-    >>> s.nodes()
-    frozenset({<Node labels={'Person'} properties={'name': 'Alice'}>,
-               <Node labels={'Person'} properties={'name': 'Bob'}>,
-               <Node labels={'Person'} properties={'name': 'Carol'}>})
-    >>> s.relationships()
-    frozenset({<Relationship type='WORKS_WITH' properties={}>,
-               <Relationship type='KNOWS' properties={}>})
+Type Summary
+============
+
+- :class:`.Node` - unit of data storage within a graph
+- :class:`.Relationship` - typed connected between a pair of nodes
+- :class:`.Subgraph` - collection of nodes and relationships
+- :class:`.Walkable` - subgraph with traversal information
+
+=============  ============  ============  ============  ============
+Type           Node          Relationship  Subgraph      Walkable
+=============  ============  ============  ============  ============
+``.order()``   1             1 or 2        0 or more
+``.size()``    0             1             0 or more
+``.length()``  0             1             `n/a`
+=============  ============  ============  ============  ============
+
 
 The available operations are:
 
@@ -74,10 +74,6 @@ intersection          ``s1 & s2``  A subgraph containing all nodes and relations
 difference            ``s1 - s2``
 symmetric difference  ``s1 ^ s2``
 ====================  ===========  ===========
-
-Likewise, :class:`.Walkable` instances can be formed by concatenating nodes and relationships::
-
-    >>> t = ab + ac
 
 
 Equality Rules
@@ -105,7 +101,7 @@ API
    :show-inheritance:
    :members:
 
-.. autofunction:: py2neo.traverse
+.. autofunction:: py2neo.walk
 
 .. autoclass:: py2neo.data.PropertyContainer
    :show-inheritance:
