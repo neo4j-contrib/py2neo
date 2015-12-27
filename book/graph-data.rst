@@ -5,14 +5,26 @@ Graph Data Fundamentals
 Before connecting to a Neo4j server, it's useful to become familiar with the fundamental data types of the property graph model offered by py2neo.
 While these types are completely compatible with Neo4j, they can also be used independently of it.
 
-The two most important data types are :class:`.Node` (the primary container for data within a graph) and :class:`.Relationship` (a way to connect two nodes in a meaningful way)::
+The two essential building blocks are :class:`.Node` and :class:`.Relationship`.
+Along with the container types :class:`.Subgraph` and :class:`.Walkable`, these provide a way to construct and work with Neo4j-compatible graph data.
+The four types can be summarised as follows:
+
+- :class:`.Node` - fundamental unit of data storage within a graph
+- :class:`.Relationship` - typed connection between a pair of nodes
+- :class:`.Subgraph` - collection of nodes and relationships
+- :class:`.Walkable` - subgraph with added traversal information
+
+The example below shows how to create a couple of nodes as well as a relationship joining them.
+Each node has a single property, `name`, and is labelled as a `Person`.
+The relationship has the type `KNOWS` and joins from the first node `a` to the second node `b`.
+
+::
 
     >>> from py2neo import Node, Relationship
     >>> a = Node("Person", name="Alice")
     >>> b = Node("Person", name="Bob")
     >>> ab = Relationship(a, "KNOWS", b)
 
-The example above shows how to create a couple of nodes, each with one label (Person) and one property (name), as well as a "KNOWS" relationship joining them.
 Relationship types can alternatively be created by extending the :class:`.Relationship` class.
 The default type of such relationships is derived from the class name::
 
@@ -23,37 +35,31 @@ The default type of such relationships is derived from the class name::
     'WORKS_WITH'
 
 Arbitrary collections of nodes and relationships may be contained in a :class:`.Subgraph` object.
-The simplest way to form :class:`.Subgraph` instances is by combining nodes and relationships with standard set operations.
+The simplest way to construct these is by combining nodes and relationships with standard set operations.
 For example::
 
     >>> s = ab | ac
     >>> s
-    {(_dq3ITO64:Person {name:"Carol"}),
-     (_dq3ITNw8:Person {name:"Alice"}),
-     (_dq3ITNzk:Person {name:"Bob"}),
-     (_dq3ITNw8)-[_dq3ITO2S:KNOWS]->(_dq3ITNzk),
-     (_dq3ITNw8)-[_dq3ITO7s:WORKS_WITH]->(_dq3ITO64)}
+    {(xyz01:Person {name:"Alice"}),
+     (xyz02:Person {name:"Bob"}),
+     (xyz03:Person {name:"Carol"}),
+     (xyz01)-[:KNOWS]->(xyz02),
+     (xyz01)-[:WORKS_WITH]->(xyz03)}
     >>> s.nodes()
-    frozenset({(_dq3ITO64:Person {name:"Carol"}),
-               (_dq3ITNw8:Person {name:"Alice"}),
-               (_dq3ITNzk:Person {name:"Bob"})})
+    frozenset({(xyz01:Person {name:"Alice"}),
+               (xyz02:Person {name:"Bob"}),
+               (xyz03:Person {name:"Carol"})})
     >>> s.relationships()
-    frozenset({(_dq3ITNw8)-[_dq3ITO2S:KNOWS]->(_dq3ITNzk),
-               (_dq3ITNw8)-[_dq3ITO7s:WORKS_WITH]->(_dq3ITO64)})
+    frozenset({(xyz01)-[:KNOWS]->(xyz02),
+               (xyz01)-[:WORKS_WITH]->(xyz03)})
 
 A :class:`.Walkable` is a subgraph with added traversal information.
 These can be formed by concatenating nodes and relationships::
 
-    >>> t = ab + ac
+    >>> w = ab + Relationship(b, "LIKES", c) + ac
+    >>> w
+    (xyz01)-[:KNOWS]->(xyz02)-[:LIKES]->(xyz03)<-[:WORKS_WITH]-(xyz01)
 
-
-Type Summary
-============
-
-- :class:`.Node` - unit of data storage within a graph
-- :class:`.Relationship` - typed connected between a pair of nodes
-- :class:`.Subgraph` - collection of nodes and relationships
-- :class:`.Walkable` - subgraph with traversal information
 
 =============  ============  ============  ============  ============
 Type           Node          Relationship  Subgraph      Walkable

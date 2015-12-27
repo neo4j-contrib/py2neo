@@ -27,7 +27,7 @@ from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.data import PropertyContainer, coerce_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
-    ThreadLocalWeakValueDictionary, deprecated, relationship_case
+    ThreadLocalWeakValueDictionary, deprecated, relationship_case, base62
 
 
 class DBMS(object):
@@ -1261,6 +1261,18 @@ class Path(Walkable):
         writer = CypherWriter(s)
         writer.write_walkable(self)
         return s.getvalue()
+
+
+def entity_name(entity):
+    resource = entity.resource
+    if resource:
+        if isinstance(entity, Node):
+            prefix = ""
+        else:
+            prefix = entity.__class__.__name__[0].lower()
+        return "%s%d" % (prefix, resource._id)
+    else:
+        return base62(hash(entity))[-5:]
 
 
 def walk(*walkables):

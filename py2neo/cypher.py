@@ -49,19 +49,7 @@ from py2neo.status import CypherError, Finished
 from py2neo.util import is_collection, deprecated
 
 
-BASE62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
 log = logging.getLogger("py2neo.cypher")
-
-
-def base62(x):
-    if x == 0:
-        return "0"
-    digits = []
-    while x:
-        x, d = divmod(x, 62)
-        digits.insert(0, BASE62_DIGITS[d])
-    return "".join(digits)
 
 
 def presubstitute(statement, parameters):
@@ -862,8 +850,8 @@ class CypherWriter(object):
         """
         self.file.write(u"(")
         if name is None:
-            resource = node.resource
-            name = ("a%d" % resource._id) if resource else ("_%s" % base62(id(node)))
+            from py2neo.graph import entity_name
+            name = entity_name(node)
         self.write_identifier(name)
         if full:
             for label in sorted(node.labels()):
@@ -887,10 +875,8 @@ class CypherWriter(object):
         """ Write a relationship (excluding nodes).
         """
         self.file.write(u"[")
-        if name is None:
-            resource = relationship.resource
-            name = ("r%d" % resource._id) if resource else ("_%s" % base62(id(relationship)))
-        self.write_identifier(name)
+        if name is not None:
+            self.write_identifier(name)
         if type:
             self.file.write(u":")
             self.write_identifier(relationship.type())

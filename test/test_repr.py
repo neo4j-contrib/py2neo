@@ -18,8 +18,7 @@
 
 import re
 
-from py2neo.cypher import base62
-from py2neo.graph import Node, Relationship, Subgraph, Walkable
+from py2neo.graph import Node, Relationship, Subgraph, Walkable, entity_name
 from test.util import Py2neoTestCase
 
 
@@ -29,15 +28,13 @@ class ReprTestCase(Py2neoTestCase):
         a = Node("Person", name="Alice")
         assert re.match(r'\(_[0-9A-Za-z]+:Person \{name:"Alice"\}\)', repr(a))
         self.graph.create(a)
-        assert re.match(r'\(a[0-9]+:Person \{name:"Alice"\}\)', repr(a))
+        assert re.match(r'\(n[0-9]+:Person \{name:"Alice"\}\)', repr(a))
 
     def test_relationship_repr(self):
         a = Node()
         b = Node()
         ab = Relationship(a, "KNOWS", b, since=1999)
-        assert re.match(r'\(.*\)-\[_[0-9A-Za-z]+:KNOWS \{since:1999\}\]->\(.*\)', repr(ab))
-        self.graph.create(ab)
-        assert re.match(r'\(.*\)-\[r[0-9]+:KNOWS \{since:1999\}\]->\(.*\)', repr(ab))
+        assert re.match(r'\(.*\)-\[:KNOWS \{since:1999\}\]->\(.*\)', repr(ab))
 
     def test_subgraph_repr(self):
         a = Node("Person", name="Alice")
@@ -55,7 +52,7 @@ class ReprTestCase(Py2neoTestCase):
             if 0 <= i < 2:
                 assert re.match(r'\(_[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
             else:
-                assert re.match(r'\(.*\)-\[_[0-9A-Za-z]+:(TO|FROM)\]->\(.*\)', repr(ab))
+                assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
 
     def test_walkable_repr(self):
         a = Node("Person", name="Alice")
@@ -67,9 +64,6 @@ class ReprTestCase(Py2neoTestCase):
         cd = Relationship(c, "KNOWS", d)
         t = Walkable(a, ab, b, cb, c, cd, d)
         r = repr(t)
-        expected = "(_%s)-[_%s:LOVES]->(_%s)<-[_%s:HATES]-(_%s)-[_%s:KNOWS]->" \
-                   "(_%s)" % (base62(id(a)), base62(id(t[0])),
-                              base62(id(b)), base62(id(t[1])),
-                              base62(id(c)), base62(id(t[2])),
-                              base62(id(d)))
+        expected = "(%s)-[:LOVES]->(%s)<-[:HATES]-(%s)-[:KNOWS]->(%s)" % (
+            entity_name(a), entity_name(b), entity_name(c), entity_name(d))
         assert r == expected

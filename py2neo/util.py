@@ -27,14 +27,21 @@ import warnings
 from weakref import WeakValueDictionary
 
 
-__all__ = ["round_robin", "deprecated", "relationship_case",
-           "version_tuple", "is_collection", "has_all",
-           "PropertiesParser", "ThreadLocalWeakValueDictionary"]
-
-
 # Word separation patterns for re-casing strings.
 WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
 WORD_ALL = re.compile("([a-z0-9])([A-Z])")
+
+BASE62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+
+def base62(x):
+    if x == 0:
+        return "0"
+    digits = []
+    while x:
+        x, d = divmod(x, 62)
+        digits.insert(0, BASE62_DIGITS[d])
+    return "".join(digits)
 
 
 def relationship_case(s):
