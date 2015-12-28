@@ -260,10 +260,10 @@ class Graph(object):
         """
         self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
-    def detach(self, g):
+    def separate(self, g):
         """ Delete one or more relationships.
         """
-        self.cypher.detach(g)
+        self.cypher.separate(g)
 
     def exists(self, g):
         """ Determine whether a number of graph entities all exist within the database.
