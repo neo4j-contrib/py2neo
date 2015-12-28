@@ -95,28 +95,20 @@ Properties are not considered for relationship equality.
 API
 ===
 
-.. autoclass:: py2neo.graph.Node
-   :show-inheritance:
+.. autoclass:: py2neo.Node
+   :inherited-members:
    :members:
 
-.. autoclass:: py2neo.graph.Relationship
-   :show-inheritance:
+.. autoclass:: py2neo.Relationship
+   :inherited-members:
    :members:
 
-.. autoclass:: py2neo.graph.Subgraph
-   :show-inheritance:
+.. autoclass:: py2neo.Subgraph
+   :inherited-members:
    :members:
 
-.. autoclass:: py2neo.graph.Walkable
-   :show-inheritance:
+.. autoclass:: py2neo.Walkable
+   :inherited-members:
    :members:
 
 .. autofunction:: py2neo.walk
-
-.. autoclass:: py2neo.data.PropertyContainer
-   :show-inheritance:
-   :members:
-
-.. autoclass:: py2neo.data.PropertySet
-   :show-inheritance:
-   :members:

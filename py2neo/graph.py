@@ -628,7 +628,8 @@ class Graph(object):
         return self.cypher.evaluate(statement)
 
     def supports_auth(self):
-        """ Returns :py:`True` if auth is supported by this version of Neo4j.
+        """ Returns :py:const:`True` if auth is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
         """
         return self.neo4j_version >= (2, 2)
 
@@ -744,37 +745,37 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def nodes(self):
-        """ Set of all nodes in this subgraph.
+        """ Set of all nodes.
         """
         return self._nodes
 
     def relationships(self):
-        """ Set of all relationships in this subgraph.
+        """ Set of all relationships.
         """
         return self._relationships
 
     def order(self):
-        """ Total number of unique nodes in this set.
+        """ Total number of unique nodes.
         """
         return len(self._nodes)
 
     def size(self):
-        """ Total number of unique relationships in this set.
+        """ Total number of unique relationships.
         """
         return len(self._relationships)
 
     def labels(self):
-        """ Set of all node labels used in this subgraph.
+        """ Set of all node labels.
         """
         return frozenset(chain(*(node.labels() for node in self._nodes)))
 
     def types(self):
-        """ Set of all relationship types used in this subgraph.
+        """ Set of all relationship types.
         """
         return frozenset(rel.type() for rel in self._relationships)
 
     def keys(self):
-        """ Set of all property keys used in this subgraph.
+        """ Set of all property keys.
         """
         return (frozenset(chain(*(node.keys() for node in self._nodes))) |
                 frozenset(chain(*(rel.keys() for rel in self._relationships))))
@@ -845,32 +846,32 @@ class Walkable(Subgraph):
         return Walkable(*walk(self, other))
 
     def start_node(self):
-        """ The first node in a traversal of this subgraph.
+        """ The first node encountered on a walk.
         """
         return self._node_sequence[0]
 
     def end_node(self):
-        """ The last node in a traversal of this subgraph.
+        """ The last node encountered on a walk.
         """
         return self._node_sequence[-1]
 
     def length(self):
-        """ The total number of relationships walkd.
+        """ The total number of relationships on a walk.
         """
         return len(self._relationship_sequence)
 
     def walk(self):
-        """ Traverse all nodes and relationships in order.
+        """ Traverse and yield all nodes and relationships in order.
         """
         return iter(self._sequence)
 
     def nodes(self):
-        """ Set of all nodes in this subgraph.
+        """ Set of all nodes.
         """
         return self._node_sequence
 
     def relationships(self):
-        """ Set of all relationships in this subgraph.
+        """ Set of all relationships.
         """
         return self._relationship_sequence
 
@@ -960,7 +961,7 @@ class Node(PropertyContainer, Walkable, Entity):
         return self.resource.graph.exists(self)
 
     def labels(self):
-        """ The set of labels attached to this node.
+        """ Set of all node labels.
         """
         if self.resource and "labels" in self.__stale:
             self.resource.graph.pull(self)
@@ -1008,34 +1009,25 @@ class NodeProxy(object):
 
 
 class Relationship(PropertyContainer, Walkable, Entity):
-    """ A graph relationship that may optionally be bound to a remote counterpart
-    in a Neo4j database. Relationships require a triple of start node, relationship
-    type and end node and may also optionally be given one or more properties::
+    """ A relationship represents a typed connection between a pair of nodes.
+
+    The positional arguments passed to the constructor identify the nodes to
+    relate and the type of the relationship. Keyword arguments describe the
+    properties of the relationship::
 
         >>> from py2neo import Node, Relationship
-        >>> alice = Node("Person", name="Alice")
-        >>> bob = Node("Person", name="Bob")
-        >>> alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
+        >>> a = Node("Person", name="Alice")
+        >>> b = Node("Person", name="Bob")
+        >>> a_knows_b = Relationship(a, "KNOWS", b, since=1999)
 
-
-
-        >>> a = PropertyNode(name="Alice")
-        >>> b = PropertyNode(name="Bob")
-
-        >>> Relationship(a)
-        ({name:'Alice'})-[:TO]->({name:'Alice'})
-        >>> Relationship(a, b)
-        ({name:'Alice'})-[:TO]->({name:'Bob'})
-        >>> Relationship(a, "KNOWS", b)
-        ({name:'Alice'})-[:KNOWS]->({name:'Bob'})
+    This class may be extended to allow relationship types names to be
+    derived from the class name. For example::
 
         >>> class WorksWith(Relationship): pass
-        >>> WorksWith(a, b)
-        ({name:'Alice'})-[:WORKS_WITH]->({name:'Bob'})
+        >>> a_works_with_b = WorksWith(a, b)
+        >>> a_works_with_b.type()
+        'WORKS_WITH'
 
-    :param nodes:
-    :param properties:
-    :return:
     """
 
     cache = ThreadLocalWeakValueDictionary()
@@ -1278,6 +1270,11 @@ def entity_name(entity):
 
 
 def walk(*walkables):
+    """ Traverse over the arguments supplied, yielding the entities
+    from each in turn.
+
+    :param walkables: sequence of walkable objects
+    """
     if not walkables:
         return
     walkable = walkables[0]
