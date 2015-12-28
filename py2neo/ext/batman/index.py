@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,15 +16,13 @@
 # limitations under the License.
 
 
-from py2neo.ext.mandex.batch import *
 from py2neo.graph import Graph, Node, Relationship
 from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 
-
-__all__ = ["ManualIndexManager", "ManualIndex", "ManualIndexReadBatch", "ManualIndexWriteBatch"]
+from .batch import ManualIndexWriteBatch
 
 
 class ManualIndexManager(object):

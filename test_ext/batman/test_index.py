@@ -17,7 +17,7 @@
 
 
 from py2neo import Node
-from py2neo.ext.mandex import ManualIndex
+from py2neo.ext.batman import ManualIndex
 from .util import IndexTestCase
 
 

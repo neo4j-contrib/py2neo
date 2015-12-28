@@ -19,7 +19,7 @@
 from __future__ import unicode_literals
 
 from py2neo import Node
-from py2neo.ext.batch import WriteBatch
+from py2neo.ext.batman import WriteBatch
 from py2neo.ext.mandex import ManualIndexManager
 
 

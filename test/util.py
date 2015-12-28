@@ -20,7 +20,7 @@ from unittest import TestCase
 from uuid import uuid4
 
 from py2neo import Graph, Node
-from py2neo.ext.mandex import ManualIndexManager
+from py2neo.ext.batman import ManualIndexManager
 
 
 def unique_string_generator():

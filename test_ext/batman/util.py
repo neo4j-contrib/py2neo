@@ -16,6 +16,12 @@
 # limitations under the License.
 
 
-from .batch import *
-from .jobs import *
-from .util import *
+from py2neo.ext.batman import ManualIndexManager
+from test.util import Py2neoTestCase
+
+
+class IndexTestCase(Py2neoTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(IndexTestCase, self).__init__(*args, **kwargs)
+        self.index_manager = ManualIndexManager(self.graph)

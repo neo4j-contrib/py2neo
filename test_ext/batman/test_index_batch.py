@@ -17,7 +17,7 @@
 
 
 from py2neo.graph import Node, Relationship
-from py2neo.ext.mandex import ManualIndexManager, ManualIndexWriteBatch
+from py2neo.ext.batman import ManualIndexWriteBatch
 from .util import IndexTestCase
 
 
