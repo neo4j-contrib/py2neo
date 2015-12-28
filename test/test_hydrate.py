@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Path
 from test.util import Py2neoTestCase
 
 
@@ -133,3 +133,14 @@ class HydrationTestCase(Py2neoTestCase):
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.resource
         assert hydrated.resource.uri == dehydrated["self"]
+
+    def test_path_hydration_without_directions(self):
+        cursor = self.cypher.post("CREATE p=(a)-[:KNOWS]->(b)-[:KNOWS]->(c) RETURN p")
+        raw = cursor.evaluate()
+        try:
+            del raw["directions"]
+        except KeyError:
+            pass
+        hydrated = self.graph.hydrate(raw)
+        assert isinstance(hydrated, Path)
+        assert hydrated.length() == 2
