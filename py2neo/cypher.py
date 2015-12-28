@@ -435,8 +435,6 @@ class Transaction(object):
                 node_ids.append(resource._id)
         statement = "MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
         parameters = {"x": node_ids}
-        print(statement)
-        print(parameters)
         return self.evaluate(statement, parameters)
 
     def delete(self, g):
