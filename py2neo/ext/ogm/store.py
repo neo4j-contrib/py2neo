@@ -19,8 +19,7 @@
 from __future__ import unicode_literals
 
 from py2neo import Node
-from py2neo.ext.batman import WriteBatch
-from py2neo.ext.mandex import ManualIndexManager
+from py2neo.ext.batman import ManualIndexManager, WriteBatch
 
 
 __all__ = ["Store", "NotSaved"]
