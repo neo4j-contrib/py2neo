@@ -5,6 +5,10 @@ Graph Data Fundamentals
 Before connecting to a Neo4j server, it's useful to become familiar with the fundamental data types of the property graph model offered by py2neo.
 While the types described here are completely compatible with Neo4j, they can also be used independently of it.
 
+
+Core Types
+==========
+
 The two essential building blocks are :class:`.Node` and :class:`.Relationship`.
 Along with the container types :class:`.Subgraph` and :class:`.Walkable`, these provide a way to construct and work with Neo4j-compatible graph data.
 The four types can be summarised as follows:
@@ -53,17 +57,6 @@ For example::
     frozenset({(xyz01)-[:KNOWS]->(xyz02),
                (xyz01)-[:WORKS_WITH]->(xyz03)})
 
-The full range of available operations are:
-
-====================  ===========  ===========
-Operation             Notation     Result
-====================  ===========  ===========
-union                 ``s1 | s2``  A subgraph containing all nodes and relationships from `s1` and `s2` combined
-intersection          ``s1 & s2``  A subgraph containing all nodes and relationships common to both `s1` and `s2`
-difference            ``s1 - s2``  All nodes and relationships from `s1` excluding those that are also in `s2`
-symmetric difference  ``s1 ^ s2``  All nodes and relationships in either `s1` or `s2` but not both
-====================  ===========  ===========
-
 A :class:`.Walkable` is a subgraph with added traversal information.
 These can be formed by concatenating nodes and relationships::
 
@@ -72,10 +65,31 @@ These can be formed by concatenating nodes and relationships::
     (xyz01)-[:KNOWS]->(xyz02)-[:LIKES]->(xyz03)<-[:WORKS_WITH]-(xyz01)
 
 
+Graph Arithmetic
+================
+
+The full range of available operations are:
+
+====================  ===========  ===========
+Operation             Notation     Result
+====================  ===========  ===========
+union                 ``s1 | s2``  A :class:`.Subgraph` containing all nodes and relationships from `s1` and `s2` combined
+intersection          ``s1 & s2``  A :class:`.Subgraph` containing all nodes and relationships common to both `s1` and `s2`
+difference            ``s1 - s2``  A :class:`.Subgraph` containing all nodes and relationships from `s1` excluding those that are also in `s2` (nodes in `s2` attached to relationships in `s1` will remain)
+symmetric difference  ``s1 ^ s2``  A :class:`.Subgraph` containing all nodes and relationships in either `s1` or `s2` but not both (nodes attached to relationships solely in `s1` or `s2` will remain)
+concatenation         ``s1 + s2``  A :class:`.Walkable` containing a :func:`.walk` of `s1` followed by a :func:`.walk` of `s2`
+====================  ===========  ===========
+
+
 Equality Rules
 ==============
 
-TODO
+Node equality is based on identity.
+This means that a node is only equal to itself and is not equal to another node with the same properties and labels.
+
+Relationship equality is based on type and endpoints.
+A relationship will therefore be considered equal to another relationship of the same type attached to the same nodes.
+Properties are not considered for relationship equality.
 
 
 API
