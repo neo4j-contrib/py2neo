@@ -18,7 +18,7 @@
 
 from warnings import catch_warnings, simplefilter
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Path
 from test.util import Py2neoTestCase
 
 
@@ -45,6 +45,22 @@ class PropertiesTestCase(DeprecatedTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         _ = r.properties
+
+
+class DegreeTestCase(DeprecatedTestCase):
+
+    def test_node_degree(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        carol = Node("Person", name="Carol")
+        self.graph.create(alice)
+        assert alice.degree() == 0
+        self.graph.create(Path(alice, "KNOWS", bob))
+        assert alice.degree() == 1
+        self.graph.create(Path(alice, "KNOWS", carol))
+        assert alice.degree() == 2
+        self.graph.create(Path(carol, "KNOWS", alice))
+        assert alice.degree() == 3
 
 
 class NodeMatchTestCase(DeprecatedTestCase):

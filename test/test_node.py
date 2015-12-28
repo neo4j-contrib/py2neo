@@ -61,21 +61,6 @@ class NodeTestCase(Py2neoTestCase):
         assert alice_1.labels() == alice_2.labels()
         assert dict(alice_1) == dict(alice_2)
 
-    def test_node_degree(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        carol = Node("Person", name="Carol")
-        with self.assertRaises(TypeError):
-            _ = alice.degree()
-        self.graph.create(alice)
-        assert alice.degree() == 0
-        self.graph.create(Path(alice, "KNOWS", bob))
-        assert alice.degree() == 1
-        self.graph.create(Path(alice, "KNOWS", carol))
-        assert alice.degree() == 2
-        self.graph.create(Path(carol, "KNOWS", alice))
-        assert alice.degree() == 3
-
     def test_can_merge_unsaved_changes_when_querying_node(self):
         a = Node("Person", name="Alice")
         b = Node()

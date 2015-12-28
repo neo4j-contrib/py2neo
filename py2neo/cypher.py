@@ -172,6 +172,12 @@ class CypherEngine(object):
         tx.create_unique(t)
         tx.commit()
 
+    def degree(self, g):
+        tx = Transaction(self)
+        value = tx.degree(g)
+        tx.commit()
+        return value
+
     def delete(self, g):
         tx = Transaction(self)
         tx.delete(g)
@@ -416,6 +422,22 @@ class Transaction(object):
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
         result = self.run(statement, parameters)
         result.cache.update(returns)
+
+    def degree(self, g):
+        try:
+            nodes = list(g.nodes())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % g)
+        node_ids = []
+        for i, node in enumerate(nodes):
+            resource = node.resource
+            if resource:
+                node_ids.append(resource._id)
+        statement = "MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
+        parameters = {"x": node_ids}
+        print(statement)
+        print(parameters)
+        return self.evaluate(statement, parameters)
 
     def delete(self, g):
         try:

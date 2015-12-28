@@ -246,6 +246,11 @@ class Graph(object):
     def dbms(self):
         return self.resource.dbms
 
+    def degree(self, g):
+        """ Return the total degree of all nodes in the subgraph.
+        """
+        return self.cypher.degree(g)
+
     def delete(self, g):
         """ Delete one or more nodes, relationships and/or paths.
         """
@@ -946,15 +951,9 @@ class Node(PropertyContainer, Walkable, Entity):
             self.resource.graph.pull(self)
         return PropertyContainer.__getitem__(self, item)
 
+    @deprecated("Node.degree() is deprecated, use graph.degree(node) instead")
     def degree(self):
-        """ The number of relationships attached to this node.
-        """
-        remote = self.resource
-        if remote is None:
-            raise TypeError("Cannot determine degree of node not "
-                            "bound to a remote resource")
-        return remote.graph.cypher.evaluate("MATCH (a)-[r]-() WHERE id(a)={n} "
-                                            "RETURN count(r)", n=self)
+        return self.resource.graph.degree(self)
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):

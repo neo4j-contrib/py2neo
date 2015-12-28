@@ -320,6 +320,25 @@ class TransactionSeparateTestCase(Py2neoTestCase):
         assert self.graph.exists(b)
 
 
+class TransactionDegreeTestCase(Py2neoTestCase):
+
+    def test_degree_of_node(self):
+        a = Node()
+        b = Node()
+        self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
+        with self.cypher.begin() as tx:
+            d = tx.degree(a)
+        assert d == 2
+
+    def test_degree_of_two_related_nodes(self):
+        a = Node()
+        b = Node()
+        self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
+        with self.cypher.begin() as tx:
+            d = tx.degree(a | b)
+        assert d == 2
+
+
 class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_can_generate_transaction_error(self):
