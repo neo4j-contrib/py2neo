@@ -39,11 +39,10 @@ Contents
    graph-data
    database-servers
    cypher
-   ext/batch
+   ext/batman
    ext/calendar
    ext/geoff
    ext/gremlin
-   ext/mandex
    ext/neobox
    ext/ogm
    ext/spatial
