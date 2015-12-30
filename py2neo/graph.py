@@ -30,7 +30,12 @@ from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case, base62
 
 
-entity_name_property = "name"
+entity_name_property_key = "name"
+
+
+def set_entity_name_property_key(key):
+    global entity_name_property_key
+    entity_name_property_key = key
 
 
 class DBMS(object):
@@ -1259,7 +1264,7 @@ def entity_name(entity):
                 prefix = cls.__name__[0].lower()
             name = "%s%d" % (prefix, resource._id)
         else:
-            name = entity[entity_name_property]
+            name = entity[entity_name_property_key]
             if isinstance(name, string):
                 name = snake_case(name)
             else:
