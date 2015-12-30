@@ -21,17 +21,6 @@ from test.util import Py2neoTestCase
 
 
 class PullTestCase(Py2neoTestCase):
-        
-    def test_can_pull_node(self):
-        local = Node()
-        remote = Node("Person", name="Alice")
-        self.graph.create(remote)
-        assert local.labels() == set()
-        assert dict(local) == {}
-        local._set_resource(remote.resource.uri)
-        self.graph.pull(local)
-        assert local.labels() == remote.labels()
-        assert dict(local) == dict(remote)
 
     def test_can_graph_pull_node(self):
         local = Node()
@@ -126,18 +115,6 @@ class PullTestCase(Py2neoTestCase):
 
 
 class PushTestCase(Py2neoTestCase):
-
-    def test_can_push_node(self):
-        local = Node("Person", name="Alice")
-        remote = Node()
-        self.graph.create(remote)
-        assert remote.labels() == set()
-        assert dict(remote) == {}
-        local._set_resource(remote.resource.uri)
-        self.graph.push(local)
-        self.graph.pull(remote)
-        assert local.labels() == remote.labels()
-        assert dict(local) == dict(remote)
 
     def test_can_graph_push_node(self):
         local = Node("Person", name="Alice")
