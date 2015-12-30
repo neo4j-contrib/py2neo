@@ -174,3 +174,18 @@ class RelationshipCastTestCase(Py2neoTestCase):
         assert r.start_node() is a
         assert r.end_node() is b
         assert r.type() == "TO"
+
+    def test_cannot_cast_relationship_from_generic_object(self):
+        class Foo(object):
+            pass
+        foo = Foo()
+        with self.assertRaises(ValueError):
+            cast_relationship((Node(), foo, Node()))
+
+    def test_cannot_cast_relationship_from_generic_object_with_properties(self):
+        class Foo(object):
+            pass
+        foo = Foo()
+        foo.properties = {}
+        with self.assertRaises(ValueError):
+            cast_relationship((Node(), foo, Node()))

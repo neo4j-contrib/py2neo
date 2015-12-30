@@ -6,11 +6,11 @@ Before connecting to a Neo4j server, it's useful to become familiar with the fun
 While the types described here are completely compatible with Neo4j, they can also be used independently of it.
 
 
-Core Types
-==========
+Type Overview
+=============
 
-The two essential building blocks are :class:`.Node` and :class:`.Relationship`.
-Along with the container types :class:`.Subgraph` and :class:`.Walkable`, these provide a way to construct and work with Neo4j-compatible graph data.
+The two essential building blocks of the py2neo property graph model are :class:`.Node` and :class:`.Relationship`.
+Along with the container types :class:`.Subgraph` and :class:`.Walkable`, these provide a way to construct and work with a wide variety of Neo4j-compatible graph data.
 The four types can be summarised as follows:
 
 - :class:`.Node` - fundamental unit of data storage within a graph
@@ -58,7 +58,7 @@ For example::
                (xyz01)-[:WORKS_WITH]->(xyz03)})
 
 A :class:`.Walkable` is a subgraph with added traversal information.
-These can be formed by concatenating nodes and relationships::
+The simplest way to construct a :class:`.Walkable` is by concatenating other graph objects::
 
     >>> w = ab + Relationship(b, "LIKES", c) + ac
     >>> w
@@ -68,7 +68,30 @@ These can be formed by concatenating nodes and relationships::
 Graph Arithmetic
 ================
 
-The full range of available operations are:
+Graph objects can be combined in a number of ways using standard Python operators.
+In this context, Node and Relationship objects are treated as simple :class:`.Subgraph` instances.
+The full set of operations are detailed below.
+
+Union
+-----
+**Syntax**: ``x | y``
+
+The union of `x` and `y` is a :class:`.Subgraph` containing all nodes and relationships from `x` as well as all nodes and relationships from `y`.
+Any entities common to both operands will only be included once.
+
+For example::
+
+    >>> a = Node()
+    >>> b = Node()
+    >>> c = Node()
+    >>> ab = Relationship(a, "TO", b)
+    >>> ac = Relationship(a, "TO", c)
+    >>> s = ab | ac
+    >>> s
+    {(Z0N0a), (Z0PAe), (Z0PCS), (Z0PAe)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0N0a)}
+    >>> s | Relationship(b, "TO", c)
+    {(Z0N0a), (Z0PAe), (Z0PCS), (Z0N0a)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0N0a)}
+
 
 ====================  ===========  ===========
 Operation             Notation     Result

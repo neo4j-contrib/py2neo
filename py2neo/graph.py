@@ -27,10 +27,10 @@ from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.data import PropertyContainer, coerce_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
-    ThreadLocalWeakValueDictionary, deprecated, relationship_case, base62
+    ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case, base62
 
 
-entity_name_length = 5
+entity_name_property = "name"
 
 
 class DBMS(object):
@@ -930,9 +930,8 @@ class Node(PropertyContainer, Walkable, Entity):
         return r.getvalue()
 
     def __eq__(self, other):
-        if other is None:
+        if self.__class__ is not other.__class__:
             return False
-        other = cast_node(other)
         if self.resource and other.resource:
             return self.resource == other.resource
         else:
@@ -1246,26 +1245,25 @@ class Path(Walkable):
                     entities[i] = Relationship(start_node, t, end_node, **properties)
         Walkable.__init__(self, *tuple(walk(*entities)))
 
-    def __str__(self):
-        return xstr(self.__unicode__())
-
-    def __unicode__(self):
-        from py2neo.cypher import CypherWriter
-        s = StringIO()
-        writer = CypherWriter(s)
-        writer.write_walkable(self)
-        return s.getvalue()
-
 
 def entity_name(entity):
-    resource = entity.resource
-    if resource:
-        prefix = entity.__class__.__name__[0].lower()
-        name = "%s%d" % (prefix, resource._id)
+    if hasattr(entity, "__name__") and entity.__name__:
+        name = entity.__name__
     else:
-        name = base62(hash(entity))[-entity_name_length:]
-        if name[0] in "0123456789":
-            name = "_" + name
+        resource = entity.resource
+        if resource:
+            cls = entity.__class__
+            if cls is Node:
+                prefix = "a"
+            else:
+                prefix = cls.__name__[0].lower()
+            name = "%s%d" % (prefix, resource._id)
+        else:
+            name = entity[entity_name_property]
+            if isinstance(name, string):
+                name = snake_case(name)
+            else:
+                name = "_" + base62(hash(entity))
     return name
 
 

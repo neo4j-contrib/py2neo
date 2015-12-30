@@ -44,6 +44,11 @@ def base62(x):
     return "".join(digits)
 
 
+def snake_case(s):
+    words = s.replace("_", " ").replace("-", " ").split()
+    return "_".join(word.lower() for word in words)
+
+
 def relationship_case(s):
     s1 = WORD_FIRST.sub(r"\1_\2", s)
     return WORD_ALL.sub(r"\1_\2", s1).upper()

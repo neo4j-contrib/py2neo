@@ -22,13 +22,78 @@ from py2neo.graph import Node, Relationship, Subgraph, Walkable, entity_name
 from test.util import Py2neoTestCase
 
 
+class EntityNameTestCase(Py2neoTestCase):
+
+    def test_empty_node(self):
+        a = Node()
+        name = entity_name(a)
+        assert name.startswith("_")
+
+    def test_node_with_name_metadata(self):
+        a = Node()
+        a.__name__ = "alice"
+        name = entity_name(a)
+        assert name == "alice"
+
+    def test_node_with_short_name_property(self):
+        a = Node(name="Alice")
+        name = entity_name(a)
+        assert name == "alice"
+
+    def test_node_with_long_name_property(self):
+        a = Node(name="Alice Smith")
+        name = entity_name(a)
+        assert name == "alice_smith"
+
+    def test_bound_node_with_no_name_property(self):
+        a = Node()
+        self.graph.create(a)
+        name = entity_name(a)
+        assert name.startswith("a")
+        i = int(name[1:])
+        assert i == a.resource._id
+
+    def test_bound_node_with_name_property(self):
+        a = Node(name="Alice")
+        self.graph.create(a)
+        name = entity_name(a)
+        assert name.startswith("a")
+        i = int(name[1:])
+        assert i == a.resource._id
+
+    def test_empty_relationship(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        name = entity_name(r)
+        assert name.startswith("_")
+
+    def test_relationship_with_name_metadata(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        r.__name__ = "foo"
+        name = entity_name(r)
+        assert name == "foo"
+
+    def test_bound_relationship_with_no_name_property(self):
+        a = Node()
+        b = Node()
+        r = Relationship(a, "TO", b)
+        self.graph.create(r)
+        name = entity_name(r)
+        assert name.startswith("r")
+        i = int(name[1:])
+        assert i == r.resource._id
+
+
 class ReprTestCase(Py2neoTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")
         assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"Alice"\}\)', repr(a))
         self.graph.create(a)
-        assert re.match(r'\(n[0-9]+:Person \{name:"Alice"\}\)', repr(a))
+        assert re.match(r'\(a[0-9]+:Person \{name:"Alice"\}\)', repr(a))
 
     def test_relationship_repr(self):
         a = Node()
