@@ -1263,7 +1263,7 @@ def entity_name(entity):
             if isinstance(name, string):
                 name = snake_case(name)
             else:
-                name = "_" + base62(hash(entity))
+                name = "_" + base62(abs(hash(entity)))
     return name
 
 
