@@ -174,7 +174,7 @@ class Graph(object):
             inst = super(Graph, cls).__new__(cls)
             inst.uris = uri_dict
             inst.resource = Resource(http_uri)
-            if inst.neo4j_version >= (3,):
+            if inst.supports_bolt():
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.resource.uri.host)
                 bolt_uri = URI(uri_dict["bolt"][0])
@@ -657,6 +657,12 @@ class Graph(object):
         version of Neo4j, :py:const:`False` otherwise.
         """
         return self.neo4j_version >= (2, 2)
+
+    def supports_bolt(self):
+        """ Returns :py:const:`True` if Bolt is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
+        """
+        return self.neo4j_version >= (3,)
 
     @property
     def uri(self):
