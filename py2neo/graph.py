@@ -16,15 +16,16 @@
 # limitations under the License.
 
 
-from io import StringIO
 from itertools import chain
 from warnings import warn
 import webbrowser
 
-from py2neo.compat import integer, string, ustr, xstr, ReprIO
+from py2neo import PRODUCT
+from py2neo.compat import integer, string, ustr, ReprIO
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.packages.neo4j.v1.connection import connect
 from py2neo.data import PropertyContainer, coerce_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case, base62
@@ -149,17 +150,36 @@ class Graph(object):
     __node_labels = None
     __relationship_types = None
 
-    def __new__(cls, uri=None):
-        if uri is None:
-            uri = DBMS().graph.uri.string
-        if not uri.endswith("/"):
-            uri += "/"
-        key = (cls, uri)
+    resource = None
+    connection = None
+
+    def __new__(cls, *uris):
+        # Gather all URIs
+        uri_dict = {"http": [], "bolt": []}
+        for uri in uris:
+            uri = URI(uri)
+            uri_dict.setdefault(uri.scheme, []).append(uri.string)
+        # Ensure there is at least one HTTP URI available
+        if not uri_dict["http"]:
+            uri_dict["http"].append(DBMS().graph.uri.string)
+        http_uri = uri_dict["http"][0]
+        # Add a trailing slash if required
+        if not http_uri.endswith("/"):
+            http_uri += "/"
+        # Construct a new instance
+        key = (cls, http_uri)
         try:
             inst = cls.__instances[key]
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
-            inst.resource = Resource(uri)
+            inst.uris = uri_dict
+            inst.resource = Resource(http_uri)
+            if inst.neo4j_version >= (3,):
+                if not uri_dict["bolt"]:
+                    uri_dict["bolt"].append("bolt://%s" % inst.resource.uri.host)
+                bolt_uri = URI(uri_dict["bolt"][0])
+                inst.connection = connect(bolt_uri.host, bolt_uri.port,
+                                          user_agent="/".join(PRODUCT))
             cls.__instances[key] = inst
         return inst
 
