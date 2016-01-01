@@ -97,7 +97,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             tx.run("CREATE (a) RETURN a")
         except Finished as error:
             assert error.obj is tx
-            assert repr(error) == "Transaction finished"
+            assert repr(error) == "HTTPTransaction finished"
         else:
             assert False
 

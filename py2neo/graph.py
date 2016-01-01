@@ -25,7 +25,7 @@ from py2neo.compat import integer, string, ustr, ReprIO
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.packages.neo4j.v1.connection import connect
+from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.data import PropertyContainer, coerce_property
 from py2neo.util import is_collection, round_robin, version_tuple, \
     ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case, base62
@@ -151,7 +151,7 @@ class Graph(object):
     __relationship_types = None
 
     resource = None
-    connection = None
+    driver = None
 
     def __new__(cls, *uris):
         # Gather all URIs
@@ -178,8 +178,7 @@ class Graph(object):
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.resource.uri.host)
                 bolt_uri = URI(uri_dict["bolt"][0])
-                inst.connection = connect(bolt_uri.host, bolt_uri.port,
-                                          user_agent="/".join(PRODUCT))
+                inst.driver = GraphDatabase.driver(bolt_uri.string, user_agent="/".join(PRODUCT))
             cls.__instances[key] = inst
         return inst
 
@@ -218,8 +217,7 @@ class Graph(object):
         """
         if self.__cypher is None:
             from py2neo.cypher import CypherEngine
-            metadata = self.resource.metadata
-            self.__cypher = CypherEngine(metadata.get("transaction"))
+            self.__cypher = CypherEngine(self)
         return self.__cypher
 
     def create(self, g):
@@ -392,10 +390,10 @@ class Graph(object):
             elif "results" in data:
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                from py2neo.cypher import Cursor
-                result = Cursor(self, hydrate=True)
-                result._process(data)
-                return result
+                from py2neo.cypher import HTTPTransaction, Cursor
+                cursor = Cursor(self, hydrate=True)
+                HTTPTransaction.fill_cursor(cursor, data)
+                return cursor
             elif "neo4j_version" in data:
                 return self
             else:

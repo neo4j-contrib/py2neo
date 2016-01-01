@@ -45,6 +45,7 @@ from py2neo.compat import integer, string, ustr
 from py2neo.graph import Node, Relationship, Path, Subgraph, Walkable, Entity
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
+from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.status import CypherError, Finished
 from py2neo.util import is_collection, deprecated
 
@@ -112,18 +113,19 @@ class CypherEngine(object):
     This class will usually be instantiated via a :class:`py2neo.Graph`
     object and will be made available through the
     :attr:`py2neo.Graph.cypher` attribute. Therefore, for single
-    statement execution, simply use the :func:`execute` method::
+    statement execution, simply use the :func:`.run` method::
 
         from py2neo import Graph
         graph = Graph()
-        results = graph.cypher.execute("MATCH (n:Person) RETURN n")
+        cursor = graph.cypher.run("MATCH (n:Person) RETURN n")
 
     """
 
-    error_class = CypherError
-
-    def __init__(self, transaction_uri):
-        self.transaction_uri = transaction_uri
+    def __init__(self, graph):
+        self.graph = graph
+        self.transaction_uri = self.graph.resource.metadata.get("transaction")
+        self.driver = None #self.graph.driver
+        self.transaction = HTTPTransaction #BoltTransaction if self.driver else HTTPTransaction
 
     def post(self, statement, parameters=None, **kwparameters):
         """ Post a Cypher statement to this resource, optionally with
@@ -133,7 +135,7 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
         """
-        tx = Transaction(self)
+        tx = self.transaction(self)
         result = tx.run(statement, parameters, **kwparameters)
         tx.post(commit=True)
         return result
@@ -144,7 +146,7 @@ class CypherEngine(object):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = Transaction(self)
+        tx = self.transaction(self)
         result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result
@@ -157,43 +159,41 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = Transaction(self)
+        tx = self.transaction(self)
         cursor = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return cursor.evaluate()
 
     def create(self, g):
-        tx = Transaction(self)
+        tx = self.transaction(self)
         tx.create(g)
         tx.commit()
 
     def create_unique(self, t):
-        tx = Transaction(self)
+        tx = self.transaction(self)
         tx.create_unique(t)
         tx.commit()
 
     def degree(self, g):
-        tx = Transaction(self)
+        tx = self.transaction(self)
         value = tx.degree(g)
         tx.commit()
         return value
 
     def delete(self, g):
-        tx = Transaction(self)
+        tx = self.transaction(self)
         tx.delete(g)
         tx.commit()
 
     def separate(self, g):
-        tx = Transaction(self)
+        tx = self.transaction(self)
         tx.separate(g)
         tx.commit()
 
     def begin(self):
         """ Begin a new transaction.
-
-        :rtype: :class:`py2neo.cypher.Transaction`
         """
-        return Transaction(self)
+        return self.transaction(self)
 
     @deprecated("CypherEngine.execute(...) is deprecated, "
                 "use CypherEngine.run(...) instead")
@@ -204,7 +204,7 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.Cursor`
         """
-        tx = Transaction(self)
+        tx = self.transaction(self)
         result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result
@@ -215,19 +215,11 @@ class Transaction(object):
     statements to be executed within a single server transaction.
     """
 
-    error_class = CypherError
-
     def __init__(self, cypher):
         log.info("begin")
-        self.statements = []
-        self.results = []
-        uri = cypher.transaction_uri
-        self._begin = Resource(uri)
-        self._begin_commit = Resource(uri + "/commit")
-        self._execute = None
-        self._commit = None
+        self.cypher = cypher
+        self.graph = cypher.graph
         self._finished = False
-        self.graph = self._begin.graph
 
     def __enter__(self):
         return self
@@ -242,63 +234,42 @@ class Transaction(object):
         if self._finished:
             raise Finished(self)
 
+    def finished(self):
+        """ Indicates whether or not this transaction has been completed
+        or is still open.
+        """
+        return self._finished
+
     @property
     def _id(self):
         """ The internal server ID of this transaction, if available.
         """
-        if self._execute is None:
-            return None
-        else:
-            return int(self._execute.uri.path.segments[-1])
+        return None
+
+    def run(self, statement, parameters=None, **kwparameters):
+        """ Add a statement to the current queue of statements to be
+        executed.
+
+        :arg statement: the statement to append
+        :arg parameters: a dictionary of execution parameters
+        """
+        raise NotImplementedError("%s.run" % self.__class__.__name__)
+
+    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
+    def append(self, statement, parameters=None, **kwparameters):
+        return self.run(statement, parameters, **kwparameters)
 
     def post(self, commit=False, hydrate=False):
-        self._assert_unfinished()
-        if commit:
-            log.info("commit")
-            resource = self._commit or self._begin_commit
-            self._finished = True
-        else:
-            log.info("process")
-            resource = self._execute or self._begin
-        rs = resource.post({"statements": self.statements})
-        location = rs.location
-        if location:
-            self._execute = Resource(location)
-        raw = rs.content
-        rs.close()
-        self.statements = []
-        if "commit" in raw:
-            self._commit = Resource(raw["commit"])
-        for raw_error in raw["errors"]:
-            raise self.error_class.hydrate(raw_error)
-        for raw_result in raw["results"]:
-            result = self.results.pop(0)
-            result._hydrate = hydrate
-            result._process(raw_result)
+        """ Submit the outstanding queue of actions to the current transaction.
+
+        :arg commit: flag indicating whether or not to commit this transaction
+        :arg hydrate: flag indicating whether or not to hydrate the values returned
+        """
+        raise NotImplementedError("%s.post" % self.__class__.__name__)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
-        the transaction open for further statements. Along with
-        :meth:`append <.Transaction.append>`, this method can be used to
-        batch up a number of individual statements into a single HTTP request::
-
-            from py2neo import Graph
-
-            graph = Graph()
-            statement = "MERGE (n:Person {name:{N}}) RETURN n"
-
-            tx = graph.cypher.begin()
-
-            def add_names(*names):
-                for name in names:
-                    tx.append(statement, {"N": name})
-                tx.process()
-
-            add_names("Homer", "Marge", "Bart", "Lisa", "Maggie")
-            add_names("Peter", "Lois", "Chris", "Meg", "Stewie")
-
-            tx.commit()
-
+        the transaction open for further statements.
         """
         self.post(hydrate=True)
 
@@ -309,32 +280,9 @@ class Transaction(object):
         self.post(commit=True, hydrate=True)
 
     def rollback(self):
-        """ Rollback the current transaction.
+        """ Rollback the current transaction, undoing all actions taken so far.
         """
-        self._assert_unfinished()
-        log.info("rollback")
-        try:
-            if self._execute:
-                self._execute.delete()
-        finally:
-            self._finished = True
-
-    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
-    def append(self, statement, parameters=None, **kwparameters):
-        return self.run(statement, parameters, **kwparameters)
-
-    def run(self, statement, parameters=None, **kwparameters):
-        """ Add a statement to the current queue of statements to be
-        executed.
-
-        :arg statement: the statement to append
-        :arg parameters: a dictionary of execution parameters
-        """
-        self._assert_unfinished()
-        self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        result = Cursor(self.graph, self, hydrate=True)
-        self.results.append(result)
-        return result
+        raise NotImplementedError("%s.rollback" % self.__class__.__name__)
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters).evaluate(0)
@@ -487,14 +435,153 @@ class Transaction(object):
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
-    def finished(self):
-        """ Indicates whether or not this transaction has been completed or is
-        still open.
 
-        :return: :py:const:`True` if this transaction has finished,
-                 :py:const:`False` otherwise
-        """
-        return self._finished
+class HTTPTransaction(Transaction):
+    """ A transaction is a transient resource that allows multiple Cypher
+    statements to be executed within a single server transaction.
+    """
+
+    error_class = CypherError
+
+    def __init__(self, cypher):
+        Transaction.__init__(self, cypher)
+        self.statements = []
+        self.cursors = []
+        uri = cypher.transaction_uri
+        self._begin = Resource(uri)
+        self._begin_commit = Resource(uri + "/commit")
+        self._execute = None
+        self._commit = None
+
+    @property
+    def _id(self):
+        if self._execute is None:
+            return None
+        else:
+            return int(self._execute.uri.path.segments[-1])
+
+    def run(self, statement, parameters=None, **kwparameters):
+        self._assert_unfinished()
+        self.statements.append(cypher_request(statement, parameters, **kwparameters))
+        cursor = Cursor(self.graph, self, hydrate=True)
+        self.cursors.append(cursor)
+        return cursor
+
+    def post(self, commit=False, hydrate=False):
+        self._assert_unfinished()
+        if commit:
+            log.info("commit")
+            resource = self._commit or self._begin_commit
+            self._finished = True
+        else:
+            log.info("process")
+            resource = self._execute or self._begin
+        rs = resource.post({"statements": self.statements})
+        location = rs.location
+        if location:
+            self._execute = Resource(location)
+        raw = rs.content
+        rs.close()
+        self.statements = []
+        if "commit" in raw:
+            self._commit = Resource(raw["commit"])
+        for raw_error in raw["errors"]:
+            raise self.error_class.hydrate(raw_error)
+        for raw_result in raw["results"]:
+            cursor = self.cursors.pop(0)
+            cursor.hydrate = hydrate
+            self.fill_cursor(cursor, raw_result)
+
+    def rollback(self):
+        self._assert_unfinished()
+        log.info("rollback")
+        try:
+            if self._execute:
+                self._execute.delete()
+        finally:
+            self._finished = True
+
+    @staticmethod
+    def fill_cursor(cursor, raw):
+        cursor._keys = keys = tuple(raw["columns"])
+        if cursor.hydrate:
+            hydrate = cursor.graph.hydrate
+            records = []
+            for record in raw["data"]:
+                values = []
+                for i, value in enumerate(record["rest"]):
+                    key = keys[i]
+                    cached = cursor.cache.get(key)
+                    values.append(hydrate(value, inst=cached))
+                records.append(Record(keys, values))
+            cursor._records = records
+        else:
+            cursor._records = [values["rest"] for values in raw["data"]]
+        cursor.filled = True
+
+
+class BoltTransaction(Transaction):
+
+    def __init__(self, cypher):
+        Transaction.__init__(self, cypher)
+        self.session = self.cypher.driver.session()  # TODO implement session pooling in the official driver
+        self.connection = self.session.connection
+        self.cursors = []
+        self.run("BEGIN")
+
+    def run(self, statement, parameters=None, **kwparameters):
+        self._assert_unfinished()
+        cursor = Cursor(self.graph, self, hydrate=True)
+
+        def on_header(metadata):
+            """ Called on receipt of the result header.
+            """
+            cursor._keys = metadata["fields"]
+
+        def on_record(values):
+            """ Called on receipt of each result record.
+            """
+            cursor._records.append(Record(cursor._keys, tuple(values)))  # TODO: hydrate
+
+        def on_footer(metadata):
+            """ Called on receipt of the result footer.
+            """
+            cursor.filled = True
+            #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
+
+        def on_failure(metadata):
+            """ Called on execution failure.
+            """
+            raise CypherError.hydrate(metadata)
+
+        run_response = Response(self.connection)
+        run_response.on_success = on_header
+        run_response.on_failure = on_failure
+
+        pull_all_response = Response(self.connection)
+        pull_all_response.on_record = on_record
+        pull_all_response.on_success = on_footer
+        pull_all_response.on_failure = on_failure
+
+        self.connection.append(RUN, (statement, dict(parameters or {}, **kwparameters)), run_response)
+        self.connection.append(PULL_ALL, (), pull_all_response)
+        self.cursors.append(cursor)
+        return cursor
+
+    def post(self, commit=False, hydrate=False):
+        self._assert_unfinished()
+        if commit:
+            log.info("commit")
+            self.run("COMMIT")
+            #self._finished = True  # TODO: work out where to put this
+        else:
+            log.info("process")
+        self.connection.send()
+        fetch_next = self.connection.fetch_next
+        while self.cursors:
+            cursor = self.cursors.pop(0)
+            while not cursor.filled:
+                fetch_next()
 
 
 class Cursor(object):
@@ -509,8 +596,8 @@ class Cursor(object):
         self._keys = ()
         self._records = []
         self._position = 0
-        self._processed = False
-        self._hydrate = hydrate     # TODO  hydrate to record or leave raw
+        self.filled = False
+        self.hydrate = hydrate     # TODO  hydrate to record or leave raw
         self.cache = {}
 
     def __repr__(self):
@@ -537,23 +624,6 @@ class Cursor(object):
         else:
             return iter(record)
 
-    def _process(self, raw):
-        self._keys = keys = tuple(raw["columns"])
-        if self._hydrate:
-            hydrate = self.graph.hydrate
-            records = []
-            for record in raw["data"]:
-                values = []
-                for i, value in enumerate(record["rest"]):
-                    key = keys[i]
-                    cached = self.cache.get(key)
-                    values.append(hydrate(value, inst=cached))
-                records.append(Record(keys, values))
-            self._records = records
-        else:
-            self._records = [values["rest"] for values in raw["data"]]
-        self._processed = True
-
     def keys(self):
         """ Return the keys for the currently selected record.
         """
@@ -579,7 +649,7 @@ class Cursor(object):
         :param amount: the amount by which to move the cursor
         :return: the amount that the cursor was able to move
         """
-        if not self._processed:
+        if not self.filled:
             self.transaction.process()
         amount = int(amount)
         step = 1 if amount >= 0 else -1
