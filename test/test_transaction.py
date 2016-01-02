@@ -433,3 +433,12 @@ class TransactionErrorTestCase(Py2neoTestCase):
             assert error.__class__.__module__ == "py2neo.status.%s" % category.lower()
             assert isinstance(error, CypherError)
             assert isinstance(error, GraphError)
+
+
+class TransactionAutocommitTest(Py2neoTestCase):
+
+    def test_can_autocommit(self):
+        tx = self.cypher.begin(autocommit=True)
+        assert not tx.finished()
+        tx.run("RETURN 1")
+        assert tx.finished()

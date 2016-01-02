@@ -570,14 +570,14 @@ class Graph(object):
             relationships.update(entity.relationships())
         tx = self.cypher.begin()
         for node in nodes:
+            tx.entities.append({"a": node})
             cursor = tx.run("MATCH (a) WHERE id(a)={x} "
                             "RETURN a, labels(a)", x=node)
-            cursor.cache["a"] = node
             nodes[node] = cursor
         for relationship in relationships:
+            tx.entities.append({"r": relationship})
             cursor = tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                             "RETURN r", x=relationship)
-            cursor.cache["r"] = relationship
         tx.commit()
         for node, cursor in nodes.items():
             labels = node._labels

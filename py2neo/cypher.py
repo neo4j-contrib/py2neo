@@ -34,7 +34,7 @@ Report bugs to nigel@py2neo.org
 """
 
 
-from collections import OrderedDict
+from collections import deque, OrderedDict
 import json
 import logging
 import os
@@ -152,10 +152,7 @@ class CypherEngine(object):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = self.begin()
-        result = tx.run(statement, parameters, **kwparameters)
-        tx.commit()
-        return result
+        return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -165,44 +162,30 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = self.begin()
-        cursor = tx.run(statement, parameters, **kwparameters)
-        tx.commit()
-        return cursor.evaluate()
+        return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
     def create(self, g):
-        tx = self.begin()
-        tx.create(g)
-        tx.commit()
+        self.begin(autocommit=True).create(g)
 
     def create_unique(self, t):
-        tx = self.begin()
-        tx.create_unique(t)
-        tx.commit()
+        self.begin(autocommit=True).create_unique(t)
 
     def degree(self, g):
-        tx = self.begin()
-        value = tx.degree(g)
-        tx.commit()
-        return value
+        return self.begin(autocommit=True).degree(g)
 
     def delete(self, g):
-        tx = self.begin()
-        tx.delete(g)
-        tx.commit()
+        self.begin(autocommit=True).delete(g)
 
     def separate(self, g):
-        tx = self.begin()
-        tx.separate(g)
-        tx.commit()
+        self.begin(autocommit=True).separate(g)
 
-    def begin(self):
+    def begin(self, autocommit=False):
         """ Begin a new transaction.
         """
         if self.driver:
-            return BoltTransaction(self)
+            return BoltTransaction(self, autocommit)
         else:
-            return HTTPTransaction(self)
+            return HTTPTransaction(self, autocommit)
 
     @deprecated("CypherEngine.execute(...) is deprecated, "
                 "use CypherEngine.run(...) instead")
@@ -213,10 +196,8 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :rtype: :class:`py2neo.cypher.Cursor`
         """
-        tx = self.transaction(self)
-        result = tx.run(statement, parameters, **kwparameters)
-        tx.commit()
-        return result
+        tx = self.begin(autocommit=True)
+        return tx.run(statement, parameters, **kwparameters)
 
 
 class Transaction(object):
@@ -224,11 +205,13 @@ class Transaction(object):
     statements to be executed within a single server transaction.
     """
 
-    def __init__(self, cypher):
+    def __init__(self, cypher, autocommit=False):
         log.info("begin")
         self.cypher = cypher
         self.graph = cypher.graph
+        self.autocommit = autocommit
         self._finished = False
+        self.entities = deque()
 
     def __enter__(self):
         return self
@@ -336,8 +319,8 @@ class Transaction(object):
                 returns[rel_id] = relationship
                 relationship._set_resource_pending(self)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        cursor = self.run(statement, parameters)
-        cursor.cache.update(returns)
+        self.entities.append(returns)
+        self.run(statement, parameters)
 
     def create_unique(self, t):
         if not isinstance(t, Walkable):
@@ -381,8 +364,8 @@ class Transaction(object):
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
+        self.entities.append(returns)
         cursor = self.run(statement, parameters)
-        cursor.cache.update(returns)
 
     def degree(self, g):
         try:
@@ -456,8 +439,8 @@ class HTTPTransaction(Transaction):
 
     error_class = CypherError
 
-    def __init__(self, cypher):
-        Transaction.__init__(self, cypher)
+    def __init__(self, cypher, autocommit=False):
+        Transaction.__init__(self, cypher, autocommit)
         self.statements = []
         self.cursors = []
         uri = cypher.transaction_uri
@@ -478,6 +461,8 @@ class HTTPTransaction(Transaction):
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
         cursor = Cursor(self.graph, self, hydrate=True)
         self.cursors.append(cursor)
+        if self.autocommit:
+            self.commit()
         return cursor
 
     def post(self, commit=False, hydrate=False):
@@ -516,6 +501,10 @@ class HTTPTransaction(Transaction):
 
     @staticmethod
     def fill_cursor(cursor, raw):
+        try:
+            entities = cursor.transaction.entities.popleft()
+        except (AttributeError, IndexError):
+            entities = {}
         cursor._keys = keys = tuple(raw["columns"])
         if cursor.hydrate:
             hydrate = cursor.graph.hydrate
@@ -524,7 +513,7 @@ class HTTPTransaction(Transaction):
                 values = []
                 for i, value in enumerate(record["rest"]):
                     key = keys[i]
-                    cached = cursor.cache.get(key)
+                    cached = entities.get(key)
                     values.append(hydrate(value, inst=cached))
                 records.append(Record(keys, values))
             cursor._records = records
@@ -535,17 +524,22 @@ class HTTPTransaction(Transaction):
 
 class BoltTransaction(Transaction):
 
-    def __init__(self, cypher):
-        Transaction.__init__(self, cypher)
+    def __init__(self, cypher, autocommit=False):
+        Transaction.__init__(self, cypher, autocommit)
         self.driver = driver = self.cypher.driver
         self.session = driver.session()
         self.cursors = []
-        self.run("BEGIN")
+        if not self.autocommit:
+            self.run("BEGIN")
 
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         connection = self.session.connection
         cursor = Cursor(self.graph, self, hydrate=True)
+        try:
+            entities = self.entities.popleft()
+        except IndexError:
+            entities = {}
 
         def on_header(metadata):
             """ Called on receipt of the result header.
@@ -559,7 +553,7 @@ class BoltTransaction(Transaction):
             hydrated_values = []
             for i, value in enumerate(values):
                 key = keys[i]
-                cached = cursor.cache.get(key)
+                cached = entities.get(key)
                 v = self.rehydrate(bolt_hydrate(value), inst=cached)
                 hydrated_values.append(v)
             cursor._records.append(Record(keys, hydrated_values))
@@ -588,6 +582,8 @@ class BoltTransaction(Transaction):
         connection.append(RUN, (s, p), run_response)
         connection.append(PULL_ALL, (), pull_all_response)
         self.cursors.append(cursor)
+        if self.autocommit:
+            self.finish()
         return cursor
 
     def rehydrate(self, obj, inst=None):
@@ -670,8 +666,7 @@ class Cursor(object):
         self._records = []
         self._position = 0
         self.filled = False
-        self.hydrate = hydrate     # TODO  hydrate to record or leave raw
-        self.cache = {}
+        self.hydrate = hydrate
 
     def __repr__(self):
         return "<Cursor position=%r keys=%r>" % (self._position, self.keys())
