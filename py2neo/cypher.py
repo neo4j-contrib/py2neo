@@ -282,6 +282,10 @@ class Transaction(object):
         """
         self.post(hydrate=True)
 
+    def finish(self):
+        self._assert_unfinished()
+        self._finished = True
+
     def commit(self):
         """ Send all pending statements to the server for execution and commit
         the transaction.
@@ -481,7 +485,7 @@ class HTTPTransaction(Transaction):
         if commit:
             log.info("commit")
             resource = self._commit or self._begin_commit
-            self._finished = True
+            self.finish()
         else:
             log.info("process")
             resource = self._execute or self._begin
@@ -508,7 +512,7 @@ class HTTPTransaction(Transaction):
             if self._execute:
                 self._execute.delete()
         finally:
-            self._finished = True
+            self.finish()
 
     @staticmethod
     def fill_cursor(cursor, raw):
@@ -534,16 +538,13 @@ class BoltTransaction(Transaction):
     def __init__(self, cypher):
         Transaction.__init__(self, cypher)
         self.driver = driver = self.cypher.driver
-        self.session = session = driver.session()  # TODO implement session pooling in the official driver
-        self.connection = session.connection
+        self.session = driver.session()
         self.cursors = []
         self.run("BEGIN")
 
-    def __del__(self):
-        self.session.close()  # TODO: turn this into "release" or "done" rather than close
-
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
+        connection = self.session.connection
         cursor = Cursor(self.graph, self, hydrate=True)
 
         def on_header(metadata):
@@ -574,18 +575,18 @@ class BoltTransaction(Transaction):
             """
             raise CypherError.hydrate(metadata)
 
-        run_response = Response(self.connection)
+        run_response = Response(connection)
         run_response.on_success = on_header
         run_response.on_failure = on_failure
 
-        pull_all_response = Response(self.connection)
+        pull_all_response = Response(connection)
         pull_all_response.on_record = on_record
         pull_all_response.on_success = on_footer
         pull_all_response.on_failure = on_failure
 
         s, p = normalise_request(statement, parameters, **kwparameters)
-        self.connection.append(RUN, (s, p), run_response)
-        self.connection.append(PULL_ALL, (), pull_all_response)
+        connection.append(RUN, (s, p), run_response)
+        connection.append(PULL_ALL, (), pull_all_response)
         self.cursors.append(cursor)
         return cursor
 
@@ -622,8 +623,9 @@ class BoltTransaction(Transaction):
             return obj
 
     def _sync(self):
-        self.connection.send()
-        fetch_next = self.connection.fetch_next
+        connection = self.session.connection
+        connection.send()
+        fetch_next = connection.fetch_next
         while self.cursors:
             cursor = self.cursors.pop(0)
             while not cursor.filled:
@@ -634,10 +636,16 @@ class BoltTransaction(Transaction):
         if commit:
             log.info("commit")
             self.run("COMMIT")
-            self._finished = True
+            self.finish()
         else:
             log.info("process")
+            self._sync()
+
+    def finish(self):
         self._sync()
+        Transaction.finish(self)
+        self.session.close()
+        self.session = None
 
     def rollback(self):
         self._assert_unfinished()
@@ -646,7 +654,7 @@ class BoltTransaction(Transaction):
             self.run("ROLLBACK")
             self._sync()
         finally:
-            self._finished = True
+            self.finish()
 
 
 class Cursor(object):
