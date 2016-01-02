@@ -47,3 +47,4 @@ Contents
    ext/ogm
    ext/spatial
    cookbook
+   api

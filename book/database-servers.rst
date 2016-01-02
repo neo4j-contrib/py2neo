@@ -5,10 +5,6 @@ Database Servers
 The Graph
 =========
 
-.. autoclass:: py2neo.Graph
-   :members:
-   :inherited-members:
-
 
 Authentication
 ==============
@@ -42,6 +38,3 @@ Alternatively, authentication can be disabled completely by editing the value of
 
 The Database Management System
 ==============================
-
-.. autoclass:: py2neo.DBMS
-   :members:

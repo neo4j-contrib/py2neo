@@ -114,24 +114,3 @@ Relationship equality is based on type and endpoints.
 A relationship will therefore be considered equal to another relationship of the same type attached to the same nodes.
 Properties are not considered for relationship equality.
 
-
-API
-===
-
-.. autoclass:: py2neo.Node
-   :inherited-members:
-   :members:
-
-.. autoclass:: py2neo.Relationship
-   :inherited-members:
-   :members:
-
-.. autoclass:: py2neo.Subgraph
-   :inherited-members:
-   :members:
-
-.. autoclass:: py2neo.Walkable
-   :inherited-members:
-   :members:
-
-.. autofunction:: py2neo.walk
