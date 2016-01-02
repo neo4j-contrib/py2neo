@@ -64,7 +64,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             cursor_2 = tx.run("CREATE (a) RETURN a")
             cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
-            assert tx._id is not None
+            assert tx._id is not None or self.graph.supports_bolt()
             for cursor in (cursor_1, cursor_2, cursor_3):
                 records = list(cursor.collect())
                 assert len(records) == 1
@@ -81,7 +81,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             cursor_2 = tx.run("CREATE (a) RETURN a")
             cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
-            assert tx._id is not None
+            assert tx._id is not None or self.graph.supports_bolt()
             for cursor in (cursor_1, cursor_2, cursor_3):
                 records = list(cursor.collect())
                 assert len(records) == 1
@@ -97,7 +97,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             tx.run("CREATE (a) RETURN a")
         except Finished as error:
             assert error.obj is tx
-            assert repr(error) == "HTTPTransaction finished"
+            assert repr(error).endswith("Transaction finished")
         else:
             assert False
 

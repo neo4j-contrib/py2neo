@@ -17,7 +17,7 @@
 
 
 import logging
-from unittest import skipUnless
+from unittest import skipIf, skipUnless
 
 from py2neo.graph import Graph, Node
 from py2neo.http import _add_header, _get_headers, rewrite, Resource
@@ -30,6 +30,7 @@ from test.compat import patch
 
 
 supports_auth = Graph().supports_auth()
+supports_bolt = Graph().supports_bolt()
 
 
 class DodgyServerError(_ServerError):
@@ -232,43 +233,6 @@ class ServerErrorTestCase(Py2neoTestCase):
                 assert isinstance(error.__cause__, DodgyServerError)
             else:
                 assert False
-
-
-class EfficiencyTestCase(Py2neoTestCase):
-
-    def test_repeated_graph_creation_needs_no_extra_responses(self):
-        _ = self.graph.neo4j_version
-        with HTTPCounter() as counter:
-            _ = Graph()
-            assert counter.response_count == 0
-
-    def test_merge_needs_one_response(self):
-        _ = self.graph.neo4j_version
-        with HTTPCounter() as counter:
-            count = 0
-            for node in self.graph.merge("Person", "name", "Alice"):
-                assert "Person" in node.labels()
-                assert node["name"] == "Alice"
-                count += 1
-            assert counter.response_count == 1
-
-    def test_relationship_hydration_does_not_make_nodes_stale(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        self.graph.create(alice | bob)
-        with HTTPCounter() as counter:
-            statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
-                         "CREATE (a)-[ab:KNOWS]->(b) "
-                         "RETURN ab")
-            parameters = {"A": alice, "B": bob}
-            friendship = self.cypher.evaluate(statement, parameters)
-            assert counter.response_count == 1
-            assert alice.labels() == {"Person"}
-            assert dict(alice) == {"name": "Alice"}
-            assert bob.labels() == {"Person"}
-            assert dict(bob) == {"name": "Bob"}
-            assert friendship.type() == "KNOWS"
-            assert counter.response_count == 1
 
 
 class AuthTestCase(Py2neoTestCase):

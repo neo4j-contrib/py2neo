@@ -298,6 +298,7 @@ class Graph(object):
         """
         tx = self.cypher.begin()
         cursors = []
+        count = 0
         try:
             nodes = g.nodes()
             relationships = g.relationships()
@@ -308,15 +309,16 @@ class Graph(object):
                 if a.resource:
                     cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
                                           "RETURN count(a)", x=a))
+                    count += 1
                 else:
                     return False
             for r in relationships:
                 if r.resource:
                     cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
                                           "RETURN count(r)", x=r))
+                    count += 1
                 else:
                     return False
-        count = len(tx.statements)
         tx.commit()
         if count == 0:
             return None
@@ -482,23 +484,21 @@ class Graph(object):
             raise ValueError("Empty label")
         from py2neo.cypher import cypher_escape
         if property_key is None:
-            statement = "MERGE (n:%s) RETURN n,labels(n)" % cypher_escape(label)
+            statement = "MERGE (n:%s) RETURN n" % cypher_escape(label)
             parameters = {}
         elif not isinstance(property_key, string):
             raise TypeError("Property key must be textual")
         elif property_value is None:
             raise ValueError("Both key and value must be specified for a property")
         else:
-            statement = "MERGE (n:%s {%s:{V}}) RETURN n,labels(n)" % (
+            statement = "MERGE (n:%s {%s:{V}}) RETURN n" % (
                 cypher_escape(label), cypher_escape(property_key))
             parameters = {"V": coerce_property(property_value)}
         if limit:
             statement += " LIMIT %s" % limit
-        cursor = self.cypher.post(statement, parameters)
+        cursor = self.cypher.run(statement, parameters)
         for record in cursor.collect():
-            dehydrated = record[0]
-            dehydrated.setdefault("metadata", {})["labels"] = record[1]
-            yield self.hydrate(dehydrated)
+            yield record[0]
 
     def merge_one(self, label, property_key=None, property_value=None):
         """ Match or create a node by label and optional property and return a

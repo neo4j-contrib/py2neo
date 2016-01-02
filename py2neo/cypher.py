@@ -46,6 +46,8 @@ from py2neo.graph import Node, Relationship, Path, Subgraph, Walkable, Entity
 from py2neo.env import NEO4J_URI
 from py2neo.http import Resource, authenticate
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
+from py2neo.packages.neo4j.v1.typesystem import \
+    Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
 from py2neo.status import CypherError, Finished
 from py2neo.util import is_collection, deprecated
 
@@ -80,14 +82,16 @@ def presubstitute(statement, parameters):
     return statement, parameters
 
 
-def cypher_request(statement, parameters, **kwparameters):
+def normalise_request(statement, parameters, **kwparameters):
     s = ustr(statement)
     p = {}
 
     def add_parameters(params):
         if params:
             for k, v in dict(params).items():
-                if isinstance(v, Entity):
+                if isinstance(v, tuple):
+                    v = list(v)
+                elif isinstance(v, Entity):
                     if v.resource:
                         v = v.resource._id
                     else:
@@ -95,8 +99,11 @@ def cypher_request(statement, parameters, **kwparameters):
                 p[k] = v
 
     add_parameters(dict(parameters or {}, **kwparameters))
+    return presubstitute(s, p)
 
-    s, p = presubstitute(s, p)
+
+def cypher_request(statement, parameters, **kwparameters):
+    s, p = normalise_request(statement, parameters, **kwparameters)
 
     # OrderedDict is used here to avoid statement/parameters ordering bug
     return OrderedDict([
@@ -124,8 +131,7 @@ class CypherEngine(object):
     def __init__(self, graph):
         self.graph = graph
         self.transaction_uri = self.graph.resource.metadata.get("transaction")
-        self.driver = None #self.graph.driver
-        self.transaction = HTTPTransaction #BoltTransaction if self.driver else HTTPTransaction
+        self.driver = self.graph.driver
 
     def post(self, statement, parameters=None, **kwparameters):
         """ Post a Cypher statement to this resource, optionally with
@@ -135,7 +141,7 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :arg kwparameters: Extra parameters supplied by keyword.
         """
-        tx = self.transaction(self)
+        tx = self.begin()
         result = tx.run(statement, parameters, **kwparameters)
         tx.post(commit=True)
         return result
@@ -146,7 +152,7 @@ class CypherEngine(object):
         :arg statement: A Cypher statement to execute.
         :arg parameters: A dictionary of parameters.
         """
-        tx = self.transaction(self)
+        tx = self.begin()
         result = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return result
@@ -159,41 +165,44 @@ class CypherEngine(object):
         :arg parameters: A dictionary of parameters.
         :return: Single return value or :const:`None`.
         """
-        tx = self.transaction(self)
+        tx = self.begin()
         cursor = tx.run(statement, parameters, **kwparameters)
         tx.commit()
         return cursor.evaluate()
 
     def create(self, g):
-        tx = self.transaction(self)
+        tx = self.begin()
         tx.create(g)
         tx.commit()
 
     def create_unique(self, t):
-        tx = self.transaction(self)
+        tx = self.begin()
         tx.create_unique(t)
         tx.commit()
 
     def degree(self, g):
-        tx = self.transaction(self)
+        tx = self.begin()
         value = tx.degree(g)
         tx.commit()
         return value
 
     def delete(self, g):
-        tx = self.transaction(self)
+        tx = self.begin()
         tx.delete(g)
         tx.commit()
 
     def separate(self, g):
-        tx = self.transaction(self)
+        tx = self.begin()
         tx.separate(g)
         tx.commit()
 
     def begin(self):
         """ Begin a new transaction.
         """
-        return self.transaction(self)
+        if self.driver:
+            return BoltTransaction(self)
+        else:
+            return HTTPTransaction(self)
 
     @deprecated("CypherEngine.execute(...) is deprecated, "
                 "use CypherEngine.run(...) instead")
@@ -323,8 +332,8 @@ class Transaction(object):
                 returns[rel_id] = relationship
                 relationship._set_resource_pending(self)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        result = self.run(statement, parameters)
-        result.cache.update(returns)
+        cursor = self.run(statement, parameters)
+        cursor.cache.update(returns)
 
     def create_unique(self, t):
         if not isinstance(t, Walkable):
@@ -368,8 +377,8 @@ class Transaction(object):
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        result = self.run(statement, parameters)
-        result.cache.update(returns)
+        cursor = self.run(statement, parameters)
+        cursor.cache.update(returns)
 
     def degree(self, g):
         try:
@@ -524,10 +533,14 @@ class BoltTransaction(Transaction):
 
     def __init__(self, cypher):
         Transaction.__init__(self, cypher)
-        self.session = self.cypher.driver.session()  # TODO implement session pooling in the official driver
-        self.connection = self.session.connection
+        self.driver = driver = self.cypher.driver
+        self.session = session = driver.session()  # TODO implement session pooling in the official driver
+        self.connection = session.connection
         self.cursors = []
         self.run("BEGIN")
+
+    def __del__(self):
+        self.session.close()  # TODO: turn this into "release" or "done" rather than close
 
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
@@ -541,7 +554,14 @@ class BoltTransaction(Transaction):
         def on_record(values):
             """ Called on receipt of each result record.
             """
-            cursor._records.append(Record(cursor._keys, tuple(values)))  # TODO: hydrate
+            keys = cursor._keys
+            hydrated_values = []
+            for i, value in enumerate(values):
+                key = keys[i]
+                cached = cursor.cache.get(key)
+                v = self.rehydrate(bolt_hydrate(value), inst=cached)
+                hydrated_values.append(v)
+            cursor._records.append(Record(keys, hydrated_values))
 
         def on_footer(metadata):
             """ Called on receipt of the result footer.
@@ -563,25 +583,70 @@ class BoltTransaction(Transaction):
         pull_all_response.on_success = on_footer
         pull_all_response.on_failure = on_failure
 
-        self.connection.append(RUN, (statement, dict(parameters or {}, **kwparameters)), run_response)
+        s, p = normalise_request(statement, parameters, **kwparameters)
+        self.connection.append(RUN, (s, p), run_response)
         self.connection.append(PULL_ALL, (), pull_all_response)
         self.cursors.append(cursor)
         return cursor
 
-    def post(self, commit=False, hydrate=False):
-        self._assert_unfinished()
-        if commit:
-            log.info("commit")
-            self.run("COMMIT")
-            #self._finished = True  # TODO: work out where to put this
+    def rehydrate(self, obj, inst=None):
+        if isinstance(obj, BoltNode):
+            return Node.hydrate({
+                "self": "%snode/%d" % (self.graph.resource.uri.string, obj.identity),
+                "metadata": {"labels": list(obj.labels)},
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltRelationship):
+            graph_uri = self.graph.resource.uri.string
+            return Relationship.hydrate({
+                "self": "%srelationship/%d" % (graph_uri, obj.identity),
+                "start": "%snode/%d" % (graph_uri, obj.start),
+                "end": "%snode/%d" % (graph_uri, obj.end),
+                "type": obj.type,
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltPath):
+            graph_uri = self.graph.resource.uri.string
+            return Path.hydrate({
+                "nodes": ["%snode/%d" % (graph_uri, n.identity) for n in obj.nodes],
+                "relationships": ["%srelationship/%d" % (graph_uri, r.identity)
+                                  for r in obj.relationships],
+                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
+                               for i, r in enumerate(obj.relationships)],
+            })
+        elif isinstance(obj, list):
+            return list(map(self.rehydrate, obj))
+        elif isinstance(obj, dict):
+            return {key: self.rehydrate(value) for key, value in obj.items()}
         else:
-            log.info("process")
+            return obj
+
+    def _sync(self):
         self.connection.send()
         fetch_next = self.connection.fetch_next
         while self.cursors:
             cursor = self.cursors.pop(0)
             while not cursor.filled:
                 fetch_next()
+
+    def post(self, commit=False, hydrate=False):
+        self._assert_unfinished()
+        if commit:
+            log.info("commit")
+            self.run("COMMIT")
+            self._finished = True
+        else:
+            log.info("process")
+        self._sync()
+
+    def rollback(self):
+        self._assert_unfinished()
+        log.info("rollback")
+        try:
+            self.run("ROLLBACK")
+            self._sync()
+        finally:
+            self._finished = True
 
 
 class Cursor(object):

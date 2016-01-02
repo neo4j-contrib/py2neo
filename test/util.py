@@ -21,6 +21,7 @@ from uuid import uuid4
 
 from py2neo import Graph, Node
 from py2neo.ext.batman import ManualIndexManager
+from py2neo.packages.httpstream.http import ConnectionPool
 
 
 def unique_string_generator():
@@ -37,6 +38,14 @@ class Py2neoTestCase(TestCase):
         self.schema = self.graph.schema
         self.index_manager = ManualIndexManager(self.graph)
         self.unique_string = unique_string_generator()
+
+    def tearDown(self):
+        for key, puddle in ConnectionPool._puddles.items():
+            for connection in puddle._ConnectionPuddle__active:
+                puddle.release(connection)
+            while puddle._ConnectionPuddle__passive:
+                connection = puddle._ConnectionPuddle__passive.pop()
+                connection.close()
 
     def reset(self):
         graph = self.graph

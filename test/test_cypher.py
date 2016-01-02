@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.graph import Node, Relationship, Path, entity_name
-from py2neo.cypher import CypherEngine, HTTPTransaction, presubstitute, CypherWriter, cypher_repr
+from py2neo.cypher import CypherEngine, Transaction, presubstitute, CypherWriter, cypher_repr
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
 
@@ -90,7 +90,7 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_begin_transaction(self):
         cypher = CypherEngine(self.graph)
         tx = cypher.begin()
-        assert isinstance(tx, HTTPTransaction)
+        assert isinstance(tx, Transaction)
 
     def test_nonsense_query(self):
         statement = "SELECT z=nude(0) RETURNS x"
