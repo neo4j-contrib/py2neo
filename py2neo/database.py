@@ -1443,7 +1443,7 @@ class CypherCommandLine(object):
         self.tx = None
 
     def begin(self):
-        self.tx = self.graph.cypher.begin()
+        self.tx = self.graph.begin()
 
     def set_parameter(self, key, value):
         try:
