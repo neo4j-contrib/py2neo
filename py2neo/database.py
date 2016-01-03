@@ -651,12 +651,6 @@ class Graph(object):
         statement = "MATCH (n) RETURN count(n)"
         return self.evaluate(statement)
 
-    def post(self, statement, parameters=None, **kwparameters):
-        tx = self.begin()
-        result = tx.run(statement, parameters, **kwparameters)
-        tx.post(commit=True)
-        return result
-
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
         """
