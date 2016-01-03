@@ -36,7 +36,7 @@ Contents
 .. toctree::
    :maxdepth: 2
 
-   graph-data
+   types
    database-servers
    cypher
    ext/batman
@@ -47,4 +47,3 @@ Contents
    ext/ogm
    ext/spatial
    cookbook
-   api
