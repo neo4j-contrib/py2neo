@@ -157,7 +157,7 @@ class PathTestCase(Py2neoTestCase):
                  ({name:'Carol'})-[:MARRIED_TO]->({name:'Dave'})
         RETURN p
         """
-        path = self.cypher.evaluate(cypher)
+        path = self.graph.evaluate(cypher)
         assert path[0].start_node()["name"] == "Alice"
         assert path[0].end_node()["name"] == "Bob"
         assert path[1].start_node()["name"] == "Carol"

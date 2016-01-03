@@ -34,7 +34,6 @@ class Py2neoTestCase(TestCase):
     def __init__(self, *args, **kwargs):
         super(Py2neoTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
-        self.cypher = self.graph.cypher
         self.schema = self.graph.schema
         self.index_manager = ManualIndexManager(self.graph)
         self.unique_string = unique_string_generator()
@@ -87,13 +86,13 @@ class Py2neoTestCase(TestCase):
         return node_id
 
     def get_attached_node_id(self):
-        return self.cypher.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
+        return self.graph.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
 
 
 class TemporaryTransaction(object):
 
     def __init__(self, graph):
-        self.tx = graph.cypher.begin()
+        self.tx = graph.begin()
 
     def __del__(self):
         self.tx.rollback()

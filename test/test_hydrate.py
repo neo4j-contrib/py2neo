@@ -135,10 +135,10 @@ class HydrationTestCase(Py2neoTestCase):
         assert hydrated.resource.uri == dehydrated["self"]
 
     def test_path_hydration_without_directions(self):
-        driver = self.cypher.driver
-        self.cypher.driver = None
+        driver = self.graph.driver
+        self.graph.driver = None
         try:
-            cursor = self.cypher.post("CREATE p=(a)-[:KNOWS]->(b)-[:KNOWS]->(c) RETURN p")
+            cursor = self.graph.post("CREATE p=(a)-[:KNOWS]->(b)-[:KNOWS]->(c) RETURN p")
             raw = cursor.evaluate()
             try:
                 del raw["directions"]
@@ -148,4 +148,4 @@ class HydrationTestCase(Py2neoTestCase):
             assert isinstance(hydrated, Path)
             assert hydrated.length() == 2
         finally:
-            self.cypher.driver = driver
+            self.graph.driver = driver

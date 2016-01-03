@@ -25,7 +25,7 @@ from test.util import Py2neoTestCase
 class TransactionRunTestCase(Py2neoTestCase):
 
     def test_can_run_single_statement_transaction(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         assert not tx.finished()
         cursor = tx.run("CREATE (a) RETURN a")
         tx.commit()
@@ -36,13 +36,13 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert tx.finished()
 
     def test_can_run_transaction_as_with_statement(self):
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             assert not tx.finished()
             tx.run("CREATE (a) RETURN a")
         assert tx.finished()
 
     def test_can_run_multi_statement_transaction(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         assert not tx.finished()
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
@@ -56,7 +56,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert tx.finished()
 
     def test_can_run_multi_execute_transaction(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         assert tx._id is None
         for i in range(10):
             assert not tx.finished()
@@ -74,7 +74,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert tx.finished()
 
     def test_can_rollback_transaction(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         for i in range(10):
             assert not tx.finished()
             cursor_1 = tx.run("CREATE (a) RETURN a")
@@ -91,7 +91,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert tx.finished()
 
     def test_cannot_append_after_transaction_finished(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         tx.rollback()
         try:
             tx.run("CREATE (a) RETURN a")
@@ -106,7 +106,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create(a)
         assert a.resource
 
@@ -114,7 +114,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create(r)
         assert a.resource
         assert b.resource
@@ -124,7 +124,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
 
     def test_can_create_nodes_and_relationship_1(self):
         self.graph.delete_all()
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             a = Node("Person", name="Alice")
             b = Node("Person", name="Bob")
             tx.create(a)
@@ -142,7 +142,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
 
     def test_can_create_nodes_and_relationship_2(self):
         self.graph.delete_all()
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             a = Node("Person", name="Alice")
             b = Node("Person", name="Bob")
             tx.create(a)
@@ -159,7 +159,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
 
     def test_can_create_nodes_and_relationship_3(self):
         self.graph.delete_all()
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             a = Node("Person", name="Alice")
             b = Node("Person", name="Bob")
             r = Relationship(a, "KNOWS", b, since=1999)
@@ -176,7 +176,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
 
     def test_can_create_nodes_and_relationship_4(self):
         self.graph.delete_all()
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             a = Node()
             b = Node()
             c = Node()
@@ -204,14 +204,14 @@ class TransactionCreateTestCase(Py2neoTestCase):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create(r)
         assert a.resource
         assert b.resource
         assert r.resource
         assert self.graph.order() == 2
         assert self.graph.size() == 1
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create(r)
         assert a.resource
         assert b.resource
@@ -227,13 +227,13 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         self.a = Node("Person", name="Alice")
         self.b = Node("Person", name="Bob")
         self.ab = Relationship(self.a, "KNOWS", self.b, since=1999)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create(self.ab)
 
     def test_can_create_path_when_none_exists(self):
         c = Node("Person", name="Carol")
         ac = Relationship(self.a, "KNOWS", c)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create_unique(ac)
         assert c != self.b
         assert c.resource
@@ -246,7 +246,7 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
     def test_can_create_path_when_one_exists(self):
         b = Node("Person", name="Bob")
         ab = Relationship(self.a, "KNOWS", b)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create_unique(ab)
         assert b.resource._id == self.b.resource._id
         assert ab.resource._id == self.ab.resource._id
@@ -260,7 +260,7 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
     def test_can_create_path_beyond_existing_path(self):
         c = Node("Person", name="Carol")
         bc = Relationship(self.b, "KNOWS", c)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create_unique(self.ab + bc)
         assert c.resource
         assert bc.resource
@@ -272,7 +272,7 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
     def test_can_create_path_with_reversed_relationship(self):
         c = Node("Person", name="Carol")
         cb = Relationship(c, "KNOWS", self.b)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.create_unique(self.ab + cb)
         assert c.resource
         assert cb.resource
@@ -286,7 +286,7 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
         with self.assertRaises(ValueError):
-            with self.cypher.begin() as tx:
+            with self.graph.begin() as tx:
                 tx.create_unique(r)
 
 
@@ -298,7 +298,7 @@ class TransactionDeleteTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         assert self.graph.exists(r)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.delete(r)
         assert not self.graph.exists(r)
         assert not self.graph.exists(a)
@@ -313,7 +313,7 @@ class TransactionSeparateTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         assert self.graph.exists(r)
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             tx.separate(r)
         assert not self.graph.exists(r)
         assert self.graph.exists(a)
@@ -326,7 +326,7 @@ class TransactionDegreeTestCase(Py2neoTestCase):
         a = Node()
         b = Node()
         self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             d = tx.degree(a)
         assert d == 2
 
@@ -334,7 +334,7 @@ class TransactionDegreeTestCase(Py2neoTestCase):
         a = Node()
         b = Node()
         self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
-        with self.cypher.begin() as tx:
+        with self.graph.begin() as tx:
             d = tx.degree(a | b)
         assert d == 2
 
@@ -342,7 +342,7 @@ class TransactionDegreeTestCase(Py2neoTestCase):
 class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_can_generate_transaction_error(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         try:
             tx.run("CRAETE (a) RETURN a")
             tx.commit()
@@ -352,7 +352,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
             assert False
 
     def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
-        tx = self.cypher.begin()
+        tx = self.graph.begin()
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
         record = cursor.select()
@@ -438,7 +438,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
 class TransactionAutocommitTest(Py2neoTestCase):
 
     def test_can_autocommit(self):
-        tx = self.cypher.begin(autocommit=True)
+        tx = self.graph.begin(autocommit=True)
         assert not tx.finished()
         tx.run("RETURN 1")
         assert tx.finished()

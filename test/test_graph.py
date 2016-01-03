@@ -46,7 +46,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_graph_len_returns_number_of_rels(self):
         size = len(self.graph)
         statement = "MATCH ()-[r]->() RETURN COUNT(r)"
-        num_rels = self.cypher.evaluate(statement)
+        num_rels = self.graph.evaluate(statement)
         assert size == num_rels
 
     def test_graph_bool_returns_true(self):

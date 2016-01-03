@@ -51,7 +51,7 @@ class PullTestCase(Py2neoTestCase):
         id_1 = path[1].resource._id
         id_2 = path[2].resource._id
         parameters = {"ab": id_0, "bc": id_1, "cd": id_2}
-        self.cypher.run(statement, parameters)
+        self.graph.run(statement, parameters)
         self.graph.pull(path)
         assert path[0]["amount"] == "lots"
         assert path[1]["amount"] == "some"
@@ -74,8 +74,8 @@ class PullTestCase(Py2neoTestCase):
                 else:
                     set_clause = ""
                 if remove_clause or set_clause:
-                    self.graph.cypher.run("MATCH (a) WHERE id(a)={x} %s %s" %
-                                          (remove_clause, set_clause), x=node_id)
+                    self.graph.run("MATCH (a) WHERE id(a)={x} %s %s" %
+                                   (remove_clause, set_clause), x=node_id)
                     self.graph.pull(node)
                     assert node.labels() == new_labels, \
                         "Failed to pull new labels %r over old labels %r" % \
@@ -89,8 +89,7 @@ class PullTestCase(Py2neoTestCase):
                 self.graph.create(node)
                 node_id = node.resource._id
                 assert dict(node) == old_props
-                self.graph.cypher.run("MATCH (a) WHERE id(a)={x} SET a={y}",
-                                      x=node_id, y=new_props)
+                self.graph.run("MATCH (a) WHERE id(a)={x} SET a={y}", x=node_id, y=new_props)
                 self.graph.pull(node)
                 assert dict(node) == new_props,\
                     "Failed to pull new properties %r over old properties %r" % \
@@ -106,8 +105,8 @@ class PullTestCase(Py2neoTestCase):
                 self.graph.create(relationship)
                 relationship_id = relationship.resource._id
                 assert dict(relationship) == old_props
-                self.graph.cypher.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
-                                      x=relationship_id, y=new_props)
+                self.graph.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
+                               x=relationship_id, y=new_props)
                 self.graph.pull(relationship)
                 assert dict(relationship) == new_props, \
                     "Failed to pull new properties %r over old properties %r" % \
@@ -133,13 +132,13 @@ class PushTestCase(Py2neoTestCase):
         b = Node()
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
-        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab)
+        value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                    "RETURN ab.since", i=ab)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
-        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab)
+        value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                    "RETURN ab.since", i=ab)
         assert value == 1999
 
     def test_can_push_path(self):
@@ -157,12 +156,12 @@ class PushTestCase(Py2neoTestCase):
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999
-        ab_amount, bc_amount, cd_since = self.cypher.run(statement, parameters).select()
+        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).select()
         assert ab_amount is None
         assert bc_amount is None
         assert cd_since is None
         self.graph.push(path)
-        ab_amount, bc_amount, cd_since = self.cypher.run(statement, parameters).select()
+        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).select()
         assert ab_amount == "lots"
         assert bc_amount == "some"
         assert cd_since == 1999

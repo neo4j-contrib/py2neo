@@ -237,7 +237,6 @@ class Graph(object):
 
     __instances = {}
 
-    __cypher = None
     __schema = None
     __node_labels = None
     __relationship_types = None
@@ -266,6 +265,7 @@ class Graph(object):
             inst = super(Graph, cls).__new__(cls)
             inst.uris = uri_dict
             inst.resource = Resource(http_uri)
+            inst.transaction_uri = Resource(http_uri + "transaction").uri.string
             if inst.supports_bolt():
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.resource.uri.host)
@@ -291,6 +291,16 @@ class Graph(object):
 
     def __contains__(self, entity):
         return entity.resource and entity.resource.uri.string.startswith(self.resource.uri.string)
+
+    def begin(self, autocommit=False):
+        """ Begin a new transaction.
+
+        :arg autocommit:
+        """
+        if self.driver:
+            return BoltTransaction(self, autocommit)
+        else:
+            return HTTPTransaction(self, autocommit)
 
     def create(self, subgraph):
         """ Create remote copies of a set of nodes and relationships in a
@@ -319,10 +329,9 @@ class Graph(object):
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
 
-        .. seealso:: :meth:`py2neo.cypher.CypherEngine.create`,
-                     :meth:`py2neo.cypher.Transaction.create`
+        .. seealso:: :meth:`py2neo.cypher.Transaction.create`
         """
-        self.cypher.create(subgraph)
+        self.begin(autocommit=True).create(subgraph)
 
     def create_unique(self, walkable):
         """ Create remote copies of one or more unique paths or relationships in a
@@ -332,29 +341,9 @@ class Graph(object):
 
         :arg walkable: a :class:`.Walkable` object
 
-        .. seealso:: :meth:`py2neo.cypher.CypherEngine.create_unique`,
-                     :meth:`py2neo.cypher.Transaction.create_unique`
+        .. seealso:: :meth:`py2neo.cypher.Transaction.create_unique`
         """
-        self.cypher.create_unique(walkable)
-
-    @property
-    def cypher(self):
-        """ The Cypher execution resource for this graph providing access to
-        all Cypher functionality for the underlying database, both simple
-        and transactional.
-
-        ::
-
-            >>> from py2neo import Graph
-            >>> graph = Graph()
-            >>> graph.cypher.run("CREATE (a:Person {name:{N}})", {"N": "Alice"})
-
-        :rtype: :class:`py2neo.cypher.CypherEngine`
-
-        """
-        if self.__cypher is None:
-            self.__cypher = CypherEngine(self)
-        return self.__cypher
+        self.begin(autocommit=True).create_unique(walkable)
 
     @property
     def dbms(self):
@@ -368,10 +357,9 @@ class Graph(object):
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
 
-        .. seealso:: :meth:`py2neo.cypher.CypherEngine.degree`,
-                     :meth:`py2neo.cypher.Transaction.degree`
+        .. seealso:: :meth:`py2neo.cypher.Transaction.degree`
         """
-        return self.cypher.degree(subgraph)
+        return self.begin(autocommit=True).degree(subgraph)
 
     def delete(self, subgraph):
         """ Delete one or more nodes and/or relationships.
@@ -379,10 +367,9 @@ class Graph(object):
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
 
-        .. seealso:: :meth:`py2neo.cypher.CypherEngine.delete`,
-                     :meth:`py2neo.cypher.Transaction.delete`
+        .. seealso:: :meth:`py2neo.cypher.Transaction.delete`
         """
-        self.cypher.delete(subgraph)
+        self.begin(autocommit=True).delete(subgraph)
 
     def delete_all(self):
         """ Delete all nodes and relationships from the graph.
@@ -391,24 +378,22 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
-    def separate(self, subgraph):
-        """ Delete one or more relationships. This method is similar to
-        :meth:`delete` but deletes only the relationships.
+    def evaluate(self, statement, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement and return the value from
+        the first column of the first record returned.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph` object
-
-        .. seealso:: :meth:`py2neo.cypher.CypherEngine.separate`,
-                     :meth:`py2neo.cypher.Transaction.separate`
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
+        :return: Single return value or :const:`None`.
         """
-        self.cypher.separate(subgraph)
+        return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
     def exists(self, g):
         """ Determine whether a number of graph entities all exist within the database.
         """
-        tx = self.cypher.begin()
+        tx = self.begin()
         cursors = []
         count = 0
         try:
@@ -452,7 +437,7 @@ class Graph(object):
             parameters = {"V": property_value}
         if limit:
             statement += " LIMIT %s" % limit
-        cursor = self.cypher.run(statement, parameters)
+        cursor = self.run(statement, parameters)
         while cursor.move():
             a = cursor[0]
             a.labels().update(cursor[1])
@@ -489,7 +474,7 @@ class Graph(object):
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
                     directions = []
-                    relationships = self.cypher.evaluate(
+                    relationships = self.evaluate(
                         "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
                         x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
                     node_uris = data["nodes"]
@@ -570,7 +555,7 @@ class Graph(object):
             statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
-        cursor = self.cypher.run(statement, parameters)
+        cursor = self.run(statement, parameters)
         while cursor.move():
             yield cursor["r"]
 
@@ -605,7 +590,7 @@ class Graph(object):
             parameters = {"V": coerce_property(property_value)}
         if limit:
             statement += " LIMIT %s" % limit
-        cursor = self.cypher.run(statement, parameters)
+        cursor = self.run(statement, parameters)
         for record in cursor.collect():
             yield record[0]
 
@@ -639,7 +624,7 @@ class Graph(object):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            node = self.cypher.evaluate("MATCH (a) WHERE id(a)={x} "
+            node = self.evaluate("MATCH (a) WHERE id(a)={x} "
                                         "RETURN a", x=id_)
             if node is None:
                 raise IndexError("Node %d not found" % id_)
@@ -664,7 +649,13 @@ class Graph(object):
         """ The number of nodes in this graph.
         """
         statement = "MATCH (n) RETURN count(n)"
-        return self.cypher.evaluate(statement)
+        return self.evaluate(statement)
+
+    def post(self, statement, parameters=None, **kwparameters):
+        tx = self.begin()
+        result = tx.run(statement, parameters, **kwparameters)
+        tx.post(commit=True)
+        return result
 
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
@@ -677,7 +668,7 @@ class Graph(object):
             for node in entity.nodes():
                 nodes[node] = None
             relationships.update(entity.relationships())
-        tx = self.cypher.begin()
+        tx = self.begin()
         for node in nodes:
             tx.entities.append({"a": node})
             cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=node)
@@ -725,7 +716,7 @@ class Graph(object):
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            relationship = self.cypher.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
+            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
                                                 "RETURN r", x=id_)
             if relationship is None:
                 raise IndexError("Relationship %d not found" % id_)
@@ -739,6 +730,25 @@ class Graph(object):
         if self.__relationship_types is None:
             self.__relationship_types = Resource(self.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
+
+    def run(self, statement, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement, ignoring any return value.
+
+        :arg statement: A Cypher statement to execute.
+        :arg parameters: A dictionary of parameters.
+        """
+        return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
+
+    def separate(self, subgraph):
+        """ Delete one or more relationships. This method is similar to
+        :meth:`delete` but deletes only the relationships.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso:: :meth:`py2neo.cypher.Transaction.separate`
+        """
+        self.begin(autocommit=True).separate(subgraph)
 
     @property
     def schema(self):
@@ -754,7 +764,7 @@ class Graph(object):
         """ The number of relationships in this graph.
         """
         statement = "MATCH ()-[r]->() RETURN count(r)"
-        return self.cypher.evaluate(statement)
+        return self.evaluate(statement)
 
     def supports_auth(self):
         """ Returns :py:const:`True` if auth is supported by this
@@ -842,104 +852,14 @@ class Schema(object):
         ]
 
 
-
-
-class CypherEngine(object):
-    """ Service wrapper for all Cypher functionality, providing access
-    to transactions as well as single statement execution and streaming.
-
-    This class will usually be instantiated via a :class:`py2neo.Graph`
-    object and will be made available through the
-    :attr:`py2neo.Graph.cypher` attribute. Therefore, for single
-    statement execution, simply use the :func:`.run` method::
-
-        from py2neo import Graph
-        graph = Graph()
-        cursor = graph.cypher.run("MATCH (n:Person) RETURN n")
-
-    """
-
-    def __init__(self, graph):
-        self.graph = graph
-        self.transaction_uri = self.graph.resource.metadata.get("transaction")
-        self.driver = self.graph.driver
-
-    def post(self, statement, parameters=None, **kwparameters):
-        """ Post a Cypher statement to this resource, optionally with
-        parameters.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :arg kwparameters: Extra parameters supplied by keyword.
-        """
-        tx = self.begin()
-        result = tx.run(statement, parameters, **kwparameters)
-        tx.post(commit=True)
-        return result
-
-    def run(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement, ignoring any return value.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        """
-        return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
-
-    def evaluate(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement and return the value from
-        the first column of the first record returned.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :return: Single return value or :const:`None`.
-        """
-        return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
-
-    def create(self, subgraph):
-        self.begin(autocommit=True).create(subgraph)
-
-    def create_unique(self, walkable):
-        self.begin(autocommit=True).create_unique(walkable)
-
-    def degree(self, subgraph):
-        return self.begin(autocommit=True).degree(subgraph)
-
-    def delete(self, subgraph):
-        self.begin(autocommit=True).delete(subgraph)
-
-    def separate(self, g):
-        self.begin(autocommit=True).separate(g)
-
-    def begin(self, autocommit=False):
-        """ Begin a new transaction.
-        """
-        if self.driver:
-            return BoltTransaction(self, autocommit)
-        else:
-            return HTTPTransaction(self, autocommit)
-
-    @deprecated("CypherEngine.execute(...) is deprecated, "
-                "use CypherEngine.run(...) instead")
-    def execute(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement.
-
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :rtype: :class:`py2neo.cypher.Cursor`
-        """
-        tx = self.begin(autocommit=True)
-        return tx.run(statement, parameters, **kwparameters)
-
-
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
     """
 
-    def __init__(self, cypher, autocommit=False):
+    def __init__(self, graph, autocommit=False):
         log.info("begin")
-        self.cypher = cypher
-        self.graph = cypher.graph
+        self.graph = graph
         self.autocommit = autocommit
         self._finished = False
         self.entities = deque()
@@ -1171,11 +1091,11 @@ class HTTPTransaction(Transaction):
 
     error_class = CypherError
 
-    def __init__(self, cypher, autocommit=False):
-        Transaction.__init__(self, cypher, autocommit)
+    def __init__(self, graph, autocommit=False):
+        Transaction.__init__(self, graph, autocommit)
         self.statements = []
         self.cursors = []
-        uri = cypher.transaction_uri
+        uri = graph.transaction_uri
         self._begin = Resource(uri)
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
@@ -1256,9 +1176,9 @@ class HTTPTransaction(Transaction):
 
 class BoltTransaction(Transaction):
 
-    def __init__(self, cypher, autocommit=False):
-        Transaction.__init__(self, cypher, autocommit)
-        self.driver = driver = self.cypher.driver
+    def __init__(self, graph, autocommit=False):
+        Transaction.__init__(self, graph, autocommit)
+        self.driver = driver = self.graph.driver
         self.session = driver.session()
         self.cursors = []
         if not self.autocommit:

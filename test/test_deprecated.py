@@ -200,11 +200,11 @@ class PushTestCase(DeprecatedTestCase):
         b = Node()
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
-        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab)
+        value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                    "RETURN ab.since", i=ab)
         assert value is None
         ab["since"] = 1999
         ab.push()
-        value = self.cypher.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                     "RETURN ab.since", i=ab)
+        value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+                                    "RETURN ab.since", i=ab)
         assert value == 1999
