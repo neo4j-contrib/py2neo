@@ -19,8 +19,8 @@
 import json
 
 from py2neo.compat import ustr
-from py2neo.graph import Graph, Path, NodeProxy
-from py2neo.cypher import Cursor, cypher_request
+from py2neo.database import Graph, Cursor, cypher_request
+from py2neo.types import Path, NodeProxy
 from py2neo.status import GraphError
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import raise_from

@@ -23,7 +23,7 @@ import re
 from xml.etree import ElementTree
 
 from py2neo.compat import xstr
-from py2neo.cypher import cypher_repr
+from py2neo.database import cypher_repr
 
 
 SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.graph import Node, Relationship
+from py2neo.types import Node, Relationship
 from py2neo.ext.batman import ManualIndexWriteBatch
 from .util import IndexTestCase
 

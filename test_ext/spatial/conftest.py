@@ -2,7 +2,7 @@ from collections import namedtuple
 
 import pytest
 
-from py2neo.graph import Graph
+from py2neo.database import Graph
 from py2neo.ext.spatial import Spatial
 
 

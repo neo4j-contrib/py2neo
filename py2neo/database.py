@@ -2,36 +2,18 @@
 # -*- encoding: utf-8 -*-
 
 # Copyright 2011-2015, Nigel Small
-#
+# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
+# 
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+# 
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-""" Usage: {script} [«options»] «statement» [ [«options»] «statement» ... ]
-
-Execute a Cypher statement against a Neo4j database.
-
-General Options:
-  -? --help              display this help text
-  -A --auth «user:pass»  set auth details
-
-Parameter Options:
-  -f «parameter-file»
-  -p «name» «value»
-
-Environment:
-  NEO4J_URI - base URI of Neo4j database, e.g. http://localhost:7474
-
-Report bugs to nigel@py2neo.org
-"""
 
 
 from collections import deque, OrderedDict
@@ -40,19 +22,50 @@ import logging
 import os
 from io import StringIO
 from sys import stdout
+from warnings import warn
+import webbrowser
 
+from py2neo import PRODUCT
 from py2neo.compat import integer, string, ustr
-from py2neo.graph import Node, Relationship, Path, Subgraph, Walkable, Entity
-from py2neo.env import NEO4J_URI
-from py2neo.http import Resource, authenticate
+from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record
+from py2neo.env import NEO4J_AUTH, NEO4J_URI
+from py2neo.http import authenticate, Resource, ResourceTemplate
+from py2neo.packages.httpstream import Response as HTTPResponse
+from py2neo.packages.httpstream.numbers import NOT_FOUND
+from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.typesystem import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.status import CypherError, Finished
-from py2neo.util import is_collection, deprecated
+from py2neo.status import CypherError, Finished, GraphError
+from py2neo.util import deprecated, is_collection, version_tuple
 
 
 log = logging.getLogger("py2neo.cypher")
+
+
+def cypher_escape(identifier):
+    """ Escape a Cypher identifier in backticks.
+
+    ::
+
+        >>> cypher_escape("this is a `label`")
+        '`this is a ``label```'
+
+    """
+    s = StringIO()
+    writer = CypherWriter(s)
+    writer.write_identifier(identifier)
+    return s.getvalue()
+
+
+def cypher_repr(obj):
+    """ Generate the Cypher representation of an object.
+    """
+    s = StringIO()
+    writer = CypherWriter(s)
+    writer.write(obj)
+    return s.getvalue()
 
 
 def presubstitute(statement, parameters):
@@ -83,6 +96,8 @@ def presubstitute(statement, parameters):
 
 
 def normalise_request(statement, parameters, **kwparameters):
+    from py2neo.types import Entity
+
     s = ustr(statement)
     p = {}
 
@@ -111,6 +126,722 @@ def cypher_request(statement, parameters, **kwparameters):
         ("parameters", p),
         ("resultDataContents", ["REST"]),
     ])
+
+
+class DBMS(object):
+    """ Accessor for the entire database management system belonging to
+    a Neo4j server installation. This corresponds to the ``/`` URI in
+    the HTTP API.
+
+    An explicit URI can be passed to the constructor::
+
+        >>> from py2neo import DBMS
+        >>> my_dbms = DBMS("http://myserver:7474/")
+
+    Alternatively, the default value of ``http://localhost:7474/`` is
+    used::
+
+        >>> default_dbms = DBMS()
+        >>> default_dbms
+        <DBMS uri='http://localhost:7474/'>
+
+    """
+
+    __instances = {}
+    __graph = None
+
+    def __new__(cls, uri=None):
+        if uri is None:
+            uri = NEO4J_URI
+        uri = ustr(uri)
+        if not uri.endswith("/"):
+            uri += "/"
+        try:
+            inst = cls.__instances[uri]
+        except KeyError:
+            if NEO4J_AUTH:
+                user_name, password = NEO4J_AUTH.partition(":")[0::2]
+                authenticate(URI(uri).host_port, user_name, password)
+            inst = super(DBMS, cls).__new__(cls)
+            inst.__resource = Resource(uri)
+            inst.__graph = None
+            cls.__instances[uri] = inst
+        return inst
+
+    def __repr__(self):
+        return "<DBMS uri=%r>" % self.uri.string
+
+    def __eq__(self, other):
+        try:
+            return self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.uri)
+
+    @property
+    def graph(self):
+        """ The graph database exposed by this database management system.
+
+        :rtype: :class:`.Graph`
+        """
+        if self.__graph is None:
+            # The graph URI used to be determined via
+            # discovery but another HTTP call sometimes
+            # caused problems in the middle of other
+            # operations (such as hydration) when using
+            # concurrent code. Therefore, the URI is now
+            # constructed manually.
+            self.__graph = Graph(self.uri.string + "db/data/")
+        return self.__graph
+
+    @property
+    def resource(self):
+        return self.__resource
+
+    @property
+    def uri(self):
+        return self.resource.uri
+
+
+class Graph(object):
+    """ The `Graph` class represents a Neo4j graph database. To construct,
+    one or more URIs can be supplied. These can be ``http`` or ``bolt`` URIs::
+
+        >>> from py2neo import Graph
+        >>> graph = Graph("http://myserver:7474/db/data/", "bolt://myserver:7687")
+
+    If no URIs are specified, a default value is taken from the ``NEO4J_URI``
+    environment variable. If this is not set, a default of
+    ``http://localhost:7474/db/data/`` is assumed. Therefore, the simplest way
+    to connect to a running service is to use::
+
+        >>> graph = Graph()
+
+    Even if no ``bolt`` URI is specified, one will be derived based on the ``http``
+    URI, assuming the server supports the Bolt protocol. Where Bolt is available,
+    it will automatically be used for all Cypher queries.
+
+    If the database server requires authorisation, the credentials can also
+    be specified within the URI::
+
+        >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
+
+    Once obtained, the `Graph` instance provides direct or indirect access
+    to most of the functionality available within py2neo.
+    """
+
+    __instances = {}
+
+    __cypher = None
+    __schema = None
+    __node_labels = None
+    __relationship_types = None
+
+    resource = None
+    driver = None
+
+    def __new__(cls, *uris):
+        # Gather all URIs
+        uri_dict = {"http": [], "bolt": []}
+        for uri in uris:
+            uri = URI(uri)
+            uri_dict.setdefault(uri.scheme, []).append(uri.string)
+        # Ensure there is at least one HTTP URI available
+        if not uri_dict["http"]:
+            uri_dict["http"].append(DBMS().graph.uri.string)
+        http_uri = uri_dict["http"][0]
+        # Add a trailing slash if required
+        if not http_uri.endswith("/"):
+            http_uri += "/"
+        # Construct a new instance
+        key = (cls, http_uri)
+        try:
+            inst = cls.__instances[key]
+        except KeyError:
+            inst = super(Graph, cls).__new__(cls)
+            inst.uris = uri_dict
+            inst.resource = Resource(http_uri)
+            if inst.supports_bolt():
+                if not uri_dict["bolt"]:
+                    uri_dict["bolt"].append("bolt://%s" % inst.resource.uri.host)
+                bolt_uri = URI(uri_dict["bolt"][0])
+                inst.driver = GraphDatabase.driver(bolt_uri.string, user_agent="/".join(PRODUCT))
+            cls.__instances[key] = inst
+        return inst
+
+    def __repr__(self):
+        return "<Graph uri=%r>" % self.uri.string
+
+    def __hash__(self):
+        return hash(self.uri)
+
+    def __len__(self):
+        return self.size()
+
+    def __bool__(self):
+        return True
+
+    def __nonzero__(self):
+        return True
+
+    def __contains__(self, entity):
+        return entity.resource and entity.resource.uri.string.startswith(self.resource.uri.string)
+
+    def create(self, subgraph):
+        """ Create remote copies of a set of nodes and relationships in a
+        single transaction.
+
+        For example, to create a remote node from a local :class:`.Node` object::
+
+            >>> from py2neo import Graph, Node
+            >>> g = Graph()
+            >>> a = Node("Person", name="Alice", age=33)
+            >>> g.create(a)
+            >>> a.resource
+            EntityResource('http://localhost:7474/db/data/node/1')
+
+        Multiple entities can be combined into a single :class:`.Subgraph` using
+        the union operator::
+
+            >>> b = Node("Person", name="Bob")
+            >>> c = Node("Person", name="Carol")
+            >>> d = Node("Person", name="Dave")
+            >>> g.create(b | c | d)
+
+        If any part of the subgraph passed to this method is already bound to
+        a remote entity, that entity will be ignored and nothing will be created.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso:: :meth:`py2neo.cypher.CypherEngine.create`,
+                     :meth:`py2neo.cypher.Transaction.create`
+        """
+        self.cypher.create(subgraph)
+
+    def create_unique(self, walkable):
+        """ Create remote copies of one or more unique paths or relationships in a
+        single transaction. This method is similar to :meth:`create` but uses a Cypher
+        `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
+        clause to ensure that only relationships that do not already exist are created.
+
+        :arg walkable: a :class:`.Walkable` object
+
+        .. seealso:: :meth:`py2neo.cypher.CypherEngine.create_unique`,
+                     :meth:`py2neo.cypher.Transaction.create_unique`
+        """
+        self.cypher.create_unique(walkable)
+
+    @property
+    def cypher(self):
+        """ The Cypher execution resource for this graph providing access to
+        all Cypher functionality for the underlying database, both simple
+        and transactional.
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph()
+            >>> graph.cypher.run("CREATE (a:Person {name:{N}})", {"N": "Alice"})
+
+        :rtype: :class:`py2neo.cypher.CypherEngine`
+
+        """
+        if self.__cypher is None:
+            self.__cypher = CypherEngine(self)
+        return self.__cypher
+
+    @property
+    def dbms(self):
+        """ The database management system to which this graph belongs.
+        """
+        return self.resource.dbms
+
+    def degree(self, subgraph):
+        """ Return the total degree of all nodes in the subgraph.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso:: :meth:`py2neo.cypher.CypherEngine.degree`,
+                     :meth:`py2neo.cypher.Transaction.degree`
+        """
+        return self.cypher.degree(subgraph)
+
+    def delete(self, subgraph):
+        """ Delete one or more nodes and/or relationships.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso:: :meth:`py2neo.cypher.CypherEngine.delete`,
+                     :meth:`py2neo.cypher.Transaction.delete`
+        """
+        self.cypher.delete(subgraph)
+
+    def delete_all(self):
+        """ Delete all nodes and relationships from the graph.
+
+        .. warning::
+            This method will permanently remove **all** nodes and relationships
+            from the graph and cannot be undone.
+        """
+        self.cypher.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+
+    def separate(self, subgraph):
+        """ Delete one or more relationships. This method is similar to
+        :meth:`delete` but deletes only the relationships.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso:: :meth:`py2neo.cypher.CypherEngine.separate`,
+                     :meth:`py2neo.cypher.Transaction.separate`
+        """
+        self.cypher.separate(subgraph)
+
+    def exists(self, g):
+        """ Determine whether a number of graph entities all exist within the database.
+        """
+        tx = self.cypher.begin()
+        cursors = []
+        count = 0
+        try:
+            nodes = g.nodes()
+            relationships = g.relationships()
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % g)
+        else:
+            for a in nodes:
+                if a.resource:
+                    cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
+                                          "RETURN count(a)", x=a))
+                    count += 1
+                else:
+                    return False
+            for r in relationships:
+                if r.resource:
+                    cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
+                                          "RETURN count(r)", x=r))
+                    count += 1
+                else:
+                    return False
+        tx.commit()
+        if count == 0:
+            return None
+        else:
+            return sum(cursor.evaluate() for cursor in cursors) == count
+
+    def find(self, label, property_key=None, property_value=None, limit=None):
+        """ Iterate through a set of labelled nodes, optionally filtering
+        by property key and value
+        """
+        if not label:
+            raise ValueError("Empty label")
+        if property_key is None:
+            statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
+            parameters = {}
+        else:
+            statement = "MATCH (n:%s {%s:{V}}) RETURN n,labels(n)" % (
+                cypher_escape(label), cypher_escape(property_key))
+            parameters = {"V": property_value}
+        if limit:
+            statement += " LIMIT %s" % limit
+        cursor = self.cypher.run(statement, parameters)
+        while cursor.move():
+            a = cursor[0]
+            a.labels().update(cursor[1])
+            yield a
+        cursor.close()
+
+    def find_one(self, label, property_key=None, property_value=None):
+        """ Find a single node by label and optional property. This method is
+        intended to be used with a unique constraint and does not fail if more
+        than one matching node is found.
+        """
+        for node in self.find(label, property_key, property_value, limit=1):
+            return node
+
+    def hydrate(self, data, inst=None):
+        """ Hydrate a dictionary of data to produce a :class:`.Node`,
+        :class:`.Relationship` or other graph object instance. The
+        data structure and values expected are those produced by the
+        `REST API <http://neo4j.com/docs/stable/rest-api.html>`__.
+
+        :arg data: dictionary of data to hydrate
+
+        """
+        if isinstance(data, dict):
+            if "errors" in data and data["errors"]:
+                from py2neo.status import CypherError
+                for error in data["errors"]:
+                    raise CypherError.hydrate(error)
+            elif "self" in data:
+                if "type" in data:
+                    return Relationship.hydrate(data, inst)
+                else:
+                    return Node.hydrate(data, inst)
+            elif "nodes" in data and "relationships" in data:
+                if "directions" not in data:
+                    directions = []
+                    relationships = self.cypher.evaluate(
+                        "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
+                        x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
+                    node_uris = data["nodes"]
+                    for i, relationship in enumerate(relationships):
+                        if relationship.start_node().resource.uri == node_uris[i]:
+                            directions.append("->")
+                        else:
+                            directions.append("<-")
+                    data["directions"] = directions
+                return Path.hydrate(data)
+            elif "results" in data:
+                return self.hydrate(data["results"][0])
+            elif "columns" in data and "data" in data:
+                cursor = Cursor(self, hydrate=True)
+                HTTPTransaction.fill_cursor(cursor, data)
+                return cursor
+            elif "neo4j_version" in data:
+                return self
+            else:
+                warn("Map literals returned over the Neo4j REST interface are ambiguous "
+                     "and may be hydrated as graph objects")
+                return data
+        elif is_collection(data):
+            return type(data)(map(self.hydrate, data))
+        else:
+            return data
+
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
+        """ Return an iterator for all relationships matching the
+        specified criteria.
+
+        For example, to find all of Alice's friends::
+
+            for rel in graph.match(start_node=alice, rel_type="FRIEND"):
+                print(rel.end_node.properties["name"])
+
+        :arg start_node: :attr:`~py2neo.Node.identity()` start :class:`~py2neo.Node` to match or
+                           :const:`None` if any
+        :arg rel_type: type of relationships to match or :const:`None` if any
+        :arg end_node: :attr:`~py2neo.Node.identity()` end :class:`~py2neo.Node` to match or
+                         :const:`None` if any
+        :arg bidirectional: :const:`True` if reversed relationships should also be included
+        :arg limit: maximum number of relationships to match or :const:`None` if no limit
+        :return: matching relationships
+        :rtype: generator
+        """
+        if start_node is None and end_node is None:
+            statement = "MATCH (a)"
+            parameters = {}
+        elif end_node is None:
+            statement = "MATCH (a) WHERE id(a)={A}"
+            start_node = cast_node(start_node)
+            if not start_node.resource:
+                raise TypeError("Nodes for relationship match end points must be bound")
+            parameters = {"A": start_node}
+        elif start_node is None:
+            statement = "MATCH (b) WHERE id(b)={B}"
+            end_node = cast_node(end_node)
+            if not end_node.resource:
+                raise TypeError("Nodes for relationship match end points must be bound")
+            parameters = {"B": end_node}
+        else:
+            statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
+            start_node = cast_node(start_node)
+            end_node = cast_node(end_node)
+            if not start_node.resource or not end_node.resource:
+                raise TypeError("Nodes for relationship match end points must be bound")
+            parameters = {"A": start_node, "B": end_node}
+        if rel_type is None:
+            rel_clause = ""
+        elif is_collection(rel_type):
+            rel_clause = ":" + "|:".join("`{0}`".format(_) for _ in rel_type)
+        else:
+            rel_clause = ":`{0}`".format(rel_type)
+        if bidirectional:
+            statement += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+        else:
+            statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
+        if limit is not None:
+            statement += " LIMIT {0}".format(int(limit))
+        cursor = self.cypher.run(statement, parameters)
+        while cursor.move():
+            yield cursor["r"]
+
+    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
+        """ Return a single relationship matching the
+        specified criteria. See :meth:`~py2neo.Graph.match` for
+        argument details.
+        """
+        rels = list(self.match(start_node, rel_type, end_node,
+                               bidirectional, 1))
+        if rels:
+            return rels[0]
+        else:
+            return None
+
+    def merge(self, label, property_key=None, property_value=None, limit=None):
+        """ Match or create a node by label and optional property and return
+        all matching nodes.
+        """
+        if not label:
+            raise ValueError("Empty label")
+        if property_key is None:
+            statement = "MERGE (n:%s) RETURN n" % cypher_escape(label)
+            parameters = {}
+        elif not isinstance(property_key, string):
+            raise TypeError("Property key must be textual")
+        elif property_value is None:
+            raise ValueError("Both key and value must be specified for a property")
+        else:
+            statement = "MERGE (n:%s {%s:{V}}) RETURN n" % (
+                cypher_escape(label), cypher_escape(property_key))
+            parameters = {"V": coerce_property(property_value)}
+        if limit:
+            statement += " LIMIT %s" % limit
+        cursor = self.cypher.run(statement, parameters)
+        for record in cursor.collect():
+            yield record[0]
+
+    def merge_one(self, label, property_key=None, property_value=None):
+        """ Match or create a node by label and optional property and return a
+        single matching node. This method is intended to be used with a unique
+        constraint and does not fail if more than one matching node is found.
+
+            >>> graph = Graph()
+            >>> person = graph.merge_one("Person", "email", "bob@example.com")
+
+        """
+        for node in self.merge(label, property_key, property_value, limit=1):
+            return node
+
+    @property
+    def neo4j_version(self):
+        """ The database software version as a 4-tuple of (``int``, ``int``,
+        ``int``, ``str``).
+        """
+        return version_tuple(self.resource.metadata["neo4j_version"])
+
+    def node(self, id_):
+        """ Fetch a node by ID. This method creates an object representing the
+        remote node with the ID specified but fetches no data from the server.
+        For this reason, there is no guarantee that the entity returned
+        actually exists.
+        """
+        resource = self.resource.resolve("node/%s" % id_)
+        uri_string = resource.uri.string
+        try:
+            return Node.cache[uri_string]
+        except KeyError:
+            node = self.cypher.evaluate("MATCH (a) WHERE id(a)={x} "
+                                        "RETURN a", x=id_)
+            if node is None:
+                raise IndexError("Node %d not found" % id_)
+            else:
+                return node
+
+    @property
+    def node_labels(self):
+        """ The set of node labels currently defined within the graph.
+        """
+        if self.__node_labels is None:
+            self.__node_labels = Resource(self.uri.string + "labels")
+        return frozenset(self.__node_labels.get().content)
+
+    def open_browser(self):
+        """ Open a page in the default system web browser pointing at
+        the Neo4j browser application for this graph.
+        """
+        webbrowser.open(self.dbms.resource.uri.string)
+
+    def order(self):
+        """ The number of nodes in this graph.
+        """
+        statement = "MATCH (n) RETURN count(n)"
+        return self.cypher.evaluate(statement)
+
+    def pull(self, *entities):
+        """ Pull data to one or more entities from their remote counterparts.
+        """
+        if not entities:
+            return
+        nodes = {}
+        relationships = set()
+        for entity in entities:
+            for node in entity.nodes():
+                nodes[node] = None
+            relationships.update(entity.relationships())
+        tx = self.cypher.begin()
+        for node in nodes:
+            tx.entities.append({"a": node})
+            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=node)
+            nodes[node] = cursor
+        for relationship in relationships:
+            tx.entities.append({"r": relationship})
+            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=relationship)
+        tx.commit()
+        for node, cursor in nodes.items():
+            labels = node._labels
+            labels.clear()
+            labels.update(cursor.evaluate(1))
+
+    def push(self, *entities):
+        """ Push data from one or more entities to their remote counterparts.
+        """
+        batch = []
+        i = 0
+        for entity in entities:
+            for node in entity.nodes():
+                if not node.resource:
+                    continue
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % node.resource.ref,
+                              "body": dict(node)})
+                i += 1
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/labels" % node.resource.ref,
+                              "body": list(node.labels())})
+                i += 1
+            for relationship in entity.relationships():
+                if not relationship.resource:
+                    continue
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % relationship.resource.ref,
+                              "body": dict(relationship)})
+                i += 1
+        self.resource.resolve("batch").post(batch)
+
+    def relationship(self, id_):
+        """ Fetch a relationship by ID.
+        """
+        resource = self.resource.resolve("relationship/" + str(id_))
+        uri_string = resource.uri.string
+        try:
+            return Relationship.cache[uri_string]
+        except KeyError:
+            relationship = self.cypher.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
+                                                "RETURN r", x=id_)
+            if relationship is None:
+                raise IndexError("Relationship %d not found" % id_)
+            else:
+                return relationship
+
+    @property
+    def relationship_types(self):
+        """ The set of relationship types currently defined within the graph.
+        """
+        if self.__relationship_types is None:
+            self.__relationship_types = Resource(self.uri.string + "relationship/types")
+        return frozenset(self.__relationship_types.get().content)
+
+    @property
+    def schema(self):
+        """ The schema resource for this graph.
+
+        :rtype: :class:`SchemaResource <py2neo.schema.SchemaResource>`
+        """
+        if self.__schema is None:
+            self.__schema = Schema(self.uri.string + "schema")
+        return self.__schema
+
+    def size(self):
+        """ The number of relationships in this graph.
+        """
+        statement = "MATCH ()-[r]->() RETURN count(r)"
+        return self.cypher.evaluate(statement)
+
+    def supports_auth(self):
+        """ Returns :py:const:`True` if auth is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
+        """
+        return self.neo4j_version >= (2, 2)
+
+    def supports_bolt(self):
+        """ Returns :py:const:`True` if Bolt is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
+        """
+        return self.neo4j_version >= (3,)
+
+    @property
+    def uri(self):
+        return self.resource.uri
+
+
+class Schema(object):
+    """ The schema resource attached to a `Graph` instance.
+    """
+
+    def __init__(self, uri):
+        self._index_template = ResourceTemplate(uri + "/index/{label}")
+        self._index_key_template = ResourceTemplate(uri + "/index/{label}/{property_key}")
+        self._uniqueness_constraint_template = \
+            ResourceTemplate(uri + "/constraint/{label}/uniqueness")
+        self._uniqueness_constraint_key_template = \
+            ResourceTemplate(uri + "/constraint/{label}/uniqueness/{property_key}")
+
+    def create_index(self, label, property_key):
+        """ Create a schema index for a label and property
+        key combination.
+        """
+        self._index_template.expand(label=label).post({"property_keys": [property_key]})
+
+    def create_uniqueness_constraint(self, label, property_key):
+        """ Create a uniqueness constraint for a label.
+        """
+        self._uniqueness_constraint_template.expand(label=label).post(
+            {"property_keys": [property_key]})
+
+    def drop_index(self, label, property_key):
+        """ Remove label index for a given property key.
+        """
+        try:
+            self._index_key_template.expand(label=label, property_key=property_key).delete()
+        except GraphError as error:
+            cause = error.__cause__
+            if isinstance(cause, HTTPResponse):
+                if cause.status_code == NOT_FOUND:
+                    raise GraphError("No such schema index (label=%r, key=%r)" % (
+                        label, property_key))
+            raise
+
+    def drop_uniqueness_constraint(self, label, property_key):
+        """ Remove the uniqueness constraint for a given property key.
+        """
+        try:
+            self._uniqueness_constraint_key_template.expand(
+                label=label, property_key=property_key).delete()
+        except GraphError as error:
+            cause = error.__cause__
+            if isinstance(cause, HTTPResponse):
+                if cause.status_code == NOT_FOUND:
+                    raise GraphError("No such unique constraint (label=%r, key=%r)" % (
+                        label, property_key))
+            raise
+
+    def get_indexes(self, label):
+        """ Fetch a list of indexed property keys for a label.
+        """
+        return [
+            indexed["property_keys"][0]
+            for indexed in self._index_template.expand(label=label).get().content
+        ]
+
+    def get_uniqueness_constraints(self, label):
+        """ Fetch a list of unique constraints for a label.
+        """
+
+        return [
+            unique["property_keys"][0]
+            for unique in self._uniqueness_constraint_template.expand(label=label).get().content
+        ]
+
+
 
 
 class CypherEngine(object):
@@ -164,17 +895,17 @@ class CypherEngine(object):
         """
         return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
-    def create(self, g):
-        self.begin(autocommit=True).create(g)
+    def create(self, subgraph):
+        self.begin(autocommit=True).create(subgraph)
 
-    def create_unique(self, t):
-        self.begin(autocommit=True).create_unique(t)
+    def create_unique(self, walkable):
+        self.begin(autocommit=True).create_unique(walkable)
 
-    def degree(self, g):
-        return self.begin(autocommit=True).degree(g)
+    def degree(self, subgraph):
+        return self.begin(autocommit=True).degree(subgraph)
 
-    def delete(self, g):
-        self.begin(autocommit=True).delete(g)
+    def delete(self, subgraph):
+        self.begin(autocommit=True).delete(subgraph)
 
     def separate(self, g):
         self.begin(autocommit=True).separate(g)
@@ -283,12 +1014,12 @@ class Transaction(object):
     def evaluate(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters).evaluate(0)
 
-    def create(self, g):
+    def create(self, subgraph):
         try:
-            nodes = list(g.nodes())
-            relationships = list(g.relationships())
+            nodes = list(subgraph.nodes())
+            relationships = list(subgraph.relationships())
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % g)
+            raise TypeError("Object %r is not graphy" % subgraph)
         reads = []
         writes = []
         parameters = {}
@@ -322,10 +1053,11 @@ class Transaction(object):
         self.entities.append(returns)
         self.run(statement, parameters)
 
-    def create_unique(self, t):
-        if not isinstance(t, Walkable):
-            raise ValueError("Object %r is not walkable" % t)
-        if not any(node.resource for node in t.nodes()):
+    def create_unique(self, walkable):
+        from py2neo.types import Walkable
+        if not isinstance(walkable, Walkable):
+            raise ValueError("Object %r is not walkable" % walkable)
+        if not any(node.resource for node in walkable.nodes()):
             raise ValueError("At least one node must be bound")
         matches = []
         pattern = []
@@ -333,7 +1065,7 @@ class Transaction(object):
         parameters = {}
         returns = {}
         node = None
-        for i, entity in enumerate(t.walk()):
+        for i, entity in enumerate(walkable.walk()):
             if i % 2 == 0:
                 # node
                 node_id = "a%d" % i
@@ -365,13 +1097,13 @@ class Transaction(object):
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
                               ["RETURN %s LIMIT 1" % ", ".join(returns)])
         self.entities.append(returns)
-        cursor = self.run(statement, parameters)
+        self.run(statement, parameters)
 
-    def degree(self, g):
+    def degree(self, subgraph):
         try:
-            nodes = list(g.nodes())
+            nodes = list(subgraph.nodes())
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % g)
+            raise TypeError("Object %r is not graphy" % subgraph)
         node_ids = []
         for i, node in enumerate(nodes):
             resource = node.resource
@@ -381,12 +1113,12 @@ class Transaction(object):
         parameters = {"x": node_ids}
         return self.evaluate(statement, parameters)
 
-    def delete(self, g):
+    def delete(self, subgraph):
         try:
-            nodes = list(g.nodes())
-            relationships = list(g.relationships())
+            nodes = list(subgraph.nodes())
+            relationships = list(subgraph.relationships())
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % g)
+            raise TypeError("Object %r is not graphy" % subgraph)
         matches = []
         deletes = []
         parameters = {}
@@ -587,6 +1319,7 @@ class BoltTransaction(Transaction):
         return cursor
 
     def rehydrate(self, obj, inst=None):
+        from py2neo.types import Node, Relationship, Path
         if isinstance(obj, BoltNode):
             return Node.hydrate({
                 "self": "%snode/%d" % (self.graph.resource.uri.string, obj.identity),
@@ -812,65 +1545,6 @@ class Cursor(object):
             out.write(u"\n")
 
 
-class Record(tuple, Subgraph):
-
-    def __new__(cls, keys, values):
-        if len(keys) == len(values):
-            return super(Record, cls).__new__(cls, values)
-        else:
-            raise ValueError("Keys and values must be of equal length")
-
-    def __init__(self, keys, values):
-        self.__keys = tuple(keys)
-        nodes = []
-        relationships = []
-        for value in values:
-            if hasattr(value, "nodes"):
-                nodes.extend(value.nodes())
-            if hasattr(value, "relationships"):
-                relationships.extend(value.relationships())
-        Subgraph.__init__(self, nodes, relationships)
-        self.__repr = None
-
-    def __repr__(self):
-        r = self.__repr
-        if r is None:
-            s = ["("]
-            for i, key in enumerate(self.__keys):
-                if i > 0:
-                    s.append(", ")
-                s.append(repr(key))
-                s.append(": ")
-                s.append(repr(self[i]))
-            s.append(")")
-            r = self.__repr = "".join(s)
-        return r
-
-    def __getitem__(self, item):
-        if isinstance(item, string):
-            try:
-                return tuple.__getitem__(self, self.__keys.index(item))
-            except ValueError:
-                raise KeyError(item)
-        elif isinstance(item, slice):
-            return self.__class__(self.__keys[item.start:item.stop],
-                                  tuple.__getitem__(self, item))
-        else:
-            return tuple.__getitem__(self, item)
-
-    def __getslice__(self, i, j):
-        return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
-
-    def keys(self):
-        return self.__keys
-
-    def values(self):
-        return tuple(self)
-
-    def select(self, *keys):
-        return Record(keys, [self[key] for key in keys])
-
-
 class CypherCommandLine(object):
 
     def __init__(self, graph):
@@ -935,6 +1609,7 @@ class CypherWriter(object):
     def write(self, obj):
         """ Write any entity, value or collection.
         """
+        from py2neo.types import Node, Relationship, Path
         if obj is None:
             pass
         elif isinstance(obj, Node):
@@ -1004,7 +1679,7 @@ class CypherWriter(object):
         """
         self.file.write(u"(")
         if name is None:
-            from py2neo.graph import entity_name
+            from py2neo.types import entity_name
             name = entity_name(node)
         self.write_identifier(name)
         if full:
@@ -1066,33 +1741,9 @@ class CypherWriter(object):
         self.write_node(nodes[-1], full=False)
 
 
-def cypher_escape(identifier):
-    """ Escape a Cypher identifier in backticks.
-
-    ::
-
-        >>> cypher_escape("this is a `label`")
-        '`this is a ``label```'
-
-    """
-    s = StringIO()
-    writer = CypherWriter(s)
-    writer.write_identifier(identifier)
-    return s.getvalue()
-
-
-def cypher_repr(obj):
-    """ Generate the Cypher representation of an object.
-    """
-    s = StringIO()
-    writer = CypherWriter(s)
-    writer.write(obj)
-    return s.getvalue()
-
-
 def main():
     import sys
-    from py2neo.graph import DBMS
+    from py2neo.database import DBMS
     script, args = sys.argv[0], sys.argv[1:]
     if not args:
         args = ["-?"]

@@ -17,9 +17,9 @@
 
 
 import logging
-from unittest import skipIf, skipUnless
+from unittest import skipUnless
 
-from py2neo.graph import Graph, Node
+from py2neo.database import Graph
 from py2neo.http import _add_header, _get_headers, rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response

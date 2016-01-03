@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.graph import Node, Relationship, Path
+from py2neo.types import Node, Relationship, Path
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase
 

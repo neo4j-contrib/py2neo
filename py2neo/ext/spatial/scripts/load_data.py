@@ -6,7 +6,7 @@ sys.path.insert(1, '../py2neo/')
 import argparse
 import os
 
-from py2neo.graph import Graph
+from py2neo.database import Graph
 from py2neo.ext.spatial import Spatial
 
 

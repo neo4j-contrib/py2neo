@@ -17,7 +17,7 @@
 
 
 from py2neo.compat import xstr
-from py2neo.graph import NodeProxy
+from py2neo.types import NodeProxy
 from py2neo.status import GraphError
 
 

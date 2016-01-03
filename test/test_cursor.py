@@ -17,7 +17,7 @@
 
 
 from io import StringIO
-from py2neo.cypher import Record
+from py2neo.types import Record
 from test.util import Py2neoTestCase
 
 

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Path, cast_node
+from py2neo import Node, Relationship, cast_node
 from test.compat import long
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError

@@ -7,11 +7,9 @@ The Database Management System
 ==============================
 
 .. autoclass:: py2neo.DBMS
-   :show-inheritance:
    :members:
 
 .. autoclass:: py2neo.Graph
-   :show-inheritance:
    :members:
 
 

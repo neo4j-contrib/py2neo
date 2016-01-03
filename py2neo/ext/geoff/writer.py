@@ -20,7 +20,7 @@ import json
 import sys
 
 from py2neo.compat import ustr
-from py2neo.graph import Node, Path
+from py2neo.types import Node, Path
 from py2neo.util import is_collection
 
 

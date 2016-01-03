@@ -19,8 +19,8 @@
 import logging
 
 from py2neo.compat import integer
-from py2neo.graph import Resource, Node, Relationship,\
-    cast as core_cast, cast_node, cast_relationship
+from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship
+from py2neo.http import Resource
 from py2neo.status import Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
 

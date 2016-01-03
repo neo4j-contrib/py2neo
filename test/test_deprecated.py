@@ -47,6 +47,14 @@ class PropertiesTestCase(DeprecatedTestCase):
         _ = r.properties
 
 
+class ExistsTestCase(DeprecatedTestCase):
+
+    def test_node_exists(self):
+        a = Node()
+        self.graph.create(a)
+        _ = a.exists()
+
+
 class DegreeTestCase(DeprecatedTestCase):
 
     def test_node_degree(self):

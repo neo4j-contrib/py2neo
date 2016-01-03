@@ -29,16 +29,14 @@ import re
 import os
 from subprocess import check_output, CalledProcessError
 import shlex
+from shutil import copytree, rmtree
 import sys
 
 from py2neo import DBMS
 from py2neo.compat import ustr, PropertiesParser
 from py2neo.env import NEO4J_DIST, NEO4J_HOME
 from py2neo.packages.httpstream import download as _download
-from py2neo.store import GraphStore
 
-
-__all__ = ["dist_name", "dist_archive_name", "download", "GraphServer", "GraphServerProcess"]
 
 HELP = """\
 Usage: {script} «edition» «version» [«path»]
@@ -295,6 +293,64 @@ class GraphServer(object):
 
         """
         return self.dbms.graph
+
+
+class GraphStore(object):
+    """ A physical database store on disk.
+    """
+
+    #: The full file path of this store.
+    path = None
+
+    @classmethod
+    def for_server(cls, server):
+        """ Return the store object for the given server.
+
+        :arg server: A :class:`py2neo.server.GraphServer` object.
+        :rtype: :class:`.GraphStore`
+
+        """
+        database_location = server.conf.get("neo4j-server", "org.neo4j.server.database.location")
+        return GraphStore(os.path.join(server.home, database_location))
+
+    def __init__(self, path):
+        self.path = path
+
+    def __repr__(self):
+        return "<GraphStore path=%r>" % self.path
+
+    @property
+    def locked(self):
+        """ Returns :const:`True` if store is currently in use,
+        :const:`False` otherwise.
+        """
+        return os.path.isfile(os.path.join(self.path, "lock"))
+
+    def drop(self, force=False):
+        """ Delete this store directory.
+
+        :param force:
+
+        """
+        if force or not self.locked:
+            rmtree(self.path, ignore_errors=force)
+        else:
+            raise RuntimeError("Refusing to drop database store while in use")
+
+    def load(self, path, force=False):
+        if force or not self.locked:
+            if not os.path.isdir(path):
+                raise ValueError("Load source %r is not a directory" % path)
+            rmtree(self.path, ignore_errors=force)
+            copytree(path, self.path)
+        else:
+            raise RuntimeError("Refusing to load database store while in use")
+
+    def save(self, path, force=False):
+        if force or not self.locked:
+            copytree(self.path, path)
+        else:
+            raise RuntimeError("Refusing to save database store while in use")
 
 
 def _help(script):

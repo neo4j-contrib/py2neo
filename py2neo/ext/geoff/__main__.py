@@ -20,7 +20,7 @@ import codecs
 import os
 import sys
 
-from py2neo.graph import DBMS
+from py2neo.database import DBMS
 from py2neo.env import NEO4J_URI
 
 from py2neo.ext.geoff import GeoffLoader

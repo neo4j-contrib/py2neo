@@ -20,9 +20,8 @@
 
 from unittest import TestCase
 
-from py2neo.data import PropertySet, PropertyContainer
-from py2neo.graph import Subgraph, Walkable, Node, Relationship, Path, walk
-from py2neo.cypher import Record
+from py2neo.types import PropertySet, PropertyContainer, \
+    Subgraph, Walkable, Node, Relationship, Path, walk, Record
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)

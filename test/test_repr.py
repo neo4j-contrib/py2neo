@@ -18,7 +18,7 @@
 
 import re
 
-from py2neo.graph import Node, Relationship, Subgraph, Walkable, \
+from py2neo.types import Node, Relationship, Subgraph, Walkable, \
     entity_name, set_entity_name_property_key
 from test.util import Py2neoTestCase
 
