@@ -18,8 +18,8 @@
 
 from io import StringIO
 
-from py2neo.types import Node, Relationship, Path, entity_name
-from py2neo.database import Transaction, presubstitute, CypherWriter, cypher_repr
+from py2neo.types import Node, Relationship, Path, entity_name, CypherWriter, cypher_repr
+from py2neo.database import Transaction, presubstitute
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
 

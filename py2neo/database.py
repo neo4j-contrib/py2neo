@@ -20,14 +20,13 @@ from collections import deque, OrderedDict
 import json
 import logging
 import os
-from io import StringIO
 from sys import stdout
 from warnings import warn
 import webbrowser
 
 from py2neo import PRODUCT
 from py2neo.compat import integer, string, ustr
-from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record
+from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, cypher_escape
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
@@ -42,30 +41,6 @@ from py2neo.util import deprecated, is_collection, version_tuple
 
 
 log = logging.getLogger("py2neo.cypher")
-
-
-def cypher_escape(identifier):
-    """ Escape a Cypher identifier in backticks.
-
-    ::
-
-        >>> cypher_escape("this is a `label`")
-        '`this is a ``label```'
-
-    """
-    s = StringIO()
-    writer = CypherWriter(s)
-    writer.write_identifier(identifier)
-    return s.getvalue()
-
-
-def cypher_repr(obj):
-    """ Generate the Cypher representation of an object.
-    """
-    s = StringIO()
-    writer = CypherWriter(s)
-    writer.write(obj)
-    return s.getvalue()
 
 
 def presubstitute(statement, parameters):
@@ -1501,158 +1476,6 @@ class CypherCommandLine(object):
 
     def commit(self):
         self.tx.commit()
-
-
-class CypherWriter(object):
-    """ Writer for Cypher data. This can be used to write to any
-    file-like object, such as standard output.
-    """
-
-    safe_first_chars = u"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
-    safe_chars = u"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
-
-    default_sequence_separator = u","
-    default_key_value_separator = u":"
-
-    def __init__(self, file=None, **kwargs):
-        self.file = file or stdout
-        self.sequence_separator = kwargs.get("sequence_separator", self.default_sequence_separator)
-        self.key_value_separator = \
-            kwargs.get("key_value_separator", self.default_key_value_separator)
-
-    def write(self, obj):
-        """ Write any entity, value or collection.
-        """
-        from py2neo.types import Node, Relationship, Path
-        if obj is None:
-            pass
-        elif isinstance(obj, Node):
-            self.write_node(obj)
-        elif isinstance(obj, Relationship):
-            self.write_relationship(obj)
-        elif isinstance(obj, Path):
-            self.write_walkable(obj)
-        elif isinstance(obj, dict):
-            self.write_map(obj)
-        elif is_collection(obj):
-            self.write_list(obj)
-        else:
-            self.write_value(obj)
-
-    def write_value(self, value):
-        """ Write a value.
-        """
-        self.file.write(ustr(json.dumps(value, ensure_ascii=False)))
-
-    def write_identifier(self, identifier):
-        """ Write an identifier.
-        """
-        if not identifier:
-            raise ValueError("Invalid identifier")
-        identifier = ustr(identifier)
-        safe = (identifier[0] in self.safe_first_chars and
-                all(ch in self.safe_chars for ch in identifier[1:]))
-        if not safe:
-            self.file.write(u"`")
-            self.file.write(identifier.replace(u"`", u"``"))
-            self.file.write(u"`")
-        else:
-            self.file.write(identifier)
-
-    def write_list(self, collection):
-        """ Write a list.
-        """
-        self.file.write(u"[")
-        link = u""
-        for value in collection:
-            self.file.write(link)
-            self.write(value)
-            link = self.sequence_separator
-        self.file.write(u"]")
-
-    def write_literal(self, text):
-        """ Write literal text.
-        """
-        self.file.write(ustr(text))
-
-    def write_map(self, mapping):
-        """ Write a map.
-        """
-        self.file.write(u"{")
-        link = u""
-        for key, value in sorted(dict(mapping).items()):
-            self.file.write(link)
-            self.write_identifier(key)
-            self.file.write(self.key_value_separator)
-            self.write(value)
-            link = self.sequence_separator
-        self.file.write(u"}")
-
-    def write_node(self, node, name=None, full=True):
-        """ Write a node.
-        """
-        self.file.write(u"(")
-        if name is None:
-            from py2neo.types import entity_name
-            name = entity_name(node)
-        self.write_identifier(name)
-        if full:
-            for label in sorted(node.labels()):
-                self.write_literal(u":")
-                self.write_identifier(label)
-            if node:
-                self.file.write(u" ")
-                self.write_map(dict(node))
-        self.file.write(u")")
-
-    def write_relationship(self, relationship, name=None):
-        """ Write a relationship (including nodes).
-        """
-        self.write_node(relationship.start_node(), full=False)
-        self.file.write(u"-")
-        self.write_relationship_detail(relationship, name)
-        self.file.write(u"->")
-        self.write_node(relationship.end_node(), full=False)
-
-    def write_relationship_detail(self, relationship, name=None):
-        """ Write a relationship (excluding nodes).
-        """
-        self.file.write(u"[")
-        if name is not None:
-            self.write_identifier(name)
-        if type:
-            self.file.write(u":")
-            self.write_identifier(relationship.type())
-        if relationship:
-            self.file.write(u" ")
-            self.write_map(relationship)
-        self.file.write(u"]")
-
-    def write_subgraph(self, subgraph):
-        """ Write a subgraph.
-        """
-        self.write_literal("{")
-        for i, node in enumerate(subgraph.nodes()):
-            if i > 0:
-                self.write_literal(", ")
-            self.write_node(node)
-        for relationship in subgraph.relationships():
-            self.write_literal(", ")
-            self.write_relationship(relationship)
-        self.write_literal("}")
-
-    def write_walkable(self, walkable):
-        """ Write a walkable.
-        """
-        nodes = walkable.nodes()
-        for i, relationship in enumerate(walkable):
-            node = nodes[i]
-            self.write_node(node, full=False)
-            forward = relationship.start_node() == node
-            self.file.write(u"-" if forward else u"<-")
-            self.write_relationship_detail(relationship)
-            self.file.write(u"->" if forward else u"-")
-        self.write_node(nodes[-1], full=False)
 
 
 def main():
