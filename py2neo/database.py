@@ -47,9 +47,9 @@ def presubstitute(statement, parameters):
     more = True
     presub_parameters = []
     while more:
-        before, opener, key = statement.partition(u"«")
+        before, opener, key = statement.partition(u"{%")
         if opener:
-            key, closer, after = key.partition(u"»")
+            key, closer, after = key.partition(u"%}")
             try:
                 value = parameters[key]
                 presub_parameters.append(key)

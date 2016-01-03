@@ -465,7 +465,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_property_key(self):
         tx = self.new_tx()
         if tx:
-            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {«k»:'Alice Smith'}) "
+            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {{%k%}:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
                                        k="full name").select()
             assert set(labels) == {"Homo Sapiens"}
@@ -474,7 +474,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_node_label(self):
         tx = self.new_tx()
         if tx:
-            labels, full_name = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
                                        l="Homo Sapiens").select()
             assert set(labels) == {"Homo Sapiens"}
@@ -483,21 +483,21 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
     def test_can_use_parameter_for_multiple_node_labels(self):
         tx = self.new_tx()
         if tx:
-            labels, full_name = tx.run("CREATE (a:«l» {`full name`:'Alice Smith'}) "
+            labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
                                        l=("Homo Sapiens", "Hunter", "Gatherer")).select()
             assert set(labels) == {"Homo Sapiens", "Hunter", "Gatherer"}
             assert full_name == "Alice Smith"
 
     def test_can_use_parameter_mixture(self):
-        statement = u"CREATE (a:«l» {«k»:{v}})"
+        statement = u"CREATE (a:{%l%} {{%k%}:{v}})"
         parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})"
         assert p == {"v": "Alice Smith"}
 
     def test_can_use_multiple_parameters(self):
-        statement = u"CREATE (a:«l» {«k»:{v}})-->(a:«l» {«k»:{v}})"
+        statement = u"CREATE (a:{%l%} {{%k%}:{v}})-->(a:{%l%} {{%k%}:{v}})"
         parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})-->" \
@@ -505,35 +505,35 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         assert p == {"v": "Alice Smith"}
 
     def test_can_use_simple_parameter_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
         parameters = {"t": "REALLY_LIKES"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:REALLY_LIKES]->(b)"
         assert p == {}
 
     def test_can_use_parameter_with_special_character_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
         parameters = {"t": "REALLY LIKES"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:`REALLY LIKES`]->(b)"
         assert p == {}
 
     def test_can_use_parameter_with_backtick_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:«t»]->(b)"
+        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
         parameters = {"t": "REALLY `LIKES`"}
         s, p = presubstitute(statement, parameters)
         assert s == "CREATE (a)-[ab:`REALLY ``LIKES```]->(b)"
         assert p == {}
 
     def test_can_use_parameter_for_relationship_count(self):
-        statement = u"MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        statement = u"MATCH (a)-[ab:KNOWS*{%x%}]->(b)"
         parameters = {"x": 3}
         s, p = presubstitute(statement, parameters)
         assert s == "MATCH (a)-[ab:KNOWS*3]->(b)"
         assert p == {}
 
     def test_can_use_parameter_for_relationship_count_range(self):
-        statement = u"MATCH (a)-[ab:KNOWS*«x»]->(b)"
+        statement = u"MATCH (a)-[ab:KNOWS*{%x%}]->(b)"
         parameters = {"x": (3, 5)}
         s, p = presubstitute(statement, parameters)
         assert s == "MATCH (a)-[ab:KNOWS*3..5]->(b)"
@@ -543,4 +543,4 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         tx = self.new_tx()
         if tx:
             with self.assertRaises(KeyError):
-                tx.run("CREATE (a)-[ab:«t»]->(b) RETURN ab")
+                tx.run("CREATE (a)-[ab:{%t%}]->(b) RETURN ab")
