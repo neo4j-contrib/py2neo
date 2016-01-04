@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource, Node, Relationship, Entity
+from py2neo import Resource, Node, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -24,7 +24,7 @@ class EntityTestCase(Py2neoTestCase):
         
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
-        entity = Entity()
+        entity = Node()
         entity._set_resource(uri)
         assert entity.resource
         assert entity.resource.uri == uri
@@ -32,7 +32,7 @@ class EntityTestCase(Py2neoTestCase):
     def test_can_create_entity_with_initial_uri_and_metadata(self):
         uri = "http://localhost:7474/db/data/node/1"
         metadata = {"foo": "bar"}
-        entity = Entity()
+        entity = Node()
         entity._set_resource(uri, metadata)
         assert entity.resource
         assert entity.resource.uri == uri

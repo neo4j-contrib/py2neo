@@ -341,6 +341,204 @@ def cast_relationship(obj, entities=None):
     return Relationship(start_node, get_type(t), end_node, **properties)
 
 
+class Subgraph(object):
+    """ Arbitrary, unordered collection of nodes and relationships.
+    """
+    def __init__(self, nodes=None, relationships=None):
+        self._nodes = frozenset(nodes or frozenset())
+        self._relationships = frozenset(relationships or frozenset())
+        self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
+
+    def __repr__(self):
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_subgraph(self)
+        return r.getvalue()
+
+    def __eq__(self, other):
+        try:
+            return self.nodes() == other.nodes() and self.relationships() == other.relationships()
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for entity in self._nodes:
+            value ^= hash(entity)
+        for entity in self._relationships:
+            value ^= hash(entity)
+        return value
+
+    def __len__(self):
+        return self.size()
+
+    def __iter__(self):
+        return iter(self._relationships)
+
+    def __bool__(self):
+        return bool(self._relationships)
+
+    def __nonzero__(self):
+        return bool(self._relationships)
+
+    def __or__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) | nodes(other), relationships(self) | relationships(other))
+
+    def __and__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        return Subgraph(nodes(self) & nodes(other), relationships(self) & relationships(other))
+
+    def __sub__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        r = relationships(self) - relationships(other)
+        n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Subgraph(n, r)
+
+    def __xor__(self, other):
+        nodes = Subgraph.nodes
+        relationships = Subgraph.relationships
+        r = relationships(self) ^ relationships(other)
+        n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        return Subgraph(n, r)
+
+    def nodes(self):
+        """ Set of all nodes.
+        """
+        return self._nodes
+
+    def relationships(self):
+        """ Set of all relationships.
+        """
+        return self._relationships
+
+    def order(self):
+        """ Total number of unique nodes.
+        """
+        return len(self._nodes)
+
+    def size(self):
+        """ Total number of unique relationships.
+        """
+        return len(self._relationships)
+
+    def labels(self):
+        """ Set of all node labels.
+        """
+        return frozenset(chain(*(node.labels() for node in self._nodes)))
+
+    def types(self):
+        """ Set of all relationship types.
+        """
+        return frozenset(rel.type() for rel in self._relationships)
+
+    def keys(self):
+        """ Set of all property keys.
+        """
+        return (frozenset(chain(*(node.keys() for node in self._nodes))) |
+                frozenset(chain(*(rel.keys() for rel in self._relationships))))
+
+
+class Walkable(Subgraph):
+    """ A subgraph with added traversal information.
+    """
+
+    def __init__(self, iterable):
+        sequence = tuple(iterable)
+        self._node_sequence = sequence[0::2]
+        self._relationship_sequence = sequence[1::2]
+        Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
+        self._sequence = sequence
+
+    def __repr__(self):
+        r = ReprIO()
+        writer = CypherWriter(r)
+        writer.write_walkable(self)
+        return r.getvalue()
+
+    def __eq__(self, other):
+        try:
+            other_walk = tuple(other.walk())
+        except AttributeError:
+            return False
+        else:
+            return tuple(self.walk()) == other_walk
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        value = 0
+        for item in self._sequence:
+            value ^= hash(item)
+        return value
+
+    def __len__(self):
+        return (len(self._sequence) - 1) // 2
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start, stop = index.start, index.stop
+            if start is not None:
+                if start < 0:
+                    start += len(self)
+                start *= 2
+            if stop is not None:
+                if stop < 0:
+                    stop += len(self)
+                stop = 2 * stop + 1
+            return Walkable(self._sequence[start:stop])
+        elif index < 0:
+            return self._sequence[2 * index]
+        else:
+            return self._sequence[2 * index + 1]
+
+    def __iter__(self):
+        for relationship in self._relationship_sequence:
+            yield relationship
+
+    def __add__(self, other):
+        if other is None:
+            return self
+        return Walkable(walk(self, other))
+
+    def start_node(self):
+        """ The first node encountered on a walk.
+        """
+        return self._node_sequence[0]
+
+    def end_node(self):
+        """ The last node encountered on a walk.
+        """
+        return self._node_sequence[-1]
+
+    def length(self):
+        """ The total number of relationships on a walk.
+        """
+        return len(self._relationship_sequence)
+
+    def walk(self):
+        """ Traverse and yield all nodes and relationships in order.
+        """
+        return iter(self._sequence)
+
+    def nodes(self):
+        """ Set of all nodes.
+        """
+        return self._node_sequence
+
+    def relationships(self):
+        """ Set of all relationships.
+        """
+        return self._relationship_sequence
+
+
 class PropertySet(dict):
     """ A dictionary subclass that equates None with a non-existent key.
     """
@@ -452,7 +650,7 @@ class EntityResource(Resource):
         self._id = int(self.ref.rpartition("/")[2])
 
 
-class Entity(object):
+class Entity(Walkable):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
@@ -481,205 +679,7 @@ class Entity(object):
         return self._resource
 
 
-class Subgraph(object):
-    """ Arbitrary, unordered collection of nodes and relationships.
-    """
-    def __init__(self, nodes=None, relationships=None):
-        self._nodes = frozenset(nodes or frozenset())
-        self._relationships = frozenset(relationships or frozenset())
-        self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
-
-    def __repr__(self):
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_subgraph(self)
-        return r.getvalue()
-
-    def __eq__(self, other):
-        try:
-            return self.nodes() == other.nodes() and self.relationships() == other.relationships()
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for entity in self._nodes:
-            value ^= hash(entity)
-        for entity in self._relationships:
-            value ^= hash(entity)
-        return value
-
-    def __len__(self):
-        return self.size()
-
-    def __iter__(self):
-        return iter(self._relationships)
-
-    def __bool__(self):
-        return bool(self._relationships)
-
-    def __nonzero__(self):
-        return bool(self._relationships)
-
-    def __or__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        return Subgraph(nodes(self) | nodes(other), relationships(self) | relationships(other))
-
-    def __and__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        return Subgraph(nodes(self) & nodes(other), relationships(self) & relationships(other))
-
-    def __sub__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        r = relationships(self) - relationships(other)
-        n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
-        return Subgraph(n, r)
-
-    def __xor__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        r = relationships(self) ^ relationships(other)
-        n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
-        return Subgraph(n, r)
-
-    def nodes(self):
-        """ Set of all nodes.
-        """
-        return self._nodes
-
-    def relationships(self):
-        """ Set of all relationships.
-        """
-        return self._relationships
-
-    def order(self):
-        """ Total number of unique nodes.
-        """
-        return len(self._nodes)
-
-    def size(self):
-        """ Total number of unique relationships.
-        """
-        return len(self._relationships)
-
-    def labels(self):
-        """ Set of all node labels.
-        """
-        return frozenset(chain(*(node.labels() for node in self._nodes)))
-
-    def types(self):
-        """ Set of all relationship types.
-        """
-        return frozenset(rel.type() for rel in self._relationships)
-
-    def keys(self):
-        """ Set of all property keys.
-        """
-        return (frozenset(chain(*(node.keys() for node in self._nodes))) |
-                frozenset(chain(*(rel.keys() for rel in self._relationships))))
-
-
-class Walkable(Subgraph):
-    """ A subgraph with added traversal information.
-    """
-
-    def __init__(self, head, *tail):
-        sequence = (head,) + tail
-        self._node_sequence = sequence[0::2]
-        self._relationship_sequence = sequence[1::2]
-        Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
-        self._sequence = sequence
-
-    def __repr__(self):
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_walkable(self)
-        return r.getvalue()
-
-    def __eq__(self, other):
-        try:
-            other_walk = tuple(other.walk())
-        except AttributeError:
-            return False
-        else:
-            return tuple(self.walk()) == other_walk
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for item in self._sequence:
-            value ^= hash(item)
-        return value
-
-    def __len__(self):
-        return (len(self._sequence) - 1) // 2
-
-    def __getitem__(self, index):
-        if isinstance(index, slice):
-            start, stop = index.start, index.stop
-            if start is not None:
-                if start < 0:
-                    start += len(self)
-                start *= 2
-            if stop is not None:
-                if stop < 0:
-                    stop += len(self)
-                stop = 2 * stop + 1
-            return Walkable(*self._sequence[start:stop])
-        elif index < 0:
-            return self._sequence[2 * index]
-        else:
-            return self._sequence[2 * index + 1]
-
-    def __iter__(self):
-        for relationship in self._relationship_sequence:
-            yield relationship
-
-    def __add__(self, other):
-        if other is None:
-            return self
-        return Walkable(*walk(self, other))
-
-    def start_node(self):
-        """ The first node encountered on a walk.
-        """
-        return self._node_sequence[0]
-
-    def end_node(self):
-        """ The last node encountered on a walk.
-        """
-        return self._node_sequence[-1]
-
-    def length(self):
-        """ The total number of relationships on a walk.
-        """
-        return len(self._relationship_sequence)
-
-    def walk(self):
-        """ Traverse and yield all nodes and relationships in order.
-        """
-        return iter(self._sequence)
-
-    def nodes(self):
-        """ Set of all nodes.
-        """
-        return self._node_sequence
-
-    def relationships(self):
-        """ Set of all relationships.
-        """
-        return self._relationship_sequence
-
-
-class Node(PropertyContainer, Walkable, Entity):
+class Node(PropertyContainer, Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.
@@ -722,7 +722,7 @@ class Node(PropertyContainer, Walkable, Entity):
     def __init__(self, *labels, **properties):
         self._labels = set(labels)
         PropertyContainer.__init__(self, **properties)
-        Walkable.__init__(self, self)
+        Walkable.__init__(self, (self,))
         self.__stale = set()
 
     def __repr__(self):
@@ -809,7 +809,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(PropertyContainer, Walkable, Entity):
+class Relationship(PropertyContainer, Entity):
     """ A relationship represents a typed connection between a pair of nodes.
 
     The positional arguments passed to the constructor identify the nodes to
@@ -907,7 +907,7 @@ class Relationship(PropertyContainer, Walkable, Entity):
         else:
             raise TypeError("Hyperedges not supported")
         PropertyContainer.__init__(self, **p)
-        Walkable.__init__(self, n[0], self, n[1])
+        Walkable.__init__(self, (n[0], self, n[1]))
 
         self.__stale = set()
 
@@ -1044,7 +1044,7 @@ class Path(Walkable):
                 elif isinstance(entity, tuple) and len(entity) == 2:
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
-        Walkable.__init__(self, *tuple(walk(*entities)))
+        Walkable.__init__(self, walk(*entities))
 
 
 class Record(tuple, Subgraph):

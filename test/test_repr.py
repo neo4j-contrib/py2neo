@@ -137,7 +137,7 @@ class ReprTestCase(Py2neoTestCase):
         ab = Relationship(a, "LOVES", b)
         cb = Relationship(c, "HATES", b)
         cd = Relationship(c, "KNOWS", d)
-        t = Walkable(a, ab, b, cb, c, cd, d)
+        t = Walkable([a, ab, b, cb, c, cd, d])
         r = repr(t)
         expected = "(%s)-[:LOVES]->(%s)<-[:HATES]-(%s)-[:KNOWS]->(%s)" % (
             entity_name(a), entity_name(b), entity_name(c), entity_name(d))
