@@ -372,17 +372,17 @@ class Graph(object):
         """
         return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
-    def exists(self, g):
+    def exists(self, subgraph):
         """ Determine whether a number of graph entities all exist within the database.
         """
         tx = self.begin()
         cursors = []
         count = 0
         try:
-            nodes = g.nodes()
-            relationships = g.relationships()
+            nodes = subgraph.nodes()
+            relationships = subgraph.relationships()
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % g)
+            raise TypeError("Object %r is not graphy" % subgraph)
         else:
             for a in nodes:
                 if a.resource:
