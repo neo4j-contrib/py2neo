@@ -20,8 +20,7 @@
 
 from unittest import TestCase
 
-from py2neo.types import PropertySet, PropertyContainer, \
-    Subgraph, Walkable, Node, Relationship, Path, walk, Record
+from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, Record
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -45,204 +44,119 @@ record_d = Record(record_keys, [1004, dave])
 class PropertyCoercionTestCase(TestCase):
 
     def test_boolean(self):
-        props = PropertySet({"value": True})
+        props = PropertyDict({"value": True})
         assert props == {"value": True}
 
     def test_integer_in_range(self):
-        props = PropertySet({"value": 1})
+        props = PropertyDict({"value": 1})
         assert props == {"value": 1}
 
     def test_integer_too_high(self):
         with self.assertRaises(ValueError):
-            PropertySet({"value": 2 ** 64})
+            PropertyDict({"value": 2 ** 64})
 
     def test_integer_too_low(self):
         with self.assertRaises(ValueError):
-            PropertySet({"value": -(2 ** 64)})
+            PropertyDict({"value": -(2 ** 64)})
 
     def test_float(self):
-        props = PropertySet({"value": 3.141})
+        props = PropertyDict({"value": 3.141})
         assert props == {"value": 3.141}
 
     def test_byte_strings_are_supported(self):
-        props = PropertySet({"value": b"hello, world"})
+        props = PropertyDict({"value": b"hello, world"})
         assert props == {"value": u"hello, world"}
 
     def test_unicode_strings_are_supported(self):
-        props = PropertySet({"value": u"hello, world"})
+        props = PropertyDict({"value": u"hello, world"})
         assert props == {"value": u"hello, world"}
 
     def test_byte_arrays_are_not_supported(self):
         with self.assertRaises(TypeError):
-            PropertySet({"value": bytearray(b"hello, world")})
+            PropertyDict({"value": bytearray(b"hello, world")})
 
     def test_homogenous_list(self):
-        props = PropertySet({"value": [1, 2, 3]})
+        props = PropertyDict({"value": [1, 2, 3]})
         assert props == {"value": [1, 2, 3]}
 
     def test_homogenous_list_of_strings(self):
-        props = PropertySet({"value": [u"hello", b"world"]})
+        props = PropertyDict({"value": [u"hello", b"world"]})
         assert props == {"value": [u"hello", u"world"]}
 
     def test_heterogenous_list(self):
         with self.assertRaises(TypeError):
-            PropertySet({"value": [True, 2, u"three"]})
+            PropertyDict({"value": [True, 2, u"three"]})
 
 
-class PropertySetTestCase(TestCase):
+class PropertyDictTestCase(TestCase):
 
     def test_equality(self):
-        first = PropertySet({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertySet({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
+        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
+        second = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
         assert first == second
 
     def test_inequality(self):
-        first = PropertySet({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertySet({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
+        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
+        second = PropertyDict({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
         assert first != second
 
     def test_hashable(self):
-        first = PropertySet({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertySet({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
+        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
+        second = PropertyDict({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
         collected = {first, second}
         assert len(collected) == 2
 
     def test_getter(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         assert properties["name"] == "Alice"
 
     def test_getter_with_none(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         assert properties["age"] is None
 
     def test_setter(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         properties["age"] = 33
         assert properties == {"name": "Alice", "age": 33}
 
     def test_setter_with_none(self):
-        properties = PropertySet({"name": "Alice", "age": 33})
+        properties = PropertyDict({"name": "Alice", "age": 33})
         properties["age"] = None
         assert properties == {"name": "Alice"}
 
     def test_setter_with_none_for_non_existent(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         properties["age"] = None
         assert properties == {"name": "Alice"}
 
     def test_setdefault_without_default_with_existing(self):
-        properties = PropertySet({"name": "Alice", "age": 33})
+        properties = PropertyDict({"name": "Alice", "age": 33})
         value = properties.setdefault("age")
         assert properties == {"name": "Alice", "age": 33}
         assert value == 33
 
     def test_setdefault_without_default_with_non_existent(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         value = properties.setdefault("age")
-        assert properties == {"name": "Alice", "age": None}
+        assert properties == {"name": "Alice"}
         assert value is None
 
     def test_setdefault_with_default_with_existing(self):
-        properties = PropertySet({"name": "Alice", "age": 33})
+        properties = PropertyDict({"name": "Alice", "age": 33})
         value = properties.setdefault("age", 34)
         assert properties == {"name": "Alice", "age": 33}
         assert value == 33
 
     def test_setdefault_with_default_with_non_existent(self):
-        properties = PropertySet({"name": "Alice"})
+        properties = PropertyDict({"name": "Alice"})
         value = properties.setdefault("age", 33)
         assert properties == {"name": "Alice", "age": 33}
         assert value == 33
 
     def test_deleter(self):
-        properties = PropertySet({"name": "Alice", "age": 33})
+        properties = PropertyDict({"name": "Alice", "age": 33})
         del properties["age"]
         assert properties == {"name": "Alice"}
-
-
-class PropertyContainerTestCase(TestCase):
-
-    def test_length(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert len(container) == 2
-
-    def test_contains(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert "name" in container
-
-    def test_not_contains(self):
-        container = PropertyContainer(name="Alice")
-        assert "age" not in container
-
-    def test_clear(self):
-        container = PropertyContainer(name="Alice", age=33)
-        container.clear()
-        assert len(container) == 0
-
-    def test_getter_where_exists(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert container["age"] == 33
-
-    def test_getter_where_non_existent(self):
-        container = PropertyContainer(name="Alice")
-        assert container["age"] is None
-
-    def test_get_method(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert container.get("age") == 33
-
-    def test_get_method_with_default(self):
-        container = PropertyContainer(name="Alice")
-        assert container.get("age", 33) == 33
-
-    def test_setter_where_exists(self):
-        container = PropertyContainer(name="Alice", age=33)
-        container["age"] = 34
-        assert dict(container) == {"name": "Alice", "age": 34}
-
-    def test_setter_where_non_existent(self):
-        container = PropertyContainer(name="Alice")
-        container["age"] = 34
-        assert dict(container) == {"name": "Alice", "age": 34}
-
-    def test_setdefault_where_exists(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert container.setdefault("age", 44) == 33
-
-    def test_setdefault_where_missing(self):
-        container = PropertyContainer(name="Alice")
-        assert container.setdefault("age", 44) == 44
-
-    def test_deleter_where_exists(self):
-        container = PropertyContainer(name="Alice", age=33)
-        del container["age"]
-        assert dict(container) == {"name": "Alice"}
-
-    def test_deleter_where_non_existent(self):
-        container = PropertyContainer(name="Alice")
-        try:
-            del container["age"]
-        except KeyError:
-            assert True
-        else:
-            assert False
-
-    def test_iteration(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert set(container) == {"name", "age"}
-
-    def test_keys(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert set(container.keys()) == {"name", "age"}
-
-    def test_values(self):
-        container = PropertyContainer(name="Alice", age=33)
-        assert set(container.values()) == {'Alice', 33}
-
-    def test_update(self):
-        container = PropertyContainer(name="Alice")
-        container.update({"name": "Alice", "age": 33})
-        assert dict(container) == {"name": "Alice", "age": 33}
 
 
 class SubgraphTestCase(TestCase):

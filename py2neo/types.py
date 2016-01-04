@@ -509,38 +509,43 @@ class Walkable(Subgraph):
         return Walkable(walk(self, other))
 
     def start_node(self):
-        """ The first node encountered on a walk.
+        """ The first node encountered on a :func:`.walk` of this object.
         """
         return self._node_sequence[0]
 
     def end_node(self):
-        """ The last node encountered on a walk.
+        """ The last node encountered on a :func:`.walk` of this object.
         """
         return self._node_sequence[-1]
 
     def length(self):
-        """ The total number of relationships on a walk.
+        """ The total number of relationships over which a :func:`.walk`
+        of this object will traverse.
         """
         return len(self._relationship_sequence)
 
     def walk(self):
-        """ Traverse and yield all nodes and relationships in order.
+        """ Traverse and yield all nodes and relationships in this
+        object in order.
         """
         return iter(self._sequence)
 
     def nodes(self):
-        """ Set of all nodes.
+        """ The sequence of nodes over which a :func:`.walk` of this
+        object will traverse.
         """
         return self._node_sequence
 
     def relationships(self):
-        """ Set of all relationships.
+        """ The sequence of relationships over which a :func:`.walk`
+        of this object will traverse.
         """
         return self._relationship_sequence
 
 
-class PropertySet(dict):
-    """ A dictionary subclass that equates None with a non-existent key.
+class PropertyDict(dict):
+    """ A dictionary that treats :const:`None` and missing values as
+    semantically identical.
     """
 
     def __init__(self, iterable=None, **kwargs):
@@ -548,8 +553,6 @@ class PropertySet(dict):
         self.update(iterable, **kwargs)
 
     def __eq__(self, other):
-        if not isinstance(other, PropertySet):
-            other = PropertySet(other)
         return dict.__eq__(self, other)
 
     def __ne__(self, other):
@@ -590,56 +593,6 @@ class PropertySet(dict):
             self[key] = value
 
 
-class PropertyContainer(object):
-    """ Base class for objects that contain a set of properties,
-    """
-
-    def __init__(self, **properties):
-        self._properties = PropertySet(properties)
-
-    def __bool__(self):
-        return bool(self._properties)
-
-    def __nonzero__(self):
-        return bool(self._properties)
-
-    def __len__(self):
-        return len(self._properties)
-
-    def __contains__(self, key):
-        return key in self._properties
-
-    def __getitem__(self, key):
-        return self._properties.__getitem__(key)
-
-    def __setitem__(self, key, value):
-        self._properties.__setitem__(key, value)
-
-    def __delitem__(self, key):
-        self._properties.__delitem__(key)
-
-    def __iter__(self):
-        return iter(self._properties)
-
-    def clear(self):
-        self._properties.clear()
-
-    def get(self, key, default=None):
-        return self._properties.get(key, default)
-
-    def keys(self):
-        return self._properties.keys()
-
-    def setdefault(self, key, default=None):
-        return self._properties.setdefault(key, default)
-
-    def update(self, iterable=None, **kwargs):
-        self._properties.update(iterable, **kwargs)
-
-    def values(self):
-        return self._properties.values()
-
-
 class EntityResource(Resource):
     """ A web resource that represents a graph database entity.
     """
@@ -650,7 +603,7 @@ class EntityResource(Resource):
         self._id = int(self.ref.rpartition("/")[2])
 
 
-class Entity(Walkable):
+class Entity(PropertyDict, Walkable):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
@@ -658,8 +611,15 @@ class Entity(Walkable):
     _resource = None
     _resource_pending_tx = None
 
-    def __init__(self, iterable):
+    def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
+        PropertyDict.__init__(self, properties)
+
+    def __bool__(self):
+        return len(self) > 0
+
+    def __nonzero__(self):
+        return len(self) > 0
 
     def _set_resource_pending(self, tx):
         self._resource_pending_tx = tx
@@ -682,7 +642,7 @@ class Entity(Walkable):
         return self._resource
 
 
-class Node(PropertyContainer, Entity):
+class Node(Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.
@@ -724,8 +684,7 @@ class Node(PropertyContainer, Entity):
 
     def __init__(self, *labels, **properties):
         self._labels = set(labels)
-        PropertyContainer.__init__(self, **properties)
-        Entity.__init__(self, (self,))
+        Entity.__init__(self, (self,), properties)
         self.__stale = set()
 
     def __repr__(self):
@@ -754,7 +713,7 @@ class Node(PropertyContainer, Entity):
     def __getitem__(self, item):
         if self.resource and "properties" in self.__stale:
             self.resource.graph.pull(self)
-        return PropertyContainer.__getitem__(self, item)
+        return Entity.__getitem__(self, item)
 
     @deprecated("Node.degree() is deprecated, use graph.degree(node) instead")
     def degree(self):
@@ -812,7 +771,7 @@ class NodeProxy(object):
     pass
 
 
-class Relationship(PropertyContainer, Entity):
+class Relationship(Entity):
     """ A relationship represents a typed connection between a pair of nodes.
 
     The positional arguments passed to the constructor identify the nodes to
@@ -909,8 +868,7 @@ class Relationship(PropertyContainer, Entity):
             n = (n[0], n[2])
         else:
             raise TypeError("Hyperedges not supported")
-        PropertyContainer.__init__(self, **p)
-        Entity.__init__(self, (n[0], self, n[1]))
+        Entity.__init__(self, (n[0], self, n[1]), p)
 
         self.__stale = set()
 
@@ -1031,7 +989,9 @@ class Path(Walkable):
     def __init__(self, *entities):
         entities = list(entities)
         for i, entity in enumerate(entities):
-            if entity is None:
+            if isinstance(entity, Entity):
+                continue
+            elif entity is None:
                 entities[i] = Node()
             elif isinstance(entity, dict):
                 entities[i] = Node(**entity)
