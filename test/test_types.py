@@ -20,7 +20,8 @@
 
 from unittest import TestCase
 
-from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, Record
+from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, \
+    Record, order, size
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -176,15 +177,15 @@ class SubgraphTestCase(TestCase):
                                  carol_married_to_dave, dave_works_for_dave}
 
     def test_order(self):
-        assert self.subgraph.order() == 4
+        assert order(self.subgraph) == 4
 
     def test_size(self):
-        assert self.subgraph.size() == 5
+        assert size(self.subgraph) == 5
 
     def test_can_infer_nodes_through_relationships(self):
         subgraph = Subgraph([], [alice_knows_bob])
-        assert subgraph.order() == 2
-        assert subgraph.size() == 1
+        assert order(subgraph) == 2
+        assert size(subgraph) == 1
         assert subgraph.nodes() == {alice, bob}
         assert subgraph.relationships() == {alice_knows_bob}
 
@@ -240,10 +241,10 @@ class WalkableTestCase(TestCase):
         assert len(self.walkable) == 2
 
     def test_order(self):
-        assert self.walkable.order() == 3
+        assert order(self.walkable) == 3
 
     def test_size(self):
-        assert self.walkable.size() == 2
+        assert size(self.walkable) == 2
 
     def test_equality(self):
         other_subgraph = Walkable(self.sequence)
@@ -332,10 +333,10 @@ class NodeTestCase(TestCase):
         assert relationships == ()
 
     def test_order(self):
-        assert alice.order() == 1
+        assert order(alice) == 1
 
     def test_size(self):
-        assert alice.size() == 0
+        assert size(alice) == 0
 
     def test_empty_node(self):
         n = Node()
@@ -354,8 +355,8 @@ class NodeTestCase(TestCase):
         assert dict(alice) == {"name": "Alice", "age": 33}
         assert dict(alice)["name"] == "Alice"
         assert alice["name"] == "Alice"
-        assert alice.order() == 1
-        assert alice.size() == 0
+        assert order(alice) == 1
+        assert size(alice) == 0
         assert set(alice.nodes()) == {alice}
         assert set(alice.relationships()) == set()
 
@@ -430,10 +431,10 @@ class RelationshipTestCase(TestCase):
         assert relationships == (alice_knows_bob,)
 
     def test_order(self):
-        assert alice_knows_bob.order() == 2
+        assert order(alice_knows_bob) == 2
 
     def test_size(self):
-        assert alice_knows_bob.size() == 1
+        assert size(alice_knows_bob) == 1
 
     def test_relationship(self):
         assert alice_knows_bob.start_node() == alice
@@ -442,8 +443,8 @@ class RelationshipTestCase(TestCase):
         assert alice_knows_bob.type() == "KNOWS"
         assert dict(alice_knows_bob) == {"since": 1999}
         assert alice_knows_bob["since"] == 1999
-        assert alice_knows_bob.order() == 2
-        assert alice_knows_bob.size() == 1
+        assert order(alice_knows_bob) == 2
+        assert size(alice_knows_bob) == 1
         assert set(alice_knows_bob.nodes()) == {alice, bob}
         assert set(alice_knows_bob.relationships()) == {alice_knows_bob}
 
@@ -451,8 +452,8 @@ class RelationshipTestCase(TestCase):
         assert dave_works_for_dave.start_node() == dave
         assert dave_works_for_dave.end_node() == dave
         assert list(walk(dave_works_for_dave)) == [dave, dave_works_for_dave, dave]
-        assert dave_works_for_dave.order() == 1
-        assert dave_works_for_dave.size() == 1
+        assert order(dave_works_for_dave) == 1
+        assert size(dave_works_for_dave) == 1
         assert set(dave_works_for_dave.nodes()) == {dave}
         assert set(dave_works_for_dave.relationships()) == {dave_works_for_dave}
 
@@ -529,10 +530,10 @@ class RelationshipLoopTestCase(TestCase):
         assert relationships == (self.loop,)
 
     def test_order(self):
-        assert self.loop.order() == 1
+        assert order(self.loop) == 1
 
     def test_size(self):
-        assert self.loop.size() == 1
+        assert size(self.loop) == 1
 
 
 class PathTestCase(TestCase):
@@ -550,10 +551,10 @@ class PathTestCase(TestCase):
         assert relationships == (alice_knows_bob, alice_knows_bob, alice_likes_carol)
 
     def test_order(self):
-        assert self.path.order() == 3
+        assert order(self.path) == 3
 
     def test_size(self):
-        assert self.path.size() == 2
+        assert size(self.path) == 2
 
     def test_length(self):
         assert len(self.path) == 3
@@ -561,8 +562,8 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_0(self):
         sequence = [alice]
         path = Path(*sequence)
-        assert path.order() == 1
-        assert path.size() == 0
+        assert order(path) == 1
+        assert size(path) == 0
         assert len(path) == 0
         assert set(path.nodes()) == {alice}
         assert set(path.relationships()) == set()
@@ -574,8 +575,8 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_1(self):
         sequence = [alice, alice_knows_bob, bob]
         path = Path(*sequence)
-        assert path.order() == 2
-        assert path.size() == 1
+        assert order(path) == 2
+        assert size(path) == 1
         assert len(path) == 1
         assert set(path.nodes()) == {alice, bob}
         assert set(path.relationships()) == {alice_knows_bob}
@@ -587,8 +588,8 @@ class PathTestCase(TestCase):
     def test_construction_of_path_length_2(self):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol]
         path = Path(*sequence)
-        assert path.order() == 3
-        assert path.size() == 2
+        assert order(path) == 3
+        assert size(path) == 2
         assert len(path) == 2
         assert set(path.nodes()) == {alice, bob, carol}
         assert set(path.relationships()) == {alice_knows_bob, carol_dislikes_bob}
@@ -601,8 +602,8 @@ class PathTestCase(TestCase):
         sequence = [alice, alice_knows_bob, bob, carol_dislikes_bob, carol,
                     alice_likes_carol, alice, alice_knows_bob, bob]
         path = Path(*sequence)
-        assert path.order() == 3
-        assert path.size() == 3
+        assert order(path) == 3
+        assert size(path) == 3
         assert len(path) == 4
         assert set(path.nodes()) == {alice, bob, carol}
         assert set(path.relationships()) == {alice_knows_bob, alice_likes_carol, carol_dislikes_bob}
@@ -614,8 +615,8 @@ class PathTestCase(TestCase):
     def test_construction_of_path_with_loop(self):
         sequence = [carol, carol_married_to_dave, dave, dave_works_for_dave, dave]
         path = Path(*sequence)
-        assert path.order() == 2
-        assert path.size() == 2
+        assert order(path) == 2
+        assert size(path) == 2
         assert len(path) == 2
         assert set(path.nodes()) == {carol, dave}
         assert set(path.relationships()) == {carol_married_to_dave, dave_works_for_dave}
@@ -736,8 +737,8 @@ class UnionTestCase(TestCase):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 | graph_2
-        assert graph.order() == 4
-        assert graph.size() == 5
+        assert order(graph) == 4
+        assert size(graph) == 5
         assert graph.nodes() == (alice | bob | carol | dave).nodes()
 
 
@@ -747,8 +748,8 @@ class IntersectionTestCase(TestCase):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 & graph_2
-        assert graph.order() == 2
-        assert graph.size() == 1
+        assert order(graph) == 2
+        assert size(graph) == 1
         assert graph.nodes() == (bob | carol).nodes()
 
 
@@ -758,8 +759,8 @@ class DifferenceTestCase(TestCase):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 - graph_2
-        assert graph.order() == 3
-        assert graph.size() == 2
+        assert order(graph) == 3
+        assert size(graph) == 2
         assert graph.nodes() == (alice | bob | carol).nodes()
 
 
@@ -769,8 +770,8 @@ class SymmetricDifferenceTestCase(TestCase):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 ^ graph_2
-        assert graph.order() == 4
-        assert graph.size() == 4
+        assert order(graph) == 4
+        assert size(graph) == 4
         assert graph.nodes() == (alice | bob | carol | dave).nodes()
         assert graph.relationships() == frozenset(alice_knows_bob | alice_likes_carol |
                                                   carol_married_to_dave | dave_works_for_dave)
@@ -844,8 +845,8 @@ class RecordTestCase(TestCase):
         values = [alice, bob, alice_knows_bob, "hello, world"]
         record = Record(keys, values)
         assert len(record) == 4
-        assert record.order() == 2
-        assert record.size() == 1
+        assert order(record) == 2
+        assert size(record) == 1
         assert record.nodes() == {alice, bob}
         assert record.relationships() == {alice_knows_bob}
         assert list(record.keys()) == keys

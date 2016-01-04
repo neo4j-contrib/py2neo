@@ -228,6 +228,36 @@ def entity_name(entity):
     return name
 
 
+def order(subgraph):
+    """ Return the number of unique nodes in a subgraph.
+
+    :param subgraph:
+    :return:
+    """
+    try:
+        return subgraph.__order__()
+    except AttributeError:
+        try:
+            return len(set(subgraph.nodes()))
+        except AttributeError:
+            raise TypeError("Object %r is not graphy")
+
+
+def size(subgraph):
+    """ Return the number of unique relationships in a subgraph.
+
+    :param subgraph:
+    :return:
+    """
+    try:
+        return subgraph.__size__()
+    except AttributeError:
+        try:
+            return len(set(subgraph.relationships()))
+        except AttributeError:
+            raise TypeError("Object %r is not graphy")
+
+
 def walk(*walkables):
     """ Traverse over the arguments supplied, yielding the entities
     from each in turn.
@@ -372,8 +402,18 @@ class Subgraph(object):
             value ^= hash(entity)
         return value
 
+    def __order__(self):
+        """ Total number of unique nodes.
+        """
+        return len(self._nodes)
+
+    def __size__(self):
+        """ Total number of unique relationships.
+        """
+        return len(self._relationships)
+
     def __len__(self):
-        return self.size()
+        return len(self._relationships)
 
     def __iter__(self):
         return iter(self._relationships)
@@ -417,16 +457,6 @@ class Subgraph(object):
         """ Set of all relationships.
         """
         return self._relationships
-
-    def order(self):
-        """ Total number of unique nodes.
-        """
-        return len(self._nodes)
-
-    def size(self):
-        """ Total number of unique relationships.
-        """
-        return len(self._relationships)
 
     def labels(self):
         """ Set of all node labels.
@@ -883,7 +913,7 @@ class Relationship(Entity):
             if self.resource and other.resource:
                 return self.resource == other.resource
             try:
-                return (self.nodes() == other.nodes() and other.size() == 1 and
+                return (self.nodes() == other.nodes() and size(other) == 1 and
                         self.type() == other.type() and dict(self) == dict(other))
             except AttributeError:
                 return False

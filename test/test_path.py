@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Path, Relationship, Graph
+from py2neo import Node, Path, Relationship, Graph, order, size
 from test.util import Py2neoTestCase
 
 
@@ -26,14 +26,16 @@ class PathTestCase(Py2neoTestCase):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         path = Path(alice, "KNOWS", bob)
-        assert path.order() == 2
-        assert path.size() == 1
+        assert order(path) == 2
+        assert size(path) == 1
+        assert len(path) == 1
 
     def test_can_construct_path_with_none_node(self):
         alice = Node(name="Alice")
         path = Path(alice, "KNOWS", None)
-        assert path.order() == 2
-        assert path.size() == 1
+        assert order(path) == 2
+        assert size(path) == 1
+        assert len(path) == 1
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})

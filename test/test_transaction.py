@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished, GraphError
-from py2neo.status import ClientError, CypherError
+from py2neo.types import Node, Relationship, order, size
+from py2neo.status import ClientError, CypherError, Finished, GraphError
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from test.util import Py2neoTestCase
 
@@ -137,8 +137,8 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert r.resource
         assert r.start_node() == a
         assert r.end_node() == b
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_2(self):
         self.graph.delete_all()
@@ -154,8 +154,8 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert r.resource
         assert r.start_node() == a
         assert r.end_node() == b
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_3(self):
         self.graph.delete_all()
@@ -171,8 +171,8 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert r.resource
         assert r.start_node() == a
         assert r.end_node() == b
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_4(self):
         self.graph.delete_all()
@@ -196,8 +196,8 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert ca.resource
         assert ca.start_node() == c
         assert ca.end_node() == a
-        assert self.graph.order() == 3
-        assert self.graph.size() == 3
+        assert order(self.graph) == 3
+        assert size(self.graph) == 3
 
     def test_create_is_idempotent(self):
         self.graph.delete_all()
@@ -209,15 +209,15 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert a.resource
         assert b.resource
         assert r.resource
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
         with self.graph.begin() as tx:
             tx.create(r)
         assert a.resource
         assert b.resource
         assert r.resource
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
 
 class TransactionCreateUniqueTestCase(Py2neoTestCase):
@@ -240,8 +240,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         assert ac.resource
         assert ac.start_node() == self.a
         assert ac.end_node() == c
-        assert self.graph.order() == 3
-        assert self.graph.size() == 2
+        assert order(self.graph) == 3
+        assert size(self.graph) == 2
 
     def test_can_create_path_when_one_exists(self):
         b = Node("Person", name="Bob")
@@ -254,8 +254,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         assert ab.resource
         assert ab.start_node() == self.a
         assert ab.end_node() == b
-        assert self.graph.order() == 2
-        assert self.graph.size() == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_path_beyond_existing_path(self):
         c = Node("Person", name="Carol")
@@ -266,8 +266,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         assert bc.resource
         assert bc.start_node() == self.b
         assert bc.end_node() == c
-        assert self.graph.order() == 3
-        assert self.graph.size() == 2
+        assert order(self.graph) == 3
+        assert size(self.graph) == 2
 
     def test_can_create_path_with_reversed_relationship(self):
         c = Node("Person", name="Carol")
@@ -278,8 +278,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         assert cb.resource
         assert cb.start_node() == c
         assert cb.end_node() == self.b
-        assert self.graph.order() == 3
-        assert self.graph.size() == 2
+        assert order(self.graph) == 3
+        assert size(self.graph) == 2
 
     def test_cannot_create_unique_without_bound_nodes(self):
         a = Node("Person", name="Alice")

@@ -18,7 +18,8 @@
 
 from io import StringIO
 
-from py2neo.types import Node, Relationship, Path, entity_name, CypherWriter, cypher_repr
+from py2neo.types import Node, Relationship, Path, entity_name, CypherWriter, cypher_repr, \
+    order, size
 from py2neo.database import Transaction, presubstitute
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
@@ -308,8 +309,8 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert ca.resource
         assert ca.start_node() == c
         assert ca.end_node() == a
-        assert self.graph.order() == 3
-        assert self.graph.size() == 3
+        assert order(self.graph) == 3
+        assert size(self.graph) == 3
 
 
 class CypherLangTestCase(Py2neoTestCase):

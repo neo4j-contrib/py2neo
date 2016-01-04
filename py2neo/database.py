@@ -256,8 +256,14 @@ class Graph(object):
     def __hash__(self):
         return hash(self.uri)
 
+    def __order__(self):
+        return self.evaluate("MATCH (n) RETURN count(n)")
+
+    def __size__(self):
+        return self.evaluate("MATCH ()-[r]->() RETURN count(r)")
+
     def __len__(self):
-        return self.size()
+        return self.__size__()
 
     def __bool__(self):
         return True
@@ -621,12 +627,6 @@ class Graph(object):
         """
         webbrowser.open(self.dbms.resource.uri.string)
 
-    def order(self):
-        """ The number of nodes in this graph.
-        """
-        statement = "MATCH (n) RETURN count(n)"
-        return self.evaluate(statement)
-
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
         """
@@ -729,12 +729,6 @@ class Graph(object):
         if self.__schema is None:
             self.__schema = Schema(self.uri.string + "schema")
         return self.__schema
-
-    def size(self):
-        """ The number of relationships in this graph.
-        """
-        statement = "MATCH ()-[r]->() RETURN count(r)"
-        return self.evaluate(statement)
 
     def supports_auth(self):
         """ Returns :py:const:`True` if auth is supported by this

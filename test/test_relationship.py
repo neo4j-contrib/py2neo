@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship
+from py2neo import Graph, Node, Relationship, size
 from py2neo.packages.httpstream import ClientError
 from test.util import Py2neoTestCase
 
@@ -96,4 +96,4 @@ class RelationshipTestCase(Py2neoTestCase):
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
-        assert rel.size() == 1
+        assert size(rel) == 1
