@@ -88,7 +88,7 @@ class PropertyCoercionTestCase(TestCase):
             PropertyDict({"value": [True, 2, u"three"]})
 
 
-class PropertyDictTestCase(TestCase):
+class PropertySetTestCase(TestCase):
 
     def test_equality(self):
         first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
@@ -236,6 +236,9 @@ class WalkableTestCase(TestCase):
         assert isinstance(relationships, tuple)
         assert relationships == (alice_knows_bob, carol_dislikes_bob)
 
+    def test_length(self):
+        assert len(self.walkable) == 2
+
     def test_order(self):
         assert self.walkable.order() == 3
 
@@ -346,7 +349,6 @@ class NodeTestCase(TestCase):
         assert alice.__bool__()
         assert alice.__nonzero__()
         assert len(alice) == 2
-        assert alice.length() == 0
         assert list(alice.walk()) == [alice]
         assert alice.labels() == {"Person", "Employee"}
         assert dict(alice) == {"name": "Alice", "age": 33}
@@ -436,7 +438,6 @@ class RelationshipTestCase(TestCase):
     def test_relationship(self):
         assert alice_knows_bob.start_node() == alice
         assert alice_knows_bob.end_node() == bob
-        assert alice_knows_bob.length() == 1
         assert list(alice_knows_bob.walk()) == [alice, alice_knows_bob, bob]
         assert alice_knows_bob.type() == "KNOWS"
         assert dict(alice_knows_bob) == {"since": 1999}
@@ -449,7 +450,6 @@ class RelationshipTestCase(TestCase):
     def test_loop(self):
         assert dave_works_for_dave.start_node() == dave
         assert dave_works_for_dave.end_node() == dave
-        assert dave_works_for_dave.length() == 1
         assert list(dave_works_for_dave.walk()) == [dave, dave_works_for_dave, dave]
         assert dave_works_for_dave.order() == 1
         assert dave_works_for_dave.size() == 1
@@ -556,19 +556,19 @@ class PathTestCase(TestCase):
         assert self.path.size() == 2
 
     def test_length(self):
-        assert self.path.length() == 3
+        assert len(self.path) == 3
 
     def test_construction_of_path_length_0(self):
         sequence = [alice]
         path = Path(*sequence)
         assert path.order() == 1
         assert path.size() == 0
-        assert path.length() == 0
+        assert len(path) == 0
         assert set(path.nodes()) == {alice}
         assert set(path.relationships()) == set()
         assert path.start_node() == alice
         assert path.end_node() == alice
-        assert path.length() == 0
+        assert len(path) == 0
         assert list(path.walk()) == sequence
 
     def test_construction_of_path_length_1(self):
@@ -576,12 +576,12 @@ class PathTestCase(TestCase):
         path = Path(*sequence)
         assert path.order() == 2
         assert path.size() == 1
-        assert path.length() == 1
+        assert len(path) == 1
         assert set(path.nodes()) == {alice, bob}
         assert set(path.relationships()) == {alice_knows_bob}
         assert path.start_node() == alice
         assert path.end_node() == bob
-        assert path.length() == 1
+        assert len(path) == 1
         assert list(path.walk()) == sequence
 
     def test_construction_of_path_length_2(self):
@@ -589,12 +589,12 @@ class PathTestCase(TestCase):
         path = Path(*sequence)
         assert path.order() == 3
         assert path.size() == 2
-        assert path.length() == 2
+        assert len(path) == 2
         assert set(path.nodes()) == {alice, bob, carol}
         assert set(path.relationships()) == {alice_knows_bob, carol_dislikes_bob}
         assert path.start_node() == alice
         assert path.end_node() == carol
-        assert path.length() == 2
+        assert len(path) == 2
         assert list(path.walk()) == sequence
 
     def test_construction_of_path_with_revisits(self):
@@ -603,12 +603,12 @@ class PathTestCase(TestCase):
         path = Path(*sequence)
         assert path.order() == 3
         assert path.size() == 3
-        assert path.length() == 4
+        assert len(path) == 4
         assert set(path.nodes()) == {alice, bob, carol}
         assert set(path.relationships()) == {alice_knows_bob, alice_likes_carol, carol_dislikes_bob}
         assert path.start_node() == alice
         assert path.end_node() == bob
-        assert path.length() == 4
+        assert len(path) == 4
         assert list(path.walk()) == sequence
 
     def test_construction_of_path_with_loop(self):
@@ -616,12 +616,12 @@ class PathTestCase(TestCase):
         path = Path(*sequence)
         assert path.order() == 2
         assert path.size() == 2
-        assert path.length() == 2
+        assert len(path) == 2
         assert set(path.nodes()) == {carol, dave}
         assert set(path.relationships()) == {carol_married_to_dave, dave_works_for_dave}
         assert path.start_node() == carol
         assert path.end_node() == dave
-        assert path.length() == 2
+        assert len(path) == 2
         assert list(path.walk()) == sequence
 
     def test_path_indexing(self):

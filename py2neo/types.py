@@ -480,7 +480,7 @@ class Walkable(Subgraph):
         return value
 
     def __len__(self):
-        return (len(self._sequence) - 1) // 2
+        return len(self._relationship_sequence)
 
     def __getitem__(self, index):
         if isinstance(index, slice):
@@ -517,12 +517,6 @@ class Walkable(Subgraph):
         """ The last node encountered on a :func:`.walk` of this object.
         """
         return self._node_sequence[-1]
-
-    def length(self):
-        """ The total number of relationships over which a :func:`.walk`
-        of this object will traverse.
-        """
-        return len(self._relationship_sequence)
 
     def walk(self):
         """ Traverse and yield all nodes and relationships in this
