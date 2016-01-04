@@ -295,7 +295,7 @@ def walk(*walkables):
 def cast(obj, entities=None):
     if obj is None:
         return None
-    elif isinstance(obj, (Node, NodeProxy, Relationship, Path)):
+    elif isinstance(obj, (Relatable, Relationship, Path)):
         return obj
     elif isinstance(obj, dict):
         return cast_node(obj)
@@ -306,7 +306,7 @@ def cast(obj, entities=None):
 
 
 def cast_node(obj):
-    if obj is None or isinstance(obj, (Node, NodeProxy)):
+    if obj is None or isinstance(obj, Relatable):
         return obj
 
     def apply(x):
@@ -666,7 +666,13 @@ class Entity(PropertyDict, Walkable):
         return self._resource
 
 
-class Node(Entity):
+class Relatable(object):
+    """ Base class for objects that can be connected with relationships.
+    """
+    pass
+
+
+class Node(Relatable, Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.
@@ -787,12 +793,6 @@ class Node(Entity):
         except KeyError:
             pass
         Entity._del_resource(self)
-
-
-class NodeProxy(object):
-    """ Base class for objects that can be used in place of a node.
-    """
-    pass
 
 
 class Relationship(Entity):

@@ -20,7 +20,7 @@ import json
 
 from py2neo.compat import ustr
 from py2neo.database import Graph, Cursor, cypher_request
-from py2neo.types import Path, NodeProxy
+from py2neo.types import Path, Relatable
 from py2neo.status import GraphError
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import raise_from
@@ -111,7 +111,7 @@ class Target(object):
         return uri_string
 
 
-class Job(NodeProxy):
+class Job(Relatable):
     """ A single request for inclusion within a :class:`.Batch`.
     """
 

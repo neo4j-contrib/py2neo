@@ -17,11 +17,11 @@
 
 
 from py2neo.compat import xstr
-from py2neo.types import NodeProxy
+from py2neo.types import Relatable
 from py2neo.status import GraphError
 
 
-class NodePointer(NodeProxy):
+class NodePointer(Relatable):
     """ Pointer to a :class:`Node` object. This can be used in a batch
     context to point to a node not yet created.
     """
