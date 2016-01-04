@@ -26,7 +26,8 @@ import webbrowser
 
 from py2neo import PRODUCT
 from py2neo.compat import integer, string, ustr
-from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, cypher_escape
+from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, \
+    cypher_escape, walk
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
@@ -954,7 +955,7 @@ class Transaction(object):
         parameters = {}
         returns = {}
         node = None
-        for i, entity in enumerate(walkable.walk()):
+        for i, entity in enumerate(walk(walkable)):
             if i % 2 == 0:
                 # node
                 node_id = "a%d" % i

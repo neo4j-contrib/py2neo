@@ -238,7 +238,7 @@ def walk(*walkables):
         return
     walkable = walkables[0]
     try:
-        entities = walkable.walk()
+        entities = walkable.__walk__()
     except AttributeError:
         raise TypeError("Object %r is not walkable" % walkable)
     for entity in entities:
@@ -247,10 +247,10 @@ def walk(*walkables):
     for walkable in walkables[1:]:
         try:
             if end_node == walkable.start_node():
-                entities = walkable.walk()
+                entities = walkable.__walk__()
                 end_node = walkable.end_node()
             elif end_node == walkable.end_node():
-                entities = reversed(list(walkable.walk()))
+                entities = reversed(list(walkable.__walk__()))
                 end_node = walkable.start_node()
             else:
                 raise ValueError("Cannot append walkable %r "
@@ -464,11 +464,11 @@ class Walkable(Subgraph):
 
     def __eq__(self, other):
         try:
-            other_walk = tuple(other.walk())
-        except AttributeError:
+            other_walk = tuple(walk(other))
+        except TypeError:
             return False
         else:
-            return tuple(self.walk()) == other_walk
+            return tuple(walk(self)) == other_walk
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -508,6 +508,12 @@ class Walkable(Subgraph):
             return self
         return Walkable(walk(self, other))
 
+    def __walk__(self):
+        """ Traverse and yield all nodes and relationships in this
+        object in order.
+        """
+        return iter(self._sequence)
+
     def start_node(self):
         """ The first node encountered on a :func:`.walk` of this object.
         """
@@ -517,12 +523,6 @@ class Walkable(Subgraph):
         """ The last node encountered on a :func:`.walk` of this object.
         """
         return self._node_sequence[-1]
-
-    def walk(self):
-        """ Traverse and yield all nodes and relationships in this
-        object in order.
-        """
-        return iter(self._sequence)
 
     def nodes(self):
         """ The sequence of nodes over which a :func:`.walk` of this
