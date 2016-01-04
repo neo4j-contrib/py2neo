@@ -658,6 +658,9 @@ class Entity(Walkable):
     _resource = None
     _resource_pending_tx = None
 
+    def __init__(self, iterable):
+        Walkable.__init__(self, iterable)
+
     def _set_resource_pending(self, tx):
         self._resource_pending_tx = tx
 
@@ -722,7 +725,7 @@ class Node(PropertyContainer, Entity):
     def __init__(self, *labels, **properties):
         self._labels = set(labels)
         PropertyContainer.__init__(self, **properties)
-        Walkable.__init__(self, (self,))
+        Entity.__init__(self, (self,))
         self.__stale = set()
 
     def __repr__(self):
@@ -907,7 +910,7 @@ class Relationship(PropertyContainer, Entity):
         else:
             raise TypeError("Hyperedges not supported")
         PropertyContainer.__init__(self, **p)
-        Walkable.__init__(self, (n[0], self, n[1]))
+        Entity.__init__(self, (n[0], self, n[1]))
 
         self.__stale = set()
 
