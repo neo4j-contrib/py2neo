@@ -16,15 +16,15 @@
 # limitations under the License.
 
 
+from argparse import ArgumentParser
 from collections import deque, OrderedDict
-import json
 import logging
-import os
-from sys import stdout
+from os import linesep
+from sys import argv, stdout
 from warnings import warn
 import webbrowser
 
-from py2neo import PRODUCT
+from py2neo import PRODUCT, __email__
 from py2neo.compat import integer, string, ustr
 from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, \
     cypher_escape, walk
@@ -1401,20 +1401,16 @@ class Cursor(object):
         """
         pass
 
-    def dump(self, out=None, keys=None):
+    def dump(self, out=None):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
-        :param out:
-        :param keys:
+        :param out: the channel to which output should be dumped
         """
         if out is None:
             out = stdout
-        if keys:
-            records = list(self.collect(*keys))
-        else:
-            records = list(self.collect())
-            keys = self._keys
+        records = list(self.collect())
+        keys = self._keys
         widths = [len(key) for key in keys]
         for record in records:
             for i, value in enumerate(record):
@@ -1429,95 +1425,34 @@ class Cursor(object):
             out.write(u"\n")
 
 
-class CypherCommandLine(object):
-
-    def __init__(self, graph):
-        self.parameters = {}
-        self.parameter_filename = None
-        self.graph = graph
-        self.tx = None
-
-    def begin(self):
-        self.tx = self.graph.begin()
-
-    def set_parameter(self, key, value):
-        try:
-            self.parameters[key] = json.loads(value)
-        except ValueError:
-            self.parameters[key] = value
-
-    def set_parameter_filename(self, filename):
-        self.parameter_filename = filename
-
-    def run(self, statement):
-        import codecs
-        cursors = []
-        if self.parameter_filename:
-            keys = None
-            with codecs.open(self.parameter_filename, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if keys is None:
-                        keys = line.split(",")
-                    elif line:
-                        values = json.loads("[" + line + "]")
-                        p = dict(self.parameters)
-                        p.update(zip(keys, values))
-                        cursors.append(self.tx.run(statement, p))
-        else:
-            cursors.append(self.tx.run(statement, self.parameters))
-        self.tx.process()
-        return cursors
-
-    def commit(self):
-        self.tx.commit()
+def evaluate(args=argv, out=stdout):
+    parser = ArgumentParser(prog=args[0], epilog="Report bugs to %s" % __email__,
+                            description="Evaluate a Cypher statement")
+    parser.add_argument("-u", metavar="uri", help="graph URI")
+    parser.add_argument("statement", help="Cypher statement")
+    parsed = parser.parse_args(args[1:])
+    out.write(ustr(Graph(parsed.u).evaluate(parsed.statement)))
+    out.write(linesep)
 
 
-def main():
-    import sys
-    from py2neo.database import DBMS
-    script, args = sys.argv[0], sys.argv[1:]
-    if not args:
-        args = ["-?"]
-    uri = NEO4J_URI.resolve("/")
-    dbms = DBMS(uri.string)
-    out = sys.stdout
-    command_line = CypherCommandLine(dbms.graph)
-    while args:
-        arg = args.pop(0)
-        if arg.startswith("-"):
-            if arg in ("-?", "--help"):
-                sys.stderr.write(__doc__.format(script=os.path.basename(script)))
-                sys.stderr.write("\n")
-                sys.exit(0)
-            elif arg in ("-A", "--auth"):
-                user_name, password = args.pop(0).partition(":")[0::2]
-                authenticate(dbms.uri.host_port, user_name, password)
-            elif arg in ("-p", "--parameter"):
-                key = args.pop(0)
-                value = args.pop(0)
-                command_line.set_parameter(key, value)
-            elif arg in ("-f",):
-                command_line.set_parameter_filename(args.pop(0))
-            else:
-                raise ValueError("Unrecognised option %s" % arg)
-        else:
-            if not command_line.tx:
-                command_line.begin()
-            try:
-                cursors = command_line.run(arg)
-            except CypherError as error:
-                sys.stderr.write("%s: %s\n\n" % (error.__class__.__name__, error.args[0]))
-            else:
-                for cursor in cursors:
-                    cursor.dump(out)
-                    out.write("\n")
-    if command_line.tx:
-        try:
-            command_line.commit()
-        except CypherError as error:
-            sys.stderr.write(error.args[0])
-            sys.stderr.write("\n")
+def run(args=argv, out=stdout):
+    parser = ArgumentParser(prog=args[0], epilog="Report bugs to %s" % __email__,
+                            description="Run a Cypher statement")
+    parser.add_argument("-u", metavar="uri", help="graph URI")
+    parser.add_argument("statement", help="Cypher statement")
+    parsed = parser.parse_args(args[1:])
+    Graph(parsed.u).run(parsed.statement).dump(out)
+
+
+def main(args=argv, out=stdout):
+    try:
+        {
+            "evaluate": evaluate,
+            "run": run,
+        }[args[1]](args[1:], out)
+    except IndexError:
+        out.write("usage: %s <command> [<args>]" % args[0])
+        out.write(linesep)
 
 
 if __name__ == "__main__":
