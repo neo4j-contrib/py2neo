@@ -50,6 +50,8 @@ joining them. Each node has a single property, `name`, and is labelled as a
     >>> a = Node("Person", name="Alice")
     >>> b = Node("Person", name="Bob")
     >>> ab = Relationship(a, "KNOWS", b)
+    >>> ab
+    (alice)-[:KNOWS]->(bob)
 
 Relationship types can alternatively be determined by a class that extends
 the :class:`.Relationship` class. The default type of such relationships is
@@ -68,18 +70,18 @@ example::
 
     >>> s = ab | ac
     >>> s
-    {(xyz01:Person {name:"Alice"}),
-     (xyz02:Person {name:"Bob"}),
-     (xyz03:Person {name:"Carol"}),
-     (xyz01)-[:KNOWS]->(xyz02),
-     (xyz01)-[:WORKS_WITH]->(xyz03)}
+    {(alice:Person {name:"Alice"}),
+     (bob:Person {name:"Bob"}),
+     (carol:Person {name:"Carol"}),
+     (alice)-[:KNOWS]->(bob),
+     (alice)-[:WORKS_WITH]->(carol)}
     >>> s.nodes()
-    frozenset({(xyz01:Person {name:"Alice"}),
-               (xyz02:Person {name:"Bob"}),
-               (xyz03:Person {name:"Carol"})})
+    frozenset({(alice:Person {name:"Alice"}),
+               (bob:Person {name:"Bob"}),
+               (carol:Person {name:"Carol"})})
     >>> s.relationships()
-    frozenset({(xyz01)-[:KNOWS]->(xyz02),
-               (xyz01)-[:WORKS_WITH]->(xyz03)})
+    frozenset({(alice)-[:KNOWS]->(bob),
+               (alice)-[:WORKS_WITH]->(carol)})
 
 A :class:`.Walkable` is a subgraph with added traversal information.
 The simplest way to construct a :class:`.Walkable` is by concatenating
@@ -87,7 +89,7 @@ other graph objects::
 
     >>> w = ab + Relationship(b, "LIKES", c) + ac
     >>> w
-    (xyz01)-[:KNOWS]->(xyz02)-[:LIKES]->(xyz03)<-[:WORKS_WITH]-(xyz01)
+    (alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)<-[:WORKS_WITH]-(alice)
 
 
 Graph Arithmetic
@@ -163,12 +165,12 @@ from py2neo.util import is_collection, round_robin, \
 JAVA_INTEGER_MIN_VALUE = -2 ** 63
 JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
 
-entity_name_property_key = "name"
+primary_property_key = "name"
 
 
-def set_entity_name_property_key(key):
-    global entity_name_property_key
-    entity_name_property_key = key
+def set_primary_property_key(key):
+    global primary_property_key
+    primary_property_key = key
 
 
 def coerce_atomic_property(x):
@@ -220,7 +222,7 @@ def entity_name(entity):
                 prefix = cls.__name__[0].lower()
             name = "%s%d" % (prefix, resource._id)
         else:
-            name = entity[entity_name_property_key]
+            name = entity[primary_property_key]
             if isinstance(name, string):
                 name = snake_case(name)
             else:
