@@ -38,7 +38,6 @@ Contents
 
    types
    database-servers
-   cypher
    ext/batman
    ext/calendar
    ext/geoff

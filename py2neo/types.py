@@ -25,19 +25,15 @@ While the types described here are completely compatible with Neo4j, they
 can also be used independently of it.
 
 
-Overview
---------
+Nodes & Relationships
+---------------------
 
-The two essential building blocks of the py2neo property graph model are
-:class:`.Node` and :class:`.Relationship`. Along with the container types
-:class:`.Subgraph` and :class:`.Walkable`, these provide a way to construct
-and work with a wide variety of Neo4j-compatible graph data. The four types
-can be summarised as follows:
+The two essential building blocks of the py2neo property graph model are the
+:class:`.Node` and the :class:`.Relationship`. These can be summarised as
+follows:
 
 - :class:`.Node` - fundamental unit of data storage within a graph
 - :class:`.Relationship` - typed connection between a pair of nodes
-- :class:`.Subgraph` - collection of nodes and relationships
-- :class:`.Walkable` - subgraph with added traversal information
 
 The example below shows how to create a couple of nodes and a relationship
 joining them. Each node has a single property, `name`, and is labelled as a
@@ -63,6 +59,10 @@ derived from the class name::
     >>> ac.type()
     'WORKS_WITH'
 
+
+Subgraphs
+---------
+
 Arbitrary collections of nodes and relationships may be contained in a
 :class:`.Subgraph` object. The simplest way to construct these is by
 combining nodes and relationships with standard set operations. For
@@ -83,6 +83,10 @@ example::
     frozenset({(alice)-[:KNOWS]->(bob),
                (alice)-[:WORKS_WITH]->(carol)})
 
+
+Walkables
+---------
+
 A :class:`.Walkable` is a subgraph with added traversal information.
 The simplest way to construct a :class:`.Walkable` is by concatenating
 other graph objects::
@@ -96,18 +100,17 @@ Graph Arithmetic
 ----------------
 
 Graph objects can be combined in a number of ways using standard
-Python operators. In this context, Node and Relationship objects
-are treated as simple :class:`.Subgraph` instances. The full set
-of operations are detailed below.
+Python operators. In this context, :class:`.Node` and :class:`.Relationship`
+instances are treated as :class:`.Subgraph` or :class:`.Walkable` instances.
+The available operations are detailed below.
 
 Union
 ~~~~~
 **Syntax**: ``x | y``
 
 The union of `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships from `x` as well as all nodes and relationships
-from `y`. Any entities common to both operands will only be included
-once.
+nodes and relationships from `x` as well as all those from `y`.
+Any entities common to both operands will only be included once.
 
 For example::
 
@@ -118,31 +121,55 @@ For example::
     >>> ac = Relationship(a, "TO", c)
     >>> s = ab | ac
     >>> s
-    {(Z0N0a), (Z0PAe), (Z0PCS), (Z0PAe)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0N0a)}
+    {(a21abf3), (a0daea6), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3)}
     >>> s | Relationship(b, "TO", c)
-    {(Z0N0a), (Z0PAe), (Z0PCS), (Z0N0a)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0PCS), (Z0PAe)-[:TO]->(Z0N0a)}
+    {(a0daea6), (a21abf3), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3), (a21abf3)-[:TO]->(a0daea6)}
 
+Intersection
+~~~~~~~~~~~~
+**Syntax**: ``x & y``
 
-====================  ===========  ===========
-Operation             Notation     Result
-====================  ===========  ===========
-union                 ``s1 | s2``  A :class:`.Subgraph` containing all nodes and relationships from `s1` and `s2` combined
-intersection          ``s1 & s2``  A :class:`.Subgraph` containing all nodes and relationships common to both `s1` and `s2`
-difference            ``s1 - s2``  A :class:`.Subgraph` containing all nodes and relationships from `s1` excluding those that are also in `s2` (nodes in `s2` attached to relationships in `s1` will remain)
-symmetric difference  ``s1 ^ s2``  A :class:`.Subgraph` containing all nodes and relationships in either `s1` or `s2` but not both (nodes attached to relationships solely in `s1` or `s2` will remain)
-concatenation         ``s1 + s2``  A :class:`.Walkable` containing a :func:`.walk` of `s1` followed by a :func:`.walk` of `s2`
-====================  ===========  ===========
+The intersection of `x` and `y` is a :class:`.Subgraph` containing all
+nodes and relationships common to both `x` and `y`.
+
+Difference
+~~~~~~~~~~
+**Syntax**: ``x - y``
+
+The difference between `x` and `y` is a :class:`.Subgraph` containing all
+nodes and relationships that exist in `x` but do not exist in `y` as well
+as all nodes that are connected by the the relationships in `x` regardless
+of whether or not they exist in `y`.
+
+Symmetric Difference
+~~~~~~~~~~~~~~~~~~~~
+**Syntax**: ``x ^ y``
+
+The symmetric difference between `x` and `y` is a :class:`.Subgraph` containing
+all nodes and relationships that exist in `x` or `y` but not in both as well
+as all nodes that are connected by those relationships regardless
+of whether or not they are common to `x` and `y`.
+
+Concatenation
+~~~~~~~~~~~~~
+**Syntax**: ``x + y``
+
+The concatenation of `x` and `y` is a :class:`.Walkable` that represents a
+walk of `x` followed by a walk of `y`. This is only possible if the end node
+of `x` is the same as either the start node or the end node of `y`; in the
+latter case, `y` will be walked in reverse.
 
 
 Equality Rules
 --------------
 
-Node equality is based on identity.
-This means that a node is only equal to itself and is not equal to another node with the same properties and labels.
+Node equality is based on identity. This means that a node is only equal to
+itself and is not equal to another node with the same properties and labels.
 
-Relationship equality is based on type and endpoints.
-A relationship will therefore be considered equal to another relationship of the same type attached to the same nodes.
-Properties are not considered for relationship equality.
+Relationship equality is based on type and endpoints. A relationship will
+therefore be considered equal to another relationship of the same type
+attached to the same nodes. Properties are not considered for relationship
+equality.
 
 API
 ---
@@ -157,7 +184,7 @@ from uuid import uuid4
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.http import Resource
 from py2neo.util import is_collection, round_robin, \
-    ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case, base62
+    ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case
 
 
 # Maximum and minimum integers supported up to Java 7.
@@ -206,7 +233,7 @@ def coerce_property(x):
 def order(subgraph):
     """ Return the number of unique nodes in a subgraph.
 
-    :param subgraph:
+    :arg subgraph:
     :return:
     """
     try:
@@ -221,7 +248,7 @@ def order(subgraph):
 def size(subgraph):
     """ Return the number of unique relationships in a subgraph.
 
-    :param subgraph:
+    :arg subgraph:
     :return:
     """
     try:
@@ -237,7 +264,7 @@ def walk(*walkables):
     """ Traverse over the arguments supplied, yielding the entities
     from each in turn.
 
-    :param walkables: sequence of walkable objects
+    :arg walkables: sequence of walkable objects
     """
     if not walkables:
         return
@@ -613,15 +640,16 @@ class Entity(PropertyDict, Walkable):
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
         PropertyDict.__init__(self, properties)
+        uuid = str(uuid4())
+        while "0" <= uuid[-7] <= "9":
+            uuid = str(uuid4())
+        self.__uuid__ = uuid
         if "__name__" in properties:
             self.__name__ = properties["__name__"]
         elif "name" in properties:
             self.__name__ = snake_case(properties["name"])
         else:
-            name = uuid4().hex[-7:]
-            while "0" <= name[0] <= "9":
-                name = uuid4().hex[-7:]
-            self.__name__ = name
+            self.__name__ = self.__uuid__[-7:]
 
     def __bool__(self):
         return len(self) > 0
@@ -1096,8 +1124,9 @@ class CypherWriter(object):
 
     def write(self, obj):
         """ Write any entity, value or collection.
+        
+        :arg obj: 
         """
-        from py2neo.types import Node, Relationship, Path
         if obj is None:
             pass
         elif isinstance(obj, Node):
@@ -1115,11 +1144,15 @@ class CypherWriter(object):
 
     def write_value(self, value):
         """ Write a value.
+        
+        :arg value: 
         """
         self.file.write(ustr(json.dumps(value, ensure_ascii=False)))
 
     def write_identifier(self, identifier):
         """ Write an identifier.
+        
+        :arg identifier: 
         """
         if not identifier:
             raise ValueError("Invalid identifier")
@@ -1135,6 +1168,8 @@ class CypherWriter(object):
 
     def write_list(self, collection):
         """ Write a list.
+        
+        :arg collection: 
         """
         self.file.write(u"[")
         link = u""
@@ -1146,16 +1181,21 @@ class CypherWriter(object):
 
     def write_literal(self, text):
         """ Write literal text.
+        
+        :arg text: 
         """
         self.file.write(ustr(text))
 
-    def write_map(self, mapping, all=False):
+    def write_map(self, mapping, private=False):
         """ Write a map.
+        
+        :arg mapping: 
+        :arg private: 
         """
         self.file.write(u"{")
         link = u""
         for key, value in sorted(dict(mapping).items()):
-            if key.startswith("_") and not all:
+            if key.startswith("_") and not private:
                 continue
             self.file.write(link)
             self.write_identifier(key)
@@ -1166,6 +1206,10 @@ class CypherWriter(object):
 
     def write_node(self, node, name=None, full=True):
         """ Write a node.
+        
+        :arg node: 
+        :arg name: 
+        :arg full: 
         """
         self.file.write(u"(")
         if name is None:
@@ -1182,6 +1226,9 @@ class CypherWriter(object):
 
     def write_relationship(self, relationship, name=None):
         """ Write a relationship (including nodes).
+        
+        :arg relationship:
+        :arg name:
         """
         self.write_node(relationship.start_node(), full=False)
         self.file.write(u"-")
@@ -1191,6 +1238,9 @@ class CypherWriter(object):
 
     def write_relationship_detail(self, relationship, name=None):
         """ Write a relationship (excluding nodes).
+        
+        :arg relationship:
+        :arg name:
         """
         self.file.write(u"[")
         if name is not None:
@@ -1205,19 +1255,25 @@ class CypherWriter(object):
 
     def write_subgraph(self, subgraph):
         """ Write a subgraph.
+        
+        :arg subgraph: 
         """
-        self.write_literal("{")
+        self.write_literal("({")
         for i, node in enumerate(subgraph.nodes()):
             if i > 0:
                 self.write_literal(", ")
             self.write_node(node)
-        for relationship in subgraph.relationships():
-            self.write_literal(", ")
+        self.write_literal("}, {")
+        for i, relationship in enumerate(subgraph.relationships()):
+            if i > 0:
+                self.write_literal(", ")
             self.write_relationship(relationship)
-        self.write_literal("}")
+        self.write_literal("})")
 
     def write_walkable(self, walkable):
         """ Write a walkable.
+        
+        :arg walkable: 
         """
         nodes = walkable.nodes()
         for i, relationship in enumerate(walkable):
@@ -1238,6 +1294,7 @@ def cypher_escape(identifier):
         >>> cypher_escape("this is a `label`")
         '`this is a ``label```'
 
+    :arg identifier: 
     """
     s = StringIO()
     writer = CypherWriter(s)
@@ -1247,6 +1304,8 @@ def cypher_escape(identifier):
 
 def cypher_repr(obj):
     """ Generate the Cypher representation of an object.
+    
+    :arg obj: 
     """
     s = StringIO()
     writer = CypherWriter(s)
