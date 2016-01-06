@@ -19,7 +19,7 @@
 import re
 
 from py2neo.types import Node, Relationship, Subgraph, Walkable, \
-    entity_name, set_entity_name_property_key
+    entity_name, set_primary_property_key
 from test.util import Py2neoTestCase
 
 
@@ -89,12 +89,12 @@ class EntityNameTestCase(Py2neoTestCase):
 
     def test_alternative_property_key(self):
         try:
-            set_entity_name_property_key("email")
+            set_primary_property_key("email")
             a = Node(email="alice@example.com")
             name = entity_name(a)
             assert name == "alice@example.com"
         finally:
-            set_entity_name_property_key("name")
+            set_primary_property_key("name")
 
 
 class ReprTestCase(Py2neoTestCase):
