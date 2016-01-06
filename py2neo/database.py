@@ -18,8 +18,10 @@
 
 from argparse import ArgumentParser
 from collections import deque, OrderedDict
+from email.utils import parsedate_tz, mktime_tz
 import logging
 from os import linesep
+from os.path import basename
 from sys import argv, stdout
 from warnings import warn
 import webbrowser
@@ -30,7 +32,7 @@ from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, R
     cypher_escape, walk
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
-from py2neo.packages.httpstream import Response as HTTPResponse
+from py2neo.packages.httpstream import Response as HTTPResponse, get
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.packages.neo4j.v1 import GraphDatabase
@@ -175,6 +177,82 @@ class DBMS(object):
             self.__graph = Graph(self.uri.string + "db/data/")
         return self.__graph
 
+    def raw_system_info(self):
+        """ Obtain a dictionary of system information.
+        """
+        return get(self.uri.string + "db/manage/server/jmx/domain/org.neo4j").content
+
+    def _bean_dict(self, name):
+        info = self.raw_system_info()
+        try:
+            raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
+        except IndexError:
+            raise RuntimeError("Unable to obtain information")
+        else:
+            d = {}
+            for attribute in raw_config["attributes"]:
+                name = attribute["name"]
+                value = attribute.get("value")
+                if value == "true":
+                    d[name] = True
+                elif value == "false":
+                    d[name] = False
+                else:
+                    try:
+                        d[name] = int(value)
+                    except (TypeError, ValueError):
+                        d[name] = value
+            return d
+
+    def kernel_start_time(self):
+        """ Return the time from which this Neo4j instance was in operational mode.
+        """
+        info = self._bean_dict("Kernel")
+        return mktime_tz(parsedate_tz(info["KernelStartTime"]))
+
+    def kernel_version(self):
+        """ Return the version of Neo4j.
+        """
+        info = self._bean_dict("Kernel")
+        return info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
+
+    def store_creation_time(self):
+        """ Return the time when this Neo4j graph store was created.
+        """
+        info = self._bean_dict("Kernel")
+        return mktime_tz(parsedate_tz(info["StoreCreationDate"]))
+
+    def store_directory(self):
+        """ Return the location where the Neo4j store is located.
+        """
+        info = self._bean_dict("Kernel")
+        return info["StoreDirectory"]
+
+    def store_id(self):
+        """ Return an identifier that, together with store creation time,
+        uniquely identifies this Neo4j graph store.
+        """
+        info = self._bean_dict("Kernel")
+        return info["StoreId"]
+
+    def primitive_counts(self):
+        """ Return a dictionary of estimates of the numbers of different
+        kinds of Neo4j primitives.
+        """
+        return self._bean_dict("Primitive count")
+
+    def store_file_sizes(self):
+        """ Return a dictionary of information about the sizes of the
+        different parts of the Neo4j graph store.
+        """
+        return self._bean_dict("Store file sizes")
+
+    def config(self):
+        """ Return a dictionary of the configuration parameters used to
+        configure Neo4j.
+        """
+        return self._bean_dict("Configuration")
+
     @property
     def resource(self):
         return self.__resource
@@ -182,6 +260,125 @@ class DBMS(object):
     @property
     def uri(self):
         return self.resource.uri
+
+
+class Commander(object):
+
+    epilog = "Report bugs to %s" % __email__
+
+    def __init__(self, out=None):
+        self.out = out or stdout
+
+    def write(self, s):
+        self.out.write(s)
+
+    def write_line(self, s):
+        self.out.write(s)
+        self.out.write(linesep)
+
+    def usage(self, script):
+        self.write_line("usage: %s <command> [<command-args>]" % basename(script))
+        self.write_line("")
+        self.write_line("commands:")
+        for attr in sorted(dir(self)):
+            if attr.startswith("_"):
+                continue
+            method = getattr(self, attr)
+            if not callable(method):
+                continue
+            doc = method.__doc__
+            if not doc:
+                continue
+            try:
+                usage = [line.partition("usage:")[-1].strip() for line in doc.splitlines() if "usage:" in line][0]
+            except IndexError:
+                continue
+            else:
+                self.write_line("    %s" % usage)
+        self.write_line("")
+        self.write_line(self.epilog)
+
+    def execute(self, *args):
+        try:
+            command, command_args = args[1], args[2:]
+        except IndexError:
+            self.usage(args[0])
+        else:
+            try:
+                method = getattr(self, command)
+            except AttributeError:
+                self.write_line("Unknown command %r" % command)
+            else:
+                method(*args[1:])
+
+    def parser(self, script):
+        return ArgumentParser(prog=script, epilog=self.epilog)
+
+    def parser_with_connection(self, script):
+        parser = self.parser(script)
+        parser.add_argument("-H", "--host",
+                            metavar="host", help="database host", default="localhost")
+        parser.add_argument("-P", "--port",
+                            metavar="port", help="database port (HTTP)", type=int, default=7474)
+        return parser
+
+    def config(self, *args):
+        """ Display store file sizes.
+        usage: config [-H <host>] [-P <port>] [-f <term>]
+        """
+        parser = self.parser_with_connection(args[0])
+        parser.add_argument("term", nargs="*", help="filter by term")
+        parser.description = "Display configuration"
+        parsed = parser.parse_args(args[1:])
+        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        for name, value in sorted(dbms.config().items()):
+            if not parsed.term or all(term in name for term in parsed.term):
+                self.write_line("%s %s" % (name.ljust(50), value))
+
+    def evaluate(self, *args):
+        """ Evaluate a Cypher statement.
+        usage: evaluate [-H <host>] [-P <port>] <statement>
+        """
+        parser = self.parser_with_connection(args[0])
+        parser.description = "Evaluate a Cypher statement"
+        parser.add_argument("statement", help="Cypher statement")
+        parsed = parser.parse_args(args[1:])
+        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        self.write_line(ustr(dbms.graph.evaluate(parsed.statement)))
+
+    def kernel_info(self, *args):
+        """ Display kernel information.
+        usage: kernel-info [-H <host>] [-P <port>]
+        """
+        parser = self.parser_with_connection(args[0])
+        parser.description = "Display kernel information"
+        parsed = parser.parse_args(args[1:])
+        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        self.write_line("Kernel version: %s" % dbms.kernel_version())
+        self.write_line("Store directory: %s" % dbms.store_directory())
+        self.write_line("Store ID: %s" % dbms.store_id())
+
+    def store_file_sizes(self, *args):
+        """ Display store file sizes.
+        usage: store-file-sizes [-H <host>] [-P <port>]
+        """
+        parser = self.parser_with_connection(args[0])
+        parser.description = "Display store file sizes"
+        parsed = parser.parse_args(args[1:])
+        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        for store, size in dbms.store_file_sizes().items():
+            self.write_line("%s: %s" % (store, size))
+
+    def run(self, *args):
+        """ Run a Cypher statement.
+        usage: run [-H <host>] [-P <port>] <statement>
+        """
+        parser = self.parser_with_connection(args[0])
+        parser.description = "Run a Cypher statement"
+        parser.add_argument("statement", help="Cypher statement")
+        parsed = parser.parse_args(args[1:])
+        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms.graph.run(parsed.statement).dump(self.out)
 
 
 class Graph(object):
@@ -1425,35 +1622,8 @@ class Cursor(object):
             out.write(u"\n")
 
 
-def evaluate(args=argv, out=stdout):
-    parser = ArgumentParser(prog=args[0], epilog="Report bugs to %s" % __email__,
-                            description="Evaluate a Cypher statement")
-    parser.add_argument("-u", metavar="uri", help="graph URI")
-    parser.add_argument("statement", help="Cypher statement")
-    parsed = parser.parse_args(args[1:])
-    out.write(ustr(Graph(parsed.u).evaluate(parsed.statement)))
-    out.write(linesep)
-
-
-def run(args=argv, out=stdout):
-    parser = ArgumentParser(prog=args[0], epilog="Report bugs to %s" % __email__,
-                            description="Run a Cypher statement")
-    parser.add_argument("-u", metavar="uri", help="graph URI")
-    parser.add_argument("statement", help="Cypher statement")
-    parsed = parser.parse_args(args[1:])
-    Graph(parsed.u).run(parsed.statement).dump(out)
-
-
-def main(args=argv, out=stdout):
-    try:
-        {
-            "evaluate": evaluate,
-            "run": run,
-        }[args[1]](args[1:], out)
-    except IndexError:
-        out.write("usage: %s <command> [<args>]" % args[0])
-        out.write(linesep)
-
+def main(args=None, out=None):
+    Commander(out).execute(*args or argv)
 
 if __name__ == "__main__":
     main()
