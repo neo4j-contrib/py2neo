@@ -18,8 +18,7 @@
 
 from io import StringIO
 
-from py2neo.types import Node, Relationship, Path, entity_name, CypherWriter, cypher_repr, \
-    order, size
+from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size
 from py2neo.database import Transaction, presubstitute
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
@@ -108,8 +107,7 @@ class CypherTestCase(Py2neoTestCase):
         assert records[0]["name"] == "Alice"
 
     def test_can_run_with_parameter(self):
-        cursor = self.graph.run("CREATE (a {name:{N}}) "
-                                 "RETURN a.name AS name", {"N": "Alice"})
+        cursor = self.graph.run("CREATE (a {name:{x}}) RETURN a.name AS name", x="Alice")
         records = list(cursor.collect())
         assert len(records) == 1
         assert records[0]["name"] == "Alice"
@@ -350,19 +348,21 @@ class CypherLangTestCase(Py2neoTestCase):
 
     def test_can_write_simple_node(self):
         node = Node()
+        node.__name__ = "a"
         string = StringIO()
         writer = CypherWriter(string)
         writer.write(node)
         written = string.getvalue()
-        assert written == "(%s)" % entity_name(node)
+        assert written == "(a)"
 
     def test_can_write_node_with_labels(self):
         node = Node("Dark Brown", "Chicken")
+        node.__name__ = "a"
         string = StringIO()
         writer = CypherWriter(string)
         writer.write(node)
         written = string.getvalue()
-        assert written == '(%s:Chicken:`Dark Brown`)' % entity_name(node)
+        assert written == '(a:Chicken:`Dark Brown`)'
 
     def test_can_write_node_with_properties(self):
         node = Node(name="Gertrude", age=3)
@@ -370,7 +370,7 @@ class CypherLangTestCase(Py2neoTestCase):
         writer = CypherWriter(string)
         writer.write(node)
         written = string.getvalue()
-        assert written == '(%s {age:3,name:"Gertrude"})' % entity_name(node)
+        assert written == '(gertrude {age:3,name:"Gertrude"})'
 
     def test_can_write_node_with_labels_and_properties(self):
         node = Node("Dark Brown", "Chicken", name="Gertrude", age=3)
@@ -378,38 +378,38 @@ class CypherLangTestCase(Py2neoTestCase):
         writer = CypherWriter(string)
         writer.write(node)
         written = string.getvalue()
-        assert written == '(%s:Chicken:`Dark Brown` {age:3,name:"Gertrude"})' % \
-                          entity_name(node)
+        assert written == '(gertrude:Chicken:`Dark Brown` {age:3,name:"Gertrude"})'
 
     def test_can_write_simple_relationship(self):
         a = Node()
         b = Node()
         r = Relationship(a, "KNOWS", b)
+        a.__name__ = "a"
+        b.__name__ = "b"
         string = StringIO()
         writer = CypherWriter(string)
         writer.write(r)
         written = string.getvalue()
-        assert written == "(%s)-[:KNOWS]->(%s)" % (entity_name(a), entity_name(b))
+        assert written == "(a)-[:KNOWS]->(b)"
 
     def test_can_write_relationship_with_properties(self):
-        r = Relationship({"name": "Fred"}, ("LIVES WITH", {"place": "Bedrock"}),
-                         {"name": "Wilma"})
+        r = Relationship(Node(name="Fred"), ("LIVES WITH", {"place": "Bedrock"}),
+                         Node(name="Wilma"))
         string = StringIO()
         writer = CypherWriter(string)
         writer.write(r)
         written = string.getvalue()
-        assert written == '(%s)-[:`LIVES WITH` {place:"Bedrock"}]->(%s)' % (
-            entity_name(r.start_node()), entity_name(r.end_node()))
+        assert written == '(fred)-[:`LIVES WITH` {place:"Bedrock"}]->(wilma)'
 
     def test_can_write_simple_path(self):
-        alice, bob, carol, dave = Node(), Node(), Node(), Node()
+        alice, bob, carol, dave = Node(name="Alice"), Node(name="Bob"), \
+                                  Node(name="Carol"), Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         string = StringIO()
         writer = CypherWriter(string)
         writer.write(path)
         written = string.getvalue()
-        assert written == "(%s)-[:LOVES]->(%s)<-[:HATES]-(%s)-[:KNOWS]->(%s)" % (
-            entity_name(alice), entity_name(bob), entity_name(carol), entity_name(dave))
+        assert written == "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
 
     def test_can_write_array(self):
         string = StringIO()
@@ -433,11 +433,11 @@ class CypherLangTestCase(Py2neoTestCase):
         assert written == ""
 
     def test_can_write_with_wrapper_function(self):
-        alice, bob, carol, dave = Node(), Node(), Node(), Node()
+        alice, bob, carol, dave = Node(name="Alice"), Node(name="Bob"), \
+                                  Node(name="Carol"), Node(name="Dave")
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         written = cypher_repr(path)
-        assert written == "(%s)-[:LOVES]->(%s)<-[:HATES]-(%s)-[:KNOWS]->(%s)" % (
-            entity_name(alice), entity_name(bob), entity_name(carol), entity_name(dave))
+        assert written == "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
 
 
 class CypherPresubstitutionTestCase(Py2neoTestCase):

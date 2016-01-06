@@ -152,6 +152,7 @@ from io import StringIO
 from itertools import chain
 import json
 from sys import stdout
+from uuid import uuid4
 
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.http import Resource
@@ -164,13 +165,6 @@ from py2neo.util import is_collection, round_robin, \
 # to (2 ** 64 - 1) but Neo4j is not yet on Java 8.
 JAVA_INTEGER_MIN_VALUE = -2 ** 63
 JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
-
-primary_property_key = "name"
-
-
-def set_primary_property_key(key):
-    global primary_property_key
-    primary_property_key = key
 
 
 def coerce_atomic_property(x):
@@ -207,27 +201,6 @@ def coerce_property(x):
         return x.__class__(collection)
     else:
         return coerce_atomic_property(x)
-
-
-def entity_name(entity):
-    if hasattr(entity, "__name__") and entity.__name__:
-        name = entity.__name__
-    else:
-        resource = entity.resource
-        if resource:
-            cls = entity.__class__
-            if cls is Node:
-                prefix = "a"
-            else:
-                prefix = cls.__name__[0].lower()
-            name = "%s%d" % (prefix, resource._id)
-        else:
-            name = entity[primary_property_key]
-            if isinstance(name, string):
-                name = snake_case(name)
-            else:
-                name = "_" + base62(abs(hash(entity)))
-    return name
 
 
 def order(subgraph):
@@ -640,6 +613,15 @@ class Entity(PropertyDict, Walkable):
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
         PropertyDict.__init__(self, properties)
+        if "__name__" in properties:
+            self.__name__ = properties["__name__"]
+        elif "name" in properties:
+            self.__name__ = snake_case(properties["name"])
+        else:
+            name = uuid4().hex[-7:]
+            while "0" <= name[0] <= "9":
+                name = uuid4().hex[-7:]
+            self.__name__ = name
 
     def __bool__(self):
         return len(self) > 0
@@ -1167,12 +1149,14 @@ class CypherWriter(object):
         """
         self.file.write(ustr(text))
 
-    def write_map(self, mapping):
+    def write_map(self, mapping, all=False):
         """ Write a map.
         """
         self.file.write(u"{")
         link = u""
         for key, value in sorted(dict(mapping).items()):
+            if key.startswith("_") and not all:
+                continue
             self.file.write(link)
             self.write_identifier(key)
             self.file.write(self.key_value_separator)
@@ -1185,8 +1169,7 @@ class CypherWriter(object):
         """
         self.file.write(u"(")
         if name is None:
-            from py2neo.types import entity_name
-            name = entity_name(node)
+            name = node.__name__
         self.write_identifier(name)
         if full:
             for label in sorted(node.labels()):

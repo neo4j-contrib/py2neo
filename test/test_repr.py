@@ -18,98 +18,23 @@
 
 import re
 
-from py2neo.types import Node, Relationship, Subgraph, Walkable, \
-    entity_name, set_primary_property_key
+from py2neo.types import Node, Relationship, Subgraph, Walkable
 from test.util import Py2neoTestCase
-
-
-class EntityNameTestCase(Py2neoTestCase):
-
-    def test_empty_node(self):
-        a = Node()
-        name = entity_name(a)
-        assert name.startswith("_")
-
-    def test_node_with_name_metadata(self):
-        a = Node()
-        a.__name__ = "alice"
-        name = entity_name(a)
-        assert name == "alice"
-
-    def test_node_with_short_name_property(self):
-        a = Node(name="Alice")
-        name = entity_name(a)
-        assert name == "alice"
-
-    def test_node_with_long_name_property(self):
-        a = Node(name="Alice Smith")
-        name = entity_name(a)
-        assert name == "alice_smith"
-
-    def test_bound_node_with_no_name_property(self):
-        a = Node()
-        self.graph.create(a)
-        name = entity_name(a)
-        assert name.startswith("a")
-        i = int(name[1:])
-        assert i == a.resource._id
-
-    def test_bound_node_with_name_property(self):
-        a = Node(name="Alice")
-        self.graph.create(a)
-        name = entity_name(a)
-        assert name.startswith("a")
-        i = int(name[1:])
-        assert i == a.resource._id
-
-    def test_empty_relationship(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        name = entity_name(r)
-        assert name.startswith("_")
-
-    def test_relationship_with_name_metadata(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        r.__name__ = "foo"
-        name = entity_name(r)
-        assert name == "foo"
-
-    def test_bound_relationship_with_no_name_property(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        self.graph.create(r)
-        name = entity_name(r)
-        assert name.startswith("r")
-        i = int(name[1:])
-        assert i == r.resource._id
-
-    def test_alternative_property_key(self):
-        try:
-            set_primary_property_key("email")
-            a = Node(email="alice@example.com")
-            name = entity_name(a)
-            assert name == "alice@example.com"
-        finally:
-            set_primary_property_key("name")
 
 
 class ReprTestCase(Py2neoTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")
-        assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"Alice"\}\)', repr(a))
+        assert repr(a) == '(alice:Person {name:"Alice"})'
         self.graph.create(a)
-        assert re.match(r'\(a[0-9]+:Person \{name:"Alice"\}\)', repr(a))
+        assert repr(a) == '(alice:Person {name:"Alice"})'
 
     def test_relationship_repr(self):
-        a = Node()
-        b = Node()
+        a = Node("Person", name="Alice")
+        b = Node("Person", name="Bob")
         ab = Relationship(a, "KNOWS", b, since=1999)
-        assert re.match(r'\(.*\)-\[:KNOWS \{since:1999\}\]->\(.*\)', repr(ab))
+        assert repr(ab) == '(alice)-[:KNOWS {since:1999}]->(bob)'
 
     def test_subgraph_repr(self):
         a = Node("Person", name="Alice")
@@ -139,6 +64,5 @@ class ReprTestCase(Py2neoTestCase):
         cd = Relationship(c, "KNOWS", d)
         t = Walkable([a, ab, b, cb, c, cd, d])
         r = repr(t)
-        expected = "(%s)-[:LOVES]->(%s)<-[:HATES]-(%s)-[:KNOWS]->(%s)" % (
-            entity_name(a), entity_name(b), entity_name(c), entity_name(d))
+        expected = "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
         assert r == expected
