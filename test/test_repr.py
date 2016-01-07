@@ -44,15 +44,17 @@ class ReprTestCase(Py2neoTestCase):
         s = ab | ba
         assert isinstance(s, Subgraph)
         r = repr(s)
-        assert r.startswith("{")
-        assert r.endswith("}")
-        items = [item.strip() for item in r[1:-1].split(",")]
-        assert len(items) == 4
+        assert r.startswith("({")
+        assert r.endswith("})")
+        nodes, _, relationships = r[2:-2].partition("}, {")
+        items = [item.strip() for item in nodes.split(",")]
+        assert len(items) == 2
         for i, item in enumerate(items):
-            if 0 <= i < 2:
-                assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
-            else:
-                assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
+            assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
+        items = [item.strip() for item in relationships.split(",")]
+        assert len(items) == 2
+        for i, item in enumerate(items):
+            assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
 
     def test_walkable_repr(self):
         a = Node("Person", name="Alice")
