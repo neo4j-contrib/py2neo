@@ -101,12 +101,6 @@ class PropertySetTestCase(TestCase):
         second = PropertyDict({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
         assert first != second
 
-    def test_hashable(self):
-        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertyDict({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
-        collected = {first, second}
-        assert len(collected) == 2
-
     def test_getter(self):
         properties = PropertyDict({"name": "Alice"})
         assert properties["name"] == "Alice"
@@ -465,13 +459,13 @@ class RelationshipTestCase(TestCase):
         rel = Relationship(alice)
         assert rel.start_node() is alice
         assert rel.end_node() is alice
-        assert rel.type() is None
+        assert rel.type() == "TO"
 
     def test_construction_from_two_node_arguments(self):
         rel = Relationship(alice, bob)
         assert rel.start_node() is alice
         assert rel.end_node() is bob
-        assert rel.type() is None
+        assert rel.type() == "TO"
 
     def test_construction_from_node_and_type_arguments(self):
         rel = Relationship(alice, "LIKES")
@@ -484,12 +478,6 @@ class RelationshipTestCase(TestCase):
         assert rel.start_node() is alice
         assert rel.end_node() is bob
         assert rel.type() == "KNOWS"
-
-    def test_construction_with_explicit_none_type(self):
-        rel = Relationship(alice, None, bob)
-        assert rel.start_node() is alice
-        assert rel.end_node() is bob
-        assert rel.type() is None
 
     def test_construction_from_subclass(self):
         class WorksWith(Relationship):

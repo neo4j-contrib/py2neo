@@ -15,165 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Graph Data Types
-================
-
-Before connecting to a Neo4j server, it's useful to become familiar with
-the fundamental data types of the property graph model offered by py2neo.
-While the types described here are completely compatible with Neo4j, they
-can also be used independently of it.
-
-
-Nodes & Relationships
----------------------
-
-The two essential building blocks of the py2neo property graph model are the
-:class:`.Node` and the :class:`.Relationship`. These can be summarised as
-follows:
-
-- :class:`.Node` - fundamental unit of data storage within a graph
-- :class:`.Relationship` - typed connection between a pair of nodes
-
-The example below shows how to create a couple of nodes and a relationship
-joining them. Each node has a single property, `name`, and is labelled as a
-`Person`. The relationship ``ab`` describes a connection from the first node
-``a`` to the second node ``b`` of type `KNOWS`.
-
-::
-
-    >>> from py2neo import Node, Relationship
-    >>> a = Node("Person", name="Alice")
-    >>> b = Node("Person", name="Bob")
-    >>> ab = Relationship(a, "KNOWS", b)
-    >>> ab
-    (alice)-[:KNOWS]->(bob)
-
-Relationship types can alternatively be determined by a class that extends
-the :class:`.Relationship` class. The default type of such relationships is
-derived from the class name::
-
-    >>> c = Node("Person", name="Carol")
-    >>> class WorksWith(Relationship): pass
-    >>> ac = WorksWith(a, c)
-    >>> ac.type()
-    'WORKS_WITH'
-
-
-Subgraphs
----------
-
-Arbitrary collections of nodes and relationships may be contained in a
-:class:`.Subgraph` object. The simplest way to construct these is by
-combining nodes and relationships with standard set operations. For
-example::
-
-    >>> s = ab | ac
-    >>> s
-    {(alice:Person {name:"Alice"}),
-     (bob:Person {name:"Bob"}),
-     (carol:Person {name:"Carol"}),
-     (alice)-[:KNOWS]->(bob),
-     (alice)-[:WORKS_WITH]->(carol)}
-    >>> s.nodes()
-    frozenset({(alice:Person {name:"Alice"}),
-               (bob:Person {name:"Bob"}),
-               (carol:Person {name:"Carol"})})
-    >>> s.relationships()
-    frozenset({(alice)-[:KNOWS]->(bob),
-               (alice)-[:WORKS_WITH]->(carol)})
-
-
-Walkables
----------
-
-A :class:`.Walkable` is a subgraph with added traversal information.
-The simplest way to construct a :class:`.Walkable` is by concatenating
-other graph objects::
-
-    >>> w = ab + Relationship(b, "LIKES", c) + ac
-    >>> w
-    (alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)<-[:WORKS_WITH]-(alice)
-
-
-Graph Arithmetic
-----------------
-
-Graph objects can be combined in a number of ways using standard
-Python operators. In this context, :class:`.Node` and :class:`.Relationship`
-instances are treated as :class:`.Subgraph` or :class:`.Walkable` instances.
-The available operations are detailed below.
-
-Union
-~~~~~
-**Syntax**: ``x | y``
-
-The union of `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships from `x` as well as all those from `y`.
-Any entities common to both operands will only be included once.
-
-For example::
-
-    >>> a = Node()
-    >>> b = Node()
-    >>> c = Node()
-    >>> ab = Relationship(a, "TO", b)
-    >>> ac = Relationship(a, "TO", c)
-    >>> s = ab | ac
-    >>> s
-    {(a21abf3), (a0daea6), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3)}
-    >>> s | Relationship(b, "TO", c)
-    {(a0daea6), (a21abf3), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3), (a21abf3)-[:TO]->(a0daea6)}
-
-Intersection
-~~~~~~~~~~~~
-**Syntax**: ``x & y``
-
-The intersection of `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships common to both `x` and `y`.
-
-Difference
-~~~~~~~~~~
-**Syntax**: ``x - y``
-
-The difference between `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships that exist in `x` but do not exist in `y` as well
-as all nodes that are connected by the the relationships in `x` regardless
-of whether or not they exist in `y`.
-
-Symmetric Difference
-~~~~~~~~~~~~~~~~~~~~
-**Syntax**: ``x ^ y``
-
-The symmetric difference between `x` and `y` is a :class:`.Subgraph` containing
-all nodes and relationships that exist in `x` or `y` but not in both as well
-as all nodes that are connected by those relationships regardless
-of whether or not they are common to `x` and `y`.
-
-Concatenation
-~~~~~~~~~~~~~
-**Syntax**: ``x + y``
-
-The concatenation of `x` and `y` is a :class:`.Walkable` that represents a
-walk of `x` followed by a walk of `y`. This is only possible if the end node
-of `x` is the same as either the start node or the end node of `y`; in the
-latter case, `y` will be walked in reverse.
-
-
-Equality Rules
---------------
-
-Node equality is based on identity. This means that a node is only equal to
-itself and is not equal to another node with the same properties and labels.
-
-Relationship equality is based on type and endpoints. A relationship will
-therefore be considered equal to another relationship of the same type
-attached to the same nodes. Properties are not considered for relationship
-equality.
-
-API
----
-"""
 
 from io import StringIO
 from itertools import chain
@@ -376,9 +217,9 @@ def cast_relationship(obj, entities=None):
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
-    def __init__(self, nodes=None, relationships=None):
-        self._nodes = frozenset(nodes or frozenset())
-        self._relationships = frozenset(relationships or frozenset())
+    def __init__(self, nodes, relationships):
+        self._nodes = frozenset(nodes)
+        self._relationships = frozenset(relationships)
         self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
 
     def __repr__(self):
@@ -570,8 +411,33 @@ class Walkable(Subgraph):
 
 
 class PropertyDict(dict):
-    """ A dictionary that treats :const:`None` and missing values as
-    semantically identical.
+    """ A dictionary for property values that treats :const:`None`
+    and missing values as semantically identical.
+
+    PropertyDict instances can be created and used in a similar way
+    to a standard dictionary. For example::
+
+        >>> from py2neo import PropertyDict
+        >>> fruit = PropertyDict({"name": "banana", "colour": "yellow"})
+        >>> fruit["name"]
+        'banana'
+
+    The key difference with a PropertyDict is in how it handles
+    missing values. Instead of raising a :py:class:`KeyError`,
+    attempts to access a missing value will simply return
+    :py:const:`None` instead.
+
+    These are the operations that the PropertyDict can support:
+
+   .. describe:: len(d)
+
+        Return the number of items in the PropertyDict `d`.
+
+   .. describe:: d[key]
+
+        Return the item of `d` with key `key`. Returns :py:const:`None`
+        if key is not in the map.
+
     """
 
     def __init__(self, iterable=None, **kwargs):
@@ -579,19 +445,10 @@ class PropertyDict(dict):
         self.update(iterable, **kwargs)
 
     def __eq__(self, other):
-        return dict.__eq__(self, other)
+        return dict.__eq__(self, {key: value for key, value in other.items() if value is not None})
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __hash__(self):
-        value = 0
-        for k, v in self.items():
-            if isinstance(v, list):
-                value ^= hash((k, tuple(v)))
-            else:
-                value ^= hash((k, v))
-        return value
 
     def __getitem__(self, key):
         return dict.get(self, key)
@@ -834,7 +691,7 @@ class Relationship(Entity):
     @classmethod
     def default_type(cls):
         if cls is Relationship:
-            return None
+            return "TO"
         elif issubclass(cls, Relationship):
             return ustr(relationship_case(cls.__name__))
         else:
