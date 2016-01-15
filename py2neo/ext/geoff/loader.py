@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 
 import json
 
-from py2neo.core import Resource
+from py2neo.http import Resource
 from py2neo.ext import UnmanagedExtension
 from py2neo.util import version_tuple
 

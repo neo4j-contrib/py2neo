@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import base64
 import os
 import sys
 
-from py2neo import GraphError, Service, ServiceRoot
+from py2neo import GraphError, Resource, DBMS
 from py2neo.compat import ustr
 from py2neo.env import NEO4J_URI
 from py2neo.packages.httpstream.numbers import UNPROCESSABLE_ENTITY
@@ -59,35 +59,27 @@ def auth_header_value(user_name, password, realm=None):
     return value
 
 
-class UserManager(Service):
+class UserManager(object):
     """ User management service.
     """
 
     @classmethod
-    def for_user(cls, service_root, user_name, password):
-        """ Fetch a UserManager instance for a given service root and user name.
+    def for_user(cls, dbms, user_name, password):
+        """ Fetch a UserManager instance for a given DBMS and user name.
 
-        :param service_root: A valid :class:`py2neo.ServiceRoot` instance.
+        :param dbms: A valid :class:`py2neo.DBMS` instance.
         :rtype: :class:`.UserManager`
         """
-        uri = service_root.uri.resolve("/user/%s" % user_name)
+        uri = dbms.uri.resolve("/user/%s" % user_name)
         inst = cls(uri)
         inst.resource._headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
         return inst
 
-    __instances = {}
-
     #: Instance metadata, updated on refresh.
     metadata = None
 
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(UserManager, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self.resource = Resource(uri)
 
     def refresh(self):
         """ Refresh the stored metadata.
@@ -114,20 +106,12 @@ class UserManager(Service):
         return self.metadata["password_change_required"]
 
 
-class PasswordManager(Service):
+class PasswordManager(object):
     """ Password management service.
     """
 
-    __instances = {}
-
-    def __new__(cls, uri):
-        try:
-            inst = cls.__instances[uri]
-        except KeyError:
-            inst = super(PasswordManager, cls).__new__(cls)
-            inst.bind(uri)
-            cls.__instances[uri] = inst
-        return inst
+    def __init__(self, uri):
+        self.resource = Resource(uri)
 
     def change(self, new_password):
         """ Change the authentication password.
@@ -158,10 +142,10 @@ def main():
         _help(script)
         return
     try:
-        service_root = ServiceRoot(NEO4J_URI)
+        dbms = DBMS(NEO4J_URI)
         user_name = args[0]
         password = args[1]
-        user_manager = UserManager.for_user(service_root, user_name, password)
+        user_manager = UserManager.for_user(dbms, user_name, password)
         if len(args) == 2:
             # Check password
             if user_manager.password_change_required:

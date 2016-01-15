@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes[1]
+        return self.path.nodes()[1]
 
     @property
     def month(self):
@@ -96,7 +96,7 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes[2]
+        return self.path.nodes()[2]
 
     @property
     def day(self):
@@ -105,4 +105,4 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes[3]
+        return self.path.nodes()[3]

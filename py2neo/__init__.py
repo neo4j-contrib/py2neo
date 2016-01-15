@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,29 +17,19 @@
 
 
 __author__ = "Nigel Small <nigel@py2neo.org>"
-__copyright__ = "2011-2014, Nigel Small"
+__copyright__ = "2011-2015, Nigel Small"
 __email__ = "nigel@py2neo.org"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "2.1.0"
+__version__ = "3b1"
+
+PRODUCT = ("py2neo", __version__)
 
 
-from py2neo.core import *
+from py2neo.types import *
 from py2neo.env import *
-from py2neo.error import *
 from py2neo.ext import *
+from py2neo.database import *
+from py2neo.http import *
 from py2neo.packages.httpstream.watch import watch
-
-
-__all__ = ["Graph", "Node", "Relationship", "Path", "NodePointer", "Rel", "Rev", "Subgraph",
-           "ServiceRoot", "PropertySet", "LabelSet", "PropertyContainer",
-           "authenticate", "familiar", "rewrite", "watch",
-           "BindError", "Finished", "GraphError", "JoinError", "Unauthorized",
-           "ServerPlugin", "UnmanagedExtension",
-           "Service", "Resource", "ResourceTemplate",
-           "NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI",
-]
-
-
-node = Node.cast
-rel = Relationship.cast
+from py2neo.status import Finished, GraphError

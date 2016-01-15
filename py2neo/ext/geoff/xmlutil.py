@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import json
 import re
 from xml.etree import ElementTree
 
-from py2neo.cypher import cypher_repr
-from py2neo.util import xstr
+from py2neo.compat import xstr
+from py2neo.types import cypher_repr
 
 
 SIMPLE_NAME = re.compile(r"^[A-Za-z_][0-9A-Za-z_]*$")

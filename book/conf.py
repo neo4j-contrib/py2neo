@@ -54,7 +54,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Py2neo'
-copyright = '2011-2014, Nigel Small'
+copyright = '2011-2015, Nigel Small'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -90,7 +90,7 @@ exclude_patterns = ['_build']
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
-#add_module_names = True
+add_module_names = False
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
@@ -116,11 +116,11 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'logo': 'py2neo-2.0.200x260.png',
+    'logo': 'py2neo-v3.280x336.png',
     'logo_align': 'left',
     'github_user': 'nigelsmall',
     'github_repo': 'py2neo',
-    'github_branch': 'release/' + release,
+    'github_branch': 'v3',
     'travis_button': True,
 }
 
@@ -287,7 +287,7 @@ texinfo_documents = [
 epub_title = 'Py2neo'
 epub_author = 'Nigel Small'
 epub_publisher = 'Nigel Small'
-epub_copyright = '2014, Nigel Small'
+epub_copyright = '2015, Nigel Small'
 
 # The basename for the epub file. It defaults to the project name.
 #epub_basename = 'Py2neo'
@@ -351,30 +351,30 @@ epub_exclude_files = ['search.html']
 #epub_use_index = True
 
 
-def get_class_name(full_module_name):
-    """
-    Pull out the class name from the full_module_name
-    """
-    #split the full_module_name by "."'s
-    return full_module_name.split('.')[1]
-
-
-def process_docstring(app, what, name, obj, options, lines):
-    names = name.split(".")
-    module_name = names[0]
-    try:
-        class_name = names[1]
-    except IndexError:
-        class_name = None
-    try:
-        attr_name = names[2]
-    except IndexError:
-        attr_name = None
-    for i, line in enumerate(lines):
-        lines[i] = (line
-                    .replace('«class»', class_name)
-                    .replace('«class.lower»', class_name.lower()))
-
-
-def setup(app):
-    app.connect('autodoc-process-docstring', process_docstring)
+# def get_class_name(full_module_name):
+#     """
+#     Pull out the class name from the full_module_name
+#     """
+#     #split the full_module_name by "."'s
+#     return full_module_name.split('.')[1]
+#
+#
+# def process_docstring(app, what, name, obj, options, lines):
+#     names = name.split(".")
+#     module_name = names[0]
+#     try:
+#         class_name = names[1]
+#     except IndexError:
+#         class_name = None
+#     try:
+#         attr_name = names[2]
+#     except IndexError:
+#         attr_name = None
+#     for i, line in enumerate(lines):
+#         lines[i] = (line
+#                     .replace('«class»', class_name)
+#                     .replace('«class.lower»', class_name.lower()))
+#
+#
+# def setup(app):
+#     app.connect('autodoc-process-docstring', process_docstring)

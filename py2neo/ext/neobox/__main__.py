@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ def main():
                     box.rename(new_name)
                 elif command == "start":
                     ps = box.server.start()
-                    print(ps.service_root.uri)
+                    print(ps.dbms.uri)
                 elif command == "stop":
                     box.server.stop()
                 elif command == "open":

@@ -7,6 +7,7 @@ import argparse
 import os
 
 from py2neo.ext.spatial.scripts.helpers import get_spatial_api
+from py2neo.ext.spatial import Spatial
 
 
 NEO_URL_TEMPLATE = "http://{username}:{password}@localhost:{port}/db/data/"

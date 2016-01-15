@@ -16,9 +16,18 @@
 # limitations under the License.
 
 
+try:
+    from configparser import SafeConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser
+
+from io import StringIO
+import os
 from sys import version_info
 
+
 if version_info >= (3,):
+    ReprIO = StringIO
 
     integer = int
     string = (bytes, str)
@@ -47,12 +56,37 @@ if version_info >= (3,):
     def xstr(s, encoding="utf-8"):
         """ Convert argument to string type returned by __str__.
         """
-        return ustr(s, encoding)
+        if isinstance(s, str):
+            return s
+        elif isinstance(s, bytes):
+            return s.decode(encoding)
+        else:
+            return str(s)
+
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            with open(filename) as f:
+                data = f.read()
+            self.read_string("[%s]\n%s" % (section, data), filename)
 
 else:
+    import codecs
+
     integer = (int, long)
     string = (str, unicode)
     unicode = unicode
+
+    class ReprIO(StringIO):
+
+        def getvalue(self, *args, **kwargs):
+            return StringIO.getvalue(self, *args, **kwargs).encode("utf-8")
 
     def bstr(s, encoding="utf-8"):
         if isinstance(s, bytes):
@@ -79,3 +113,19 @@ else:
             return s
         else:
             return unicode(s).encode(encoding)
+
+    class PropertiesParser(SafeConfigParser):
+
+        def read_properties(self, filename, section=None):
+            if not section:
+                basename = os.path.basename(filename)
+                if basename.endswith(".properties"):
+                    section = basename[:-11]
+                else:
+                    section = basename
+            data = StringIO()
+            data.write("[%s]\n" % section)
+            with codecs.open(filename, encoding="utf-8") as f:
+                data.write(f.read())
+            data.seek(0, os.SEEK_SET)
+            self.readfp(data)

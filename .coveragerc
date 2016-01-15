@@ -1,9 +1,9 @@
 [run]
-branch = True
+branch = False
 omit =
     */__main__.py
     py2neo/compat.py
-    py2neo/ext/*
-    py2neo/legacy/*
     py2neo/packages/*
     test/*
+    test_ext/*
+    */site-packages/*

@@ -44,7 +44,8 @@ Within the py2neo directory are the following files and directories:
 - **.coveragerc** - coverage configuration for unit tests
 - **py2neo/** - source code
 - **setup.py** - package setup script
-- **test/** - tests
+- **test/** - main package tests
+- **test_ext/** - extension tests
 - **.travis.yml** - configuration for Travis CI
 
 
@@ -54,7 +55,6 @@ Package Structure
 The py2neo package structure is as follows:
 
 - **py2neo** - core functionality
-  - **py2neo.batch** - batch support
   - **py2neo.cypher** - Cypher language support
   - **py2neo.ext** - non-core extensions
   - **py2neo.legacy** - legacy functionality
@@ -73,9 +73,11 @@ sub-package and may make use of the following classes:
 - **Resource** - represents a remote REST resource
 - **ResourceTemplate** - maintains a URI template for remote REST resources
 - **ServerPlugin** - base class for Neo4j [server plugins](http://neo4j.com/docs/stable/server-plugins.html)
-- **Service** - a wrapper object that may be bound to a remote resource
-- **ServiceRoot** - the root service for a Neo4j server
+- **Entity** - a base class for objects that may be bound to remote resources
+- **DBMS** - the root service for a Neo4j server
 - **UnmanagedExtension** - base class for Neo4j [unmanaged extensions](http://neo4j.com/docs/stable/server-unmanaged-extensions.html)
+
+Tests for extensions should live in the top-level **test_ext** directory.
 
 
 Naming

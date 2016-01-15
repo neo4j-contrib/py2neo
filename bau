@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2012-2014 Nigel Small
+# Copyright 2012-2015 Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 
 
 LATEST_2_0_VERSION="2.0.4"
-LATEST_2_1_VERSION="2.1.8"
-LATEST_2_2_VERSION="2.2.1"
-LATEST_2_3_VERSION="2.3.0-M02"
-LATEST_VERSION=$LATEST_2_3_VERSION
+LATEST_2_1_VERSION="2.1.5"
+LATEST_2_2_VERSION="2.2.7"
+LATEST_2_3_VERSION="2.3.1"
+LATEST_3_0_VERSION="3.0.0-M02"
+LATEST_VERSION=$LATEST_3_0_VERSION
 
 SELF=$0
 COMMAND=$1
@@ -35,7 +36,11 @@ function install_dependencies {
     if [ "$ONLINE" ]
     then
         echo "Ensuring dependencies are up to date"
-        pip install --upgrade $(find . -name requirements.txt | xargs cat)
+        pip install --upgrade -r test_requirements.txt
+        for REQUIREMENTS in "$(find py2neo/ext -name requirements.txt)"
+        do
+            pip install --upgrade -r $REQUIREMENTS
+        done
         EXIT_CODE=$?
         if [ "$EXIT_CODE" != "0" ]
         then
@@ -78,17 +83,12 @@ function test {
         echo "Starting tests"
         export NEO4J_HOME="$HOME"
         export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
-        if [ "$1" == "" ]
-        then
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html test/core
-        else
-            py.test -vx --cov-config .coveragerc --cov py2neo --cov-report term-missing --cov-report html $@
-        fi
+        $HOME/runtests.sh $1
         EXIT_CODE=$?
         trap - SIGINT SIGTERM
         neo4j_stop
         rm -rf "$LOG/$NEO4J_VERSION/htmlcov"
-        mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
+        #mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
         echo ""
         if [ "$EXIT_CODE" != "0" ]
         then
@@ -122,7 +122,17 @@ function neo4j_set_dist {
         EDITION="enterprise"
     fi
     VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "2.3" ] || [ "$VERSION" == "" ]
+    if [ "$VERSION" == "3.0" ] || [ "$VERSION" == "" ]
+    then
+        VERSION=$LATEST_3_0_VERSION
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.     ::::"
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       :::     ::  ::"
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    ::  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     '::::' ::  ::::"
+        echo "                                 :::"
+    elif [ "$VERSION" == "2.3" ]
     then
         VERSION=$LATEST_2_3_VERSION
         echo ""
@@ -235,11 +245,11 @@ case $COMMAND in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="2.0 2.1 2.2 2.3"
-        test $ARGS
+        NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        test
         ;;
-    test-latest)
-        NEO4J_VERSIONS="2.3"
-        test $ARGS
+    quicktest)
+        NEO4J_VERSIONS="3.0"
+        test
         ;;
 esac

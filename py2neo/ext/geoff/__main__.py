@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import codecs
 import os
 import sys
 
-from py2neo.core import ServiceRoot
+from py2neo.database import DBMS
 from py2neo.env import NEO4J_URI
 
 from py2neo.ext.geoff import GeoffLoader
@@ -54,9 +54,9 @@ def main():
         sys.exit(1)
 
     uri = NEO4J_URI.resolve("/")
-    service_root = ServiceRoot(uri.string)
+    dbms = DBMS(uri.string)
 
-    loader = GeoffLoader(service_root.graph)
+    loader = GeoffLoader(dbms.graph)
     load = loader.load
     results = []
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,42 +20,38 @@ Utility module
 """
 
 
-from __future__ import unicode_literals
-
-try:
-    from configparser import SafeConfigParser
-except ImportError:
-    from ConfigParser import SafeConfigParser
 from itertools import cycle, islice
-import os
 import re
-import sys
 from threading import local
 import warnings
 from weakref import WeakValueDictionary
 
 
-__all__ = ["numberise", "compact", "flatten", "round_robin", "deprecated",
-           "version_tuple", "is_collection", "has_all", "pendulate",
-           "PropertiesParser", "ThreadLocalWeakValueDictionary"]
+# Word separation patterns for re-casing strings.
+WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
+WORD_ALL = re.compile("([a-z0-9])([A-Z])")
+
+BASE62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 
-def compact(obj):
-    """ Return a copy of an object with all :py:const:`None` values removed.
-    """
-    if isinstance(obj, dict):
-        return dict((key, value) for key, value in obj.items() if value is not None)
-    else:
-        return obj.__class__(value for value in obj if value is not None)
+def base62(x):
+    if x == 0:
+        return "0"
+    digits = []
+    while x:
+        x, d = divmod(x, 62)
+        digits.insert(0, BASE62_DIGITS[d])
+    return "".join(digits)
 
 
-def flatten(*values):
-    for value in values:
-        if hasattr(value, "__iter__"):
-            for val in value:
-                yield val
-        else:
-            yield value
+def snake_case(s):
+    words = s.replace("_", " ").replace("-", " ").split()
+    return "_".join(word.lower() for word in words)
+
+
+def relationship_case(s):
+    s1 = WORD_FIRST.sub(r"\1_\2", s)
+    return WORD_ALL.sub(r"\1_\2", s1).upper()
 
 
 def round_robin(*iterables):
@@ -104,16 +100,10 @@ VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
 
 def version_tuple(string):
     numbers = VERSION.match(string)
-    if numbers:
-        version = [int(n) for n in numbers.group(0).split(".")]
-        extra = string[len(numbers.group(0)):]
-        while extra.startswith(".") or extra.startswith("-"):
-            extra = extra[1:]
-    else:
-        version = []
-        extra = string
-    while len(version) < 3:
-        version += [0]
+    version = [int(n) for n in numbers.group(0).split(".")]
+    extra = string[len(numbers.group(0)):]
+    while extra.startswith(".") or extra.startswith("-"):
+        extra = extra[1:]
     if extra:
         version += [extra]
     return tuple(version)
@@ -143,56 +133,9 @@ def is_collection(obj):
 has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
-def pendulate(collection):
-    count = len(collection)
-    for i in range(count):
-        if i % 2 == 0:
-            index = i // 2
-        else:
-            index = count - ((i + 1) // 2)
-        yield index, collection[index]
-
-
 def raise_from(exception, cause):
     exception.__cause__ = cause
     raise exception
-
-
-if sys.version_info >= (3,):
-
-    class PropertiesParser(SafeConfigParser):
-
-        def read_properties(self, filename, section=None):
-            if not section:
-                basename = os.path.basename(filename)
-                if basename.endswith(".properties"):
-                    section = basename[:-11]
-                else:
-                    section = basename
-            with open(filename) as f:
-                data = f.read()
-            self.read_string("[%s]\n%s" % (section, data), filename)
-
-else:
-
-    import codecs
-    from io import StringIO
-
-    class PropertiesParser(SafeConfigParser):
-
-        def read_properties(self, filename, section=None):
-            if not section:
-                basename = os.path.basename(filename)
-                if basename.endswith(".properties"):
-                    section = basename[:-11]
-                else:
-                    section = basename
-            data = StringIO()
-            data.write("[%s]\n" % section)
-            with codecs.open(filename, encoding="utf-8") as f:
-                data.write(f.read())
-            data.seek(0, os.SEEK_SET)
-            self.readfp(data)
 
 
 class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):

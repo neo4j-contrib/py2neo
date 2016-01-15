@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ package_metadata = {
     "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
-            "cypher = py2neo.cypher.__main__:main",
+            "py2neo = py2neo.database:main",
             "neoauth = py2neo.password:main",
             "neoget = py2neo.server:main",
             "geoff = py2neo.ext.geoff.__main__:main",

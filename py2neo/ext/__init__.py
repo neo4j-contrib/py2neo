@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2014, Nigel Small
+# Copyright 2011-2015, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.core import Resource
-from py2neo.error import GraphError
+from py2neo.http import Resource
+from py2neo.status import GraphError
 
 
 class ServerPlugin(object):
@@ -40,7 +40,7 @@ class UnmanagedExtension(object):
 
     def __init__(self, graph, path):
         self.graph = graph
-        self.resource = Resource(graph.service_root.uri.resolve(path))
+        self.resource = Resource(graph.dbms.uri.resolve(path))
         try:
             self.resource.get()
         except GraphError:
