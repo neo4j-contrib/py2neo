@@ -1250,8 +1250,6 @@ class HTTPTransaction(Transaction):
     statements to be executed within a single server transaction.
     """
 
-    error_class = CypherError
-
     def __init__(self, graph, autocommit=False):
         Transaction.__init__(self, graph, autocommit)
         self.statements = []
@@ -1297,7 +1295,7 @@ class HTTPTransaction(Transaction):
         if "commit" in raw:
             self._commit = Resource(raw["commit"])
         for raw_error in raw["errors"]:
-            raise self.error_class.hydrate(raw_error)
+            raise CypherError.hydrate(raw_error)
         for raw_result in raw["results"]:
             cursor = self.cursors.pop(0)
             cursor.hydrate = hydrate
