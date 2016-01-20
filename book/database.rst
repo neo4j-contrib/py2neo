@@ -1,40 +1,36 @@
-================
+****************
 Database Servers
-================
+****************
+
+.. module:: py2neo.database
 
 The Graph
 =========
 
+Each Neo4j server installation can be represented by an instance of the :class:`.Graph` class. To
+get connected, the full REST URI of the server should be supplied to the Graph constructor. Note
+that this includes the ``/db/data/`` path and a trailing slash.
 
-Authentication
-==============
+    >>> from py2neo import Graph
+    >>> graph = Graph("http://myserver:7474/db/data/")
 
-Neo4j 2.2 introduces optional authentication for database servers, enabled by default.
-To use a server with authentication enabled, a user name and password must be specified for the `host:port` combination.
-This can either be passed in code using the :func:`.authenticate` function or specified in the  ``NEO4J_AUTH`` environment variable.
-By default the user name and password are ``neo4j`` and ``neo4j`` respectively.
-This default password generally requires an initial change before the database can be used.
+If the Neo4j server is Bolt-enabled, this will be automatically detected and Bolt used in
+preference to HTTP.
 
-There are two ways to set up authentication for a new server installation:
+Authentication information can also be supplied to a graph URI::
 
-1. Set an initial password for the ``neo4j`` user.
-2. Copy auth details from another (initialised) server.
+    >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
 
-Py2neo provides a command line tool to help with changing user passwords as well as checking whether a password change is required.
-For a new installation, use::
+Once created, a Graph instance provides direct or indirect access to most of the functionality
+available within py2neo.
 
-    $ neoauth neo4j neo4j my-p4ssword
-    Password change succeeded
+.. autoclass:: Graph
+   :members:
 
-After a password has been set, the tool can also be used to validate credentials::
+.. class:: Schema
 
-    $ neoauth neo4j my-p4ssword
-    Password change not required
+.. class:: Transaction
 
-Alternatively, authentication can be disabled completely by editing the value of the ``dbms.security.authorization_enabled`` setting in the ``conf/neo4j-server.properties`` file.
+.. class:: Cursor
 
-.. autofunction:: py2neo.authenticate
-
-
-The Database Management System
-==============================
+.. class:: DBMS
