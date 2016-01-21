@@ -345,7 +345,7 @@ class NodeTestCase(TestCase):
         assert alice.__nonzero__()
         assert len(alice) == 2
         assert list(walk(alice)) == [alice]
-        assert alice.labels() == {"Person", "Employee"}
+        assert set(alice.labels()) == {"Person", "Employee"}
         assert dict(alice) == {"name": "Alice", "age": 33}
         assert dict(alice)["name"] == "Alice"
         assert alice["name"] == "Alice"
@@ -367,49 +367,39 @@ class NodeTestCase(TestCase):
 
     def test_can_add_label(self):
         node = Node("Person", name="Alice")
-        node.labels().add("Employee")
-        assert node.labels() == {"Person", "Employee"}
+        node.add_label("Employee")
+        assert set(node.labels()) == {"Person", "Employee"}
 
     def test_add_label_is_idempotent(self):
         node = Node("Person", name="Alice")
-        node.labels().add("Employee")
-        node.labels().add("Employee")
-        assert node.labels() == {"Person", "Employee"}
+        node.add_label("Employee")
+        node.add_label("Employee")
+        assert set(node.labels()) == {"Person", "Employee"}
 
     def test_can_remove_label(self):
         node = Node("Person", "Employee", name="Alice")
-        node.labels().remove("Employee")
-        assert node.labels() == {"Person"}
+        node.remove_label("Employee")
+        assert set(node.labels()) == {"Person"}
 
-    def test_removing_non_existent_label_fails(self):
+    def test_removing_non_existent_label_does_nothing(self):
         node = Node("Person", name="Alice")
-        with self.assertRaises(KeyError):
-            node.labels().remove("Employee")
-
-    def test_can_discard_label(self):
-        node = Node("Person", "Employee", name="Alice")
-        node.labels().discard("Employee")
-        assert node.labels() == {"Person"}
-
-    def test_discarding_non_existent_label_is_ignored(self):
-        node = Node("Person", name="Alice")
-        node.labels().discard("Employee")
-        assert node.labels() == {"Person"}
+        node.remove_label("Employee")
+        assert set(node.labels()) == {"Person"}
 
     def test_can_clear_labels(self):
         node = Node("Person", "Employee", name="Alice")
-        node.labels().clear()
-        assert node.labels() == set()
+        node.clear_labels()
+        assert set(node.labels()) == set()
 
     def test_has_label(self):
         node = Node("Person", name="Alice")
-        assert "Person" in node.labels()
-        assert "Employee" not in node.labels()
+        assert node.has_label("Person")
+        assert not node.has_label("Employee")
 
     def test_update_labels(self):
         node = Node("Person", name="Alice")
-        node.labels().update({"Person", "Employee"})
-        assert node.labels() == {"Person", "Employee"}
+        node.update_labels({"Person", "Employee"})
+        assert set(node.labels()) == {"Person", "Employee"}
 
 
 class RelationshipTestCase(TestCase):

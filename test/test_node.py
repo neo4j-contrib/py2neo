@@ -30,13 +30,13 @@ class NodeTestCase(Py2neoTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
-        assert a.labels() == {"Person"}
+        assert set(a.labels()) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_can_create_remote_node(self):
         a = Node("Person", name="Alice", age=33)
         self.graph.create(a)
-        assert a.labels() == {"Person"}
+        assert set(a.labels()) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
         assert a.resource.ref.startswith("node/")
 
@@ -44,7 +44,7 @@ class NodeTestCase(Py2neoTestCase):
         alice_1 = Node(name="Alice")
         alice_1._set_resource("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
-        assert alice_1.labels() == alice_2.labels()
+        assert set(alice_1.labels()) == set(alice_2.labels())
         assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
@@ -58,7 +58,7 @@ class NodeTestCase(Py2neoTestCase):
     def test_unbound_node_equality(self):
         alice_1 = Node("Person", name="Alice")
         alice_2 = Node("Person", name="Alice")
-        assert alice_1.labels() == alice_2.labels()
+        assert set(alice_1.labels()) == set(alice_2.labels())
         assert dict(alice_1) == dict(alice_2)
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
@@ -84,7 +84,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_node_equality(self):
         alice_1 = Node(name="Alice", age=34)
         alice_2 = Node(name="Alice", age=34)
-        assert alice_1.labels() == alice_2.labels()
+        assert set(alice_1.labels()) == set(alice_2.labels())
         assert dict(alice_1) == dict(alice_2)
 
     def test_node_inequality(self):

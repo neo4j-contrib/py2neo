@@ -159,7 +159,7 @@ def cast_node(obj):
             for item in x:
                 apply(item)
         elif isinstance(x, string):
-            inst.labels().add(ustr(x))
+            inst.add_label(ustr(x))
         else:
             raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
 
@@ -541,6 +541,36 @@ class Relatable(object):
     pass
 
 
+class SetView(object):
+
+    def __init__(self, items):
+        self.__items = items
+
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, set(self.__items))
+
+    def __len__(self):
+        return len(self.__items)
+
+    def __iter__(self):
+        return iter(self.__items)
+
+    def __contains__(self, item):
+        return item in self.__items
+
+    def __and__(self, other):
+        return self.__items & other
+
+    def __or__(self, other):
+        return self.__items | other
+
+    def __sub__(self, other):
+        return self.__items - other
+
+    def __xor__(self, other):
+        return self.__items ^ other
+
+
 class Node(Relatable, Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
@@ -576,9 +606,8 @@ class Node(Relatable, Entity):
         if "metadata" in data:
             inst.__stale.discard("labels")
             metadata = data["metadata"]
-            labels = inst.labels()
-            labels.clear()
-            labels.update(metadata["labels"])
+            inst.clear_labels()
+            inst.update_labels(metadata["labels"])
         return inst
 
     def __init__(self, *labels, **properties):
@@ -622,12 +651,35 @@ class Node(Relatable, Entity):
     def exists(self):
         return self.resource.graph.exists(self)
 
+    def __ensure_labels(self):
+        if self.resource and "labels" in self.__stale:
+            self.resource.graph.pull(self)
+
     def labels(self):
         """ Set of all node labels.
         """
-        if self.resource and "labels" in self.__stale:
-            self.resource.graph.pull(self)
-        return self._labels
+        self.__ensure_labels()
+        return SetView(self._labels)
+
+    def has_label(self, label):
+        self.__ensure_labels()
+        return label in self._labels
+
+    def add_label(self, label):
+        self.__ensure_labels()
+        self._labels.add(label)
+
+    def remove_label(self, label):
+        self.__ensure_labels()
+        self._labels.discard(label)
+
+    def clear_labels(self):
+        self.__ensure_labels()
+        self._labels.clear()
+
+    def update_labels(self, labels):
+        self.__ensure_labels()
+        self._labels.update(labels)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):

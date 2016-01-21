@@ -162,11 +162,11 @@ class PullTestCase(DeprecatedTestCase):
         local = Node()
         remote = Node("Person", name="Alice")
         self.graph.create(remote)
-        assert local.labels() == set()
+        assert set(local.labels()) == set()
         assert dict(local) == {}
         local._set_resource(remote.resource.uri)
         local.pull()
-        assert local.labels() == remote.labels()
+        assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
 
     def test_can_pull_relationship(self):
@@ -187,12 +187,12 @@ class PushTestCase(DeprecatedTestCase):
         local = Node("Person", name="Alice")
         remote = Node()
         self.graph.create(remote)
-        assert remote.labels() == set()
+        assert set(remote.labels()) == set()
         assert dict(remote) == {}
         local._set_resource(remote.resource.uri)
         local.push()
         remote.pull()
-        assert local.labels() == remote.labels()
+        assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
 
     def test_can_push_relationship(self):

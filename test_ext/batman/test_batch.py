@@ -544,7 +544,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.add_labels(alice, "human", "female")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels() == {"human", "female"}
+        assert set(alice.labels()) == {"human", "female"}
 
     def test_can_add_labels_to_node_in_same_batch(self):
         a = self.batch.create({"name": "Alice"})
@@ -552,7 +552,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.run()
         alice = results[self.batch.find(a)]
         self.graph.pull(alice)
-        assert alice.labels() == {"human", "female"}
+        assert set(alice.labels()) == {"human", "female"}
 
     def test_can_remove_labels_from_preexisting_node(self):
         alice = Node("human", "female", name="Alice")
@@ -560,7 +560,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.remove_label(alice, "human")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels() == {"female"}
+        assert set(alice.labels()) == {"female"}
 
     def test_can_add_and_remove_labels_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice"})
@@ -569,7 +569,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.run()
         alice = results[self.batch.find(alice)]
         self.graph.pull(alice)
-        assert alice.labels() == {"human"}
+        assert set(alice.labels()) == {"human"}
 
     def test_can_set_labels_on_preexisting_node(self):
         alice = Node("human", "female", name="Alice")
@@ -577,7 +577,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.batch.set_labels(alice, "mystery", "badger")
         self.batch.run()
         self.graph.pull(alice)
-        assert alice.labels() == {"mystery", "badger"}
+        assert set(alice.labels()) == {"mystery", "badger"}
 
     def test_can_set_labels_on_node_in_same_batch(self):
         self.batch.create({"name": "Alice"})
@@ -586,7 +586,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         results = self.batch.run()
         alice = results[0]
         self.graph.pull(alice)
-        assert alice.labels() == {"mystery", "badger"}
+        assert set(alice.labels()) == {"mystery", "badger"}
 
 
 class NodePointerTestCase(Py2neoTestCase):

@@ -105,7 +105,7 @@ class HydrationTestCase(Py2neoTestCase):
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
-        assert hydrated.labels() == set(dehydrated["metadata"]["labels"])
+        assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
         assert hydrated.resource
         assert hydrated.resource.uri == dehydrated["self"]
 

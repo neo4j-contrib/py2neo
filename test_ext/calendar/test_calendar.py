@@ -24,7 +24,7 @@ from test.util import Py2neoTestCase
 def assert_similar(a, b):
     assert isinstance(a, Node)
     assert isinstance(b, Node)
-    assert a.labels() == b.labels()
+    assert set(a.labels()) == set(b.labels())
     assert dict(a) == dict(b)
 
 

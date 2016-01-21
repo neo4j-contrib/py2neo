@@ -22,7 +22,7 @@ from test.util import Py2neoTestCase
 
 def assert_node(node, *labels, **properties):
     assert isinstance(node, Node)
-    assert node.labels() == set(labels)
+    assert set(node.labels()) == set(labels)
     assert dict(node) == properties
 
 

@@ -55,13 +55,13 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_run_cypher_statement_1(self):
         value = self.graph.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
-        assert value.labels() == {"Person"}
+        assert set(value.labels()) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_run_parametrised_cypher_statement_1(self):
         value = self.graph.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(value, Node)
-        assert value.labels() == {"Person"}
+        assert set(value.labels()) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_run_cypher_statement_with_node_parameter(self):
@@ -74,13 +74,13 @@ class CypherTestCase(Py2neoTestCase):
     def test_can_evaluate_cypher_statement(self):
         value = self.graph.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
-        assert value.labels() == {"Person"}
+        assert set(value.labels()) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_evaluate_parametrised_cypher_statement(self):
         value = self.graph.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(value, Node)
-        assert value.labels() == {"Person"}
+        assert set(value.labels()) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_evaluate_with_no_results_returns_none(self):

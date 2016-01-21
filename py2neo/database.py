@@ -619,7 +619,7 @@ class Graph(object):
         cursor = self.run(statement, parameters)
         while cursor.move():
             a = cursor[0]
-            a.labels().update(cursor[1])
+            a.update_labels(cursor[1])
             yield a
         cursor.close()
 

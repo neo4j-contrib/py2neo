@@ -41,8 +41,66 @@ connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
     Construct a new node object with the labels and properties specified. This node will not
     initially be bound to a Neo4j database.
 
-    .. method:: node.labels()
+    .. describe:: node == other
 
+        Return ``True`` if the *node* is equal to *other* are equal. Node equality is based on
+        identity, not properties or labels. This means that a node is only ever equal to itself, if
+        unbound, or to any node that represents the same remote database node, if bound.
+
+    .. describe:: node != other
+
+        Return ``True`` if the nodes are unequal.
+
+    .. describe:: hash(node)
+
+        Return a hash of *node* based on its object ID, if unbound, or the ID of the remote node
+        it represents, if bound.
+
+    .. describe:: node[key]
+
+        Return the property value of *node* with key *key* or ``None`` if the key is missing.
+
+    .. describe:: node[key] = value
+
+        Set the property value of *node* with key *key* to *value* or remove the property if
+        *value* is ``None``.
+
+    .. describe:: del node[key]
+
+        Remove the property with key *key* from *node*, raising a :exc:`KeyError` if such a
+        property does not exist.
+
+    .. describe:: len(node)
+
+        Return the number of properties in *node*.
+
+    .. describe:: dict(node)
+
+        Return a dictionary of all the properties in *node*.
+
+    .. method:: labels()
+
+        Return the full set of labels associated with the node.
+
+    .. method:: has_label(label)
+
+        Return ``True`` if the node has the label *label*.
+
+    .. method:: add_label(label)
+
+        Add the label *label* to the node.
+
+    .. method:: remove_label(label)
+
+        Remove the label *label* from the node if it exists.
+
+    .. method:: clear_labels()
+
+        *TODO*
+
+    .. method:: update_labels(labels)
+
+        *TODO*
 
 .. class:: Relationship(start_node, type, end_node, **properties)
            Relationship(start_node, end_node, **properties)
@@ -96,15 +154,15 @@ The *PropertyDict* class is described in more detail below.
         Set the value of *properties* with key *key* to *value* or remove the property if *value*
         is ``None``.
 
-    .. describe:: properties.setdefault(key, default=None)
+    .. method:: setdefault(key, default=None)
 
-        If *key* is in *properties*, return its value. If not, insert *key* with a value of
+        If *key* is in the PropertyDict, return its value. If not, insert *key* with a value of
         *default* and return *default* unless *default* is ``None``, in which case do nothing. The
         value of *default* defaults to ``None``.
 
-    .. describe:: properties.update(iterable=None, **kwargs)
+    .. method:: update(iterable=None, **kwargs)
 
-        Update *properties* with the key-value pairs from *iterable* combined with the keyword
+        Update the PropertyDict with the key-value pairs from *iterable* combined with the keyword
         arguments from *kwargs*, overwriting existing properties. Any values of ``None`` will not
         be included and will remove any property with that key that already exists.
 

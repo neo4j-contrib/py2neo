@@ -26,11 +26,11 @@ class PullTestCase(Py2neoTestCase):
         local = Node()
         remote = Node("Person", name="Alice")
         self.graph.create(remote)
-        assert local.labels() == set()
+        assert set(local.labels()) == set()
         assert dict(local) == {}
         local._set_resource(remote.resource.uri)
         self.graph.pull(local)
-        assert local.labels() == remote.labels()
+        assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
 
     def test_can_pull_path(self):
@@ -64,7 +64,7 @@ class PullTestCase(Py2neoTestCase):
                 node = Node(*old_labels)
                 self.graph.create(node)
                 node_id = node.resource._id
-                assert node.labels() == old_labels
+                assert set(node.labels()) == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
                 else:
@@ -77,7 +77,7 @@ class PullTestCase(Py2neoTestCase):
                     self.graph.run("MATCH (a) WHERE id(a)={x} %s %s" %
                                    (remove_clause, set_clause), x=node_id)
                     self.graph.pull(node)
-                    assert node.labels() == new_labels, \
+                    assert set(node.labels()) == new_labels, \
                         "Failed to pull new labels %r over old labels %r" % \
                         (new_labels, old_labels)
 
@@ -119,12 +119,12 @@ class PushTestCase(Py2neoTestCase):
         local = Node("Person", name="Alice")
         remote = Node()
         self.graph.create(remote)
-        assert remote.labels() == set()
+        assert set(remote.labels()) == set()
         assert dict(remote) == {}
         local._set_resource(remote.resource.uri)
         self.graph.push(local)
         self.graph.pull(remote)
-        assert local.labels() == remote.labels()
+        assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
 
     def test_can_push_relationship(self):

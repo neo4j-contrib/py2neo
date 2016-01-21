@@ -40,8 +40,8 @@ class SchemaTestCase(Py2neoTestCase):
         label_2 = next(self.unique_string)
         munich = cast_node({'name': "München", 'key': "09162000"})
         self.graph.create(munich)
-        munich.labels().clear()
-        munich.labels().update({label_1, label_2})
+        munich.clear_labels()
+        munich.update_labels({label_1, label_2})
         self.schema.create_index(label_1, "name")
         self.schema.create_index(label_1, "key")
         self.schema.create_index(label_2, "name")
@@ -82,12 +82,12 @@ class SchemaTestCase(Py2neoTestCase):
         self.graph.create(a | b)
         with self.assertRaises(GraphError):
             self.graph.schema.create_uniqueness_constraint(label_1, "name")
-        b.labels().remove(label_1)
+        b.remove_label(label_1)
         self.graph.push(b)
         self.schema.create_uniqueness_constraint(label_1, "name")
-        a.labels().remove(label_1)
+        a.remove_label(label_1)
         self.graph.push(a)
-        b.labels().add(label_1)
+        b.add_label(label_1)
         self.graph.push(b)
         try:
             self.schema.drop_index(label_1, "name")
@@ -96,7 +96,7 @@ class SchemaTestCase(Py2neoTestCase):
             assert error.__cause__.status_code // 100 == 5
         else:
             assert False
-        b.labels().remove(label_1)
+        b.remove_label(label_1)
         self.graph.push(b)
         self.schema.drop_uniqueness_constraint(label_1, "name")
         with self.assertRaises(GraphError):
