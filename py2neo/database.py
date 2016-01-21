@@ -830,11 +830,11 @@ class Graph(object):
         if not entities:
             return
         nodes = {}
-        relationships = set()
+        relationships = []
         for entity in entities:
             for node in entity.nodes():
                 nodes[node] = None
-            relationships.update(entity.relationships())
+            relationships.extend(entity.relationships())
         tx = self.begin()
         for node in nodes:
             tx.entities.append({"a": node})

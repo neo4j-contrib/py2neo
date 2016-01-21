@@ -843,10 +843,7 @@ class Relationship(Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.resource:
-            return hash(self.resource.uri)
-        else:
-            return hash(self.nodes()) ^ hash(self.type())
+        return hash(self.nodes()) ^ hash(self.type())
 
     @deprecated("Relationship.exists() is deprecated, "
                 "use graph.exists(relationship) instead")

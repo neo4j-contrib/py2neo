@@ -9,8 +9,8 @@ entity collections. In addition, a :class:`.CypherWriter` class, along with some
 functions, provide facilities to conveniently output these types in string form.
 
 These types have been carefully designed to work together using standard operations, most notably
-set operations. Details of these operations are covered in detail in the section on :ref:`graph
-arithmetic <graph-arithmetic>`.
+set operations. Details of these operations are covered in the sections on :ref:`subgraphs` and
+:ref:`walkable_types`.
 
 
 Nodes & Relationships
@@ -43,9 +43,9 @@ connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
 
     .. describe:: node == other
 
-        Return ``True`` if the *node* is equal to *other* are equal. Node equality is based on
-        identity, not properties or labels. This means that a node is only ever equal to itself, if
-        unbound, or to any node that represents the same remote database node, if bound.
+        Return ``True`` if *node* and *other* are equal. Node equality is based on identity, not
+        properties or labels. This means that a node is only ever equal to itself, if unbound, or
+        to any node that represents the same remote database node, if bound.
 
     .. describe:: node != other
 
@@ -78,6 +78,10 @@ connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
 
         Return a dictionary of all the properties in *node*.
 
+    .. describe:: walk(node)
+
+        Yield *node* as the only item in a :func:`walk`.
+
     .. method:: labels()
 
         Return the full set of labels associated with the node.
@@ -96,11 +100,11 @@ connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
 
     .. method:: clear_labels()
 
-        *TODO*
+        Remove all labels from the node.
 
     .. method:: update_labels(labels)
 
-        *TODO*
+        Add multiple labels to the node from the iterable *labels*.
 
 .. class:: Relationship(start_node, type, end_node, **properties)
            Relationship(start_node, end_node, **properties)
@@ -117,6 +121,52 @@ connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
         >>> ac.type()
         'WORKS_WITH'
 
+    .. describe:: relationship == other
+
+        Return ``True`` if *relationship* and *other* are equal. Relationship equality is based on
+        equality of the start node, end node and type. This means that any two relationships of the
+        same type between the same nodes are always considered equal.
+
+    .. describe:: relationship != other
+
+        Return ``True`` if the relationships are unequal.
+
+    .. describe:: hash(relationship)
+
+        Return a hash of *relationship* based on its start node, end node and type.
+
+    .. describe:: relationship[key]
+
+        Return the property value of *relationship* with key *key* or ``None`` if the key is
+        missing.
+
+    .. describe:: relationship[key] = value
+
+        Set the property value of *relationship* with key *key* to *value* or remove the property
+        if *value* is ``None``.
+
+    .. describe:: del relationship[key]
+
+        Remove the property with key *key* from *relationship*, raising a :exc:`KeyError` if such a
+        property does not exist.
+
+    .. describe:: len(relationship)
+
+        Return the number of properties in *relationship*.
+
+    .. describe:: dict(relationship)
+
+        Return a dictionary of all the properties in *relationship*.
+
+    .. describe:: walk(relationship)
+
+        Perform a :func:`walk` of this relationship, yielding its start node, the relationship
+        itself and its end node in turn.
+
+    .. method:: type()
+
+        Return the type of this relationship.
+
 
 Properties
 ----------
@@ -125,8 +175,8 @@ Both :class:`.Node` and :class:`.Relationship` extend the :class:`.PropertyDict`
 extends Python's built-in dictionary. This means that nodes and relationships are both mapping
 types that can contain property values, indexed by key.
 
-In a similar way to Neo4j, properties values may not be ``None``. A missing property (i.e. no key
-present) is the idiomatic way to model absence of value.
+Similarly to Neo4j, property values may not be ``None``. A missing property (i.e. no key present)
+is the idiomatic way to model absence of value.
 
 The *PropertyDict* class is described in more detail below.
 
@@ -167,22 +217,13 @@ The *PropertyDict* class is described in more detail below.
         be included and will remove any property with that key that already exists.
 
 
-Equality Rules
---------------
-
-Node equality is based on identity. This means that a node is only ever equal to itself and is
-*never* equal to other nodes, even those with identical properties and labels.
-
-Relationship equality is based on type and endpoints. A relationship will be considered equal to
-any other another relationship of the same type that is attached to the same nodes. Properties are
-not considered for relationship equality.
-
+.. _subgraphs:
 
 Subgraphs
 =========
 
-Arbitrary collections of nodes and relationships may be collected in a :class:`.Subgraph` object.
-The simplest way to construct these is by combining nodes and relationships using standard set
+Collections of nodes and relationships may be collected in a :class:`.Subgraph` object. The
+simplest way to construct a subgraph is by combining nodes and relationships using standard set
 operations. For example::
 
     >>> s = ab | ac
@@ -207,6 +248,28 @@ operations. For example::
     to graph database functions. It is also used as a base class for :class:`.Node`,
     :class:`.Relationship` and :class:`.Walkable`, giving instances of those classes operational
     compatibility with each other.
+
+    .. describe:: subgraph | other | ...
+
+        Union. Return a new subgraph containing all nodes and relationships from *subgraph* as well
+        as all those from *other*. Any entities common to both will only be included once.
+
+    .. describe:: subgraph & other & ...
+
+        Intersection. Return a new subgraph containing all nodes and relationships common to both
+        *subgraph* and *other*.
+
+    .. describe:: subgraph - other - ...
+
+        Difference. Return a new subgraph containing all nodes and relationships that exist in
+        *subgraph* but do not exist in *other* as well as all nodes that are connected by the
+        relationships in *subgraph* regardless of whether or not they exist in *other*.
+
+    .. describe:: subgraph ^ other ^ ...
+
+        Symmetric difference. Return a new subgraph containing all nodes and relationships that
+        exist in *subgraph* or *other*, but not in both, as well as all nodes that are connected by
+        those relationships regardless of whether or not they are common to *subgraph* and *other*.
 
     .. method:: subgraph.keys()
 
@@ -237,6 +300,8 @@ operations. For example::
     Return the number of relationships in this subgraph.
 
 
+.. _walkable_types:
+
 Walkable Types
 ==============
 
@@ -251,73 +316,19 @@ other graph objects::
 
 .. class:: Walkable(iterable)
 
+    .. describe:: walkable + other + ...
+
+        Concatenation. Return a new walkable that represents a walk of `subgraph` followed by a
+        walk of `other`. This is only possible if the end node of `subgraph` is the same as either
+        the start node or the end node of `other`; in the latter case, `other` will be walked in
+        reverse.
+
+        Note that overlapping nodes are not duplicated.
+
 .. class:: Path(iterable)
 
 .. function:: walk(*walkables)
 
-
-Graph Arithmetic
-================
-
-Graph objects can be combined in a number of ways using standard
-Python operators. In this context, :class:`.Node` and :class:`.Relationship`
-instances are treated as :class:`.Subgraph` or :class:`.Walkable` instances.
-The available operations are detailed below.
-
-Union
------
-**Syntax**: ``x | y``
-
-The union of `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships from `x` as well as all those from `y`.
-Any entities common to both operands will only be included once.
-
-For example::
-
-    >>> a = Node()
-    >>> b = Node()
-    >>> c = Node()
-    >>> ab = Relationship(a, "TO", b)
-    >>> ac = Relationship(a, "TO", c)
-    >>> s = ab | ac
-    >>> s
-    {(a21abf3), (a0daea6), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3)}
-    >>> s | Relationship(b, "TO", c)
-    {(a0daea6), (a21abf3), (b6515bc), (b6515bc)-[:TO]->(a0daea6), (b6515bc)-[:TO]->(a21abf3), (a21abf3)-[:TO]->(a0daea6)}
-
-Intersection
-------------
-**Syntax**: ``x & y``
-
-The intersection of `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships common to both `x` and `y`.
-
-Difference
-----------
-**Syntax**: ``x - y``
-
-The difference between `x` and `y` is a :class:`.Subgraph` containing all
-nodes and relationships that exist in `x` but do not exist in `y` as well
-as all nodes that are connected by the the relationships in `x` regardless
-of whether or not they exist in `y`.
-
-Symmetric Difference
---------------------
-**Syntax**: ``x ^ y``
-
-The symmetric difference between `x` and `y` is a :class:`.Subgraph` containing
-all nodes and relationships that exist in `x` or `y` but not in both as well
-as all nodes that are connected by those relationships regardless
-of whether or not they are common to `x` and `y`.
-
-Concatenation
--------------
-**Syntax**: ``x + y``
-
-The concatenation of `x` and `y` is a :class:`.Walkable` that represents a
-walk of `x` followed by a walk of `y`. This is only possible if the end node
-of `x` is the same as either the start node or the end node of `y`; in the
-latter case, `y` will be walked in reverse.
 
 
 Records
