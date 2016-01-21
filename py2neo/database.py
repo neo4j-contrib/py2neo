@@ -29,7 +29,7 @@ import webbrowser
 from py2neo import PRODUCT, __email__
 from py2neo.compat import integer, string, ustr
 from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, \
-    cypher_escape, walk
+    cypher_escape, walk, size, Walkable, cypher_repr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse, get
@@ -1222,6 +1222,51 @@ class Transaction(object):
                 parameters[param_id] = node.resource._id
                 node._del_resource()
         statement = "\n".join(matches + deletes)
+        self.run(statement, parameters)
+
+    def merge(self, walkable):
+        if not isinstance(walkable, Walkable):
+            raise ValueError("Object %r is not walkable" % walkable)
+        if size(walkable) == 0 and walkable.start_node().resource:
+            return  # single, bound node - nothing to do
+        matches = []
+        pattern = []
+        writes = []
+        parameters = {}
+        returns = {}
+        node = None
+        for i, entity in enumerate(walk(walkable)):
+            if i % 2 == 0:
+                # node
+                node_id = "a%d" % i
+                param_id = "x%d" % i
+                if entity.resource:
+                    matches.append("MATCH (%s) "
+                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                    pattern.append("(%s)" % node_id)
+                    parameters[param_id] = entity.resource._id
+                else:
+                    label_string = "".join(":" + cypher_escape(label)
+                                           for label in sorted(entity.labels()))
+                    property_map_string = cypher_repr(dict(entity))
+                    pattern.append("(%s%s %s)" % (node_id, label_string, property_map_string))
+                    entity._set_resource_pending(self)
+                returns[node_id] = node = entity
+            else:
+                # relationship
+                rel_id = "r%d" % i
+                param_id = "x%d" % i
+                type_string = cypher_escape(entity.type())
+                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
+                pattern.append(template % (rel_id, type_string))
+                writes.append("SET %s={%s}" % (rel_id, param_id))
+                parameters[param_id] = dict(entity)
+                if not entity.resource:
+                    entity._set_resource_pending(self)
+                returns[rel_id] = entity
+        statement = "\n".join(matches + ["MERGE %s" % "".join(pattern)] + writes +
+                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
+        self.entities.append(returns)
         self.run(statement, parameters)
 
     def separate(self, g):
