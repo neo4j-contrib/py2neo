@@ -222,9 +222,8 @@ The *PropertyDict* class is described in more detail below.
 Subgraphs
 =========
 
-Collections of nodes and relationships may be collected in a :class:`.Subgraph` object. The
-simplest way to construct a subgraph is by combining nodes and relationships using standard set
-operations. For example::
+A :class:`.Subgraph` is a collection of nodes and relationships. The simplest way to construct a
+subgraph is by combining nodes and relationships using standard set operations. For example::
 
     >>> s = ab | ac
     >>> s
@@ -245,9 +244,9 @@ operations. For example::
 .. class:: Subgraph(nodes, relationships)
 
     A *Subgraph* is an immutable set of nodes and relationships that can be provided as an argument
-    to graph database functions. It is also used as a base class for :class:`.Node`,
-    :class:`.Relationship` and :class:`.Walkable`, giving instances of those classes operational
-    compatibility with each other.
+    to many graph database functions. It is also used as a base class for :class:`.Node`,
+    :class:`.Relationship` and :class:`.Walkable`, allowing instances of those classes to be
+    combined using set operations.
 
     .. describe:: subgraph | other | ...
 
@@ -281,11 +280,11 @@ operations. For example::
 
     .. method:: subgraph.nodes()
 
-        Return all the nodes in this subgraph.
+        Return the set of all nodes in this subgraph.
 
     .. method:: subgraph.relationships()
 
-        Return all the relationships in this subgraph.
+        Return the set of all relationships in this subgraph.
 
     .. method:: subgraph.types()
 
@@ -305,16 +304,20 @@ operations. For example::
 Walkable Types
 ==============
 
-A :class:`.Walkable` is a subgraph with added traversal information.
-The simplest way to construct a :class:`.Walkable` is by concatenating
-other graph objects::
+A :class:`.Walkable` is a :class:`.Subgraph` with added traversal information. The simplest way to
+construct a walkable is by concatenating other graph objects::
 
     >>> w = ab + Relationship(b, "LIKES", c) + ac
     >>> w
     (alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)<-[:WORKS_WITH]-(alice)
 
+Traversal of a walkable object is achieved by using the :func:`walk` function which yields
+alternating nodes and relationships and always starts and ends with a node. Node or relationships
+may be traversed one or more times in any direction.
 
 .. class:: Walkable(iterable)
+
+    A *Walkable* is a :class:`.Subgraph` with added traversal information.
 
     .. describe:: walkable + other + ...
 
@@ -325,10 +328,34 @@ other graph objects::
 
         Note that overlapping nodes are not duplicated.
 
-.. class:: Path(iterable)
+    .. describe:: walk(walkable)
+
+        Perform a :func:`walk` of *walkable*, yielding nodes and relationships in turn.
+
+    .. method:: start_node()
+
+        Return the first node encountered on a :func:`walk` of this object.
+
+    .. method:: end_node()
+
+        Return the last node encountered on a :func:`walk` of this object.
+
+    .. method:: nodes()
+
+        Return an ordered collection of all nodes encountered on a :func:`walk` of this object.
+
+    .. method:: relationships()
+
+        Return an ordered collection of all relationships encountered on a :func:`walk` of this
+        object.
+
+.. class:: Path(*entities)
+
+    A *Path* is a type of :class:`.Walkable` returned by some Cypher queries.
 
 .. function:: walk(*walkables)
 
+    Traverse over the arguments supplied, yielding the entities from each in turn.
 
 
 Records
@@ -337,9 +364,3 @@ Records
 *TODO*
 
 .. class:: Record(keys, values)
-
-
-String Representations
-======================
-
-*TODO*
