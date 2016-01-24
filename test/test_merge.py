@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node
+from py2neo import order, size, Node, Relationship
 from test.util import Py2neoTestCase
 
 
@@ -63,3 +63,106 @@ class MergeTestCase(Py2neoTestCase):
         assert set(merged.labels()) == {label}
         assert dict(merged) == {"foo": "bar"}
 
+
+class TransactionMergeTestCase(Py2neoTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
+
+    def test_can_merge_node_that_does_not_exist(self):
+        alice = Node("Person", name="Alice")
+        old_order = order(self.graph)
+        self.graph.begin(autocommit=True).merge(alice)
+        assert alice.resource
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
+    def test_can_merge_node_that_does_exist(self):
+        self.graph.create(Node("Person", name="Alice"))
+        alice = Node("Person", name="Alice")
+        old_order = order(self.graph)
+        self.graph.begin(autocommit=True).merge(alice)
+        assert alice.resource
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order
+
+    def test_can_merge_node_that_does_not_exist_on_specific_label_and_key(self):
+        alice = Node("Person", "Employee", name="Alice", age=33)
+        old_order = order(self.graph)
+        self.graph.begin(autocommit=True).merge(alice, "Person", "name")
+        assert alice.resource
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
+    def test_can_merge_node_that_does_exist_on_specific_label_and_key_with_extra_properties(self):
+        self.graph.create(Node("Person", name="Alice"))
+        alice = Node("Person", "Employee", name="Alice", age=33)
+        old_order = order(self.graph)
+        self.graph.begin(autocommit=True).merge(alice, "Person", "name")
+        assert alice.resource
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order
+
+    def test_can_merge_node_that_does_exist_on_specific_label_and_key_with_other_properties(self):
+        self.graph.create(Node("Person", name="Alice", age=44))
+        alice = Node("Person", "Employee", name="Alice", age=33)
+        old_order = order(self.graph)
+        self.graph.begin(autocommit=True).merge(alice, "Person", "name")
+        assert alice.resource
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order
+
+    def test_can_merge_relationship_that_does_not_exist(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        ab = Relationship(alice, "KNOWS", bob)
+        old_order = order(self.graph)
+        old_size = size(self.graph)
+        self.graph.begin(autocommit=True).merge(ab)
+        assert alice.resource
+        assert bob.resource
+        assert ab.resource
+        assert self.graph.exists(alice | bob | ab)
+        new_order = order(self.graph)
+        new_size = size(self.graph)
+        assert new_order == old_order + 2
+        assert new_size == old_size + 1
+
+    def test_can_merge_relationship_where_one_node_exists(self):
+        alice = Node("Person", name="Alice")
+        self.graph.create(alice)
+        bob = Node("Person", name="Bob")
+        ab = Relationship(alice, "KNOWS", bob)
+        old_order = order(self.graph)
+        old_size = size(self.graph)
+        self.graph.begin(autocommit=True).merge(ab)
+        assert alice.resource
+        assert bob.resource
+        assert ab.resource
+        assert self.graph.exists(alice | bob | ab)
+        new_order = order(self.graph)
+        new_size = size(self.graph)
+        assert new_order == old_order + 1
+        assert new_size == old_size + 1
+
+    def test_can_merge_relationship_where_all_exist(self):
+        alice = Node("Person", name="Alice")
+        self.graph.create(Relationship(alice, "KNOWS", Node("Person", name="Bob")))
+        bob = Node("Person", name="Bob")
+        ab = Relationship(alice, "KNOWS", bob)
+        old_order = order(self.graph)
+        old_size = size(self.graph)
+        self.graph.begin(autocommit=True).merge(ab)
+        assert alice.resource
+        assert bob.resource
+        assert ab.resource
+        assert self.graph.exists(alice | bob | ab)
+        new_order = order(self.graph)
+        new_size = size(self.graph)
+        assert new_order == old_order
+        assert new_size == old_size

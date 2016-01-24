@@ -557,7 +557,7 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        self.begin(autocommit=True).delete_all()
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -1224,7 +1224,10 @@ class Transaction(object):
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
-    def merge(self, walkable):
+    def delete_all(self):
+        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+
+    def merge(self, walkable, label=None, *property_keys):
         if not isinstance(walkable, Walkable):
             raise ValueError("Object %r is not walkable" % walkable)
         if size(walkable) == 0 and walkable.start_node().resource:
@@ -1246,9 +1249,23 @@ class Transaction(object):
                     pattern.append("(%s)" % node_id)
                     parameters[param_id] = entity.resource._id
                 else:
-                    label_string = "".join(":" + cypher_escape(label)
-                                           for label in sorted(entity.labels()))
-                    property_map_string = cypher_repr(dict(entity))
+                    if label is None:
+                        label_string = "".join(":" + cypher_escape(label)
+                                               for label in sorted(entity.labels()))
+                    elif entity.labels():
+                        label_string = ":" + cypher_escape(label)
+                        writes.append("SET %s%s" % (
+                            node_id, "".join(":" + cypher_escape(label)
+                                             for label in sorted(entity.labels()))))
+                    else:
+                        label_string = ""
+                    if property_keys:
+                        property_map_string = cypher_repr({k: v for k, v in dict(entity).items()
+                                                           if k in property_keys})
+                        writes.append("SET %s={%s}" % (node_id, param_id))
+                        parameters[param_id] = dict(entity)
+                    else:
+                        property_map_string = cypher_repr(dict(entity))
                     pattern.append("(%s%s %s)" % (node_id, label_string, property_map_string))
                     entity._set_resource_pending(self)
                 returns[node_id] = node = entity
