@@ -482,45 +482,26 @@ class Graph(object):
             return HTTPTransaction(self, autocommit)
 
     def create(self, subgraph):
-        """ Create remote copies of a set of nodes and relationships in a
-        single transaction.
-
-        For example, to create a remote node from a local :class:`.Node` object::
-
-            >>> from py2neo import Graph, Node
-            >>> g = Graph()
-            >>> a = Node("Person", name="Alice", age=33)
-            >>> g.create(a)
-            >>> a.resource
-            EntityResource('http://localhost:7474/db/data/node/1')
-
-        Multiple entities can be combined into a single :class:`.Subgraph` using
-        the union operator::
-
-            >>> b = Node("Person", name="Bob")
-            >>> c = Node("Person", name="Carol")
-            >>> d = Node("Person", name="Dave")
-            >>> g.create(b | c | d)
-
-        If any part of the subgraph passed to this method is already bound to
-        a remote entity, that entity will be ignored and nothing will be created.
+        """ Create remote nodes and relationships that correspond to those in a
+        local subgraph.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph` object
+                       :class:`.Subgraph`
 
-        .. seealso:: :meth:`py2neo.cypher.Transaction.create`
+        .. seealso::
+            :meth:`Transaction.create`
         """
         self.begin(autocommit=True).create(subgraph)
 
     def create_unique(self, walkable):
-        """ Create remote copies of one or more unique paths or relationships in a
-        single transaction. This method is similar to :meth:`create` but uses a Cypher
-        `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
-        clause to ensure that only relationships that do not already exist are created.
+        """ Create unique remote nodes and relationships that correspond to those
+        in a local walkable object.
 
-        :arg walkable: a :class:`.Walkable` object
+        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Walkable` object
 
-        .. seealso:: :meth:`py2neo.cypher.Transaction.create_unique`
+        .. seealso::
+            :meth:`Transaction.create_unique`
         """
         self.begin(autocommit=True).create_unique(walkable)
 
@@ -531,22 +512,26 @@ class Graph(object):
         return self.resource.dbms
 
     def degree(self, subgraph):
-        """ Return the total degree of all nodes in the subgraph.
+        """ Return the total number of relationships attached to all nodes in
+        a subgraph.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
 
-        .. seealso:: :meth:`py2neo.cypher.Transaction.degree`
+        .. seealso::
+            :meth:`Transaction.degree`
         """
         return self.begin(autocommit=True).degree(subgraph)
 
     def delete(self, subgraph):
-        """ Delete one or more nodes and/or relationships.
+        """ Delete the remote nodes and relationships that correspond to
+        those in a local subgraph.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
 
-        .. seealso:: :meth:`py2neo.cypher.Transaction.delete`
+        .. seealso::
+            :meth:`Transaction.delete`
         """
         self.begin(autocommit=True).delete(subgraph)
 
@@ -557,49 +542,32 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.begin(autocommit=True).delete_all()
+        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
-        the first column of the first record returned.
+        the first column of the first record.
 
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
-        :return: Single return value or :const:`None`.
+        :arg statement: Cypher statement
+        :arg parameters: dictionary of parameters
+        :return: single return value or :const:`None`.
+
+        .. seealso::
+            :meth:`Transaction.evaluate`
         """
         return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
     def exists(self, subgraph):
-        """ Determine whether a number of graph entities all exist within the database.
+        """ Determine whether one or more graph entities all exist within the
+        database.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+
+        .. seealso::
+            :meth:`Transaction.exists`
         """
-        tx = self.begin()
-        cursors = []
-        count = 0
-        try:
-            nodes = subgraph.nodes()
-            relationships = subgraph.relationships()
-        except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        else:
-            for a in nodes:
-                if a.resource:
-                    cursors.append(tx.run("MATCH (a) WHERE id(a)={x} "
-                                          "RETURN count(a)", x=a))
-                    count += 1
-                else:
-                    return False
-            for r in relationships:
-                if r.resource:
-                    cursors.append(tx.run("MATCH ()-[r]->() WHERE id(r)={x} "
-                                          "RETURN count(r)", x=r))
-                    count += 1
-                else:
-                    return False
-        tx.commit()
-        if count == 0:
-            return None
-        else:
-            return sum(cursor.evaluate() for cursor in cursors) == count
+        return self.begin(autocommit=True).exists(subgraph)
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
@@ -750,40 +718,20 @@ class Graph(object):
         else:
             return None
 
-    def merge(self, label, property_key=None, property_value=None, limit=None):
-        """ Match or create a node by label and optional property and return
-        all matching nodes.
+    def merge(self, walkable, label=None, *property_keys):
+        """ Merge remote nodes and relationships that correspond to those in
+        a local walkable. Optionally perform the merge based on a specific
+        label or set of property keys.
+
+        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Walkable` object
+        :arg label: label on which to match any existing nodes
+        :arg property_keys: property keys on which to match any existing nodes
+
+        .. seealso::
+            :meth:`Transaction.merge`
         """
-        if not label:
-            raise ValueError("Empty label")
-        if property_key is None:
-            statement = "MERGE (n:%s) RETURN n" % cypher_escape(label)
-            parameters = {}
-        elif not isinstance(property_key, string):
-            raise TypeError("Property key must be textual")
-        elif property_value is None:
-            raise ValueError("Both key and value must be specified for a property")
-        else:
-            statement = "MERGE (n:%s {%s:{V}}) RETURN n" % (
-                cypher_escape(label), cypher_escape(property_key))
-            parameters = {"V": coerce_property(property_value)}
-        if limit:
-            statement += " LIMIT %s" % limit
-        cursor = self.run(statement, parameters)
-        for record in cursor.collect():
-            yield record[0]
-
-    def merge_one(self, label, property_key=None, property_value=None):
-        """ Match or create a node by label and optional property and return a
-        single matching node. This method is intended to be used with a unique
-        constraint and does not fail if more than one matching node is found.
-
-            >>> graph = Graph()
-            >>> person = graph.merge_one("Person", "email", "bob@example.com")
-
-        """
-        for node in self.merge(label, property_key, property_value, limit=1):
-            return node
+        self.begin(autocommit=True).merge(walkable, label, *property_keys)
 
     @property
     def neo4j_version(self):
@@ -803,8 +751,7 @@ class Graph(object):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            node = self.evaluate("MATCH (a) WHERE id(a)={x} "
-                                        "RETURN a", x=id_)
+            node = self.evaluate("MATCH (a) WHERE id(a)={x} RETURN a", x=id_)
             if node is None:
                 raise IndexError("Node %d not found" % id_)
             else:
@@ -899,21 +846,25 @@ class Graph(object):
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement, ignoring any return value.
+        """ Execute a single Cypher statement.
 
-        :arg statement: A Cypher statement to execute.
-        :arg parameters: A dictionary of parameters.
+        :arg statement: Cypher statement
+        :arg parameters: dictionary of parameters
+
+        .. seealso::
+            :meth:`Transaction.run`
         """
         return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
 
     def separate(self, subgraph):
-        """ Delete one or more relationships. This method is similar to
-        :meth:`delete` but deletes only the relationships.
+        """ Delete the remote relationships that correspond to those
+        in a local subgraph.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph` object
+                       :class:`.Subgraph`
 
-        .. seealso:: :meth:`py2neo.cypher.Transaction.separate`
+        .. seealso::
+            :meth:`Transaction.separate`
         """
         self.begin(autocommit=True).separate(subgraph)
 
@@ -921,7 +872,7 @@ class Graph(object):
     def schema(self):
         """ The schema resource for this graph.
 
-        :rtype: :class:`SchemaResource <py2neo.schema.SchemaResource>`
+        :rtype: :class:`Schema`
         """
         if self.__schema is None:
             self.__schema = Schema(self.uri.string + "schema")
@@ -1054,8 +1005,8 @@ class Transaction(object):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :arg statement: the statement to append
-        :arg parameters: a dictionary of execution parameters
+        :arg statement: Cypher statement
+        :arg parameters: dictionary of parameters
         """
         raise NotImplementedError("%s.run" % self.__class__.__name__)
 
@@ -1093,9 +1044,22 @@ class Transaction(object):
         raise NotImplementedError("%s.rollback" % self.__class__.__name__)
 
     def evaluate(self, statement, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement and return the value from
+        the first column of the first record.
+
+        :arg statement: Cypher statement
+        :arg parameters: dictionary of parameters
+        :return: single return value or :const:`None`
+        """
         return self.run(statement, parameters, **kwparameters).evaluate(0)
 
     def create(self, subgraph):
+        """ Create remote nodes and relationships that correspond to those in a
+        local subgraph.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
         try:
             nodes = list(subgraph.nodes())
             relationships = list(subgraph.relationships())
@@ -1135,6 +1099,14 @@ class Transaction(object):
         self.run(statement, parameters)
 
     def create_unique(self, walkable):
+        """ Create unique remote nodes and relationships that correspond to those
+        in a local walkable object. This method is similar to :meth:`create` but
+        uses a Cypher `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
+        clause to ensure that only relationships that do not already exist are created.
+
+        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Walkable` object
+        """
         from py2neo.types import Walkable
         if not isinstance(walkable, Walkable):
             raise ValueError("Object %r is not walkable" % walkable)
@@ -1181,6 +1153,12 @@ class Transaction(object):
         self.run(statement, parameters)
 
     def degree(self, subgraph):
+        """ Return the total number of relationships attached to all nodes in
+        a subgraph.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
         try:
             nodes = list(subgraph.nodes())
         except AttributeError:
@@ -1190,11 +1168,17 @@ class Transaction(object):
             resource = node.resource
             if resource:
                 node_ids.append(resource._id)
-        statement = "MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
+        statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
         parameters = {"x": node_ids}
         return self.evaluate(statement, parameters)
 
     def delete(self, subgraph):
+        """ Delete the remote nodes and relationships that correspond to
+        those in a local subgraph.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
         try:
             nodes = list(subgraph.nodes())
             relationships = list(subgraph.relationships())
@@ -1224,10 +1208,48 @@ class Transaction(object):
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
 
-    def delete_all(self):
-        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+    def exists(self, subgraph):
+        """ Determine whether one or more graph entities all exist within the
+        database.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
+        try:
+            nodes = list(subgraph.nodes())
+            relationships = list(subgraph.relationships())
+        except AttributeError:
+            raise TypeError("Object %r is not graphy" % subgraph)
+        node_ids = set()
+        relationship_ids = set()
+        for i, node in enumerate(nodes):
+            resource = node.resource
+            if resource:
+                node_ids.add(resource._id)
+            else:
+                return False
+        for i, relationship in enumerate(relationships):
+            resource = relationship.resource
+            if resource:
+                relationship_ids.add(resource._id)
+            else:
+                return False
+        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
+                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
+                     "RETURN count(DISTINCT a) + count(DISTINCT r)")
+        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+        return self.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def merge(self, walkable, label=None, *property_keys):
+        """ Merge remote nodes and relationships that correspond to those in
+        a local walkable. Optionally perform the merge based on a specific
+        label or set of property keys.
+
+        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Walkable` object
+        :arg label: label on which to match any existing nodes
+        :arg property_keys: property keys on which to match any existing nodes
+        """
         if not isinstance(walkable, Walkable):
             raise ValueError("Object %r is not walkable" % walkable)
         if size(walkable) == 0 and walkable.start_node().resource:
@@ -1286,11 +1308,17 @@ class Transaction(object):
         self.entities.append(returns)
         self.run(statement, parameters)
 
-    def separate(self, g):
+    def separate(self, subgraph):
+        """ Delete the remote relationships that correspond to those
+        in a local subgraph.
+
+        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
         try:
-            relationships = list(g.relationships())
+            relationships = list(subgraph.relationships())
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % g)
+            raise TypeError("Object %r is not graphy" % subgraph)
         matches = []
         deletes = []
         parameters = {}

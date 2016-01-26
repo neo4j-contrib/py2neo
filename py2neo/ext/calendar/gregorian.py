@@ -45,7 +45,8 @@ class GregorianCalendar(object):
                     pass
                 else:
                     raise
-            inst.root = inst.graph.merge_one("Calendar", "name", "Gregorian")
+            inst.root = Node("Calendar", name="Gregorian")
+            inst.graph.merge(inst.root)
             cls.__instances[graph] = inst
         return inst
 
