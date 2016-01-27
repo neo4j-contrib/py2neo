@@ -133,3 +133,23 @@ class HydrationTestCase(Py2neoTestCase):
         assert dict(hydrated) == dehydrated["data"]
         assert hydrated.remote
         assert hydrated.remote.uri == dehydrated["self"]
+
+    def test_path_hydration_without_directions(self):
+        a = Node()
+        b = Node()
+        c = Node()
+        ab = Relationship(a, "KNOWS", b)
+        cb = Relationship(c, "KNOWS", b)
+        path = Path(a, ab, b, cb, c)
+        self.graph.create(path)
+        dehydrated = {
+            "nodes": [a.remote.uri.string, b.remote.uri.string, c.remote.uri.string],
+            "relationships": [ab.remote.uri.string, cb.remote.uri.string],
+        }
+        hydrated = self.graph.hydrate(dehydrated)
+        assert isinstance(hydrated, Path)
+
+    def test_list_hydration(self):
+        dehydrated = [1, 2, 3]
+        hydrated = self.graph.hydrate(dehydrated)
+        assert hydrated == [1, 2, 3]
