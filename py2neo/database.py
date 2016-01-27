@@ -1055,7 +1055,23 @@ class Transaction(object):
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a
-        local subgraph.
+        local subgraph. Any entities in *subgraph* that are already bound to
+        remote entities will remain unchanged, those which are not will become
+        bound to their newly-created counterparts.
+
+        For example::
+
+            >>> from py2neo import Graph, Node, Relationship
+            >>> g = Graph()
+            >>> tx = g.begin()
+            >>> a = Node("Person", name="Alice")
+            >>> tx.create(a)
+            >>> b = Node("Person", name="Bob")
+            >>> ab = Relationship(a, "KNOWS", b)
+            >>> tx.create(ab)
+            >>> tx.commit()
+            >>> g.exists(ab)
+            True
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
@@ -1107,7 +1123,6 @@ class Transaction(object):
         :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Walkable` object
         """
-        from py2neo.types import Walkable
         if not isinstance(walkable, Walkable):
             raise ValueError("Object %r is not walkable" % walkable)
         if not any(node.resource for node in walkable.nodes()):
@@ -1158,6 +1173,7 @@ class Transaction(object):
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
+        :return: the total number of distinct relationships
         """
         try:
             nodes = list(subgraph.nodes())
@@ -1210,10 +1226,12 @@ class Transaction(object):
 
     def exists(self, subgraph):
         """ Determine whether one or more graph entities all exist within the
-        database.
+        database. Note that if any nodes or relationships in *subgraph* are not
+        bound to remote counterparts, this method will return ``False``.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
+        :return: ``True`` if all entities exist remotely, ``False`` otherwise
         """
         try:
             nodes = list(subgraph.nodes())
@@ -1242,7 +1260,7 @@ class Transaction(object):
 
     def merge(self, walkable, label=None, *property_keys):
         """ Merge remote nodes and relationships that correspond to those in
-        a local walkable. Optionally perform the merge based on a specific
+        a local walkable object. Optionally perform the merge based on a specific
         label or set of property keys.
 
         :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
@@ -1309,8 +1327,8 @@ class Transaction(object):
         self.run(statement, parameters)
 
     def separate(self, subgraph):
-        """ Delete the remote relationships that correspond to those
-        in a local subgraph.
+        """ Delete the remote relationships that correspond to those in a local
+        subgraph. This leaves any nodes in *subgraph* untouched.
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
