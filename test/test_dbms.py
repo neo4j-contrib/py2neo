@@ -25,6 +25,7 @@ class DBMSTestCase(Py2neoTestCase):
     def test_can_create_dbms_with_trailing_slash(self):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri)
+        assert repr(dbms).startswith("<DBMS")
         assert dbms.uri == uri
         index = dbms.remote.get().content
         assert "data" in index
@@ -47,14 +48,26 @@ class DBMSTestCase(Py2neoTestCase):
         dbms_1 = DBMS(uri)
         dbms_2 = DBMS(uri)
         assert dbms_1 == dbms_2
+        assert hash(dbms_1) == hash(dbms_2)
 
     def test_dbms_inequality(self):
         uri = "http://localhost:7474/"
         dbms_1 = DBMS(uri)
         dbms_2 = DBMS("http://remotehost:7474/")
         assert dbms_1 != dbms_2
+        assert hash(dbms_1) != hash(dbms_2)
 
-    def test_dbms_is_not_equal_to_non_dbms(v):
+    def test_dbms_is_not_equal_to_non_dbms(self):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri)
         assert dbms != object()
+
+    def test_dbms_metadata(self):
+        assert self.dbms.kernel_start_time()
+        assert self.dbms.kernel_version()
+        assert self.dbms.store_creation_time()
+        assert self.dbms.store_directory()
+        assert self.dbms.store_id()
+        assert self.dbms.primitive_counts()
+        assert self.dbms.store_file_sizes()
+        assert self.dbms.config()

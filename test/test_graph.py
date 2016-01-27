@@ -175,3 +175,9 @@ class GraphTestCase(Py2neoTestCase):
         self.graph.create(a)
         assert a["foo"] == "bar"
         assert a["no-foo"] is None
+
+    def test_cannot_use_unbound_entity_as_parameter(self):
+        from py2neo.database import normalise_request
+        with self.assertRaises(TypeError):
+            a = Node()
+            normalise_request("", {"x": a})

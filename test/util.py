@@ -34,6 +34,7 @@ class Py2neoTestCase(TestCase):
     def __init__(self, *args, **kwargs):
         super(Py2neoTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
+        self.dbms = self.graph.dbms
         self.schema = self.graph.schema
         self.index_manager = ManualIndexManager(self.graph)
         self.unique_string = unique_string_generator()

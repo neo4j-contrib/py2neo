@@ -27,12 +27,12 @@ from warnings import warn
 import webbrowser
 
 from py2neo import PRODUCT, __email__
-from py2neo.compat import integer, string, ustr
-from py2neo.types import coerce_property, Node, Relationship, Path, cast_node, Record, \
+from py2neo.compat import integer, ustr
+from py2neo.types import Node, Relationship, Path, cast_node, Record, \
     cypher_escape, walk, size, Walkable, cypher_repr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
-from py2neo.packages.httpstream import Response as HTTPResponse, get
+from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.packages.neo4j.v1 import GraphDatabase
@@ -141,7 +141,7 @@ class DBMS(object):
                 user_name, password = NEO4J_AUTH.partition(":")[0::2]
                 authenticate(URI(uri).host_port, user_name, password)
             inst = super(DBMS, cls).__new__(cls)
-            inst.__remote = Resource(uri)
+            inst.remote = Resource(uri)
             inst.__graph = None
             cls.__instances[uri] = inst
         return inst
@@ -180,29 +180,25 @@ class DBMS(object):
     def raw_system_info(self):
         """ Obtain a dictionary of system information.
         """
-        return get(self.uri.string + "db/manage/server/jmx/domain/org.neo4j").content
+        return Resource(self.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
 
     def _bean_dict(self, name):
         info = self.raw_system_info()
-        try:
-            raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
-        except IndexError:
-            raise RuntimeError("Unable to obtain information")
-        else:
-            d = {}
-            for attribute in raw_config["attributes"]:
-                name = attribute["name"]
-                value = attribute.get("value")
-                if value == "true":
-                    d[name] = True
-                elif value == "false":
-                    d[name] = False
-                else:
-                    try:
-                        d[name] = int(value)
-                    except (TypeError, ValueError):
-                        d[name] = value
-            return d
+        raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
+        d = {}
+        for attribute in raw_config["attributes"]:
+            name = attribute["name"]
+            value = attribute.get("value")
+            if value == "true":
+                d[name] = True
+            elif value == "false":
+                d[name] = False
+            else:
+                try:
+                    d[name] = int(value)
+                except (TypeError, ValueError):
+                    d[name] = value
+        return d
 
     def kernel_start_time(self):
         """ Return the time from which this Neo4j instance was in operational mode.
@@ -252,10 +248,6 @@ class DBMS(object):
         configure Neo4j.
         """
         return self._bean_dict("Configuration")
-
-    @property
-    def remote(self):
-        return self.__remote
 
     @property
     def uri(self):
