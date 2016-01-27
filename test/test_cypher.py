@@ -34,7 +34,7 @@ class CypherTestCase(Py2neoTestCase):
         self.alice_and_bob = (a, b, ab)
 
     def test_can_get_list_of_records(self):
-        records = list(self.graph.run("RETURN 1").collect())
+        records = list(self.graph.run("RETURN 1").stream())
         assert len(records) == 1
         first = records[0]
         assert len(first) == 1
@@ -43,7 +43,7 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_can_cursor_through_records(self):
         cursor = self.graph.run("RETURN 1")
-        for record in cursor.collect():
+        for record in cursor.stream():
             assert record.values() == (1,)
 
     def test_can_run_cypher_statement(self):
@@ -102,13 +102,13 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_can_run_statement(self):
         cursor = self.graph.run("CREATE (a {name:'Alice'}) RETURN a.name AS name")
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         assert records[0]["name"] == "Alice"
 
     def test_can_run_with_parameter(self):
         cursor = self.graph.run("CREATE (a {name:{x}}) RETURN a.name AS name", x="Alice")
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         assert records[0]["name"] == "Alice"
 
@@ -117,7 +117,7 @@ class CypherTestCase(Py2neoTestCase):
         self.graph.create(alice)
         statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
         cursor = self.graph.run(statement, {"N": alice})
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         assert records[0]["name"] == "Alice"
 
@@ -141,7 +141,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
         cursor = self.graph.run(statement, {"A": a, "B": b})
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
@@ -157,7 +157,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
         cursor = self.graph.run(statement, {"A": a, "B": b})
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         for record in records:
             assert isinstance(record["p"], Path)
@@ -553,7 +553,7 @@ class CypherOverHTTPTestCase(Py2neoTestCase):
         tx = HTTPTransaction(self.graph)
         cursor = tx.run("CREATE (a:Person {name:'Alice'}) RETURN a")
         tx.commit()
-        result = list(cursor.collect())
+        result = list(cursor.stream())
         assert len(result) == 1
         assert len(result[0]) == 1
         a = result[0][0]

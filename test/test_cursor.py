@@ -117,45 +117,45 @@ class CursorSelectionTestCase(Py2neoTestCase):
             assert n_sq == i * i
 
 
-class CursorCollectionTestCase(Py2neoTestCase):
+class CursorStreamingTestCase(Py2neoTestCase):
 
-    def test_collect_yields_all(self):
+    def test_stream_yields_all(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        collected = list(cursor.collect())
-        assert collected == [Record(["n", "n_sq"], [1, 1]),
-                             Record(["n", "n_sq"], [2, 4]),
-                             Record(["n", "n_sq"], [3, 9]),
-                             Record(["n", "n_sq"], [4, 16]),
-                             Record(["n", "n_sq"], [5, 25]),
-                             Record(["n", "n_sq"], [6, 36]),
-                             Record(["n", "n_sq"], [7, 49]),
-                             Record(["n", "n_sq"], [8, 64]),
-                             Record(["n", "n_sq"], [9, 81]),
-                             Record(["n", "n_sq"], [10, 100])]
+        record_list = list(cursor.stream())
+        assert record_list == [Record(["n", "n_sq"], [1, 1]),
+                               Record(["n", "n_sq"], [2, 4]),
+                               Record(["n", "n_sq"], [3, 9]),
+                               Record(["n", "n_sq"], [4, 16]),
+                               Record(["n", "n_sq"], [5, 25]),
+                               Record(["n", "n_sq"], [6, 36]),
+                               Record(["n", "n_sq"], [7, 49]),
+                               Record(["n", "n_sq"], [8, 64]),
+                               Record(["n", "n_sq"], [9, 81]),
+                               Record(["n", "n_sq"], [10, 100])]
 
-    def test_collect_with_specific_fields(self):
+    def test_stream_with_specific_fields(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        collected = list(cursor.collect("n_sq"))
-        assert collected == [Record(["n_sq"], [1]),
-                             Record(["n_sq"], [4]),
-                             Record(["n_sq"], [9]),
-                             Record(["n_sq"], [16]),
-                             Record(["n_sq"], [25]),
-                             Record(["n_sq"], [36]),
-                             Record(["n_sq"], [49]),
-                             Record(["n_sq"], [64]),
-                             Record(["n_sq"], [81]),
-                             Record(["n_sq"], [100])]
+        record_list = list(cursor.stream("n_sq"))
+        assert record_list == [Record(["n_sq"], [1]),
+                               Record(["n_sq"], [4]),
+                               Record(["n_sq"], [9]),
+                               Record(["n_sq"], [16]),
+                               Record(["n_sq"], [25]),
+                               Record(["n_sq"], [36]),
+                               Record(["n_sq"], [49]),
+                               Record(["n_sq"], [64]),
+                               Record(["n_sq"], [81]),
+                               Record(["n_sq"], [100])]
 
-    def test_collect_yields_remainder(self):
+    def test_stream_yields_remainder(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         cursor.move(5)
-        collected = list(cursor.collect())
-        assert collected == [Record(["n", "n_sq"], [6, 36]),
-                             Record(["n", "n_sq"], [7, 49]),
-                             Record(["n", "n_sq"], [8, 64]),
-                             Record(["n", "n_sq"], [9, 81]),
-                             Record(["n", "n_sq"], [10, 100])]
+        record_list = list(cursor.stream())
+        assert record_list == [Record(["n", "n_sq"], [6, 36]),
+                               Record(["n", "n_sq"], [7, 49]),
+                               Record(["n", "n_sq"], [8, 64]),
+                               Record(["n", "n_sq"], [9, 81]),
+                               Record(["n", "n_sq"], [10, 100])]
 
 
 class CursorEvaluationTestCase(Py2neoTestCase):

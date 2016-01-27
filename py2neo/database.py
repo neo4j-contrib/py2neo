@@ -1550,7 +1550,7 @@ class Cursor(object):
         else:
             return None
 
-    def collect(self, *keys):
+    def stream(self, *keys):
         """ Consume and yield all remaining records.
 
         :param keys:
@@ -1585,7 +1585,7 @@ class Cursor(object):
         """
         if out is None:
             out = stdout
-        records = list(self.collect())
+        records = list(self.stream())
         keys = self._keys
         widths = [len(key) for key in keys]
         for record in records:

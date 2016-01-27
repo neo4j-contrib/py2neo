@@ -29,7 +29,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert not tx.finished()
         cursor = tx.run("CREATE (a) RETURN a")
         tx.commit()
-        records = list(cursor.collect())
+        records = list(cursor.stream())
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
@@ -49,7 +49,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         cursor_3 = tx.run("CREATE (a) RETURN a")
         tx.commit()
         for cursor in (cursor_1, cursor_2, cursor_3):
-            records = list(cursor.collect())
+            records = list(cursor.stream())
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
@@ -66,7 +66,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             tx.process()
             assert tx._id is not None or self.graph.supports_bolt()
             for cursor in (cursor_1, cursor_2, cursor_3):
-                records = list(cursor.collect())
+                records = list(cursor.stream())
                 assert len(records) == 1
                 for record in records:
                     assert isinstance(record["a"], Node)
@@ -83,7 +83,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             tx.process()
             assert tx._id is not None or self.graph.supports_bolt()
             for cursor in (cursor_1, cursor_2, cursor_3):
-                records = list(cursor.collect())
+                records = list(cursor.stream())
                 assert len(records) == 1
                 for record in records:
                     assert isinstance(record["a"], Node)
