@@ -45,7 +45,7 @@ package_metadata = {
     "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
-            "py2neo = py2neo.database:main",
+            "py2neo = py2neo.__init__:main",
             "neoauth = py2neo.password:main",
             "neoget = py2neo.server:main",
             "geoff = py2neo.ext.geoff.__main__:main",
