@@ -29,7 +29,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         alice = Node("Person", name="Alice")
         old_order = order(self.graph)
         self.graph.merge(alice)
-        assert alice.resource
+        assert alice.remote
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order + 1
@@ -39,7 +39,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         alice = Node("Person", name="Alice")
         old_order = order(self.graph)
         self.graph.merge(alice)
-        assert alice.resource
+        assert alice.remote
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order
@@ -48,7 +48,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert alice.resource
+        assert alice.remote
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order + 1
@@ -58,7 +58,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert alice.resource
+        assert alice.remote
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order
@@ -68,7 +68,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert alice.resource
+        assert alice.remote
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order
@@ -80,9 +80,9 @@ class TransactionMergeTestCase(Py2neoTestCase):
         old_order = order(self.graph)
         old_size = size(self.graph)
         self.graph.merge(ab)
-        assert alice.resource
-        assert bob.resource
-        assert ab.resource
+        assert alice.remote
+        assert bob.remote
+        assert ab.remote
         assert self.graph.exists(alice | bob | ab)
         new_order = order(self.graph)
         new_size = size(self.graph)
@@ -97,9 +97,9 @@ class TransactionMergeTestCase(Py2neoTestCase):
         old_order = order(self.graph)
         old_size = size(self.graph)
         self.graph.merge(ab)
-        assert alice.resource
-        assert bob.resource
-        assert ab.resource
+        assert alice.remote
+        assert bob.remote
+        assert ab.remote
         assert self.graph.exists(alice | bob | ab)
         new_order = order(self.graph)
         new_size = size(self.graph)
@@ -114,9 +114,9 @@ class TransactionMergeTestCase(Py2neoTestCase):
         old_order = order(self.graph)
         old_size = size(self.graph)
         self.graph.merge(ab)
-        assert alice.resource
-        assert bob.resource
-        assert ab.resource
+        assert alice.remote
+        assert bob.remote
+        assert ab.remote
         assert self.graph.exists(alice | bob | ab)
         new_order = order(self.graph)
         new_size = size(self.graph)

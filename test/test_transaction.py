@@ -108,7 +108,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
         a = Node("Person", name="Alice")
         with self.graph.begin() as tx:
             tx.create(a)
-        assert a.resource
+        assert a.remote
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
@@ -116,9 +116,9 @@ class TransactionCreateTestCase(Py2neoTestCase):
         r = Relationship(a, "KNOWS", b, since=1999)
         with self.graph.begin() as tx:
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -132,9 +132,9 @@ class TransactionCreateTestCase(Py2neoTestCase):
             tx.process()
             r = Relationship(a, "KNOWS", b, since=1999)
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert r.start_node() == a
         assert r.end_node() == b
         assert order(self.graph) == 2
@@ -149,9 +149,9 @@ class TransactionCreateTestCase(Py2neoTestCase):
             tx.create(b)
             r = Relationship(a, "KNOWS", b, since=1999)
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert r.start_node() == a
         assert r.end_node() == b
         assert order(self.graph) == 2
@@ -166,9 +166,9 @@ class TransactionCreateTestCase(Py2neoTestCase):
             tx.create(a)
             tx.create(b)
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert r.start_node() == a
         assert r.end_node() == b
         assert order(self.graph) == 2
@@ -184,16 +184,16 @@ class TransactionCreateTestCase(Py2neoTestCase):
             bc = Relationship(b, "TO", c)
             ca = Relationship(c, "TO", a)
             tx.create(ab | bc | ca)
-        assert a.resource
-        assert b.resource
-        assert c.resource
-        assert ab.resource
+        assert a.remote
+        assert b.remote
+        assert c.remote
+        assert ab.remote
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert bc.resource
+        assert bc.remote
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert ca.resource
+        assert ca.remote
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert order(self.graph) == 3
@@ -206,16 +206,16 @@ class TransactionCreateTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         with self.graph.begin() as tx:
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert order(self.graph) == 2
         assert size(self.graph) == 1
         with self.graph.begin() as tx:
             tx.create(r)
-        assert a.resource
-        assert b.resource
-        assert r.resource
+        assert a.remote
+        assert b.remote
+        assert r.remote
         assert order(self.graph) == 2
         assert size(self.graph) == 1
 
@@ -236,8 +236,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         with self.graph.begin() as tx:
             tx.create_unique(ac)
         assert c != self.b
-        assert c.resource
-        assert ac.resource
+        assert c.remote
+        assert ac.remote
         assert ac.start_node() == self.a
         assert ac.end_node() == c
         assert order(self.graph) == 3
@@ -248,10 +248,10 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         ab = Relationship(self.a, "KNOWS", b)
         with self.graph.begin() as tx:
             tx.create_unique(ab)
-        assert b.resource._id == self.b.resource._id
-        assert ab.resource._id == self.ab.resource._id
-        assert b.resource
-        assert ab.resource
+        assert b.remote._id == self.b.remote._id
+        assert ab.remote._id == self.ab.remote._id
+        assert b.remote
+        assert ab.remote
         assert ab.start_node() == self.a
         assert ab.end_node() == b
         assert order(self.graph) == 2
@@ -262,8 +262,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         bc = Relationship(self.b, "KNOWS", c)
         with self.graph.begin() as tx:
             tx.create_unique(self.ab + bc)
-        assert c.resource
-        assert bc.resource
+        assert c.remote
+        assert bc.remote
         assert bc.start_node() == self.b
         assert bc.end_node() == c
         assert order(self.graph) == 3
@@ -274,8 +274,8 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
         cb = Relationship(c, "KNOWS", self.b)
         with self.graph.begin() as tx:
             tx.create_unique(self.ab + cb)
-        assert c.resource
-        assert cb.resource
+        assert c.remote
+        assert cb.remote
         assert cb.start_node() == c
         assert cb.end_node() == self.b
         assert order(self.graph) == 3

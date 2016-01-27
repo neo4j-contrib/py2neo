@@ -27,7 +27,7 @@ class ServerPlugin(object):
     def __init__(self, graph, name):
         self.graph = graph
         self.name = name
-        extensions = self.graph.resource.metadata["extensions"]
+        extensions = self.graph.remote.metadata["extensions"]
         try:
             self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
         except KeyError:
@@ -40,9 +40,9 @@ class UnmanagedExtension(object):
 
     def __init__(self, graph, path):
         self.graph = graph
-        self.resource = Resource(graph.dbms.uri.resolve(path))
+        self.remote = Resource(graph.dbms.uri.resolve(path))
         try:
-            self.resource.get()
+            self.remote.get()
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
                                       "graph <%s>" % (path, graph.uri))

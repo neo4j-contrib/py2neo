@@ -476,8 +476,8 @@ class PropertyDict(dict):
             self[key] = value
 
 
-class EntityResource(Resource):
-    """ A web resource that represents a graph database entity.
+class RemoteEntity(Resource):
+    """ A handle to a remote entity in a graph database.
     """
 
     def __init__(self, uri, metadata=None):
@@ -485,14 +485,17 @@ class EntityResource(Resource):
         self.ref = self.uri.string[len(self.graph.uri.string):]
         self._id = int(self.ref.rpartition("/")[2])
 
+    def __repr__(self):
+        return "<%s graph=%r ref=%r>" % (self.__class__.__name__, self.graph.uri.string, self.ref)
+
 
 class Entity(PropertyDict, Walkable):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    _resource = None
-    _resource_pending_tx = None
+    _remote = None
+    _remote_pending_tx = None
 
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
@@ -514,25 +517,25 @@ class Entity(PropertyDict, Walkable):
     def __nonzero__(self):
         return len(self) > 0
 
-    def _set_resource_pending(self, tx):
-        self._resource_pending_tx = tx
+    def _set_remote_pending(self, tx):
+        self._remote_pending_tx = tx
 
-    def _set_resource(self, uri, metadata=None):
-        self._resource = EntityResource(uri, metadata)
-        self._resource_pending_tx = None
+    def _set_remote(self, uri, metadata=None):
+        self._remote = RemoteEntity(uri, metadata)
+        self._remote_pending_tx = None
 
-    def _del_resource(self):
-        self._resource = None
-        self._resource_pending_tx = None
+    def _del_remote(self):
+        self._remote = None
+        self._remote_pending_tx = None
 
     @property
-    def resource(self):
+    def remote(self):
         """ Remote resource with which this entity is associated.
         """
-        if self._resource_pending_tx:
-            self._resource_pending_tx.process()
-            self._resource_pending_tx = None
-        return self._resource
+        if self._remote_pending_tx:
+            self._remote_pending_tx.process()
+            self._remote_pending_tx = None
+        return self._remote
 
 
 class Relatable(object):
@@ -598,7 +601,7 @@ class Node(Relatable, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
-        inst._set_resource(self, data)
+        inst._set_remote(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
             inst.clear()
@@ -624,8 +627,8 @@ class Node(Relatable, Entity):
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
-        if self.resource and other.resource:
-            return self.resource == other.resource
+        if self.remote and other.remote:
+            return self.remote == other.remote
         else:
             return self is other
 
@@ -633,27 +636,27 @@ class Node(Relatable, Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.resource:
-            return hash(self.resource.uri)
+        if self.remote:
+            return hash(self.remote.uri)
         else:
             return hash(id(self))
 
     def __getitem__(self, item):
-        if self.resource and "properties" in self.__stale:
-            self.resource.graph.pull(self)
+        if self.remote and "properties" in self.__stale:
+            self.remote.graph.pull(self)
         return Entity.__getitem__(self, item)
 
     @deprecated("Node.degree() is deprecated, use graph.degree(node) instead")
     def degree(self):
-        return self.resource.graph.degree(self)
+        return self.remote.graph.degree(self)
 
     @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
     def exists(self):
-        return self.resource.graph.exists(self)
+        return self.remote.graph.exists(self)
 
     def __ensure_labels(self):
-        if self.resource and "labels" in self.__stale:
-            self.resource.graph.pull(self)
+        if self.remote and "labels" in self.__stale:
+            self.remote.graph.pull(self)
 
     def labels(self):
         """ Set of all node labels.
@@ -683,37 +686,37 @@ class Node(Relatable, Entity):
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
-        return self.resource.graph.match(self, rel_type, other_node, True, limit)
+        return self.remote.graph.match(self, rel_type, other_node, True, limit)
 
     @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
     def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        return self.resource.graph.match(start_node, rel_type, self, False, limit)
+        return self.remote.graph.match(start_node, rel_type, self, False, limit)
 
     @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
     def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        return self.resource.graph.match(self, rel_type, end_node, False, limit)
+        return self.remote.graph.match(self, rel_type, end_node, False, limit)
 
     @property
     @deprecated("Node.properties is deprecated, use dict(node) instead")
     def properties(self):
-        if self.resource and "properties" in self.__stale:
-            self.resource.graph.pull(self)
+        if self.remote and "properties" in self.__stale:
+            self.remote.graph.pull(self)
         return dict(self)
 
     @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
     def pull(self):
-        self.resource.graph.pull(self)
+        self.remote.graph.pull(self)
 
     @deprecated("Node.push() is deprecated, use graph.push(node) instead")
     def push(self):
-        self.resource.graph.push(self)
+        self.remote.graph.push(self)
 
-    def _del_resource(self):
+    def _del_remote(self):
         try:
-            del self.cache[self.resource.uri]
+            del self.cache[self.remote.uri]
         except KeyError:
             pass
-        Entity._del_resource(self)
+        Entity._del_remote(self)
 
 
 class Relationship(Entity):
@@ -774,7 +777,7 @@ class Relationship(Entity):
             else:
                 inst.__stale.add("properties")
         cls.cache[self] = inst
-        inst._set_resource(self, data)
+        inst._set_remote(self, data)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -831,8 +834,8 @@ class Relationship(Entity):
         except TypeError:
             return False
         else:
-            if self.resource and other.resource:
-                return self.resource == other.resource
+            if self.remote and other.remote:
+                return self.remote == other.remote
             try:
                 return (self.nodes() == other.nodes() and size(other) == 1 and
                         self.type() == other.type() and dict(self) == dict(other))
@@ -848,39 +851,39 @@ class Relationship(Entity):
     @deprecated("Relationship.exists() is deprecated, "
                 "use graph.exists(relationship) instead")
     def exists(self):
-        return self.resource.graph.exists(self)
+        return self.remote.graph.exists(self)
 
     @property
     @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
     def properties(self):
-        if self.resource and "properties" in self.__stale:
-            self.resource.graph.pull(self)
+        if self.remote and "properties" in self.__stale:
+            self.remote.graph.pull(self)
         return dict(self)
 
     @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
     def pull(self):
-        self.resource.graph.pull(self)
+        self.remote.graph.pull(self)
 
     @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
     def push(self):
-        self.resource.graph.push(self)
+        self.remote.graph.push(self)
 
     def type(self):
         """ The type of this relationship.
         """
-        if self.resource and self._type is None:
-            self.resource.graph.pull(self)
+        if self.remote and self._type is None:
+            self.remote.graph.pull(self)
         return self._type
 
-    def _del_resource(self):
+    def _del_remote(self):
         """ Detach this relationship and its start and end
         nodes from any remote counterparts.
         """
         try:
-            del self.cache[self.resource.uri]
+            del self.cache[self.remote.uri]
         except KeyError:
             pass
-        Entity._del_resource(self)
+        Entity._del_remote(self)
 
 
 class Path(Walkable):

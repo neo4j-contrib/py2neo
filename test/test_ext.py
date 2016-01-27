@@ -37,9 +37,9 @@ class NaughtyPlugin(ServerPlugin):
 class ServerPluginTestCase(Py2neoTestCase):
 
     def test_can_init_server_plugin(self):
-        metadata = self.graph.resource.metadata
+        metadata = self.graph.remote.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.resource = Resource(self.graph.uri, metadata)
+        self.graph.remote = Resource(self.graph.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 
@@ -65,7 +65,7 @@ class UnmanagedExtensionTestCase(Py2neoTestCase):
     def test_can_init_unmanaged_extension(self):
         with patch("py2neo.http.Resource.get"):
             plugin = FakeExtension(self.graph)
-            assert plugin.resource.uri == "http://localhost:7474/fake/"
+            assert plugin.remote.uri == "http://localhost:7474/fake/"
 
     def test_cannot_init_non_existent_server_plugin(self):
         with self.assertRaises(NotImplementedError):

@@ -37,13 +37,13 @@ class GeoffLoader(UnmanagedExtension):
 
     def __init__(self, graph, path=DEFAULT_PATH):
         UnmanagedExtension.__init__(self, graph, path)
-        self.geoff_loader = Resource(self.resource.metadata["geoff_loader"])
+        self.geoff_loader = Resource(self.remote.metadata["geoff_loader"])
 
     @property
     def load2neo_version(self):
         """ The version of server extension currently installed.
         """
-        return version_tuple(self.resource.metadata["load2neo_version"])
+        return version_tuple(self.remote.metadata["load2neo_version"])
 
     def load(self, string):
         """ Load Geoff data from a string.

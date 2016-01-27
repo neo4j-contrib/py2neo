@@ -28,7 +28,7 @@ class PullTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert set(local.labels()) == set()
         assert dict(local) == {}
-        local._set_resource(remote.resource.uri)
+        local._set_remote(remote.remote.uri)
         self.graph.pull(local)
         assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
@@ -47,9 +47,9 @@ class PullTestCase(Py2neoTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
-        id_0 = path[0].resource._id
-        id_1 = path[1].resource._id
-        id_2 = path[2].resource._id
+        id_0 = path[0].remote._id
+        id_1 = path[1].remote._id
+        id_2 = path[2].remote._id
         parameters = {"ab": id_0, "bc": id_1, "cd": id_2}
         self.graph.run(statement, parameters)
         self.graph.pull(path)
@@ -63,7 +63,7 @@ class PullTestCase(Py2neoTestCase):
             for new_labels in label_sets:
                 node = Node(*old_labels)
                 self.graph.create(node)
-                node_id = node.resource._id
+                node_id = node.remote._id
                 assert set(node.labels()) == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
@@ -87,7 +87,7 @@ class PullTestCase(Py2neoTestCase):
             for new_props in property_sets:
                 node = Node(**old_props)
                 self.graph.create(node)
-                node_id = node.resource._id
+                node_id = node.remote._id
                 assert dict(node) == old_props
                 self.graph.run("MATCH (a) WHERE id(a)={x} SET a={y}", x=node_id, y=new_props)
                 self.graph.pull(node)
@@ -103,7 +103,7 @@ class PullTestCase(Py2neoTestCase):
                 b = Node()
                 relationship = Relationship(a, "TO", b, **old_props)
                 self.graph.create(relationship)
-                relationship_id = relationship.resource._id
+                relationship_id = relationship.remote._id
                 assert dict(relationship) == old_props
                 self.graph.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
                                x=relationship_id, y=new_props)
@@ -121,7 +121,7 @@ class PushTestCase(Py2neoTestCase):
         self.graph.create(remote)
         assert set(remote.labels()) == set()
         assert dict(remote) == {}
-        local._set_resource(remote.resource.uri)
+        local._set_remote(remote.remote.uri)
         self.graph.push(local)
         self.graph.pull(remote)
         assert set(local.labels()) == set(remote.labels())

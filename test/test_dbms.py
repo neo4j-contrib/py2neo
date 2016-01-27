@@ -26,14 +26,14 @@ class DBMSTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri)
         assert dbms.uri == uri
-        index = dbms.resource.get().content
+        index = dbms.remote.get().content
         assert "data" in index
 
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri[:-1])
         assert dbms.uri == uri
-        index = dbms.resource.get().content
+        index = dbms.remote.get().content
         assert "data" in index
 
     def test_same_uri_gives_same_instance(self):

@@ -164,7 +164,7 @@ class PullTestCase(DeprecatedTestCase):
         self.graph.create(remote)
         assert set(local.labels()) == set()
         assert dict(local) == {}
-        local._set_resource(remote.resource.uri)
+        local._set_remote(remote.remote.uri)
         local.pull()
         assert set(local.labels()) == set(remote.labels())
         assert dict(local) == dict(remote)
@@ -176,7 +176,7 @@ class PullTestCase(DeprecatedTestCase):
         remote = Relationship(a, "TO", b, since=1999)
         self.graph.create(remote)
         assert dict(local) == {}
-        local._set_resource(remote.resource.uri)
+        local._set_remote(remote.remote.uri)
         local.pull()
         assert dict(local) == dict(remote)
 
@@ -189,7 +189,7 @@ class PushTestCase(DeprecatedTestCase):
         self.graph.create(remote)
         assert set(remote.labels()) == set()
         assert dict(remote) == {}
-        local._set_resource(remote.resource.uri)
+        local._set_remote(remote.remote.uri)
         local.push()
         remote.pull()
         assert set(local.labels()) == set(remote.labels())
