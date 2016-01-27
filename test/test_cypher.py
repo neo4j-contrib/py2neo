@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size
-from py2neo.database import Transaction, presubstitute
+from py2neo.database import Transaction, HTTPTransaction, presubstitute
 from py2neo.status import CypherError
 from test.util import Py2neoTestCase, TemporaryTransaction
 
@@ -545,3 +545,18 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             with self.assertRaises(KeyError):
                 tx.run("CREATE (a)-[ab:{%t%}]->(b) RETURN ab")
+
+
+class CypherOverHTTPTestCase(Py2neoTestCase):
+
+    def test_can_run_statement_over_http(self):
+        tx = HTTPTransaction(self.graph)
+        cursor = tx.run("CREATE (a:Person {name:'Alice'}) RETURN a")
+        tx.commit()
+        result = list(cursor.collect())
+        assert len(result) == 1
+        assert len(result[0]) == 1
+        a = result[0][0]
+        assert isinstance(a, Node)
+        assert set(a.labels()) == {"Person"}
+        assert dict(a) == {"name": "Alice"}
