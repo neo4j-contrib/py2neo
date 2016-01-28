@@ -39,7 +39,7 @@ class ServerPluginTestCase(Py2neoTestCase):
     def test_can_init_server_plugin(self):
         metadata = self.graph.remote.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.remote = Resource(self.graph.uri, metadata)
+        self.graph.remote = Resource(self.graph.remote.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 

@@ -482,7 +482,7 @@ class RemoteEntity(Resource):
 
     def __init__(self, uri, metadata=None):
         Resource.__init__(self, uri, metadata)
-        self.ref = self.uri.string[len(self.graph.uri.string):]
+        self.ref = self.uri.string[len(self.graph.remote.uri.string):]
         self._id = int(self.ref.rpartition("/")[2])
 
     def __repr__(self):

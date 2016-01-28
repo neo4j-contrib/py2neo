@@ -26,14 +26,14 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri)
-        assert graph.uri == uri
+        assert graph.remote.uri == uri
         index = graph.remote.get().content
         assert "node" in index
 
     def test_can_create_graph_without_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri[:-1])
-        assert graph.uri == uri
+        assert graph.remote.uri == uri
         index = graph.remote.get().content
         assert "node" in index
 

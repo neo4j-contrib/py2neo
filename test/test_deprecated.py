@@ -159,26 +159,26 @@ class NodeMatchTestCase(DeprecatedTestCase):
 class PullTestCase(DeprecatedTestCase):
 
     def test_can_pull_node(self):
-        local = Node()
-        remote = Node("Person", name="Alice")
-        self.graph.create(remote)
-        assert set(local.labels()) == set()
-        assert dict(local) == {}
-        local._set_remote(remote.remote.uri)
-        local.pull()
-        assert set(local.labels()) == set(remote.labels())
-        assert dict(local) == dict(remote)
+        alpha = Node("Person", name="Alice")
+        beta = Node()
+        self.graph.create(alpha)
+        assert set(beta.labels()) == set()
+        assert dict(beta) == {}
+        beta._set_remote(alpha.remote.uri)
+        beta.pull()
+        assert set(beta.labels()) == set(alpha.labels())
+        assert dict(beta) == dict(alpha)
 
     def test_can_pull_relationship(self):
         a = Node()
         b = Node()
-        local = Relationship(a, "TO", b)
-        remote = Relationship(a, "TO", b, since=1999)
-        self.graph.create(remote)
-        assert dict(local) == {}
-        local._set_remote(remote.remote.uri)
-        local.pull()
-        assert dict(local) == dict(remote)
+        alpha = Relationship(a, "TO", b, since=1999)
+        beta = Relationship(a, "TO", b)
+        self.graph.create(alpha)
+        assert dict(beta) == {}
+        beta._set_remote(alpha.remote.uri)
+        beta.pull()
+        assert dict(beta) == dict(alpha)
 
 
 class PushTestCase(DeprecatedTestCase):

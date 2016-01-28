@@ -393,7 +393,7 @@ class ManualIndexWriteBatch(WriteBatch):
         elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            graph_uri = resource.remote.graph.uri.string
+            graph_uri = resource.remote.graph.remote.uri.string
             entity_uri = resource.remote.uri.string
             uri = entity_uri[len(graph_uri):]
         if segments:

@@ -147,11 +147,11 @@ class DBMS(object):
         return inst
 
     def __repr__(self):
-        return "<DBMS uri=%r>" % self.uri.string
+        return "<DBMS uri=%r>" % self.remote.uri.string
 
     def __eq__(self, other):
         try:
-            return self.uri == other.uri
+            return self.remote.uri == other.remote.uri
         except AttributeError:
             return False
 
@@ -159,7 +159,7 @@ class DBMS(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.uri)
+        return hash(self.remote.uri)
 
     @property
     def graph(self):
@@ -174,13 +174,13 @@ class DBMS(object):
             # operations (such as hydration) when using
             # concurrent code. Therefore, the URI is now
             # constructed manually.
-            self.__graph = Graph(self.uri.string + "db/data/")
+            self.__graph = Graph(self.remote.uri.string + "db/data/")
         return self.__graph
 
     def raw_system_info(self):
         """ Obtain a dictionary of system information.
         """
-        return Resource(self.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
+        return Resource(self.remote.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
 
     def _bean_dict(self, name):
         info = self.raw_system_info()
@@ -261,10 +261,6 @@ class DBMS(object):
         """
         return self.kernel_version() >= (3,)
 
-    @property
-    def uri(self):
-        return self.remote.uri
-
 
 class Graph(object):
     """ The `Graph` class represents a Neo4j graph database. To construct,
@@ -310,7 +306,7 @@ class Graph(object):
             uri_dict.setdefault(uri.scheme, []).append(uri.string)
         # Ensure there is at least one HTTP URI available
         if not uri_dict["http"]:
-            uri_dict["http"].append(DBMS().graph.uri.string)
+            uri_dict["http"].append(DBMS().graph.remote.uri.string)
         http_uri = uri_dict["http"][0]
         # Add a trailing slash if required
         if not http_uri.endswith("/"):
@@ -333,10 +329,10 @@ class Graph(object):
         return inst
 
     def __repr__(self):
-        return "<Graph uri=%r>" % self.uri.string
+        return "<Graph uri=%r>" % self.remote.uri.string
 
     def __hash__(self):
-        return hash(self.uri)
+        return hash(self.remote.uri)
 
     def __order__(self):
         return self.evaluate("MATCH (n) RETURN count(n)")
@@ -645,7 +641,7 @@ class Graph(object):
         """ The set of node labels currently defined within the graph.
         """
         if self.__node_labels is None:
-            self.__node_labels = Resource(self.uri.string + "labels")
+            self.__node_labels = Resource(self.remote.uri.string + "labels")
         return frozenset(self.__node_labels.get().content)
 
     def open_browser(self):
@@ -725,7 +721,7 @@ class Graph(object):
         """ The set of relationship types currently defined within the graph.
         """
         if self.__relationship_types is None:
-            self.__relationship_types = Resource(self.uri.string + "relationship/types")
+            self.__relationship_types = Resource(self.remote.uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
@@ -758,12 +754,8 @@ class Graph(object):
         :rtype: :class:`Schema`
         """
         if self.__schema is None:
-            self.__schema = Schema(self.uri.string + "schema")
+            self.__schema = Schema(self.remote.uri.string + "schema")
         return self.__schema
-
-    @property
-    def uri(self):
-        return self.remote.uri
 
 
 class Schema(object):
@@ -865,12 +857,6 @@ class Transaction(object):
         or is still open.
         """
         return self._finished
-
-    @property
-    def _id(self):
-        """ The internal server ID of this transaction, if available.
-        """
-        return None
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Add a statement to the current queue of statements to be
@@ -1238,13 +1224,6 @@ class HTTPTransaction(Transaction):
         self._begin_commit = Resource(uri + "/commit")
         self._execute = None
         self._commit = None
-
-    @property
-    def _id(self):
-        if self._execute is None:
-            return None
-        else:
-            return int(self._execute.uri.path.segments[-1])
 
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()

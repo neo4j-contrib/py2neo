@@ -70,7 +70,7 @@ class UserManager(object):
         :param dbms: A valid :class:`py2neo.DBMS` instance.
         :rtype: :class:`.UserManager`
         """
-        uri = dbms.uri.resolve("/user/%s" % user_name)
+        uri = dbms.remote.uri.resolve("/user/%s" % user_name)
         inst = cls(uri)
         inst.resource._headers["Authorization"] = auth_header_value(user_name, password, "Neo4j")
         return inst
