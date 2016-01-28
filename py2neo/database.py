@@ -761,18 +761,6 @@ class Graph(object):
             self.__schema = Schema(self.uri.string + "schema")
         return self.__schema
 
-    def supports_auth(self):
-        """ Returns :py:const:`True` if auth is supported by this
-        version of Neo4j, :py:const:`False` otherwise.
-        """
-        return self.neo4j_version >= (2, 2)
-
-    def supports_bolt(self):
-        """ Returns :py:const:`True` if Bolt is supported by this
-        version of Neo4j, :py:const:`False` otherwise.
-        """
-        return self.neo4j_version >= (3,)
-
     @property
     def uri(self):
         return self.remote.uri
