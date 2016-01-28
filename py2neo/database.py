@@ -210,7 +210,7 @@ class DBMS(object):
         """ Return the version of Neo4j.
         """
         info = self._bean_dict("Kernel")
-        return info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
+        return version_tuple(info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip())
 
     def store_creation_time(self):
         """ Return the time when this Neo4j graph store was created.
@@ -248,6 +248,18 @@ class DBMS(object):
         configure Neo4j.
         """
         return self._bean_dict("Configuration")
+
+    def supports_auth(self):
+        """ Returns :py:const:`True` if auth is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
+        """
+        return self.kernel_version() >= (2, 2)
+
+    def supports_bolt(self):
+        """ Returns :py:const:`True` if Bolt is supported by this
+        version of Neo4j, :py:const:`False` otherwise.
+        """
+        return self.kernel_version() >= (3,)
 
     @property
     def uri(self):
@@ -312,7 +324,7 @@ class Graph(object):
             inst.uris = uri_dict
             inst.remote = Resource(http_uri)
             inst.transaction_uri = Resource(http_uri + "transaction").uri.string
-            if inst.supports_bolt():
+            if inst.dbms.supports_bolt():
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.remote.uri.host)
                 bolt_uri = URI(uri_dict["bolt"][0])
@@ -607,10 +619,8 @@ class Graph(object):
         self.begin(autocommit=True).merge(walkable, label, *property_keys)
 
     @property
+    @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version() instead")
     def neo4j_version(self):
-        """ The database software version as a 4-tuple of (``int``, ``int``,
-        ``int``, ``str``).
-        """
         return version_tuple(self.remote.metadata["neo4j_version"])
 
     def node(self, id_):

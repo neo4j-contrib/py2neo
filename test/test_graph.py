@@ -77,9 +77,6 @@ class GraphTestCase(Py2neoTestCase):
         graph = Graph()
         assert graph != object()
 
-    def test_can_get_neo4j_version(self):
-        assert isinstance(self.graph.neo4j_version, tuple)
-
     def test_can_create_and_delete_node(self):
         a = Node()
         self.graph.create(a)
@@ -141,14 +138,6 @@ class GraphTestCase(Py2neoTestCase):
         graph_1 = Graph()
         graph_2 = Graph()
         assert graph_1 is graph_2
-
-    def test_neo4j_version_format(self):
-        version = self.graph.neo4j_version
-        assert isinstance(version, tuple)
-        assert 3 <= len(version) <= 4
-        assert isinstance(version[0], int)
-        assert isinstance(version[1], int)
-        assert isinstance(version[2], int)
 
     def test_create_single_empty_node(self):
         a = Node()

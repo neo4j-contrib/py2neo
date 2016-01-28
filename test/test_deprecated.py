@@ -208,3 +208,14 @@ class PushTestCase(DeprecatedTestCase):
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
                                     "RETURN ab.since", i=ab)
         assert value == 1999
+
+
+class GraphTestCase(DeprecatedTestCase):
+
+    def test_neo4j_version_format(self):
+        version = self.graph.neo4j_version
+        assert isinstance(version, tuple)
+        assert 3 <= len(version) <= 4
+        assert isinstance(version[0], int)
+        assert isinstance(version[1], int)
+        assert isinstance(version[2], int)

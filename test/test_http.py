@@ -19,7 +19,7 @@
 import logging
 from unittest import skipUnless
 
-from py2neo.database import Graph
+from py2neo.database import DBMS, Graph
 from py2neo.http import _add_header, _get_headers, rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
@@ -29,8 +29,9 @@ from test.util import Py2neoTestCase
 from test.compat import patch
 
 
-supports_auth = Graph().supports_auth()
-supports_bolt = Graph().supports_bolt()
+dbms = DBMS()
+supports_auth = dbms.supports_auth()
+supports_bolt = dbms.supports_bolt()
 
 
 class DodgyServerError(_ServerError):

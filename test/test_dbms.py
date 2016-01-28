@@ -71,3 +71,11 @@ class DBMSTestCase(Py2neoTestCase):
         assert self.dbms.primitive_counts()
         assert self.dbms.store_file_sizes()
         assert self.dbms.config()
+
+    def test_kernel_version(self):
+        version = self.dbms.kernel_version()
+        assert isinstance(version, tuple)
+        assert 3 <= len(version) <= 4
+        assert isinstance(version[0], int)
+        assert isinstance(version[1], int)
+        assert isinstance(version[2], int)
