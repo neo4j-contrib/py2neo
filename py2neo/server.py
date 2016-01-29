@@ -35,7 +35,6 @@ import sys
 from py2neo import DBMS
 from py2neo.compat import ustr, PropertiesParser
 from py2neo.env import NEO4J_DIST, NEO4J_HOME
-from py2neo.packages.httpstream import download as _download
 
 
 HELP = """\
@@ -68,10 +67,11 @@ def download(edition, version, path="."):
     download URI is built using the value in the environment variable ``NEO4J_DIST``
     as a base or ``http://dist.neo4j.org/`` if this is not set.
     """
+    from py2neo.packages.httpstream import download
     archive_name = dist_archive_name(edition, version)
     uri = NEO4J_DIST + archive_name
     filename = os.path.join(os.path.abspath(path), archive_name)
-    _download(uri, filename)
+    download(uri, filename)
     return filename
 
 

@@ -18,7 +18,9 @@
 
 from unittest import TestCase
 
-from py2neo.server import dist_name, dist_archive_name
+from py2neo.server import dist_name, dist_archive_name, download
+from test.compat import patch
+from py2neo.packages import httpstream
 
 
 class DistFunctionTestCase(TestCase):
@@ -30,3 +32,10 @@ class DistFunctionTestCase(TestCase):
     def test_dist_archive_name(self):
         name = dist_archive_name("community", "3.0.0")
         assert name == "neo4j-community-3.0.0-unix.tar.gz"
+
+    def test_download(self):
+        with patch.object(httpstream, "download") as mocked:
+            download("community", "3.0.0", "/tmp")
+            url = "http://dist.neo4j.org/neo4j-community-3.0.0-unix.tar.gz"
+            file = "/tmp/neo4j-community-3.0.0-unix.tar.gz"
+            mocked.assert_called_once_with(url, file)
