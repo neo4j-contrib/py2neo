@@ -24,6 +24,10 @@ class ServerPlugin(object):
     """ Base class for server plugins.
     """
 
+    @classmethod
+    def available(cls, graph, name):
+        return name in graph.remote.metadata["extensions"]
+
     def __init__(self, graph, name):
         self.graph = graph
         self.name = name

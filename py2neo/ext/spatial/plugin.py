@@ -54,7 +54,7 @@ class Spatial(ServerPlugin):
         super(Spatial, self).__init__(graph, EXTENSION_NAME)
 
     def _get_data_nodes(self, geometry_nodes):
-        ids = [n._id for n in geometry_nodes]
+        ids = [n.remote._id for n in geometry_nodes]
         query = (
             "MATCH (n)-[:LOCATES]->(data_node) "
             "WHERE id(n) IN {ids} RETURN data_node "
@@ -64,8 +64,8 @@ class Spatial(ServerPlugin):
             'ids': ids,
         }
 
-        results = self.graph.cypher.execute(query, params)
-        nodes = [record[0] for record in results]
+        cursor = self.graph.run(query, params)
+        nodes = [record[0] for record in cursor.stream()]
 
         return nodes
 
@@ -118,16 +118,16 @@ class Spatial(ServerPlugin):
             'wkt': shape.wkt,
         }
 
-        exists = self.graph.cypher.execute(query, params)
+        exists = self.graph.evaluate(query, params)
 
-        return bool(exists)
+        return exists is not None
 
     def _layer_exists(self, layer_name):
         query = "MATCH (l {layer:{layer_name}})<-[:LAYER]-() RETURN l"
         params = {'layer_name': layer_name}
-        exists = self.graph.cypher.execute(query, params)
+        exists = self.graph.evaluate(query, params)
 
-        return bool(exists)
+        return exists is not None
 
     def create_layer(self, layer_name):
         """ Create a Layer to add geometries to. If a Layer with the
@@ -266,16 +266,15 @@ class Spatial(ServerPlugin):
         if node_id:
             query = 'MATCH (n) WHERE id(n) = {node_id} RETURN n'
             params = {'node_id': node_id}
-            results = graph.cypher.execute(query, params)
-            if not results:
+            node = graph.evaluate(query, params)
+            if node is None:
                 raise NodeNotFoundError(
                     'Node not found: "{}"'.format(node_id)
                 )
 
-            record = results[0]
-            node = record[0]
             node[NAME_PROPERTY] = geometry_name
-            node.add_labels(*tuple(labels))
+            for label in labels:
+                node.add_label(label)
             node.push()
 
         else:
@@ -306,7 +305,7 @@ class Spatial(ServerPlugin):
             'geometry_name': geometry_name,
         }
 
-        graph.cypher.execute(query, params)
+        graph.run(query, params)
 
     def delete_geometry(self, geometry_name, wkt_string, layer_name):
         """ Remove a geometry node from a GIS map layer.
@@ -346,7 +345,7 @@ class Spatial(ServerPlugin):
             'label': shape.type,
             'geometry_name': geometry_name,
         }
-        graph.cypher.execute(query, params)
+        graph.run(query, params)
 
         # tidy up the index. This will remove the node,
         # it's bounding box node, and the relationship between them.
@@ -359,7 +358,7 @@ class Spatial(ServerPlugin):
             'layer_name': layer_name,
             'wkt': shape.wkt,
         }
-        graph.cypher.execute(query, params)
+        graph.run(query, params)
 
     def update_geometry(self, geometry_name, wkt_string):
         """ Update the geometry on a Node.
@@ -386,17 +385,17 @@ class Spatial(ServerPlugin):
             'geometry_name': geometry_name,
         }
 
-        result = graph.cypher.execute(query, params)
-        if not result:
+        cursor = graph.run(query, params)
+        if cursor.move():
+            geometry_node, layer_node = cursor
+        else:
             raise NodeNotFoundError(
                 'Cannot update Node - Node not found: "{}"'.format(
                     geometry_name)
             )
 
-        records = result[0]
-        geometry_node, layer_node = records
-        geometry_node_id = int(geometry_node.uri.path.segments[-1])
-        geometry_layer = layer_node.get_properties()['layer']
+        geometry_node_id = geometry_node.remote._id
+        geometry_layer = layer_node['layer']
 
         spatial_data = {
             'geometry': shape.wkt,

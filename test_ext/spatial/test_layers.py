@@ -1,19 +1,21 @@
-import pytest
-
+from unittest import skipUnless
 from py2neo.ext.spatial.exceptions import LayerNotFoundError, InvalidWKTError
-from .basetest import TestBase
+from .basetest import SpatialTestCase, spatial_available
 
 
 LAYER_NAME = "geometry_layer"
 
 
-class TestLayers(TestBase):
-    def test_create_layer(self, spatial):
-        spatial.create_layer(LAYER_NAME)
-        assert self._layer_exists(spatial.graph, LAYER_NAME)
+class LayersTestCase(SpatialTestCase):
 
-    def test_layer_uniqueness(self, spatial):
-        graph = spatial.graph
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_create_layer(self):
+        self.spatial.create_layer(LAYER_NAME)
+        assert self._layer_exists(self.spatial.graph, LAYER_NAME)
+
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_layer_uniqueness(self):
+        graph = self.spatial.graph
 
         def count(layer_name):
             count = 0
@@ -29,48 +31,52 @@ RETURN n")
 
         assert count(LAYER_NAME) == 0
 
-        spatial.create_layer(LAYER_NAME)
+        self.spatial.create_layer(LAYER_NAME)
         assert count(LAYER_NAME) == 1
 
-        spatial.create_layer(LAYER_NAME)
+        self.spatial.create_layer(LAYER_NAME)
         assert count(LAYER_NAME) == 1
 
-    def test_cannot_create_geometry_if_layer_does_not_exist(self, spatial):
-        with pytest.raises(LayerNotFoundError):
-            spatial.create_geometry(
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_cannot_create_geometry_if_layer_does_not_exist(self):
+        with self.assertRaises(LayerNotFoundError):
+            self.spatial.create_geometry(
                 geometry_name="spatial", wkt_string='POINT (1,1)',
                 layer_name="missing")
 
-    def test_handle_bad_wkt(self, spatial):
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_handle_bad_wkt(self):
         geometry_name = "shape"
         bad_geometry = 'isle of wight'
 
-        spatial.create_layer(LAYER_NAME)
+        self.spatial.create_layer(LAYER_NAME)
 
-        with pytest.raises(InvalidWKTError):
-            spatial.create_geometry(
+        with self.assertRaises(InvalidWKTError):
+            self.spatial.create_geometry(
                 geometry_name=geometry_name, wkt_string=bad_geometry,
                 layer_name=LAYER_NAME)
 
-    def test_get_layer(self, spatial):
-        spatial.create_layer("this")
-        assert self._layer_exists(spatial.graph, "this")
-        assert spatial.get_layer("this")
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_get_layer(self):
+        self.spatial.create_layer("this")
+        assert self._layer_exists(self.spatial.graph, "this")
+        assert self.spatial.get_layer("this")
 
-    def test_delete_layer(self, spatial, cornwall_wkt, devon_wkt):
-        graph = spatial.graph
-        spatial.create_layer("mylayer")
-        spatial.create_geometry(
-            geometry_name="shape_a", wkt_string=cornwall_wkt,
+    @skipUnless(spatial_available, "no spatial plugin available")
+    def test_delete_layer(self):
+        graph = self.spatial.graph
+        self.spatial.create_layer("mylayer")
+        self.spatial.create_geometry(
+            geometry_name="shape_a", wkt_string=self.cornwall_wkt,
             layer_name="mylayer")
-        spatial.create_geometry(
-            geometry_name="shape_b", wkt_string=devon_wkt,
+        self.spatial.create_geometry(
+            geometry_name="shape_b", wkt_string=self.devon_wkt,
             layer_name="mylayer")
 
         assert self._geometry_exists(graph, "shape_a", "mylayer")
         assert self._geometry_exists(graph, "shape_b", "mylayer")
 
-        spatial.delete_layer("mylayer")
+        self.spatial.delete_layer("mylayer")
 
         assert not self._geometry_exists(graph, "shape_a", "mylayer")
         assert not self._geometry_exists(graph, "shape_b", "mylayer")

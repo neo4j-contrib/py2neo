@@ -70,6 +70,27 @@ function test {
     pushd "$HOME" > /dev/null
     for NEO4J_VERSION in $NEO4J_VERSIONS
     do
+        if [ "${NEO4J_VERSION}" == "3.0" ]
+        then
+            SPATIAL_ARCHIVE=""
+            SPATIAL_URL=""
+        elif [ "${NEO4J_VERSION}" == "2.3" ]
+        then
+            SPATIAL_ARCHIVE="neo4j-spatial-0.15-neo4j-2.3.1-server-plugin.zip"
+            SPATIAL_URL="https://github.com/neo4j-contrib/m2/blob/master/releases/org/neo4j/neo4j-spatial/0.15-neo4j-2.3.1/${SPATIAL_ARCHIVE}?raw=true"
+        elif [ "${NEO4J_VERSION}" == "2.2" ]
+        then
+            SPATIAL_ARCHIVE="neo4j-spatial-0.14-neo4j-2.2.7-server-plugin.zip"
+            SPATIAL_URL="https://github.com/neo4j-contrib/m2/blob/master/releases/org/neo4j/neo4j-spatial/0.14-neo4j-2.2.7/${SPATIAL_ARCHIVE}?raw=true"
+        elif [ "${NEO4J_VERSION}" == "2.1" ]
+        then
+            SPATIAL_ARCHIVE=""
+            SPATIAL_URL=""
+        elif [ "${NEO4J_VERSION}" == "2.0" ]
+        then
+            SPATIAL_ARCHIVE="neo4j-spatial-0.12-neo4j-2.0.4-server-plugin.zip"
+            SPATIAL_URL="https://github.com/neo4j-contrib/m2/blob/master/releases/org/neo4j/neo4j-spatial/0.12-neo4j-2.0.4/${SPATIAL_ARCHIVE}?raw=true"
+        fi
         neo4j_download
         echo "Running tests for Neo4j $NEO4J_VERSION"
         mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
@@ -111,7 +132,12 @@ function build_book {
 function download {
     mkdir -p "$DOWN" 2> /dev/null
     pushd "$DOWN" > /dev/null
-    wget $@
+    if [ "$2" == "" ]
+    then
+        wget "$1"
+    else
+        wget -O "$2" "$1"
+    fi
     popd > /dev/null
 }
 
@@ -189,6 +215,13 @@ function neo4j_download {
             exit 1
         fi
     fi
+    if [ "$ONLINE" ] && [ "${SPATIAL_URL}" != "" ]
+    then
+        download "${SPATIAL_URL}" "${SPATIAL_ARCHIVE}"
+    else
+        SPATIAL_ARCHIVE=""
+        SPATIAL_URL=""
+    fi
 }
 
 function neo4j_start {
@@ -198,6 +231,11 @@ function neo4j_start {
     cp "$DOWN/$ARCHIVE" "$RUN"
     tar zxf "$ARCHIVE"
     rm "$ARCHIVE"
+    if [ "${SPATIAL_ARCHIVE}" != "" ]
+    then
+        cp "$DOWN/${SPATIAL_ARCHIVE}" "$RUN"
+        unzip -q -d "$DIST/plugins" "${SPATIAL_ARCHIVE}"
+    fi
     #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
     $DIST/bin/neo4j start
     popd > /dev/null
@@ -246,6 +284,10 @@ case $COMMAND in
         ;;
     test)
         NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
+        test
+        ;;
+    test-2.3)
+        NEO4J_VERSIONS="2.3"
         test
         ;;
     quicktest)
