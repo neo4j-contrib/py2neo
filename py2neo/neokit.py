@@ -16,15 +16,12 @@
 # limitations under the License.
 
 
-import fileinput
 from os import getenv, listdir, makedirs
 from os.path import basename as path_basename, exists as path_exists, expanduser as path_expanduser, isdir as path_isdir, \
     isfile as path_isfile, join as path_join
 import re
-import shlex
 from shutil import rmtree
 from subprocess import check_output, CalledProcessError
-from sys import stdout
 from tarfile import TarFile
 try:
     from urllib.request import urlopen
