@@ -34,58 +34,19 @@ from py2neo.http import *
 from py2neo.packages.httpstream.watch import watch
 from py2neo.status import Finished, GraphError
 
+from py2neo.util import BaseCommander as _BaseCommander
 
-class Commander(object):
+
+class Commander(_BaseCommander):
+    """
+    usage: py2neo run [-h] [-H host] [-P port] statement
+           py2neo evaluate [-h] [-H host] [-P port] statement
+    """
 
     epilog = "Report bugs to %s" % __email__
 
     def __init__(self, out=None):
-        self.out = out or stdout
-
-    def write(self, s):
-        self.out.write(s)
-
-    def write_line(self, s):
-        self.out.write(s)
-        self.out.write(linesep)
-
-    def usage(self, script):
-        self.write_line("usage: %s <command> [<command-args>]" % basename(script))
-        self.write_line("")
-        self.write_line("commands:")
-        for attr in sorted(dir(self)):
-            if attr.startswith("_"):
-                continue
-            method = getattr(self, attr)
-            if not callable(method):
-                continue
-            doc = method.__doc__
-            if not doc:
-                continue
-            try:
-                usage = [line.partition("usage:")[-1].strip() for line in doc.splitlines() if "usage:" in line][0]
-            except IndexError:
-                continue
-            else:
-                self.write_line("    %s" % usage)
-        self.write_line("")
-        self.write_line(self.epilog)
-
-    def execute(self, *args):
-        try:
-            command, command_args = args[1], args[2:]
-        except IndexError:
-            self.usage(args[0])
-        else:
-            try:
-                method = getattr(self, command)
-            except AttributeError:
-                self.write_line("Unknown command %r" % command)
-            else:
-                method(*args[1:])
-
-    def parser(self, script):
-        return ArgumentParser(prog=script, epilog=self.epilog)
+        _BaseCommander.__init__(self, out)
 
     def parser_with_connection(self, script):
         parser = self.parser(script)
@@ -155,6 +116,7 @@ class Commander(object):
 
 
 def main(args=None, out=None):
+    from sys import argv
     Commander(out).execute(*args or argv)
 
 if __name__ == "__main__":

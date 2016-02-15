@@ -16,13 +16,15 @@
 # limitations under the License.
 
 
-from os import getenv, listdir, makedirs
+from os import linesep, getenv, listdir, makedirs, rename
 from os.path import basename as path_basename, exists as path_exists, expanduser as path_expanduser, isdir as path_isdir, \
     isfile as path_isfile, join as path_join
 import re
 from shutil import rmtree
-from subprocess import check_output, CalledProcessError
+from subprocess import call, check_output, CalledProcessError
+from sys import stdout, stderr
 from tarfile import TarFile
+from textwrap import dedent
 try:
     from urllib.request import urlopen
 except ImportError:
@@ -173,6 +175,16 @@ class Warehouse(object):
             archive.extractall(container)
         return self.get(name)
 
+    def uninstall(self, name):
+        container = path_join(self.run, name)
+        rmtree(container)
+
+    def directory(self):
+        return {name: self.get(name) for name in listdir(self.run) if not name.startswith(".")}
+
+    def rename(self, name, new_name):
+        rename(path_join(self.run, name), path_join(self.run, new_name))
+
 
 class GraphServer(object):
     """ Represents a Neo4j server installation on disk.
@@ -192,9 +204,10 @@ class GraphServer(object):
 
     @property
     def store_path(self):
-        return path_join(self.home, self.get_config("neo4j-server.properties", "org.neo4j.server.database.location"))
+        return path_join(self.home, self.config("neo4j-server.properties",
+                                                "org.neo4j.server.database.location"))
 
-    def get_config(self, file_name, key):
+    def config(self, file_name, key):
         file_path = path_join(self.home, "conf", file_name)
         with open(file_path, "r") as f_in:
             for line in f_in:
@@ -221,14 +234,45 @@ class GraphServer(object):
                 else:
                     f_out.write(line)
 
-    def enable_auth(self):
-        self.set_config("neo4j-server.properties", "dbms.security.auth_enabled", True)
+    @property
+    def auth_enabled(self):
+        return self.config("neo4j-server.properties", "dbms.security.auth_enabled") == "true"
 
-    def disable_auth(self):
-        self.set_config("neo4j-server.properties", "dbms.security.auth_enabled", False)
+    @auth_enabled.setter
+    def auth_enabled(self, value):
+        self.set_config("neo4j-server.properties", "dbms.security.auth_enabled", value)
 
-    def set_http_port(self, port):
+    @property
+    def users(self):
+        file_path = path_join(self.home, "data", "dbms", "auth")
+        with open(file_path, "r") as f_in:
+            return [line.partition(":")[0] for line in f_in]
+
+    def delete_user(self, user):
+        pass
+
+    def set_user_password(self, user, password):
+        pass
+
+    @property
+    def http_port(self):
+        port = None
+        if self.running():
+            port = self.info("NEO4J_SERVER_PORT")
+        if port is None:
+            port = self.config("neo4j-server.properties", "org.neo4j.server.webserver.port")
+        try:
+            return int(port)
+        except (TypeError, ValueError):
+            return None
+
+    @http_port.setter
+    def http_port(self, port):
         self.set_config("neo4j-server.properties", "org.neo4j.server.webserver.port", port)
+
+    @property
+    def http_uri(self):
+        return "http://localhost:%d/" % self.http_port
 
     def delete_store(self, force=False):
         """ Delete this store directory.
@@ -272,9 +316,10 @@ class GraphServer(object):
         """ Stop the server.
         """
         try:
-            _ = check_output(("%s stop" % self.control_script), shell=True)
+            check_output(("%s stop" % self.control_script), shell=True)
         except CalledProcessError as error:
-            raise OSError("An error occurred while trying to stop the server [%s]" % error.returncode)
+            raise OSError("An error occurred while trying to stop the server "
+                          "[%s]" % error.returncode)
 
     def restart(self):
         """ Restart the server.
@@ -282,9 +327,15 @@ class GraphServer(object):
         self.stop()
         self.start()
 
-    def run(self):
+    def run(self, *commands):
         self.start()
+        exit_status = 0
+        for command in commands:
+            exit_status = call(command)
+            if exit_status:
+                break
         self.stop()
+        return exit_status
 
     def running(self):
         """ The PID of the current executing process for this server.
@@ -295,7 +346,8 @@ class GraphServer(object):
             if error.returncode == 3:
                 return None
             else:
-                raise OSError("An error occurred while trying to query the server status [%s]" % error.returncode)
+                raise OSError("An error occurred while trying to query the "
+                              "server status [%s]" % error.returncode)
         else:
             p = None
             for line in out.decode("utf-8").splitlines(False):
@@ -303,8 +355,10 @@ class GraphServer(object):
                     p = int(line.rpartition(" ")[-1])
             return p
 
-    def info(self):
-        """ Dictionary of server information.
+    def info(self, key):
+        """ Lookup an item of server information from a running server.
+
+        :arg key: the key of the item to look up
         """
         try:
             out = check_output("%s info" % self.control_script, shell=True)
@@ -312,23 +366,202 @@ class GraphServer(object):
             if error.returncode == 3:
                 return None
             else:
-                raise OSError("An error occurred while trying to fetch server info [%s]" % error.returncode)
+                raise OSError("An error occurred while trying to fetch server "
+                              "info [%s]" % error.returncode)
         else:
-            data = {}
             for line in out.decode("utf-8").splitlines(False):
                 try:
                     colon = line.index(":")
                 except ValueError:
                     pass
                 else:
-                    key = line[:colon]
-                    value = line[colon+1:].lstrip()
-                    if key.endswith("_PORT"):
-                        try:
-                            value = int(value)
-                        except ValueError:
-                            pass
-                    elif key == "CLASSPATH":
-                        value = value.split(":")
-                    data[key] = value
-            return data
+                    k = line[:colon]
+                    v = line[colon+1:].lstrip()
+                    if k == "CLASSPATH":
+                        v = v.split(":")
+                    if k == key:
+                        return v
+
+
+class Commander(object):
+
+    epilog = "Report bugs to nigel@py2neo.org"
+
+    def __init__(self, out=None):
+        self.out = out or stdout
+
+    def write(self, s):
+        self.out.write(s)
+
+    def write_line(self, s):
+        self.out.write(s)
+        self.out.write(linesep)
+
+    def usage(self, script):
+        self.write_line("usage: %s <command> <arguments>" % path_basename(script))
+        self.write_line("")
+        self.write_line("commands:")
+        for attr in sorted(dir(self)):
+            method = getattr(self, attr)
+            if callable(method) and not attr.startswith("_") and method.__doc__:
+                doc = dedent(method.__doc__).strip()
+                self.write_line("    " + doc[6:].strip())
+        if self.epilog:
+            self.write_line("")
+            self.write_line(self.epilog)
+
+    def execute(self, *args):
+        try:
+            command, command_args = args[1], args[2:]
+        except IndexError:
+            self.usage(args[0])
+        else:
+            command = command.replace("-", "_")
+            try:
+                method = getattr(self, command)
+            except AttributeError:
+                self.write_line("Unknown command %r" % command)
+            else:
+                try:
+                    method(*args[1:])
+                except Exception as err:
+                    stderr.write("Error: %s" % err)
+                    stderr.write(linesep)
+
+    def parser(self, script):
+        from argparse import ArgumentParser
+        return ArgumentParser(prog=script, epilog=self.epilog)
+
+    def download(self, *args):
+        """ usage: download [<version>]
+        """
+        parser = self.parser(args[0])
+        parser.description = "Download a Neo4j server package"
+        parser.add_argument("version", nargs="?", help="Neo4j version")
+        parsed = parser.parse_args(args[1:])
+        Package(version=parsed.version).download()
+        self.write_line(Package(version=parsed.version).download())
+
+    def install(self, *args):
+        """ usage: install <name> [<version>]
+        """
+        parser = self.parser(args[0])
+        parser.description = "Install a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parser.add_argument("version", nargs="?", help="Neo4j version")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.install(name, version=parsed.version)
+        self.write_line("Server %r is available at %r" % (name, server.home))
+
+    def uninstall(self, *args):
+        """ usage: uninstall <name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Uninstall a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        if server.running():
+            server.stop()
+        warehouse.uninstall(name)
+        self.write_line("Server %r uninstalled" % name)
+
+    def directory(self, *args):
+        """ usage: list
+        """
+        parser = self.parser(args[0])
+        parser.description = "List all installed Neo4j servers"
+        parser.parse_args(args[1:])
+        warehouse = Warehouse()
+        for name in sorted(warehouse.directory()):
+            self.write_line(name)
+
+    def rename(self, *args):
+        """ usage: rename <name> <new-name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Rename a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parser.add_argument("new_name", help="new server name")
+        parsed = parser.parse_args(args[1:])
+        warehouse = Warehouse()
+        warehouse.rename(parsed.name, parsed.new_name)
+        self.write_line("Renamed server %r to %r" % (parsed.name, parsed.new_name))
+
+    def start(self, *args):
+        """ usage: start <name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Start a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        if server.running():
+            stderr.write("Server %r is already running" % name)
+            stderr.write(linesep)
+        else:
+            pid = server.start()
+            self.write_line("Server %r started as process %d" % (name, pid))
+
+    def stop(self, *args):
+        """ usage: stop <name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Stop a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        if server.running():
+            server.stop()
+            self.write_line("Server %r stopped" % name)
+        else:
+            stderr.write("Server %r is not running" % name)
+            stderr.write(linesep)
+
+    def enable_auth(self, *args):
+        """ usage: enable-auth <name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Enable auth on a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        server.auth_enabled = True
+        if server.running():
+            self.write_line("Auth enabled - this will take effect when the server is restarted")
+        else:
+            self.write_line("Auth enabled")
+
+    def disable_auth(self, *args):
+        """ usage: disable-auth <name>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Disable auth on a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        server.auth_enabled = False
+        if server.running():
+            self.write_line("Auth disabled - this will take effect when the server is restarted")
+        else:
+            self.write_line("Auth disabled")
+
+
+def main(args=None, out=None):
+    from sys import argv
+    Commander(out).execute(*args or argv)
+
+if __name__ == "__main__":
+    main()

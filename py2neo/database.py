@@ -16,17 +16,14 @@
 # limitations under the License.
 
 
-from argparse import ArgumentParser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 import logging
-from os import linesep
-from os.path import basename
-from sys import argv, stdout
+from sys import stdout
 from warnings import warn
 import webbrowser
 
-from py2neo import PRODUCT, __email__
+from py2neo import PRODUCT
 from py2neo.compat import integer, ustr
 from py2neo.types import Node, Relationship, Path, cast_node, Record, \
     cypher_escape, walk, size, Walkable, cypher_repr
