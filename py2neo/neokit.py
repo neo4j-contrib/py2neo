@@ -20,6 +20,7 @@ from os import linesep, getenv, listdir, makedirs, rename
 from os.path import basename as path_basename, exists as path_exists, expanduser as path_expanduser, isdir as path_isdir, \
     isfile as path_isfile, join as path_join
 import re
+from shlex import split as shlex_split
 from shutil import rmtree
 from subprocess import call, check_output, CalledProcessError
 from sys import stdout, stderr
@@ -138,6 +139,12 @@ class Package(object):
             return "%s/%s" % (dist, self.name)
 
     def download(self, path=".", overwrite=False):
+        """ Download a Neo4j distribution to the specified path.
+
+        :param path:
+        :param overwrite:
+        :return:
+        """
         file_name = path_join(path, self.name)
         if overwrite:
             if path_exists(file_name) and not path_isfile(file_name):
@@ -180,7 +187,10 @@ class Warehouse(object):
         rmtree(container)
 
     def directory(self):
-        return {name: self.get(name) for name in listdir(self.run) if not name.startswith(".")}
+        try:
+            return {name: self.get(name) for name in listdir(self.run) if not name.startswith(".")}
+        except OSError:
+            return {}
 
     def rename(self, name, new_name):
         rename(path_join(self.run, name), path_join(self.run, new_name))
@@ -328,6 +338,8 @@ class GraphServer(object):
         self.start()
 
     def run(self, *commands):
+        """ Run one or more commands while a server is running.
+        """
         self.start()
         exit_status = 0
         for command in commands:
@@ -471,7 +483,7 @@ class Commander(object):
         self.write_line("Server %r uninstalled" % name)
 
     def directory(self, *args):
-        """ usage: list
+        """ usage: directory
         """
         parser = self.parser(args[0])
         parser.description = "List all installed Neo4j servers"
@@ -525,6 +537,23 @@ class Commander(object):
         else:
             stderr.write("Server %r is not running" % name)
             stderr.write(linesep)
+
+    def run(self, *args):
+        """ usage: run <name> <command> [<command> ...]
+        """
+        parser = self.parser(args[0])
+        parser.description = "Stop a Neo4j server"
+        parser.add_argument("name", help="server name")
+        parser.add_argument("commands", nargs="+", help="commands to run")
+        parsed = parser.parse_args(args[1:])
+        name = parsed.name
+        warehouse = Warehouse()
+        server = warehouse.get(name)
+        if server.running():
+            stderr.write("Server %r is already running" % name)
+            stderr.write(linesep)
+        else:
+            server.run(*(shlex_split(command) for command in parsed.commands))
 
     def enable_auth(self, *args):
         """ usage: enable-auth <name>
