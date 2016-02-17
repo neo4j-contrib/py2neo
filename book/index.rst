@@ -31,7 +31,6 @@ Contents
    ext/calendar
    ext/geoff
    ext/gremlin
-   ext/neobox
    ext/ogm
    ext/spatial
    cookbook

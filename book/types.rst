@@ -5,7 +5,7 @@ Graph Data Types
 **Py2neo** provides a set of core graph data types that are completely compatible with Neo4j but
 that can also be used independently of it. These types include the fundamental entities
 :class:`.Node` and :class:`.Relationship` as well as classes used to construct these entities and
-entity collections. In addition, a :class:`.CypherWriter` class, along with some associated
+entity collections. In addition, a :class:`.CypherWriter` class, along with some other associated
 functions, provide facilities to conveniently output these types in string form.
 
 These types have been carefully designed to work together using standard operations, most notably
@@ -17,14 +17,14 @@ Nodes & Relationships
 =====================
 
 The two essential building blocks of the property graph model used by Neo4j are the :class:`.Node`
-and the :class:`.Relationship`. A node is the fundamental unit of data storage within a graph and
-can contain a set of properties and be adorned with labels for purposes of classification. A
-relationship is a typed connection between a pair of nodes (or occasionally between a node and
-itself) that can also contain properties.
+and the :class:`.Relationship`. A node is the fundamental unit of data storage within a graph. It
+can contain a set of properties and can be adorned with one or more textual labels. A relationship
+is a typed connection between a pair of nodes (or occasionally between a node and itself) that can
+also contain properties.
 
 The code below shows how to create a couple of nodes and a relationship joining them. Each node has
 a single property, `name`, and is labelled as a `Person`. The relationship ``ab`` describes a
-connection from the first node ``a`` to the second node ``b`` of type `KNOWS`.
+`KNOWS` connection from the first node ``a`` to the second node ``b``.
 
 ::
 
