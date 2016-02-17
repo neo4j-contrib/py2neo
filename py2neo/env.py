@@ -21,14 +21,11 @@ import os
 from py2neo.packages.httpstream.packages.urimagic import URI
 
 
-__all__ = ["NEO4J_AUTH", "NEO4J_DIST", "NEO4J_HOME", "NEO4J_URI"]
+__all__ = ["NEO4J_AUTH", "NEO4J_HOME", "NEO4J_URI"]
 
 
 #: Auth string, stored as `user:password`.
 NEO4J_AUTH = os.getenv("NEO4J_AUTH", None)
-
-#: Base URI for downloading Neo4j distribution archives (should end with '/').
-NEO4J_DIST = os.getenv("NEO4J_DIST", "http://dist.neo4j.org/")
 
 #: Default path for GraphServer instances.
 NEO4J_HOME = os.getenv("NEO4J_HOME", ".")
