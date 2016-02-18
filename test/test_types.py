@@ -20,8 +20,7 @@
 
 from unittest import TestCase
 
-from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, \
-    Record, order, size
+from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, order, size
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -34,12 +33,6 @@ alice_likes_carol = Relationship(alice, "LIKES", carol)
 carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
 carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
 dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
-
-record_keys = ["employee_id", "Person"]
-record_a = Record(record_keys, [1001, alice])
-record_b = Record(record_keys, [1002, bob])
-record_c = Record(record_keys, [1003, carol])
-record_d = Record(record_keys, [1004, dave])
 
 
 class PropertyCoercionTestCase(TestCase):
@@ -753,79 +746,3 @@ class SymmetricDifferenceTestCase(TestCase):
         assert graph.nodes() == (alice | bob | carol | dave).nodes()
         assert graph.relationships() == frozenset(alice_knows_bob | alice_likes_carol |
                                                   carol_married_to_dave | dave_works_for_dave)
-
-
-class RecordTestCase(TestCase):
-
-    def test_can_build_record(self):
-        record = Record(["name", "age"], ["Alice", 33])
-        assert len(record) == 2
-        assert record.keys() == ("name", "age")
-        assert record.values() == ("Alice", 33)
-        r = repr(record)
-        assert r.startswith("(") and r.endswith(")")
-
-    def test_cannot_build_record_with_mismatched_keys_and_values(self):
-        with self.assertRaises(ValueError):
-            Record(["name"], ["Alice", 33])
-
-    def test_can_coerce_record(self):
-        record = Record(["name", "age"], ["Alice", 33])
-        assert tuple(record) == ("Alice", 33)
-        assert list(record) == ["Alice", 33]
-        assert dict(record) == {"name": "Alice", "age": 33}
-
-    def test_can_get_record_value_by_name(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record["one"] == "eins"
-        assert record["two"] == "zwei"
-        assert record["three"] == "drei"
-
-    def test_cannot_get_record_value_by_missing_name(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        with self.assertRaises(KeyError):
-            _ = record["four"]
-
-    def test_can_get_record_value_by_index(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record[0] == "eins"
-        assert record[1] == "zwei"
-        assert record[2] == "drei"
-        assert record[-1] == "drei"
-
-    def test_can_get_record_values_by_slice(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record[0:2] == Record(["one", "two"], ["eins", "zwei"])
-        assert record[1:2] == Record(["two"], ["zwei"])
-        assert record[1:3] == Record(["two", "three"], ["zwei", "drei"])
-        assert record[1:] == Record(["two", "three"], ["zwei", "drei"])
-
-    def test_can_get_record_values_by_slice_using_getitem(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record.__getitem__(slice(0, 2)) == Record(["one", "two"], ["eins", "zwei"])
-
-    def test_can_get_record_values_by_slice_using_getslice(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        try:
-            s = record.__getslice__(0, 2)
-        except AttributeError:
-            assert True
-        else:
-            assert s == Record(["one", "two"], ["eins", "zwei"])
-
-    def test_cannot_get_record_value_by_anything_else(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        with self.assertRaises(TypeError):
-            _ = record[None]
-
-    def test_record_can_be_exposed_as_graph(self):
-        keys = ["a", "b", "ab", "msg"]
-        values = [alice, bob, alice_knows_bob, "hello, world"]
-        record = Record(keys, values)
-        assert len(record) == 4
-        assert order(record) == 2
-        assert size(record) == 1
-        assert record.nodes() == {alice, bob}
-        assert record.relationships() == {alice_knows_bob}
-        assert list(record.keys()) == keys
-        assert list(record.values()) == values

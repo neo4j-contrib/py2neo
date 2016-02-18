@@ -17,8 +17,29 @@
 
 
 from io import StringIO
-from py2neo.types import Record
+from unittest import TestCase
+
+from py2neo.database import Record, Node, Relationship
+from py2neo.types import order, size
 from test.util import Py2neoTestCase
+
+
+alice = Node("Person", "Employee", name="Alice", age=33)
+bob = Node("Person")
+carol = Node("Person")
+dave = Node("Person")
+
+alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
+alice_likes_carol = Relationship(alice, "LIKES", carol)
+carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
+carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
+dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
+
+record_keys = ["employee_id", "Person"]
+record_a = Record(record_keys, [1001, alice])
+record_b = Record(record_keys, [1002, bob])
+record_c = Record(record_keys, [1003, carol])
+record_d = Record(record_keys, [1004, dave])
 
 
 class CursorMovementTestCase(Py2neoTestCase):
@@ -27,28 +48,28 @@ class CursorMovementTestCase(Py2neoTestCase):
 
     def test_start_position_is_zero(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.position() == 0
+        assert cursor.position == 0
 
     def test_position_updates_after_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         expected_position = 0
-        while cursor.move():
+        while cursor.forward():
             expected_position += 1
-            assert cursor.position() == expected_position
+            assert cursor.position == expected_position
 
     def test_cannot_move_beyond_end(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.move()
-        assert not cursor.move()
+        assert cursor.forward()
+        assert not cursor.forward()
 
     def test_can_only_move_until_end(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.move(2) == 1
+        assert cursor.forward(2) == 1
 
     def test_moving_by_zero_keeps_same_position(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.move(0) == 0
-        assert cursor.position() == 0
+        assert cursor.forward(0) == 0
+        assert cursor.position == 0
 
 
 class CursorKeysTestCase(Py2neoTestCase):
@@ -60,7 +81,7 @@ class CursorKeysTestCase(Py2neoTestCase):
     def test_keys_updates_after_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
-        while cursor.move():
+        while cursor.forward():
             n += 1
             assert list(cursor.keys()) == ["n"]
 
@@ -69,51 +90,34 @@ class CursorCurrentTestCase(Py2neoTestCase):
 
     def test_current_is_none_at_start(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.current() is None
+        assert cursor.current is None
 
     def test_current_updates_after_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
-        while cursor.move():
+        while cursor.forward():
             n += 1
-            assert cursor.current() == Record(["n"], [n])
-
-    def test_current_with_specific_fields(self):
-        cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n AS n_sq")
-        n = 0
-        while cursor.move():
-            n += 1
-            assert cursor.current(0) == Record(["n"], [n])
-            assert cursor.current("n") == Record(["n"], [n])
-            assert cursor.current(1) == Record(["n_sq"], [n * n])
-            assert cursor.current("n_sq") == Record(["n_sq"], [n * n])
-            assert cursor.current("n", "n_sq") == Record(["n", "n_sq"], [n, n * n])
+            assert cursor.current == Record(["n"], [n])
 
 
 class CursorSelectionTestCase(Py2neoTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
-        record = cursor.select()
+        record = cursor.next()
         assert record == Record(["1"], [1])
 
     def test_cannot_select_past_end(self):
         cursor = self.graph.run("RETURN 1")
-        cursor.move()
-        record = cursor.select()
+        cursor.forward()
+        record = cursor.next()
         assert record is None
 
     def test_selection_triggers_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         for i in range(1, 11):
-            n, n_sq = cursor.select()
+            n, n_sq = cursor.next()
             assert n == i
-            assert n_sq == i * i
-
-    def test_selection_with_specific_fields(self):
-        cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        for i in range(1, 11):
-            n_sq, = cursor.select("n_sq")
             assert n_sq == i * i
 
 
@@ -133,23 +137,9 @@ class CursorStreamingTestCase(Py2neoTestCase):
                                Record(["n", "n_sq"], [9, 81]),
                                Record(["n", "n_sq"], [10, 100])]
 
-    def test_stream_with_specific_fields(self):
-        cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        record_list = list(cursor.stream("n_sq"))
-        assert record_list == [Record(["n_sq"], [1]),
-                               Record(["n_sq"], [4]),
-                               Record(["n_sq"], [9]),
-                               Record(["n_sq"], [16]),
-                               Record(["n_sq"], [25]),
-                               Record(["n_sq"], [36]),
-                               Record(["n_sq"], [49]),
-                               Record(["n_sq"], [64]),
-                               Record(["n_sq"], [81]),
-                               Record(["n_sq"], [100])]
-
     def test_stream_yields_remainder(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        cursor.move(5)
+        cursor.forward(5)
         record_list = list(cursor.stream())
         assert record_list == [Record(["n", "n_sq"], [6, 36]),
                                Record(["n", "n_sq"], [7, 49]),
@@ -177,7 +167,7 @@ class CursorEvaluationTestCase(Py2neoTestCase):
 
     def test_evaluate_with_no_records_is_none(self):
         cursor = self.graph.run("RETURN 1")
-        cursor.move()
+        cursor.forward()
         value = cursor.evaluate()
         assert value is None
 
@@ -191,7 +181,7 @@ class CursorMagicTestCase(Py2neoTestCase):
 
     def test_len_returns_length_of_record(self):
         cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.move()
+        cursor.forward()
         assert len(cursor) == 3
 
     def test_len_fails_with_no_record(self):
@@ -201,7 +191,7 @@ class CursorMagicTestCase(Py2neoTestCase):
 
     def test_getitem_returns_item_in_record(self):
         cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.move()
+        cursor.forward()
         assert cursor[0] == 1
         assert cursor[1] == 2
         assert cursor[2] == 3
@@ -213,7 +203,7 @@ class CursorMagicTestCase(Py2neoTestCase):
 
     def test_iter_iterates_record(self):
         cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.move()
+        cursor.forward()
         assert list(cursor) == [1, 2, 3]
 
     def test_iter_fails_with_no_record(self):
@@ -229,3 +219,79 @@ class CursorDumpTestCase(Py2neoTestCase):
         cursor = self.graph.run("RETURN 1")
         cursor.dump(out=s)
         assert s.getvalue()
+
+
+class RecordTestCase(TestCase):
+
+    def test_can_build_record(self):
+        record = Record(["name", "age"], ["Alice", 33])
+        assert len(record) == 2
+        assert record.keys() == ("name", "age")
+        assert record.values() == ("Alice", 33)
+        r = repr(record)
+        assert r.startswith("(") and r.endswith(")")
+
+    def test_cannot_build_record_with_mismatched_keys_and_values(self):
+        with self.assertRaises(ValueError):
+            Record(["name"], ["Alice", 33])
+
+    def test_can_coerce_record(self):
+        record = Record(["name", "age"], ["Alice", 33])
+        assert tuple(record) == ("Alice", 33)
+        assert list(record) == ["Alice", 33]
+        assert dict(record) == {"name": "Alice", "age": 33}
+
+    def test_can_get_record_value_by_name(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        assert record["one"] == "eins"
+        assert record["two"] == "zwei"
+        assert record["three"] == "drei"
+
+    def test_cannot_get_record_value_by_missing_name(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        with self.assertRaises(KeyError):
+            _ = record["four"]
+
+    def test_can_get_record_value_by_index(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        assert record[0] == "eins"
+        assert record[1] == "zwei"
+        assert record[2] == "drei"
+        assert record[-1] == "drei"
+
+    def test_can_get_record_values_by_slice(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        assert record[0:2] == Record(["one", "two"], ["eins", "zwei"])
+        assert record[1:2] == Record(["two"], ["zwei"])
+        assert record[1:3] == Record(["two", "three"], ["zwei", "drei"])
+        assert record[1:] == Record(["two", "three"], ["zwei", "drei"])
+
+    def test_can_get_record_values_by_slice_using_getitem(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        assert record.__getitem__(slice(0, 2)) == Record(["one", "two"], ["eins", "zwei"])
+
+    def test_can_get_record_values_by_slice_using_getslice(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        try:
+            s = record.__getslice__(0, 2)
+        except AttributeError:
+            assert True
+        else:
+            assert s == Record(["one", "two"], ["eins", "zwei"])
+
+    def test_cannot_get_record_value_by_anything_else(self):
+        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
+        with self.assertRaises(TypeError):
+            _ = record[None]
+
+    def test_record_can_be_exposed_as_graph(self):
+        keys = ["a", "b", "ab", "msg"]
+        values = [alice, bob, alice_knows_bob, "hello, world"]
+        record = Record(keys, values)
+        assert len(record) == 4
+        assert order(record) == 2
+        assert size(record) == 1
+        assert record.nodes() == {alice, bob}
+        assert record.relationships() == {alice_knows_bob}
+        assert list(record.keys()) == keys
+        assert list(record.values()) == values

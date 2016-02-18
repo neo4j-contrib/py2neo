@@ -24,8 +24,8 @@ from warnings import warn
 import webbrowser
 
 from py2neo import PRODUCT
-from py2neo.compat import integer, ustr
-from py2neo.types import Node, Relationship, Path, cast_node, Record, \
+from py2neo.compat import integer, ustr, string
+from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
     cypher_escape, walk, size, Walkable, cypher_repr
 from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
@@ -463,7 +463,7 @@ class Graph(object):
         if limit:
             statement += " LIMIT %s" % limit
         cursor = self.run(statement, parameters)
-        while cursor.move():
+        while cursor.forward():
             a = cursor[0]
             a.update_labels(cursor[1])
             yield a
@@ -581,7 +581,7 @@ class Graph(object):
         if limit is not None:
             statement += " LIMIT {0}".format(int(limit))
         cursor = self.run(statement, parameters)
-        while cursor.move():
+        while cursor.forward():
             yield cursor["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
@@ -1439,21 +1439,21 @@ class Cursor(object):
         return "<Cursor position=%r keys=%r>" % (self._position, self.keys())
 
     def __len__(self):
-        record = self.current()
+        record = self.current
         if record is None:
             raise TypeError("No current record")
         else:
             return len(record)
 
     def __getitem__(self, item):
-        record = self.current()
+        record = self.current
         if record is None:
             raise TypeError("No current record")
         else:
             return record[item]
 
     def __iter__(self):
-        record = self.current()
+        record = self.current
         if record is None:
             raise TypeError("No current record")
         else:
@@ -1467,6 +1467,7 @@ class Cursor(object):
         else:
             return self._keys
 
+    @property
     def position(self):
         """ Return the current cursor position. Position zero indicates
         that no record is currently selected, position one is that of
@@ -1474,7 +1475,7 @@ class Cursor(object):
         """
         return self._position
 
-    def move(self, amount=1):
+    def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
         another amount if explicitly specified). The cursor will move
         position by up to, but never more than, the amount specified.
@@ -1500,7 +1501,8 @@ class Cursor(object):
                 break
         return moved
 
-    def current(self, *keys):
+    @property
+    def current(self):
         """ Return the current record.
 
         :param keys:
@@ -1508,30 +1510,28 @@ class Cursor(object):
         """
         if self._position == 0:
             return None
-        elif keys:
-            return self._records[self._position - 1].select(*keys)
         else:
             return self._records[self._position - 1]
 
-    def select(self, *keys):
+    def next(self):
         """ Fetch and return the next record, if available.
 
         :param keys:
         :return:
         """
-        if self.move():
-            return self.current(*keys)
+        if self.forward():
+            return self.current
         else:
             return None
 
-    def stream(self, *keys):
+    def stream(self):
         """ Consume and yield all remaining records.
 
         :param keys:
         :return:
         """
-        while self.move():
-            yield self.current(*keys)
+        while self.forward():
+            yield self.current
 
     def evaluate(self, key=0):
         """ Select the next available record and return the value from
@@ -1540,11 +1540,10 @@ class Cursor(object):
         :param key:
         :return:
         """
-        record = self.select()
-        if record is None:
-            return None
+        if self.forward():
+            return self.current[key]
         else:
-            return record[key]
+            return None
 
     def close(self):
         """ Close this cursor and free up all associated resources.
@@ -1573,3 +1572,59 @@ class Cursor(object):
         for i, record in enumerate(records):
             out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
             out.write(u"\n")
+
+
+class Record(tuple, Subgraph):
+
+    def __new__(cls, keys, values):
+        if len(keys) == len(values):
+            return super(Record, cls).__new__(cls, values)
+        else:
+            raise ValueError("Keys and values must be of equal length")
+
+    def __init__(self, keys, values):
+        self.__keys = tuple(keys)
+        nodes = []
+        relationships = []
+        for value in values:
+            if hasattr(value, "nodes"):
+                nodes.extend(value.nodes())
+            if hasattr(value, "relationships"):
+                relationships.extend(value.relationships())
+        Subgraph.__init__(self, nodes, relationships)
+        self.__repr = None
+
+    def __repr__(self):
+        r = self.__repr
+        if r is None:
+            s = ["("]
+            for i, key in enumerate(self.__keys):
+                if i > 0:
+                    s.append(", ")
+                s.append(repr(key))
+                s.append(": ")
+                s.append(repr(self[i]))
+            s.append(")")
+            r = self.__repr = "".join(s)
+        return r
+
+    def __getitem__(self, item):
+        if isinstance(item, string):
+            try:
+                return tuple.__getitem__(self, self.__keys.index(item))
+            except ValueError:
+                raise KeyError(item)
+        elif isinstance(item, slice):
+            return self.__class__(self.__keys[item.start:item.stop],
+                                  tuple.__getitem__(self, item))
+        else:
+            return tuple.__getitem__(self, item)
+
+    def __getslice__(self, i, j):
+        return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
+
+    def keys(self):
+        return self.__keys
+
+    def values(self):
+        return tuple(self)

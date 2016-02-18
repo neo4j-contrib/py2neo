@@ -186,8 +186,8 @@ class JobResult(object):
             else:
                 # If Cypher results, reduce to single row or single value if possible
                 if isinstance(body, Cursor):
-                    if body.move():
-                        record = body.current()
+                    if body.forward():
+                        record = body.current
                         width = len(record)
                         if width == 1:
                             body = record[0]

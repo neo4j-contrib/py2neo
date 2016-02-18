@@ -156,12 +156,12 @@ class PushTestCase(Py2neoTestCase):
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999
-        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).select()
+        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).next()
         assert ab_amount is None
         assert bc_amount is None
         assert cd_since is None
         self.graph.push(path)
-        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).select()
+        ab_amount, bc_amount, cd_since = self.graph.run(statement, parameters).next()
         assert ab_amount == "lots"
         assert bc_amount == "some"
         assert cd_since == 1999

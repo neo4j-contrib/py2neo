@@ -352,7 +352,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
         tx = self.graph.begin()
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
-        record = cursor.select()
+        record = cursor.next()
         parameters = {"A": record["a"], "B": record["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
