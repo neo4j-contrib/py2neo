@@ -1429,7 +1429,7 @@ class Cursor(object):
         assert transaction is None or isinstance(transaction, Transaction)
         self.graph = graph
         self.transaction = transaction
-        self._keys = ()
+        self._keys = None
         self._records = []
         self._position = 0
         self.filled = False
@@ -1462,10 +1462,7 @@ class Cursor(object):
     def keys(self):
         """ Return the keys for the currently selected record.
         """
-        if self._position == 0:
-            return None
-        else:
-            return self._keys
+        return self._keys
 
     @property
     def position(self):
@@ -1548,7 +1545,7 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        pass
+        self._records.clear()
 
     def dump(self, out=None):
         """ Consume all records from this cursor and write in tabular

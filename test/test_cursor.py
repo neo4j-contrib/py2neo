@@ -74,11 +74,11 @@ class CursorMovementTestCase(Py2neoTestCase):
 
 class CursorKeysTestCase(Py2neoTestCase):
 
-    def test_keys_is_none_at_start(self):
-        cursor = self.graph.run("RETURN 1")
-        assert cursor.keys() is None
+    def test_keys_is_populated_before_moving(self):
+        cursor = self.graph.run("RETURN 1 AS n")
+        assert list(cursor.keys()) == ["n"]
 
-    def test_keys_updates_after_move(self):
+    def test_keys_is_populated_after_moving(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
         while cursor.forward():
