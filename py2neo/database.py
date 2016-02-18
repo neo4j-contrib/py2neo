@@ -1388,11 +1388,11 @@ class BoltTransaction(Transaction):
     def _sync(self):
         connection = self.session.connection
         connection.send()
-        fetch_next = connection.fetch_next
+        fetch = connection.fetch
         while self.cursors:
             cursor = self.cursors.pop(0)
             while not cursor.filled:
-                fetch_next()
+                fetch()
 
     def post(self, commit=False, hydrate=False):
         self._assert_unfinished()
