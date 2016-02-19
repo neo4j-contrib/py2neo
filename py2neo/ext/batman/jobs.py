@@ -260,6 +260,7 @@ class CypherJob(Job):
         Job.__init__(self, "POST", self.target,
                      {"statements": [cypher_request(statement, parameters)]})
 
+
 class PullPropertiesJob(Job):
 
     raw_result = True

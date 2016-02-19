@@ -513,7 +513,7 @@ class Graph(object):
             elif "results" in data:
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                cursor = Cursor(self, hydrate=True)
+                cursor = PreloadedCursor(self, hydrate=True)
                 HTTPTransaction.fill_cursor(cursor, data)
                 return cursor
             elif "neo4j_version" in data:
@@ -1225,7 +1225,7 @@ class HTTPTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        cursor = Cursor(self.graph, self, hydrate=True)
+        cursor = PreloadedCursor(self.graph, self, hydrate=True)
         self.cursors.append(cursor)
         if self.autocommit:
             self.commit()
@@ -1301,7 +1301,7 @@ class BoltTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         connection = self.session.connection
-        cursor = Cursor(self.graph, self, hydrate=True)
+        cursor = PreloadedCursor(self.graph, self, hydrate=True)
         try:
             entities = self.entities.popleft()
         except IndexError:
@@ -1425,18 +1425,8 @@ class Cursor(object):
     a Cypher statement.
     """
 
-    def __init__(self, graph, transaction=None, hydrate=False):
-        assert transaction is None or isinstance(transaction, Transaction)
-        self.graph = graph
-        self.transaction = transaction
-        self._keys = None
-        self._records = []
-        self._position = 0
-        self.filled = False
-        self.hydrate = hydrate
-
     def __repr__(self):
-        return "<Cursor position=%r keys=%r>" % (self._position, self.keys())
+        return "<Cursor position=%r>" % self.position
 
     def __len__(self):
         record = self.current
@@ -1458,6 +1448,118 @@ class Cursor(object):
             raise TypeError("No current record")
         else:
             return iter(record)
+
+    def close(self):
+        """ Close this cursor and free up all associated resources.
+        """
+        raise NotImplementedError()
+
+    def keys(self):
+        """ Return the keys for the currently selected record.
+        """
+        raise NotImplementedError()
+
+    @property
+    def position(self):
+        """ Return the current cursor position. Position zero indicates
+        that no record is currently selected, position one is that of
+        the first record available, and so on.
+        """
+        raise NotImplementedError()
+
+    def forward(self, amount=1):
+        """ Attempt to move the cursor one position forward (or by
+        another amount if explicitly specified). The cursor will move
+        position by up to, but never more than, the amount specified.
+        If not enough scope for movement remains, only that remainder
+        will be consumed. The total amount moved is returned.
+
+        :param amount: the amount by which to move the cursor
+        :return: the amount that the cursor was able to move
+        """
+        raise NotImplementedError()
+
+    @property
+    def current(self):
+        """ Return the current record.
+
+        :param keys:
+        :return:
+        """
+        raise NotImplementedError()
+
+    def next(self):
+        """ Fetch and return the next record, if available.
+
+        :param keys:
+        :return:
+        """
+        if self.forward():
+            return self.current
+        else:
+            return None
+
+    def stream(self):
+        """ Consume and yield all remaining records.
+
+        :param keys:
+        :return:
+        """
+        while self.forward():
+            yield self.current
+
+    def evaluate(self, key=0):
+        """ Select the next available record and return the value from
+        its first field (or another field if explicitly specified).
+
+        :param key:
+        :return:
+        """
+        if self.forward():
+            return self.current[key]
+        else:
+            return None
+
+    def dump(self, out=None):
+        """ Consume all records from this cursor and write in tabular
+        form to the console.
+
+        :param out: the channel to which output should be dumped
+        """
+        if out is None:
+            out = stdout
+        records = list(self.stream())
+        keys = self.keys()
+        widths = [len(key) for key in keys]
+        for record in records:
+            for i, value in enumerate(record):
+                widths[i] = max(widths[i], len(ustr(value)))
+        templates = [u" {:%d} " % width for width in widths]
+        out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
+        out.write(u"\n")
+        out.write(u"".join("-" * (width + 2) for width in widths))
+        out.write(u"\n")
+        for i, record in enumerate(records):
+            out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
+            out.write(u"\n")
+
+
+class PreloadedCursor(Cursor):
+
+    def __init__(self, graph, transaction=None, hydrate=False):
+        assert transaction is None or isinstance(transaction, Transaction)
+        self.graph = graph
+        self.transaction = transaction
+        self._keys = None
+        self._records = []
+        self._position = 0
+        self.filled = False
+        self.hydrate = hydrate
+
+    def close(self):
+        """ Close this cursor and free up all associated resources.
+        """
+        self._records.clear()
 
     def keys(self):
         """ Return the keys for the currently selected record.
@@ -1509,66 +1611,6 @@ class Cursor(object):
             return None
         else:
             return self._records[self._position - 1]
-
-    def next(self):
-        """ Fetch and return the next record, if available.
-
-        :param keys:
-        :return:
-        """
-        if self.forward():
-            return self.current
-        else:
-            return None
-
-    def stream(self):
-        """ Consume and yield all remaining records.
-
-        :param keys:
-        :return:
-        """
-        while self.forward():
-            yield self.current
-
-    def evaluate(self, key=0):
-        """ Select the next available record and return the value from
-        its first field (or another field if explicitly specified).
-
-        :param key:
-        :return:
-        """
-        if self.forward():
-            return self.current[key]
-        else:
-            return None
-
-    def close(self):
-        """ Close this cursor and free up all associated resources.
-        """
-        self._records.clear()
-
-    def dump(self, out=None):
-        """ Consume all records from this cursor and write in tabular
-        form to the console.
-
-        :param out: the channel to which output should be dumped
-        """
-        if out is None:
-            out = stdout
-        records = list(self.stream())
-        keys = self._keys
-        widths = [len(key) for key in keys]
-        for record in records:
-            for i, value in enumerate(record):
-                widths[i] = max(widths[i], len(ustr(value)))
-        templates = [u" {:%d} " % width for width in widths]
-        out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
-        out.write(u"\n")
-        out.write(u"".join("-" * (width + 2) for width in widths))
-        out.write(u"\n")
-        for i, record in enumerate(records):
-            out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
-            out.write(u"\n")
 
 
 class Record(tuple, Subgraph):
