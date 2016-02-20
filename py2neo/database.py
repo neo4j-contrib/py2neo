@@ -1559,7 +1559,7 @@ class PreloadedCursor(Cursor):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self._records.clear()
+        self._records[:] = []
 
     def keys(self):
         """ Return the keys for the currently selected record.
