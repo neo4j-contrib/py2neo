@@ -31,7 +31,7 @@ from py2neo.util import raise_from
 
 http.default_encoding = "UTF-8"
 
-_headers = {
+_http_headers = {
     None: [
         ("User-Agent", user_agent(PRODUCT)),
         ("X-Stream", "true"),
@@ -41,21 +41,28 @@ _headers = {
 _http_rewrites = {}
 
 
-def _add_header(key, value, host_port=None):
-    """ Add an HTTP header to be sent with all requests if no `host_port`
-    is provided or only to those matching the value supplied otherwise.
+def set_http_header(key, value, host_port=None):
+    """ Add an HTTP header for all future requests. If a `host_port` is
+    specified, this header will only be included in requests to that
+    destination.
+
+    :arg key: name of the HTTP header
+    :arg value: value of the HTTP header
+    :arg host_port: the server to which this header applies (optional)
     """
-    if host_port in _headers:
-        _headers[host_port].append((key, value))
+    if host_port in _http_headers:
+        _http_headers[host_port].append((key, value))
     else:
-        _headers[host_port] = [(key, value)]
+        _http_headers[host_port] = [(key, value)]
 
 
-def _get_headers(host_port):
+def get_http_headers(host_port):
     """Fetch all HTTP headers relevant to the `host_port` provided.
+
+    :arg host_port: the server for which these headers are required
     """
     uri_headers = {}
-    for n, headers in _headers.items():
+    for n, headers in _http_headers.items():
         if n is None or n == host_port:
             uri_headers.update(headers)
     return uri_headers
@@ -85,10 +92,10 @@ def authenticate(host_port, user_name, password):
     """
     credentials = (user_name + ":" + password).encode("UTF-8")
     value = 'Basic ' + base64.b64encode(credentials).decode("ASCII")
-    _add_header("Authorization", value, host_port=host_port)
+    set_http_header("Authorization", value, host_port=host_port)
 
 
-def rewrite(from_scheme_host_port, to_scheme_host_port):
+def http_rewrite(from_scheme_host_port, to_scheme_host_port):
     """ Automatically rewrite all URIs directed to the scheme, host and port
     specified in `from_scheme_host_port` to that specified in
     `to_scheme_host_port`.
@@ -161,7 +168,7 @@ class Resource(_Resource):
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        headers = _get_headers(self.__uri__.host_port)
+        headers = get_http_headers(self.__uri__.host_port)
         headers.update(self._headers)
         return headers
 

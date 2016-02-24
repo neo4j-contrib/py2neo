@@ -20,7 +20,7 @@ import logging
 from unittest import skipUnless
 
 from py2neo.database import DBMS
-from py2neo.http import _add_header, _get_headers, rewrite, Resource
+from py2neo.http import set_http_header, get_http_headers, http_rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 from py2neo.status import GraphError
@@ -78,20 +78,20 @@ class HTTPCounter(object):
 class HeaderTestCase(Py2neoTestCase):
 
     def test_can_add_and_retrieve_global_header(self):
-        _add_header("Key1", "Value1")
-        headers = _get_headers("localhost:7474")
+        set_http_header("Key1", "Value1")
+        headers = get_http_headers("localhost:7474")
         assert headers["Key1"] == "Value1"
 
     def test_can_add_and_retrieve_header_for_specific_host_port(self):
-        _add_header("Key1", "Value1", "example.com:7474")
-        _add_header("Key1", "Value2", "example.net:7474")
-        headers = _get_headers("example.com:7474")
+        set_http_header("Key1", "Value1", "example.com:7474")
+        set_http_header("Key1", "Value2", "example.net:7474")
+        headers = get_http_headers("example.com:7474")
         assert headers["Key1"] == "Value1"
 
     def test_can_add_and_retrieve_multiple_headers_for_specific_host_port(self):
-        _add_header("Key1", "Value1", "example.com:7474")
-        _add_header("Key2", "Value2", "example.com:7474")
-        headers = _get_headers("example.com:7474")
+        set_http_header("Key1", "Value1", "example.com:7474")
+        set_http_header("Key2", "Value2", "example.com:7474")
+        headers = get_http_headers("example.com:7474")
         assert headers["Key1"] == "Value1"
         assert headers["Key2"] == "Value2"
 
@@ -99,16 +99,16 @@ class HeaderTestCase(Py2neoTestCase):
 class RewriteTestCase(Py2neoTestCase):
 
     def test_can_rewrite_uri(self):
-        rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
+        http_rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
         assert Resource("https://localtoast:4747/").uri == "http://localhost:7474/"
 
     def test_can_remove_rewrite_uri(self):
-        rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-        rewrite(("https", "localtoast", 4747), None)
+        http_rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
+        http_rewrite(("https", "localtoast", 4747), None)
         assert Resource("https://localtoast:4747/").uri == "https://localtoast:4747/"
 
     def test_can_remove_unknown_rewrite_uri(self):
-        rewrite(("https", "localnonsense", 4747), None)
+        http_rewrite(("https", "localnonsense", 4747), None)
 
 
 class ClientErrorTestCase(Py2neoTestCase):
