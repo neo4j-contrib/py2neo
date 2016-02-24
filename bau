@@ -15,11 +15,11 @@
 # limitations under the License.
 
 
-LATEST_2_0_VERSION="2.0.4"
-LATEST_2_1_VERSION="2.1.5"
-LATEST_2_2_VERSION="2.2.8"
-LATEST_2_3_VERSION="2.3.2"
-LATEST_3_0_VERSION="3.0.0-M03"
+LATEST_2_0_VERSION="2.0"
+LATEST_2_1_VERSION="2.1"
+LATEST_2_2_VERSION="2.2"
+LATEST_2_3_VERSION="2.3"
+LATEST_3_0_VERSION="3.0"
 LATEST_VERSION=${LATEST_3_0_VERSION}
 
 SELF=$0
@@ -27,10 +27,18 @@ COMMAND=$1
 shift
 ARGS=$@
 
-HOME=`pwd`/`dirname $SELF`
-DOWN="$HOME/.bau/down"
-LOG="$HOME/.bau/log"
-RUN="$HOME/.bau/run"
+BAU_HOME=`pwd`/`dirname $SELF`
+DOWN="${BAU_HOME}/.bau/down"
+LOG="${BAU_HOME}/.bau/log"
+RUN="${BAU_HOME}/.bau/run"
+
+NEOKIT="python -m py2neo.neokit"
+NEOKIT_SERVER="bau"
+
+DEFAULT_USER="neo4j"
+DEFAULT_PASSWORD="neo4j"
+NEW_PASSWORD="password"
+
 
 function install_dependencies {
     if [ "$ONLINE" ]
@@ -51,12 +59,12 @@ function install_dependencies {
 }
 
 function check_license {
-    pushd "$HOME" > /dev/null
+    pushd "${BAU_HOME}" > /dev/null
     find py2neo -name '*.py' | grep -v -e '^py2neo/ext/' -e '/packages/' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
     popd > /dev/null
 }
 
-function test {
+function run_tests {
     UNLICENSED=`check_license`
     if [ "$UNLICENSED" ]
     then
@@ -67,33 +75,32 @@ function test {
     echo "Running test suite"
     echo ""
     install_dependencies
-    pushd "$HOME" > /dev/null
-    for NEO4J_VERSION in $NEO4J_VERSIONS
+    pushd "${BAU_HOME}" > /dev/null
+    for NEO4J_VERSION in ${NEO4J_VERSIONS}
     do
-        neo4j_download
-        echo "Running tests for Neo4j $NEO4J_VERSION"
-        mkdir -p "$LOG/$NEO4J_VERSION" 2> /dev/null
-        trap neo4j_stop_and_exit SIGINT SIGTERM
-        neo4j_start
-        sleep 3
-        echo "Setting password"
-        NEW_PASSWORD="password"
-        python -m py2neo.password neo4j neo4j $NEW_PASSWORD
-        sleep 3
-        echo "Starting tests"
-        export NEO4J_HOME="$HOME"
-        export NEO4J_AUTH="neo4j:$NEW_PASSWORD"
-        $HOME/runtests.sh $1
-        EXIT_CODE=$?
-        trap - SIGINT SIGTERM
-        neo4j_stop
-        rm -rf "$LOG/$NEO4J_VERSION/htmlcov"
-        #mv htmlcov "$LOG/$NEO4J_VERSION/htmlcov"
+        print_version_banner ${NEO4J_VERSION}
+        ${NEOKIT} install ${NEOKIT_SERVER} ${NEO4J_VERSION}
+
+        mkdir -p "${LOG}/${NEO4J_VERSION}" 2> /dev/null
+
+        echo "Updating password"
+        ${NEOKIT} update-password ${NEOKIT_SERVER} ${DEFAULT_USER} ${DEFAULT_PASSWORD} ${NEW_PASSWORD}
+
         echo ""
-        if [ "$EXIT_CODE" != "0" ]
+        export NEO4J_HOME="${BAU_HOME}"
+        export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
+        ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $1
+        EXIT_CODE=$?
+
+        ${NEOKIT} uninstall ${NEOKIT_SERVER}
+
+        rm -rf "${LOG}/${NEO4J_VERSION}/htmlcov"
+
+        echo ""
+        if [ "${EXIT_CODE}" != "0" ]
         then
-            echo "Exiting on code $EXIT_CODE after test failure"
-            exit $EXIT_CODE
+            echo "Exiting on code ${EXIT_CODE} after test failure"
+            exit ${EXIT_CODE}
         fi
     done
     popd > /dev/null
@@ -104,27 +111,13 @@ function test {
 
 function build_book {
     install_dependencies
-    make -C $HOME/book html
-    xdg-open $HOME/book/_build/html/index.html 2> /dev/null
+    make -C ${BAU_HOME}/book html
+    xdg-open ${BAU_HOME}/book/_build/html/index.html 2> /dev/null
 }
 
-function download {
-    mkdir -p "$DOWN" 2> /dev/null
-    pushd "$DOWN" > /dev/null
-    wget $@
-    popd > /dev/null
-}
-
-function neo4j_set_dist {
-    EDITION=$NEO4J_EDITION
-    if [ "$EDITION" == "" ]
+function print_version_banner {
+    if [ "$1" == "3.0" ] || [ "$1" == "" ]
     then
-        EDITION="enterprise"
-    fi
-    VERSION=$NEO4J_VERSION
-    if [ "$VERSION" == "3.0" ] || [ "$VERSION" == "" ]
-    then
-        VERSION=$LATEST_3_0_VERSION
         echo ""
         echo ":::   ::::                  ::     ''     .::::.     ::::"
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
@@ -132,9 +125,9 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    ::  ::"
         echo "::::   ::  :::::   :::::      ::   ::     '::::' ::  ::::"
         echo "                                 :::"
-    elif [ "$VERSION" == "2.3" ]
+        echo ""
+    elif [ "$1" == "2.3" ]
     then
-        VERSION=$LATEST_2_3_VERSION
         echo ""
         echo ":::   ::::                  ::     ''     .::::.    .::::."
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
@@ -142,9 +135,9 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ..  ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: :: '::::'"
         echo "                                 :::"
-    elif [ "$VERSION" == "2.2" ]
+        echo ""
+    elif [ "$1" == "2.2" ]
     then
-        VERSION=$LATEST_2_2_VERSION
         echo ""
         echo ":::   ::::                  ::     ''     .::::.    .::::."
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
@@ -152,9 +145,9 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       .:'   "
         echo "::::   ::  :::::   :::::      ::   ::     :::::: :: ::::::"
         echo "                                 :::"
-    elif [ "$VERSION" == "2.1" ]
+        echo ""
+    elif [ "$1" == "2.1" ]
     then
-        VERSION=$LATEST_2_1_VERSION
         echo ""
         echo ":::   ::::                  ::     ''     .::::.     .::"
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''::"
@@ -162,9 +155,9 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'         ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: :: ::::::"
         echo "                                 :::"
-    elif [ "$VERSION" == "2.0" ]
+        echo ""
+    elif [ "$1" == "2.0" ]
     then
-        VERSION=$LATEST_2_0_VERSION
         echo ""
         echo ":::   ::::                  ::     ''     .::::.     ::::"
         echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ::  ::"
@@ -172,84 +165,23 @@ function neo4j_set_dist {
         echo " ::  '::: ::''''' ::   :: :::::::  ::     .:'       ::  ::"
         echo "::::   ::  :::::   :::::      ::   ::     :::::: ::  ::::"
         echo "                                 :::"
-    fi
-    DIST="neo4j-$EDITION-$VERSION"
-    ARCHIVE="$DIST-unix.tar.gz"
-}
-
-function neo4j_download {
-    neo4j_set_dist
-    if [ ! -f "$DOWN/$ARCHIVE" ]
-    then
-        if [ "$ONLINE" ]
-        then
-            download "http://dist.neo4j.org/$ARCHIVE"
-        else
-            echo "Cannot download necessary files while offline" >&2
-            exit 1
-        fi
+        echo ""
     fi
 }
 
-function neo4j_start {
-    mkdir -p "$RUN" 2> /dev/null
-    pushd "$RUN" > /dev/null
-    rm -rf "$RUN/$DIST"
-    cp "$DOWN/$ARCHIVE" "$RUN"
-    tar zxf "$ARCHIVE"
-    rm "$ARCHIVE"
-    #sed -i "s/dbms.security.authorization_enabled=true/dbms.security.authorization_enabled=false/" $DIST/conf/neo4j-server.properties
-    $DIST/bin/neo4j start
-    popd > /dev/null
-}
-
-function neo4j_stop {
-    pushd "$RUN" > /dev/null
-    $DIST/bin/neo4j stop
-    popd > /dev/null
-}
-
-function neo4j_stop_and_exit {
-    neo4j_stop
-    exit 130
-}
-
-function neo4j {
-    SUBCOMMAND=$1
-    case $SUBCOMMAND in
-        download)
-            neo4j_download
-            ;;
-        start)
-            neo4j_start
-            ;;
-        stop)
-            neo4j_stop
-            ;;
-        *)
-            ;;
-    esac
-}
-
-case $COMMAND in
+case ${COMMAND} in
     book)
         build_book
-        ;;
-    download)
-        download $ARGS
-        ;;
-    neo4j)
-        neo4j $ARGS
         ;;
     check-license)
         check_license
         ;;
     test)
         NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
-        test
+        run_tests
         ;;
     quicktest)
         NEO4J_VERSIONS="3.0"
-        test
+        run_tests
         ;;
 esac
