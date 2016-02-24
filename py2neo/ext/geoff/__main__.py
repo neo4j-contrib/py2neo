@@ -21,7 +21,7 @@ import os
 import sys
 
 from py2neo.database import DBMS
-from py2neo.env import NEO4J_URI
+from py2neo.packages.httpstream.packages.urimagic import URI
 
 from py2neo.ext.geoff import GeoffLoader
 
@@ -53,7 +53,7 @@ def main():
         _help(sys.argv[0])
         sys.exit(1)
 
-    uri = NEO4J_URI.resolve("/")
+    uri = URI(os.getenv("NEO4J_URI", "http://localhost:7474/")).resolve("/")
     dbms = DBMS(uri.string)
 
     loader = GeoffLoader(dbms.graph)

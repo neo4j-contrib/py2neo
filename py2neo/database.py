@@ -19,6 +19,7 @@
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 import logging
+from os import getenv
 from sys import stdout
 from warnings import warn
 import webbrowser
@@ -27,7 +28,6 @@ from py2neo import PRODUCT
 from py2neo.compat import integer, ustr, string
 from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
     cypher_escape, walk, size, Walkable, cypher_repr
-from py2neo.env import NEO4J_AUTH, NEO4J_URI
 from py2neo.http import authenticate, Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -127,15 +127,17 @@ class DBMS(object):
 
     def __new__(cls, uri=None):
         if uri is None:
-            uri = NEO4J_URI
-        uri = ustr(uri)
-        if not uri.endswith("/"):
-            uri += "/"
+            uri = ustr(getenv("NEO4J_URI", "http://localhost:7474/"))
+        else:
+            uri = ustr(uri)
+            if not uri.endswith("/"):
+                uri += "/"
         try:
             inst = cls.__instances[uri]
         except KeyError:
-            if NEO4J_AUTH:
-                user_name, password = NEO4J_AUTH.partition(":")[0::2]
+            auth = getenv("NEO4J_AUTH", None)
+            if auth:
+                user_name, password = auth.partition(":")[0::2]
                 authenticate(URI(uri).host_port, user_name, password)
             inst = super(DBMS, cls).__new__(cls)
             inst.remote = Resource(uri)

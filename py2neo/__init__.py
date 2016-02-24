@@ -27,7 +27,6 @@ PRODUCT = ("py2neo", __version__)
 
 
 from py2neo.types import *
-from py2neo.env import *
 from py2neo.ext import *
 from py2neo.database import *
 from py2neo.http import *
