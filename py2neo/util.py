@@ -35,18 +35,6 @@ from weakref import WeakValueDictionary
 WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
 WORD_ALL = re.compile("([a-z0-9])([A-Z])")
 
-BASE62_DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
-
-def base62(x):
-    if x == 0:
-        return "0"
-    digits = []
-    while x:
-        x, d = divmod(x, 62)
-        digits.insert(0, BASE62_DIGITS[d])
-    return "".join(digits)
-
 
 def snake_case(s):
     words = s.replace("_", " ").replace("-", " ").split()
