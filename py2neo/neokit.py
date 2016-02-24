@@ -18,14 +18,13 @@
 
 from base64 import b64encode
 from json import dumps as json_dumps
-from os import linesep, getenv, listdir, makedirs, rename
-from os.path import basename as path_basename, exists as path_exists, expanduser as path_expanduser, isdir as path_isdir, \
-    isfile as path_isfile, join as path_join
+from os import curdir, getenv, linesep, listdir, makedirs, rename
+from os.path import basename, exists as path_exists, expanduser, isdir, isfile, join as path_join, abspath
 import re
 from shutil import rmtree
 from socket import create_connection
 from subprocess import call, check_output, CalledProcessError
-from sys import stdout, stderr
+from sys import argv, stdout, stderr
 from tarfile import TarFile
 from textwrap import dedent
 from time import sleep
@@ -41,11 +40,11 @@ try:
 
         def read_properties(self, filename, section=None):
             if not section:
-                basename = path_basename(filename)
-                if basename.endswith(".properties"):
-                    section = basename[:-11]
+                b = basename(filename)
+                if b.endswith(".properties"):
+                    section = b[:-11]
                 else:
-                    section = basename
+                    section = b
             with open(filename) as f:
                 data = f.read()
             self.read_string("[%s]\n%s" % (section, data), filename)
@@ -60,11 +59,11 @@ except ImportError:
 
         def read_properties(self, filename, section=None):
             if not section:
-                basename = path_basename(filename)
-                if basename.endswith(".properties"):
-                    section = basename[:-11]
+                b = basename(filename)
+                if b.endswith(".properties"):
+                    section = b[:-11]
                 else:
-                    section = basename
+                    section = b
             data = StringIO()
             data.write("[%s]\n" % section)
             with codecs_open(filename, encoding="utf-8") as f:
@@ -72,6 +71,10 @@ except ImportError:
             data.seek(0, SEEK_SET)
             self.readfp(data)
 
+
+SERVER_AUTH_FAILURE = 9
+SERVER_NOT_RUNNING = 10
+SERVER_ALREADY_RUNNING = 11
 
 number_in_brackets = re.compile("\[(\d+)\]")
 
@@ -156,7 +159,7 @@ class Package(object):
         """
         file_name = path_join(path, self.name)
         if overwrite:
-            if path_exists(file_name) and not path_isfile(file_name):
+            if path_exists(file_name) and not isfile(file_name):
                 raise IOError("Cannot overwrite directory %r" % file_name)
         elif not self.snapshot and path_exists(file_name):
             return file_name
@@ -169,7 +172,7 @@ class Package(object):
 class Warehouse(object):
 
     def __init__(self, home=None):
-        self.home = home or getenv("NEOKIT_HOME") or path_expanduser("~/.neokit")
+        self.home = home or getenv("NEOKIT_HOME") or expanduser("~/.neokit")
         self.dist = path_join(self.home, "dist")
         self.run = path_join(self.home, "run")
 
@@ -177,7 +180,7 @@ class Warehouse(object):
         container = path_join(self.run, name)
         for dir_name in listdir(container):
             dir_path = path_join(container, dir_name)
-            if path_isdir(dir_path):
+            if isdir(dir_path):
                 return GraphServer(dir_path)
         raise IOError("Could not locate server directory")
 
@@ -208,8 +211,8 @@ class GraphServer(object):
     """ Represents a Neo4j server installation on disk.
     """
 
-    def __init__(self, home):
-        self.home = home
+    def __init__(self, home=None):
+        self.home = home or abspath(curdir)
 
     def __repr__(self):
         return "<GraphServer home=%r>" % self.home
@@ -237,7 +240,7 @@ class GraphServer(object):
 
     def update_config(self, file_name, properties):
         config_file_path = path_join(self.home, "conf", "neo4j.conf")
-        if not path_isfile(config_file_path):
+        if not isfile(config_file_path):
             config_file_path = path_join(self.home, "conf", file_name)
         with open(config_file_path, "r") as f_in:
             lines = f_in.readlines()
@@ -355,7 +358,7 @@ class GraphServer(object):
         """ Restart the server.
         """
         self.stop()
-        self.start()
+        return self.start()
 
     def running(self):
         """ The PID of the current executing process for this server.
@@ -426,7 +429,9 @@ class Commander(object):
         self.err.write(linesep)
 
     def usage(self, script):
-        self.write_line("usage: %s <command> <arguments>" % path_basename(script))
+        script = basename(script)
+        self.write_line("usage: %s <command> <arguments>" % script)
+        self.write_line("       %s help <command>" % script)
         self.write_line("")
         self.write_line("commands:")
         for attr in sorted(dir(self)):
@@ -434,26 +439,32 @@ class Commander(object):
             if callable(method) and not attr.startswith("_") and method.__doc__:
                 doc = dedent(method.__doc__).strip()
                 self.write_line("    " + doc[6:].strip())
+        self.write_line("")
+        self.write_line("Many commands can take '.' as a server name. This operates on the server\n"
+                        "located in the current directory. For example:\n\n    neokit disable-auth .")
         if self.epilog:
             self.write_line("")
             self.write_line(self.epilog)
 
     def execute(self, *args):
         try:
-            command, command_args = args[1], args[2:]
+            command = args[1]
         except IndexError:
             self.usage(args[0])
+            return
+        command = command.replace("-", "_")
+        if command == "help":
+            command = args[2]
+            args = [args[0], command, "--help"]
+        try:
+            method = getattr(self, command)
+        except AttributeError:
+            self.write_err_line("Unknown command %r" % command)
         else:
-            command = command.replace("-", "_")
             try:
-                method = getattr(self, command)
-            except AttributeError:
-                self.write_err_line("Unknown command %r" % command)
-            else:
-                try:
-                    return method(*args[1:]) or 0
-                except Exception as err:
-                    self.write_err_line("Error: %s" % err)
+                return method(*args[1:]) or 0
+            except Exception as err:
+                self.write_err_line("Error: %s" % err)
 
     def parser(self, script):
         from argparse import ArgumentParser
@@ -466,7 +477,6 @@ class Commander(object):
         parser.description = "Download a Neo4j server package"
         parser.add_argument("version", nargs="?", help="Neo4j version")
         parsed = parser.parse_args(args[1:])
-        Package(version=parsed.version).download()
         self.write_line(Package(version=parsed.version).download())
 
     def install(self, *args):
@@ -477,10 +487,8 @@ class Commander(object):
         parser.add_argument("server", help="server name")
         parser.add_argument("version", nargs="?", help="Neo4j version")
         parsed = parser.parse_args(args[1:])
-        name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.install(name, version=parsed.version)
-        self.write_line("Server %r is available at %r" % (name, server.home))
+        server = Warehouse().install(parsed.server, version=parsed.version)
+        self.write_line(server.home)
 
     def uninstall(self, *args):
         """ usage: uninstall <server>
@@ -489,12 +497,12 @@ class Commander(object):
         parser.description = "Uninstall a Neo4j server"
         parser.add_argument("server", help="server name")
         parsed = parser.parse_args(args[1:])
-        name = parsed.server
+        server_name = parsed.server
         warehouse = Warehouse()
-        server = warehouse.get(name)
+        server = warehouse.get(server_name)
         if server.running():
             server.stop()
-        warehouse.uninstall(name)
+        warehouse.uninstall(server_name)
 
     def directory(self, *args):
         """ usage: directory
@@ -502,8 +510,7 @@ class Commander(object):
         parser = self.parser(args[0])
         parser.description = "List all installed Neo4j servers"
         parser.parse_args(args[1:])
-        warehouse = Warehouse()
-        for name in sorted(warehouse.directory()):
+        for name in sorted(Warehouse().directory()):
             self.write_line(name)
 
     def rename(self, *args):
@@ -514,8 +521,7 @@ class Commander(object):
         parser.add_argument("server", help="server name")
         parser.add_argument("new_name", help="new server name")
         parsed = parser.parse_args(args[1:])
-        warehouse = Warehouse()
-        warehouse.rename(parsed.server, parsed.new_name)
+        Warehouse().rename(parsed.server, parsed.new_name)
 
     def start(self, *args):
         """ usage: start <server>
@@ -524,14 +530,16 @@ class Commander(object):
         parser.description = "Start a Neo4j server"
         parser.add_argument("server", help="server name")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
+        if parsed.server == ".":
+            server = GraphServer()
+        else:
+            server = Warehouse().get(parsed.server)
         if server.running():
-            self.write_err_line("Server %r is already running" % server_name)
+            self.write_err_line("Server already running")
+            return SERVER_ALREADY_RUNNING
         else:
             pid = server.start()
-            self.write_line("Server %r started as process %d" % (server, pid))
+            self.write_line("%d" % pid)
 
     def stop(self, *args):
         """ usage: stop <server>
@@ -540,14 +548,32 @@ class Commander(object):
         parser.description = "Stop a Neo4j server"
         parser.add_argument("server", help="server name")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
+        if parsed.server == ".":
+            server = GraphServer()
+        else:
+            server = Warehouse().get(parsed.server)
         if server.running():
             server.stop()
         else:
-            self.write_err_line("Server %r is not running" % server_name)
-            return 1
+            self.write_err_line("Server not running")
+            return SERVER_NOT_RUNNING
+
+    def restart(self, *args):
+        """ usage: restart <server>
+        """
+        parser = self.parser(args[0])
+        parser.description = "Start or restart a Neo4j server"
+        parser.add_argument("server", help="server name")
+        parsed = parser.parse_args(args[1:])
+        if parsed.server == ".":
+            server = GraphServer()
+        else:
+            server = Warehouse().get(parsed.server)
+        if server.running():
+            pid = server.restart()
+        else:
+            pid = server.start()
+        self.write_line("%d" % pid)
 
     def run(self, *args):
         """ usage: run <server> <command>
@@ -557,21 +583,19 @@ class Commander(object):
         parser.add_argument("server", help="server name")
         parser.add_argument("command", nargs="+", help="command to run")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
-        if server.running():
-            self.write_err_line("Server %r is already running" % server_name)
-            return 1
+        if parsed.server == ".":
+            server = GraphServer()
         else:
+            server = Warehouse().get(parsed.server)
+        if server.running():
+            self.write_err_line("Server already running")
+            return SERVER_ALREADY_RUNNING
+        else:
+            server.start()
             try:
-                server.start()
-                exit_status = call(parsed.command)
-            except:
-                exit_status = 1
+                return call(parsed.command)
             finally:
                 server.stop()
-            return exit_status
 
     def enable_auth(self, *args):
         """ usage: enable-auth <server>
@@ -580,14 +604,11 @@ class Commander(object):
         parser.description = "Enable auth on a Neo4j server"
         parser.add_argument("server", help="server name")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
-        server.auth_enabled = True
-        if server.running():
-            self.write_line("Auth enabled - this will take effect when the server is restarted")
+        if parsed.server == ".":
+            server = GraphServer()
         else:
-            self.write_line("Auth enabled")
+            server = Warehouse().get(parsed.server)
+        server.auth_enabled = True
 
     def disable_auth(self, *args):
         """ usage: disable-auth <server>
@@ -596,14 +617,11 @@ class Commander(object):
         parser.description = "Disable auth on a Neo4j server"
         parser.add_argument("server", help="server name")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
-        server.auth_enabled = False
-        if server.running():
-            self.write_line("Auth disabled - this will take effect when the server is restarted")
+        if parsed.server == ".":
+            server = GraphServer()
         else:
-            self.write_line("Auth disabled")
+            server = Warehouse().get(parsed.server)
+        server.auth_enabled = False
 
     def update_password(self, *args):
         """ usage: update-password <server> <user> <password> <new_password>
@@ -615,24 +633,24 @@ class Commander(object):
         parser.add_argument("password", help="current password")
         parser.add_argument("new_password", help="new password")
         parsed = parser.parse_args(args[1:])
-        server_name = parsed.server
-        warehouse = Warehouse()
-        server = warehouse.get(server_name)
-        running = server.running()
-        if not running:
+        if parsed.server == ".":
+            server = GraphServer()
+        else:
+            server = Warehouse().get(parsed.server)
+        already_running = server.running()
+        if not already_running:
             server.start()
         try:
             server.update_password(parsed.user, parsed.password, parsed.new_password)
         except AuthError as error:
             self.write_err_line("%s" % error)
-            return 1
+            return SERVER_AUTH_FAILURE
         finally:
-            if not running:
+            if not already_running:
                 server.stop()
 
 
 def main(args=None, out=None, err=None):
-    from sys import argv
     exit_status = Commander(out, err).execute(*args or argv)
     exit(exit_status)
 
