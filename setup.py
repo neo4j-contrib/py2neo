@@ -47,10 +47,7 @@ package_metadata = {
         "console_scripts": [
             "py2neo = py2neo.__init__:main",
             "neokit = py2neo.neokit:main",
-            "neoauth = py2neo.password:main",
-            "neoget = py2neo.server:main",
             "geoff = py2neo.ext.geoff.__main__:main",
-            "neobox = py2neo.ext.neobox.__main__:main",
         ],
     },
     "packages": packages,
