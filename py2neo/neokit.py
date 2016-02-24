@@ -16,6 +16,28 @@
 # limitations under the License.
 
 
+"""
+Neokit
+======
+
+Neokit is a standalone module for managing one or more Neo4j server
+installations. The Neokit classes may be used programmatically but
+will generally be invoked via the command line interface. If Neokit
+has been installed as part of the Py2neo package, the command line
+tool will be available as `neokit`; otherwise, it can be called
+as a Python module: `python -m neokit`.
+
+Class Overview
+--------------
+TODO
+
+Command Overview
+----------------
+TODO
+
+"""
+
+
 from base64 import b64encode
 from json import dumps as json_dumps
 from os import curdir, getenv, linesep, listdir, makedirs, rename
