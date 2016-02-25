@@ -1490,7 +1490,7 @@ class Cursor(object):
         """
         raise NotImplementedError()
 
-    def next(self):
+    def select(self):
         """ Fetch and return the next record, if available.
 
         :param keys:
@@ -1502,7 +1502,7 @@ class Cursor(object):
             return None
 
     def stream(self):
-        """ Consume and yield all remaining records.
+        """ Fetch and yield all remaining records.
 
         :param keys:
         :return:
