@@ -41,4 +41,4 @@ Escaping Values in Cypher
 URI Rewriting
 =============
 
-.. autofunction:: py2neo.rewrite
+.. autofunction:: py2neo.http_rewrite

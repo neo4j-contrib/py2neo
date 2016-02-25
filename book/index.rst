@@ -27,10 +27,9 @@ Contents
    intro
    types
    database
+   neokit
    ext/batman
    ext/calendar
    ext/geoff
-   ext/gremlin
    ext/ogm
-   ext/spatial
    cookbook

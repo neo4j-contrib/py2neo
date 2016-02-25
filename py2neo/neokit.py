@@ -17,8 +17,9 @@
 
 
 """
+******
 Neokit
-======
+******
 
 Neokit is a standalone module for managing one or more Neo4j server
 installations. The Neokit classes may be used programmatically but
@@ -27,14 +28,18 @@ has been installed as part of the Py2neo package, the command line
 tool will be available as `neokit`; otherwise, it can be called
 as a Python module: `python -m neokit`.
 
-Class Overview
---------------
+Command Line Usage
+==================
+::
+
+    $ neokit download 3.0
+
+Programmatic Usage
+==================
 TODO
 
-Command Overview
-----------------
-TODO
-
+API
+===
 """
 
 
@@ -492,6 +497,22 @@ class Commander(object):
         from argparse import ArgumentParser
         return ArgumentParser(prog=script, epilog=self.epilog)
 
+    def versions(self, *args):
+        """ usage: versions
+        """
+        parser = self.parser(args[0])
+        parser.description = "List all available Neo4j versions"
+        parser.parse_args(args[1:])
+        for version in versions:
+            self.write(version)
+            aliases = []
+            for alias, original in version_aliases.items():
+                if original == version:
+                    aliases.append(alias)
+            if aliases:
+                self.write(" (%s)" % ", ".join(sorted(aliases)))
+            self.write(linesep)
+
     def download(self, *args):
         """ usage: download [<version>]
         """
@@ -526,8 +547,8 @@ class Commander(object):
             server.stop()
         warehouse.uninstall(server_name)
 
-    def directory(self, *args):
-        """ usage: directory
+    def list(self, *args):
+        """ usage: list
         """
         parser = self.parser(args[0])
         parser.description = "List all installed Neo4j servers"
