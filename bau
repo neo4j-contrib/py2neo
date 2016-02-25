@@ -41,19 +41,22 @@ NEW_PASSWORD="password"
 
 
 function install_dependencies {
-    if [ "$ONLINE" ]
+    if [ "${ONLINE}" ]
     then
         echo "Ensuring dependencies are up to date"
         pip install --upgrade -r test_requirements.txt
         for REQUIREMENTS in "$(find py2neo/ext -name requirements.txt)"
         do
-            pip install --upgrade -r $REQUIREMENTS
+            if [ "${REQUIREMENTS}" != "" ]
+            then
+                pip install --upgrade -r ${REQUIREMENTS}
+            fi
         done
         EXIT_CODE=$?
-        if [ "$EXIT_CODE" != "0" ]
+        if [ "${EXIT_CODE}" != "0" ]
         then
-            echo "Exiting on code $EXIT_CODE after failure to install dependencies"
-            exit $EXIT_CODE
+            echo "Exiting on code ${EXIT_CODE} after failure to install dependencies"
+            exit ${EXIT_CODE}
         fi
     fi
 }
