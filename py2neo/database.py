@@ -870,19 +870,19 @@ class Transaction(object):
     def append(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters)
 
-    def post(self, commit=False, hydrate=False):
+    def _post(self, commit=False, hydrate=False):
         """ Submit the outstanding queue of actions to the current transaction.
 
         :arg commit: flag indicating whether or not to commit this transaction
         :arg hydrate: flag indicating whether or not to hydrate the values returned
         """
-        raise NotImplementedError("%s.post" % self.__class__.__name__)
+        raise NotImplementedError("%s._post" % self.__class__.__name__)
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
         """
-        self.post(hydrate=True)
+        self._post(hydrate=True)
 
     def finish(self):
         self._assert_unfinished()
@@ -892,7 +892,7 @@ class Transaction(object):
         """ Send all pending statements to the server for execution and commit
         the transaction.
         """
-        self.post(commit=True, hydrate=True)
+        self._post(commit=True, hydrate=True)
 
     def rollback(self):
         """ Rollback the current transaction, undoing all actions taken so far.
@@ -1233,7 +1233,7 @@ class HTTPTransaction(Transaction):
             self.commit()
         return cursor
 
-    def post(self, commit=False, hydrate=False):
+    def _post(self, commit=False, hydrate=False):
         self._assert_unfinished()
         if commit:
             log.info("commit")
@@ -1396,7 +1396,7 @@ class BoltTransaction(Transaction):
             while not cursor.filled:
                 fetch()
 
-    def post(self, commit=False, hydrate=False):
+    def _post(self, commit=False, hydrate=False):
         self._assert_unfinished()
         if commit:
             log.info("commit")
