@@ -50,9 +50,9 @@ from os.path import basename, exists as path_exists, expanduser, isdir, isfile, 
 import re
 from shutil import rmtree
 from socket import create_connection
-from subprocess import call, check_output, CalledProcessError
+from subprocess import call, check_call, check_output, CalledProcessError
 from sys import argv, stdout, stderr
-from tarfile import TarFile
+from tarfile import TarFile, ReadError
 from textwrap import dedent
 from time import sleep
 try:
@@ -190,9 +190,12 @@ class Package(object):
                 raise IOError("Cannot overwrite directory %r" % file_name)
         elif not self.snapshot and path_exists(file_name):
             return file_name
-        with urlopen(self.url) as f_in:
+        f_in = urlopen(self.url)
+        try:
             with open(file_name, "wb") as f_out:
                 f_out.write(f_in.read())
+        finally:
+            f_in.close()
         return file_name
 
 
@@ -216,8 +219,14 @@ class Warehouse(object):
         rmtree(container, ignore_errors=True)
         makedirs(container)
         archive_file = Package(edition, version).download(self.dist)
-        with TarFile.open(archive_file, "r") as archive:
-            archive.extractall(container)
+        try:
+            with TarFile.open(archive_file, "r:gz") as archive:
+                archive.extractall(container)
+        except ReadError:
+            # The tarfile module sometimes has trouble with certain tar
+            # files for unknown reasons. This workaround falls back to
+            # command line.
+            check_call(["tar", "x", "-C", container, "-f", archive_file])
         return self.get(name)
 
     def uninstall(self, name):
