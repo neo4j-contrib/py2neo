@@ -515,8 +515,8 @@ class Graph(object):
             elif "results" in data:
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                cursor = PreloadedCursor(self, hydrate=True)
-                HTTPTransaction.fill_cursor(cursor, data)
+                cursor = Cursor(self, None)
+                HTTPTransaction.load_cursor(cursor, data, hydrate=True)
                 return cursor
             elif "neo4j_version" in data:
                 return self
@@ -1227,7 +1227,7 @@ class HTTPTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        cursor = PreloadedCursor(self.graph, self, hydrate=True)
+        cursor = Cursor(self.graph, self)
         self.cursors.append(cursor)
         if self.autocommit:
             self.commit()
@@ -1256,7 +1256,7 @@ class HTTPTransaction(Transaction):
         for raw_result in raw["results"]:
             cursor = self.cursors.pop(0)
             cursor.hydrate = hydrate
-            self.fill_cursor(cursor, raw_result)
+            self.load_cursor(cursor, raw_result, hydrate=hydrate)
 
     def rollback(self):
         self._assert_unfinished()
@@ -1268,25 +1268,25 @@ class HTTPTransaction(Transaction):
             self.finish()
 
     @staticmethod
-    def fill_cursor(cursor, raw):
+    def load_cursor(cursor, raw, hydrate):
         try:
             entities = cursor.transaction.entities.popleft()
         except (AttributeError, IndexError):
             entities = {}
         cursor._keys = keys = tuple(raw["columns"])
-        if cursor.hydrate:
-            hydrate = cursor.graph.hydrate
+        if hydrate:
+            h = cursor.graph.hydrate
             records = []
             for record in raw["data"]:
                 values = []
                 for i, value in enumerate(record["rest"]):
                     key = keys[i]
                     cached = entities.get(key)
-                    values.append(hydrate(value, inst=cached))
+                    values.append(h(value, inst=cached))
                 records.append(Record(keys, values))
-            cursor._records = records
+            cursor.buffer.extend(records)
         else:
-            cursor._records = [values["rest"] for values in raw["data"]]
+            cursor.buffer.extend(values["rest"] for values in raw["data"])
         cursor.filled = True
 
 
@@ -1303,7 +1303,7 @@ class BoltTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         connection = self.session.connection
-        cursor = PreloadedCursor(self.graph, self, hydrate=True)
+        cursor = Cursor(self.graph, self)
         try:
             entities = self.entities.popleft()
         except IndexError:
@@ -1324,7 +1324,7 @@ class BoltTransaction(Transaction):
                 cached = entities.get(key)
                 v = self.rehydrate(bolt_hydrate(value), inst=cached)
                 hydrated_values.append(v)
-            cursor._records.append(Record(keys, hydrated_values))
+            cursor.buffer.append(Record(keys, hydrated_values))
 
         def on_footer(metadata):
             """ Called on receipt of the result footer.
@@ -1423,9 +1423,22 @@ class BoltTransaction(Transaction):
 
 
 class Cursor(object):
-    """ A navigable reader for the stream of records made available from running
+    """ A navigable accessor for the stream of records made available from running
     a Cypher statement.
     """
+
+    #: The current cursor position. Position zero indicates that no
+    #: record is currently selected, position one is that of the first
+    #: record available, and so on.
+    position = 0
+
+    def __init__(self, graph, transaction):
+        assert transaction is None or isinstance(transaction, Transaction)
+        self.graph = graph
+        self.transaction = transaction
+        self._keys = None
+        self.buffer = deque()
+        self.filled = False
 
     def __repr__(self):
         return "<Cursor position=%r>" % self.position
@@ -1454,20 +1467,12 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        raise NotImplementedError()
+        self.buffer.clear()
 
     def keys(self):
         """ Return the keys for the currently selected record.
         """
-        raise NotImplementedError()
-
-    @property
-    def position(self):
-        """ Return the current cursor position. Position zero indicates
-        that no record is currently selected, position one is that of
-        the first record available, and so on.
-        """
-        raise NotImplementedError()
+        return self._keys
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1479,7 +1484,24 @@ class Cursor(object):
         :param amount: the amount by which to move the cursor
         :return: the amount that the cursor was able to move
         """
-        raise NotImplementedError()
+        if amount == 0:
+            return 0
+        assert amount > 0
+        if not self.filled:
+            self.transaction.process()
+        amount = int(amount)
+        step = 1 if amount >= 0 else -1
+        moved = 0
+        record_count = len(self.buffer)
+        while moved != amount:
+            position = self.position
+            new_position = position + step
+            if 0 <= new_position <= record_count:
+                self.position = new_position
+                moved += step
+            else:
+                break
+        return moved
 
     @property
     def current(self):
@@ -1488,7 +1510,10 @@ class Cursor(object):
         :param keys:
         :return:
         """
-        raise NotImplementedError()
+        if self.position == 0:
+            return None
+        else:
+            return self.buffer[self.position - 1]
 
     def select(self):
         """ Fetch and return the next record, if available.
@@ -1544,75 +1569,6 @@ class Cursor(object):
         for i, record in enumerate(records):
             out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
             out.write(u"\n")
-
-
-class PreloadedCursor(Cursor):
-
-    def __init__(self, graph, transaction=None, hydrate=False):
-        assert transaction is None or isinstance(transaction, Transaction)
-        self.graph = graph
-        self.transaction = transaction
-        self._keys = None
-        self._records = []
-        self._position = 0
-        self.filled = False
-        self.hydrate = hydrate
-
-    def close(self):
-        """ Close this cursor and free up all associated resources.
-        """
-        self._records[:] = []
-
-    def keys(self):
-        """ Return the keys for the currently selected record.
-        """
-        return self._keys
-
-    @property
-    def position(self):
-        """ Return the current cursor position. Position zero indicates
-        that no record is currently selected, position one is that of
-        the first record available, and so on.
-        """
-        return self._position
-
-    def forward(self, amount=1):
-        """ Attempt to move the cursor one position forward (or by
-        another amount if explicitly specified). The cursor will move
-        position by up to, but never more than, the amount specified.
-        If not enough scope for movement remains, only that remainder
-        will be consumed. The total amount moved is returned.
-
-        :param amount: the amount by which to move the cursor
-        :return: the amount that the cursor was able to move
-        """
-        if not self.filled:
-            self.transaction.process()
-        amount = int(amount)
-        step = 1 if amount >= 0 else -1
-        moved = 0
-        record_count = len(self._records)
-        while moved != amount:
-            position = self._position
-            new_position = position + step
-            if 0 <= new_position <= record_count:
-                self._position = new_position
-                moved += step
-            else:
-                break
-        return moved
-
-    @property
-    def current(self):
-        """ Return the current record.
-
-        :param keys:
-        :return:
-        """
-        if self._position == 0:
-            return None
-        else:
-            return self._records[self._position - 1]
 
 
 class Record(tuple, Subgraph):
