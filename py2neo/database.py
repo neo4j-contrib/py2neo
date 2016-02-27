@@ -516,7 +516,7 @@ class Graph(object):
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
                 cursor = Cursor(self, None)
-                HTTPTransaction.load_cursor(cursor, data, hydrate=True)
+                HTTPTransaction.load_cursor(cursor, data)
                 return cursor
             elif "neo4j_version" in data:
                 return self
@@ -870,11 +870,10 @@ class Transaction(object):
     def append(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters)
 
-    def _post(self, commit=False, hydrate=False):
+    def _post(self, commit=False):
         """ Submit the outstanding queue of actions to the current transaction.
 
         :arg commit: flag indicating whether or not to commit this transaction
-        :arg hydrate: flag indicating whether or not to hydrate the values returned
         """
         raise NotImplementedError("%s._post" % self.__class__.__name__)
 
@@ -882,7 +881,7 @@ class Transaction(object):
         """ Send all pending statements to the server for execution, leaving
         the transaction open for further statements.
         """
-        self._post(hydrate=True)
+        self._post()
 
     def finish(self):
         self._assert_unfinished()
@@ -892,7 +891,7 @@ class Transaction(object):
         """ Send all pending statements to the server for execution and commit
         the transaction.
         """
-        self._post(commit=True, hydrate=True)
+        self._post(commit=True)
 
     def rollback(self):
         """ Rollback the current transaction, undoing all actions taken so far.
@@ -1233,7 +1232,7 @@ class HTTPTransaction(Transaction):
             self.commit()
         return cursor
 
-    def _post(self, commit=False, hydrate=False):
+    def _post(self, commit=False):
         self._assert_unfinished()
         if commit:
             log.info("commit")
@@ -1255,8 +1254,7 @@ class HTTPTransaction(Transaction):
             raise CypherError.hydrate(raw_error)
         for raw_result in raw["results"]:
             cursor = self.cursors.pop(0)
-            cursor.hydrate = hydrate
-            self.load_cursor(cursor, raw_result, hydrate=hydrate)
+            self.load_cursor(cursor, raw_result)
 
     def rollback(self):
         self._assert_unfinished()
@@ -1268,25 +1266,22 @@ class HTTPTransaction(Transaction):
             self.finish()
 
     @staticmethod
-    def load_cursor(cursor, raw, hydrate):
+    def load_cursor(cursor, raw):
         try:
             entities = cursor.transaction.entities.popleft()
         except (AttributeError, IndexError):
             entities = {}
         cursor._keys = keys = tuple(raw["columns"])
-        if hydrate:
-            h = cursor.graph.hydrate
-            records = []
-            for record in raw["data"]:
-                values = []
-                for i, value in enumerate(record["rest"]):
-                    key = keys[i]
-                    cached = entities.get(key)
-                    values.append(h(value, inst=cached))
-                records.append(Record(keys, values))
-            cursor.buffer.extend(records)
-        else:
-            cursor.buffer.extend(values["rest"] for values in raw["data"])
+        hydrate = cursor.graph.hydrate
+        records = []
+        for record in raw["data"]:
+            values = []
+            for i, value in enumerate(record["rest"]):
+                key = keys[i]
+                cached = entities.get(key)
+                values.append(hydrate(value, inst=cached))
+            records.append(Record(keys, values))
+        cursor.buffer.extend(records)
         cursor.filled = True
 
 
@@ -1396,7 +1391,7 @@ class BoltTransaction(Transaction):
             while not cursor.filled:
                 fetch()
 
-    def _post(self, commit=False, hydrate=False):
+    def _post(self, commit=False):
         self._assert_unfinished()
         if commit:
             log.info("commit")
