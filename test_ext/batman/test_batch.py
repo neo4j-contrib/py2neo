@@ -16,11 +16,17 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, Finished, cast_node, cast_relationship
+from py2neo import DBMS, Node, Relationship, Finished, cast_node, cast_relationship
 from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
     BatchError, Job, Target, NodePointer, ManualIndexWriteBatch
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from test.util import Py2neoTestCase
+
+from unittest import skipIf
+
+
+dbms = DBMS()
+version_2_1 = (2, 1) <= dbms.kernel_version() < (2, 2)
 
 
 class BatchTestCase(Py2neoTestCase):
@@ -175,6 +181,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_relationship_if_none_exists(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
@@ -191,6 +198,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         assert knows["since"] == 2000
         self.recycling = [knows, alice, bob]
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_will_get_relationship_if_one_exists(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
@@ -203,6 +211,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         path1, path2 = self.batch.run()
         assert path1 == path2
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_will_fail_batch_if_more_than_one_exists(self):
         self.batch.create({"name": "Alice"})
         self.batch.create({"name": "Bob"})
@@ -218,6 +227,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         else:
             assert False
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_relationship_and_start_node(self):
         self.batch.create({"name": "Bob"})
         bob, = self.batch.run()
@@ -232,6 +242,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         assert knows.end_node() == bob
         self.recycling = [knows, alice, bob]
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_relationship_and_end_node(self):
         self.batch.create({"name": "Alice"})
         alice, = self.batch.run()
@@ -332,7 +343,8 @@ class MiscellaneousTestCase(Py2neoTestCase):
         self.batch.create((0, "KNOWS", 1))
         results = self.batch.run()
         assert results == []
-    
+
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_cypher_job_with_invalid_syntax(self):
         self.batch.append(CypherJob("X"))
         try:
@@ -344,6 +356,7 @@ class MiscellaneousTestCase(Py2neoTestCase):
         else:
             assert False
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_cannot_resubmit_finished_job(self):
         self.batch.append(CypherJob("CREATE (a)"))
         self.runner.run(self.batch)
@@ -405,6 +418,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         else:
             assert False
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_path_with_new_nodes(self):
         self.batch.create_path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         results = self.batch.run()
@@ -414,6 +428,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path[0].type() == "KNOWS"
         assert path.nodes()[1]["name"] == "Bob"
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_path_with_existing_nodes(self):
         alice = cast_node({"name": "Alice"})
         bob = cast_node({"name": "Bob"})
@@ -426,6 +441,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path[0].type() == "KNOWS"
         assert path.nodes()[1] == bob
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_path_creation_is_not_idempotent(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
@@ -442,6 +458,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[0] == alice
         assert path.nodes()[1] != bob
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_get_or_create_path_with_existing_nodes(self):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
@@ -454,6 +471,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path[0].type() == "KNOWS"
         assert path.nodes()[1] == bob
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_path_merging_is_idempotent(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
@@ -470,6 +488,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert path.nodes()[0] == alice
         assert path.nodes()[1] == bob
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_property_on_preexisting_node(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
@@ -478,6 +497,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert alice["age"] == 34
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_property_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice"})
         self.batch.set_property(alice, "age", 34)
@@ -486,6 +506,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert alice["age"] == 34
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_properties_on_preexisting_node(self):
         alice = Node()
         self.graph.create(alice)
@@ -495,6 +516,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_properties_on_node_in_same_batch(self):
         alice = self.batch.create({})
         self.batch.set_properties(alice, {"name": "Alice", "age": 34})
@@ -504,6 +526,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_delete_property_on_preexisting_node(self):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
@@ -513,6 +536,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["name"] == "Alice"
         assert alice["age"] is None
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_delete_property_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice", "age": 34})
         self.batch.delete_property(alice, "age")
@@ -522,6 +546,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert alice["name"] == "Alice"
         assert alice["age"] is None
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_delete_properties_on_preexisting_node(self):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
@@ -530,6 +555,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert not alice
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_delete_properties_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice", "age": 34})
         self.batch.delete_properties(alice)
@@ -538,6 +564,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert not alice
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_add_labels_to_preexisting_node(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
@@ -546,6 +573,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert set(alice.labels()) == {"human", "female"}
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_add_labels_to_node_in_same_batch(self):
         a = self.batch.create({"name": "Alice"})
         self.batch.add_labels(a, "human", "female")
@@ -554,6 +582,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert set(alice.labels()) == {"human", "female"}
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_remove_labels_from_preexisting_node(self):
         alice = Node("human", "female", name="Alice")
         self.graph.create(alice)
@@ -562,6 +591,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert set(alice.labels()) == {"female"}
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_add_and_remove_labels_on_node_in_same_batch(self):
         alice = self.batch.create({"name": "Alice"})
         self.batch.add_labels(alice, "human", "female")
@@ -571,6 +601,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert set(alice.labels()) == {"human"}
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_labels_on_preexisting_node(self):
         alice = Node("human", "female", name="Alice")
         self.graph.create(alice)
@@ -579,6 +610,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         self.graph.pull(alice)
         assert set(alice.labels()) == {"mystery", "badger"}
 
+    @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_set_labels_on_node_in_same_batch(self):
         self.batch.create({"name": "Alice"})
         self.batch.add_labels(0, "human", "female")

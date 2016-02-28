@@ -19,6 +19,7 @@
 import logging
 
 from py2neo.compat import integer
+from py2neo.database import GraphError
 from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship
 from py2neo.http import Resource
 from py2neo.status import Finished
