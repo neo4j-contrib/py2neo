@@ -296,6 +296,7 @@ class Graph(object):
 
     remote = None
     driver = None
+    transaction_class = None
 
     def __new__(cls, *uris):
         # Gather all URIs
@@ -319,11 +320,13 @@ class Graph(object):
             inst.uris = uri_dict
             inst.remote = Resource(http_uri)
             inst.transaction_uri = Resource(http_uri + "transaction").uri.string
+            inst.transaction_class = HTTPTransaction
             if inst.dbms.supports_bolt():
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.remote.uri.host)
                 bolt_uri = URI(uri_dict["bolt"][0])
                 inst.driver = GraphDatabase.driver(bolt_uri.string, user_agent="/".join(PRODUCT))
+                inst.transaction_class = BoltTransaction
             cls.__instances[key] = inst
         return inst
 
@@ -356,10 +359,7 @@ class Graph(object):
 
         :arg autocommit:
         """
-        if self.driver:
-            return BoltTransaction(self, autocommit)
-        else:
-            return HTTPTransaction(self, autocommit)
+        return self.transaction_class(self, autocommit)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a
