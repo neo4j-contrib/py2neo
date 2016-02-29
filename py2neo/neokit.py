@@ -57,9 +57,9 @@ from tarfile import TarFile, ReadError
 from textwrap import dedent
 from time import sleep
 try:
-    from urllib.request import Request, urlopen, HTTPError
+    from urllib.request import Request, urlopen, urlretrieve, HTTPError
 except ImportError:
-    from urllib2 import Request, urlopen, HTTPError
+    from urllib2 import Request, urlopen, urlretrieve, HTTPError
 
 try:
     from configparser import SafeConfigParser
@@ -191,12 +191,11 @@ class Package(object):
                 raise IOError("Cannot overwrite directory %r" % file_name)
         elif not self.snapshot and path_exists(file_name):
             return file_name
-        f_in = urlopen(self.url)
         try:
-            with open(file_name, "wb") as f_out:
-                f_out.write(f_in.read())
-        finally:
-            f_in.close()
+            makedirs(path)
+        except OSError:
+            pass
+        urlretrieve(self.url, file_name)
         return file_name
 
 
