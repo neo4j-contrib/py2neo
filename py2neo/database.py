@@ -1476,17 +1476,9 @@ class Cursor(object):
     a Cypher statement.
     """
 
-    #: The current cursor position. Position zero indicates that no
-    #: record is currently selected, position one is that of the first
-    #: record available, and so on.
-    position = 0
-
     def __init__(self, source):
         self.source = source
         self.current = None
-
-    def __repr__(self):
-        return "<Cursor position=%r>" % self.position
 
     def __len__(self):
         record = self.current
@@ -1540,7 +1532,6 @@ class Cursor(object):
                 break
             else:
                 self.current = new_current
-                self.position += 1
                 moved += 1
         return moved
 

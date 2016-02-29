@@ -46,17 +46,6 @@ class CursorMovementTestCase(Py2neoTestCase):
     """ Tests for move and position
     """
 
-    def test_start_position_is_zero(self):
-        cursor = self.graph.run("RETURN 1")
-        assert cursor.position == 0
-
-    def test_position_updates_after_move(self):
-        cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
-        expected_position = 0
-        while cursor.forward():
-            expected_position += 1
-            assert cursor.position == expected_position
-
     def test_cannot_move_beyond_end(self):
         cursor = self.graph.run("RETURN 1")
         assert cursor.forward()
@@ -69,7 +58,6 @@ class CursorMovementTestCase(Py2neoTestCase):
     def test_moving_by_zero_keeps_same_position(self):
         cursor = self.graph.run("RETURN 1")
         assert cursor.forward(0) == 0
-        assert cursor.position == 0
 
 
 class CursorKeysTestCase(Py2neoTestCase):
@@ -173,11 +161,6 @@ class CursorEvaluationTestCase(Py2neoTestCase):
 
 
 class CursorMagicTestCase(Py2neoTestCase):
-
-    def test_repr(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        r = repr(cursor)
-        assert r.startswith("<Cursor")
 
     def test_len_returns_length_of_record(self):
         cursor = self.graph.run("RETURN 1, 2, 3")
