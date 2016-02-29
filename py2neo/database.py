@@ -515,9 +515,7 @@ class Graph(object):
             elif "results" in data:
                 return self.hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                cursor = Cursor(self, None)
-                HTTPTransaction.load_cursor(cursor, data)
-                return cursor
+                return Cursor(HTTPDataSource(self, None, data))
             elif "neo4j_version" in data:
                 return self
             else:
@@ -1208,6 +1206,143 @@ class Transaction(object):
         self.run(statement, parameters)
 
 
+class DataSource(object):
+
+    def fetch(self):
+        """ Fetch the next item.
+        """
+        raise NotImplementedError()
+
+
+class HTTPDataSource(DataSource):
+
+    def __init__(self, graph, transaction, data=None):
+        self.graph = graph
+        self.transaction = transaction
+        self.keys = None
+        self.buffer = deque()
+        self.loaded = False
+        if data:
+            self.load(data)
+
+    def fetch(self):
+        try:
+            return self.buffer.popleft()
+        except IndexError:
+            if self.loaded:
+                return None
+            else:
+                self.transaction.process()
+                return self.fetch()
+
+    def load(self, data):
+        assert not self.loaded
+        try:
+            entities = self.transaction.entities.popleft()
+        except (AttributeError, IndexError):
+            entities = {}
+        self.keys = keys = tuple(data["columns"])
+        hydrate = self.graph.hydrate
+        for record in data["data"]:
+            values = []
+            for i, value in enumerate(record["rest"]):
+                key = keys[i]
+                cached = entities.get(key)
+                values.append(hydrate(value, inst=cached))
+            self.buffer.append(Record(keys, values))
+        self.loaded = True
+
+
+class BoltDataSource(DataSource):
+
+    def __init__(self, connection, entities, graph_uri):
+        self.connection = connection
+        self.entities = entities
+        self.graph_uri = graph_uri
+        self.keys = None
+        self.buffer = deque()
+        self.loaded = False
+
+    def fetch(self):
+        try:
+            return self.buffer.popleft()
+        except IndexError:
+            if self.loaded:
+                return None
+            else:
+                self.connection.send()
+                while not self.buffer and not self.loaded:
+                    self.connection.fetch()
+                return self.fetch()
+
+    def on_header(self, metadata):
+        """ Called on receipt of the result header.
+
+        :arg metadata:
+        """
+        self.keys = metadata["fields"]
+
+    def on_record(self, values):
+        """ Called on receipt of each result record.
+
+        :arg values:
+        """
+        keys = self.keys
+        hydrated_values = []
+        for i, value in enumerate(values):
+            key = keys[i]
+            cached = self.entities.get(key)
+            v = self.rehydrate(bolt_hydrate(value), inst=cached)
+            hydrated_values.append(v)
+        self.buffer.append(Record(keys, hydrated_values))
+
+    def on_footer(self, metadata):
+        """ Called on receipt of the result footer.
+
+        :arg metadata:
+        """
+        self.loaded = True
+        #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
+
+    def on_failure(self, metadata):
+        """ Called on execution failure.
+
+        :arg metadata:
+        """
+        raise CypherError.hydrate(metadata)
+
+    def rehydrate(self, obj, inst=None):
+        # TODO: hydrate directly instead of via HTTP hydration
+        if isinstance(obj, BoltNode):
+            return Node.hydrate({
+                "self": "%snode/%d" % (self.graph_uri, obj.identity),
+                "metadata": {"labels": list(obj.labels)},
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltRelationship):
+            return Relationship.hydrate({
+                "self": "%srelationship/%d" % (self.graph_uri, obj.identity),
+                "start": "%snode/%d" % (self.graph_uri, obj.start),
+                "end": "%snode/%d" % (self.graph_uri, obj.end),
+                "type": obj.type,
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltPath):
+            return Path.hydrate({
+                "nodes": ["%snode/%d" % (self.graph_uri, n.identity) for n in obj.nodes],
+                "relationships": ["%srelationship/%d" % (self.graph_uri, r.identity)
+                                  for r in obj.relationships],
+                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
+                               for i, r in enumerate(obj.relationships)],
+            })
+        elif isinstance(obj, list):
+            return list(map(self.rehydrate, obj))
+        elif isinstance(obj, dict):
+            return {key: self.rehydrate(value) for key, value in obj.items()}
+        else:
+            return obj
+
+
 class HTTPTransaction(Transaction):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
@@ -1216,7 +1351,7 @@ class HTTPTransaction(Transaction):
     def __init__(self, graph, autocommit=False):
         Transaction.__init__(self, graph, autocommit)
         self.statements = []
-        self.cursors = []
+        self.sources = []
         uri = graph.transaction_uri
         self._begin = Resource(uri)
         self._begin_commit = Resource(uri + "/commit")
@@ -1226,8 +1361,9 @@ class HTTPTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        cursor = Cursor(self.graph, self)
-        self.cursors.append(cursor)
+        source = HTTPDataSource(self.graph, self)
+        cursor = Cursor(source)
+        self.sources.append(source)
         if self.autocommit:
             self.commit()
         return cursor
@@ -1253,8 +1389,8 @@ class HTTPTransaction(Transaction):
         for raw_error in raw["errors"]:
             raise CypherError.hydrate(raw_error)
         for raw_result in raw["results"]:
-            cursor = self.cursors.pop(0)
-            self.load_cursor(cursor, raw_result)
+            source = self.sources.pop(0)
+            source.load(raw_result)
 
     def rollback(self):
         self._assert_unfinished()
@@ -1265,25 +1401,6 @@ class HTTPTransaction(Transaction):
         finally:
             self.finish()
 
-    @staticmethod
-    def load_cursor(cursor, raw):
-        try:
-            entities = cursor.transaction.entities.popleft()
-        except (AttributeError, IndexError):
-            entities = {}
-        cursor._keys = keys = tuple(raw["columns"])
-        hydrate = cursor.graph.hydrate
-        records = []
-        for record in raw["data"]:
-            values = []
-            for i, value in enumerate(record["rest"]):
-                key = keys[i]
-                cached = entities.get(key)
-                values.append(hydrate(value, inst=cached))
-            records.append(Record(keys, values))
-        cursor.buffer.extend(records)
-        cursor.filled = True
-
 
 class BoltTransaction(Transaction):
 
@@ -1291,108 +1408,45 @@ class BoltTransaction(Transaction):
         Transaction.__init__(self, graph, autocommit)
         self.driver = driver = self.graph.driver
         self.session = driver.session()
-        self.cursors = []
+        self.sources = []
         if not self.autocommit:
             self.run("BEGIN")
 
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         connection = self.session.connection
-        cursor = Cursor(self.graph, self)
         try:
             entities = self.entities.popleft()
         except IndexError:
             entities = {}
-
-        def on_header(metadata):
-            """ Called on receipt of the result header.
-            """
-            cursor._keys = metadata["fields"]
-
-        def on_record(values):
-            """ Called on receipt of each result record.
-            """
-            keys = cursor._keys
-            hydrated_values = []
-            for i, value in enumerate(values):
-                key = keys[i]
-                cached = entities.get(key)
-                v = self.rehydrate(bolt_hydrate(value), inst=cached)
-                hydrated_values.append(v)
-            cursor.buffer.append(Record(keys, hydrated_values))
-
-        def on_footer(metadata):
-            """ Called on receipt of the result footer.
-            """
-            cursor.filled = True
-            #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
-
-        def on_failure(metadata):
-            """ Called on execution failure.
-            """
-            raise CypherError.hydrate(metadata)
+        source = BoltDataSource(connection, entities, self.graph.remote.uri.string)
 
         run_response = Response(connection)
-        run_response.on_success = on_header
-        run_response.on_failure = on_failure
+        run_response.on_success = source.on_header
+        run_response.on_failure = source.on_failure
 
         pull_all_response = Response(connection)
-        pull_all_response.on_record = on_record
-        pull_all_response.on_success = on_footer
-        pull_all_response.on_failure = on_failure
+        pull_all_response.on_record = source.on_record
+        pull_all_response.on_success = source.on_footer
+        pull_all_response.on_failure = source.on_failure
 
         s, p = normalise_request(statement, parameters, **kwparameters)
         connection.append(RUN, (s, p), run_response)
         connection.append(PULL_ALL, (), pull_all_response)
-        self.cursors.append(cursor)
+        self.sources.append(source)
         if self.autocommit:
             self.finish()
-        return cursor
-
-    def rehydrate(self, obj, inst=None):
-        from py2neo.types import Node, Relationship, Path
-        if isinstance(obj, BoltNode):
-            return Node.hydrate({
-                "self": "%snode/%d" % (self.graph.remote.uri.string, obj.identity),
-                "metadata": {"labels": list(obj.labels)},
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltRelationship):
-            graph_uri = self.graph.remote.uri.string
-            return Relationship.hydrate({
-                "self": "%srelationship/%d" % (graph_uri, obj.identity),
-                "start": "%snode/%d" % (graph_uri, obj.start),
-                "end": "%snode/%d" % (graph_uri, obj.end),
-                "type": obj.type,
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltPath):
-            graph_uri = self.graph.remote.uri.string
-            return Path.hydrate({
-                "nodes": ["%snode/%d" % (graph_uri, n.identity) for n in obj.nodes],
-                "relationships": ["%srelationship/%d" % (graph_uri, r.identity)
-                                  for r in obj.relationships],
-                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
-                               for i, r in enumerate(obj.relationships)],
-            })
-        elif isinstance(obj, list):
-            return list(map(self.rehydrate, obj))
-        elif isinstance(obj, dict):
-            return {key: self.rehydrate(value) for key, value in obj.items()}
-        else:
-            return obj
+        return Cursor(source)
 
     def _sync(self):
         connection = self.session.connection
         connection.send()
-        fetch = connection.fetch
-        while self.cursors:
-            cursor = self.cursors.pop(0)
-            while not cursor.filled:
-                fetch()
+        while self.sources:
+            source = self.sources.pop(0)
+            while not source.loaded:
+                connection.fetch()
 
     def _post(self, commit=False):
-        self._assert_unfinished()
         if commit:
             log.info("commit")
             self.run("COMMIT")
@@ -1427,13 +1481,9 @@ class Cursor(object):
     #: record available, and so on.
     position = 0
 
-    def __init__(self, graph, transaction):
-        assert transaction is None or isinstance(transaction, Transaction)
-        self.graph = graph
-        self.transaction = transaction
-        self._keys = None
-        self.buffer = deque()
-        self.filled = False
+    def __init__(self, source):
+        self.source = source
+        self.current = None
 
     def __repr__(self):
         return "<Cursor position=%r>" % self.position
@@ -1462,12 +1512,12 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self.buffer.clear()
+        self.source = None
 
     def keys(self):
         """ Return the keys for the currently selected record.
         """
-        return self._keys
+        return self.source.keys
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1482,33 +1532,17 @@ class Cursor(object):
         if amount == 0:
             return 0
         assert amount > 0
-        if not self.filled:
-            self.transaction.process()
         amount = int(amount)
-        step = 1 if amount >= 0 else -1
         moved = 0
-        record_count = len(self.buffer)
         while moved != amount:
-            position = self.position
-            new_position = position + step
-            if 0 <= new_position <= record_count:
-                self.position = new_position
-                moved += step
-            else:
+            new_current = self.source.fetch()
+            if new_current is None:
                 break
+            else:
+                self.current = new_current
+                self.position += 1
+                moved += 1
         return moved
-
-    @property
-    def current(self):
-        """ Return the current record.
-
-        :param keys:
-        :return:
-        """
-        if self.position == 0:
-            return None
-        else:
-            return self.buffer[self.position - 1]
 
     def select(self):
         """ Fetch and return the next record, if available.
