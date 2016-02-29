@@ -430,7 +430,7 @@ class Graph(object):
 
         :arg statement: Cypher statement
         :arg parameters: dictionary of parameters
-        :return: single return value or :const:`None`.
+        :returns: single return value or :const:`None`.
 
         .. seealso::
             :meth:`Transaction.evaluate`
@@ -466,8 +466,8 @@ class Graph(object):
             statement += " LIMIT %s" % limit
         cursor = self.run(statement, parameters)
         while cursor.forward():
-            a = cursor[0]
-            a.update_labels(cursor[1])
+            a = cursor.current[0]
+            a.update_labels(cursor.current[1])
             yield a
         cursor.close()
 
@@ -543,7 +543,7 @@ class Graph(object):
                          :const:`None` if any
         :arg bidirectional: :const:`True` if reversed relationships should also be included
         :arg limit: maximum number of relationships to match or :const:`None` if no limit
-        :return: matching relationships
+        :returns: matching relationships
         :rtype: generator
         """
         if start_node is None and end_node is None:
@@ -582,7 +582,7 @@ class Graph(object):
             statement += " LIMIT {0}".format(int(limit))
         cursor = self.run(statement, parameters)
         while cursor.forward():
-            yield cursor["r"]
+            yield cursor.current["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Return a single relationship matching the
@@ -826,10 +826,14 @@ class Schema(object):
 
 class DataSource(object):
 
-    def fetch(self):
-        """ Fetch the next item.
+    def keys(self):
+        """ Return the keys for the whole data set.
         """
-        raise NotImplementedError()
+
+    def fetch(self):
+        """ Fetch and return the next item.
+        """
+        pass
 
 
 class HTTPDataSource(DataSource):
@@ -837,11 +841,16 @@ class HTTPDataSource(DataSource):
     def __init__(self, graph, transaction, data=None):
         self.graph = graph
         self.transaction = transaction
-        self.keys = None
+        self._keys = None
         self.buffer = deque()
         self.loaded = False
         if data:
             self.load(data)
+
+    def keys(self):
+        if not self.loaded:
+            self.transaction.process()
+        return self._keys
 
     def fetch(self):
         try:
@@ -859,7 +868,7 @@ class HTTPDataSource(DataSource):
             entities = self.transaction.entities.popleft()
         except (AttributeError, IndexError):
             entities = {}
-        self.keys = keys = tuple(data["columns"])
+        self._keys = keys = tuple(data["columns"])
         hydrate = self.graph.hydrate
         for record in data["data"]:
             values = []
@@ -877,9 +886,14 @@ class BoltDataSource(DataSource):
         self.connection = connection
         self.entities = entities
         self.graph_uri = graph_uri
-        self.keys = None
+        self._keys = None
         self.buffer = deque()
         self.loaded = False
+
+    def keys(self):
+        while self._keys is None and not self.loaded:
+            self.connection.fetch()
+        return self._keys
 
     def fetch(self):
         try:
@@ -898,14 +912,14 @@ class BoltDataSource(DataSource):
 
         :arg metadata:
         """
-        self.keys = metadata["fields"]
+        self._keys = metadata["fields"]
 
     def on_record(self, values):
         """ Called on receipt of each result record.
 
         :arg values:
         """
-        keys = self.keys
+        keys = self._keys
         hydrated_values = []
         for i, value in enumerate(values):
             key = keys[i]
@@ -999,7 +1013,7 @@ class Transaction(object):
         :arg statement: Cypher statement
         :arg parameters: dictionary of parameters
         """
-        raise NotImplementedError("%s.run" % self.__class__.__name__)
+        pass
 
     @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
     def append(self, statement, parameters=None, **kwparameters):
@@ -1010,7 +1024,7 @@ class Transaction(object):
 
         :arg commit: flag indicating whether or not to commit this transaction
         """
-        raise NotImplementedError("%s._post" % self.__class__.__name__)
+        pass
 
     def process(self):
         """ Send all pending statements to the server for execution, leaving
@@ -1031,7 +1045,7 @@ class Transaction(object):
     def rollback(self):
         """ Rollback the current transaction, undoing all actions taken so far.
         """
-        raise NotImplementedError("%s.rollback" % self.__class__.__name__)
+        pass
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -1039,7 +1053,7 @@ class Transaction(object):
 
         :arg statement: Cypher statement
         :arg parameters: dictionary of parameters
-        :return: single return value or :const:`None`
+        :returns: single return value or :const:`None`
         """
         return self.run(statement, parameters, **kwparameters).evaluate(0)
 
@@ -1163,7 +1177,7 @@ class Transaction(object):
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
-        :return: the total number of distinct relationships
+        :returns: the total number of distinct relationships
         """
         try:
             nodes = list(subgraph.nodes())
@@ -1221,7 +1235,7 @@ class Transaction(object):
 
         :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
-        :return: ``True`` if all entities exist remotely, ``False`` otherwise
+        :returns: ``True`` if all entities exist remotely, ``False`` otherwise
         """
         try:
             nodes = list(subgraph.nodes())
@@ -1472,44 +1486,53 @@ class BoltTransaction(Transaction):
 
 
 class Cursor(object):
-    """ A navigable accessor for the stream of records made available from running
-    a Cypher statement.
+    """ A `Cursor` is a navigator for a stream of records.
+
+    A cursor can be thought of as a window onto an underlying data
+    stream. All cursors in py2neo are "forward-only" which means that
+    navigation starts before the first record and may proceed only in a
+    :meth:`.forward` direction.
+
+    It is not generally necessary for application code to instantiate a
+    cursor directly, one will be returned by any Cypher execution method.
+    However, cursor creation requires only a :class:`.DataSource` object
+    which contains the logic for how to access the source data that the
+    cursor navigates.
     """
 
     def __init__(self, source):
         self.source = source
         self.current = None
 
-    def __len__(self):
-        record = self.current
-        if record is None:
-            raise TypeError("No current record")
-        else:
-            return len(record)
-
-    def __getitem__(self, item):
-        record = self.current
-        if record is None:
-            raise TypeError("No current record")
-        else:
-            return record[item]
-
     def __iter__(self):
-        record = self.current
-        if record is None:
-            raise TypeError("No current record")
+        """ Fetch and yield all remaining records.
+
+        :yields: the records remaining in the stream
+        """
+        while self.forward():
+            yield self.current
+
+    @property
+    def next(self):
+        """ Fetch and return the next record, if available.
+
+        :returns:
+        """
+        if self.forward():
+            return self.current
         else:
-            return iter(record)
+            return None
 
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
         self.source = None
+        self.current = None
 
     def keys(self):
-        """ Return the keys for the currently selected record.
+        """ Return the field names for the records in the stream.
         """
-        return self.source.keys
+        return self.source.keys()
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1518,8 +1541,8 @@ class Cursor(object):
         If not enough scope for movement remains, only that remainder
         will be consumed. The total amount moved is returned.
 
-        :param amount: the amount by which to move the cursor
-        :return: the amount that the cursor was able to move
+        :arg amount: the amount to move the cursor
+        :returns: the amount that the cursor was able to move
         """
         if amount == 0:
             return 0
@@ -1535,35 +1558,37 @@ class Cursor(object):
                 moved += 1
         return moved
 
-    def select(self):
-        """ Fetch and return the next record, if available.
+    def evaluate(self, field=0):
+        """ Return the value of the first field from the next record
+        (or the value of another field if explicitly specified).
 
-        :param keys:
-        :return:
+        This method attempts to move the cursor one step forward and,
+        if successful, selects and returns an individual value from
+        the new current record. By default, this value will be taken
+        from the first value in that record but this can be overridden
+        with the `field` argument, which can represent either a
+        positional index or a textual key.
+
+        If the cursor cannot be moved forward or if the record contains
+        no values, :py:const:`None` will be returned instead.
+
+        This method is particularly useful when it is known that a
+        Cypher query returns only a single value.
+
+        :arg field: field to select value from (optional)
+        :returns: value of the field or :py:const:`None`
+
+        Example:
+            >>> from py2neo import Graph
+            >>> g = Graph()
+            >>> g.run("MATCH (a) WHERE a.email={x} RETURN a.name", x="bob@acme.com").evaluate()
+            'Bob Robertson'
         """
         if self.forward():
-            return self.current
-        else:
-            return None
-
-    def stream(self):
-        """ Fetch and yield all remaining records.
-
-        :param keys:
-        :return:
-        """
-        while self.forward():
-            yield self.current
-
-    def evaluate(self, key=0):
-        """ Select the next available record and return the value from
-        its first field (or another field if explicitly specified).
-
-        :param key:
-        :return:
-        """
-        if self.forward():
-            return self.current[key]
+            try:
+                return self.current[field]
+            except IndexError:
+                return None
         else:
             return None
 
@@ -1571,11 +1596,11 @@ class Cursor(object):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
-        :param out: the channel to which output should be dumped
+        :arg out: the channel to which output should be dumped
         """
         if out is None:
             out = stdout
-        records = list(self.stream())
+        records = list(self)
         keys = self.keys()
         widths = [len(key) for key in keys]
         for record in records:

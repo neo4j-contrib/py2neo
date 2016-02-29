@@ -29,7 +29,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         assert not tx.finished()
         cursor = tx.run("CREATE (a) RETURN a")
         tx.commit()
-        records = list(cursor.stream())
+        records = list(cursor)
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
@@ -49,7 +49,7 @@ class TransactionRunTestCase(Py2neoTestCase):
         cursor_3 = tx.run("CREATE (a) RETURN a")
         tx.commit()
         for cursor in (cursor_1, cursor_2, cursor_3):
-            records = list(cursor.stream())
+            records = list(cursor)
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
@@ -64,7 +64,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             for cursor in (cursor_1, cursor_2, cursor_3):
-                records = list(cursor.stream())
+                records = list(cursor)
                 assert len(records) == 1
                 for record in records:
                     assert isinstance(record["a"], Node)
@@ -80,7 +80,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             cursor_3 = tx.run("CREATE (a) RETURN a")
             tx.process()
             for cursor in (cursor_1, cursor_2, cursor_3):
-                records = list(cursor.stream())
+                records = list(cursor)
                 assert len(records) == 1
                 for record in records:
                     assert isinstance(record["a"], Node)
@@ -352,7 +352,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
         tx = self.graph.begin()
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
-        record = cursor.select()
+        record = cursor.next
         parameters = {"A": record["a"], "B": record["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")

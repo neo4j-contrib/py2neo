@@ -62,11 +62,11 @@ class CursorMovementTestCase(Py2neoTestCase):
 
 class CursorKeysTestCase(Py2neoTestCase):
 
-    def test_keys_is_populated_before_moving(self):
+    def test_keys_are_populated_before_moving(self):
         cursor = self.graph.run("RETURN 1 AS n")
         assert list(cursor.keys()) == ["n"]
 
-    def test_keys_is_populated_after_moving(self):
+    def test_keys_are_populated_after_moving(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
         while cursor.forward():
@@ -92,19 +92,19 @@ class CursorSelectionTestCase(Py2neoTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
-        record = cursor.select()
+        record = cursor.next
         assert record == Record(["1"], [1])
 
     def test_cannot_select_past_end(self):
         cursor = self.graph.run("RETURN 1")
         cursor.forward()
-        record = cursor.select()
+        record = cursor.next
         assert record is None
 
     def test_selection_triggers_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         for i in range(1, 11):
-            n, n_sq = cursor.select()
+            n, n_sq = cursor.next
             assert n == i
             assert n_sq == i * i
 
@@ -113,7 +113,7 @@ class CursorStreamingTestCase(Py2neoTestCase):
 
     def test_stream_yields_all(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
-        record_list = list(cursor.stream())
+        record_list = list(cursor)
         assert record_list == [Record(["n", "n_sq"], [1, 1]),
                                Record(["n", "n_sq"], [2, 4]),
                                Record(["n", "n_sq"], [3, 9]),
@@ -128,7 +128,7 @@ class CursorStreamingTestCase(Py2neoTestCase):
     def test_stream_yields_remainder(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         cursor.forward(5)
-        record_list = list(cursor.stream())
+        record_list = list(cursor)
         assert record_list == [Record(["n", "n_sq"], [6, 36]),
                                Record(["n", "n_sq"], [7, 49]),
                                Record(["n", "n_sq"], [8, 64]),
@@ -158,41 +158,6 @@ class CursorEvaluationTestCase(Py2neoTestCase):
         cursor.forward()
         value = cursor.evaluate()
         assert value is None
-
-
-class CursorMagicTestCase(Py2neoTestCase):
-
-    def test_len_returns_length_of_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.forward()
-        assert len(cursor) == 3
-
-    def test_len_fails_with_no_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        with self.assertRaises(TypeError):
-            _ = len(cursor)
-
-    def test_getitem_returns_item_in_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.forward()
-        assert cursor[0] == 1
-        assert cursor[1] == 2
-        assert cursor[2] == 3
-
-    def test_getitem_fails_with_no_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        with self.assertRaises(TypeError):
-            _ = cursor[0]
-
-    def test_iter_iterates_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        cursor.forward()
-        assert list(cursor) == [1, 2, 3]
-
-    def test_iter_fails_with_no_record(self):
-        cursor = self.graph.run("RETURN 1, 2, 3")
-        with self.assertRaises(TypeError):
-            _ = list(cursor)
 
 
 class CursorDumpTestCase(Py2neoTestCase):
