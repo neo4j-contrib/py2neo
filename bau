@@ -52,11 +52,11 @@ function install_dependencies {
                 pip install --upgrade -r ${REQUIREMENTS}
             fi
         done
-        EXIT_CODE=$?
-        if [ "${EXIT_CODE}" != "0" ]
+        EXIT_STATUS=$?
+        if [ "${EXIT_STATUS}" != "0" ]
         then
-            echo "Exiting on code ${EXIT_CODE} after failure to install dependencies"
-            exit ${EXIT_CODE}
+            echo "Exiting on code ${EXIT_STATUS} after failure to install dependencies"
+            exit ${EXIT_STATUS}
         fi
     fi
 }
@@ -83,33 +83,40 @@ function run_tests {
     do
         print_version_banner ${NEO4J_VERSION}
         ${NEOKIT} install ${NEOKIT_SERVER} ${NEO4J_VERSION}
+        check_exit_status $?
 
         mkdir -p "${LOG}/${NEO4J_VERSION}" 2> /dev/null
 
         echo "Updating password"
         ${NEOKIT} update-password ${NEOKIT_SERVER} ${DEFAULT_USER} ${DEFAULT_PASSWORD} ${NEW_PASSWORD}
+        check_exit_status $?
 
         echo ""
         export NEO4J_HOME="${BAU_HOME}"
         export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
         ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $1
-        EXIT_CODE=$?
+        EXIT_STATUS=$?
 
         ${NEOKIT} uninstall ${NEOKIT_SERVER}
 
         rm -rf "${LOG}/${NEO4J_VERSION}/htmlcov"
 
         echo ""
-        if [ "${EXIT_CODE}" != "0" ]
-        then
-            echo "Exiting on code ${EXIT_CODE} after test failure"
-            exit ${EXIT_CODE}
-        fi
+        check_exit_status ${EXIT_STATUS}
     done
     popd > /dev/null
     echo ""
     echo "Test suite completed successfully"
     echo ""
+}
+
+function check_exit_status {
+    EXIT_STATUS=$1
+    if [ ${EXIT_STATUS} -ne 0 ]
+    then
+        echo "Exiting on code ${EXIT_STATUS} after test failure"
+        exit ${EXIT_STATUS}
+    fi
 }
 
 function build_book {

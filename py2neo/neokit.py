@@ -43,6 +43,7 @@ API
 """
 
 
+from argparse import ArgumentParser
 from base64 import b64encode
 from json import dumps as json_dumps
 from os import curdir, getenv, linesep, listdir, makedirs, rename
@@ -496,14 +497,15 @@ class Commander(object):
             method = getattr(self, command)
         except AttributeError:
             self.write_err_line("Unknown command %r" % command)
+            exit(1)
         else:
             try:
                 return method(*args[1:]) or 0
             except Exception as err:
                 self.write_err_line("Error: %s" % err)
+                exit(1)
 
     def parser(self, script):
-        from argparse import ArgumentParser
         return ArgumentParser(prog=script, epilog=self.epilog)
 
     def versions(self, *args):
