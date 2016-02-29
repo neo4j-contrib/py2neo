@@ -824,6 +824,143 @@ class Schema(object):
         ]
 
 
+class DataSource(object):
+
+    def fetch(self):
+        """ Fetch the next item.
+        """
+        raise NotImplementedError()
+
+
+class HTTPDataSource(DataSource):
+
+    def __init__(self, graph, transaction, data=None):
+        self.graph = graph
+        self.transaction = transaction
+        self.keys = None
+        self.buffer = deque()
+        self.loaded = False
+        if data:
+            self.load(data)
+
+    def fetch(self):
+        try:
+            return self.buffer.popleft()
+        except IndexError:
+            if self.loaded:
+                return None
+            else:
+                self.transaction.process()
+                return self.fetch()
+
+    def load(self, data):
+        assert not self.loaded
+        try:
+            entities = self.transaction.entities.popleft()
+        except (AttributeError, IndexError):
+            entities = {}
+        self.keys = keys = tuple(data["columns"])
+        hydrate = self.graph.hydrate
+        for record in data["data"]:
+            values = []
+            for i, value in enumerate(record["rest"]):
+                key = keys[i]
+                cached = entities.get(key)
+                values.append(hydrate(value, inst=cached))
+            self.buffer.append(Record(keys, values))
+        self.loaded = True
+
+
+class BoltDataSource(DataSource):
+
+    def __init__(self, connection, entities, graph_uri):
+        self.connection = connection
+        self.entities = entities
+        self.graph_uri = graph_uri
+        self.keys = None
+        self.buffer = deque()
+        self.loaded = False
+
+    def fetch(self):
+        try:
+            return self.buffer.popleft()
+        except IndexError:
+            if self.loaded:
+                return None
+            else:
+                self.connection.send()
+                while not self.buffer and not self.loaded:
+                    self.connection.fetch()
+                return self.fetch()
+
+    def on_header(self, metadata):
+        """ Called on receipt of the result header.
+
+        :arg metadata:
+        """
+        self.keys = metadata["fields"]
+
+    def on_record(self, values):
+        """ Called on receipt of each result record.
+
+        :arg values:
+        """
+        keys = self.keys
+        hydrated_values = []
+        for i, value in enumerate(values):
+            key = keys[i]
+            cached = self.entities.get(key)
+            v = self.rehydrate(bolt_hydrate(value), inst=cached)
+            hydrated_values.append(v)
+        self.buffer.append(Record(keys, hydrated_values))
+
+    def on_footer(self, metadata):
+        """ Called on receipt of the result footer.
+
+        :arg metadata:
+        """
+        self.loaded = True
+        #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
+
+    def on_failure(self, metadata):
+        """ Called on execution failure.
+
+        :arg metadata:
+        """
+        raise CypherError.hydrate(metadata)
+
+    def rehydrate(self, obj, inst=None):
+        # TODO: hydrate directly instead of via HTTP hydration
+        if isinstance(obj, BoltNode):
+            return Node.hydrate({
+                "self": "%snode/%d" % (self.graph_uri, obj.identity),
+                "metadata": {"labels": list(obj.labels)},
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltRelationship):
+            return Relationship.hydrate({
+                "self": "%srelationship/%d" % (self.graph_uri, obj.identity),
+                "start": "%snode/%d" % (self.graph_uri, obj.start),
+                "end": "%snode/%d" % (self.graph_uri, obj.end),
+                "type": obj.type,
+                "data": obj.properties,
+            }, inst)
+        elif isinstance(obj, BoltPath):
+            return Path.hydrate({
+                "nodes": ["%snode/%d" % (self.graph_uri, n.identity) for n in obj.nodes],
+                "relationships": ["%srelationship/%d" % (self.graph_uri, r.identity)
+                                  for r in obj.relationships],
+                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
+                               for i, r in enumerate(obj.relationships)],
+            })
+        elif isinstance(obj, list):
+            return list(map(self.rehydrate, obj))
+        elif isinstance(obj, dict):
+            return {key: self.rehydrate(value) for key, value in obj.items()}
+        else:
+            return obj
+
+
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
@@ -1204,143 +1341,6 @@ class Transaction(object):
                 relationship._del_remote()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
-
-
-class DataSource(object):
-
-    def fetch(self):
-        """ Fetch the next item.
-        """
-        raise NotImplementedError()
-
-
-class HTTPDataSource(DataSource):
-
-    def __init__(self, graph, transaction, data=None):
-        self.graph = graph
-        self.transaction = transaction
-        self.keys = None
-        self.buffer = deque()
-        self.loaded = False
-        if data:
-            self.load(data)
-
-    def fetch(self):
-        try:
-            return self.buffer.popleft()
-        except IndexError:
-            if self.loaded:
-                return None
-            else:
-                self.transaction.process()
-                return self.fetch()
-
-    def load(self, data):
-        assert not self.loaded
-        try:
-            entities = self.transaction.entities.popleft()
-        except (AttributeError, IndexError):
-            entities = {}
-        self.keys = keys = tuple(data["columns"])
-        hydrate = self.graph.hydrate
-        for record in data["data"]:
-            values = []
-            for i, value in enumerate(record["rest"]):
-                key = keys[i]
-                cached = entities.get(key)
-                values.append(hydrate(value, inst=cached))
-            self.buffer.append(Record(keys, values))
-        self.loaded = True
-
-
-class BoltDataSource(DataSource):
-
-    def __init__(self, connection, entities, graph_uri):
-        self.connection = connection
-        self.entities = entities
-        self.graph_uri = graph_uri
-        self.keys = None
-        self.buffer = deque()
-        self.loaded = False
-
-    def fetch(self):
-        try:
-            return self.buffer.popleft()
-        except IndexError:
-            if self.loaded:
-                return None
-            else:
-                self.connection.send()
-                while not self.buffer and not self.loaded:
-                    self.connection.fetch()
-                return self.fetch()
-
-    def on_header(self, metadata):
-        """ Called on receipt of the result header.
-
-        :arg metadata:
-        """
-        self.keys = metadata["fields"]
-
-    def on_record(self, values):
-        """ Called on receipt of each result record.
-
-        :arg values:
-        """
-        keys = self.keys
-        hydrated_values = []
-        for i, value in enumerate(values):
-            key = keys[i]
-            cached = self.entities.get(key)
-            v = self.rehydrate(bolt_hydrate(value), inst=cached)
-            hydrated_values.append(v)
-        self.buffer.append(Record(keys, hydrated_values))
-
-    def on_footer(self, metadata):
-        """ Called on receipt of the result footer.
-
-        :arg metadata:
-        """
-        self.loaded = True
-        #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
-
-    def on_failure(self, metadata):
-        """ Called on execution failure.
-
-        :arg metadata:
-        """
-        raise CypherError.hydrate(metadata)
-
-    def rehydrate(self, obj, inst=None):
-        # TODO: hydrate directly instead of via HTTP hydration
-        if isinstance(obj, BoltNode):
-            return Node.hydrate({
-                "self": "%snode/%d" % (self.graph_uri, obj.identity),
-                "metadata": {"labels": list(obj.labels)},
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltRelationship):
-            return Relationship.hydrate({
-                "self": "%srelationship/%d" % (self.graph_uri, obj.identity),
-                "start": "%snode/%d" % (self.graph_uri, obj.start),
-                "end": "%snode/%d" % (self.graph_uri, obj.end),
-                "type": obj.type,
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltPath):
-            return Path.hydrate({
-                "nodes": ["%snode/%d" % (self.graph_uri, n.identity) for n in obj.nodes],
-                "relationships": ["%srelationship/%d" % (self.graph_uri, r.identity)
-                                  for r in obj.relationships],
-                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
-                               for i, r in enumerate(obj.relationships)],
-            })
-        elif isinstance(obj, list):
-            return list(map(self.rehydrate, obj))
-        elif isinstance(obj, dict):
-            return {key: self.rehydrate(value) for key, value in obj.items()}
-        else:
-            return obj
 
 
 class HTTPTransaction(Transaction):
