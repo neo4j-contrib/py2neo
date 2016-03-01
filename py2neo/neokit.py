@@ -59,7 +59,8 @@ from time import sleep
 try:
     from urllib.request import Request, urlopen, urlretrieve, HTTPError
 except ImportError:
-    from urllib2 import Request, urlopen, urlretrieve, HTTPError
+    from urllib import urlretrieve
+    from urllib2 import Request, urlopen, HTTPError
 
 try:
     from configparser import SafeConfigParser
