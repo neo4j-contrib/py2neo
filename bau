@@ -89,7 +89,6 @@ function run_tests {
 
         echo "Updating password"
         ${NEOKIT} update-password ${NEOKIT_SERVER} ${DEFAULT_USER} ${DEFAULT_PASSWORD} ${NEW_PASSWORD}
-        check_exit_status $?
 
         echo ""
         export NEO4J_HOME="${BAU_HOME}"
