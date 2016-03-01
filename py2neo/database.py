@@ -1489,50 +1489,89 @@ class Cursor(object):
     """ A `Cursor` is a navigator for a stream of records.
 
     A cursor can be thought of as a window onto an underlying data
-    stream. All cursors in py2neo are "forward-only" which means that
+    stream. All cursors in py2neo are "forward-only", meaning that
     navigation starts before the first record and may proceed only in a
-    :meth:`.forward` direction.
+    forward direction.
 
     It is not generally necessary for application code to instantiate a
     cursor directly, one will be returned by any Cypher execution method.
     However, cursor creation requires only a :class:`.DataSource` object
     which contains the logic for how to access the source data that the
     cursor navigates.
+
+    Many simple cursor use cases require only the :meth:`.forward` method
+    and the :attr:`.current` attribute. To navigate through all available
+    records, a `while` loop can be used::
+
+        while cursor.forward():
+            print(cursor.current["name"])
+
+    If only the first record is of interest, a similar `if` structure will
+    do the job::
+
+        if cursor.forward():
+            print(cursor.current["name"])
+
+    To combine `forward` and `current` into a single step, use :attr:`.next`::
+
+        print(cursor.next["name"])
+
+    Cursors are also iterable, so can be used in a loop::
+
+        for record in cursor:
+            print(record["name"])
+
+    For queries that are expected to return only a single value within a
+    single record, use the :meth:`.evaluate` method. This will return the
+    first value from the next record or :py:`None` if neither the field nor
+    the record are present::
+
+        print(cursor.evaluate())
+
     """
 
     def __init__(self, source):
-        self.source = source
-        self.current = None
+        self._source = source
+        self._current = None
 
     def __iter__(self):
-        """ Fetch and yield all remaining records.
-
-        :yields: the records remaining in the stream
-        """
         while self.forward():
             yield self.current
 
     @property
-    def next(self):
-        """ Fetch and return the next record, if available.
+    def current(self):
+        """ The current record or :py:const:`None` if no record is
+        currently available.
+        """
+        return self._current
 
-        :returns:
+    @property
+    def next(self):
+        """ The next record in the stream, or :py:const:`None` if no more
+        records are available.
+
+        Note that every time this property is accessed, the cursor will
+        be moved one position forward. This property is exactly equivalent
+        to::
+
+            cursor.current if cursor.forward() else None
+
         """
         if self.forward():
-            return self.current
+            return self._current
         else:
             return None
 
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self.source = None
-        self.current = None
+        self._source = None
+        self._current = None
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self.source.keys()
+        return self._source.keys()
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1549,12 +1588,13 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
+        fetch = self._source.fetch
         while moved != amount:
-            new_current = self.source.fetch()
+            new_current = fetch()
             if new_current is None:
                 break
             else:
-                self.current = new_current
+                self._current = new_current
                 moved += 1
         return moved
 
@@ -1586,7 +1626,7 @@ class Cursor(object):
         """
         if self.forward():
             try:
-                return self.current[field]
+                return self._current[field]
             except IndexError:
                 return None
         else:
