@@ -22,6 +22,9 @@ from test.util import Py2neoTestCase
 
 class PullTestCase(Py2neoTestCase):
 
+    def test_can_pull_nothing(self):
+        self.graph.pull()
+
     def test_can_graph_pull_node(self):
         local = Node()
         remote = Node("Person", name="Alice")

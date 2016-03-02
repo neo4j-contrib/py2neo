@@ -110,6 +110,15 @@ class GraphTestCase(Py2neoTestCase):
         got = self.graph.node(node.remote._id)
         assert got.remote._id == node.remote._id
 
+    def test_get_non_existent_node_by_id(self):
+        node = Node()
+        self.graph.create(node)
+        node_id = node.remote._id
+        self.graph.delete(node)
+        Node.cache.clear()
+        with self.assertRaises(IndexError):
+            _ = self.graph.node(node_id)
+
     def test_node_cache_is_thread_local(self):
         from threading import Thread
         node = Node()

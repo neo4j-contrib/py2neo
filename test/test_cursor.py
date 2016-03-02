@@ -73,6 +73,11 @@ class CursorKeysTestCase(Py2neoTestCase):
             n += 1
             assert list(cursor.keys()) == ["n"]
 
+    def test_keys_are_populated_before_moving_within_a_transaction(self):
+        with self.graph.begin() as tx:
+            cursor = tx.run("RETURN 1 AS n")
+            assert list(cursor.keys()) == ["n"]
+
 
 class CursorCurrentTestCase(Py2neoTestCase):
 
@@ -157,6 +162,11 @@ class CursorEvaluationTestCase(Py2neoTestCase):
         cursor = self.graph.run("RETURN 1")
         cursor.forward()
         value = cursor.evaluate()
+        assert value is None
+
+    def test_evaluate_on_non_existent_column_is_none(self):
+        cursor = self.graph.run("RETURN 1")
+        value = cursor.evaluate(1)
         assert value is None
 
 

@@ -219,3 +219,10 @@ class GraphTestCase(DeprecatedTestCase):
         assert isinstance(version[0], int)
         assert isinstance(version[1], int)
         assert isinstance(version[2], int)
+
+
+class TransactionTestCase(DeprecatedTestCase):
+
+    def test_append(self):
+        with self.graph.begin() as tx:
+            tx.append("RETURN 1")

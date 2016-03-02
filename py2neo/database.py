@@ -679,23 +679,21 @@ class Graph(object):
         i = 0
         for entity in entities:
             for node in entity.nodes():
-                if not node.remote:
-                    continue
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % node.remote.ref,
-                              "body": dict(node)})
-                i += 1
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/labels" % node.remote.ref,
-                              "body": list(node.labels())})
-                i += 1
+                if node.remote:
+                    batch.append({"id": i, "method": "PUT",
+                                  "to": "%s/properties" % node.remote.ref,
+                                  "body": dict(node)})
+                    i += 1
+                    batch.append({"id": i, "method": "PUT",
+                                  "to": "%s/labels" % node.remote.ref,
+                                  "body": list(node.labels())})
+                    i += 1
             for relationship in entity.relationships():
-                if not relationship.remote:
-                    continue
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % relationship.remote.ref,
-                              "body": dict(relationship)})
-                i += 1
+                if relationship.remote:
+                    batch.append({"id": i, "method": "PUT",
+                                  "to": "%s/properties" % relationship.remote.ref,
+                                  "body": dict(relationship)})
+                    i += 1
         self.remote.resolve("batch").post(batch)
 
     def relationship(self, id_):
@@ -833,7 +831,6 @@ class DataSource(object):
     def fetch(self):
         """ Fetch and return the next item.
         """
-        pass
 
 
 class HTTPDataSource(DataSource):
@@ -891,6 +888,7 @@ class BoltDataSource(DataSource):
         self.loaded = False
 
     def keys(self):
+        self.connection.send()
         while self._keys is None and not self.loaded:
             self.connection.fetch()
         return self._keys
@@ -1013,17 +1011,12 @@ class Transaction(object):
         :arg statement: Cypher statement
         :arg parameters: dictionary of parameters
         """
-        pass
 
     @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
     def append(self, statement, parameters=None, **kwparameters):
         return self.run(statement, parameters, **kwparameters)
 
     def _post(self, commit=False):
-        """ Submit the outstanding queue of actions to the current transaction.
-
-        :arg commit: flag indicating whether or not to commit this transaction
-        """
         pass
 
     def process(self):
@@ -1045,7 +1038,6 @@ class Transaction(object):
     def rollback(self):
         """ Rollback the current transaction, undoing all actions taken so far.
         """
-        pass
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -1128,7 +1120,7 @@ class Transaction(object):
                        :class:`.Walkable` object
         """
         if not isinstance(walkable, Walkable):
-            raise ValueError("Object %r is not walkable" % walkable)
+            raise TypeError("Object %r is not walkable" % walkable)
         if not any(node.remote for node in walkable.nodes()):
             raise ValueError("At least one node must be bound")
         matches = []
@@ -1273,7 +1265,7 @@ class Transaction(object):
         :arg property_keys: property keys on which to match any existing nodes
         """
         if not isinstance(walkable, Walkable):
-            raise ValueError("Object %r is not walkable" % walkable)
+            raise TypeError("Object %r is not walkable" % walkable)
         if size(walkable) == 0 and walkable.start_node().remote:
             return  # single, bound node - nothing to do
         matches = []
@@ -1632,14 +1624,12 @@ class Cursor(object):
         else:
             return None
 
-    def dump(self, out=None):
+    def dump(self, out=stdout):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
         :arg out: the channel to which output should be dumped
         """
-        if out is None:
-            out = stdout
         records = list(self)
         keys = self.keys()
         widths = [len(key) for key in keys]

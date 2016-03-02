@@ -18,9 +18,10 @@
 
 from io import StringIO
 
-from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size
 from py2neo.database import Transaction, HTTPTransaction, presubstitute
 from py2neo.status import CypherError
+from py2neo.status.statement import InvalidSyntax
+from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size
 from test.util import Py2neoTestCase, TemporaryTransaction
 
 
@@ -302,6 +303,10 @@ class CypherCreateTestCase(Py2neoTestCase):
         assert order(self.graph) == 3
         assert size(self.graph) == 3
 
+    def test_cannot_create_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            self.graph.create("this string is definitely not graphy")
+
 
 class CypherLangTestCase(Py2neoTestCase):
 
@@ -541,14 +546,55 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
 
 class CypherOverHTTPTestCase(Py2neoTestCase):
 
-    def test_can_run_statement_over_http(self):
+    def test_can_run_statement(self):
         tx = HTTPTransaction(self.graph)
-        records = tx.run("CREATE (a:Person {name:'Alice'}) RETURN a")
+        result = tx.run("CREATE (a:Person {name:'Alice'}) RETURN a")
         tx.commit()
-        record_list = list(records)
-        assert len(record_list) == 1
-        assert len(record_list[0]) == 1
-        a = record_list[0][0]
+        assert list(result.keys()) == ["a"]
+        records = list(result)
+        assert len(records) == 1
+        assert len(records[0]) == 1
+        a = records[0][0]
         assert isinstance(a, Node)
         assert set(a.labels()) == {"Person"}
         assert dict(a) == {"name": "Alice"}
+
+    def test_can_process_mid_transaction(self):
+        tx = HTTPTransaction(self.graph)
+        result1 = tx.run("RETURN 1")
+        tx.process()
+        assert result1.evaluate() == 1
+        result2 = tx.run("RETURN 2")
+        assert result2.evaluate() == 2
+        tx.commit()
+
+    def test_can_force_process_to_get_keys(self):
+        tx = HTTPTransaction(self.graph)
+        result = tx.run("RETURN 1 AS n")
+        assert list(result.keys()) == ["n"]
+        tx.commit()
+
+    def test_rollback(self):
+        tx = HTTPTransaction(self.graph)
+        tx.run("RETURN 1")
+        tx.rollback()
+        assert tx.finished()
+
+    def test_rollback_after_process(self):
+        tx = HTTPTransaction(self.graph)
+        tx.run("RETURN 1")
+        tx.process()
+        tx.run("RETURN 2")
+        tx.rollback()
+        assert tx.finished()
+
+    def test_error(self):
+        with self.assertRaises(InvalidSyntax):
+            tx = HTTPTransaction(self.graph)
+            tx.run("X")
+            tx.commit()
+
+    def test_autocommit(self):
+        tx = HTTPTransaction(self.graph, autocommit=True)
+        cursor = tx.run("RETURN 1")
+        assert cursor.evaluate() == 1

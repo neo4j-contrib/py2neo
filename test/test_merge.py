@@ -44,6 +44,34 @@ class TransactionMergeTestCase(Py2neoTestCase):
         new_order = order(self.graph)
         assert new_order == old_order
 
+    def test_can_merge_bound_node(self):
+        alice = Node("Person", name="Alice")
+        self.graph.create(alice)
+        old_order = order(self.graph)
+        self.graph.merge(alice)
+        assert alice.remote
+        assert self.graph.exists(alice)
+        new_order = order(self.graph)
+        assert new_order == old_order
+
+    def test_can_merge_node_without_label(self):
+        node = Node()
+        old_order = order(self.graph)
+        self.graph.merge(node)
+        assert node.remote
+        assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
+    def test_can_merge_with_label_node_without_label(self):
+        node = Node()
+        old_order = order(self.graph)
+        self.graph.merge(node, "Person")
+        assert node.remote
+        assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
     def test_can_merge_node_that_does_not_exist_on_specific_label_and_key(self):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = order(self.graph)
@@ -122,3 +150,7 @@ class TransactionMergeTestCase(Py2neoTestCase):
         new_size = size(self.graph)
         assert new_order == old_order
         assert new_size == old_size
+
+    def test_cannot_merge_non_walkable(self):
+        with self.assertRaises(TypeError):
+            self.graph.merge("this string is definitely not a walkable object")

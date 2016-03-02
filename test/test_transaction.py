@@ -35,6 +35,13 @@ class TransactionRunTestCase(Py2neoTestCase):
             assert isinstance(record["a"], Node)
         assert tx.finished()
 
+    def test_can_run_query_that_returns_map_literal(self):
+        tx = self.graph.begin()
+        cursor = tx.run("RETURN {foo:'bar'}")
+        tx.commit()
+        value = cursor.evaluate()
+        assert value == {"foo": "bar"}
+
     def test_can_run_transaction_as_with_statement(self):
         with self.graph.begin() as tx:
             assert not tx.finished()
@@ -286,6 +293,10 @@ class TransactionCreateUniqueTestCase(Py2neoTestCase):
             with self.graph.begin() as tx:
                 tx.create_unique(r)
 
+    def test_cannot_create_unique_non_walkable(self):
+        with self.assertRaises(TypeError):
+            self.graph.create_unique("this string is definitely not a walkable object")
+
 
 class TransactionDeleteTestCase(Py2neoTestCase):
 
@@ -316,6 +327,10 @@ class TransactionSeparateTestCase(Py2neoTestCase):
         assert self.graph.exists(a)
         assert self.graph.exists(b)
 
+    def test_cannot_separate_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            self.graph.separate("this string is definitely not graphy")
+
 
 class TransactionDegreeTestCase(Py2neoTestCase):
 
@@ -334,6 +349,19 @@ class TransactionDegreeTestCase(Py2neoTestCase):
         with self.graph.begin() as tx:
             d = tx.degree(a | b)
         assert d == 2
+
+    def test_cannot_get_degree_of_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            with self.graph.begin() as tx:
+                tx.degree("this string is definitely not graphy")
+
+
+class TransactionExistsTestCase(Py2neoTestCase):
+
+    def test_cannot_check_existence_of_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            with self.graph.begin() as tx:
+                tx.exists("this string is definitely not graphy")
 
 
 class TransactionErrorTestCase(Py2neoTestCase):
@@ -432,10 +460,30 @@ class TransactionErrorTestCase(Py2neoTestCase):
             assert isinstance(error, GraphError)
 
 
-class TransactionAutocommitTest(Py2neoTestCase):
+class TransactionAutocommitTestCase(Py2neoTestCase):
 
     def test_can_autocommit(self):
         tx = self.graph.begin(autocommit=True)
         assert not tx.finished()
         tx.run("RETURN 1")
         assert tx.finished()
+
+
+class TransactionCoverageTestCase(Py2neoTestCase):
+    """ These tests exist purely to make the coverage counter happy.
+    """
+
+    def test_base_class_rollback_does_nothing(self):
+        from py2neo.database import Transaction
+        tx = Transaction(self.graph)
+        tx.rollback()
+
+    def test_base_class_post_does_nothing(self):
+        from py2neo.database import Transaction
+        tx = Transaction(self.graph)
+        tx._post()
+
+    def test_base_class_run_does_nothing(self):
+        from py2neo.database import Transaction
+        tx = Transaction(self.graph)
+        tx.run("")
