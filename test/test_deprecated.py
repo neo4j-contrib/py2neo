@@ -46,6 +46,16 @@ class PropertiesTestCase(DeprecatedTestCase):
         r = Relationship(a, "TO", b)
         _ = r.properties
 
+    def test_pull_node_properties_if_stale(self):
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "TO", b, foo="bar")
+        self.graph.create(ab)
+        ab["foo"] = None
+        ab._Relationship__stale.add("properties")
+        properties = ab.properties
+        assert properties == {"foo": "bar"}
+
 
 class ExistsTestCase(DeprecatedTestCase):
 

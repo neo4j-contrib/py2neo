@@ -836,11 +836,9 @@ class Relationship(Entity):
         else:
             if self.remote and other.remote:
                 return self.remote == other.remote
-            try:
+            else:
                 return (self.nodes() == other.nodes() and size(other) == 1 and
                         self.type() == other.type() and dict(self) == dict(other))
-            except AttributeError:
-                return False
 
     def __ne__(self, other):
         return not self.__eq__(other)

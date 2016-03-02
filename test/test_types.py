@@ -746,3 +746,31 @@ class SymmetricDifferenceTestCase(TestCase):
         assert graph.nodes() == (alice | bob | carol | dave).nodes()
         assert graph.relationships() == frozenset(alice_knows_bob | alice_likes_carol |
                                                   carol_married_to_dave | dave_works_for_dave)
+
+
+class OrderTestCase(TestCase):
+
+    def test_order_of_thing_with_nodes(self):
+        class Thing:
+            def nodes(self):
+                return [Node(), Node(), Node()]
+        obj = Thing()
+        assert order(obj) == 3
+
+    def test_order_of_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            _ = order("this string is not graphy")
+
+
+class SizeTestCase(TestCase):
+
+    def test_size_of_thing_with_relationships(self):
+        class Thing:
+            def relationships(self):
+                return [1, 2, 3]
+        obj = Thing()
+        assert size(obj) == 3
+
+    def test_size_of_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            _ = size("this string is not graphy")

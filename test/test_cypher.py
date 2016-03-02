@@ -308,7 +308,7 @@ class CypherCreateTestCase(Py2neoTestCase):
             self.graph.create("this string is definitely not graphy")
 
 
-class CypherLangTestCase(Py2neoTestCase):
+class CypherWriterTestCase(Py2neoTestCase):
 
     def test_can_write_simple_identifier(self):
         string = StringIO()
@@ -389,6 +389,14 @@ class CypherLangTestCase(Py2neoTestCase):
         written = string.getvalue()
         assert written == "(a)-[:KNOWS]->(b)"
 
+    def test_can_write_relationship_with_name(self):
+        r = Relationship(Node(name="Fred"), "LIVES WITH", Node(name="Wilma"))
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_relationship(r, name="fred_wilma")
+        written = string.getvalue()
+        assert written == '(fred)-[fred_wilma:`LIVES WITH`]->(wilma)'
+
     def test_can_write_relationship_with_properties(self):
         r = Relationship(Node(name="Fred"), ("LIVES WITH", {"place": "Bedrock"}),
                          Node(name="Wilma"))
@@ -421,6 +429,20 @@ class CypherLangTestCase(Py2neoTestCase):
         writer.write({"one": "eins", "two": "zwei", "three": "drei"})
         written = string.getvalue()
         assert written == '{one:"eins",three:"drei",two:"zwei"}'
+
+    def test_maps_do_not_contain_private_entries(self):
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write({"visible": True, "_visible": False})
+        written = string.getvalue()
+        assert written == '{visible:true}'
+
+    def test_maps_can_contain_private_entries_if_enabled(self):
+        string = StringIO()
+        writer = CypherWriter(string)
+        writer.write_map({"visible": True, "_visible": True}, private=True)
+        written = string.getvalue()
+        assert written == '{_visible:true,visible:true}'
 
     def test_writing_none_writes_nothing(self):
         string = StringIO()
