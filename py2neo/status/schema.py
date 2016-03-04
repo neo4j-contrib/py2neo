@@ -16,26 +16,30 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError, DatabaseError, TransientError
+from py2neo.status import ClientError
 
 
+# ConstraintAlreadyExists
 class ConstraintAlreadyExists(ClientError):
     """ Unable to perform operation because it would clash with a
     pre-existing constraint.
     """
 
 
+# Constraint...?
 class ConstraintVerificationFailure(ClientError):
     """ Unable to create constraint because data that exists in the
     database violates it.
     """
 
 
+# Constraint...?
 class ConstraintViolation(ClientError):
     """ A constraint imposed by the database was violated.
     """
 
 
+# TokenNameError
 class IllegalTokenName(ClientError):
     """ A token name, such as a label, relationship type or property
     key, used is not valid. Tokens cannot be empty strings and cannot
@@ -43,12 +47,14 @@ class IllegalTokenName(ClientError):
     """
 
 
+# IndexAlreadyExists
 class IndexAlreadyExists(ClientError):
     """ Unable to perform operation because it would clash with a
     pre-existing index.
     """
 
 
+# IndexLocked? (dependency error)
 class IndexBelongsToConstraint(ClientError):
     """ A requested operation can not be performed on the specified
     index because the index is part of a constraint. If you want to
@@ -56,76 +62,29 @@ class IndexBelongsToConstraint(ClientError):
     """
 
 
+# IndexLimitReached
 class IndexLimitReached(ClientError):
     """ The maximum number of index entries supported has been reached,
     no more entities can be indexed.
     """
 
 
+# LabelLimitReached
 class LabelLimitReached(ClientError):
     """ The maximum number of labels supported has been reached, no
     more labels can be created.
     """
 
 
+# ConstraintNotFound
 class NoSuchConstraint(ClientError):
     """ The request (directly or indirectly) referred to a constraint
     that does not exist.
     """
 
 
+# IndexNotFound
 class NoSuchIndex(ClientError):
     """ The request (directly or indirectly) referred to an index that
     does not exist.
-    """
-
-
-class ConstraintCreationFailure(DatabaseError):
-    """ Creating a requested constraint failed.
-    """
-
-
-class ConstraintDropFailure(DatabaseError):
-    """ The database failed to drop a requested constraint.
-    """
-
-
-class DuplicateSchemaRule(DatabaseError):
-    """ The request referred to a schema rule that defined multiple times.
-    """
-
-
-class IndexCreationFailure(DatabaseError):
-    """ Failed to create an index.
-    """
-
-
-class IndexDropFailure(DatabaseError):
-    """ The database failed to drop a requested index.
-    """
-
-
-class NoSuchLabel(DatabaseError):
-    """ The request accessed a label that did not exist.
-    """
-
-
-class NoSuchPropertyKey(DatabaseError):
-    """ The request accessed a property that does not exist.
-    """
-
-
-class NoSuchRelationshipType(DatabaseError):
-    """ The request accessed a relationship type that does not exist.
-    """
-
-
-class NoSuchSchemaRule(DatabaseError):
-    """ The request referred to a schema rule that does not exist.
-    """
-
-
-class ModifiedConcurrently(TransientError):
-    """ The database schema was modified while this transaction was
-    running, the transaction should be retried.
     """

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError, TransientError
+from py2neo.status import ClientError
 
 
 class AuthenticationFailed(ClientError):
@@ -33,9 +33,4 @@ class AuthenticationRateLimit(ClientError):
 class AuthorizationFailed(ClientError):
     """ The client does not have privileges to perform the operation
     requested.
-    """
-
-
-class ModifiedConcurrently(TransientError):
-    """ The user was modified concurrently to this request.
     """
