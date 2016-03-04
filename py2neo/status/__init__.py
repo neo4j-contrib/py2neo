@@ -66,8 +66,15 @@ class CypherError(GraphError):
         code = data["code"]
         message = data["message"]
         _, classification, category, title = code.split(".")
-        error_module = import_module("py2neo.status." + category.lower())
-        error_cls = getattr(error_module, title)
+        if classification == "ClientError":
+            error_module = import_module("py2neo.status." + category.lower())
+            error_cls = getattr(error_module, title)
+        elif classification == "DatabaseError":
+            error_cls = DatabaseError
+        elif classification == "TransientError":
+            error_cls = TransientError
+        else:
+            error_cls = CypherError
         inst = error_cls(message)
         inst.code = code
         inst.message = message

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status import ClientError, DatabaseError, TransientError
+from py2neo.status import ClientError
 
 
 class ConcurrentRequest(ClientError):
@@ -36,6 +36,7 @@ class HookFailed(ClientError):
     """
 
 
+# TransactionTypeError
 class InvalidType(ClientError):
     """ The transaction is of the wrong type to service the request.
     For instance, a transaction that has had schema modifications
@@ -51,6 +52,7 @@ class MarkedAsFailed(ClientError):
     """
 
 
+# TransactionNotFound
 class UnknownId(ClientError):
     """ The request referred to a transaction that does not exist.
     """
@@ -58,48 +60,4 @@ class UnknownId(ClientError):
 
 class ValidationFailed(ClientError):
     """ Transaction changes did not pass validation checks.
-    """
-
-
-class CouldNotBegin(DatabaseError):
-    """ The database was unable to start the transaction.
-    """
-
-
-class CouldNotCommit(DatabaseError):
-    """ The database was unable to commit the transaction.
-    """
-
-
-class CouldNotRollback(DatabaseError):
-    """ The database was unable to roll back the transaction.
-    """
-
-
-class CouldNotWriteToLog(DatabaseError):
-    """ The database was unable to write transaction to log.
-    """
-
-
-class ReleaseLocksFailed(DatabaseError):
-    """ The transaction was unable to release one or more of its locks.
-    """
-
-
-class AcquireLockTimeout(TransientError):
-    """ The transaction was unable to acquire a lock, for instance due
-    to a timeout or the transaction thread being interrupted.
-    """
-
-
-class ConstraintsChanged(TransientError):
-    """ Database constraints changed since the start of this transaction.
-    """
-
-
-class DeadlockDetected(TransientError):
-    """ This transaction, and at least one more transaction, has
-    acquired locks in a way that it will wait indefinitely, and the
-    database has aborted it. Retrying this transaction will most likely
-    be successful.
     """

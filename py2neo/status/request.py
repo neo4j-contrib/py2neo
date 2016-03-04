@@ -19,11 +19,13 @@
 from py2neo.status import ClientError
 
 
+# RequestError
 class Invalid(ClientError):
     """ The client provided an invalid request.
     """
 
 
+# RequestFormatError
 class InvalidFormat(ClientError):
     """ The client provided a request that was missing required fields,
     or had values that are not allowed.

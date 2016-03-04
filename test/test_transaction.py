@@ -17,7 +17,7 @@
 
 
 from py2neo.types import Node, Relationship, order, size
-from py2neo.status import ClientError, CypherError, Finished, GraphError
+from py2neo.status import ClientError, DatabaseError, TransientError, CypherError, Finished, GraphError
 from py2neo.status.statement import InvalidSyntax, ConstraintViolation
 from test.util import Py2neoTestCase
 
@@ -398,7 +398,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
         else:
             assert False
 
-    def test_can_hydrate_error_for_all_known_codes(self):
+    def test_can_hydrate_error_for_all_known_client_error_codes(self):
         codes = [
             "Neo.ClientError.General.ReadOnly",
             "Neo.ClientError.Request.Invalid",
@@ -426,6 +426,21 @@ class TransactionErrorTestCase(Py2neoTestCase):
             "Neo.ClientError.Transaction.EventHandlerThrewException",
             "Neo.ClientError.Transaction.InvalidType",
             "Neo.ClientError.Transaction.UnknownId",
+        ]
+        for code in codes:
+            data = {"code": code, "message": "X"}
+            _, classification, category, title = code.split(".")
+            error = CypherError.hydrate(data)
+            assert error.code == code
+            assert error.message == "X"
+            assert error.__class__.__name__ == title
+            assert error.__class__.__mro__[1].__name__ == classification
+            assert isinstance(error, ClientError)
+            assert isinstance(error, CypherError)
+            assert isinstance(error, GraphError)
+
+    def test_can_hydrate_error_for_all_known_database_error_codes(self):
+        codes = [
             "Neo.DatabaseError.General.CorruptSchemaRule",
             "Neo.DatabaseError.General.FailedIndex",
             "Neo.DatabaseError.General.UnknownFailure",
@@ -442,6 +457,19 @@ class TransactionErrorTestCase(Py2neoTestCase):
             "Neo.DatabaseError.Transaction.CouldNotCommit",
             "Neo.DatabaseError.Transaction.CouldNotRollback",
             "Neo.DatabaseError.Transaction.ReleaseLocksFailed",
+        ]
+        for code in codes:
+            data = {"code": code, "message": "X"}
+            _, classification, category, title = code.split(".")
+            error = CypherError.hydrate(data)
+            assert error.code == code
+            assert error.message == "X"
+            assert isinstance(error, DatabaseError)
+            assert isinstance(error, CypherError)
+            assert isinstance(error, GraphError)
+
+    def test_can_hydrate_error_for_all_known_transient_error_codes(self):
+        codes = [
             "Neo.TransientError.Network.UnknownFailure",
             "Neo.TransientError.Statement.ExternalResourceFailure",
             "Neo.TransientError.Transaction.AcquireLockTimeout",
@@ -453,9 +481,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
             error = CypherError.hydrate(data)
             assert error.code == code
             assert error.message == "X"
-            assert error.__class__.__name__ == title
-            assert error.__class__.__mro__[1].__name__ == classification
-            assert error.__class__.__module__ == "py2neo.status.%s" % category.lower()
+            assert isinstance(error, TransientError)
             assert isinstance(error, CypherError)
             assert isinstance(error, GraphError)
 
