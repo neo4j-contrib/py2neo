@@ -160,21 +160,22 @@ class DBMS(object):
     def __hash__(self):
         return hash(self.remote.uri)
 
+    def __getitem__(self, name):
+        return Graph("%sdb/%s/" % (self.remote.uri.string, name))
+
+    def __iter__(self):
+        yield "data"
+
+    def keys(self):
+        return list(self)
+
     @property
     def graph(self):
-        """ The graph database exposed by this database management system.
+        """ The default graph database exposed by this database management system.
 
         :rtype: :class:`.Graph`
         """
-        if self.__graph is None:
-            # The graph URI used to be determined via
-            # discovery but another HTTP call sometimes
-            # caused problems in the middle of other
-            # operations (such as hydration) when using
-            # concurrent code. Therefore, the URI is now
-            # constructed manually.
-            self.__graph = Graph(self.remote.uri.string + "db/data/")
-        return self.__graph
+        return self["data"]
 
     def raw_system_info(self):
         """ Obtain a dictionary of system information.

@@ -79,3 +79,12 @@ class DBMSTestCase(Py2neoTestCase):
         assert isinstance(version[0], int)
         assert isinstance(version[1], int)
         assert isinstance(version[2], int)
+
+    def test_can_get_list_of_databases(self):
+        databases = list(self.dbms)
+        assert databases == ["data"]
+
+    def test_can_get_dictionary_of_databases(self):
+        databases = dict(self.dbms)
+        assert len(databases) == 1
+        assert databases["data"] is self.graph
