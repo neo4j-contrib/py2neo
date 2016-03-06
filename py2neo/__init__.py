@@ -33,10 +33,8 @@ from py2neo.http import *
 from py2neo.packages.httpstream.watch import watch
 from py2neo.status import Finished, GraphError
 
-from py2neo.util import BaseCommander as _BaseCommander
 
-
-class Commander(_BaseCommander):
+class Commander(object):
     """
     usage: py2neo run [-h] [-H host] [-P port] statement
            py2neo evaluate [-h] [-H host] [-P port] statement
@@ -45,7 +43,43 @@ class Commander(_BaseCommander):
     epilog = "Report bugs to %s" % __email__
 
     def __init__(self, out=None):
-        _BaseCommander.__init__(self, out)
+        self.out = out or stdout
+
+    def write(self, s):
+        self.out.write(s)
+
+    def write_line(self, s):
+        from os import linesep
+        self.out.write(s)
+        self.out.write(linesep)
+
+    def usage(self, script):
+        from os.path import basename
+        from textwrap import dedent
+        if self.__doc__:
+            self.write_line(dedent(self.__doc__).strip().format(script=basename(script)))
+            if self.epilog:
+                self.write_line("")
+                self.write_line(self.epilog)
+        else:
+            self.write_line("usage: ?")
+
+    def execute(self, *args):
+        try:
+            command, command_args = args[1], args[2:]
+        except IndexError:
+            self.usage(args[0])
+        else:
+            try:
+                method = getattr(self, command)
+            except AttributeError:
+                self.write_line("Unknown command %r" % command)
+            else:
+                method(*args[1:])
+
+    def parser(self, script):
+        from argparse import ArgumentParser
+        return ArgumentParser(prog=script, epilog=self.epilog)
 
     def parser_with_connection(self, script):
         parser = self.parser(script)
@@ -117,6 +151,7 @@ class Commander(_BaseCommander):
 def main(args=None, out=None):
     from sys import argv
     Commander(out).execute(*args or argv)
+
 
 if __name__ == "__main__":
     main()

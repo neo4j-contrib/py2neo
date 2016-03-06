@@ -21,14 +21,12 @@ Utility module
 
 
 from itertools import cycle, islice
-from os import linesep
-from os.path import basename
 import re
-from sys import stdout
-from textwrap import dedent
 from threading import local
 import warnings
 from weakref import WeakValueDictionary
+
+from .compat import string
 
 
 # Word separation patterns for re-casing strings.
@@ -104,22 +102,14 @@ def version_tuple(string):
 def is_collection(obj):
     """ Returns true for any iterable which is not a string or byte sequence.
     """
-    try:
-        if isinstance(obj, unicode):
-            return False
-    except NameError:
-        pass
-    if isinstance(obj, bytes):
+    if isinstance(obj, string):
         return False
     try:
         iter(obj)
     except TypeError:
         return False
-    try:
-        hasattr(None, obj)
-    except TypeError:
+    else:
         return True
-    return False
 
 
 has_all = lambda iterable, items: all(item in iterable for item in items)
@@ -132,44 +122,3 @@ def raise_from(exception, cause):
 
 class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):
     pass
-
-
-class BaseCommander(object):
-
-    epilog = None
-
-    def __init__(self, out=None):
-        self.out = out or stdout
-
-    def write(self, s):
-        self.out.write(s)
-
-    def write_line(self, s):
-        self.out.write(s)
-        self.out.write(linesep)
-
-    def usage(self, script):
-        if self.__doc__:
-            self.write_line(dedent(self.__doc__).strip().format(script=basename(script)))
-            if self.epilog:
-                self.write_line("")
-                self.write_line(self.epilog)
-        else:
-            self.write_line("usage: ?")
-
-    def execute(self, *args):
-        try:
-            command, command_args = args[1], args[2:]
-        except IndexError:
-            self.usage(args[0])
-        else:
-            try:
-                method = getattr(self, command)
-            except AttributeError:
-                self.write_line("Unknown command %r" % command)
-            else:
-                method(*args[1:])
-
-    def parser(self, script):
-        from argparse import ArgumentParser
-        return ArgumentParser(prog=script, epilog=self.epilog)
