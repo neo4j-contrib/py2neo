@@ -177,13 +177,8 @@ class DBMS(object):
         """
         return self["data"]
 
-    def raw_system_info(self):
-        """ Obtain a dictionary of system information.
-        """
-        return Resource(self.remote.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
-
     def _bean_dict(self, name):
-        info = self.raw_system_info()
+        info = Resource(self.remote.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -200,30 +195,35 @@ class DBMS(object):
                     d[name] = value
         return d
 
+    @property
     def kernel_start_time(self):
         """ Return the time from which this Neo4j instance was in operational mode.
         """
         info = self._bean_dict("Kernel")
         return mktime_tz(parsedate_tz(info["KernelStartTime"]))
 
+    @property
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
         info = self._bean_dict("Kernel")
         return version_tuple(info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip())
 
+    @property
     def store_creation_time(self):
         """ Return the time when this Neo4j graph store was created.
         """
         info = self._bean_dict("Kernel")
         return mktime_tz(parsedate_tz(info["StoreCreationDate"]))
 
+    @property
     def store_directory(self):
         """ Return the location where the Neo4j store is located.
         """
         info = self._bean_dict("Kernel")
         return info["StoreDirectory"]
 
+    @property
     def store_id(self):
         """ Return an identifier that, together with store creation time,
         uniquely identifies this Neo4j graph store.
@@ -231,35 +231,40 @@ class DBMS(object):
         info = self._bean_dict("Kernel")
         return info["StoreId"]
 
+    @property
     def primitive_counts(self):
         """ Return a dictionary of estimates of the numbers of different
         kinds of Neo4j primitives.
         """
         return self._bean_dict("Primitive count")
 
+    @property
     def store_file_sizes(self):
         """ Return a dictionary of information about the sizes of the
         different parts of the Neo4j graph store.
         """
         return self._bean_dict("Store file sizes")
 
+    @property
     def config(self):
         """ Return a dictionary of the configuration parameters used to
         configure Neo4j.
         """
         return self._bean_dict("Configuration")
 
+    @property
     def supports_auth(self):
         """ Returns :py:const:`True` if auth is supported by this
         version of Neo4j, :py:const:`False` otherwise.
         """
-        return self.kernel_version() >= (2, 2)
+        return self.kernel_version >= (2, 2)
 
+    @property
     def supports_bolt(self):
         """ Returns :py:const:`True` if Bolt is supported by this
         version of Neo4j, :py:const:`False` otherwise.
         """
-        return self.kernel_version() >= (3,)
+        return self.kernel_version >= (3,)
 
 
 class Graph(object):
@@ -322,7 +327,7 @@ class Graph(object):
             inst.remote = Resource(http_uri)
             inst.transaction_uri = Resource(http_uri + "transaction").uri.string
             inst.transaction_class = HTTPTransaction
-            if inst.dbms.supports_bolt():
+            if inst.dbms.supports_bolt:
                 if not uri_dict["bolt"]:
                     uri_dict["bolt"].append("bolt://%s" % inst.remote.uri.host)
                 bolt_uri = URI(uri_dict["bolt"][0])
@@ -613,7 +618,7 @@ class Graph(object):
         self.begin(autocommit=True).merge(walkable, label, *property_keys)
 
     @property
-    @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version() instead")
+    @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version instead")
     def neo4j_version(self):
         return version_tuple(self.remote.metadata["neo4j_version"])
 

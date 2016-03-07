@@ -26,7 +26,7 @@ from unittest import skipIf
 
 
 dbms = DBMS()
-version_2_1 = (2, 1) <= dbms.kernel_version() < (2, 2)
+version_2_1 = (2, 1) <= dbms.kernel_version < (2, 2)
 
 
 class BatchTestCase(Py2neoTestCase):

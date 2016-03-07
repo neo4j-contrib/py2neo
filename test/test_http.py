@@ -30,8 +30,8 @@ from test.compat import patch
 
 
 dbms = DBMS()
-supports_auth = dbms.supports_auth()
-supports_bolt = dbms.supports_bolt()
+supports_auth = dbms.supports_auth
+supports_bolt = dbms.supports_bolt
 
 
 class DodgyServerError(_ServerError):

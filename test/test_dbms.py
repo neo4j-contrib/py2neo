@@ -63,17 +63,17 @@ class DBMSTestCase(Py2neoTestCase):
         assert dbms != object()
 
     def test_dbms_metadata(self):
-        assert self.dbms.kernel_start_time()
-        assert self.dbms.kernel_version()
-        assert self.dbms.store_creation_time()
-        assert self.dbms.store_directory()
-        assert self.dbms.store_id()
-        assert self.dbms.primitive_counts()
-        assert self.dbms.store_file_sizes()
-        assert self.dbms.config()
+        assert self.dbms.kernel_start_time
+        assert self.dbms.kernel_version
+        assert self.dbms.store_creation_time
+        assert self.dbms.store_directory
+        assert self.dbms.store_id
+        assert self.dbms.primitive_counts
+        assert self.dbms.store_file_sizes
+        assert self.dbms.config
 
     def test_kernel_version(self):
-        version = self.dbms.kernel_version()
+        version = self.dbms.kernel_version
         assert isinstance(version, tuple)
         assert 3 <= len(version) <= 4
         assert isinstance(version[0], int)
