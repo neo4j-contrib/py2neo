@@ -36,13 +36,13 @@ class GraphyCastTestCase(Py2neoTestCase):
         self.graph.create(alice)
         casted = cast(alice)
         assert isinstance(casted, Node)
-        assert casted.remote
+        assert casted.__remote__
         assert casted["name"] == "Alice"
 
     def test_can_cast_dict(self):
         casted = cast({"name": "Alice"})
         assert isinstance(casted, Node)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted["name"] == "Alice"
 
     def test_can_cast_rel(self):
@@ -52,7 +52,7 @@ class GraphyCastTestCase(Py2neoTestCase):
         self.graph.create(ab)
         casted = cast(ab)
         assert isinstance(casted, Relationship)
-        assert casted.remote
+        assert casted.__remote__
         assert casted.start_node() == a
         assert casted.type() == "KNOWS"
         assert casted.end_node() == b
@@ -62,7 +62,7 @@ class GraphyCastTestCase(Py2neoTestCase):
         bob = Node()
         casted = cast((alice, "KNOWS", bob))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() is alice
         assert casted.type() == "KNOWS"
         assert casted.end_node() is bob
@@ -72,7 +72,7 @@ class GraphyCastTestCase(Py2neoTestCase):
         bob = Node()
         casted = cast((alice, "KNOWS", bob, {"since": 1999}))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() is alice
         assert casted.type() == "KNOWS"
         assert casted.end_node() is bob
@@ -102,7 +102,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         self.graph.create(a | b | ab)
         casted = cast_relationship(ab)
         assert isinstance(casted, Relationship)
-        assert casted.remote
+        assert casted.__remote__
         assert casted.start_node() == a
         assert casted.type() == "KNOWS"
         assert casted.end_node() == b
@@ -124,7 +124,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         bob = Node()
         casted = cast_relationship((alice, "KNOWS", bob))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() == alice
         assert casted.type() == "KNOWS"
         assert casted.end_node() == bob
@@ -134,7 +134,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         bob = Node()
         casted = cast_relationship((alice, ("KNOWS", {"since": 1999}), bob))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() == alice
         assert casted.type() == "KNOWS"
         assert casted.end_node() == bob
@@ -145,7 +145,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         bob = Node()
         casted = cast_relationship((alice, "KNOWS", bob, {"since": 1999}))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() == alice
         assert casted.type() == "KNOWS"
         assert casted.end_node() == bob
@@ -161,7 +161,7 @@ class RelationshipCastTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         casted = cast_relationship((a, r, b))
         assert isinstance(casted, Relationship)
-        assert not casted.remote
+        assert not casted.__remote__
         assert casted.start_node() == a
         assert casted.type() == "TO"
         assert casted.end_node() == b

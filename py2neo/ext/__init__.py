@@ -27,11 +27,11 @@ class ServerPlugin(object):
     def __init__(self, graph, name):
         self.graph = graph
         self.name = name
-        extensions = self.graph.remote.metadata["extensions"]
+        extensions = self.graph.__remote__.metadata["extensions"]
         try:
             self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
         except KeyError:
-            raise LookupError("No plugin named %r found on graph <%s>" % (self.name, graph.remote.uri))
+            raise LookupError("No plugin named %r found on graph <%s>" % (self.name, graph.__remote__.uri))
 
 
 class UnmanagedExtension(object):
@@ -40,9 +40,9 @@ class UnmanagedExtension(object):
 
     def __init__(self, graph, path):
         self.graph = graph
-        self.remote = Resource(graph.dbms.remote.uri.resolve(path))
+        self.remote = Resource(graph.dbms.__remote__.uri.resolve(path))
         try:
             self.remote.get()
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
-                                      "graph <%s>" % (path, graph.remote.uri))
+                                      "graph <%s>" % (path, graph.__remote__.uri))

@@ -26,15 +26,15 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri)
-        assert graph.remote.uri == uri
-        index = graph.remote.get().content
+        assert graph.__remote__.uri == uri
+        index = graph.__remote__.get().content
         assert "node" in index
 
     def test_can_create_graph_without_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri[:-1])
-        assert graph.remote.uri == uri
-        index = graph.remote.get().content
+        assert graph.__remote__.uri == uri
+        index = graph.__remote__.get().content
         assert "node" in index
 
     def test_same_uri_gives_same_instance(self):
@@ -54,7 +54,7 @@ class GraphTestCase(Py2neoTestCase):
         assert self.graph.__nonzero__()
 
     def test_can_hydrate_graph(self):
-        data = self.graph.remote.get().content
+        data = self.graph.__remote__.get().content
         hydrated = self.graph.hydrate(data)
         assert hydrated is self.graph
 
@@ -71,7 +71,7 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_open_browser(self):
         with patch("webbrowser.open") as mocked:
             self.graph.open_browser()
-            assert mocked.called_once_with(self.graph.dbms.remote.uri.string)
+            assert mocked.called_once_with(self.graph.dbms.__remote__.uri.string)
 
     def test_graph_is_not_equal_to_non_graph(self):
         graph = Graph()
@@ -81,7 +81,7 @@ class GraphTestCase(Py2neoTestCase):
         a = Node()
         self.graph.create(a)
         assert isinstance(a, Node)
-        assert a.remote
+        assert a.__remote__
         assert self.graph.exists(a)
         self.graph.delete(a)
         assert not self.graph.exists(a)
@@ -90,7 +90,7 @@ class GraphTestCase(Py2neoTestCase):
         ab = Relationship(Node(), "KNOWS", Node())
         self.graph.create(ab)
         assert isinstance(ab, Relationship)
-        assert ab.remote
+        assert ab.__remote__
         assert self.graph.exists(ab)
         self.graph.delete(ab | ab.start_node() | ab.end_node())
         assert not self.graph.exists(ab)
@@ -98,22 +98,22 @@ class GraphTestCase(Py2neoTestCase):
     def test_can_get_node_by_id_when_cached(self):
         node = Node()
         self.graph.create(node)
-        assert node.remote.uri in Node.cache
-        got = self.graph.node(node.remote._id)
+        assert node.__remote__.uri in Node.cache
+        got = self.graph.node(node.__remote__._id)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
         node = Node()
         self.graph.create(node)
         Node.cache.clear()
-        assert node.remote.uri not in Node.cache
-        got = self.graph.node(node.remote._id)
-        assert got.remote._id == node.remote._id
+        assert node.__remote__.uri not in Node.cache
+        got = self.graph.node(node.__remote__._id)
+        assert got.__remote__._id == node.__remote__._id
 
     def test_get_non_existent_node_by_id(self):
         node = Node()
         self.graph.create(node)
-        node_id = node.remote._id
+        node_id = node.__remote__._id
         self.graph.delete(node)
         Node.cache.clear()
         with self.assertRaises(IndexError):
@@ -123,7 +123,7 @@ class GraphTestCase(Py2neoTestCase):
         from threading import Thread
         node = Node()
         self.graph.create(node)
-        assert node.remote.uri in Node.cache
+        assert node.__remote__.uri in Node.cache
         other_cache_keys = []
 
         def check_cache():
@@ -133,8 +133,8 @@ class GraphTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
 
-        assert node.remote.uri in Node.cache
-        assert node.remote.uri not in other_cache_keys
+        assert node.__remote__.uri in Node.cache
+        assert node.__remote__.uri not in other_cache_keys
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)
@@ -151,12 +151,12 @@ class GraphTestCase(Py2neoTestCase):
     def test_create_single_empty_node(self):
         a = Node()
         self.graph.create(a)
-        assert a.remote
+        assert a.__remote__
 
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")
         self.graph.create(a1)
-        a2 = self.graph.node(a1.remote._id)
+        a2 = self.graph.node(a1.__remote__._id)
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):

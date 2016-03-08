@@ -195,7 +195,7 @@ class PullTestCase(DeprecatedTestCase):
         self.graph.create(alpha)
         assert set(beta.labels()) == set()
         assert dict(beta) == {}
-        beta._set_remote(alpha.remote.uri)
+        beta._set_remote(alpha.__remote__.uri)
         beta.pull()
         assert set(beta.labels()) == set(alpha.labels())
         assert dict(beta) == dict(alpha)
@@ -207,7 +207,7 @@ class PullTestCase(DeprecatedTestCase):
         beta = Relationship(a, "TO", b)
         self.graph.create(alpha)
         assert dict(beta) == {}
-        beta._set_remote(alpha.remote.uri)
+        beta._set_remote(alpha.__remote__.uri)
         beta.pull()
         assert dict(beta) == dict(alpha)
 
@@ -220,7 +220,7 @@ class PushTestCase(DeprecatedTestCase):
         self.graph.create(remote)
         assert set(remote.labels()) == set()
         assert dict(remote) == {}
-        local._set_remote(remote.remote.uri)
+        local._set_remote(remote.__remote__.uri)
         local.push()
         remote.pull()
         assert set(local.labels()) == set(remote.labels())
