@@ -218,9 +218,9 @@ class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
     def __init__(self, nodes, relationships):
-        self._nodes = frozenset(nodes)
-        self._relationships = frozenset(relationships)
-        self._nodes |= frozenset(chain(*(r.nodes() for r in self._relationships)))
+        self.__nodes = frozenset(nodes)
+        self.__relationships = frozenset(relationships)
+        self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
 
     def __repr__(self):
         r = ReprIO()
@@ -239,33 +239,33 @@ class Subgraph(object):
 
     def __hash__(self):
         value = 0
-        for entity in self._nodes:
+        for entity in self.__nodes:
             value ^= hash(entity)
-        for entity in self._relationships:
+        for entity in self.__relationships:
             value ^= hash(entity)
         return value
 
     def __order__(self):
         """ Total number of unique nodes.
         """
-        return len(self._nodes)
+        return len(self.__nodes)
 
     def __size__(self):
         """ Total number of unique relationships.
         """
-        return len(self._relationships)
+        return len(self.__relationships)
 
     def __len__(self):
-        return len(self._relationships)
+        return len(self.__relationships)
 
     def __iter__(self):
-        return iter(self._relationships)
+        return iter(self.__relationships)
 
     def __bool__(self):
-        return bool(self._relationships)
+        return bool(self.__relationships)
 
     def __nonzero__(self):
-        return bool(self._relationships)
+        return bool(self.__relationships)
 
     def __or__(self, other):
         nodes = Subgraph.nodes
@@ -294,28 +294,28 @@ class Subgraph(object):
     def nodes(self):
         """ Set of all nodes.
         """
-        return self._nodes
+        return self.__nodes
 
     def relationships(self):
         """ Set of all relationships.
         """
-        return self._relationships
+        return self.__relationships
 
     def labels(self):
         """ Set of all node labels.
         """
-        return frozenset(chain(*(node.labels() for node in self._nodes)))
+        return frozenset(chain(*(node.labels() for node in self.__nodes)))
 
     def types(self):
         """ Set of all relationship types.
         """
-        return frozenset(rel.type() for rel in self._relationships)
+        return frozenset(rel.type() for rel in self.__relationships)
 
     def keys(self):
         """ Set of all property keys.
         """
-        return (frozenset(chain(*(node.keys() for node in self._nodes))) |
-                frozenset(chain(*(rel.keys() for rel in self._relationships))))
+        return (frozenset(chain(*(node.keys() for node in self.__nodes))) |
+                frozenset(chain(*(rel.keys() for rel in self.__relationships))))
 
 
 class Walkable(Subgraph):
@@ -323,11 +323,8 @@ class Walkable(Subgraph):
     """
 
     def __init__(self, iterable):
-        sequence = tuple(iterable)
-        self._node_sequence = sequence[0::2]
-        self._relationship_sequence = sequence[1::2]
-        Subgraph.__init__(self, self._node_sequence, self._relationship_sequence)
-        self._sequence = sequence
+        self.__sequence = tuple(iterable)
+        Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
     def __repr__(self):
         r = ReprIO()
@@ -348,12 +345,12 @@ class Walkable(Subgraph):
 
     def __hash__(self):
         value = 0
-        for item in self._sequence:
+        for item in self.__sequence:
             value ^= hash(item)
         return value
 
     def __len__(self):
-        return len(self._relationship_sequence)
+        return (len(self.__sequence) - 1) // 2
 
     def __getitem__(self, index):
         if isinstance(index, slice):
@@ -366,14 +363,14 @@ class Walkable(Subgraph):
                 if stop < 0:
                     stop += len(self)
                 stop = 2 * stop + 1
-            return Walkable(self._sequence[start:stop])
+            return Walkable(self.__sequence[start:stop])
         elif index < 0:
-            return self._sequence[2 * index]
+            return self.__sequence[2 * index]
         else:
-            return self._sequence[2 * index + 1]
+            return self.__sequence[2 * index + 1]
 
     def __iter__(self):
-        for relationship in self._relationship_sequence:
+        for relationship in self.__sequence[1::2]:
             yield relationship
 
     def __add__(self, other):
@@ -385,29 +382,29 @@ class Walkable(Subgraph):
         """ Traverse and yield all nodes and relationships in this
         object in order.
         """
-        return iter(self._sequence)
+        return iter(self.__sequence)
 
     def start_node(self):
         """ The first node encountered on a :func:`.walk` of this object.
         """
-        return self._node_sequence[0]
+        return self.__sequence[0]
 
     def end_node(self):
         """ The last node encountered on a :func:`.walk` of this object.
         """
-        return self._node_sequence[-1]
+        return self.__sequence[-1]
 
     def nodes(self):
         """ The sequence of nodes over which a :func:`.walk` of this
         object will traverse.
         """
-        return self._node_sequence
+        return self.__sequence[0::2]
 
     def relationships(self):
         """ The sequence of relationships over which a :func:`.walk`
         of this object will traverse.
         """
-        return self._relationship_sequence
+        return self.__sequence[1::2]
 
 
 class PropertyDict(dict):
@@ -616,7 +613,7 @@ class Node(Relatable, Entity):
         return inst
 
     def __init__(self, *labels, **properties):
-        self._labels = set(labels)
+        self.__labels = set(labels)
         Entity.__init__(self, (self,), properties)
         self.__stale = set()
 
@@ -664,27 +661,27 @@ class Node(Relatable, Entity):
         """ Set of all node labels.
         """
         self.__ensure_labels()
-        return SetView(self._labels)
+        return SetView(self.__labels)
 
     def has_label(self, label):
         self.__ensure_labels()
-        return label in self._labels
+        return label in self.__labels
 
     def add_label(self, label):
         self.__ensure_labels()
-        self._labels.add(label)
+        self.__labels.add(label)
 
     def remove_label(self, label):
         self.__ensure_labels()
-        self._labels.discard(label)
+        self.__labels.discard(label)
 
     def clear_labels(self):
         self.__ensure_labels()
-        self._labels.clear()
+        self.__labels.clear()
 
     def update_labels(self, labels):
         self.__ensure_labels()
-        self._labels.update(labels)
+        self.__labels.update(labels)
 
     @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
     def match(self, rel_type=None, other_node=None, limit=None):
@@ -770,7 +767,7 @@ class Relationship(Entity):
         else:
             Node.hydrate({"self": start}, inst.start_node())
             Node.hydrate({"self": end}, inst.end_node())
-            inst._type = data.get("type")
+            inst.__type = data.get("type")
             if "data" in data:
                 inst.clear()
                 inst.update(data["data"])
@@ -799,20 +796,20 @@ class Relationship(Entity):
             raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
             # Relationship(a)
-            self._type = self.default_type()
+            self.__type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
             if n[1] is None or isinstance(n[1], string):
                 # Relationship(a, "TO")
-                self._type = n[1]
+                self.__type = n[1]
                 n = (n[0], n[0])
             else:
                 # Relationship(a, b)
-                self._type = self.default_type()
+                self.__type = self.default_type()
                 n = (n[0], n[1])
         elif num_args == 3:
             # Relationship(a, "TO", b)
-            self._type = n[1]
+            self.__type = n[1]
             n = (n[0], n[2])
         else:
             raise TypeError("Hyperedges not supported")
@@ -869,9 +866,9 @@ class Relationship(Entity):
     def type(self):
         """ The type of this relationship.
         """
-        if self.__remote__ and self._type is None:
+        if self.__remote__ and self.__type is None:
             self.__remote__.graph.pull(self)
-        return self._type
+        return self.__type
 
     def _del_remote(self):
         """ Detach this relationship and its start and end

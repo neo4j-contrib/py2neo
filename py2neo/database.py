@@ -674,9 +674,8 @@ class Graph(object):
             tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=relationship)
         tx.commit()
         for node, cursor in nodes.items():
-            labels = node._labels
-            labels.clear()
-            labels.update(cursor.evaluate(1))
+            node.clear_labels()
+            node.update_labels(cursor.evaluate(1))
 
     def push(self, *entities):
         """ Push data from one or more entities to their remote counterparts.
