@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2015, Nigel Small
+# Copyright 2011-2016, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 
 
 __author__ = "Nigel Small <nigel@py2neo.org>"
-__copyright__ = "2011-2015, Nigel Small"
+__copyright__ = "2011-2016, Nigel Small"
 __email__ = "nigel@py2neo.org"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
