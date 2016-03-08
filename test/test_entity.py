@@ -94,3 +94,14 @@ class EntityTestCase(Py2neoTestCase):
         assert not b.remote
         ab._del_remote()
         assert not ab.remote
+
+
+class AutoNamingTestCase(Py2neoTestCase):
+
+    def test_can_name_using_name_property(self):
+        a = Node(name="Alice")
+        assert a.__name__ == "alice"
+
+    def test_can_name_using_magic_name_property(self):
+        a = Node(__name__="Alice")
+        assert a.__name__ == "Alice"

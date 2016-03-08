@@ -97,3 +97,16 @@ class RelationshipTestCase(Py2neoTestCase):
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
         assert size(rel) == 1
+
+    def test_relationship_equality_with_none(self):
+        rel = Relationship({}, "KNOWS", {})
+        none = None
+        assert rel != none
+
+    def test_relationship_default_type(self):
+        assert Relationship.default_type() == "TO"
+
+    def test_relationship_subclass_default_type(self):
+        class Knows(Relationship):
+            pass
+        assert Knows.default_type() == "KNOWS"

@@ -486,7 +486,8 @@ class RemoteEntity(Resource):
         self._id = int(self.ref.rpartition("/")[2])
 
     def __repr__(self):
-        return "<%s graph=%r ref=%r>" % (self.__class__.__name__, self.graph.uri.string, self.ref)
+        return "<%s graph=%r ref=%r>" % (self.__class__.__name__,
+                                         self.graph.remote.uri.string, self.ref)
 
 
 class Entity(PropertyDict, Walkable):
@@ -547,6 +548,7 @@ class Relatable(object):
 class SetView(object):
 
     def __init__(self, items):
+        assert isinstance(items, (set, frozenset))
         self.__items = items
 
     def __repr__(self):
@@ -562,16 +564,16 @@ class SetView(object):
         return item in self.__items
 
     def __and__(self, other):
-        return self.__items & other
+        return self.__items & set(other)
 
     def __or__(self, other):
-        return self.__items | other
+        return self.__items | set(other)
 
     def __sub__(self, other):
-        return self.__items - other
+        return self.__items - set(other)
 
     def __xor__(self, other):
-        return self.__items ^ other
+        return self.__items ^ set(other)
 
 
 class Node(Relatable, Entity):
@@ -747,10 +749,8 @@ class Relationship(Entity):
     def default_type(cls):
         if cls is Relationship:
             return "TO"
-        elif issubclass(cls, Relationship):
-            return ustr(relationship_case(cls.__name__))
-        else:
-            raise TypeError("Class %s is not a relationship subclass" % cls.__name__)
+        assert issubclass(cls, Relationship)
+        return ustr(relationship_case(cls.__name__))
 
     @classmethod
     def hydrate(cls, data, inst=None):

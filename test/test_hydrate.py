@@ -16,15 +16,16 @@
 # limitations under the License.
 
 
+from mock import patch
+
 from py2neo import Node, Relationship, Path
 from test.util import Py2neoTestCase
 
 
-class HydrationTestCase(Py2neoTestCase):
+class NodeHydrationTestCase(Py2neoTestCase):
 
     def setUp(self):
         Node.cache.clear()
-        Relationship.cache.clear()
 
     def test_minimal_node_hydrate(self):
         dehydrated = {
@@ -106,6 +107,99 @@ class HydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
+        assert hydrated.remote
+        assert hydrated.remote.uri == dehydrated["self"]
+
+    def test_node_hydration_with_issue_19542(self):
+        dehydrated = {
+            "extensions": {
+            },
+            "paged_traverse": "http://localhost:7474/db/data/node/0/paged/traverse/{returnType}{?pageSize,leaseTime}",
+            "labels": "http://localhost:7474/db/data/node/0/labels",
+            "outgoing_relationships": "http://localhost:7474/db/data/node/0/relationships/out",
+            "traverse": "http://localhost:7474/db/data/node/0/traverse/{returnType}",
+            "all_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/all/{-list|&|types}",
+            "property": "http://localhost:7474/db/data/node/0/properties/{key}",
+            "all_relationships": "http://localhost:7474/db/data/node/0/relationships/all",
+            "self": "http://localhost:7474/db/data/node/0",
+            "outgoing_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/out/{-list|&|types}",
+            "properties": "http://localhost:7474/db/data/node/0/properties",
+            "incoming_relationships": "http://localhost:7474/db/data/node/0/relationships/in",
+            "incoming_typed_relationships": "http://localhost:7474/db/data/node/0/relationships/in/{-list|&|types}",
+            "create_relationship": "http://localhost:7474/db/data/node/0/relationships",
+            "data": {
+                "name": "Alice",
+                "age": 33,
+            },
+            "metadata": {
+                "labels": ["Person", "Employee"],
+            },
+        }
+
+        with patch("weakref.WeakValueDictionary.setdefault") as mocked:
+            mocked.return_value = None
+            hydrated = Node.hydrate(dehydrated)
+        assert isinstance(hydrated, Node)
+        assert dict(hydrated) == dehydrated["data"]
+        assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
+        assert hydrated.remote
+        assert hydrated.remote.uri == dehydrated["self"]
+
+
+class RelationshipHydrationTestCase(Py2neoTestCase):
+
+    def setUp(self):
+        Relationship.cache.clear()
+
+    def test_partial_relationship_hydration_with_inst(self):
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "TO", b)
+        self.graph.create(ab)
+        dehydrated = {
+            "extensions": {
+            },
+            "start": "http://localhost:7474/db/data/node/%d" % a.remote._id,
+            "property": "http://localhost:7474/db/data/relationship/%d/properties/{key}" % ab.remote._id,
+            "self": "http://localhost:7474/db/data/relationship/%d" % ab.remote._id,
+            "properties": "http://localhost:7474/db/data/relationship/%d/properties" % ab.remote._id,
+            "type": "KNOWS",
+            "end": "http://localhost:7474/db/data/node/%d" % b.remote._id,
+        }
+        hydrated = Relationship.hydrate(dehydrated, inst=ab)
+        assert isinstance(hydrated, Relationship)
+        assert hydrated.start_node().remote
+        assert hydrated.start_node().remote.uri == dehydrated["start"]
+        assert hydrated.end_node().remote
+        assert hydrated.end_node().remote.uri == dehydrated["end"]
+        assert hydrated.type() == dehydrated["type"]
+        assert hydrated.remote
+        assert hydrated.remote.uri == dehydrated["self"]
+
+    def test_relationship_hydration_with_issue_19542(self):
+        dehydrated = {
+            "extensions": {
+            },
+            "start": "http://localhost:7474/db/data/node/23",
+            "property": "http://localhost:7474/db/data/relationship/11/properties/{key}",
+            "self": "http://localhost:7474/db/data/relationship/11",
+            "properties": "http://localhost:7474/db/data/relationship/11/properties",
+            "type": "KNOWS",
+            "end": "http://localhost:7474/db/data/node/22",
+            "data": {
+                "since": 1999,
+            },
+        }
+        with patch("weakref.WeakValueDictionary.setdefault") as mocked:
+            mocked.return_value = None
+            hydrated = Relationship.hydrate(dehydrated)
+        assert isinstance(hydrated, Relationship)
+        assert hydrated.start_node().remote
+        assert hydrated.start_node().remote.uri == dehydrated["start"]
+        assert hydrated.end_node().remote
+        assert hydrated.end_node().remote.uri == dehydrated["end"]
+        assert hydrated.type() == dehydrated["type"]
+        assert dict(hydrated) == dehydrated["data"]
         assert hydrated.remote
         assert hydrated.remote.uri == dehydrated["self"]
 

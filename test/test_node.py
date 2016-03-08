@@ -39,6 +39,7 @@ class NodeTestCase(Py2neoTestCase):
         assert set(a.labels()) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
         assert a.remote.ref.startswith("node/")
+        assert repr(a.remote)
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
@@ -70,6 +71,21 @@ class NodeTestCase(Py2neoTestCase):
         assert dict(a) == {"name": "Alice", "age": 33}
         _ = list(self.graph.match(a, "KNOWS"))
         assert dict(a) == {"name": "Alice", "age": 33}
+
+    def test_pull_node_labels_if_stale(self):
+        a = Node("Thing")
+        self.graph.create(a)
+        a.remove_label("Thing")
+        a._Node__stale.add("labels")
+        labels = a.labels()
+        assert set(labels) == {"Thing"}
+
+    def test_pull_node_property_if_stale(self):
+        a = Node(foo="bar")
+        self.graph.create(a)
+        a["foo"] = None
+        a._Node__stale.add("properties")
+        assert a["foo"] == "bar"
 
 
 class AbstractNodeTestCase(Py2neoTestCase):

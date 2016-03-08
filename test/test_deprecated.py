@@ -47,6 +47,14 @@ class PropertiesTestCase(DeprecatedTestCase):
         _ = r.properties
 
     def test_pull_node_properties_if_stale(self):
+        a = Node(foo="bar")
+        self.graph.create(a)
+        a["foo"] = None
+        a._Node__stale.add("properties")
+        properties = a.properties
+        assert properties == {"foo": "bar"}
+
+    def test_pull_relationship_properties_if_stale(self):
         a = Node()
         b = Node()
         ab = Relationship(a, "TO", b, foo="bar")
@@ -63,6 +71,13 @@ class ExistsTestCase(DeprecatedTestCase):
         a = Node()
         self.graph.create(a)
         _ = a.exists()
+
+    def test_relationship_exists(self):
+        a = Node()
+        b = Node()
+        ab = Relationship(a, "TO", b)
+        self.graph.create(ab)
+        _ = ab.exists()
 
 
 class DegreeTestCase(DeprecatedTestCase):
@@ -105,6 +120,12 @@ class NodeMatchTestCase(DeprecatedTestCase):
         a, b, c, d, e, rels = self.sample_graph
         matches = list(e.match_outgoing())
         assert len(matches) == 0
+
+    def test_can_match_one_incoming(self):
+        a, b, c, d, e, rels = self.sample_graph
+        matches = list(a.match_incoming())
+        assert len(matches) == 1
+        assert rels[1] in matches
 
     def test_can_match_one_outgoing(self):
         a, b, c, d, e, rels = self.sample_graph
