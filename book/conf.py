@@ -16,9 +16,6 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath('_themes'))
-import alabaster
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -33,7 +30,6 @@ sys.path.insert(0, os.path.abspath('..'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'alabaster',
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
     'sphinx.ext.ifconfig',
@@ -55,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Py2neo'
-copyright = '2011-2015, Nigel Small'
+copyright = '2011-2016, Nigel Small'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -111,22 +107,24 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'alabaster'
+html_theme = 'pydoctheme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'logo': 'py2neo-v3.280x336.png',
-    'logo_align': 'left',
-    'github_user': 'nigelsmall',
-    'github_repo': 'py2neo',
-    'github_branch': 'v3',
-    'travis_button': True,
+    'sidebarwidth': 300,
+    'collapsiblesidebar': True,
+    #'logo': 'py2neo-v3.280x336.png',
+    #'logo_align': 'left',
+    #'github_user': 'nigelsmall',
+    #'github_repo': 'py2neo',
+    #'github_branch': 'v3',
+    #'travis_button': True,
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
-html_theme_path = [alabaster.get_path()]
+html_theme_path = ["_themes"]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -163,11 +161,11 @@ html_static_path = ['_static']
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-html_sidebars = {
-   '**': [
-       'about.html', 'navigation.html', 'searchbox.html', 'donate.html',
-   ]
-}
+#html_sidebars = {
+#   '**': [
+#       'about.html', 'navigation.html', 'searchbox.html', 'donate.html',
+#   ]
+#}
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.

@@ -1,6 +1,6 @@
-****************
-Graph Data Types
-****************
+************************************
+``py2neo.types`` -- Graph Data Types
+************************************
 
 **Py2neo** provides a set of core graph data types that are completely compatible with Neo4j but
 that can also be used independently of it. These types include the fundamental entities

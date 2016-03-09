@@ -1,6 +1,6 @@
-****************
-Database Servers
-****************
+**************************************
+``py2neo.database`` -- Graph Databases
+**************************************
 
 .. module:: py2neo.database
 

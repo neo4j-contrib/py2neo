@@ -268,16 +268,17 @@ class DBMS(object):
 
 
 class Graph(object):
-    """ The `Graph` class represents a Neo4j graph database. To construct,
-    one or more URIs can be supplied. These can be ``http`` or ``bolt`` URIs::
+    """ The `Graph` class represents a Neo4j graph database. To
+    construct a graph instance, one or more URIs can be supplied.
+    These can be ``http`` or ``bolt`` URIs::
 
         >>> from py2neo import Graph
         >>> graph = Graph("http://myserver:7474/db/data/", "bolt://myserver:7687")
 
-    If no URIs are specified, a default value is taken from the ``NEO4J_URI``
-    environment variable. If this is not set, a default of
-    ``http://localhost:7474/db/data/`` is assumed. Therefore, the simplest way
-    to connect to a running service is to use::
+    If no URIs are specified, a default value is taken from the
+    ``NEO4J_URI`` environment variable. If this is not set, a default
+    of ``http://localhost:7474/db/data/`` is assumed. Therefore, the
+    simplest way to connect to a running service is to use::
 
         >>> graph = Graph()
 
@@ -300,7 +301,6 @@ class Graph(object):
     __node_labels = None
     __relationship_types = None
 
-    remote = None
     driver = None
     transaction_class = None
 
@@ -938,6 +938,7 @@ class BoltDataSource(DataSource):
         :arg metadata:
         """
         self.loaded = True
+        # TODO: summary data
         #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
 
     def on_failure(self, metadata):
