@@ -103,6 +103,92 @@ def cypher_request(statement, parameters, **kwparameters):
     ])
 
 
+class ServerAddress(object):
+    """ A DBMS or graph database address.
+    """
+
+    def __init__(self, *uris, **settings):
+        self.__settings = {
+            "host": "localhost",
+            "http_port": 7474,
+        }
+
+        def apply_uri(u):
+            uri = URI(u)
+            if uri.scheme == "bolt":
+                self.__settings.setdefault("bolt_port", 7687)
+            if uri.user_info:
+                apply_auth(uri.user_info)
+            if uri.host:
+                self.__settings["host"] = uri.host
+            if uri.port:
+                self.__settings["%s_port" % uri.scheme] = uri.port
+
+        def apply_auth(a):
+            user, _, password = a.partition(":")
+            if user:
+                self.__settings["user"] = user
+            if password:
+                self.__settings["password"] = password
+
+        # 1. Apply environment variables
+        neo4j_uri = getenv("NEO4J_URI")
+        if neo4j_uri:
+            apply_uri(neo4j_uri)
+        neo4j_auth = getenv("NEO4J_AUTH")
+        if neo4j_auth:
+            apply_auth(neo4j_auth)
+
+        # 2. Apply URIs
+        for uri in uris:
+            apply_uri(uri)
+
+        # 3. Apply individual settings
+        self.__settings.update(settings)
+
+    def __getitem__(self, item):
+        return self.__settings[item]
+
+    def __eq__(self, other):
+        return dict(self) == dict(other)
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.__settings.items())))
+
+    def keys(self):
+        return self.__settings.keys()
+
+    @property
+    def user(self):
+        return self.__settings.get("user", "neo4j")
+
+    @property
+    def password(self):
+        return self.__settings.get("password", None)
+
+    @property
+    def host(self):
+        return self.__settings["host"]
+
+    @property
+    def http_port(self):
+        return self.__settings["http_port"]
+
+    @property
+    def bolt_port(self):
+        return self.__settings.get("bolt_port", 7687)
+
+    def bolt_uri(self, path):
+        return "bolt://%s:%d%s" % (self.host, self.bolt_port, path)
+
+    @property
+    def http_host_port(self):
+        return "%s:%d" % (self.host, self.http_port)
+
+    def http_uri(self, path):
+        return "http://%s:%d%s" % (self.host, self.http_port, path)
+
+
 class DBMS(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the ``/`` URI in
@@ -125,24 +211,19 @@ class DBMS(object):
     __instances = {}
     __graph = None
 
-    def __new__(cls, uri=None):
-        if uri is None:
-            uri = ustr(getenv("NEO4J_URI", "http://localhost:7474/"))
-        else:
-            uri = ustr(uri)
-            if not uri.endswith("/"):
-                uri += "/"
+    def __new__(cls, *uris, **settings):
+        address = ServerAddress(*uris, **settings)
+        http_uri = address.http_uri("/")
         try:
-            inst = cls.__instances[uri]
+            inst = cls.__instances[address]
         except KeyError:
-            auth = getenv("NEO4J_AUTH", None)
-            if auth:
-                user_name, password = auth.partition(":")[0::2]
-                authenticate(URI(uri).host_port, user_name, password)
+            if address.password:
+                authenticate(address.http_host_port, address.user, address.password)
             inst = super(DBMS, cls).__new__(cls)
-            inst.__remote__ = Resource(uri)
+            inst.address = address
+            inst.__remote__ = Resource(http_uri)
             inst.__graph = None
-            cls.__instances[uri] = inst
+            cls.__instances[address] = inst
         return inst
 
     def __repr__(self):
@@ -160,8 +241,8 @@ class DBMS(object):
     def __hash__(self):
         return hash(self.__remote__.uri)
 
-    def __getitem__(self, name):
-        return Graph("%sdb/%s/" % (self.__remote__.uri.string, name))
+    def __getitem__(self, database):
+        return Graph(database=database, **dict(self.address))
 
     def __iter__(self):
         yield "data"
@@ -269,30 +350,34 @@ class DBMS(object):
 
 class Graph(object):
     """ The `Graph` class represents a Neo4j graph database. To
-    construct a graph instance, one or more URIs can be supplied.
-    These can be ``http`` or ``bolt`` URIs::
+    construct a graph instance, details of how to locate the database
+    server must be supplied. The `settings` supported are:
+
+    - ``host`` (default "localhost")
+    - ``http_port`` (default 7474)
+    - ``bolt_port`` (default 7687 if Bolt is available)
+    - ``user`` (default "neo4j" if password is supplied)
+    - ``password`` (no default)
+    - ``database`` (default "data")
+
+    Each of these can be provided as a keyword argument, as part of a
+    URI (``http:`` or ``bolt:``) or within an environment variable.
+    This means that the examples below are equivalent::
 
         >>> from py2neo import Graph
-        >>> graph = Graph("http://myserver:7474/db/data/", "bolt://myserver:7687")
+        >>> graph_1 = Graph()
+        >>> graph_2 = Graph(host="localhost")
+        >>> graph_3 = Graph("http://localhost:7474/db/data/")
 
-    If no URIs are specified, a default value is taken from the
-    ``NEO4J_URI`` environment variable. If this is not set, a default
-    of ``http://localhost:7474/db/data/`` is assumed. Therefore, the
-    simplest way to connect to a running service is to use::
+    The following environment variables are supported:
 
-        >>> graph = Graph()
+    - ``NEO4J_URI`` - a full server URI for the database
+    - ``NEO4J_AUTH`` - colon separated user and password details
 
-    Even if no ``bolt`` URI is specified, one will be derived based on the ``http``
-    URI, assuming the server supports the Bolt protocol. Where Bolt is available,
-    it will automatically be used for all Cypher queries.
-
-    If the database server requires authorisation, the credentials can also
-    be specified within the URI::
-
-        >>> secure_graph = Graph("http://arthur:excalibur@camelot:1138/db/data/")
-
-    Once obtained, the `Graph` instance provides direct or indirect access
-    to most of the functionality available within py2neo.
+    Once obtained, the `Graph` instance provides direct or indirect
+    access to most of the functionality available within py2neo. Note
+    that when Bolt support is available, it will automatically be used
+    for Cypher queries instead of HTTP.
     """
 
     __instances = {}
@@ -304,34 +389,20 @@ class Graph(object):
     driver = None
     transaction_class = None
 
-    def __new__(cls, *uris):
-        # Gather all URIs
-        uri_dict = {"http": [], "bolt": []}
-        for uri in uris:
-            uri = URI(uri)
-            uri_dict.setdefault(uri.scheme, []).append(uri.string)
-        # Ensure there is at least one HTTP URI available
-        if not uri_dict["http"]:
-            uri_dict["http"].append(DBMS().graph.__remote__.uri.string)
-        http_uri = uri_dict["http"][0]
-        # Add a trailing slash if required
-        if not http_uri.endswith("/"):
-            http_uri += "/"
-        # Construct a new instance
-        key = (cls, http_uri)
+    def __new__(cls, *uris, **settings):
+        database = settings.pop("database", "data")
+        address = ServerAddress(*uris, **settings)
+        key = (cls, address, database)
         try:
             inst = cls.__instances[key]
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
-            inst.uris = uri_dict
-            inst.__remote__ = Resource(http_uri)
-            inst.transaction_uri = Resource(http_uri + "transaction").uri.string
+            inst.address = address
+            inst.__remote__ = Resource(address.http_uri("/db/%s/" % database))
+            inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri.string
             inst.transaction_class = HTTPTransaction
             if inst.dbms.supports_bolt:
-                if not uri_dict["bolt"]:
-                    uri_dict["bolt"].append("bolt://%s" % inst.__remote__.uri.host)
-                bolt_uri = URI(uri_dict["bolt"][0])
-                inst.driver = GraphDatabase.driver(bolt_uri.string, user_agent="/".join(PRODUCT))
+                inst.driver = GraphDatabase.driver(address.bolt_uri("/"), user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
             cls.__instances[key] = inst
         return inst
@@ -361,33 +432,28 @@ class Graph(object):
         return entity.__remote__ and entity.__remote__.uri.string.startswith(self.__remote__.uri.string)
 
     def begin(self, autocommit=False):
-        """ Begin a new transaction.
+        """ Begin a new :class:`.Transaction`.
 
-        :arg autocommit:
+        :param autocommit: if :py:const:`True`, the transaction will
+                         automatically commit after the first operation
         """
         return self.transaction_class(self, autocommit)
 
     def create(self, subgraph):
-        """ Create remote nodes and relationships that correspond to those in a
-        local subgraph.
+        """ Run a :meth:`.Transaction.create` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
-
-        .. seealso::
-            :meth:`Transaction.create`
         """
         self.begin(autocommit=True).create(subgraph)
 
     def create_unique(self, walkable):
-        """ Create unique remote nodes and relationships that correspond to those
-        in a local walkable object.
+        """ Run a :meth:`.Transaction.create_unique` operation within
+        an `autocommit` :class:`.Transaction`.
 
-        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
-
-        .. seealso::
-            :meth:`Transaction.create_unique`
+        :param walkable: a :class:`.Node`, :class:`.Relationship` or
+                       other :class:`.Walkable` object
         """
         self.begin(autocommit=True).create_unique(walkable)
 
@@ -398,26 +464,21 @@ class Graph(object):
         return self.__remote__.dbms
 
     def degree(self, subgraph):
-        """ Return the total number of relationships attached to all nodes in
-        a subgraph.
+        """ Run a :meth:`.Transaction.degree` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
-
-        .. seealso::
-            :meth:`Transaction.degree`
+        :return: the total degree of all nodes in the subgraph
         """
         return self.begin(autocommit=True).degree(subgraph)
 
     def delete(self, subgraph):
-        """ Delete the remote nodes and relationships that correspond to
-        those in a local subgraph.
+        """ Run a :meth:`.Transaction.delete` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
-
-        .. seealso::
-            :meth:`Transaction.delete`
         """
         self.begin(autocommit=True).delete(subgraph)
 
@@ -431,33 +492,34 @@ class Graph(object):
         self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
 
     def evaluate(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement and return the value from
-        the first column of the first record.
+        """ Run a :meth:`.Transaction.evaluate` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg statement: Cypher statement
-        :arg parameters: dictionary of parameters
-        :returns: single return value or :const:`None`.
-
-        .. seealso::
-            :meth:`Transaction.evaluate`
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
+        :return: first value from the first record returned or
+                 :py:const:`None`.
         """
         return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
 
     def exists(self, subgraph):
-        """ Determine whether one or more graph entities all exist within the
-        database.
+        """ Run a :meth:`.Transaction.exists` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
-
-        .. seealso::
-            :meth:`Transaction.exists`
+        :return:
         """
         return self.begin(autocommit=True).exists(subgraph)
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
         by property key and value
+
+        :param label:
+        :param property_key:
+        :param property_value:
+        :param limit:
         """
         if not label:
             raise ValueError("Empty label")
@@ -481,19 +543,15 @@ class Graph(object):
         """ Find a single node by label and optional property. This method is
         intended to be used with a unique constraint and does not fail if more
         than one matching node is found.
+
+        :param label:
+        :param property_key:
+        :param property_value:
         """
         for node in self.find(label, property_key, property_value, limit=1):
             return node
 
-    def hydrate(self, data, inst=None):
-        """ Hydrate a dictionary of data to produce a :class:`.Node`,
-        :class:`.Relationship` or other graph object instance. The
-        data structure and values expected are those produced by the
-        `REST API <http://neo4j.com/docs/stable/rest-api.html>`__.
-
-        :arg data: dictionary of data to hydrate
-
-        """
+    def _hydrate(self, data, inst=None):
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
                 from py2neo.status import CypherError
@@ -519,7 +577,7 @@ class Graph(object):
                     data["directions"] = directions
                 return Path.hydrate(data)
             elif "results" in data:
-                return self.hydrate(data["results"][0])
+                return self._hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
                 return Cursor(HTTPDataSource(self, None, data))
             elif "neo4j_version" in data:
@@ -529,7 +587,7 @@ class Graph(object):
                      "and may be hydrated as graph objects")
                 return data
         elif is_collection(data):
-            return type(data)(map(self.hydrate, data))
+            return type(data)(map(self._hydrate, data))
         else:
             return data
 
@@ -542,14 +600,14 @@ class Graph(object):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node.properties["name"])
 
-        :arg start_node: :attr:`~py2neo.Node.identity()` start :class:`~py2neo.Node` to match or
+        :param start_node: :attr:`~py2neo.Node.identity()` start :class:`~py2neo.Node` to match or
                            :const:`None` if any
-        :arg rel_type: type of relationships to match or :const:`None` if any
-        :arg end_node: :attr:`~py2neo.Node.identity()` end :class:`~py2neo.Node` to match or
+        :param rel_type: type of relationships to match or :const:`None` if any
+        :param end_node: :attr:`~py2neo.Node.identity()` end :class:`~py2neo.Node` to match or
                          :const:`None` if any
-        :arg bidirectional: :const:`True` if reversed relationships should also be included
-        :arg limit: maximum number of relationships to match or :const:`None` if no limit
-        :returns: matching relationships
+        :param bidirectional: :const:`True` if reversed relationships should also be included
+        :param limit: maximum number of relationships to match or :const:`None` if no limit
+        :return: matching relationships
         :rtype: generator
         """
         if start_node is None and end_node is None:
@@ -594,6 +652,11 @@ class Graph(object):
         """ Return a single relationship matching the
         specified criteria. See :meth:`~py2neo.Graph.match` for
         argument details.
+        
+        :param start_node:
+        :param rel_type:
+        :param end_node:
+        :param bidirectional:
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
@@ -603,17 +666,13 @@ class Graph(object):
             return None
 
     def merge(self, walkable, label=None, *property_keys):
-        """ Merge remote nodes and relationships that correspond to those in
-        a local walkable. Optionally perform the merge based on a specific
-        label or set of property keys.
+        """ Run a :meth:`.Transaction.merge` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Walkable` object
-        :arg label: label on which to match any existing nodes
-        :arg property_keys: property keys on which to match any existing nodes
-
-        .. seealso::
-            :meth:`Transaction.merge`
+        :param label: label on which to match any existing nodes
+        :param property_keys: property keys on which to match any existing nodes
         """
         self.begin(autocommit=True).merge(walkable, label, *property_keys)
 
@@ -627,6 +686,8 @@ class Graph(object):
         remote node with the ID specified but fetches no data from the server.
         For this reason, there is no guarantee that the entity returned
         actually exists.
+        
+        :param id_:
         """
         resource = self.__remote__.resolve("node/%s" % id_)
         uri_string = resource.uri.string
@@ -655,6 +716,8 @@ class Graph(object):
 
     def pull(self, *entities):
         """ Pull data to one or more entities from their remote counterparts.
+        
+        :param entities:
         """
         if not entities:
             return
@@ -680,6 +743,8 @@ class Graph(object):
 
     def push(self, *entities):
         """ Push data from one or more entities to their remote counterparts.
+        
+        :param entities:
         """
         batch = []
         i = 0
@@ -704,6 +769,8 @@ class Graph(object):
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
+
+        :param id_:
         """
         resource = self.__remote__.resolve("relationship/" + str(id_))
         uri_string = resource.uri.string
@@ -726,25 +793,21 @@ class Graph(object):
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement.
+        """ Run a :meth:`.Transaction.run` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg statement: Cypher statement
-        :arg parameters: dictionary of parameters
-
-        .. seealso::
-            :meth:`Transaction.run`
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
+        :return:
         """
         return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
 
     def separate(self, subgraph):
-        """ Delete the remote relationships that correspond to those
-        in a local subgraph.
+        """ Run a :meth:`.Transaction.separate` operation within an
+        `autocommit` :class:`.Transaction`.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
-
-        .. seealso::
-            :meth:`Transaction.separate`
         """
         self.begin(autocommit=True).separate(subgraph)
 
@@ -872,7 +935,7 @@ class HTTPDataSource(DataSource):
         except (AttributeError, IndexError):
             entities = {}
         self._keys = keys = tuple(data["columns"])
-        hydrate = self.graph.hydrate
+        hydrate = self.graph._hydrate
         for record in data["data"]:
             values = []
             for i, value in enumerate(record["rest"]):
@@ -914,14 +977,14 @@ class BoltDataSource(DataSource):
     def on_header(self, metadata):
         """ Called on receipt of the result header.
 
-        :arg metadata:
+        :param metadata:
         """
         self._keys = metadata["fields"]
 
     def on_record(self, values):
         """ Called on receipt of each result record.
 
-        :arg values:
+        :param values:
         """
         keys = self._keys
         hydrated_values = []
@@ -935,7 +998,7 @@ class BoltDataSource(DataSource):
     def on_footer(self, metadata):
         """ Called on receipt of the result footer.
 
-        :arg metadata:
+        :param metadata:
         """
         self.loaded = True
         # TODO: summary data
@@ -944,7 +1007,7 @@ class BoltDataSource(DataSource):
     def on_failure(self, metadata):
         """ Called on execution failure.
 
-        :arg metadata:
+        :param metadata:
         """
         raise CypherError.hydrate(metadata)
 
@@ -1015,8 +1078,8 @@ class Transaction(object):
         """ Add a statement to the current queue of statements to be
         executed.
 
-        :arg statement: Cypher statement
-        :arg parameters: dictionary of parameters
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
         """
 
     @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
@@ -1050,8 +1113,8 @@ class Transaction(object):
         """ Execute a single Cypher statement and return the value from
         the first column of the first record.
 
-        :arg statement: Cypher statement
-        :arg parameters: dictionary of parameters
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
         :returns: single return value or :const:`None`
         """
         return self.run(statement, parameters, **kwparameters).evaluate(0)
@@ -1076,7 +1139,7 @@ class Transaction(object):
             >>> g.exists(ab)
             True
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
         try:
@@ -1123,7 +1186,7 @@ class Transaction(object):
         uses a Cypher `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
         clause to ensure that only relationships that do not already exist are created.
 
-        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Walkable` object
         """
         if not isinstance(walkable, Walkable):
@@ -1174,7 +1237,7 @@ class Transaction(object):
         """ Return the total number of relationships attached to all nodes in
         a subgraph.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         :returns: the total number of distinct relationships
         """
@@ -1195,7 +1258,7 @@ class Transaction(object):
         """ Delete the remote nodes and relationships that correspond to
         those in a local subgraph.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
         try:
@@ -1232,7 +1295,7 @@ class Transaction(object):
         database. Note that if any nodes or relationships in *subgraph* are not
         bound to remote counterparts, this method will return ``False``.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         :returns: ``True`` if all entities exist remotely, ``False`` otherwise
         """
@@ -1266,10 +1329,10 @@ class Transaction(object):
         a local walkable object. Optionally perform the merge based on a specific
         label or set of property keys.
 
-        :arg walkable: a :class:`.Node`, :class:`.Relationship` or other
+        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Walkable` object
-        :arg label: label on which to match any existing nodes
-        :arg property_keys: property keys on which to match any existing nodes
+        :param label: label on which to match any existing nodes
+        :param property_keys: property keys on which to match any existing nodes
         """
         if not isinstance(walkable, Walkable):
             raise TypeError("Object %r is not walkable" % walkable)
@@ -1333,7 +1396,7 @@ class Transaction(object):
         """ Delete the remote relationships that correspond to those in a local
         subgraph. This leaves any nodes in *subgraph* untouched.
 
-        :arg subgraph: a :class:`.Node`, :class:`.Relationship` or other
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
         try:
@@ -1522,8 +1585,8 @@ class Cursor(object):
 
     For queries that are expected to return only a single value within a
     single record, use the :meth:`.evaluate` method. This will return the
-    first value from the next record or :py:`None` if neither the field nor
-    the record are present::
+    first value from the next record or :py:const:`None` if neither the
+    field nor the record are present::
 
         print(cursor.evaluate())
 
@@ -1579,7 +1642,7 @@ class Cursor(object):
         If not enough scope for movement remains, only that remainder
         will be consumed. The total amount moved is returned.
 
-        :arg amount: the amount to move the cursor
+        :param amount: the amount to move the cursor
         :returns: the amount that the cursor was able to move
         """
         if amount == 0:
@@ -1614,7 +1677,7 @@ class Cursor(object):
         This method is particularly useful when it is known that a
         Cypher query returns only a single value.
 
-        :arg field: field to select value from (optional)
+        :param field: field to select value from (optional)
         :returns: value of the field or :py:const:`None`
 
         Example:
@@ -1635,7 +1698,7 @@ class Cursor(object):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
-        :arg out: the channel to which output should be dumped
+        :param out: the channel to which output should be dumped
         """
         records = list(self)
         keys = self.keys()

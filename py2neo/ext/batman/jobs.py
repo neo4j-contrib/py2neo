@@ -178,7 +178,7 @@ class JobResult(object):
         else:
             body = None
             try:
-                body = graph.hydrate(data.get("body"))
+                body = graph._hydrate(data.get("body"))
             except GraphError as error:
                 message = "Batch job %s failed with %s\n%s" % (
                     job_id, error.__class__.__name__, ustr(error))

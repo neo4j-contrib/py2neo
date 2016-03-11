@@ -282,7 +282,7 @@ class ManualIndex(object):
         ..
         """
         return [
-            self.graph.hydrate(assembled(result))
+            self.graph._hydrate(assembled(result))
             for i, result in grouped(self._searcher.expand(key=key, value=value).get())
         ]
 
@@ -347,7 +347,7 @@ class ManualIndex(object):
 
         ..
         """
-        return self.graph.hydrate(assembled(self._create_unique(key, value, abstract)))
+        return self.graph._hydrate(assembled(self._create_unique(key, value, abstract)))
 
     def create_if_none(self, key, value, abstract):
         """ Create a new entity with the specified details within the current
@@ -367,7 +367,7 @@ class ManualIndex(object):
         """
         rs = self._create_unique(key, value, abstract)
         if rs.status_code == CREATED:
-            return self.graph.hydrate(assembled(rs))
+            return self.graph._hydrate(assembled(rs))
         else:
             return None
 
@@ -426,13 +426,13 @@ class ManualIndex(object):
         """
         resource = self._query_template.expand(query=query)
         for i, result in grouped(resource.get()):
-            yield self.graph.hydrate(assembled(result))
+            yield self.graph._hydrate(assembled(result))
 
     def _query_with_score(self, query, order):
         resource = self._query_template.expand(query=query, order=order)
         for i, result in grouped(resource.get()):
             meta = assembled(result)
-            yield self.graph.hydrate(meta), meta["score"]
+            yield self.graph._hydrate(meta), meta["score"]
 
     def query_by_index(self, query):
         return self._query_with_score(query, "index")

@@ -55,7 +55,7 @@ class GraphTestCase(Py2neoTestCase):
 
     def test_can_hydrate_graph(self):
         data = self.graph.__remote__.get().content
-        hydrated = self.graph.hydrate(data)
+        hydrated = self.graph._hydrate(data)
         assert hydrated is self.graph
 
     def test_graph_contains(self):
@@ -65,7 +65,7 @@ class GraphTestCase(Py2neoTestCase):
 
     def test_can_hydrate_map(self):
         data = {"foo": "bar"}
-        hydrated = self.graph.hydrate(data)
+        hydrated = self.graph._hydrate(data)
         assert isinstance(hydrated, dict)
 
     def test_can_open_browser(self):

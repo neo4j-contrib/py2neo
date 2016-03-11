@@ -92,6 +92,7 @@ function run_tests {
 
         echo ""
         export NEO4J_HOME="${BAU_HOME}"
+        export NEO4J_URI="http://localhost:7474"
         export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
         ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $1
         EXIT_STATUS=$?

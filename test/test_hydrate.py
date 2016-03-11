@@ -240,10 +240,10 @@ class RelationshipHydrationTestCase(Py2neoTestCase):
             "nodes": [a.__remote__.uri.string, b.__remote__.uri.string, c.__remote__.uri.string],
             "relationships": [ab.__remote__.uri.string, cb.__remote__.uri.string],
         }
-        hydrated = self.graph.hydrate(dehydrated)
+        hydrated = self.graph._hydrate(dehydrated)
         assert isinstance(hydrated, Path)
 
     def test_list_hydration(self):
         dehydrated = [1, 2, 3]
-        hydrated = self.graph.hydrate(dehydrated)
+        hydrated = self.graph._hydrate(dehydrated)
         assert hydrated == [1, 2, 3]

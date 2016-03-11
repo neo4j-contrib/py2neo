@@ -16,11 +16,29 @@
 # limitations under the License.
 
 
-from py2neo import DBMS
+from mock import patch
+
+from py2neo import DBMS, ServerAddress
 from test.util import Py2neoTestCase
 
 
 class DBMSTestCase(Py2neoTestCase):
+
+    def test_can_create_dbms_with_bolt_uri(self):
+        uri = "bolt://localhost/"
+        dbms = DBMS(uri)
+        assert repr(dbms).startswith("<DBMS")
+        assert dbms.__remote__.uri == "http://localhost:7474/"
+        index = dbms.__remote__.get().content
+        assert "data" in index
+
+    def test_can_create_dbms_with_settings(self):
+        uri = "http://127.0.0.1:7474/"
+        dbms = DBMS(host="127.0.0.1")
+        assert repr(dbms).startswith("<DBMS")
+        assert dbms.__remote__.uri == uri
+        index = dbms.__remote__.get().content
+        assert "data" in index
 
     def test_can_create_dbms_with_trailing_slash(self):
         uri = "http://localhost:7474/"
