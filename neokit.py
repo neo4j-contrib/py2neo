@@ -648,7 +648,7 @@ class Commander(object):
         parser.add_argument("server", help="server name")
         parser.add_argument("command", nargs="+", help="command to run")
         parsed = parser.parse_args(args[1:])
-        with move_file("/home/nigel/.neo4j/known_hosts"):
+        with move_file(path_join(expanduser("~"), ".neo4j", "known_hosts")):
             if parsed.server == ".":
                 server = GraphServer()
             else:
