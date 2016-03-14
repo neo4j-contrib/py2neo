@@ -17,9 +17,9 @@
 
 
 """
-******
-Neokit
-******
+********************************************
+``neokit`` -- Command Line Toolkit for Neo4j
+********************************************
 
 Neokit is a standalone module for managing one or more Neo4j server
 installations. The Neokit classes may be used programmatically but
@@ -45,6 +45,7 @@ API
 
 from argparse import ArgumentParser
 from base64 import b64encode
+from contextlib import contextmanager
 from json import dumps as json_dumps
 from os import curdir, getenv, linesep, listdir, makedirs, rename
 from os.path import basename, exists as path_exists, expanduser, isdir, isfile, join as path_join, abspath
@@ -116,7 +117,7 @@ versions = [
     "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8",
     "2.2.0", "2.2.1", "2.2.2", "2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.2.8",
     "2.3.0", "2.3.1", "2.3.2",
-    "3.0.0-M04", "3.0.0-NIGHTLY",
+    "3.0.0-M05", "3.0.0-NIGHTLY",
 ]
 version_aliases = {
     "2.0": "2.0.4",
@@ -127,12 +128,12 @@ version_aliases = {
     "2.2-LATEST": "2.2.8",
     "2.3": "2.3.2",
     "2.3-LATEST": "2.3.2",
-    "3.0": "3.0.0-M04",
-    "3.0-MILESTONE": "3.0.0-M04",
-    "3.0-LATEST": "3.0.0-M04",
+    "3.0": "3.0.0-M05",
+    "3.0-MILESTONE": "3.0.0-M05",
+    "3.0-LATEST": "3.0.0-M05",
     "3.0-SNAPSHOT": "3.0.0-NIGHTLY",
     "LATEST": "2.3.2",
-    "MILESTONE": "3.0.0-M04",
+    "MILESTONE": "3.0.0-M05",
     "SNAPSHOT": "3.0.0-NIGHTLY",
 }
 
@@ -140,6 +141,14 @@ dist = "http://dist.neo4j.org"
 dist_overrides = {
     "3.0.0-NIGHTLY": "http://alpha.neohq.net/dist",
 }
+
+
+@contextmanager
+def move_file(file_name):
+    temp_file_name = file_name + ".backup"
+    rename(file_name, temp_file_name)
+    yield temp_file_name
+    rename(temp_file_name, file_name)
 
 
 class AuthError(Exception):
@@ -266,8 +275,10 @@ class GraphServer(object):
                                                 "org.neo4j.server.database.location"))
 
     def config(self, file_name, key):
-        file_path = path_join(self.home, "conf", file_name)
-        with open(file_path, "r") as f_in:
+        config_file_path = path_join(self.home, "conf", "neo4j.conf")
+        if not isfile(config_file_path):
+            config_file_path = path_join(self.home, "conf", file_name)
+        with open(config_file_path, "r") as f_in:
             for line in f_in:
                 if line.startswith(key + "="):
                     return line.strip().partition("=")[-1]
@@ -637,19 +648,20 @@ class Commander(object):
         parser.add_argument("server", help="server name")
         parser.add_argument("command", nargs="+", help="command to run")
         parsed = parser.parse_args(args[1:])
-        if parsed.server == ".":
-            server = GraphServer()
-        else:
-            server = Warehouse().get(parsed.server)
-        if server.running():
-            self.write_err_line("Server already running")
-            return SERVER_ALREADY_RUNNING
-        else:
-            server.start()
-            try:
-                return call(parsed.command)
-            finally:
-                server.stop()
+        with move_file("/home/nigel/.neo4j/known_hosts"):
+            if parsed.server == ".":
+                server = GraphServer()
+            else:
+                server = Warehouse().get(parsed.server)
+            if server.running():
+                self.write_err_line("Server already running")
+                return SERVER_ALREADY_RUNNING
+            else:
+                server.start()
+                try:
+                    return call(parsed.command)
+                finally:
+                    server.stop()
 
     def enable_auth(self, *args):
         """ usage: enable-auth <server>

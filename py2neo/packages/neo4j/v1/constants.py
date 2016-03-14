@@ -18,6 +18,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .constants import *
-from .session import *
-from .types import *
+
+from os.path import expanduser, join
+
+from ..meta import version
+
+
+DEFAULT_PORT = 7687
+DEFAULT_USER_AGENT = "neo4j-python/%s" % version
+
+KNOWN_HOSTS = join(expanduser("~"), ".neo4j", "known_hosts")
+
+MAGIC_PREAMBLE = 0x6060B017
+
+ENCRYPTED_DEFAULT = True
+
+TRUST_ON_FIRST_USE = 0
+TRUST_SIGNED_CERTIFICATES = 1
+
+TRUST_DEFAULT = TRUST_ON_FIRST_USE

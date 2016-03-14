@@ -17,20 +17,17 @@
 
 
 import logging
-from unittest import skipUnless
 
 from py2neo.database import DBMS
 from py2neo.http import set_http_header, get_http_headers, http_rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 from py2neo.status import GraphError
-from py2neo.status.security import AuthorizationFailed
 from test.util import Py2neoTestCase
 from test.compat import patch
 
 
 dbms = DBMS()
-supports_auth = dbms.supports_auth
 supports_bolt = dbms.supports_bolt
 
 
@@ -234,26 +231,3 @@ class ServerErrorTestCase(Py2neoTestCase):
                 assert isinstance(error.__cause__, DodgyServerError)
             else:
                 assert False
-
-
-class AuthTestCase(Py2neoTestCase):
-
-    @skipUnless(supports_auth, "Auth not supported")
-    def test_can_raise_unauthorized_on_get(self):
-        with self.assertRaises(AuthorizationFailed):
-            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").get().content
-
-    @skipUnless(supports_auth, "Auth not supported")
-    def test_can_raise_unauthorized_on_put(self):
-        with self.assertRaises(AuthorizationFailed):
-            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").put({}).content
-
-    @skipUnless(supports_auth, "Auth not supported")
-    def test_can_raise_unauthorized_on_post(self):
-        with self.assertRaises(AuthorizationFailed):
-            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").post({}).content
-
-    @skipUnless(supports_auth, "Auth not supported")
-    def test_can_raise_unauthorized_on_delete(self):
-        with self.assertRaises(AuthorizationFailed):
-            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").delete().content

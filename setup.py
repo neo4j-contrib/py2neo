@@ -31,7 +31,8 @@ from py2neo import __author__, __email__, __license__, __package__, __version__
 
 python_2 = sys.version_info < (3,)
 
-packages = find_packages(exclude=("book", "examples", "examples.*", "test", "test.*"))
+packages = find_packages(exclude=("book", "examples", "examples.*",
+                                  "test", "test.*", "test_ext", "test_ext.*"))
 package_metadata = {
     "name": __package__,
     "version": __version__,
@@ -46,11 +47,12 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.__init__:main",
-            "neokit = py2neo.neokit:main",
+            "neokit = neokit:main",
             "geoff = py2neo.ext.geoff.__main__:main",
         ],
     },
     "packages": packages,
+    "py_modules": ["neokit"],
     "license": __license__,
     "classifiers": [
         "Development Status :: 5 - Production/Stable",
@@ -60,6 +62,7 @@ package_metadata = {
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
+        "Programming Language :: Python :: 3.5",
         "Topic :: Database",
         "Topic :: Software Development",
     ],

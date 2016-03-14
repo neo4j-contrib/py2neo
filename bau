@@ -32,7 +32,7 @@ DOWN="${BAU_HOME}/.bau/down"
 LOG="${BAU_HOME}/.bau/log"
 RUN="${BAU_HOME}/.bau/run"
 
-NEOKIT="python -m py2neo.neokit"
+NEOKIT="python -m neokit"
 NEOKIT_SERVER="bau"
 
 DEFAULT_USER="neo4j"
@@ -92,7 +92,7 @@ function run_tests {
 
         echo ""
         export NEO4J_HOME="${BAU_HOME}"
-        export NEO4J_URI="http://localhost:7474"
+        export NEO4J_URI="http://localhost:7474/"
         export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
         ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $1
         EXIT_STATUS=$?

@@ -19,22 +19,21 @@
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 import logging
-from os import getenv
 from sys import stdout
 from warnings import warn
 import webbrowser
 
 from py2neo import PRODUCT
+from py2neo.auth import keyring, register_server
 from py2neo.compat import integer, ustr, string
 from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
     cypher_escape, walk, size, Walkable, cypher_repr
-from py2neo.http import authenticate, Resource, ResourceTemplate
+from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
-from py2neo.packages.neo4j.v1.typesystem import \
+from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
 from py2neo.status import CypherError, Finished, GraphError
 from py2neo.util import deprecated, is_collection, version_tuple
@@ -103,92 +102,6 @@ def cypher_request(statement, parameters, **kwparameters):
     ])
 
 
-class ServerAddress(object):
-    """ A DBMS or graph database address.
-    """
-
-    def __init__(self, *uris, **settings):
-        self.__settings = {
-            "host": "localhost",
-            "http_port": 7474,
-        }
-
-        def apply_uri(u):
-            uri = URI(u)
-            if uri.scheme == "bolt":
-                self.__settings.setdefault("bolt_port", 7687)
-            if uri.user_info:
-                apply_auth(uri.user_info)
-            if uri.host:
-                self.__settings["host"] = uri.host
-            if uri.port:
-                self.__settings["%s_port" % uri.scheme] = uri.port
-
-        def apply_auth(a):
-            user, _, password = a.partition(":")
-            if user:
-                self.__settings["user"] = user
-            if password:
-                self.__settings["password"] = password
-
-        # 1. Apply environment variables
-        neo4j_uri = getenv("NEO4J_URI")
-        if neo4j_uri:
-            apply_uri(neo4j_uri)
-        neo4j_auth = getenv("NEO4J_AUTH")
-        if neo4j_auth:
-            apply_auth(neo4j_auth)
-
-        # 2. Apply URIs
-        for uri in uris:
-            apply_uri(uri)
-
-        # 3. Apply individual settings
-        self.__settings.update(settings)
-
-    def __getitem__(self, item):
-        return self.__settings[item]
-
-    def __eq__(self, other):
-        return dict(self) == dict(other)
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.__settings.items())))
-
-    def keys(self):
-        return self.__settings.keys()
-
-    @property
-    def user(self):
-        return self.__settings.get("user", "neo4j")
-
-    @property
-    def password(self):
-        return self.__settings.get("password", None)
-
-    @property
-    def host(self):
-        return self.__settings["host"]
-
-    @property
-    def http_port(self):
-        return self.__settings["http_port"]
-
-    @property
-    def bolt_port(self):
-        return self.__settings.get("bolt_port", 7687)
-
-    def bolt_uri(self, path):
-        return "bolt://%s:%d%s" % (self.host, self.bolt_port, path)
-
-    @property
-    def http_host_port(self):
-        return "%s:%d" % (self.host, self.http_port)
-
-    def http_uri(self, path):
-        return "http://%s:%d%s" % (self.host, self.http_port, path)
-
-
 class DBMS(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the ``/`` URI in
@@ -212,13 +125,11 @@ class DBMS(object):
     __graph = None
 
     def __new__(cls, *uris, **settings):
-        address = ServerAddress(*uris, **settings)
+        address = register_server(*uris, **settings)
         http_uri = address.http_uri("/")
         try:
             inst = cls.__instances[address]
         except KeyError:
-            if address.password:
-                authenticate(address.http_host_port, address.user, address.password)
             inst = super(DBMS, cls).__new__(cls)
             inst.address = address
             inst.__remote__ = Resource(http_uri)
@@ -277,6 +188,13 @@ class DBMS(object):
         return d
 
     @property
+    def database_name(self):
+        """ Return the name of the active Neo4j database.
+        """
+        info = self._bean_dict("Kernel")
+        return info.get("DatabaseName")
+
+    @property
     def kernel_start_time(self):
         """ Return the time from which this Neo4j instance was in operational mode.
         """
@@ -288,7 +206,8 @@ class DBMS(object):
         """ Return the version of Neo4j.
         """
         info = self._bean_dict("Kernel")
-        return version_tuple(info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip())
+        version_string = info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
+        return version_tuple(version_string)
 
     @property
     def store_creation_time(self):
@@ -302,7 +221,7 @@ class DBMS(object):
         """ Return the location where the Neo4j store is located.
         """
         info = self._bean_dict("Kernel")
-        return info["StoreDirectory"]
+        return info.get("StoreDirectory")
 
     @property
     def store_id(self):
@@ -391,7 +310,7 @@ class Graph(object):
 
     def __new__(cls, *uris, **settings):
         database = settings.pop("database", "data")
-        address = ServerAddress(*uris, **settings)
+        address = register_server(*uris, **settings)
         key = (cls, address, database)
         try:
             inst = cls.__instances[key]
@@ -402,7 +321,9 @@ class Graph(object):
             inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri.string
             inst.transaction_class = HTTPTransaction
             if inst.dbms.supports_bolt:
-                inst.driver = GraphDatabase.driver(address.bolt_uri("/"), user_agent="/".join(PRODUCT))
+                inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
+                                                   auth=keyring.get(address).bolt_auth_token,
+                                                   user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
             cls.__instances[key] = inst
         return inst

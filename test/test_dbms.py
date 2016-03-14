@@ -84,11 +84,16 @@ class DBMSTestCase(Py2neoTestCase):
         assert self.dbms.kernel_start_time
         assert self.dbms.kernel_version
         assert self.dbms.store_creation_time
-        assert self.dbms.store_directory
         assert self.dbms.store_id
         assert self.dbms.primitive_counts
         assert self.dbms.store_file_sizes
         assert self.dbms.config
+
+    def test_database_name(self):
+        _ = self.dbms.database_name
+
+    def test_store_directory(self):
+        _ = self.dbms.store_directory
 
     def test_kernel_version(self):
         version = self.dbms.kernel_version

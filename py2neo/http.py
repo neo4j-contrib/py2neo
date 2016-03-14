@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-import base64
-
 from py2neo import PRODUCT
+from py2neo.auth import ServerAddress, keyring
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
@@ -65,34 +64,11 @@ def get_http_headers(host_port):
     for n, headers in _http_headers.items():
         if n is None or n == host_port:
             uri_headers.update(headers)
+    address = ServerAddress("http://%s/" % host_port)
+    auth = keyring.get(address)
+    if auth is not None:
+        uri_headers["Authorization"] = auth.http_authorization
     return uri_headers
-
-
-def authenticate(host_port, user_name, password):
-    """ Set HTTP basic authentication values for specified `host_port` for use
-    with both Neo4j 2.2 built-in authentication as well as if a database server
-    is behind (for example) an Apache proxy. The code below shows a simple example::
-
-        from py2neo import authenticate, Graph
-
-        # set up authentication parameters
-        authenticate("camelot:7474", "arthur", "excalibur")
-
-        # connect to authenticated graph database
-        graph = Graph("http://camelot:7474/db/data/")
-
-    Note: a `host_port` can be either a server name or a server name and port
-    number but must match exactly that used within the Graph
-    URI.
-
-    :arg host_port: the host and optional port requiring authentication
-        (e.g. "bigserver", "camelot:7474")
-    :arg user_name: the user name to authenticate as
-    :arg password: the password
-    """
-    credentials = (user_name + ":" + password).encode("UTF-8")
-    value = 'Basic ' + base64.b64encode(credentials).decode("ASCII")
-    set_http_header("Authorization", value, host_port=host_port)
 
 
 def http_rewrite(from_scheme_host_port, to_scheme_host_port):
@@ -136,8 +112,6 @@ class Resource(_Resource):
             uri._URI__set_scheme(scheme_host_port[0])
             uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
                                                      scheme_host_port[2]))
-        if uri.user_info:
-            authenticate(uri.host_port, *uri.user_info.partition(":")[0::2])
         self._resource = _Resource.__init__(self, uri)
         self._headers = dict(headers or {})
         self.__base = super(Resource, self)
