@@ -146,9 +146,15 @@ dist_overrides = {
 @contextmanager
 def move_file(file_name):
     temp_file_name = file_name + ".backup"
-    rename(file_name, temp_file_name)
+    try:
+        rename(file_name, temp_file_name)
+    except OSError:
+        renamed = False
+    else:
+        renamed = True
     yield temp_file_name
-    rename(temp_file_name, file_name)
+    if renamed:
+        rename(temp_file_name, file_name)
 
 
 class AuthError(Exception):
