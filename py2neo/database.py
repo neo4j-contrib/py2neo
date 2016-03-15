@@ -635,19 +635,13 @@ class Graph(object):
         """
         webbrowser.open(self.dbms.__remote__.uri.string)
 
-    def pull(self, *entities):
+    def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
         
-        :param entities:
+        :param subgraph: the collection of nodes and relationships to pull
         """
-        if not entities:
-            return
-        nodes = {}
-        relationships = []
-        for entity in entities:
-            for node in entity.nodes():
-                nodes[node] = None
-            relationships.extend(entity.relationships())
+        nodes = {node: None for node in subgraph.nodes()}
+        relationships = list(subgraph.relationships())
         tx = self.begin()
         for node in nodes:
             tx.entities.append({"a": node})
@@ -662,30 +656,31 @@ class Graph(object):
             labels.clear()
             labels.update(cursor.evaluate(1))
 
-    def push(self, *entities):
+    def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
         
-        :param entities:
+        :param subgraph: the collection of nodes and relationships to push
         """
         batch = []
         i = 0
-        for entity in entities:
-            for node in entity.nodes():
-                if node.__remote__:
-                    batch.append({"id": i, "method": "PUT",
-                                  "to": "%s/properties" % node.__remote__.ref,
-                                  "body": dict(node)})
-                    i += 1
-                    batch.append({"id": i, "method": "PUT",
-                                  "to": "%s/labels" % node.__remote__.ref,
-                                  "body": list(node.labels())})
-                    i += 1
-            for relationship in entity.relationships():
-                if relationship.__remote__:
-                    batch.append({"id": i, "method": "PUT",
-                                  "to": "%s/properties" % relationship.__remote__.ref,
-                                  "body": dict(relationship)})
-                    i += 1
+        for node in subgraph.nodes():
+            remote = node.__remote__
+            if remote:
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % remote.ref,
+                              "body": dict(node)})
+                i += 1
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/labels" % remote.ref,
+                              "body": list(node.labels())})
+                i += 1
+        for relationship in subgraph.relationships():
+            remote = relationship.__remote__
+            if remote:
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % remote.ref,
+                              "body": dict(relationship)})
+                i += 1
         self.__remote__.resolve("batch").post(batch)
 
     def relationship(self, id_):
