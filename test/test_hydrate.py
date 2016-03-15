@@ -18,7 +18,7 @@
 
 from mock import patch
 
-from py2neo import Node, Relationship, Path
+from py2neo import Node, Relationship, Path, remote
 from test.util import Py2neoTestCase
 
 
@@ -33,8 +33,8 @@ class NodeHydrationTestCase(Py2neoTestCase):
         }
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_node_hydrate_with_properties(self):
         dehydrated = {
@@ -47,8 +47,8 @@ class NodeHydrationTestCase(Py2neoTestCase):
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_full_node_hydrate_without_labels(self):
         dehydrated = {
@@ -75,8 +75,8 @@ class NodeHydrationTestCase(Py2neoTestCase):
         hydrated = Node.hydrate(dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_full_node_hydrate_with_labels(self):
         dehydrated = {
@@ -107,8 +107,8 @@ class NodeHydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_node_hydration_with_issue_19542(self):
         dehydrated = {
@@ -142,8 +142,8 @@ class NodeHydrationTestCase(Py2neoTestCase):
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
 
 class RelationshipHydrationTestCase(Py2neoTestCase):
@@ -159,22 +159,22 @@ class RelationshipHydrationTestCase(Py2neoTestCase):
         dehydrated = {
             "extensions": {
             },
-            "start": "http://localhost:7474/db/data/node/%d" % a.__remote__._id,
-            "property": "http://localhost:7474/db/data/relationship/%d/properties/{key}" % ab.__remote__._id,
-            "self": "http://localhost:7474/db/data/relationship/%d" % ab.__remote__._id,
-            "properties": "http://localhost:7474/db/data/relationship/%d/properties" % ab.__remote__._id,
+            "start": "http://localhost:7474/db/data/node/%d" % remote(a)._id,
+            "property": "http://localhost:7474/db/data/relationship/%d/properties/{key}" % remote(ab)._id,
+            "self": "http://localhost:7474/db/data/relationship/%d" % remote(ab)._id,
+            "properties": "http://localhost:7474/db/data/relationship/%d/properties" % remote(ab)._id,
             "type": "KNOWS",
-            "end": "http://localhost:7474/db/data/node/%d" % b.__remote__._id,
+            "end": "http://localhost:7474/db/data/node/%d" % remote(b)._id,
         }
         hydrated = Relationship.hydrate(dehydrated, inst=ab)
         assert isinstance(hydrated, Relationship)
-        assert hydrated.start_node().__remote__
-        assert hydrated.start_node().__remote__.uri == dehydrated["start"]
-        assert hydrated.end_node().__remote__
-        assert hydrated.end_node().__remote__.uri == dehydrated["end"]
+        assert remote(hydrated.start_node())
+        assert remote(hydrated.start_node()).uri == dehydrated["start"]
+        assert remote(hydrated.end_node())
+        assert remote(hydrated.end_node()).uri == dehydrated["end"]
         assert hydrated.type() == dehydrated["type"]
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_relationship_hydration_with_issue_19542(self):
         dehydrated = {
@@ -194,14 +194,14 @@ class RelationshipHydrationTestCase(Py2neoTestCase):
             mocked.return_value = None
             hydrated = Relationship.hydrate(dehydrated)
         assert isinstance(hydrated, Relationship)
-        assert hydrated.start_node().__remote__
-        assert hydrated.start_node().__remote__.uri == dehydrated["start"]
-        assert hydrated.end_node().__remote__
-        assert hydrated.end_node().__remote__.uri == dehydrated["end"]
+        assert remote(hydrated.start_node())
+        assert remote(hydrated.start_node()).uri == dehydrated["start"]
+        assert remote(hydrated.end_node())
+        assert remote(hydrated.end_node()).uri == dehydrated["end"]
         assert hydrated.type() == dehydrated["type"]
         assert dict(hydrated) == dehydrated["data"]
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_full_relationship_hydrate(self):
         dehydrated = {
@@ -219,14 +219,14 @@ class RelationshipHydrationTestCase(Py2neoTestCase):
         }
         hydrated = Relationship.hydrate(dehydrated)
         assert isinstance(hydrated, Relationship)
-        assert hydrated.start_node().__remote__
-        assert hydrated.start_node().__remote__.uri == dehydrated["start"]
-        assert hydrated.end_node().__remote__
-        assert hydrated.end_node().__remote__.uri == dehydrated["end"]
+        assert remote(hydrated.start_node())
+        assert remote(hydrated.start_node()).uri == dehydrated["start"]
+        assert remote(hydrated.end_node())
+        assert remote(hydrated.end_node()).uri == dehydrated["end"]
         assert hydrated.type() == dehydrated["type"]
         assert dict(hydrated) == dehydrated["data"]
-        assert hydrated.__remote__
-        assert hydrated.__remote__.uri == dehydrated["self"]
+        assert remote(hydrated)
+        assert remote(hydrated).uri == dehydrated["self"]
 
     def test_path_hydration_without_directions(self):
         a = Node()
@@ -237,8 +237,8 @@ class RelationshipHydrationTestCase(Py2neoTestCase):
         path = Path(a, ab, b, cb, c)
         self.graph.create(path)
         dehydrated = {
-            "nodes": [a.__remote__.uri.string, b.__remote__.uri.string, c.__remote__.uri.string],
-            "relationships": [ab.__remote__.uri.string, cb.__remote__.uri.string],
+            "nodes": [remote(a).uri.string, remote(b).uri.string, remote(c).uri.string],
+            "relationships": [remote(ab).uri.string, remote(cb).uri.string],
         }
         hydrated = self.graph._hydrate(dehydrated)
         assert isinstance(hydrated, Path)

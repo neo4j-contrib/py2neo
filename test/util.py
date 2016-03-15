@@ -19,7 +19,7 @@
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo import Graph, Node
+from py2neo import Graph, Node, remote
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
 
@@ -82,7 +82,7 @@ class Py2neoTestCase(TestCase):
     def get_non_existent_node_id(self):
         node = Node()
         self.graph.create(node)
-        node_id = node.__remote__._id
+        node_id = remote(node)._id
         self.graph.delete(node)
         return node_id
 

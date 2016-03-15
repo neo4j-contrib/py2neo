@@ -20,7 +20,7 @@ import json
 
 from py2neo.compat import ustr
 from py2neo.database import Graph, Cursor, cypher_request
-from py2neo.types import Path, Relatable
+from py2neo.types import Path, Relatable, remote
 from py2neo.status import GraphError
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 from py2neo.util import raise_from
@@ -33,13 +33,14 @@ def _create_query(p, unique=False):
     path, values, params = [], [], {}
 
     def append_node(i, node):
+        remote_node = remote(node)
         if node is None:
             path.append("(n{0})".format(i))
             values.append("n{0}".format(i))
-        elif node.__remote__:
+        elif remote_node:
             path.append("(n{0})".format(i))
             initial_match_clause.append("MATCH (n{0}) WHERE id(n{0})={{i{0}}}".format(i))
-            params["i{0}".format(i)] = node.__remote__._id
+            params["i{0}".format(i)] = remote_node._id
             values.append("n{0}".format(i))
         else:
             path.append("(n{0} {{p{0}}})".format(i))
@@ -93,16 +94,14 @@ class Target(object):
 
         """
         if isinstance(self.entity, int):
-            uri_string = "{{{0}}}".format(self.entity)
+            uri_string = "{%d}" % self.entity
         elif isinstance(self.entity, NodePointer):
-            uri_string = "{{{0}}}".format(self.entity.address)
+            uri_string = "{%d}" % self.entity.address
         else:
-            try:
-                remote = self.entity.__remote__
-                if remote is None:
-                    raise ValueError("Cannot determine URI for unbound entity")
-                uri_string = remote.ref
-            except AttributeError:
+            remote_entity = remote(self.entity)
+            if remote_entity:
+                uri_string = remote_entity.ref
+            else:
                 uri_string = ustr(self.entity)
         if self.segments:
             if not uri_string.endswith("/"):

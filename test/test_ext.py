@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource
+from py2neo import Resource, remote
 from py2neo.ext import ServerPlugin, UnmanagedExtension
 from test.util import Py2neoTestCase
 from test.compat import patch
@@ -37,9 +37,10 @@ class NaughtyPlugin(ServerPlugin):
 class ServerPluginTestCase(Py2neoTestCase):
 
     def test_can_init_server_plugin(self):
-        metadata = self.graph.__remote__.metadata
+        remote_graph = remote(self.graph)
+        metadata = remote_graph.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.__remote__ = Resource(self.graph.__remote__.uri, metadata)
+        self.graph.__remote__ = Resource(remote_graph.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 

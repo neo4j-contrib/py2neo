@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, cast_node
+from py2neo import Node, Relationship, cast_node, remote
 from test.compat import long
 from test.util import Py2neoTestCase
 from py2neo.packages.httpstream import ClientError
@@ -38,8 +38,8 @@ class NodeTestCase(Py2neoTestCase):
         self.graph.create(a)
         assert set(a.labels()) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
-        assert a.__remote__.ref.startswith("node/")
-        assert repr(a.__remote__)
+        assert remote(a).ref.startswith("node/")
+        assert repr(remote(a))
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
@@ -53,7 +53,7 @@ class NodeTestCase(Py2neoTestCase):
         alice_1._set_remote("http://localhost:7474/db/data/node/1")
         Node.cache.clear()
         alice_2 = Node(name="Alice")
-        alice_2._set_remote(alice_1.__remote__.uri)
+        alice_2._set_remote(remote(alice_1).uri)
         assert alice_1 == alice_2
 
     def test_unbound_node_equality(self):
@@ -93,7 +93,7 @@ class AbstractNodeTestCase(Py2neoTestCase):
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
         assert isinstance(alice, Node)
-        assert not alice.__remote__
+        assert not remote(alice)
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -119,7 +119,7 @@ class ConcreteNodeTestCase(Py2neoTestCase):
         alice = cast_node({"name": "Alice", "age": 34})
         self.graph.create(alice)
         assert isinstance(alice, Node)
-        assert alice.__remote__
+        assert remote(alice)
         assert alice["name"] == "Alice"
         assert alice["age"] == 34
 
@@ -163,14 +163,14 @@ class ConcreteNodeTestCase(Py2neoTestCase):
     def test_relative_uri_of_bound_node(self):
         a = Node()
         self.graph.create(a)
-        relative_uri_string = a.__remote__.ref
-        assert a.__remote__.uri.string.endswith(relative_uri_string)
+        relative_uri_string = remote(a).ref
+        assert remote(a).uri.string.endswith(relative_uri_string)
         assert relative_uri_string.startswith("node/")
 
     def test_node_hashes(self):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")
-        node_2._set_remote(node_1.__remote__.uri)
+        node_2._set_remote(remote(node_1).uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)

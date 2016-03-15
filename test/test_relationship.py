@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, size
+from py2neo import Graph, Node, Relationship, size, remote
 from py2neo.packages.httpstream import ClientError
 from test.util import Py2neoTestCase
 
@@ -36,7 +36,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        got = self.graph.relationship(r.__remote__._id)
+        got = self.graph.relationship(remote(r)._id)
         assert got is r
         
     def test_can_get_relationship_by_id_when_not_cached(self):
@@ -45,8 +45,8 @@ class RelationshipTestCase(Py2neoTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         Relationship.cache.clear()
-        got = self.graph.relationship(r.__remote__._id)
-        assert got.__remote__._id == r.__remote__._id
+        got = self.graph.relationship(remote(r)._id)
+        assert remote(got)._id == remote(r)._id
         
     def test_relationship_cache_is_thread_local(self):
         import threading
@@ -54,7 +54,7 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.__remote__.uri in Relationship.cache
+        assert remote(r).uri in Relationship.cache
         other_relationship_cache_keys = []
     
         def check_cache():
@@ -64,15 +64,15 @@ class RelationshipTestCase(Py2neoTestCase):
         thread.start()
         thread.join()
     
-        assert r.__remote__.uri in Relationship.cache
-        assert r.__remote__.uri not in other_relationship_cache_keys
+        assert remote(r).uri in Relationship.cache
+        assert remote(r).uri not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        rel_id = r.__remote__._id
+        rel_id = remote(r)._id
         self.graph.delete(r)
         Relationship.cache.clear()
         with self.assertRaises(IndexError):
@@ -91,8 +91,8 @@ class RelationshipTestCase(Py2neoTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert r.__remote__
-        assert r.__remote__.graph == Graph("http://localhost:7474/db/data/")
+        assert remote(r)
+        assert remote(r).graph == Graph("http://localhost:7474/db/data/")
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})

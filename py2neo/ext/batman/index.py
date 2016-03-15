@@ -17,7 +17,7 @@
 
 
 from py2neo.database import Graph
-from py2neo.types import Node, Relationship
+from py2neo.types import Node, Relationship, remote
 from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
@@ -39,9 +39,9 @@ class ManualIndexManager(object):
         :return:
         """
         if content_type is Node:
-            uri = self.graph.__remote__.metadata["node_index"]
+            uri = remote(self.graph).metadata["node_index"]
         elif content_type is Relationship:
-            uri = self.graph.__remote__.metadata["relationship_index"]
+            uri = remote(self.graph).metadata["relationship_index"]
         else:
             raise TypeError("Indexes can manage either Nodes or Relationships")
         return Resource(uri)
@@ -125,7 +125,7 @@ class ManualIndexManager(object):
             self.get_indexes(content_type)
         if index_name in self._indexes[content_type]:
             index = self._indexes[content_type][index_name]
-            index.__remote__.delete()
+            remote(index).delete()
             del self._indexes[content_type][index_name]
         else:
             raise LookupError("Index not found")
@@ -193,7 +193,7 @@ class ManualIndex(object):
         else:
             self.__remote__ = Resource(uri)
             self._searcher = ResourceTemplate(uri.string + "/{key}/{value}")
-        uri = self.__remote__.uri
+        uri = remote(self).uri
         self._create_or_fail = Resource(uri.resolve("?uniqueness=create_or_fail"))
         self._get_or_create = Resource(uri.resolve("?uniqueness=get_or_create"))
         self._query_template = ResourceTemplate(uri.string + "{?query,order}")
@@ -205,7 +205,7 @@ class ManualIndex(object):
         return "{0}({1}, {2})".format(
             self.__class__.__name__,
             self._content_type.__name__,
-            repr(self.__remote__.uri.string)
+            repr(remote(self).uri.string)
         )
 
     def _searcher_stem_for_key(self, key):
@@ -228,10 +228,10 @@ class ManualIndex(object):
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
         """
-        self.__remote__.post({
+        remote(self).post({
             "key": key,
             "value": value,
-            "uri": entity.__remote__.uri.string,
+            "uri": remote(entity).uri.string,
         })
         return entity
 
@@ -250,7 +250,7 @@ class ManualIndex(object):
         rs = self._get_or_create.post({
             "key": key,
             "value": value,
-            "uri": entity.__remote__.uri.string,
+            "uri": remote(entity).uri.string,
         })
         if rs.status_code == CREATED:
             return entity
@@ -391,11 +391,11 @@ class ManualIndex(object):
 
         """
         if key and value and entity:
-            t = ResourceTemplate(self.__remote__.uri.string + "/{key}/{value}/{entity}")
-            t.expand(key=key, value=value, entity=entity.__remote__._id).delete()
+            t = ResourceTemplate(remote(self).uri.string + "/{key}/{value}/{entity}")
+            t.expand(key=key, value=value, entity=remote(entity)._id).delete()
         elif key and value:
             uris = [
-                URI(entity.__remote__.metadata["indexed"])
+                URI(remote(entity).metadata["indexed"])
                 for entity in self.get(key, value)
             ]
             batch = ManualIndexWriteBatch(self.graph)
@@ -403,11 +403,11 @@ class ManualIndex(object):
                 batch.append_delete(uri)
             batch.run()
         elif key and entity:
-            t = ResourceTemplate(self.__remote__.uri.string + "/{key}/{entity}")
-            t.expand(key=key, entity=entity.__remote__._id).delete()
+            t = ResourceTemplate(remote(self).uri.string + "/{key}/{entity}")
+            t.expand(key=key, entity=remote(entity)._id).delete()
         elif entity:
-            t = ResourceTemplate(self.__remote__.uri.string + "/{entity}")
-            t.expand(entity=entity.__remote__._id).delete()
+            t = ResourceTemplate(remote(self).uri.string + "/{entity}")
+            t.expand(entity=remote(entity)._id).delete()
         else:
             raise TypeError("Illegal parameter combination for index removal")
 

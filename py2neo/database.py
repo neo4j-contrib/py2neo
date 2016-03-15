@@ -27,7 +27,7 @@ from py2neo import PRODUCT
 from py2neo.auth import keyring, register_server
 from py2neo.compat import integer, ustr, string
 from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
-    cypher_escape, walk, size, Walkable, cypher_repr
+    cypher_escape, walk, size, Walkable, cypher_repr, remote
 from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -81,8 +81,9 @@ def normalise_request(statement, parameters, **kwparameters):
                 if isinstance(v, tuple):
                     v = list(v)
                 elif isinstance(v, Entity):
-                    if v.__remote__:
-                        v = v.__remote__._id
+                    remote_entity = remote(v)
+                    if remote_entity:
+                        v = remote_entity._id
                     else:
                         raise TypeError("Cannot pass an unbound entity as a parameter")
                 p[k] = v
@@ -138,11 +139,11 @@ class DBMS(object):
         return inst
 
     def __repr__(self):
-        return "<DBMS uri=%r>" % self.__remote__.uri.string
+        return "<DBMS uri=%r>" % remote(self).uri.string
 
     def __eq__(self, other):
         try:
-            return self.__remote__.uri == other.__remote__.uri
+            return remote(self) == remote(other)
         except AttributeError:
             return False
 
@@ -150,7 +151,7 @@ class DBMS(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.__remote__.uri)
+        return hash(remote(self).uri)
 
     def __getitem__(self, database):
         return Graph(database=database, **dict(self.address))
@@ -170,7 +171,7 @@ class DBMS(object):
         return self["data"]
 
     def _bean_dict(self, name):
-        info = Resource(self.__remote__.uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
+        info = Resource(remote(self).uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -329,10 +330,10 @@ class Graph(object):
         return inst
 
     def __repr__(self):
-        return "<Graph uri=%r>" % self.__remote__.uri.string
+        return "<Graph uri=%r>" % remote(self).uri.string
 
     def __hash__(self):
-        return hash(self.__remote__.uri)
+        return hash(remote(self).uri)
 
     def __order__(self):
         return self.evaluate("MATCH (n) RETURN count(n)")
@@ -350,7 +351,8 @@ class Graph(object):
         return True
 
     def __contains__(self, entity):
-        return entity.__remote__ and entity.__remote__.uri.string.startswith(self.__remote__.uri.string)
+        remote_entity = remote(entity)
+        return remote_entity and remote_entity.uri.string.startswith(remote(self).uri.string)
 
     def begin(self, autocommit=False):
         """ Begin a new :class:`.Transaction`.
@@ -382,7 +384,7 @@ class Graph(object):
     def dbms(self):
         """ The database management system to which this graph belongs.
         """
-        return self.__remote__.dbms
+        return remote(self).dbms
 
     def degree(self, subgraph):
         """ Run a :meth:`.Transaction.degree` operation within an
@@ -491,7 +493,7 @@ class Graph(object):
                         x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
                     node_uris = data["nodes"]
                     for i, relationship in enumerate(relationships):
-                        if relationship.start_node().__remote__.uri == node_uris[i]:
+                        if remote(relationship.start_node()).uri == node_uris[i]:
                             directions.append("->")
                         else:
                             directions.append("<-")
@@ -537,20 +539,20 @@ class Graph(object):
         elif end_node is None:
             statement = "MATCH (a) WHERE id(a)={A}"
             start_node = cast_node(start_node)
-            if not start_node.__remote__:
+            if not remote(start_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
             end_node = cast_node(end_node)
-            if not end_node.__remote__:
+            if not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"B": end_node}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
             start_node = cast_node(start_node)
             end_node = cast_node(end_node)
-            if not start_node.__remote__ or not end_node.__remote__:
+            if not remote(start_node) or not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
             parameters = {"A": start_node, "B": end_node}
         if rel_type is None:
@@ -600,7 +602,7 @@ class Graph(object):
     @property
     @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version instead")
     def neo4j_version(self):
-        return version_tuple(self.__remote__.metadata["neo4j_version"])
+        return version_tuple(remote(self).metadata["neo4j_version"])
 
     def node(self, id_):
         """ Fetch a node by ID. This method creates an object representing the
@@ -610,7 +612,7 @@ class Graph(object):
         
         :param id_:
         """
-        resource = self.__remote__.resolve("node/%s" % id_)
+        resource = remote(self).resolve("node/%s" % id_)
         uri_string = resource.uri.string
         try:
             return Node.cache[uri_string]
@@ -626,14 +628,14 @@ class Graph(object):
         """ The set of node labels currently defined within the graph.
         """
         if self.__node_labels is None:
-            self.__node_labels = Resource(self.__remote__.uri.string + "labels")
+            self.__node_labels = Resource(remote(self).uri.string + "labels")
         return frozenset(self.__node_labels.get().content)
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
         the Neo4j browser application for this graph.
         """
-        webbrowser.open(self.dbms.__remote__.uri.string)
+        webbrowser.open(remote(self.dbms).uri.string)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -664,37 +666,36 @@ class Graph(object):
         batch = []
         i = 0
         for node in subgraph.nodes():
-            remote = node.__remote__
-            if remote:
+            remote_node = remote(node)
+            if remote_node:
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote.ref,
+                              "to": "%s/properties" % remote_node.ref,
                               "body": dict(node)})
                 i += 1
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/labels" % remote.ref,
+                              "to": "%s/labels" % remote_node.ref,
                               "body": list(node.labels())})
                 i += 1
         for relationship in subgraph.relationships():
-            remote = relationship.__remote__
-            if remote:
+            remote_relationship = remote(relationship)
+            if remote_relationship:
                 batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote.ref,
+                              "to": "%s/properties" % remote_relationship.ref,
                               "body": dict(relationship)})
                 i += 1
-        self.__remote__.resolve("batch").post(batch)
+        remote(self).resolve("batch").post(batch)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
 
         :param id_:
         """
-        resource = self.__remote__.resolve("relationship/" + str(id_))
+        resource = remote(self).resolve("relationship/" + str(id_))
         uri_string = resource.uri.string
         try:
             return Relationship.cache[uri_string]
         except KeyError:
-            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} "
-                                                "RETURN r", x=id_)
+            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=id_)
             if relationship is None:
                 raise IndexError("Relationship %d not found" % id_)
             else:
@@ -705,7 +706,7 @@ class Graph(object):
         """ The set of relationship types currently defined within the graph.
         """
         if self.__relationship_types is None:
-            self.__relationship_types = Resource(self.__remote__.uri.string + "relationship/types")
+            self.__relationship_types = Resource(remote(self).uri.string + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
@@ -734,7 +735,7 @@ class Graph(object):
         :rtype: :class:`Schema`
         """
         if self.__schema is None:
-            self.__schema = Schema(self.__remote__.uri.string + "schema")
+            self.__schema = Schema(remote(self).uri.string + "schema")
         return self.__schema
 
 
@@ -1070,9 +1071,10 @@ class Transaction(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            if node.__remote__:
+            remote_node = remote(node)
+            if remote_node:
                 reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = node.__remote__._id
+                parameters[param_id] = remote_node._id
             else:
                 label_string = "".join(":" + cypher_escape(label)
                                        for label in sorted(node.labels()))
@@ -1081,7 +1083,7 @@ class Transaction(object):
                 node._set_remote_pending(self)
             returns[node_id] = node
         for i, relationship in enumerate(relationships):
-            if not relationship.__remote__:
+            if not remote(relationship):
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
@@ -1107,7 +1109,7 @@ class Transaction(object):
         """
         if not isinstance(walkable, Walkable):
             raise TypeError("Object %r is not walkable" % walkable)
-        if not any(node.__remote__ for node in walkable.nodes()):
+        if not any(remote(node) for node in walkable.nodes()):
             raise ValueError("At least one node must be bound")
         matches = []
         pattern = []
@@ -1120,11 +1122,12 @@ class Transaction(object):
                 # node
                 node_id = "a%d" % i
                 param_id = "x%d" % i
-                if entity.__remote__:
+                remote_entity = remote(entity)
+                if remote_entity:
                     matches.append("MATCH (%s) "
                                    "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                     pattern.append("(%s)" % node_id)
-                    parameters[param_id] = entity.__remote__._id
+                    parameters[param_id] = remote_entity._id
                 else:
                     label_string = "".join(":" + cypher_escape(label)
                                            for label in sorted(entity.labels()))
@@ -1141,7 +1144,7 @@ class Transaction(object):
                 pattern.append(template % (rel_id, type_string))
                 writes.append("SET %s={%s}" % (rel_id, param_id))
                 parameters[param_id] = dict(entity)
-                if not entity.__remote__:
+                if not remote(entity):
                     entity._set_remote_pending(self)
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
@@ -1163,9 +1166,9 @@ class Transaction(object):
             raise TypeError("Object %r is not graphy" % subgraph)
         node_ids = []
         for i, node in enumerate(nodes):
-            remote = node.__remote__
-            if remote:
-                node_ids.append(remote._id)
+            remote_node = remote(node)
+            if remote_node:
+                node_ids.append(remote_node._id)
         statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
         parameters = {"x": node_ids}
         return self.evaluate(statement, parameters)
@@ -1186,22 +1189,24 @@ class Transaction(object):
         deletes = []
         parameters = {}
         for i, relationship in enumerate(relationships):
-            if relationship.__remote__:
+            remote_relationship = remote(relationship)
+            if remote_relationship:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship.__remote__._id
+                parameters[param_id] = remote_relationship._id
                 relationship._del_remote()
         for i, node in enumerate(nodes):
-            if node.__remote__:
+            remote_node = remote(node)
+            if remote_node:
                 node_id = "a%d" % i
                 param_id = "x%d" % i
                 matches.append("MATCH (%s) "
                                "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = node.__remote__._id
+                parameters[param_id] = remote_node._id
                 node._del_remote()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
@@ -1223,15 +1228,15 @@ class Transaction(object):
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(nodes):
-            remote = node.__remote__
-            if remote:
-                node_ids.add(remote._id)
+            remote_node = remote(node)
+            if remote_node:
+                node_ids.add(remote_node._id)
             else:
                 return False
         for i, relationship in enumerate(relationships):
-            remote = relationship.__remote__
-            if remote:
-                relationship_ids.add(remote._id)
+            remote_relationship = remote(relationship)
+            if remote_relationship:
+                relationship_ids.add(remote_relationship._id)
             else:
                 return False
         statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
@@ -1252,7 +1257,7 @@ class Transaction(object):
         """
         if not isinstance(walkable, Walkable):
             raise TypeError("Object %r is not walkable" % walkable)
-        if size(walkable) == 0 and walkable.start_node().__remote__:
+        if size(walkable) == 0 and remote(walkable.start_node()):
             return  # single, bound node - nothing to do
         matches = []
         pattern = []
@@ -1265,11 +1270,12 @@ class Transaction(object):
                 # node
                 node_id = "a%d" % i
                 param_id = "x%d" % i
-                if entity.__remote__:
+                remote_entity = remote(entity)
+                if remote_entity:
                     matches.append("MATCH (%s) "
                                    "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                     pattern.append("(%s)" % node_id)
-                    parameters[param_id] = entity.__remote__._id
+                    parameters[param_id] = remote_entity._id
                 else:
                     if label is None:
                         label_string = "".join(":" + cypher_escape(label)
@@ -1300,7 +1306,7 @@ class Transaction(object):
                 pattern.append(template % (rel_id, type_string))
                 writes.append("SET %s={%s}" % (rel_id, param_id))
                 parameters[param_id] = dict(entity)
-                if not entity.__remote__:
+                if not remote(entity):
                     entity._set_remote_pending(self)
                 returns[rel_id] = entity
         statement = "\n".join(matches + ["MERGE %s" % "".join(pattern)] + writes +
@@ -1323,13 +1329,14 @@ class Transaction(object):
         deletes = []
         parameters = {}
         for i, relationship in enumerate(relationships):
-            if relationship.__remote__:
+            remote_relationship = remote(relationship)
+            if remote_relationship:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = relationship.__remote__._id
+                parameters[param_id] = remote_relationship._id
                 relationship._del_remote()
         statement = "\n".join(matches + deletes)
         self.run(statement, parameters)
@@ -1411,7 +1418,7 @@ class BoltTransaction(Transaction):
             entities = self.entities.popleft()
         except IndexError:
             entities = {}
-        source = BoltDataSource(connection, entities, self.graph.__remote__.uri.string)
+        source = BoltDataSource(connection, entities, remote(self.graph).uri.string)
 
         run_response = Response(connection)
         run_response.on_success = source.on_header

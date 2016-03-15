@@ -18,7 +18,7 @@
 
 from warnings import catch_warnings, simplefilter
 
-from py2neo import Node, Relationship, Path
+from py2neo import Node, Relationship, Path, remote
 from test.util import Py2neoTestCase
 
 
@@ -195,7 +195,7 @@ class PullTestCase(DeprecatedTestCase):
         self.graph.create(alpha)
         assert set(beta.labels()) == set()
         assert dict(beta) == {}
-        beta._set_remote(alpha.__remote__.uri)
+        beta._set_remote(remote(alpha).uri)
         beta.pull()
         assert set(beta.labels()) == set(alpha.labels())
         assert dict(beta) == dict(alpha)
@@ -207,7 +207,7 @@ class PullTestCase(DeprecatedTestCase):
         beta = Relationship(a, "TO", b)
         self.graph.create(alpha)
         assert dict(beta) == {}
-        beta._set_remote(alpha.__remote__.uri)
+        beta._set_remote(remote(alpha).uri)
         beta.pull()
         assert dict(beta) == dict(alpha)
 
@@ -215,16 +215,16 @@ class PullTestCase(DeprecatedTestCase):
 class PushTestCase(DeprecatedTestCase):
 
     def test_can_push_node(self):
-        local = Node("Person", name="Alice")
-        remote = Node()
-        self.graph.create(remote)
-        assert set(remote.labels()) == set()
-        assert dict(remote) == {}
-        local._set_remote(remote.__remote__.uri)
-        local.push()
-        remote.pull()
-        assert set(local.labels()) == set(remote.labels())
-        assert dict(local) == dict(remote)
+        alice_1 = Node("Person", name="Alice")
+        alice_2 = Node()
+        self.graph.create(alice_2)
+        assert set(alice_2.labels()) == set()
+        assert dict(alice_2) == {}
+        alice_1._set_remote(remote(alice_2).uri)
+        alice_1.push()
+        alice_2.pull()
+        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert dict(alice_1) == dict(alice_2)
 
     def test_can_push_relationship(self):
         a = Node()

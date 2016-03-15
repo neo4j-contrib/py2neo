@@ -21,7 +21,7 @@ from io import StringIO
 from py2neo.database import Transaction, HTTPTransaction, presubstitute
 from py2neo.status import CypherError
 from py2neo.status.statement import InvalidSyntax
-from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size
+from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size, remote
 from test.util import Py2neoTestCase, TemporaryTransaction
 
 
@@ -266,16 +266,16 @@ class CypherCreateTestCase(Py2neoTestCase):
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
         self.graph.create(a)
-        assert a.__remote__
+        assert remote(a)
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
         self.graph.create(r)
-        assert a.__remote__
-        assert b.__remote__
-        assert r.__remote__
+        assert remote(a)
+        assert remote(b)
+        assert remote(r)
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -288,16 +288,16 @@ class CypherCreateTestCase(Py2neoTestCase):
         bc = Relationship(b, "TO", c)
         ca = Relationship(c, "TO", a)
         self.graph.create(ab | bc | ca)
-        assert a.__remote__
-        assert b.__remote__
-        assert c.__remote__
-        assert ab.__remote__
+        assert remote(a)
+        assert remote(b)
+        assert remote(c)
+        assert remote(ab)
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert bc.__remote__
+        assert remote(bc)
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert ca.__remote__
+        assert remote(ca)
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert order(self.graph) == 3

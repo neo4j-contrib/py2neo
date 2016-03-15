@@ -16,9 +16,7 @@
 # limitations under the License.
 
 
-from mock import patch
-
-from py2neo import DBMS, ServerAddress
+from py2neo import DBMS, remote
 from test.util import Py2neoTestCase
 
 
@@ -28,31 +26,31 @@ class DBMSTestCase(Py2neoTestCase):
         uri = "bolt://localhost/"
         dbms = DBMS(uri)
         assert repr(dbms).startswith("<DBMS")
-        assert dbms.__remote__.uri == "http://localhost:7474/"
-        index = dbms.__remote__.get().content
+        assert remote(dbms).uri == "http://localhost:7474/"
+        index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_settings(self):
         uri = "http://127.0.0.1:7474/"
         dbms = DBMS(host="127.0.0.1")
         assert repr(dbms).startswith("<DBMS")
-        assert dbms.__remote__.uri == uri
-        index = dbms.__remote__.get().content
+        assert remote(dbms).uri == uri
+        index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_trailing_slash(self):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri)
         assert repr(dbms).startswith("<DBMS")
-        assert dbms.__remote__.uri == uri
-        index = dbms.__remote__.get().content
+        assert remote(dbms).uri == uri
+        index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
         dbms = DBMS(uri[:-1])
-        assert dbms.__remote__.uri == uri
-        index = dbms.__remote__.get().content
+        assert remote(dbms).uri == uri
+        index = remote(dbms).get().content
         assert "data" in index
 
     def test_same_uri_gives_same_instance(self):

@@ -16,22 +16,22 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, Path
+from py2neo.types import Node, Relationship, Path, remote
 from test.util import Py2neoTestCase
 
 
 class PullTestCase(Py2neoTestCase):
 
     def test_can_graph_pull_node(self):
-        local = Node()
-        remote = Node("Person", name="Alice")
-        self.graph.create(remote)
-        assert set(local.labels()) == set()
-        assert dict(local) == {}
-        local._set_remote(remote.__remote__.uri)
-        self.graph.pull(local)
-        assert set(local.labels()) == set(remote.labels())
-        assert dict(local) == dict(remote)
+        alice_1 = Node()
+        alice_2 = Node("Person", name="Alice")
+        self.graph.create(alice_2)
+        assert set(alice_1.labels()) == set()
+        assert dict(alice_1) == {}
+        alice_1._set_remote(remote(alice_2).uri)
+        self.graph.pull(alice_1)
+        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert dict(alice_1) == dict(alice_2)
 
     def test_can_pull_path(self):
         alice = Node(name="Alice")
@@ -47,9 +47,9 @@ class PullTestCase(Py2neoTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
-        id_0 = path[0].__remote__._id
-        id_1 = path[1].__remote__._id
-        id_2 = path[2].__remote__._id
+        id_0 = remote(path[0])._id
+        id_1 = remote(path[1])._id
+        id_2 = remote(path[2])._id
         parameters = {"ab": id_0, "bc": id_1, "cd": id_2}
         self.graph.run(statement, parameters)
         self.graph.pull(path)
@@ -63,7 +63,7 @@ class PullTestCase(Py2neoTestCase):
             for new_labels in label_sets:
                 node = Node(*old_labels)
                 self.graph.create(node)
-                node_id = node.__remote__._id
+                node_id = remote(node)._id
                 assert set(node.labels()) == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
@@ -87,7 +87,7 @@ class PullTestCase(Py2neoTestCase):
             for new_props in property_sets:
                 node = Node(**old_props)
                 self.graph.create(node)
-                node_id = node.__remote__._id
+                node_id = remote(node)._id
                 assert dict(node) == old_props
                 self.graph.run("MATCH (a) WHERE id(a)={x} SET a={y}", x=node_id, y=new_props)
                 self.graph.pull(node)
@@ -103,7 +103,7 @@ class PullTestCase(Py2neoTestCase):
                 b = Node()
                 relationship = Relationship(a, "TO", b, **old_props)
                 self.graph.create(relationship)
-                relationship_id = relationship.__remote__._id
+                relationship_id = remote(relationship)._id
                 assert dict(relationship) == old_props
                 self.graph.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
                                x=relationship_id, y=new_props)
@@ -116,16 +116,16 @@ class PullTestCase(Py2neoTestCase):
 class PushTestCase(Py2neoTestCase):
 
     def test_can_graph_push_node(self):
-        local = Node("Person", name="Alice")
-        remote = Node()
-        self.graph.create(remote)
-        assert set(remote.labels()) == set()
-        assert dict(remote) == {}
-        local._set_remote(remote.__remote__.uri)
-        self.graph.push(local)
-        self.graph.pull(remote)
-        assert set(local.labels()) == set(remote.labels())
-        assert dict(local) == dict(remote)
+        alice_1 = Node("Person", name="Alice")
+        alice_2 = Node()
+        self.graph.create(alice_2)
+        assert set(alice_2.labels()) == set()
+        assert dict(alice_2) == {}
+        alice_1._set_remote(remote(alice_2).uri)
+        self.graph.push(alice_1)
+        self.graph.pull(alice_2)
+        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert dict(alice_1) == dict(alice_2)
 
     def test_can_push_relationship(self):
         a = Node()

@@ -19,8 +19,7 @@
 import logging
 
 from py2neo.compat import integer
-from py2neo.database import GraphError
-from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship
+from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship, remote
 from py2neo.http import Resource
 from py2neo.status import Finished
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
@@ -127,7 +126,7 @@ class Batch(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self.runner = BatchRunner(graph.__remote__.metadata["batch"])
+        self.runner = BatchRunner(remote(self.graph).metadata["batch"])
         self.jobs = []
 
     def __getitem__(self, index):
@@ -394,8 +393,10 @@ class ManualIndexWriteBatch(WriteBatch):
         elif isinstance(resource, Job):
             uri = "{{{0}}}".format(self.find(resource))
         else:
-            graph_uri = resource.__remote__.graph.__remote__.uri.string
-            entity_uri = resource.__remote__.uri.string
+            remote_resource = remote(resource)
+            remote_graph = remote(remote_resource.graph)
+            graph_uri = remote_graph.uri.string
+            entity_uri = remote_resource.uri.string
             uri = entity_uri[len(graph_uri):]
         if segments:
             if not uri.endswith("/"):
@@ -594,11 +595,11 @@ class ManualIndexWriteBatch(WriteBatch):
         """
         index = self._index(cls, index)
         if key and value and entity:
-            uri = self._uri_for(index, key, value, entity.__remote__._id)
+            uri = self._uri_for(index, key, value, remote(entity)._id)
         elif key and entity:
-            uri = self._uri_for(index, key, entity.__remote__._id)
+            uri = self._uri_for(index, key, remote(entity)._id)
         elif entity:
-            uri = self._uri_for(index, entity.__remote__._id)
+            uri = self._uri_for(index, remote(entity)._id)
         else:
             raise TypeError("Illegal parameter combination for index removal")
         return self.append_delete(uri)
