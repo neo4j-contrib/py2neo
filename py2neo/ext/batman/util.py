@@ -17,8 +17,8 @@
 
 
 from py2neo.compat import xstr
+from py2neo.database.status import GraphError
 from py2neo.types import Relatable
-from py2neo.status import GraphError
 
 
 class NodePointer(Relatable):

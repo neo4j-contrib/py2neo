@@ -19,15 +19,12 @@
 import logging
 
 from py2neo.compat import integer
-from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship, remote
-from py2neo.http import Resource
-from py2neo.status import Finished
+from py2neo.database import GraphError, Resource
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
-
+from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship, remote
 from .jobs import Job, JobResult, Target, CreateNodeJob, CreateRelationshipJob, CreatePathJob, \
     CreateUniquePathJob, DeleteEntityJob, PushPropertyJob, PushPropertiesJob, DeletePropertyJob, \
     DeletePropertiesJob, AddNodeLabelsJob, RemoveNodeLabelJob, PushNodeLabelsJob
-
 from .util import NodePointer
 
 
@@ -52,6 +49,18 @@ def pendulate(collection):
         yield index, collection[index]
 
 
+class BatchFinished(GraphError):
+    """ Raised when actions are attempted against a :class:`.Batch`
+    that is no longer available for use.
+    """
+
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __repr__(self):
+        return "%s finished" % self.obj.__class__.__name__
+
+
 class BatchRunner(object):
     """ Resource for batch execution.
     """
@@ -73,7 +82,7 @@ class BatchRunner(object):
         data = []
         for i, job in enumerate(batch):
             if job.finished:
-                raise Finished(job)
+                raise BatchFinished(job)
             else:
                 job.finished = True
             log.info("> {%s} %s", i, job)

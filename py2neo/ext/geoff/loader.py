@@ -18,7 +18,7 @@
 
 import json
 
-from py2neo.http import Resource
+from py2neo.database import Resource
 from py2neo.ext import UnmanagedExtension
 from py2neo.util import version_tuple
 
