@@ -18,7 +18,6 @@
 
 from py2neo.database import Graph, Resource, ResourceTemplate
 from py2neo.types import Node, Relationship, remote
-from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI
 
@@ -108,7 +107,7 @@ class ManualIndexManager(object):
             return index
         index_manager = self._index_manager(content_type)
         rs = index_manager.post({"name": index_name, "config": config or {}})
-        index = ManualIndex(content_type, assembled(rs)["template"])
+        index = ManualIndex(content_type, rs.content["template"])
         self._indexes[content_type].update({index_name: index})
         return index
 
@@ -281,8 +280,8 @@ class ManualIndex(object):
         ..
         """
         return [
-            self.graph._hydrate(assembled(result))
-            for i, result in grouped(self._searcher.expand(key=key, value=value).get())
+            self.graph._hydrate(result)
+            for result in self._searcher.expand(key=key, value=value).get().content
         ]
 
     def create(self, key, value, abstract):
@@ -346,7 +345,7 @@ class ManualIndex(object):
 
         ..
         """
-        return self.graph._hydrate(assembled(self._create_unique(key, value, abstract)))
+        return self.graph._hydrate(self._create_unique(key, value, abstract).content)
 
     def create_if_none(self, key, value, abstract):
         """ Create a new entity with the specified details within the current
@@ -366,7 +365,7 @@ class ManualIndex(object):
         """
         rs = self._create_unique(key, value, abstract)
         if rs.status_code == CREATED:
-            return self.graph._hydrate(assembled(rs))
+            return self.graph._hydrate(rs.content)
         else:
             return None
 
@@ -424,14 +423,13 @@ class ManualIndex(object):
         should be Apache Lucene query syntax.
         """
         resource = self._query_template.expand(query=query)
-        for i, result in grouped(resource.get()):
-            yield self.graph._hydrate(assembled(result))
+        for result in resource.get().content:
+            yield self.graph._hydrate(result)
 
     def _query_with_score(self, query, order):
         resource = self._query_template.expand(query=query, order=order)
-        for i, result in grouped(resource.get()):
-            meta = assembled(result)
-            yield self.graph._hydrate(meta), meta["score"]
+        for result in resource.get().content:
+            yield self.graph._hydrate(result), result["score"]
 
     def query_by_index(self, query):
         return self._query_with_score(query, "index")

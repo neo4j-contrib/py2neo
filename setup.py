@@ -16,15 +16,12 @@
 # limitations under the License.
 
 
-import os
 import sys
 
 try:
     from setuptools import setup, find_packages
-    from setuptools.extension import Extension
 except ImportError:
     from distutils.core import setup, find_packages
-    from distutils.extension import Extension
 
 from py2neo import __author__, __email__, __license__, __package__, __version__
 
@@ -69,16 +66,4 @@ package_metadata = {
     "zip_safe": False,
 }
 
-extensions = []
-sdist = "sdist" in sys.argv
-if sdist or not python_2:
-    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream",
-                                ["py2neo/packages/jsonstream/cjsonstream.c"]))
-if sdist or python_2:
-    extensions.append(Extension("py2neo.packages.jsonstream.cjsonstream_2x",
-                                ["py2neo/packages/jsonstream/cjsonstream_2x.c"]))
-
-try:
-    setup(ext_modules=extensions, **package_metadata)
-except:
-    setup(**package_metadata)
+setup(**package_metadata)
