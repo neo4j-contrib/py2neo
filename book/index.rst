@@ -49,9 +49,14 @@ Library Reference
    neokit
    ext/batman
    ext/calendar
-   ext/geoff
    ext/ogm
-   cookbook
+
+
+----
+
+
+Miscellany
+==========
 
 
 .. _Neo4j: http://neo4j.com/

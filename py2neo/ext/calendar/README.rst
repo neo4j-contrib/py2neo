@@ -1,6 +1,6 @@
-===================
-Extension: Calendar
-===================
+***********************************
+``py2neo.ext.calendar`` -- Calendar
+***********************************
 
 Maintained by: Nigel Small <nigel@py2neo.org>
 

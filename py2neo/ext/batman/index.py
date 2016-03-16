@@ -47,9 +47,9 @@ class ManualIndexManager(object):
     def get_indexes(self, content_type):
         """ Fetch a dictionary of all available indexes of a given type.
 
-        :param content_type: either :py:class:`neo4j.Node` or
-            :py:class:`neo4j.Relationship`
-        :return: a list of :py:class:`Index` instances of the specified type
+        :param content_type: either :class:`.Node` or
+            :class:`.Relationship`
+        :return: a list of :class:`.ManualIndex` instances of the specified type
         """
         index_manager = self._index_manager(content_type)
         index_index = index_manager.get().content
@@ -64,16 +64,13 @@ class ManualIndexManager(object):
 
     def get_index(self, content_type, index_name):
         """ Fetch a specific index from the current database, returning an
-        :py:class:`Index` instance. If an index with the supplied `name` and
+        :class:`.ManualIndex` instance. If an index with the supplied `name` and
         content `type` does not exist, :py:const:`None` is returned.
 
-        :param content_type: either :py:class:`neo4j.Node` or
-            :py:class:`neo4j.Relationship`
+        :param content_type: either :class:`.Node` or
+            :class:`.Relationship`
         :param index_name: the name of the required index
-        :return: an :py:class:`Index` instance or :py:const:`None`
-
-        .. seealso:: :py:func:`get_or_create_index`
-        .. seealso:: :py:class:`Index`
+        :return: an :class:`.ManualIndex` instance or :py:const:`None`
         """
         if index_name not in self._indexes[content_type]:
             self.get_indexes(content_type)
@@ -84,23 +81,14 @@ class ManualIndexManager(object):
 
     def get_or_create_index(self, content_type, index_name, config=None):
         """ Fetch a specific index from the current database, returning an
-        :py:class:`Index` instance. If an index with the supplied `name` and
+        :class:`.ManualIndex` instance. If an index with the supplied `name` and
         content `type` does not exist, one is created with either the
-        default configuration or that supplied in `config`::
+        default configuration or that supplied in `config`.
 
-            # get or create a node index called "People"
-            people = graph.get_or_create_index(neo4j.Node, "People")
-
-            # get or create a relationship index called "Friends"
-            friends = graph.get_or_create_index(neo4j.Relationship, "Friends")
-
-        :param content_type: either :py:class:`neo4j.Node` or
-            :py:class:`neo4j.Relationship`
+        :param content_type: either :class:`.Node` or
+            :class:`.Relationship`
         :param index_name: the name of the required index
-        :return: an :py:class:`Index` instance
-
-        .. seealso:: :py:func:`get_index`
-        .. seealso:: :py:class:`Index`
+        :return: a :class:`.ManualIndex` instance
         """
         index = self.get_index(content_type, index_name)
         if index:
@@ -114,8 +102,8 @@ class ManualIndexManager(object):
     def delete_index(self, content_type, index_name):
         """ Delete the entire index identified by the type and name supplied.
 
-        :param content_type: either :py:class:`neo4j.Node` or
-            :py:class:`neo4j.Relationship`
+        :param content_type: either :class:`.Node` or
+            :class:`.Relationship`
         :param index_name: the name of the index to delete
         :raise LookupError: if the specified index does not exist
         """
@@ -178,8 +166,6 @@ class ManualIndexManager(object):
 class ManualIndex(object):
     """ Searchable database index which can contain either nodes or
     relationships.
-
-    .. seealso:: :py:func:`Graph.get_or_create_index`
     """
 
     def __init__(self, content_type, uri, name=None):
@@ -213,18 +199,15 @@ class ManualIndex(object):
         return self.__searcher_stem_cache[key]
 
     def add(self, key, value, entity):
-        """ Add an entity to this index under the `key`:`value` pair supplied::
-
-            # create a node and obtain a reference to the "People" node index
-            alice, = graph.create({"name": "Alice Smith"})
-            people = graph.get_or_create_index(neo4j.Node, "People")
-
-            # add the node to the index
-            people.add("family_name", "Smith", alice)
+        """ Add an entity to this index under the `key`:`value` pair supplied.
 
         Note that while Neo4j indexes allow multiple entities to be added under
         a particular key:value, the same entity may only be represented once;
         this method is therefore idempotent.
+
+        :param key:
+        :param value:
+        :param entity:
         """
         remote(self).post({
             "key": key,
@@ -235,12 +218,7 @@ class ManualIndex(object):
 
     def add_if_none(self, key, value, entity):
         """ Add an entity to this index under the `key`:`value` pair
-        supplied if no entry already exists at that point::
-
-            # obtain a reference to the "Rooms" node index and
-            # add node `alice` to room 100 if empty
-            rooms = graph.get_or_create_index(neo4j.Node, "Rooms")
-            rooms.add_if_none("room", 100, alice)
+        supplied if no entry already exists at that point.
 
         If added, this method returns the entity, otherwise :py:const:`None`
         is returned.
@@ -270,14 +248,10 @@ class ManualIndex(object):
 
     def get(self, key, value):
         """ Fetch a list of all entities from the index which are associated
-        with the `key`:`value` pair supplied::
+        with the `key`:`value` pair supplied.
 
-            # obtain a reference to the "People" node index and
-            # get all nodes where `family_name` equals "Smith"
-            people = graph.get_or_create_index(neo4j.Node, "People")
-            smiths = people.get("family_name", "Smith")
-
-        ..
+        :param key:
+        :param value:
         """
         return [
             self.graph._hydrate(result)
@@ -287,6 +261,10 @@ class ManualIndex(object):
     def create(self, key, value, abstract):
         """ Create and index a new node or relationship using the abstract
         provided.
+
+        :param key:
+        :param value:
+        :param abstract:
         """
         batch = ManualIndexWriteBatch(self.graph)
         if self._content_type is Node:
@@ -325,25 +303,7 @@ class ManualIndex(object):
     def get_or_create(self, key, value, abstract):
         """ Fetch a single entity from the index which is associated with the
         `key`:`value` pair supplied, creating a new entity with the supplied
-        details if none exists::
-
-            # obtain a reference to the "Contacts" node index and
-            # ensure that Alice exists therein
-            contacts = graph.get_or_create_index(neo4j.Node, "Contacts")
-            alice = contacts.get_or_create("name", "SMITH, Alice", {
-                "given_name": "Alice Jane", "family_name": "Smith",
-                "phone": "01234 567 890", "mobile": "07890 123 456"
-            })
-
-            # obtain a reference to the "Friendships" relationship index and
-            # ensure that Alice and Bob's friendship is registered (`alice`
-            # and `bob` refer to existing nodes)
-            friendships = graph.get_or_create_index(neo4j.Relationship, "Friendships")
-            alice_and_bob = friendships.get_or_create(
-                "friends", "Alice & Bob", (alice, "KNOWS", bob)
-            )
-
-        ..
+        details if none exists.
         """
         return self.graph._hydrate(self._create_unique(key, value, abstract).content)
 
@@ -351,17 +311,7 @@ class ManualIndex(object):
         """ Create a new entity with the specified details within the current
         index, under the `key`:`value` pair supplied, if no such entity already
         exists. If creation occurs, the new entity will be returned, otherwise
-        :py:const:`None` will be returned::
-
-            # obtain a reference to the "Contacts" node index and
-            # create a node for Alice if one does not already exist
-            contacts = graph.get_or_create_index(neo4j.Node, "Contacts")
-            alice = contacts.create_if_none("name", "SMITH, Alice", {
-                "given_name": "Alice Jane", "family_name": "Smith",
-                "phone": "01234 567 890", "mobile": "07890 123 456"
-            })
-
-        ..
+        :py:const:`None` will be returned.
         """
         rs = self._create_unique(key, value, abstract)
         if rs.status_code == CREATED:
@@ -411,12 +361,7 @@ class ManualIndex(object):
 
     def query(self, query):
         """ Query the index according to the supplied query criteria, returning
-        a list of matched entities::
-
-            # obtain a reference to the "People" node index and
-            # get all nodes where `family_name` equals "Smith"
-            people = graph.get_or_create_index(neo4j.Node, "People")
-            s_people = people.query("family_name:S*")
+        a list of matched entities.
 
         The query syntax used should be appropriate for the configuration of
         the index being queried. For indexes with default configuration, this

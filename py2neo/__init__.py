@@ -29,7 +29,36 @@ from py2neo.database import *
 from py2neo.ext import *
 from py2neo.types import *
 
-from py2neo.packages.httpstream.watch import watch
+from py2neo.packages.httpstream.watch import Watcher
+
+
+def watch(logger, level=None, out=None):
+    """ Dump log messages to standard output.
+
+    To watch Bolt traffic::
+
+        >>> from py2neo import watch
+        >>> watch("neo4j.bolt")
+
+    To watch HTTP traffic::
+
+        >>> from py2neo import watch
+        >>> watch("neo4j.http")
+
+    :param logger: logger name
+    :param level: logging level (default ``INFO``)
+    :param out: output channel (default ``stdout``)
+    """
+    if logger == "neo4j.http":
+        logger = "httpstream"
+    if level is None:
+        from logging import INFO
+        level = INFO
+    if out is None:
+        from sys import stdout
+        out = stdout
+    watcher = Watcher(logger)
+    watcher.watch(level, out)
 
 
 class Commander(object):

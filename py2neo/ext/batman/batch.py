@@ -69,13 +69,6 @@ class BatchRunner(object):
         self.resource = Resource(uri)
 
     def post(self, batch):
-        """ Post a batch of jobs to the server and receive a raw
-        response.
-
-        :arg batch: A :class:`.Batch` of jobs.
-        :rtype: :class:`httpstream.Response`
-
-        """
         num_jobs = len(batch)
         plural = "" if num_jobs == 1 else "s"
         log.info("> Sending batch request with %s job%s", num_jobs, plural)
@@ -94,9 +87,8 @@ class BatchRunner(object):
     def run(self, batch):
         """ Execute a collection of jobs and return all results.
 
-        :arg batch: A :class:`.Batch` of jobs.
+        :param batch: A :class:`.Batch` of jobs.
         :rtype: :class:`list`
-
         """
         response = self.post(batch)
         try:
@@ -167,7 +159,6 @@ class Batch(object):
 
         :param job: A :class:`.Job` object to add to this batch.
         :rtype: :class:`.Job`
-
         """
         self.jobs.append(job)
         return job
@@ -194,9 +185,8 @@ class ReadBatch(Batch):
 
 class WriteBatch(Batch):
     """ Generic batch execution facility for data write requests. Most methods
-    return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
-    can be used as a reference in other methods. See the
-    :py:meth:`create <py2neo.neo4j.WriteBatch.create>` method for an example
+    return a :class:`.BatchRequest` object that can be used as a reference
+    in other methods. See the :meth:`.WriteBatch.create` method for an example
     of this.
     """
 
@@ -208,17 +198,10 @@ class WriteBatch(Batch):
 
     def create(self, abstract):
         """ Create a node or relationship based on the abstract entity
-        provided. For example::
-
-            batch = WriteBatch(graph)
-            a = batch.create(node(name="Alice"))
-            b = batch.create(node(name="Bob"))
-            batch.create(rel(a, "KNOWS", b))
-            results = batch.run()
+        provided.
 
         :param abstract: node or relationship
-        :type abstract: abstract
-        :return: batch request object
+        :return: :class:`.Job`
         """
         entity = cast(abstract)
         if isinstance(entity, Node):
@@ -236,10 +219,8 @@ class WriteBatch(Batch):
         :py:const:`None` but references to other requests are not supported.
 
         :param node: start node
-        :type node: concrete, abstract or :py:const:`None`
         :param rels_and_nodes: alternating relationships and nodes
-        :type rels_and_nodes: concrete, abstract or :py:const:`None`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(CreatePathJob(self.graph, node, *rels_and_nodes))
 
@@ -250,10 +231,8 @@ class WriteBatch(Batch):
         but references to other requests are not supported.
 
         :param node: start node
-        :type node: concrete, abstract or :py:const:`None`
         :param rels_and_nodes: alternating relationships and nodes
-        :type rels_and_nodes: concrete, abstract or :py:const:`None`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(CreateUniquePathJob(self.graph, node, *rels_and_nodes))
 
@@ -261,8 +240,7 @@ class WriteBatch(Batch):
         """ Delete a node or relationship from the graph.
 
         :param entity: node or relationship to delete
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(DeleteEntityJob(self.resolve(entity)))
 
@@ -270,11 +248,9 @@ class WriteBatch(Batch):
         """ Set a single property on a node or relationship.
 
         :param entity: node or relationship on which to set property
-        :type entity: concrete or reference
         :param key: property key
-        :type key: :py:class:`str`
         :param value: property value
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(PushPropertyJob(self.resolve(entity), key, value))
 
@@ -282,10 +258,8 @@ class WriteBatch(Batch):
         """ Replace all properties on a node or relationship.
 
         :param entity: node or relationship on which to set properties
-        :type entity: concrete or reference
         :param properties: properties
-        :type properties: :py:class:`dict`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(PushPropertiesJob(self.resolve(entity), properties))
 
@@ -293,10 +267,8 @@ class WriteBatch(Batch):
         """ Delete a single property from a node or relationship.
 
         :param entity: node or relationship from which to delete property
-        :type entity: concrete or reference
         :param key: property key
-        :type key: :py:class:`str`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(DeletePropertyJob(self.resolve(entity), key))
 
@@ -304,8 +276,7 @@ class WriteBatch(Batch):
         """ Delete all properties from a node or relationship.
 
         :param entity: node or relationship from which to delete properties
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(DeletePropertiesJob(self.resolve(entity)))
 
@@ -313,10 +284,8 @@ class WriteBatch(Batch):
         """ Add labels to a node.
 
         :param node: node to which to add labels
-        :type entity: concrete or reference
         :param labels: text labels
-        :type labels: :py:class:`str`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(AddNodeLabelsJob(self.resolve(node), *labels))
 
@@ -326,8 +295,7 @@ class WriteBatch(Batch):
         :param node: node from which to remove labels (can be a reference to
             another request within the same batch)
         :param label: text label
-        :type label: :py:class:`str`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(RemoveNodeLabelJob(self.resolve(node), label))
 
@@ -337,8 +305,7 @@ class WriteBatch(Batch):
         :param node: node on which to replace labels (can be a reference to
             another request within the same batch)
         :param labels: text labels
-        :type labels: :py:class:`str`
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self.append(PushNodeLabelsJob(self.resolve(node), labels))
 
@@ -366,11 +333,9 @@ class ManualIndexReadBatch(ReadBatch):
         """ Fetch all nodes indexed under a given key-value pair.
 
         :param index: index name or instance
-        :type index: :py:class:`str` or :py:class:`Index`
         :param key: key under which nodes are indexed
-        :type key: :py:class:`str`
         :param value: value under which nodes are indexed
-        :return: batch request object
+        :return: :class:`.Job`
         """
         index = self._index(Node, index)
         uri = index._searcher_stem_for_key(key) + percent_encode(value)
@@ -379,10 +344,8 @@ class ManualIndexReadBatch(ReadBatch):
 
 class ManualIndexWriteBatch(WriteBatch):
     """ Generic batch execution facility for data write requests. Most methods
-    return a :py:class:`BatchRequest <py2neo.neo4j.BatchRequest>` object that
-    can be used as a reference in other methods. See the
-    :py:meth:`create <py2neo.neo4j.WriteBatch.create>` method for an example
-    of this.
+    return a :class:`.BatchRequest` object that can be used as a reference in
+    other methods.
     """
 
     def append_post(self, uri, body=None):
@@ -446,16 +409,11 @@ class ManualIndexWriteBatch(WriteBatch):
         """ Add an existing node or relationship to an index.
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param entity: node or relationship to add to the index
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         return self._add_to_index(cls, index, key, value, entity)
 
@@ -468,16 +426,11 @@ class ManualIndexWriteBatch(WriteBatch):
             server versions and therefore this method may not work as expected.
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param entity: node or relationship to add to the index
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         query = "uniqueness=create_or_fail"
         return self._add_to_index(cls, index, key, value, entity, query)
@@ -487,16 +440,11 @@ class ManualIndexWriteBatch(WriteBatch):
         otherwise add an existing entity to the index.
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param entity: node or relationship to add to the index
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         query = "uniqueness=get_or_create"
         return self._add_to_index(cls, index, key, value, entity, query)
@@ -536,15 +484,11 @@ class ManualIndexWriteBatch(WriteBatch):
             server versions and therefore this method may not work as expected.
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param abstract: abstract node or relationship to create
-        :return: batch request object
+        :return: :class:`.Job`
         """
         query = "uniqueness=create_or_fail"
         return self._create_in_index(cls, index, key, value, abstract, query)
@@ -554,15 +498,11 @@ class ManualIndexWriteBatch(WriteBatch):
         otherwise create a new entity and add that to the index.
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param abstract: abstract node or relationship to create
-        :return: batch request object
+        :return: :class:`.Job`
         """
         query = "uniqueness=get_or_create"
         if cls is Node:
@@ -591,16 +531,11 @@ class ManualIndexWriteBatch(WriteBatch):
             regardless of key or value
 
         :param cls: the type of indexed entity
-        :type cls: :py:class:`Node <py2neo.neo4j.Node>` or
-                   :py:class:`Relationship <py2neo.neo4j.Relationship>`
         :param index: index or index name
-        :type index: :py:class:`Index <py2neo.neo4j.Index>` or :py:class:`str`
         :param key: index entry key
-        :type key: :py:class:`str`
         :param value: index entry value
         :param entity: node or relationship to remove from the index
-        :type entity: concrete or reference
-        :return: batch request object
+        :return: :class:`.Job`
         """
         index = self._index(cls, index)
         if key and value and entity:

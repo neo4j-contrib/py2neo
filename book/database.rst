@@ -52,6 +52,9 @@ Cursors
 .. autoclass:: Cursor
    :members:
 
+.. autoclass:: Record
+   :members:
+
 
 The DBMS
 ========
@@ -65,6 +68,16 @@ Security
 
 .. automodule:: py2neo.database.auth
    :members:
+
+
+Utilities
+=========
+
+.. autofunction:: py2neo.database.cypher.cypher_escape
+
+.. autofunction:: py2neo.database.cypher.cypher_repr
+
+.. autofunction:: py2neo.watch
 
 
 Errors & Warnings

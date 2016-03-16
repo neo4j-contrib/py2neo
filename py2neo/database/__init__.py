@@ -20,26 +20,23 @@ import logging
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
-from sys import stdout
 from warnings import warn
 
-from py2neo.compat import integer, ustr, string
+from py2neo.compat import integer, string
+from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
-    cypher_escape, walk, size, Walkable, cypher_repr, remote
-from py2neo.util import deprecated, is_collection, version_tuple
+from py2neo.types import cast_node, Subgraph, walk, size, Walkable, remote
+from py2neo.util import deprecated, version_tuple
 
 from py2neo.database.auth import *
+from py2neo.database.cypher import *
 from py2neo.database.http import *
 from py2neo.database.status import *
-
-
-log = logging.getLogger("py2neo.cypher")
 
 
 def presubstitute(statement, parameters):
@@ -966,7 +963,6 @@ class Transaction(object):
     """
 
     def __init__(self, graph, autocommit=False):
-        log.info("begin")
         self.graph = graph
         self.autocommit = autocommit
         self._finished = False
@@ -1370,11 +1366,9 @@ class HTTPTransaction(Transaction):
     def _post(self, commit=False):
         self._assert_unfinished()
         if commit:
-            log.info("commit")
             resource = self._commit or self._begin_commit
             self.finish()
         else:
-            log.info("process")
             resource = self._execute or self._begin
         rs = resource.post({"statements": self.statements})
         location = rs.location
@@ -1393,7 +1387,6 @@ class HTTPTransaction(Transaction):
 
     def rollback(self):
         self._assert_unfinished()
-        log.info("rollback")
         try:
             if self._execute:
                 self._execute.delete()
@@ -1447,11 +1440,9 @@ class BoltTransaction(Transaction):
 
     def _post(self, commit=False):
         if commit:
-            log.info("commit")
             self.run("COMMIT")
             self.finish()
         else:
-            log.info("process")
             self._sync()
 
     def finish(self):
@@ -1462,7 +1453,6 @@ class BoltTransaction(Transaction):
 
     def rollback(self):
         self._assert_unfinished()
-        log.info("rollback")
         try:
             self.run("ROLLBACK")
             self._sync()

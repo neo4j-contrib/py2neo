@@ -356,11 +356,3 @@ may be traversed one or more times in any direction.
 .. function:: walk(*walkables)
 
     Traverse over the arguments supplied, yielding the entities from each in turn.
-
-
-Records
-=======
-
-*TODO*
-
-.. class:: Record(keys, values)

@@ -247,10 +247,6 @@ class JobResult(object):
 
 
 class CypherJob(Job):
-    """ A Cypher execution job for inclusion within a batch. Consider using
-    `Cypher transactions <py2neo.cypher.Transaction>`_ instead of
-    batched Cypher jobs.
-    """
 
     target = Target("transaction/commit")
 
