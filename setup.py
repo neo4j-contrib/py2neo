@@ -28,8 +28,7 @@ from py2neo import __author__, __email__, __license__, __package__, __version__
 
 python_2 = sys.version_info < (3,)
 
-packages = find_packages(exclude=("book", "examples", "examples.*",
-                                  "test", "test.*", "test_ext", "test_ext.*"))
+packages = find_packages(exclude=("book", "test", "test_ext", "test_ext.*"))
 package_metadata = {
     "name": __package__,
     "version": __version__,
