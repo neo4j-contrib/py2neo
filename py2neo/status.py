@@ -19,18 +19,6 @@
 from py2neo.compat import xstr
 
 
-class Finished(Exception):
-    """ Raised when actions are attempted against a finished object
-    that is no longer available for use.
-    """
-
-    def __init__(self, obj):
-        self.obj = obj
-
-    def __repr__(self):
-        return "%s finished" % self.obj.__class__.__name__
-
-
 class GraphError(Exception):
     """
     """

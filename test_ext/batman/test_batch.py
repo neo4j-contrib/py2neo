@@ -16,9 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import DBMS, Node, Relationship, Finished, cast_node, cast_relationship
+from py2neo import DBMS, Node, Relationship, cast_node, cast_relationship
 from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
-    BatchError, Job, Target, NodePointer, ManualIndexWriteBatch
+    BatchError, Job, Target, NodePointer, ManualIndexWriteBatch, BatchFinished
 from py2neo.status import CypherSyntaxError, ConstraintError
 from test.util import Py2neoTestCase
 
@@ -354,7 +354,7 @@ class MiscellaneousTestCase(Py2neoTestCase):
     def test_cannot_resubmit_finished_job(self):
         self.batch.append(CypherJob("CREATE (a)"))
         self.runner.run(self.batch)
-        with self.assertRaises(Finished):
+        with self.assertRaises(BatchFinished):
             self.runner.run(self.batch)
 
 

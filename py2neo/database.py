@@ -35,7 +35,7 @@ from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.status import Finished, GraphError
+from py2neo.status import GraphError
 from py2neo.util import deprecated, is_collection, version_tuple
 
 
@@ -959,6 +959,12 @@ class BoltDataSource(DataSource):
             return obj
 
 
+class TransactionFinished(GraphError):
+    """ Raised when actions are attempted against a :class:`.Transaction`
+    that is no longer available for use.
+    """
+
+
 class Transaction(object):
     """ A transaction is a transient resource that allows multiple Cypher
     statements to be executed within a single server transaction.
@@ -982,7 +988,7 @@ class Transaction(object):
 
     def _assert_unfinished(self):
         if self._finished:
-            raise Finished(self)
+            raise TransactionFinished(self)
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed

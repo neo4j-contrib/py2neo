@@ -16,8 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, order, size, remote
-from py2neo.status import Finished, CypherSyntaxError, ConstraintError
+from py2neo import Node, Relationship, order, size, remote, TransactionFinished, CypherSyntaxError, ConstraintError
 from test.util import Py2neoTestCase
 
 
@@ -98,9 +97,8 @@ class TransactionRunTestCase(Py2neoTestCase):
         tx.rollback()
         try:
             tx.run("CREATE (a) RETURN a")
-        except Finished as error:
-            assert error.obj is tx
-            assert repr(error).endswith("Transaction finished")
+        except TransactionFinished as error:
+            assert error.args[0] is tx
         else:
             assert False
 
