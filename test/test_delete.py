@@ -48,16 +48,6 @@ class DeleteTestCase(Py2neoTestCase):
         self.graph.delete(alice | bob | ab)
         assert not self.graph.exists(alice | bob | ab)
 
-    def test_cannot_delete_related_node(self):
-        alice = Node("Person", name="Alice")
-        bob = Node("Person", name="Bob")
-        ab = Relationship(alice, "KNOWS", bob)
-        self.graph.create(alice | bob | ab)
-        assert self.graph.exists(alice | bob | ab)
-        with self.assertRaises(ConstraintError):
-            self.graph.delete(alice)
-        self.graph.delete(alice | bob | ab)
-        
     def test_can_delete_path(self):
         alice, bob, carol, dave = Node(), Node(), Node(), Node()
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)

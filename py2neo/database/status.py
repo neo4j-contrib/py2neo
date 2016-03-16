@@ -89,6 +89,16 @@ class CypherSyntaxError(ClientError):
     """
 
 
+class CypherTypeError(ClientError):
+    """
+    """
+
+
+class Forbidden(ClientError):
+    """
+    """
+
+
 class Unauthorized(ClientError):
     """
     """
@@ -104,5 +114,22 @@ client_errors = {
     # CypherSyntaxError
     "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
     "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+
+    # CypherTypeError
+    "Neo.ClientError.Procedure.TypeError": CypherTypeError,
+    "Neo.ClientError.Statement.InvalidType": CypherTypeError,
+    "Neo.ClientError.Statement.TypeError": CypherTypeError,
+
+    # Forbidden
+    "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
+    "Neo.ClientError.General.ReadOnly": Forbidden,
+    "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
+    "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
+    "Neo.ClientError.Security.Forbidden": Forbidden,
+    "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
+
+    # Unauthorized
+    "Neo.ClientError.Security.AuthorizationFailed": Unauthorized,
+    "Neo.ClientError.Security.Unauthorized": Unauthorized,
 
 }
