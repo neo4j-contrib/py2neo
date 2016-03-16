@@ -18,10 +18,7 @@
 
 from unittest import skipUnless
 
-from py2neo.auth import ServerAddress, register_server, keyring, authenticate
-from py2neo.database import DBMS
-from py2neo.http import Resource
-from py2neo.status import Unauthorized
+from py2neo.database import DBMS, Resource, ServerAddress, register_server, keyring, authenticate, Unauthorized
 from test.util import Py2neoTestCase
 
 

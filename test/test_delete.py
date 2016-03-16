@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.status import ConstraintError
+from py2neo.database.status import ConstraintError
 from py2neo.types import Node, Relationship, Path
 from test.util import Py2neoTestCase
 

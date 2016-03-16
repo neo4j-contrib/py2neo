@@ -19,15 +19,12 @@
 import logging
 
 from py2neo.compat import integer
-from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship, remote
-from py2neo.http import Resource
-from py2neo.status import GraphError
+from py2neo.database import GraphError, Resource
 from py2neo.packages.httpstream.packages.urimagic import percent_encode
-
+from py2neo.types import Node, Relationship, cast as core_cast, cast_node, cast_relationship, remote
 from .jobs import Job, JobResult, Target, CreateNodeJob, CreateRelationshipJob, CreatePathJob, \
     CreateUniquePathJob, DeleteEntityJob, PushPropertyJob, PushPropertiesJob, DeletePropertyJob, \
     DeletePropertiesJob, AddNodeLabelsJob, RemoveNodeLabelJob, PushNodeLabelsJob
-
 from .util import NodePointer
 
 

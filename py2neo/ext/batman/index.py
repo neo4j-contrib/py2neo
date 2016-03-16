@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.database import Graph
+from py2neo.database import Graph, Resource, ResourceTemplate
 from py2neo.types import Node, Relationship, remote
-from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.jsonstream import assembled, grouped
 from py2neo.packages.httpstream.numbers import CREATED
 from py2neo.packages.httpstream.packages.urimagic import percent_encode, URI

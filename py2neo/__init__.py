@@ -25,12 +25,8 @@ __version__ = "3b1"
 
 PRODUCT = ("py2neo", __version__)
 
-
-from py2neo.auth import *
 from py2neo.database import *
 from py2neo.ext import *
-from py2neo.http import *
-from py2neo.status import *
 from py2neo.types import *
 
 from py2neo.packages.httpstream.watch import watch

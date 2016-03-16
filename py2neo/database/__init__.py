@@ -2,13 +2,13 @@
 # -*- encoding: utf-8 -*-
 
 # Copyright 2011-2016, Nigel Small
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,27 +16,27 @@
 # limitations under the License.
 
 
+import logging
+import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
-import logging
 from sys import stdout
 from warnings import warn
-import webbrowser
 
-from py2neo import PRODUCT
-from py2neo.auth import keyring, register_server
 from py2neo.compat import integer, ustr, string
-from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
-    cypher_escape, walk, size, Walkable, cypher_repr, remote
-from py2neo.http import Resource, ResourceTemplate
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.status import GraphError
+from py2neo.types import Node, Relationship, Path, cast_node, Subgraph, \
+    cypher_escape, walk, size, Walkable, cypher_repr, remote
 from py2neo.util import deprecated, is_collection, version_tuple
+
+from py2neo.database.auth import *
+from py2neo.database.http import *
+from py2neo.database.status import *
 
 
 log = logging.getLogger("py2neo.cypher")
@@ -574,7 +574,7 @@ class Graph(object):
         """ Return a single relationship matching the
         specified criteria. See :meth:`~py2neo.Graph.match` for
         argument details.
-        
+
         :param start_node:
         :param rel_type:
         :param end_node:
@@ -608,7 +608,7 @@ class Graph(object):
         remote node with the ID specified but fetches no data from the server.
         For this reason, there is no guarantee that the entity returned
         actually exists.
-        
+
         :param id_:
         """
         resource = remote(self).resolve("node/%s" % id_)
@@ -638,7 +638,7 @@ class Graph(object):
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
-        
+
         :param subgraph: the collection of nodes and relationships to pull
         """
         nodes = {node: None for node in subgraph.nodes()}
@@ -659,7 +659,7 @@ class Graph(object):
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
-        
+
         :param subgraph: the collection of nodes and relationships to push
         """
         batch = []

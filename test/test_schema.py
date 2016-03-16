@@ -17,10 +17,10 @@
 
 
 from py2neo import GraphError, Node, cast_node
-from py2neo.status import ConstraintError
+from py2neo.database.status import ConstraintError
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
-from test.util import Py2neoTestCase
 from test.compat import patch
+from test.util import Py2neoTestCase
 
 
 class NotFoundError(ClientError):

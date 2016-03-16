@@ -18,13 +18,11 @@
 
 import logging
 
-from py2neo.database import DBMS
-from py2neo.http import set_http_header, get_http_headers, http_rewrite, Resource
+from py2neo.database import DBMS, GraphError, set_http_header, get_http_headers, http_rewrite, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
-from py2neo.status import GraphError
-from test.util import Py2neoTestCase
 from test.compat import patch
+from test.util import Py2neoTestCase
 
 
 dbms = DBMS()

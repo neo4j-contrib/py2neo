@@ -16,14 +16,13 @@
 # limitations under the License.
 
 
-from py2neo import DBMS, Node, Relationship, cast_node, cast_relationship
-from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
-    BatchError, Job, Target, NodePointer, ManualIndexWriteBatch, BatchFinished
-from py2neo.status import CypherSyntaxError, ConstraintError
-from test.util import Py2neoTestCase
-
 from unittest import skipIf
 
+from py2neo import DBMS, Node, Relationship, cast_node, cast_relationship
+from py2neo.database.status import CypherSyntaxError, ConstraintError
+from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
+    BatchError, Job, Target, NodePointer, ManualIndexWriteBatch, BatchFinished
+from test.util import Py2neoTestCase
 
 dbms = DBMS()
 version_2_1 = (2, 1) <= dbms.kernel_version < (2, 2)
