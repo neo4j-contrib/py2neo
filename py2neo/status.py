@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from importlib import import_module
-
 from py2neo.compat import xstr
 
 
@@ -34,11 +32,35 @@ class Finished(Exception):
 
 
 class GraphError(Exception):
-    """ Default exception class for all errors returned by the
-    Neo4j server.
+    """
     """
 
     __cause__ = None
+
+    code = None
+    message = None
+
+    @classmethod
+    def hydrate(cls, data):
+        code = data["code"]
+        message = data["message"]
+        _, classification, category, title = code.split(".")
+        if classification == "ClientError":
+            try:
+                error_cls = client_errors[code]
+            except KeyError:
+                error_cls = ClientError
+                message += " [%s]" % code
+        elif classification == "DatabaseError":
+            error_cls = DatabaseError
+        elif classification == "TransientError":
+            error_cls = TransientError
+        else:
+            error_cls = cls
+        inst = error_cls(message)
+        inst.code = code
+        inst.message = message
+        return inst
 
     def __new__(cls, *args, **kwargs):
         try:
@@ -54,46 +76,45 @@ class GraphError(Exception):
             setattr(self, key.lower(), value)
 
 
-class CypherError(GraphError):
-    """
-    """
-
-    code = None
-    message = None
-
-    @classmethod
-    def hydrate(cls, data):
-        code = data["code"]
-        message = data["message"]
-        _, classification, category, title = code.split(".")
-        if classification == "ClientError":
-            error_module = import_module("py2neo.status." + category.lower())
-            error_cls = getattr(error_module, title)
-        elif classification == "DatabaseError":
-            error_cls = DatabaseError
-        elif classification == "TransientError":
-            error_cls = TransientError
-        else:
-            error_cls = CypherError
-        inst = error_cls(message)
-        inst.code = code
-        inst.message = message
-        return inst
-
-    def __init__(self, message, **kwargs):
-        GraphError.__init__(self, message, **kwargs)
-
-
-class ClientError(CypherError):
+class ClientError(GraphError):
     """ The Client sent a bad request - changing the request might yield a successful outcome.
     """
 
 
-class DatabaseError(CypherError):
+class DatabaseError(GraphError):
     """ The database failed to service the request.
     """
 
 
-class TransientError(CypherError):
+class TransientError(GraphError):
     """ The database cannot service the request right now, retrying later might yield a successful outcome.
     """
+
+
+class ConstraintError(ClientError):
+    """
+    """
+
+
+class CypherSyntaxError(ClientError):
+    """
+    """
+
+
+class Unauthorized(ClientError):
+    """
+    """
+
+
+client_errors = {
+
+    # ConstraintError
+    "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
+    "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+    "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
+
+    # CypherSyntaxError
+    "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
+    "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+
+}

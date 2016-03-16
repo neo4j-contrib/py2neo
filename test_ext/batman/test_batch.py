@@ -19,7 +19,7 @@
 from py2neo import DBMS, Node, Relationship, Finished, cast_node, cast_relationship
 from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
     BatchError, Job, Target, NodePointer, ManualIndexWriteBatch
-from py2neo.status.statement import InvalidSyntax, ConstraintViolation
+from py2neo.status import CypherSyntaxError, ConstraintError
 from test.util import Py2neoTestCase
 
 from unittest import skipIf
@@ -220,12 +220,10 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         alice, bob, k1, k2 = self.batch.run()
         self.batch.jobs = []
         self.batch.get_or_create_path(alice, "KNOWS", bob)
-        try:
+        with self.assertRaises(BatchError) as error:
             self.batch.run()
-        except BatchError as error:
-            assert isinstance(error.__cause__, ConstraintViolation)
-        else:
-            assert False
+        cause = error.exception.__cause__
+        assert isinstance(cause, ConstraintError)
 
     @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_can_create_relationship_and_start_node(self):
@@ -347,14 +345,10 @@ class MiscellaneousTestCase(Py2neoTestCase):
     @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_cypher_job_with_invalid_syntax(self):
         self.batch.append(CypherJob("X"))
-        try:
+        with self.assertRaises(BatchError) as error:
             self.batch.run()
-        except BatchError as error:
-            assert error.batch is self.batch
-            assert error.job_id == 0
-            assert isinstance(error.__cause__, InvalidSyntax)
-        else:
-            assert False
+        cause = error.exception.__cause__
+        assert isinstance(cause, CypherSyntaxError)
 
     @skipIf(version_2_1, "this test highlights a server bug in 2.1")
     def test_cannot_resubmit_finished_job(self):

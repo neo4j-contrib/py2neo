@@ -17,8 +17,7 @@
 
 
 from py2neo.types import Node, Relationship, order, size, remote
-from py2neo.status import ClientError, DatabaseError, TransientError, CypherError, Finished, GraphError
-from py2neo.status.statement import InvalidSyntax, ConstraintViolation
+from py2neo.status import Finished, CypherSyntaxError, ConstraintError
 from test.util import Py2neoTestCase
 
 
@@ -368,13 +367,9 @@ class TransactionErrorTestCase(Py2neoTestCase):
 
     def test_can_generate_transaction_error(self):
         tx = self.graph.begin()
-        try:
-            tx.run("CRAETE (a) RETURN a")
+        with self.assertRaises(CypherSyntaxError):
+            tx.run("X")
             tx.commit()
-        except InvalidSyntax as err:
-            assert repr(err)
-        else:
-            assert False
 
     def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(self):
         tx = self.graph.begin()
@@ -389,101 +384,8 @@ class TransactionErrorTestCase(Py2neoTestCase):
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
         tx.run(statement, parameters)
-        try:
+        with self.assertRaises(ConstraintError):
             tx.commit()
-        except CypherError as error:
-            self.assert_new_error(
-                error, (ConstraintViolation, ClientError, CypherError,
-                        GraphError), "Neo.ClientError.Statement.ConstraintViolation")
-        else:
-            assert False
-
-    def test_can_hydrate_error_for_all_known_client_error_codes(self):
-        codes = [
-            "Neo.ClientError.General.ReadOnly",
-            "Neo.ClientError.Request.Invalid",
-            "Neo.ClientError.Request.InvalidFormat",
-            "Neo.ClientError.Schema.ConstraintAlreadyExists",
-            "Neo.ClientError.Schema.ConstraintVerificationFailure",
-            "Neo.ClientError.Schema.ConstraintViolation",
-            "Neo.ClientError.Schema.IllegalTokenName",
-            "Neo.ClientError.Schema.IndexAlreadyExists",
-            "Neo.ClientError.Schema.IndexBelongsToConstraint",
-            "Neo.ClientError.Schema.LabelLimitReached",
-            "Neo.ClientError.Schema.NoSuchConstraint",
-            "Neo.ClientError.Schema.NoSuchIndex",
-            "Neo.ClientError.Statement.ArithmeticError",
-            "Neo.ClientError.Statement.ConstraintViolation",
-            "Neo.ClientError.Statement.EntityNotFound",
-            "Neo.ClientError.Statement.InvalidArguments",
-            "Neo.ClientError.Statement.InvalidSemantics",
-            "Neo.ClientError.Statement.InvalidSyntax",
-            "Neo.ClientError.Statement.InvalidType",
-            "Neo.ClientError.Statement.NoSuchLabel",
-            "Neo.ClientError.Statement.NoSuchProperty",
-            "Neo.ClientError.Statement.ParameterMissing",
-            "Neo.ClientError.Transaction.ConcurrentRequest",
-            "Neo.ClientError.Transaction.EventHandlerThrewException",
-            "Neo.ClientError.Transaction.InvalidType",
-            "Neo.ClientError.Transaction.UnknownId",
-        ]
-        for code in codes:
-            data = {"code": code, "message": "X"}
-            _, classification, category, title = code.split(".")
-            error = CypherError.hydrate(data)
-            assert error.code == code
-            assert error.message == "X"
-            assert error.__class__.__name__ == title
-            assert error.__class__.__mro__[1].__name__ == classification
-            assert isinstance(error, ClientError)
-            assert isinstance(error, CypherError)
-            assert isinstance(error, GraphError)
-
-    def test_can_hydrate_error_for_all_known_database_error_codes(self):
-        codes = [
-            "Neo.DatabaseError.General.CorruptSchemaRule",
-            "Neo.DatabaseError.General.FailedIndex",
-            "Neo.DatabaseError.General.UnknownFailure",
-            "Neo.DatabaseError.Schema.ConstraintCreationFailure",
-            "Neo.DatabaseError.Schema.ConstraintDropFailure",
-            "Neo.DatabaseError.Schema.IndexCreationFailure",
-            "Neo.DatabaseError.Schema.IndexDropFailure",
-            "Neo.DatabaseError.Schema.NoSuchLabel",
-            "Neo.DatabaseError.Schema.NoSuchPropertyKey",
-            "Neo.DatabaseError.Schema.NoSuchRelationshipType",
-            "Neo.DatabaseError.Schema.NoSuchSchemaRule",
-            "Neo.DatabaseError.Statement.ExecutionFailure",
-            "Neo.DatabaseError.Transaction.CouldNotBegin",
-            "Neo.DatabaseError.Transaction.CouldNotCommit",
-            "Neo.DatabaseError.Transaction.CouldNotRollback",
-            "Neo.DatabaseError.Transaction.ReleaseLocksFailed",
-        ]
-        for code in codes:
-            data = {"code": code, "message": "X"}
-            _, classification, category, title = code.split(".")
-            error = CypherError.hydrate(data)
-            assert error.code == code
-            assert error.message == "X"
-            assert isinstance(error, DatabaseError)
-            assert isinstance(error, CypherError)
-            assert isinstance(error, GraphError)
-
-    def test_can_hydrate_error_for_all_known_transient_error_codes(self):
-        codes = [
-            "Neo.TransientError.Network.UnknownFailure",
-            "Neo.TransientError.Statement.ExternalResourceFailure",
-            "Neo.TransientError.Transaction.AcquireLockTimeout",
-            "Neo.TransientError.Transaction.DeadlockDetected",
-        ]
-        for code in codes:
-            data = {"code": code, "message": "X"}
-            _, classification, category, title = code.split(".")
-            error = CypherError.hydrate(data)
-            assert error.code == code
-            assert error.message == "X"
-            assert isinstance(error, TransientError)
-            assert isinstance(error, CypherError)
-            assert isinstance(error, GraphError)
 
 
 class TransactionAutocommitTestCase(Py2neoTestCase):

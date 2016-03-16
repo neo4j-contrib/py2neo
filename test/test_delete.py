@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
+from py2neo.status import ConstraintError
 from py2neo.types import Node, Relationship, Path
-from py2neo.status import CypherError
 from test.util import Py2neoTestCase
 
 
@@ -54,7 +54,7 @@ class DeleteTestCase(Py2neoTestCase):
         ab = Relationship(alice, "KNOWS", bob)
         self.graph.create(alice | bob | ab)
         assert self.graph.exists(alice | bob | ab)
-        with self.assertRaises(CypherError):
+        with self.assertRaises(ConstraintError):
             self.graph.delete(alice)
         self.graph.delete(alice | bob | ab)
         

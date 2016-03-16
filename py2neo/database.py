@@ -35,7 +35,7 @@ from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.status import CypherError, Finished, GraphError
+from py2neo.status import Finished, GraphError
 from py2neo.util import deprecated, is_collection, version_tuple
 
 
@@ -477,9 +477,8 @@ class Graph(object):
     def _hydrate(self, data, inst=None):
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
-                from py2neo.status import CypherError
                 for error in data["errors"]:
-                    raise CypherError.hydrate(error)
+                    raise GraphError.hydrate(error)
             elif "self" in data:
                 if "type" in data:
                     return Relationship.hydrate(data, inst)
@@ -926,7 +925,7 @@ class BoltDataSource(DataSource):
 
         :param metadata:
         """
-        raise CypherError.hydrate(metadata)
+        raise GraphError.hydrate(metadata)
 
     def rehydrate(self, obj, inst=None):
         # TODO: hydrate directly instead of via HTTP hydration
@@ -1386,7 +1385,7 @@ class HTTPTransaction(Transaction):
         if "commit" in raw:
             self._commit = Resource(raw["commit"])
         for raw_error in raw["errors"]:
-            raise CypherError.hydrate(raw_error)
+            raise GraphError.hydrate(raw_error)
         for raw_result in raw["results"]:
             source = self.sources.pop(0)
             source.load(raw_result)

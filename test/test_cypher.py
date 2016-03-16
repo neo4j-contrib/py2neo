@@ -19,8 +19,7 @@
 from io import StringIO
 
 from py2neo.database import Transaction, HTTPTransaction, presubstitute
-from py2neo.status import CypherError
-from py2neo.status.statement import InvalidSyntax
+from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, CypherWriter, cypher_repr, order, size, remote
 from test.util import Py2neoTestCase, TemporaryTransaction
 
@@ -94,12 +93,8 @@ class CypherTestCase(Py2neoTestCase):
 
     def test_nonsense_query(self):
         statement = "SELECT z=nude(0) RETURNS x"
-        try:
+        with self.assertRaises(CypherSyntaxError):
             self.graph.run(statement)
-        except CypherError as error:
-            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
-        else:
-            assert False
 
     def test_can_run_statement(self):
         records = list(self.graph.run("CREATE (a {name:'Alice'}) RETURN a.name AS name"))
@@ -127,10 +122,6 @@ class CypherTestCase(Py2neoTestCase):
         statement = "MATCH (a) WHERE 2 + 2 = 5 RETURN a.name AS name"
         value = self.graph.evaluate(statement)
         assert value is None
-
-    def test_nonsense_query_with_error_handler(self):
-        with self.assertRaises(CypherError):
-            self.graph.run("SELECT z=nude(0) RETURNS x")
 
     def test_query(self):
         a, b, ab = self.alice_and_bob
@@ -234,31 +225,18 @@ class CypherTestCase(Py2neoTestCase):
         record = self.graph.run(query, params).next
         assert record["c"] == c
 
-    def test_invalid_syntax_raises_cypher_error(self):
-        graph = self.graph
-        try:
-            graph.run("X")
-        except CypherError as error:
-            assert error.code == "Neo.ClientError.Statement.InvalidSyntax"
-        else:
-            assert False
-
     def test_unique_path_not_unique_raises_cypher_error(self):
         graph = self.graph
         record = graph.run("CREATE (a), (b) RETURN a, b").next
         parameters = {"A": record["a"], "B": record["b"]}
-        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
                      "CREATE (a)-[:KNOWS]->(b)")
         graph.run(statement, parameters)
         graph.run(statement, parameters)
-        try:
-            statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
-                         "CREATE UNIQUE (a)-[:KNOWS]->(b)")
+        statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
+                     "CREATE UNIQUE (a)-[:KNOWS]->(b)")
+        with self.assertRaises(ConstraintError):
             graph.run(statement, parameters)
-        except CypherError as error:
-            assert error.code == "Neo.ClientError.Statement.ConstraintViolation"
-        else:
-            assert False
 
 
 class CypherCreateTestCase(Py2neoTestCase):
@@ -611,7 +589,7 @@ class CypherOverHTTPTestCase(Py2neoTestCase):
         assert tx.finished()
 
     def test_error(self):
-        with self.assertRaises(InvalidSyntax):
+        with self.assertRaises(CypherSyntaxError):
             tx = HTTPTransaction(self.graph)
             tx.run("X")
             tx.commit()

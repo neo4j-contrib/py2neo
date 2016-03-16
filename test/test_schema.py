@@ -17,6 +17,7 @@
 
 
 from py2neo import GraphError, Node, cast_node
+from py2neo.status import ConstraintError
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 from test.util import Py2neoTestCase
 from test.compat import patch
@@ -71,7 +72,7 @@ class SchemaTestCase(Py2neoTestCase):
         self.schema.create_uniqueness_constraint(label_1, "name")
         constraints = self.schema.get_uniqueness_constraints(label_1)
         assert "name" in constraints
-        with self.assertRaises(GraphError):
+        with self.assertRaises(ConstraintError):
             self.graph.create(Node(label_1, name="Taufkirchen"))
         self.graph.delete(borough)
 

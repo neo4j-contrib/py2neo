@@ -21,7 +21,7 @@ from unittest import skipUnless
 from py2neo.auth import ServerAddress, register_server, keyring, authenticate
 from py2neo.database import DBMS
 from py2neo.http import Resource
-from py2neo.status.security import AuthorizationFailed
+from py2neo.status import Unauthorized
 from test.util import Py2neoTestCase
 
 
@@ -33,22 +33,22 @@ class AuthorizationFailedTestCase(Py2neoTestCase):
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_get(self):
-        with self.assertRaises(AuthorizationFailed):
+        with self.assertRaises(Unauthorized):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").get().content
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_put(self):
-        with self.assertRaises(AuthorizationFailed):
+        with self.assertRaises(Unauthorized):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").put({}).content
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_post(self):
-        with self.assertRaises(AuthorizationFailed):
+        with self.assertRaises(Unauthorized):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").post({}).content
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_delete(self):
-        with self.assertRaises(AuthorizationFailed):
+        with self.assertRaises(Unauthorized):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").delete().content
 
 
