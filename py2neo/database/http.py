@@ -35,8 +35,6 @@ _http_headers = {
     ],
 }
 
-_http_rewrites = {}
-
 
 def set_http_header(key, value, host_port=None):
     """ Add an HTTP header for all future requests. If a `host_port` is
@@ -69,47 +67,12 @@ def get_http_headers(host_port):
     return uri_headers
 
 
-def http_rewrite(from_scheme_host_port, to_scheme_host_port):
-    """ Automatically rewrite all URIs directed to the scheme, host and port
-    specified in `from_scheme_host_port` to that specified in
-    `to_scheme_host_port`.
-
-    As an example::
-
-        from py2neo import rewrite
-        # implicitly convert all URIs beginning with <http://localhost:7474>
-        # to instead use <https://dbserver:9999>
-        rewrite(("http", "localhost", 7474), ("https", "dbserver", 9999))
-
-    If `to_scheme_host_port` is :py:const:`None` then any rewrite rule for
-    `from_scheme_host_port` is removed.
-
-    This facility is primarily intended for use by database servers behind
-    proxies which are unaware of their externally visible network address.
-    """
-    global _http_rewrites
-    if to_scheme_host_port is None:
-        try:
-            del _http_rewrites[from_scheme_host_port]
-        except KeyError:
-            pass
-    else:
-        _http_rewrites[from_scheme_host_port] = to_scheme_host_port
-
-
 class Resource(_Resource):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
     def __init__(self, uri, metadata=None, headers=None):
         uri = URI(uri)
-        scheme_host_port = (uri.scheme, uri.host, uri.port)
-        if scheme_host_port in _http_rewrites:
-            scheme_host_port = _http_rewrites[scheme_host_port]
-            # This is fine - it's all my code anyway...
-            uri._URI__set_scheme(scheme_host_port[0])
-            uri._URI__set_authority("{0}:{1}".format(scheme_host_port[1],
-                                                     scheme_host_port[2]))
         self._resource = _Resource.__init__(self, uri)
         self._headers = dict(headers or {})
         self.__base = super(Resource, self)

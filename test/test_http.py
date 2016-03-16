@@ -18,7 +18,7 @@
 
 import logging
 
-from py2neo.database import DBMS, GraphError, set_http_header, get_http_headers, http_rewrite, Resource
+from py2neo.database import DBMS, GraphError, set_http_header, get_http_headers, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 from test.compat import patch
@@ -89,21 +89,6 @@ class HeaderTestCase(Py2neoTestCase):
         headers = get_http_headers("example.com:7474")
         assert headers["Key1"] == "Value1"
         assert headers["Key2"] == "Value2"
-
-
-class RewriteTestCase(Py2neoTestCase):
-
-    def test_can_rewrite_uri(self):
-        http_rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-        assert Resource("https://localtoast:4747/").uri == "http://localhost:7474/"
-
-    def test_can_remove_rewrite_uri(self):
-        http_rewrite(("https", "localtoast", 4747), ("http", "localhost", 7474))
-        http_rewrite(("https", "localtoast", 4747), None)
-        assert Resource("https://localtoast:4747/").uri == "https://localtoast:4747/"
-
-    def test_can_remove_unknown_rewrite_uri(self):
-        http_rewrite(("https", "localnonsense", 4747), None)
 
 
 class ClientErrorTestCase(Py2neoTestCase):

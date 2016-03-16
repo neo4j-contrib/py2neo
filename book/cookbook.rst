@@ -1,6 +1,6 @@
-========
+********
 Cookbook
-========
+********
 
 
 Monitoring Client-Server Interaction
@@ -19,11 +19,6 @@ To watch Cypher traffic::
     >>> from py2neo import watch
     >>> watch("py2neo.cypher")
 
-To watch batch traffic::
-
-    >>> from py2neo import watch
-    >>> watch("py2neo.ext.batch")
-
 
 .. autofunction:: py2neo.watch
 
@@ -31,14 +26,8 @@ To watch batch traffic::
 Escaping Values in Cypher
 =========================
 
-    >>> from py2neo.cypher import cypher_escape
+    >>> from py2neo import cypher_escape
     >>> rel_type = "KNOWS WELL"
     >>> statement = "CREATE (a)-[ab:%s]->(b) RETURN ab" % cypher_escape(rel_type)
     >>> statement
     'CREATE (a)-[ab:`KNOWS WELL`]->(b) RETURN ab'
-
-
-URI Rewriting
-=============
-
-.. autofunction:: py2neo.http_rewrite

@@ -1,2 +1,2 @@
-.. automodule:: py2neo.neokit
+.. automodule:: neokit
    :members:

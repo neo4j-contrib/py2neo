@@ -105,7 +105,7 @@ def cypher_request(statement, parameters, **kwparameters):
 
 class DBMS(object):
     """ Accessor for the entire database management system belonging to
-    a Neo4j server installation. This corresponds to the ``/`` URI in
+    a Neo4j server installation. This corresponds to the root URI in
     the HTTP API.
 
     An explicit URI can be passed to the constructor::
@@ -280,19 +280,14 @@ class Graph(object):
     - ``password`` (no default)
     - ``database`` (default "data")
 
-    Each of these can be provided as a keyword argument, as part of a
-    URI (``http:`` or ``bolt:``) or within an environment variable.
-    This means that the examples below are equivalent::
+    Each of these can be provided as a keyword argument or as part of
+    an ``http:`` or ``bolt:`` URI. Therefore the examples below are
+    equivalent::
 
         >>> from py2neo import Graph
         >>> graph_1 = Graph()
         >>> graph_2 = Graph(host="localhost")
         >>> graph_3 = Graph("http://localhost:7474/db/data/")
-
-    The following environment variables are supported:
-
-    - ``NEO4J_URI`` - a full server URI for the database
-    - ``NEO4J_AUTH`` - colon separated user and password details
 
     Once obtained, the `Graph` instance provides direct or indirect
     access to most of the functionality available within py2neo. Note

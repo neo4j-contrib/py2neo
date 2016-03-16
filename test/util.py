@@ -96,7 +96,10 @@ class TemporaryTransaction(object):
         self.tx = graph.begin()
 
     def __del__(self):
-        self.tx.rollback()
+        try:
+            self.tx.rollback()
+        except:
+            pass
 
     def run(self, statement, parameters=None, **kwparameters):
         return self.tx.run(statement, parameters, **kwparameters)

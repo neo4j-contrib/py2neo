@@ -28,15 +28,16 @@ has been installed as part of the Py2neo package, the command line
 tool will be available as `neokit`; otherwise, it can be called
 as a Python module: `python -m neokit`.
 
+
 Command Line Usage
 ==================
+
+Installing a Neo4j archive
+--------------------------
 ::
 
-    $ neokit download 3.0
+    $ neokit install 3.0
 
-Programmatic Usage
-==================
-TODO
 
 API
 ===
@@ -158,11 +159,13 @@ def move_file(file_name):
 
 
 class AuthError(Exception):
-
-    pass
+    """ Raised when auth fails.
+    """
 
 
 class Package(object):
+    """ Represents a Neo4j archive.
+    """
 
     def __init__(self, edition=None, version=None):
         edition = edition.lower() if edition else "community"
@@ -181,14 +184,23 @@ class Package(object):
 
     @property
     def key(self):
+        """ The unique key that identifies the archive, e.g.
+        ``community-2.3.2``.
+        """
         return "%s-%s" % (self.edition, self.version)
 
     @property
     def name(self):
+        """ The full name of the archive file, e.g.
+        ``neo4j-community-2.3.2-unix.tar.gz``.
+        """
         return "neo4j-%s-unix.tar.gz" % self.key
 
     @property
-    def url(self):
+    def uri(self):
+        """ The URI from which this archive may be downloaded, e.g.
+        ``http://dist.neo4j.org/neo4j-community-2.3.2-unix.tar.gz``.
+        """
         if self.version in dist_overrides:
             return "%s/%s" % (dist_overrides[self.version], self.name)
         else:
@@ -199,7 +211,7 @@ class Package(object):
 
         :param path:
         :param overwrite:
-        :return:
+        :return: the name of the downloaded file
         """
         file_name = path_join(path, self.name)
         if overwrite:
@@ -211,11 +223,13 @@ class Package(object):
             makedirs(path)
         except OSError:
             pass
-        urlretrieve(self.url, file_name)
+        urlretrieve(self.uri, file_name)
         return file_name
 
 
 class Warehouse(object):
+    """ A local storage area for Neo4j installations.
+    """
 
     def __init__(self, home=None):
         self.home = home or getenv("NEOKIT_HOME") or expanduser("~/.neokit")
@@ -223,6 +237,11 @@ class Warehouse(object):
         self.run = path_join(self.home, "run")
 
     def get(self, name):
+        """ Obtain a Neo4j installation by name.
+
+        :param name:
+        :return:
+        """
         container = path_join(self.run, name)
         for dir_name in listdir(container):
             dir_path = path_join(container, dir_name)
@@ -231,6 +250,13 @@ class Warehouse(object):
         raise IOError("Could not locate server directory")
 
     def install(self, name, edition=None, version=None):
+        """ Install Neo4j.
+
+        :param name:
+        :param edition:
+        :param version:
+        :return:
+        """
         container = path_join(self.run, name)
         rmtree(container, ignore_errors=True)
         makedirs(container)
@@ -246,21 +272,35 @@ class Warehouse(object):
         return self.get(name)
 
     def uninstall(self, name):
+        """ Remove a Neo4j installation.
+
+        :param name:
+        :return:
+        """
         container = path_join(self.run, name)
         rmtree(container)
 
     def directory(self):
+        """ Fetch a dictionary of :class:`.GraphServer` objects, keyed
+        by name, for all available Neo4j installations.
+        """
         try:
             return {name: self.get(name) for name in listdir(self.run) if not name.startswith(".")}
         except OSError:
             return {}
 
     def rename(self, name, new_name):
+        """ Rename a Neo4j installation.
+
+        :param name:
+        :param new_name:
+        :return:
+        """
         rename(path_join(self.run, name), path_join(self.run, new_name))
 
 
 class GraphServer(object):
-    """ Represents a Neo4j server installation on disk.
+    """ A Neo4j server installation.
     """
 
     def __init__(self, home=None):
@@ -277,10 +317,18 @@ class GraphServer(object):
 
     @property
     def store_path(self):
+        """ The location of the graph database store on disk.
+        """
         return path_join(self.home, self.config("neo4j-server.properties",
                                                 "org.neo4j.server.database.location"))
 
     def config(self, file_name, key):
+        """ Retrieve the value of a configuration item.
+
+        :param file_name:
+        :param key:
+        :return:
+        """
         config_file_path = path_join(self.home, "conf", "neo4j.conf")
         if not isfile(config_file_path):
             config_file_path = path_join(self.home, "conf", file_name)
@@ -290,9 +338,22 @@ class GraphServer(object):
                     return line.strip().partition("=")[-1]
 
     def set_config(self, file_name, key, value):
+        """ Update a single configuration value.
+
+        :param file_name:
+        :param key:
+        :param value:
+        :return:
+        """
         self.update_config(file_name, {key: value})
 
     def update_config(self, file_name, properties):
+        """ Update multiple configuration values.
+
+        :param file_name:
+        :param properties:
+        :return:
+        """
         config_file_path = path_join(self.home, "conf", "neo4j.conf")
         if not isfile(config_file_path):
             config_file_path = path_join(self.home, "conf", file_name)
@@ -313,6 +374,9 @@ class GraphServer(object):
 
     @property
     def auth_enabled(self):
+        """ Settable boolean property for enabling and disabling auth
+        on this server.
+        """
         return self.config("neo4j-server.properties", "dbms.security.auth_enabled") == "true"
 
     @auth_enabled.setter
@@ -320,6 +384,13 @@ class GraphServer(object):
         self.set_config("neo4j-server.properties", "dbms.security.auth_enabled", value)
 
     def update_password(self, user, password, new_password):
+        """ Update the password for this server.
+
+        :param user:
+        :param password:
+        :param new_password:
+        :return:
+        """
         request = Request("%suser/neo4j/password" % self.http_uri,
                           json_dumps({"password": new_password}, ensure_ascii=True).encode("utf-8"),
                           {"Authorization": "Basic " + b64encode((user + ":" + password).encode("utf-8")).decode("ascii"),
@@ -331,6 +402,8 @@ class GraphServer(object):
 
     @property
     def http_port(self):
+        """ The port on which this server expects HTTP communication.
+        """
         port = None
         if self.running():
             port = self.info("NEO4J_SERVER_PORT")
@@ -347,13 +420,14 @@ class GraphServer(object):
 
     @property
     def http_uri(self):
+        """ The full HTTP URI for this server.
+        """
         return "http://localhost:%d/" % self.http_port
 
     def delete_store(self, force=False):
-        """ Delete this store directory.
+        """ Delete the store directory for this server.
 
         :param force:
-
         """
         if force or not self.running():
             try:
@@ -435,7 +509,7 @@ class GraphServer(object):
     def info(self, key):
         """ Lookup an item of server information from a running server.
 
-        :arg key: the key of the item to look up
+        :param key: the key of the item to look up
         """
         try:
             out = check_output("%s info" % self.control_script, shell=True)
