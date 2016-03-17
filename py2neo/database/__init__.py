@@ -314,8 +314,9 @@ class Graph(object):
             inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri.string
             inst.transaction_class = HTTPTransaction
             if inst.dbms.supports_bolt:
+                auth = keyring.get(address)
                 inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
-                                                   auth=keyring.get(address).bolt_auth_token,
+                                                   auth=None if auth is None else auth.bolt_auth_token,
                                                    user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
             cls.__instances[key] = inst
