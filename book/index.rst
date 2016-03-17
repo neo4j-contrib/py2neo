@@ -15,6 +15,7 @@ To install the latest stable version of py2neo, simply use pip_::
 
 
 The latest stable release of py2neo is **2.0.8**.
+Documentation for the 2.0 series is available `here <http://py2neo.org/2.0>`_.
 
 To install the latest beta, use::
 
