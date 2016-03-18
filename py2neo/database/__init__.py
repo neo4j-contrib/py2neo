@@ -1054,46 +1054,12 @@ class Transaction(object):
             True
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph`
+                    creatable object
         """
         try:
-            nodes = list(subgraph.nodes())
-            relationships = list(subgraph.relationships())
+            subgraph.__db_create__(self)
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        reads = []
-        writes = []
-        parameters = {}
-        returns = {}
-        for i, node in enumerate(nodes):
-            node_id = "a%d" % i
-            param_id = "x%d" % i
-            remote_node = remote(node)
-            if remote_node:
-                reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = remote_node._id
-            else:
-                label_string = "".join(":" + cypher_escape(label)
-                                       for label in sorted(node.labels()))
-                writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
-                parameters[param_id] = dict(node)
-                node._set_remote_pending(self)
-            returns[node_id] = node
-        for i, relationship in enumerate(relationships):
-            if not remote(relationship):
-                rel_id = "r%d" % i
-                start_node_id = "a%d" % nodes.index(relationship.start_node())
-                end_node_id = "a%d" % nodes.index(relationship.end_node())
-                type_string = cypher_escape(relationship.type())
-                param_id = "y%d" % i
-                writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
-                              (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
-                parameters[param_id] = dict(relationship)
-                returns[rel_id] = relationship
-                relationship._set_remote_pending(self)
-        statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        self.entities.append(returns)
-        self.run(statement, parameters)
+            raise TypeError("No method defined to create object %r" % subgraph)
 
     def create_unique(self, walkable):
         """ Create unique remote nodes and relationships that correspond to those
@@ -1104,50 +1070,10 @@ class Transaction(object):
         :param walkable: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Walkable` object
         """
-        if not isinstance(walkable, Walkable):
-            raise TypeError("Object %r is not walkable" % walkable)
-        if not any(remote(node) for node in walkable.nodes()):
-            raise ValueError("At least one node must be bound")
-        matches = []
-        pattern = []
-        writes = []
-        parameters = {}
-        returns = {}
-        node = None
-        for i, entity in enumerate(walk(walkable)):
-            if i % 2 == 0:
-                # node
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                remote_entity = remote(entity)
-                if remote_entity:
-                    matches.append("MATCH (%s) "
-                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                    pattern.append("(%s)" % node_id)
-                    parameters[param_id] = remote_entity._id
-                else:
-                    label_string = "".join(":" + cypher_escape(label)
-                                           for label in sorted(entity.labels()))
-                    pattern.append("(%s%s {%s})" % (node_id, label_string, param_id))
-                    parameters[param_id] = dict(entity)
-                    entity._set_remote_pending(self)
-                returns[node_id] = node = entity
-            else:
-                # relationship
-                rel_id = "r%d" % i
-                param_id = "x%d" % i
-                type_string = cypher_escape(entity.type())
-                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
-                pattern.append(template % (rel_id, type_string))
-                writes.append("SET %s={%s}" % (rel_id, param_id))
-                parameters[param_id] = dict(entity)
-                if not remote(entity):
-                    entity._set_remote_pending(self)
-                returns[rel_id] = entity
-        statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
-                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        self.entities.append(returns)
-        self.run(statement, parameters)
+        try:
+            walkable.__db_createunique__(self)
+        except AttributeError:
+            raise TypeError("No method defined to uniquely create object %r" % walkable)
 
     def degree(self, subgraph):
         """ Return the total number of relationships attached to all nodes in
@@ -1158,17 +1084,9 @@ class Transaction(object):
         :returns: the total number of distinct relationships
         """
         try:
-            nodes = list(subgraph.nodes())
+            return subgraph.__db_degree__(self)
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        node_ids = []
-        for i, node in enumerate(nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_ids.append(remote_node._id)
-        statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
-        parameters = {"x": node_ids}
-        return self.evaluate(statement, parameters)
+            raise TypeError("No method defined to determine the degree of object %r" % subgraph)
 
     def delete(self, subgraph):
         """ Delete the remote nodes and relationships that correspond to
@@ -1178,35 +1096,9 @@ class Transaction(object):
                        :class:`.Subgraph`
         """
         try:
-            nodes = list(subgraph.nodes())
-            relationships = list(subgraph.relationships())
+            subgraph.__db_delete__(self)
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        matches = []
-        deletes = []
-        parameters = {}
-        for i, relationship in enumerate(relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                rel_id = "r%d" % i
-                param_id = "y%d" % i
-                matches.append("MATCH ()-[%s]->() "
-                               "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
-                deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = remote_relationship._id
-                relationship._del_remote()
-        for i, node in enumerate(nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                matches.append("MATCH (%s) "
-                               "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = remote_node._id
-                node._del_remote()
-        statement = "\n".join(matches + deletes)
-        self.run(statement, parameters)
+            raise TypeError("No method defined to delete object %r" % subgraph)
 
     def exists(self, subgraph):
         """ Determine whether one or more graph entities all exist within the
@@ -1218,29 +1110,9 @@ class Transaction(object):
         :returns: ``True`` if all entities exist remotely, ``False`` otherwise
         """
         try:
-            nodes = list(subgraph.nodes())
-            relationships = list(subgraph.relationships())
+            return subgraph.__db_exists__(self)
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        node_ids = set()
-        relationship_ids = set()
-        for i, node in enumerate(nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_ids.add(remote_node._id)
-            else:
-                return False
-        for i, relationship in enumerate(relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                relationship_ids.add(remote_relationship._id)
-            else:
-                return False
-        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
-                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
-                     "RETURN count(DISTINCT a) + count(DISTINCT r)")
-        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
-        return self.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
+            raise TypeError("No method defined to determine the existence of object %r" % subgraph)
 
     def merge(self, walkable, label=None, *property_keys):
         """ Merge remote nodes and relationships that correspond to those in
@@ -1252,91 +1124,22 @@ class Transaction(object):
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        if not isinstance(walkable, Walkable):
-            raise TypeError("Object %r is not walkable" % walkable)
-        if size(walkable) == 0 and remote(walkable.start_node()):
-            return  # single, bound node - nothing to do
-        matches = []
-        pattern = []
-        writes = []
-        parameters = {}
-        returns = {}
-        node = None
-        for i, entity in enumerate(walk(walkable)):
-            if i % 2 == 0:
-                # node
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                remote_entity = remote(entity)
-                if remote_entity:
-                    matches.append("MATCH (%s) "
-                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                    pattern.append("(%s)" % node_id)
-                    parameters[param_id] = remote_entity._id
-                else:
-                    if label is None:
-                        label_string = "".join(":" + cypher_escape(label)
-                                               for label in sorted(entity.labels()))
-                    elif entity.labels():
-                        label_string = ":" + cypher_escape(label)
-                        writes.append("SET %s%s" % (
-                            node_id, "".join(":" + cypher_escape(label)
-                                             for label in sorted(entity.labels()))))
-                    else:
-                        label_string = ""
-                    if property_keys:
-                        property_map_string = cypher_repr({k: v for k, v in dict(entity).items()
-                                                           if k in property_keys})
-                        writes.append("SET %s={%s}" % (node_id, param_id))
-                        parameters[param_id] = dict(entity)
-                    else:
-                        property_map_string = cypher_repr(dict(entity))
-                    pattern.append("(%s%s %s)" % (node_id, label_string, property_map_string))
-                    entity._set_remote_pending(self)
-                returns[node_id] = node = entity
-            else:
-                # relationship
-                rel_id = "r%d" % i
-                param_id = "x%d" % i
-                type_string = cypher_escape(entity.type())
-                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
-                pattern.append(template % (rel_id, type_string))
-                writes.append("SET %s={%s}" % (rel_id, param_id))
-                parameters[param_id] = dict(entity)
-                if not remote(entity):
-                    entity._set_remote_pending(self)
-                returns[rel_id] = entity
-        statement = "\n".join(matches + ["MERGE %s" % "".join(pattern)] + writes +
-                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        self.entities.append(returns)
-        self.run(statement, parameters)
+        try:
+            walkable.__db_merge__(self, label, *property_keys)
+        except AttributeError:
+            raise TypeError("No method defined to merge object %r" % walkable)
 
     def separate(self, subgraph):
         """ Delete the remote relationships that correspond to those in a local
-        subgraph. This leaves any nodes in *subgraph* untouched.
+        subgraph. This leaves any nodes untouched.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
         try:
-            relationships = list(subgraph.relationships())
+            subgraph.__db_separate__(self)
         except AttributeError:
-            raise TypeError("Object %r is not graphy" % subgraph)
-        matches = []
-        deletes = []
-        parameters = {}
-        for i, relationship in enumerate(relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                rel_id = "r%d" % i
-                param_id = "y%d" % i
-                matches.append("MATCH ()-[%s]->() "
-                               "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
-                deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = remote_relationship._id
-                relationship._del_remote()
-        statement = "\n".join(matches + deletes)
-        self.run(statement, parameters)
+            raise TypeError("No method defined to separate object %r" % subgraph)
 
 
 class HTTPTransaction(Transaction):
