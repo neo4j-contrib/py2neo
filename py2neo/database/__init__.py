@@ -634,48 +634,20 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        nodes = {node: None for node in subgraph.nodes()}
-        relationships = list(subgraph.relationships())
-        tx = self.begin()
-        for node in nodes:
-            tx.entities.append({"a": node})
-            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=node)
-            nodes[node] = cursor
-        for relationship in relationships:
-            tx.entities.append({"r": relationship})
-            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=relationship)
-        tx.commit()
-        for node, cursor in nodes.items():
-            labels = node._Node__labels
-            labels.clear()
-            labels.update(cursor.evaluate(1))
+        try:
+            subgraph.__db_pull__(self)
+        except AttributeError:
+            raise TypeError("No method defined to pull object %r" % subgraph)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        batch = []
-        i = 0
-        for node in subgraph.nodes():
-            remote_node = remote(node)
-            if remote_node:
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote_node.ref,
-                              "body": dict(node)})
-                i += 1
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/labels" % remote_node.ref,
-                              "body": list(node.labels())})
-                i += 1
-        for relationship in subgraph.relationships():
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote_relationship.ref,
-                              "body": dict(relationship)})
-                i += 1
-        remote(self).resolve("batch").post(batch)
+        try:
+            subgraph.__db_push__(self)
+        except AttributeError:
+            raise TypeError("No method defined to push object %r" % subgraph)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.

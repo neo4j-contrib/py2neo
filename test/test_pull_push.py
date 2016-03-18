@@ -22,6 +22,10 @@ from test.util import Py2neoTestCase
 
 class PullTestCase(Py2neoTestCase):
 
+    def test_cannot_pull_non_graphy_object(self):
+        with self.assertRaises(TypeError):
+            self.graph.pull("this is not a graphy object")
+
     def test_can_graph_pull_node(self):
         alice_1 = Node()
         alice_2 = Node("Person", name="Alice")
@@ -114,6 +118,10 @@ class PullTestCase(Py2neoTestCase):
 
 
 class PushTestCase(Py2neoTestCase):
+
+    def test_cannot_push_non_graphy_object(self):
+        with self.assertRaises(TypeError):
+            self.graph.push("this is not a graphy object")
 
     def test_can_graph_push_node(self):
         alice_1 = Node("Person", name="Alice")

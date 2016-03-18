@@ -384,6 +384,47 @@ class Subgraph(object):
         parameters = {"x": list(node_ids), "y": list(relationship_ids)}
         return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
+    def __db_pull__(self, graph):
+        nodes = {node: None for node in self.nodes()}
+        relationships = list(self.relationships())
+        tx = graph.begin()
+        for node in nodes:
+            tx.entities.append({"a": node})
+            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=node)
+            nodes[node] = cursor
+        for relationship in relationships:
+            tx.entities.append({"r": relationship})
+            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=relationship)
+        tx.commit()
+        for node, cursor in nodes.items():
+            labels = node._Node__labels
+            labels.clear()
+            labels.update(cursor.evaluate(1))
+
+    def __db_push__(self, graph):
+        # TODO: convert this to transactional Cypher when delete/replace all labels is supported
+        batch = []
+        i = 0
+        for node in self.nodes():
+            remote_node = remote(node)
+            if remote_node:
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % remote_node.ref,
+                              "body": dict(node)})
+                i += 1
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/labels" % remote_node.ref,
+                              "body": list(node.labels())})
+                i += 1
+        for relationship in self.relationships():
+            remote_relationship = remote(relationship)
+            if remote_relationship:
+                batch.append({"id": i, "method": "PUT",
+                              "to": "%s/properties" % remote_relationship.ref,
+                              "body": dict(relationship)})
+                i += 1
+        remote(graph).resolve("batch").post(batch)
+
     def __db_separate__(self, tx):
         matches = []
         deletes = []
