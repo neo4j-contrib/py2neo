@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource, Node, Relationship, remote
+from py2neo import Resource, Node, Relationship, remote, RemoteEntity
 from test.util import Py2neoTestCase
 
 
@@ -25,7 +25,7 @@ class EntityTestCase(Py2neoTestCase):
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Node()
-        entity._set_remote(uri)
+        entity.__remote__ = RemoteEntity(uri)
         assert remote(entity)
         assert remote(entity).uri == uri
 
@@ -33,7 +33,7 @@ class EntityTestCase(Py2neoTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         metadata = {"foo": "bar"}
         entity = Node()
-        entity._set_remote(uri, metadata)
+        entity.__remote__  = RemoteEntity(uri, metadata)
         assert remote(entity)
         assert remote(entity).uri == uri
         assert remote(entity).metadata == metadata
@@ -45,12 +45,10 @@ class EntityTestCase(Py2neoTestCase):
     def test_can_bind_node_to_resource(self):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
-        node._set_remote(uri)
+        node.__remote__ = RemoteEntity(uri)
         assert remote(node)
         assert isinstance(remote(node), Resource)
         assert remote(node).uri == uri
-        node._del_remote()
-        assert not remote(node)
 
     def test_can_bind_relationship_to_resource(self):
         uri = "http://localhost:7474/db/relationship/1"
@@ -60,40 +58,10 @@ class EntityTestCase(Py2neoTestCase):
         }
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
-        relationship._set_remote(uri, metadata=metadata)
+        relationship.__remote__ = RemoteEntity(uri, metadata=metadata)
         assert remote(relationship)
         assert isinstance(remote(relationship), Resource)
         assert remote(relationship).uri == uri
-        relationship._del_remote()
-        assert not remote(relationship)
-
-    def test_can_unbind_node_if_not_cached(self):
-        node = Node()
-        self.graph.create(node)
-        Node.cache.clear()
-        node._del_remote()
-        assert not remote(node)
-
-    def test_can_unbind_relationship_if_not_cached(self):
-        a = Node()
-        b = Node()
-        ab = Relationship(a, "KNOWS", b)
-        self.graph.create(ab)
-        Relationship.cache.clear()
-        ab._del_remote()
-        assert not remote(ab)
-
-    def test_can_unbind_relationship_with_already_unbound_nodes(self):
-        a = Node()
-        b = Node()
-        ab = Relationship(a, "KNOWS", b)
-        self.graph.create(ab)
-        a._del_remote()
-        b._del_remote()
-        assert not remote(a)
-        assert not remote(b)
-        ab._del_remote()
-        assert not remote(ab)
 
 
 class AutoNamingTestCase(Py2neoTestCase):

@@ -349,7 +349,7 @@ class Subgraph(object):
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = remote_relationship._id
-                relationship._del_remote()
+                del relationship.__remote__
         for i, node in enumerate(self.nodes()):
             remote_node = remote(node)
             if remote_node:
@@ -359,7 +359,7 @@ class Subgraph(object):
                                "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 deletes.append("DELETE %s" % node_id)
                 parameters[param_id] = remote_node._id
-                node._del_remote()
+                del node.__remote__
         statement = "\n".join(matches + deletes)
         tx.run(statement, parameters)
 
@@ -438,7 +438,7 @@ class Subgraph(object):
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = remote_relationship._id
-                relationship._del_remote()
+                del relationship.__remote__
         statement = "\n".join(matches + deletes)
         tx.run(statement, parameters)
 
@@ -774,14 +774,6 @@ class Entity(PropertyDict, Walkable):
     def _set_remote_pending(self, tx):
         self.__remote_pending_tx = tx
 
-    def _set_remote(self, uri, metadata=None):
-        self.__remote = RemoteEntity(uri, metadata)
-        self.__remote_pending_tx = None
-
-    def _del_remote(self):
-        self.__remote = None
-        self.__remote_pending_tx = None
-
     @property
     def __remote__(self):
         """ Remote resource with which this entity is associated.
@@ -790,6 +782,21 @@ class Entity(PropertyDict, Walkable):
             self.__remote_pending_tx.process()
             self.__remote_pending_tx = None
         return self.__remote
+
+    @__remote__.setter
+    def __remote__(self, value):
+        self.__remote = value
+        self.__remote_pending_tx = None
+
+    @__remote__.deleter
+    def __remote__(self):
+        cache = getattr(self, "cache", None)
+        if cache:
+            uri = remote(self).uri
+            if uri in cache:
+                del cache[remote(self).uri]
+        self.__remote = None
+        self.__remote_pending_tx = None
 
 
 def remote(obj):
@@ -868,7 +875,7 @@ class Node(Relatable, Entity):
             if inst is None:
                 inst = cls.cache[self] = new_inst
         cls.cache[self] = inst
-        inst._set_remote(self, data)
+        inst.__remote__ = RemoteEntity(self, data)
         if "data" in data:
             inst.__stale.discard("properties")
             inst.clear()
@@ -985,13 +992,6 @@ class Node(Relatable, Entity):
     def push(self):
         remote(self).graph.push(self)
 
-    def _del_remote(self):
-        try:
-            del self.cache[remote(self).uri]
-        except KeyError:
-            pass
-        Entity._del_remote(self)
-
 
 class Relationship(Entity):
     """ A relationship represents a typed connection between a pair of nodes.
@@ -1049,7 +1049,7 @@ class Relationship(Entity):
             else:
                 inst.__stale.add("properties")
         cls.cache[self] = inst
-        inst._set_remote(self, data)
+        inst.__remote__ = RemoteEntity(self, data)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1149,16 +1149,6 @@ class Relationship(Entity):
         if remote_self and self.__type is None:
             remote_self.graph.pull(self)
         return self.__type
-
-    def _del_remote(self):
-        """ Detach this relationship and its start and end
-        nodes from any remote counterparts.
-        """
-        try:
-            del self.cache[remote(self).uri]
-        except KeyError:
-            pass
-        Entity._del_remote(self)
 
 
 class Path(Walkable):
