@@ -27,10 +27,10 @@ class Property(object):
         self.key = key
 
     def __get__(self, instance, owner):
-        return instance.__db_node__[self.key]
+        return instance.__subgraph__[self.key]
 
     def __set__(self, instance, value):
-        instance.__db_node__[self.key] = value
+        instance.__subgraph__[self.key] = value
 
 
 class Label(object):
@@ -39,13 +39,13 @@ class Label(object):
         self.name = name
 
     def __get__(self, instance, owner):
-        return instance.__db_node__.has_label(self.name)
+        return instance.__subgraph__.has_label(self.name)
 
     def __set__(self, instance, value):
         if value:
-            instance.__db_node__.add_label(self.name)
+            instance.__subgraph__.add_label(self.name)
         else:
-            instance.__db_node__.remove_label(self.name)
+            instance.__subgraph__.remove_label(self.name)
 
 
 class Related(object):
@@ -117,44 +117,45 @@ class GraphObjectMeta(type):
                     attr.relationship_type = relationship_case(attr_name)
                 related_attr[attr.relationship_type] = attr
         attributes["__related_attr__"] = related_attr
-        attributes.setdefault("__primary_label__", name)
-        attributes.setdefault("__primary_key__", "__id__")
+        attributes.setdefault("__primarylabel__", name)
+        attributes.setdefault("__primarykey__", "__id__")
         return super().__new__(mcs, name, bases, attributes)
 
 
 class GraphObject(metaclass=GraphObjectMeta):
     __graph__ = None
-    __primary_label__ = None
-    __primary_key__ = None
+    __primarylabel__ = None
+    __primarykey__ = None
 
-    __db_node = None
+    __subgraph = None
 
-    # Dictionary of relationships to other GraphObjects
-    # e.g. {"KNOWS": {bob}} where bob is a GraphObject instance
-    __db_relationships = None
+    @property
+    def __subgraph__(self):
+        if self.__subgraph is None:
+            self.__subgraph = Node(self.__primarylabel__)
+        node = self.__subgraph
+        if not hasattr(node, "__primarylabel__"):
+            setattr(node, "__primarylabel__", self.__primarylabel__)
+        if not hasattr(node, "__primarykey__"):
+            setattr(node, "__primarykey__", self.__primarykey__)
+        return node
+
+    @__subgraph__.setter
+    def __subgraph__(self, value):
+        self.__subgraph = value
 
     @classmethod
     def load(cls, primary_value):
         graph = cls.__graph__
-        # Label:key=value
-        primary_key = cls.__primary_key__
+        primary_key = cls.__primarykey__
         if primary_key == "__id__":
-            node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x}" %
-                                  cypher_escape(cls.__primary_label__), x=primary_value)
+            node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x} RETURN a" %
+                                  cypher_escape(cls.__primarylabel__), x=primary_value)
         else:
-            node = graph.find_one(cls.__primary_label__, primary_key, primary_value)
+            node = graph.find_one(cls.__primarylabel__, primary_key, primary_value)
         if node is None:
             raise LookupError("Cannot load object")
-        return cls.wrap(node)
-
-    @classmethod
-    def wrap(cls, node):
-        graph = cls.__graph__
         inst = GraphObject()
-        inst.__db_node = node
-        inst.__db_relationships = {}
-        for rel in graph.match(node):
-            inst.__db_relationships.setdefault(rel.type(), set()).add(rel.end_node())
         inst.__class__ = cls
         return inst
 
@@ -165,7 +166,7 @@ class GraphObject(metaclass=GraphObjectMeta):
 
     def __eq__(self, other):
         try:
-            return self.__db_node__ == other.__db_node__
+            return self.__subgraph__ == other.__subgraph__
         except AttributeError:
             return False
 
@@ -173,18 +174,12 @@ class GraphObject(metaclass=GraphObjectMeta):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.__db_node__)
+        return hash(self.__subgraph__)
 
     @property
-    def __db_node__(self):
-        if self.__db_node is None:
-            self.__db_node = Node(self.__primary_label__)
-        return self.__db_node
-
-    @property
-    def __primary_value__(self):
-        node = self.__db_node__
-        primary_key = self.__primary_key__
+    def __primaryvalue__(self):
+        node = self.__subgraph__
+        primary_key = self.__primarykey__
         if primary_key == "__id__":
             remote_node = remote(node)
             if remote_node:
@@ -196,20 +191,35 @@ class GraphObject(metaclass=GraphObjectMeta):
 
     @property
     def __remote__(self):
-        return self.__db_node__.__remote__
+        return self.__subgraph__.__remote__
 
     def __db_create__(self, tx):
-        tx.merge(self.__db_node__, self.__primary_label__, self.__primary_key__)
+        tx.create(self.__subgraph__)
+
+    def __db_merge__(self, tx):
+        tx.merge(self.__subgraph__)
 
     def __db_delete__(self, tx):
-        # TODO: delete if not bound
-        tx.delete(self.__db_node__)
+        tx.delete(self.__subgraph__)
 
     def __db_pull__(self, graph):
-        graph.pull(self.__db_node__)
+        graph.pull(self.__subgraph__)
 
     def __db_push__(self, graph):
-        graph.push(self.__db_node__)
+        graph.push(self.__subgraph__)
+
+
+class RelationshipSet(GraphObject):
+
+    pass
+
+
+
+
+
+
+
+
 
 
 class MovieGraphObject(GraphObject):
@@ -217,7 +227,7 @@ class MovieGraphObject(GraphObject):
 
 
 class Person(MovieGraphObject):
-    __primary_key__ = "name"
+    __primarykey__ = "name"
 
     name = Property()
     year_of_birth = Property(key="born")
@@ -228,7 +238,7 @@ class Person(MovieGraphObject):
 
 
 class Movie(MovieGraphObject):
-    __primary_key__ = "title"
+    __primarykey__ = "title"
 
     title = Property()
     tag_line = Property(key="tagline")
