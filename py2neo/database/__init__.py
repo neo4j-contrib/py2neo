@@ -515,11 +515,9 @@ class Graph(object):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node.properties["name"])
 
-        :param start_node: :attr:`~py2neo.Node.identity()` start :class:`~py2neo.Node` to match or
-                           :const:`None` if any
+        :param start_node:
         :param rel_type: type of relationships to match or :const:`None` if any
-        :param end_node: :attr:`~py2neo.Node.identity()` end :class:`~py2neo.Node` to match or
-                         :const:`None` if any
+        :param end_node:
         :param bidirectional: :const:`True` if reversed relationships should also be included
         :param limit: maximum number of relationships to match or :const:`None` if no limit
         :return: matching relationships
@@ -896,13 +894,13 @@ class BoltDataSource(DataSource):
         # TODO: hydrate directly instead of via HTTP hydration
         if isinstance(obj, BoltNode):
             return Node.hydrate({
-                "self": "%snode/%d" % (self.graph_uri, obj.identity),
+                "self": "%snode/%d" % (self.graph_uri, obj.id),
                 "metadata": {"labels": list(obj.labels)},
                 "data": obj.properties,
             }, inst)
         elif isinstance(obj, BoltRelationship):
             return Relationship.hydrate({
-                "self": "%srelationship/%d" % (self.graph_uri, obj.identity),
+                "self": "%srelationship/%d" % (self.graph_uri, obj.id),
                 "start": "%snode/%d" % (self.graph_uri, obj.start),
                 "end": "%snode/%d" % (self.graph_uri, obj.end),
                 "type": obj.type,
@@ -910,10 +908,10 @@ class BoltDataSource(DataSource):
             }, inst)
         elif isinstance(obj, BoltPath):
             return Path.hydrate({
-                "nodes": ["%snode/%d" % (self.graph_uri, n.identity) for n in obj.nodes],
-                "relationships": ["%srelationship/%d" % (self.graph_uri, r.identity)
+                "nodes": ["%snode/%d" % (self.graph_uri, n.id) for n in obj.nodes],
+                "relationships": ["%srelationship/%d" % (self.graph_uri, r.id)
                                   for r in obj.relationships],
-                "directions": ["->" if r.start == obj.nodes[i].identity else "<-"
+                "directions": ["->" if r.start == obj.nodes[i].id else "<-"
                                for i, r in enumerate(obj.relationships)],
             })
         elif isinstance(obj, list):
