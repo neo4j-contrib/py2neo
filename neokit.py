@@ -158,7 +158,7 @@ def move_file(file_name):
         rename(temp_file_name, file_name)
 
 
-class AuthError(Exception):
+class Unauthorized(Exception):
     """ Raised when auth fails.
     """
 
@@ -303,11 +303,35 @@ class GraphServer(object):
     """ A Neo4j server installation.
     """
 
+    config_file = None  # overridden in subclasses
+    default_http_port = 7474
+
+    def __new__(cls, home=None):
+        home = home or abspath(curdir)
+        instance = super(GraphServer, cls).__new__(cls)
+        # Here follows a dirty hack to find out which version of Neo4j we're running.
+        # If you are of a nervous disposition, look away now.
+        lib = path_join(home, "lib")
+        kernel_jars = [f for f in listdir(lib)
+                       if f.startswith("neo4j-kernel-") and f.endswith(".jar")]
+        if kernel_jars:
+            kernel_jar = kernel_jars[0]
+            kernel_version = kernel_jar[13:-4]
+            major_version = int(kernel_version.partition(".")[0])
+            if major_version >= 3:
+                instance.__class__ = GraphServerV3
+            else:
+                instance.__class__ = GraphServerV2
+        else:
+            # Kernel jar not found, assume 3.0+
+            instance.__class__ = GraphServerV3
+        return instance
+
     def __init__(self, home=None):
         self.home = home or abspath(curdir)
 
     def __repr__(self):
-        return "<GraphServer home=%r>" % self.home
+        return "<%s home=%r>" % (self.__class__.__name__, self.home)
 
     @property
     def control_script(self):
@@ -319,50 +343,43 @@ class GraphServer(object):
     def store_path(self):
         """ The location of the graph database store on disk.
         """
-        return path_join(self.home, self.config("neo4j-server.properties",
-                                                "org.neo4j.server.database.location"))
+        return NotImplemented
 
-    def config(self, file_name, key):
+    def config(self, key, default=None):
         """ Retrieve the value of a configuration item.
 
-        :param file_name:
         :param key:
+        :param default:
         :return:
         """
-        config_file_path = path_join(self.home, "conf", "neo4j.conf")
-        if not isfile(config_file_path):
-            config_file_path = path_join(self.home, "conf", file_name)
+        config_file_path = path_join(self.home, "conf", self.config_file)
         with open(config_file_path, "r") as f_in:
             for line in f_in:
                 if line.startswith(key + "="):
                     return line.strip().partition("=")[-1]
+        return default
 
-    def set_config(self, file_name, key, value):
+    def set_config(self, key, value):
         """ Update a single configuration value.
 
-        :param file_name:
         :param key:
         :param value:
-        :return:
         """
-        self.update_config(file_name, {key: value})
+        self.update_config({key: value})
 
-    def update_config(self, file_name, properties):
+    def update_config(self, properties):
         """ Update multiple configuration values.
 
-        :param file_name:
         :param properties:
-        :return:
         """
-        config_file_path = path_join(self.home, "conf", "neo4j.conf")
-        if not isfile(config_file_path):
-            config_file_path = path_join(self.home, "conf", file_name)
+        config_file_path = path_join(self.home, "conf", self.config_file)
         with open(config_file_path, "r") as f_in:
             lines = f_in.readlines()
         with open(config_file_path, "w") as f_out:
             for line in lines:
                 for key, value in properties.items():
-                    if line.startswith(key + "="):
+                    if line.startswith(key + "=") or \
+                            (line.startswith("#") and line[1:].lstrip().startswith(key + "=")):
                         if value is True:
                             value = "true"
                         if value is False:
@@ -377,11 +394,11 @@ class GraphServer(object):
         """ Settable boolean property for enabling and disabling auth
         on this server.
         """
-        return self.config("neo4j-server.properties", "dbms.security.auth_enabled") == "true"
+        return self.config("dbms.security.auth_enabled") == "true"
 
     @auth_enabled.setter
     def auth_enabled(self, value):
-        self.set_config("neo4j-server.properties", "dbms.security.auth_enabled", value)
+        self.set_config("dbms.security.auth_enabled", value)
 
     def update_password(self, user, password, new_password):
         """ Update the password for this server.
@@ -398,25 +415,18 @@ class GraphServer(object):
         try:
             urlopen(request).read()
         except HTTPError as error:
-            raise AuthError("Cannot update password [%s]" % error)
+            raise Unauthorized("Cannot update password [%s]" % error)
 
     @property
     def http_port(self):
         """ The port on which this server expects HTTP communication.
         """
-        port = None
-        if self.running():
-            port = self.info("NEO4J_SERVER_PORT")
-        if port is None:
-            port = self.config("neo4j-server.properties", "org.neo4j.server.webserver.port")
-        try:
-            return int(port)
-        except (TypeError, ValueError):
-            return None
+        return NotImplemented
 
     @http_port.setter
     def http_port(self, port):
-        self.set_config("neo4j-server.properties", "org.neo4j.server.webserver.port", port)
+        """ Set the port on which this server expects HTTP communication.
+        """
 
     @property
     def http_uri(self):
@@ -534,6 +544,66 @@ class GraphServer(object):
                         return v
 
 
+class GraphServerV2(GraphServer):
+
+    config_file = "neo4j-server.properties"
+
+    @property
+    def http_port(self):
+        port = None
+        if self.running():
+            port = self.info("NEO4J_SERVER_PORT")
+        if port is None:
+            port = self.config("org.neo4j.server.webserver.port")
+        try:
+            return int(port)
+        except (TypeError, ValueError):
+            return None
+
+    @http_port.setter
+    def http_port(self, port):
+        self.set_config("org.neo4j.server.webserver.port", port)
+
+    @property
+    def store_path(self):
+        return path_join(self.home, self.config("org.neo4j.server.database.location"))
+
+
+class GraphServerV3(GraphServer):
+
+    config_file = "neo4j.conf"
+
+    @property
+    def http_port(self):
+        port = None
+        if self.running():
+            port = self.info("NEO4J_SERVER_PORT")
+        if port is None:
+            http_address = self.config("dbms.connector.http.address")
+            if http_address:
+                host, _, port = http_address.partition(":")
+            else:
+                port = self.default_http_port
+        try:
+            return int(port)
+        except (TypeError, ValueError):
+            return None
+
+    @http_port.setter
+    def http_port(self, port):
+        http_address = self.config("dbms.connector.http.address")
+        if http_address:
+            host, _, _ = http_address.partition(":")
+        else:
+            host = "localhost"
+        self.set_config("dbms.connector.http.address", "%s:%d" % (host, port))
+
+    @property
+    def store_path(self):
+        return path_join(self.home, "data", "databases",
+                         self.config("dbms.active_database", "graph.db"))
+
+
 class Commander(object):
 
     epilog = "Report bugs to nigel@py2neo.org"
@@ -568,8 +638,11 @@ class Commander(object):
                 doc = dedent(method.__doc__).strip()
                 self.write_line("    " + doc[6:].strip())
         self.write_line("")
-        self.write_line("Many commands can take '.' as a server name. This operates on the server\n"
-                        "located in the current directory. For example:\n\n    neokit disable-auth .")
+        self.write_line(
+                "Many commands can take '.' as a server name. This operates on the server\n"
+                "located in the current directory. For example:\n"
+                "\n"
+                "    neokit disable-auth .")
         if self.epilog:
             self.write_line("")
             self.write_line(self.epilog)
@@ -788,7 +861,7 @@ class Commander(object):
             server.start()
         try:
             server.update_password(parsed.user, parsed.password, parsed.new_password)
-        except AuthError as error:
+        except Unauthorized as error:
             self.write_err_line("%s" % error)
             return SERVER_AUTH_FAILURE
         finally:
