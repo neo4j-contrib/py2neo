@@ -29,12 +29,12 @@ managing sessions.
 from __future__ import division
 
 from collections import deque, namedtuple
-from ssl import SSLContext, PROTOCOL_SSLv23, OP_NO_SSLv2, CERT_REQUIRED
 
 from .compat import integer, string, urlparse
 from .connection import connect, Response, RUN, PULL_ALL
 from .constants import ENCRYPTED_DEFAULT, TRUST_DEFAULT, TRUST_SIGNED_CERTIFICATES
 from .exceptions import CypherError
+from .ssl_compat import SSL_AVAILABLE, SSLContext, PROTOCOL_SSLv23, OP_NO_SSLv2, CERT_REQUIRED
 from .types import hydrated
 
 
@@ -43,7 +43,7 @@ DEFAULT_MAX_POOL_SIZE = 50
 STATEMENT_TYPE_READ_ONLY = "r"
 STATEMENT_TYPE_READ_WRITE = "rw"
 STATEMENT_TYPE_WRITE_ONLY = "w"
-STATEMENT_TYPE_SCHEMA_WRITE = "sw"
+STATEMENT_TYPE_SCHEMA_WRITE = "s"
 
 
 def basic_auth(user, password):
@@ -84,6 +84,18 @@ class GraphDatabase(object):
         return Driver(url, **config)
 
 
+_warned_about_insecure_default = False
+
+
+def _warn_about_insecure_default():
+    global _warned_about_insecure_default
+    if not SSL_AVAILABLE and not _warned_about_insecure_default:
+        from warnings import warn
+        warn("Bolt over TLS is only available in Python 2.7.9+ and Python 3.3+ "
+             "so communications are not secure")
+        _warned_about_insecure_default = True
+
+
 class Driver(object):
     """ Accessor for a specific graph database resource.
     """
@@ -99,9 +111,15 @@ class Driver(object):
         self.config = config
         self.max_pool_size = config.get("max_pool_size", DEFAULT_MAX_POOL_SIZE)
         self.session_pool = deque()
-        self.encrypted = encrypted = config.get("encrypted", ENCRYPTED_DEFAULT)
+        try:
+            self.encrypted = encrypted = config["encrypted"]
+        except KeyError:
+            _warn_about_insecure_default()
+            self.encrypted = encrypted = ENCRYPTED_DEFAULT
         self.trust = trust = config.get("trust", TRUST_DEFAULT)
         if encrypted:
+            if not SSL_AVAILABLE:
+                raise RuntimeError("Bolt over TLS is only available in Python 2.7.9+ and Python 3.3+")
             ssl_context = SSLContext(PROTOCOL_SSLv23)
             ssl_context.options |= OP_NO_SSLv2
             if trust >= TRUST_SIGNED_CERTIFICATES:
@@ -333,11 +351,11 @@ class SummaryCounters(object):
 
     @property
     def contains_updates(self):
-        return self.nodes_created or self.nodes_deleted or \
+        return bool(self.nodes_created or self.nodes_deleted or \
                self.relationships_created or self.relationships_deleted or \
                self.properties_set or self.labels_added or self.labels_removed or \
                self.indexes_added or self.indexes_removed or \
-               self.constraints_added or self.constraints_removed
+               self.constraints_added or self.constraints_removed)
 
 
 #: A plan describes how the database will execute your statement.
