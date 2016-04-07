@@ -23,13 +23,19 @@ div.related:first-child {
 }
 
 div.sphinxsidebar {
-    background-color: #eeeeee;
+    background-color: #f7f7f7;
     border-radius: 5px;
     line-height: 130%;
     font-size: smaller;
 }
 
-div.sphinxsidebar h3, div.sphinxsidebar h4 {
+div.sphinxsidebar h3 {
+    margin-top: 1em;
+    border-top: 4px solid #dfdfdf;
+    padding-top: 1em
+}
+
+div.sphinxsidebar h4 {
     margin-top: 1.5em;
 }
 
@@ -100,15 +106,15 @@ div.body div.seealso {
 }
 
 div.body a {
-    color: #0072aa;
+    color: #0067AB;
 }
 
 div.body a:visited {
-    color: #6363bb;
+    color: #0067AB;
 }
 
 div.body a:hover {
-    color: #00B0E4;
+    color: #00AB67;
 }
 
 tt, code, pre {
@@ -181,4 +187,7 @@ div.footer a:hover {
 
 .stableabi {
     color: #229;
+}
+p.logo {
+    margin: 0;
 }

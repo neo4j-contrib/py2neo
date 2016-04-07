@@ -135,7 +135,7 @@ html_title = "The Py2neo v3 beta 2 Handbook"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "py2neo-v3.280x336.png"
+html_logo = "py2neo-2016.260x152.png"
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
