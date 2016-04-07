@@ -44,8 +44,9 @@ a single property, `name`, and is labelled as a `Person`. The relationship ``ab`
     .. describe:: node == other
 
         Return ``True`` if *node* and *other* are equal. Node equality is based on identity, not
-        properties or labels. This means that a node is only ever equal to itself, if unbound, or
-        to any node that represents the same remote database node, if bound.
+        properties or labels. This means that if bound, a node object will be equal to any other
+        node object that is bound to the same remote node; if unbound, it can only ever be equal
+        to itself.
 
     .. describe:: node != other
 

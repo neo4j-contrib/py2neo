@@ -52,10 +52,10 @@ Library Reference
 
    types
    database
-   neokit
    ext/batman
    ext/calendar
    ext/ogm
+   neokit
 
 
 ----
