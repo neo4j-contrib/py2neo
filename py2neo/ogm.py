@@ -50,14 +50,21 @@ class Label(object):
 
 class Related(object):
 
-    __instance__ = None
+    __related_node_class = None
 
-    def __init__(self, related_node_type, relationship_type=None):
-        self.related_node_type = related_node_type
+    def __init__(self, related_node_class, relationship_type=None):
+        self.__related_node_class = related_node_class
         self.relationship_type = relationship_type
 
     def __get__(self, instance, owner):
         return instance.__db_relationships__.setdefault(self.relationship_type, set())
+
+    @property
+    def related_node_class(self):
+        if isinstance(self.__related_node_class, type):
+            return self.__related_node_class
+        else:
+            return globals()[self.__related_node_class]
 
     def add(self, item):
         pass
@@ -74,14 +81,19 @@ class RelatedItems(object):
 class GraphObjectMeta(type):
 
     def __new__(mcs, name, bases, attributes):
+        related_attr = {}
         for attr_name, attr in list(attributes.items()):
             if isinstance(attr, Property):
-                attributes[attr_name] = Property(attr.key or attr_name)
+                if attr.key is None:
+                    attr.key = attr_name
             elif isinstance(attr, Label):
-                attributes[attr_name] = Label(attr.name or label_case(attr_name))
+                if attr.name is None:
+                    attr.name = label_case(attr_name)
             elif isinstance(attr, Related):
-                relationship_type = attr.relationship_type or relationship_case(attr_name)
-                attributes[attr_name] = Related(attr.related_node_type, relationship_type)
+                if attr.relationship_type is None:
+                    attr.relationship_type = relationship_case(attr_name)
+                related_attr[attr.relationship_type] = attr
+        attributes["__related_attr__"] = related_attr
         attributes.setdefault("__primary_label__", name)
         attributes.setdefault("__primary_key__", "__id__")
         return super().__new__(mcs, name, bases, attributes)
@@ -162,8 +174,15 @@ class GraphObject(metaclass=GraphObjectMeta):
     def __remote__(self):
         return self.__db_node__.__remote__
 
-    def __db_create__(self, tx):
+    def __db_create_node__(self, tx):
         tx.merge(self.__db_node__, self.__primary_label__, self.__primary_key__)
+
+    def __db_create__(self, tx):
+        self.__db_create_node__(tx)
+        # related_nodes = set()
+        # for _, nodes in self.__db_relationships.items():
+        #     related_nodes |= nodes
+        # for node in related_nodes:
 
     def __db_delete__(self, tx):
         # TODO: delete if not bound
@@ -197,7 +216,12 @@ class Movie(GraphObject):
 
 def main():
     from py2neo import Graph
-    GraphObject.__graph__ = Graph()
+    GraphObject.__graph__ = Graph(host="graph.pub", https_port=7473, password="welcomebackwemissedyou")
     keanu = Person.load("Keanu Reeves")
     the_matrix = Movie.load("The Matrix")
     keanu.acted_in.add(the_matrix)
+    print(keanu)
+
+
+if __name__ == "__main__":
+    main()
