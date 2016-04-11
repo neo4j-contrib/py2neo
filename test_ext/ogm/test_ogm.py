@@ -16,10 +16,11 @@
 # limitations under the License.
 
 
-import pytest
-
 from py2neo import Graph, Node, Path
+from py2neo.ext.batman import ManualIndexManager
 from py2neo.ext.ogm import Store
+
+from test.util import Py2neoTestCase
 
 
 class Person(object):
@@ -41,11 +42,14 @@ class Person(object):
         return "{0} <{1}>".format(self.name, self.email)
 
 
-class TestExampleCode(object):
+class StoreTestCase(Py2neoTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
+    def __init__(self, *args, **kwargs):
+        Py2neoTestCase.__init__(self, *args, **kwargs)
+        self.store = Store(self.graph)
+
+
+class ExampleCodeTestCase(StoreTestCase):
 
     def test_can_execute_example_code(self):
 
@@ -72,15 +76,10 @@ class TestExampleCode(object):
         store.save(alice)
 
         friends = store.load_related(alice, "LIKES", Person)
-        print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
+        # print("Alice likes {0}".format(" and ".join(str(f) for f in friends)))
 
 
-class TestRelate(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class RelateTestCase(StoreTestCase):
 
     def test_can_relate_to_other_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -101,12 +100,7 @@ class TestRelate(object):
         assert alice.__rel__["LIKES"] == [({"since": 1999}, bob)]
 
 
-class TestSeparate(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class SeparateTestCase(StoreTestCase):
 
     def test_can_separate_from_other_objects(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -142,12 +136,7 @@ class TestSeparate(object):
         assert alice.__rel__["LIKES"] == [({}, bob)]
 
 
-class TestLoadRelated(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class LoadRelatedTestCase(StoreTestCase):
 
     def test_can_load_single_related_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -187,48 +176,31 @@ class TestLoadRelated(object):
         assert friends == []
 
 
-class TestLoad(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class LoadTestCase(StoreTestCase):
 
     def test_can_load(self):
-        alice_node, = self.graph.create({
-            "email": "alice@example.com",
-            "name": "Alice",
-            "age": 34,
-        })
+        alice_node = Node(email="alice@example.com", name="Alice", age=34)
+        self.graph.create(alice_node)
         alice = self.store.load(Person, alice_node)
         assert alice.email == "alice@example.com"
         assert alice.name == "Alice"
         assert alice.age == 34
 
 
-class TestLoadIndexed(object):
+class LoadIndexedTestCase(StoreTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
-        self.index_manager = index_manager
+    def setUp(self):
+        self.index_manager = ManualIndexManager(self.graph)
         try:
-            index_manager.delete_index(Node, "People")
+            self.index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.store = Store(self.graph)
 
     def test_can_load(self):
         people = self.index_manager.get_or_create_index(Node, "People")
-        alice_node, bob_node = self.graph.create({
-            "email": "alice@example.com",
-            "name": "Alice Smith",
-            "age": 34,
-        }, {
-            "email": "bob@example.org",
-            "name": "Bob Smith",
-            "age": 66,
-        })
+        alice_node = Node(email="alice@example.com", name="Alice Smith", age=34)
+        bob_node = Node(email="bob@example.org", name="Bob Smith", age=66)
+        self.graph.create(alice_node | bob_node)
         people.add("family_name", "Smith", alice_node)
         people.add("family_name", "Smith", bob_node)
         smiths = self.store.load_indexed("People", "family_name", "Smith", Person)
@@ -239,18 +211,15 @@ class TestLoadIndexed(object):
             assert smiths[i].age in (34, 66)
 
 
-class TestLoadUnique(object):
+class LoadUniqueTestCase(StoreTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
-        self.index_manager = index_manager
+    def setUp(self):
+        self.index_manager = ManualIndexManager(self.graph)
         try:
-            index_manager.delete_index(Node, "People")
+            self.index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        index_manager.get_or_create_index(Node, "People")
-        self.store = Store(self.graph)
+        self.index_manager.get_or_create_index(Node, "People")
 
     def test_can_load_simple_object(self):
         alice_node = self.index_manager.get_or_create_indexed_node(
@@ -278,8 +247,9 @@ class TestLoadUnique(object):
                 "age": 34,
             }
         )
-        path, = self.graph.create(Path(alice_node, "LIKES", {"name": "Bob Robertson"}))
-        bob_node = path.nodes[1]
+        path = Path(alice_node, "LIKES", {"name": "Bob Robertson"})
+        self.graph.create(path)
+        bob_node = path.nodes()[1]
         alice = self.store.load_unique("People", "email", "alice@example.com", Person)
         assert isinstance(alice, Person)
         assert hasattr(alice, "__node__")
@@ -306,12 +276,7 @@ class TestLoadUnique(object):
         assert alice is None
 
 
-class TestReload(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class ReloadTest(StoreTestCase):
 
     def test_can_reload(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -320,18 +285,13 @@ class TestReload(object):
         assert alice.__node__["age"] == 34
         alice.__node__["name"] = "Alice Smith"
         alice.__node__["age"] = 35
-        alice.__node__.push()
+        self.graph.push(alice.__node__)
         self.store.reload(alice)
         assert alice.name == "Alice Smith"
         assert alice.age == 35
 
 
-class TestSave(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class SaveTestCase(StoreTestCase):
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -347,17 +307,14 @@ class TestSave(object):
         assert alice.__node__["age"] == 35
 
 
-class TestSaveIndexed(object):
+class SaveIndexedTestCase(StoreTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
-        self.index_manager = index_manager
+    def setUp(self):
+        self.index_manager = ManualIndexManager(self.graph)
         try:
-            index_manager.delete_index(Node, "People")
+            self.index_manager.delete_index(Node, "People")
         except LookupError:
             pass
-        self.store = Store(self.graph)
 
     def test_can_save(self):
         alice = Person("alice@example.com", "Alice Smith", 34)
@@ -377,13 +334,10 @@ class TestSaveIndexed(object):
         assert carol.__node__ in smiths
 
 
-class TestSaveUnique(object):
+class SaveUniqueTestCase(StoreTestCase):
 
-    @pytest.fixture(autouse=True)
-    def setup(self, graph, index_manager):
-        self.graph = graph
-        self.index_manager = index_manager
-        self.store = Store(self.graph)
+    def setUp(self):
+        self.index_manager = ManualIndexManager(self.graph)
 
     def test_can_save_simple_object(self):
         alice = Person("alice@example.com", "Alice", 34)
@@ -395,39 +349,33 @@ class TestSaveUnique(object):
 
     def test_can_save_object_with_rels(self):
         alice = Person("alice@example.com", "Alice Allison", 34)
-        bob_node, carol_node = self.graph.create(
-            {"name": "Bob"},
-            {"name": "Carol"},
-        )
+        bob_node = Node(name="Bob")
+        carol_node = Node(name="Carol")
+        self.graph.create(bob_node | carol_node)
         alice.__rel__ = {"KNOWS": [({}, bob_node)]}
         self.store.save_unique("People", "email", "alice@example.com", alice)
         assert hasattr(alice, "__node__")
         assert isinstance(alice.__node__, Node)
         assert alice.__node__ == self.index_manager.get_indexed_node(
             "People", "email", "alice@example.com")
-        friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
+        friend_rels = list(self.graph.match(alice.__node__, "KNOWS"))
         assert len(friend_rels) == 1
-        assert bob_node in (rel.end_node for rel in friend_rels)
+        assert bob_node in (rel.end_node() for rel in friend_rels)
         alice.__rel__ = {"KNOWS": [({}, bob_node), ({}, carol_node)]}
         self.store.save_unique("People", "email", "alice@example.com", alice)
-        friend_rels = list(alice.__node__.match_outgoing("KNOWS"))
+        friend_rels = list(self.graph.match(alice.__node__, "KNOWS"))
         assert len(friend_rels) == 2
-        assert bob_node in (rel.end_node for rel in friend_rels)
-        assert carol_node in (rel.end_node for rel in friend_rels)
+        assert bob_node in (rel.end_node() for rel in friend_rels)
+        assert carol_node in (rel.end_node() for rel in friend_rels)
 
 
-class TestDelete(object):
-
-    @pytest.fixture(autouse=True)
-    def setup(self, graph):
-        self.graph = graph
-        self.store = Store(self.graph)
+class DeleteTestCase(StoreTestCase):
 
     def test_can_delete_object(self):
         alice = Person("alice@example.com", "Alice", 34)
         self.store.save_unique("People", "email", "alice@example.com", alice)
         node = alice.__node__
-        assert node.exists
+        assert self.graph.exists(node)
         self.store.delete(alice)
-        assert not node.exists
+        assert not self.graph.exists(node)
 

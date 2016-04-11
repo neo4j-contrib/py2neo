@@ -41,7 +41,7 @@ class Store(object):
         self.index_manager = ManualIndexManager(self.graph)
         self.__delete_query = (
             "MATCH (a) WHERE id(a)={A} "
-            "OPTIONAL MATCH a-[r]-b "
+            "OPTIONAL MATCH (a)-[r]-(b) "
             "DELETE r, a"
         )
 
@@ -188,18 +188,19 @@ class Store(object):
         """
         self._assert_saved(subj)
         # naively copy properties from node to object
-        properties = subj.__node__.properties
+        node = subj.__node__
         for key in subj.__dict__:
-            if not key.startswith("_") and key not in properties:
+            if not key.startswith("_") and key not in node:
                 setattr(subj, key, None)
-        for key, value in properties.items():
+        for key, value in node.items():
             if not key.startswith("_"):
                 setattr(subj, key, value)
         subj.__rel__ = {}
-        for rel in subj.__node__.match():
-            if rel.type not in subj.__rel__:
-                subj.__rel__[rel.type] = []
-            subj.__rel__[rel.type].append((rel.properties, rel.end_node))
+        for rel in self.graph.match(subj.__node__):
+            t = rel.type()
+            if t not in subj.__rel__:
+                subj.__rel__[t] = []
+            subj.__rel__[t].append((dict(rel), rel.end_node()))
 
     def save(self, subj, node=None):
         """ Save an object to a database node.
@@ -216,12 +217,13 @@ class Store(object):
             if not key.startswith("_"):
                 props[key] = value
         if hasattr(subj, "__node__"):
-            subj.__node__.properties.clear()
-            subj.__node__.properties.update(props)
-            self.graph.cypher.execute("MATCH (a) WHERE id(a)={a} MATCH (a)-[r]->(b) DELETE r",
-                                      {"a": subj.__node__})
+            subj.__node__.clear()
+            subj.__node__.update(props)
+            self.graph.run("MATCH (a) WHERE id(a)={a} "
+                           "MATCH (a)-[r]->(b) DELETE r", a=subj.__node__)
         else:
-            subj.__node__, = self.graph.create(props)
+            subj.__node__ = Node(**props)
+            self.graph.create(subj.__node__)
         # write rels
         if hasattr(subj, "__rel__"):
             batch = WriteBatch(self.graph)
@@ -270,4 +272,4 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        self.graph.cypher.execute(self.__delete_query, {"A": node})
+        self.graph.run(self.__delete_query, {"A": node})
