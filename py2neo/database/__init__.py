@@ -266,23 +266,36 @@ class DBMS(object):
 
 
 class Graph(object):
-    """ The `Graph` class represents a Neo4j graph database. To
-    construct a graph instance, details of how to locate the database
-    server must be supplied. The `settings` supported are:
+    """ The `Graph` class represents a Neo4j graph database. Connection
+    details are provided using URIs and/or individual settings. For any
+    given `Graph`, the following protocol combinations are supported:
 
-    - ``bolt`` (default None [autodetect])
-    - ``secure`` (default False)
-    - ``host`` (default "localhost")
-    - ``http_port`` (default 7474)
-    - ``https_port`` (default 7473)
-    - ``bolt_port`` (default 7687)
-    - ``user`` (default "neo4j" if password is supplied)
-    - ``password`` (no default)
-    - ``database`` (default "data")
+    - HTTP
+    - HTTPS
+    - Bolt + HTTP
+    - Bolt/TLS + HTTPS
 
-    Each of these can be provided as a keyword argument or as part of
-    an ``http:`` or ``bolt:`` URI. Therefore the examples below are
-    equivalent::
+    Note that either HTTP or HTTPS must be enabled to allow for
+    discovery and for some legacy features to be supported.
+
+    The full set of `settings` supported are:
+
+    ==============  =============================================  ==============  =============
+    Keyword         Description                                    Type(s)         Default
+    ==============  =============================================  ==============  =============
+    ``bolt``        Use Bolt protocol (`None` means autodetect)    bool, ``None``  ``None``
+    ``secure``      Use a secure connection (Bolt/TLS + HTTPS)     bool            ``False``
+    ``host``        Database server host name                      str             ``'localhost'``
+    ``http_port``   Port for HTTP traffic                          int             ``7474``
+    ``https_port``  Port for HTTPS traffic                         int             ``7473``
+    ``bolt_port``   Port for Bolt traffic                          int             ``7687``
+    ``user``        User to authenticate as                        str             ``'neo4j'``
+    ``password``    Password to use for authentication             str             `no default`
+    ==============  =============================================  ==============  =============
+
+    Each setting can be provided as a keyword argument or as part of
+    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore the examples
+    below are equivalent::
 
         >>> from py2neo import Graph
         >>> graph_1 = Graph()
@@ -290,9 +303,9 @@ class Graph(object):
         >>> graph_3 = Graph("http://localhost:7474/db/data/")
 
     Once obtained, the `Graph` instance provides direct or indirect
-    access to most of the functionality available within py2neo. Note
-    that when Bolt support is available, it will automatically be used
-    for Cypher queries instead of HTTP.
+    access to most of the functionality available within py2neo. If
+    Bolt is available (Neo4j 3.0 and above) and Bolt auto-detection
+    is enabled, this will be used for Cypher queries instead of HTTP.
     """
 
     __instances = {}
