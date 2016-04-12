@@ -194,4 +194,8 @@ case ${COMMAND} in
         NEO4J_VERSIONS="3.0"
         run_tests
         ;;
+    test-2.0)
+        NEO4J_VERSIONS="2.0"
+        run_tests
+        ;;
 esac

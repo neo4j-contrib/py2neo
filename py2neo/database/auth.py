@@ -31,24 +31,18 @@ class ServerAddress(object):
     """
 
     def __init__(self, *uris, **settings):
-        self.__settings = {
-            "host": "localhost",
-            "http_port": 7474,
-        }
+        self.__settings = {}
 
         def apply_uri(u):
             uri_object = URI(u)
             if uri_object.scheme == "bolt":
                 self.__settings.setdefault("bolt_port", 7687)
+            if uri_object.scheme == "https":
+                self.__settings["secure"] = True
             if uri_object.host:
                 self.__settings["host"] = uri_object.host
             if uri_object.port:
                 self.__settings["%s_port" % uri_object.scheme] = uri_object.port
-
-        # Apply environment variable
-        neo4j_uri = getenv("NEO4J_URI")
-        if neo4j_uri:
-            apply_uri(neo4j_uri)
 
         # Apply URIs
         for uri in uris:
@@ -56,7 +50,8 @@ class ServerAddress(object):
 
         # Apply individual settings
         self.__settings.update({k: v for k, v in settings.items()
-                                if k in ["host", "http_port", "bolt_port"]})
+                                if k in ["bolt", "secure", "host",
+                                         "http_port", "https_port", "bolt_port"]})
 
     def __repr__(self):
         return "<ServerAddress host=%r http_port=%r bolt_port=%r>" % \
@@ -66,21 +61,36 @@ class ServerAddress(object):
         return self.__settings[item]
 
     def __eq__(self, other):
-        return dict(self) == dict(other)
+        return self.bolt == other.bolt and self.secure == other.secure and \
+               self.host == other.host and self.http_port == other.http_port and \
+               self.https_port == other.https_port and self.bolt_port == other.bolt_port
 
     def __hash__(self):
-        return hash(tuple(sorted(self.__settings.items())))
+        return hash((self.bolt, self.secure, self.host,
+                     self.http_port, self.https_port, self.bolt_port))
 
     def keys(self):
         return self.__settings.keys()
 
     @property
+    def bolt(self):
+        return self.__settings.get("bolt", None)
+
+    @property
+    def secure(self):
+        return self.__settings.get("secure", False)
+
+    @property
     def host(self):
-        return self.__settings["host"]
+        return self.__settings.get("host", "localhost")
 
     @property
     def http_port(self):
-        return self.__settings["http_port"]
+        return self.__settings.get("http_port", 7474)
+
+    @property
+    def https_port(self):
+        return self.__settings.get("https_port", 7473)
 
     @property
     def bolt_port(self):
@@ -90,7 +100,10 @@ class ServerAddress(object):
         return "bolt://%s:%d%s" % (self.host, self.bolt_port, path)
 
     def http_uri(self, path):
-        return "http://%s:%d%s" % (self.host, self.http_port, path)
+        if self.secure:
+            return "https://%s:%d%s" % (self.host, self.https_port, path)
+        else:
+            return "http://%s:%d%s" % (self.host, self.http_port, path)
 
 
 class ServerAuth(object):

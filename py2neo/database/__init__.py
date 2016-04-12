@@ -270,9 +270,12 @@ class Graph(object):
     construct a graph instance, details of how to locate the database
     server must be supplied. The `settings` supported are:
 
+    - ``bolt`` (default None [autodetect])
+    - ``secure`` (default False)
     - ``host`` (default "localhost")
     - ``http_port`` (default 7474)
-    - ``bolt_port`` (default 7687 if Bolt is available)
+    - ``https_port`` (default 7473)
+    - ``bolt_port`` (default 7687)
     - ``user`` (default "neo4j" if password is supplied)
     - ``password`` (no default)
     - ``database`` (default "data")
@@ -313,10 +316,14 @@ class Graph(object):
             inst.__remote__ = Resource(address.http_uri("/db/%s/" % database))
             inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri.string
             inst.transaction_class = HTTPTransaction
-            if inst.dbms.supports_bolt:
+            use_bolt = address.bolt
+            if use_bolt is None:
+                use_bolt = version_tuple(inst.__remote__.get().content["neo4j_version"]) >= (3,)
+            if use_bolt:
                 auth = keyring.get(address)
                 inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
                                                    auth=None if auth is None else auth.bolt_auth_token,
+                                                   encypted=address.secure,
                                                    user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
             cls.__instances[key] = inst

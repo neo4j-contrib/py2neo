@@ -74,19 +74,19 @@ class HeaderTestCase(Py2neoTestCase):
 
     def test_can_add_and_retrieve_global_header(self):
         set_http_header("Key1", "Value1")
-        headers = get_http_headers("localhost:7474")
+        headers = get_http_headers("http", "localhost", 7474)
         assert headers["Key1"] == "Value1"
 
     def test_can_add_and_retrieve_header_for_specific_host_port(self):
-        set_http_header("Key1", "Value1", "example.com:7474")
-        set_http_header("Key1", "Value2", "example.net:7474")
-        headers = get_http_headers("example.com:7474")
+        set_http_header("Key1", "Value1", "http", "example.com", 7474)
+        set_http_header("Key1", "Value2", "http", "example.net", 7474)
+        headers = get_http_headers("http", "example.com", 7474)
         assert headers["Key1"] == "Value1"
 
     def test_can_add_and_retrieve_multiple_headers_for_specific_host_port(self):
-        set_http_header("Key1", "Value1", "example.com:7474")
-        set_http_header("Key2", "Value2", "example.com:7474")
-        headers = get_http_headers("example.com:7474")
+        set_http_header("Key1", "Value1", "http", "example.com", 7474)
+        set_http_header("Key2", "Value2", "http", "example.com", 7474)
+        headers = get_http_headers("http", "example.com", 7474)
         assert headers["Key1"] == "Value1"
         assert headers["Key2"] == "Value2"
 

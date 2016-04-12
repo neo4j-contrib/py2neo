@@ -29,38 +29,43 @@ from py2neo.util import raise_from
 http.default_encoding = "UTF-8"
 
 _http_headers = {
-    None: [
+    (None, None, None): [
         ("User-Agent", user_agent(PRODUCT)),
         ("X-Stream", "true"),
     ],
 }
 
 
-def set_http_header(key, value, host_port=None):
+def set_http_header(key, value, scheme=None, host=None, port=None):
     """ Add an HTTP header for all future requests. If a `host_port` is
     specified, this header will only be included in requests to that
     destination.
 
     :arg key: name of the HTTP header
     :arg value: value of the HTTP header
-    :arg host_port: the server to which this header applies (optional)
+    :arg scheme:
+    :arg host:
+    :arg port:
     """
-    if host_port in _http_headers:
-        _http_headers[host_port].append((key, value))
+    address_key = (scheme, host, port)
+    if address_key in _http_headers:
+        _http_headers[address_key].append((key, value))
     else:
-        _http_headers[host_port] = [(key, value)]
+        _http_headers[address_key] = [(key, value)]
 
 
-def get_http_headers(host_port):
+def get_http_headers(scheme, host, port):
     """Fetch all HTTP headers relevant to the `host_port` provided.
 
-    :arg host_port: the server for which these headers are required
+    :arg scheme:
+    :arg host:
+    :arg port:
     """
     uri_headers = {}
-    for n, headers in _http_headers.items():
-        if n is None or n == host_port:
+    for (s, h, p), headers in _http_headers.items():
+        if (s is None or s == scheme) and (h is None or h == host) and (p is None or p == port):
             uri_headers.update(headers)
-    address = ServerAddress("http://%s/" % host_port)
+    address = ServerAddress("%s://%s:%d/" % (scheme, host, port))
     auth = keyring.get(address)
     if auth is not None:
         uri_headers["Authorization"] = auth.http_authorization
@@ -103,7 +108,7 @@ class Resource(_Resource):
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        headers = get_http_headers(self.__uri__.host_port)
+        headers = get_http_headers(self.__uri__.scheme, self.__uri__.host, self.__uri__.port)
         headers.update(self._headers)
         return headers
 
