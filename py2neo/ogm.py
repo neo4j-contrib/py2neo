@@ -57,7 +57,7 @@ class Related(object):
         self.relationship_type = relationship_type
 
     def __get__(self, instance, owner):
-        return instance.__db_relationships__.setdefault(self.relationship_type, set())
+        return instance.__db_related__(self.relationship_type)
 
     @property
     def related_node_class(self):
@@ -105,6 +105,9 @@ class GraphObject(metaclass=GraphObjectMeta):
     __primary_key__ = None
 
     __db_node = None
+
+    # Dictionary of relationships to other GraphObjects
+    # e.g. {"KNOWS": {bob}} where bob is a GraphObject instance
     __db_relationships = None
 
     @classmethod
@@ -127,9 +130,8 @@ class GraphObject(metaclass=GraphObjectMeta):
         inst = GraphObject()
         inst.__db_node = node
         inst.__db_relationships = {}
-        for relationship in graph.match(node):
-            related_nodes = inst.__db_relationships.setdefault(relationship.type(), set())
-            related_nodes.add(relationship.end_node())
+        for rel in graph.match(node):
+            inst.__db_relationships.setdefault(rel.type(), set()).add(rel.end_node())
         inst.__class__ = cls
         return inst
 
@@ -150,12 +152,6 @@ class GraphObject(metaclass=GraphObjectMeta):
         if self.__db_node is None:
             self.__db_node = Node(self.__primary_label__)
         return self.__db_node
-
-    @property
-    def __db_relationships__(self):
-        if self.__db_relationships is None:
-            self.__db_relationships = {}
-        return self.__db_relationships
 
     @property
     def __primary_value__(self):
@@ -193,35 +189,3 @@ class GraphObject(metaclass=GraphObjectMeta):
 
     def __db_push__(self, graph):
         graph.push(self.__db_node__)
-
-
-class Person(GraphObject):
-    __primary_key__ = "name"
-
-    name = Property()
-    year_of_birth = Property(key="born")
-
-    acted_in = Related("Movie")
-    directed = Related("Movie")
-    produced = Related("Movie")
-
-
-class Movie(GraphObject):
-    __primary_key__ = "title"
-
-    title = Property()
-    tag_line = Property(key="tagline")
-    year_of_release = Property(key="released")
-
-
-def main():
-    from py2neo import Graph
-    GraphObject.__graph__ = Graph(host="graph.pub", https_port=7473, password="welcomebackwemissedyou")
-    keanu = Person.load("Keanu Reeves")
-    the_matrix = Movie.load("The Matrix")
-    keanu.acted_in.add(the_matrix)
-    print(keanu)
-
-
-if __name__ == "__main__":
-    main()
