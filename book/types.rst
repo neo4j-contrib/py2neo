@@ -279,11 +279,11 @@ subgraph is by combining nodes and relationships using standard set operations. 
 
     .. method:: subgraph.keys()
 
-        Return all the property keys used by the nodes and relationships in this subgraph.
+        Return the set of all property keys used by the nodes and relationships in this subgraph.
 
     .. method:: subgraph.labels()
 
-        Return all the node labels in this subgraph.
+        Return the set of all node labels in this subgraph.
 
     .. method:: subgraph.nodes()
 
@@ -295,15 +295,17 @@ subgraph is by combining nodes and relationships using standard set operations. 
 
     .. method:: subgraph.types()
 
-        Return all the relationship types in this subgraph.
+        Return the set of all relationship types in this subgraph.
 
 .. function:: order(subgraph)
 
-    Return the number of nodes in this subgraph.
+    Return the number of nodes in `subgraph`. This argument can be an instance of
+    :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
 
 .. function:: size(subgraph)
 
-    Return the number of relationships in this subgraph.
+    Return the number of relationships in `subgraph`. This argument can be an instance of
+    :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
 
 
 .. _walkable_types:
@@ -318,8 +320,8 @@ construct a walkable is by concatenating other graph objects::
     >>> w
     (alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)<-[:WORKS_WITH]-(alice)
 
-Traversal of a walkable object is achieved by using the :func:`walk` function which yields
-alternating nodes and relationships and always starts and ends with a node. Node or relationships
+The traversal of a walkable object is achieved by using the :func:`walk` function, which yields
+alternating nodes and relationships and always starts and ends with a node. Any node or relationship
 may be traversed one or more times in any direction.
 
 .. class:: Walkable(iterable)
@@ -328,16 +330,16 @@ may be traversed one or more times in any direction.
 
     .. describe:: walkable + other + ...
 
-        Concatenation. Return a new walkable that represents a walk of `subgraph` followed by a
-        walk of `other`. This is only possible if the end node of `subgraph` is the same as either
-        the start node or the end node of `other`; in the latter case, `other` will be walked in
-        reverse.
+        Concatenation. Return a new :class:`.Walkable` that represents a :func:`walk` of `walkable`
+        followed by a :func:`walk` of `other`. This is only possible if the end node of `walkable`
+        is the same as either the start node or the end node of `other`; in the latter case, `other`
+        will be walked in reverse.
 
-        Note that overlapping nodes are not duplicated.
+        Nodes that overlap from one operand onto another are not duplicated in the returned `Walkable`.
 
     .. describe:: walk(walkable)
 
-        Perform a :func:`walk` of *walkable*, yielding nodes and relationships in turn.
+        Perform a :func:`walk` of *walkable*, yielding alternating nodes and relationships.
 
     .. method:: start_node()
 
@@ -349,12 +351,13 @@ may be traversed one or more times in any direction.
 
     .. method:: nodes()
 
-        Return an ordered collection of all nodes encountered on a :func:`walk` of this object.
+        Return a tuple of all nodes traversed on a :func:`walk` of this :class:`.Walkable`, listed
+        in the order in which they were first encountered.
 
     .. method:: relationships()
 
-        Return an ordered collection of all relationships encountered on a :func:`walk` of this
-        object.
+        Return a tuple of all relationships traversed on a :func:`walk` of this :class:`.Walkable`,
+        listed in the order in which they were first encountered.
 
 .. class:: Path(*entities)
 
@@ -362,4 +365,4 @@ may be traversed one or more times in any direction.
 
 .. function:: walk(*walkables)
 
-    Traverse over the arguments supplied, yielding the entities from each in turn.
+    Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
