@@ -49,33 +49,56 @@ class Label(object):
 
 
 class Related(object):
+    """ Represents a set of relationships from a single start node to
+    (potentially) multiple end nodes.
+    """
 
-    __related_node_class = None
-
-    def __init__(self, related_node_class, relationship_type=None):
-        self.__related_node_class = related_node_class
+    def __init__(self, related_class, relationship_type=None):
+        self.related_class = related_class
         self.relationship_type = relationship_type
+        self.relationships = None
 
     def __get__(self, instance, owner):
-        return instance.__db_related__(self.relationship_type)
+        if self.relationships is None:
+            if isinstance(self.related_class, type):
+                related_class = self.related_class
+            else:
+                related_class = globals()[self.related_class]
+            self.relationships = RelationshipSet(instance, self.relationship_type, related_class)
+        return self.relationships
 
-    @property
-    def related_node_class(self):
-        if isinstance(self.__related_node_class, type):
-            return self.__related_node_class
-        else:
-            return globals()[self.__related_node_class]
 
-    def add(self, item):
-        pass
+class RelationshipSet(object):
+
+    def __init__(self, instance, relationship_type, related_class):
+        self.instance = instance
+        self.relationship_type = relationship_type
+        self.related_class = related_class
+        self._relationships = None
+
+    def __iter__(self):
+        self._refresh()
+        return iter(self._relationships)
+
+    def _refresh(self):
+        if self._relationships is None:
+            self.pull()
+
+    def add(self, item, properties, **kwproperties):
+        self._relationships[item] = dict(properties, **kwproperties)
 
     def remove(self, item):
+        del self._relationships[item]
+
+    def pull(self):
+        self._relationships = {}
+        instance = self.instance
+        for r in instance.__graph__.match(instance.__db_node__, self.relationship_type):
+            related_instance = self.related_class.wrap(r.end_node())
+            self._relationships[related_instance] = dict(r)
+
+    def push(self):
         pass
-
-
-class RelatedItems(object):
-
-    pass
 
 
 class GraphObjectMeta(type):
@@ -135,6 +158,11 @@ class GraphObject(metaclass=GraphObjectMeta):
         inst.__class__ = cls
         return inst
 
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__,
+                            " ".join("%s=%r" % (k, getattr(self, k)) for k in dir(self)
+                                     if not k.startswith("_") and not callable(getattr(self, k))))
+
     def __eq__(self, other):
         try:
             return self.__db_node__ == other.__db_node__
@@ -170,15 +198,8 @@ class GraphObject(metaclass=GraphObjectMeta):
     def __remote__(self):
         return self.__db_node__.__remote__
 
-    def __db_create_node__(self, tx):
-        tx.merge(self.__db_node__, self.__primary_label__, self.__primary_key__)
-
     def __db_create__(self, tx):
-        self.__db_create_node__(tx)
-        # related_nodes = set()
-        # for _, nodes in self.__db_relationships.items():
-        #     related_nodes |= nodes
-        # for node in related_nodes:
+        tx.merge(self.__db_node__, self.__primary_label__, self.__primary_key__)
 
     def __db_delete__(self, tx):
         # TODO: delete if not bound
@@ -189,3 +210,26 @@ class GraphObject(metaclass=GraphObjectMeta):
 
     def __db_push__(self, graph):
         graph.push(self.__db_node__)
+
+
+class MovieGraphObject(GraphObject):
+    pass
+
+
+class Person(MovieGraphObject):
+    __primary_key__ = "name"
+
+    name = Property()
+    year_of_birth = Property(key="born")
+
+    acted_in = Related("Movie")
+    directed = Related("Movie")
+    produced = Related("Movie")
+
+
+class Movie(MovieGraphObject):
+    __primary_key__ = "title"
+
+    title = Property()
+    tag_line = Property(key="tagline")
+    year_of_release = Property(key="released")
