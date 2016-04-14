@@ -335,7 +335,8 @@ may be traversed one or more times in any direction.
         is the same as either the start node or the end node of `other`; in the latter case, `other`
         will be walked in reverse.
 
-        Nodes that overlap from one operand onto another are not duplicated in the returned `Walkable`.
+        Nodes that overlap from one operand onto another are not duplicated in the returned
+        :class:`.Walkable`.
 
     .. describe:: walk(walkable)
 
