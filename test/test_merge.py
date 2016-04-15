@@ -154,3 +154,40 @@ class TransactionMergeTestCase(Py2neoTestCase):
     def test_cannot_merge_non_walkable(self):
         with self.assertRaises(TypeError):
             self.graph.merge("this string is definitely not a walkable object")
+
+    def test_can_merge_long_straight_walkable(self):
+        a = Node("Person", name="Alice")
+        b = Node("Person", name="Bob")
+        c = Node("Person", name="Carol")
+        d = Node("Person", name="Dave")
+        ab = Relationship(a, "KNOWS", b)
+        cb = Relationship(c, "KNOWS", b)
+        cd = Relationship(c, "KNOWS", d)
+        self.graph.create(a)
+        old_order = order(self.graph)
+        old_size = size(self.graph)
+        self.graph.merge(ab + cb + cd)
+        new_order = order(self.graph)
+        new_size = size(self.graph)
+        assert new_order == old_order + 3
+        assert new_size == old_size + 3
+
+    def test_can_merge_long_walkable_with_repeats(self):
+        a = Node("Person", name="Alice")
+        b = Node("Person", name="Bob")
+        c = Node("Person", name="Carol")
+        d = Node("Person", name="Dave")
+        ab = Relationship(a, "KNOWS", b)
+        cb = Relationship(c, "KNOWS", b)
+        cd = Relationship(c, "KNOWS", d)
+        bd = Relationship(b, "KNOWS", d)
+        self.graph.create(a)
+        old_order = order(self.graph)
+        old_size = size(self.graph)
+        self.graph.merge(ab + cb + cb + bd + cd)
+        new_order = order(self.graph)
+        new_size = size(self.graph)
+        import ipdb; ipdb.set_trace()
+        assert new_order == old_order + 3
+        assert new_size == old_size + 4
+
