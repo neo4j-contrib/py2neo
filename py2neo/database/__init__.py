@@ -283,7 +283,7 @@ class Graph(object):
     ==============  =============================================  ==============  =============
     Keyword         Description                                    Type(s)         Default
     ==============  =============================================  ==============  =============
-    ``bolt``        Use Bolt protocol (`None` means autodetect)    bool, ``None``  ``None``
+    ``bolt``        Use Bolt* protocol (`None` means autodetect)   bool, ``None``  ``None``
     ``secure``      Use a secure connection (Bolt/TLS + HTTPS)     bool            ``False``
     ``host``        Database server host name                      str             ``'localhost'``
     ``http_port``   Port for HTTP traffic                          int             ``7474``
@@ -293,8 +293,10 @@ class Graph(object):
     ``password``    Password to use for authentication             str             `no default`
     ==============  =============================================  ==============  =============
 
+    *\* The new Bolt binary protocol is the successor to HTTP and available in Neo4j 3.0 and above.*
+
     Each setting can be provided as a keyword argument or as part of
-    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore the examples
+    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
     below are equivalent::
 
         >>> from py2neo import Graph
@@ -395,7 +397,8 @@ class Graph(object):
 
     @property
     def dbms(self):
-        """ The database management system to which this graph belongs.
+        """ The database management system to which this :class:`.Graph`
+        instance belongs.
         """
         return remote(self).dbms
 
@@ -419,7 +422,7 @@ class Graph(object):
         self.begin(autocommit=True).delete(subgraph)
 
     def delete_all(self):
-        """ Delete all nodes and relationships from the graph.
+        """ Delete all nodes and relationships from this :class:`.Graph`.
 
         .. warning::
             This method will permanently remove **all** nodes and relationships
@@ -450,7 +453,7 @@ class Graph(object):
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
-        by property key and value
+        by property key and value.
 
         :param label:
         :param property_key:
@@ -527,21 +530,18 @@ class Graph(object):
             return data
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
-        """ Return an iterator for all relationships matching the
-        specified criteria.
+        """ Match and return all relationships with specific criteria.
 
         For example, to find all of Alice's friends::
 
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
-                print(rel.end_node.properties["name"])
+                print(rel.end_node()["name"])
 
-        :param start_node:
-        :param rel_type: type of relationships to match or :const:`None` if any
-        :param end_node:
+        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param rel_type: type of relationships to match (:const:`None` means any type)
+        :param end_node: end node of relationships to match (:const:`None` means any node)
         :param bidirectional: :const:`True` if reversed relationships should also be included
-        :param limit: maximum number of relationships to match or :const:`None` if no limit
-        :return: matching relationships
-        :rtype: generator
+        :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
         if start_node is None and end_node is None:
             statement = "MATCH (a)"
@@ -582,14 +582,12 @@ class Graph(object):
             yield cursor.current["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
-        """ Return a single relationship matching the
-        specified criteria. See :meth:`~py2neo.Graph.match` for
-        argument details.
+        """ Match and return one relationship with specific criteria.
 
-        :param start_node:
-        :param rel_type:
-        :param end_node:
-        :param bidirectional:
+        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param rel_type: type of relationships to match (:const:`None` means any type)
+        :param end_node: end node of relationships to match (:const:`None` means any node)
+        :param bidirectional: :const:`True` if reversed relationships should also be included
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
