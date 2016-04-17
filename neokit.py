@@ -517,7 +517,7 @@ class GraphServer(object):
             return p
 
     def info(self, key):
-        """ Lookup an item of server information from a running server.
+        """ Look up an item of server information from a running server.
 
         :param key: the key of the item to look up
         """
