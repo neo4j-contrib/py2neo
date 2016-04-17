@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=v3)](https://travis-ci.org/nigelsmall/py2neo)
 
-Py2neo v3 beta 2
-================
+Py2neo v3
+=========
 
 Py2neo is a client library and toolkit for working with Neo4j from within Python applications and from the command line.
 The core library has no external dependencies and has been carefully designed to be easy and intuitive to use.
@@ -15,16 +15,6 @@ To install the latest stable version of py2neo, simply use pip::
 ```
 $ pip install py2neo
 ```
-
-The latest stable release of py2neo is **2.0.8**.
-
-To install the latest beta, use::
-
-```
-$ pip install py2neo==3b2
-```
-
-The latest beta release is **3b2**.
 
 To install the latest bleeding edge code directly from GitHub, use::
 

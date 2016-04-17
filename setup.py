@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-import sys
-
 try:
     from setuptools import setup, find_packages
 except ImportError:
@@ -25,8 +23,6 @@ except ImportError:
 
 from py2neo import __author__, __email__, __license__, __package__, __version__
 
-
-python_2 = sys.version_info < (3,)
 
 packages = find_packages(exclude=("book", "test", "test_ext", "test_ext.*"))
 package_metadata = {

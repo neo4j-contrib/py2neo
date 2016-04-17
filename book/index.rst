@@ -1,9 +1,11 @@
-*****************************
-The Py2neo v3 beta 2 Handbook
-*****************************
+**********************
+The Py2neo v3 Handbook
+**********************
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
 The core library has no external dependencies and has been carefully designed to be easy and intuitive to use.
+
+.. note:: Documentation for the 2.0 series is available `here <http://py2neo.org/2.0>`_.
 
 
 Installation
@@ -13,15 +15,6 @@ To install the latest stable version of py2neo, simply use pip_::
 
     $ pip install py2neo
 
-
-The latest stable release of py2neo is **2.0.8**.
-Documentation for the 2.0 series is available `here <http://py2neo.org/2.0>`_.
-
-To install the latest beta, use::
-
-   $ pip install py2neo==3b2
-
-The latest beta release is **3b2**.
 
 To install the latest bleeding edge code directly from GitHub, use::
 
