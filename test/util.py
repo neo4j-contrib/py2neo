@@ -16,12 +16,14 @@
 # limitations under the License.
 
 
+import functools
 from unittest import TestCase
 from uuid import uuid4
 
 from py2neo import Graph, Node, remote
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
+from py2neo.packages.httpstream.watch import Watcher
 
 
 def unique_string_generator():

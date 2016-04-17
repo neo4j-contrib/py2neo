@@ -4,9 +4,8 @@
 
 **Py2neo** provides a set of core graph data types that are completely compatible with Neo4j but
 that can also be used independently of it. These types include the fundamental entities
-:class:`.Node` and :class:`.Relationship` as well as classes used to construct these entities and
-entity collections. In addition, a :class:`.CypherWriter` class, along with some other associated
-functions, provide facilities to conveniently output these types in string form.
+:class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these
+entities.
 
 These types have been carefully designed to work together using standard operations, most notably
 set operations. Details of these operations are covered in the sections on :ref:`subgraphs` and
@@ -18,9 +17,10 @@ Nodes & Relationships
 
 The two essential building blocks of the property graph model used by Neo4j are the :class:`.Node`
 and the :class:`.Relationship`. A node is the fundamental unit of data storage within a graph. It
-can contain a set of properties and can be adorned with one or more textual labels. A relationship
-is a typed connection between a pair of nodes (or occasionally between a node and itself) that can
-also contain properties.
+can contain a set of key-value pairs (properties) and can optionally be adorned with one or more
+textual labels. A relationship is a typed, directed connection between a pair of nodes (or
+alternatively a `loop <https://en.wikipedia.org/wiki/Loop_%28graph_theory%29>`_ on a single node).
+Like nodes, relationships may also contain a set of properties.
 
 The code below shows how to create a couple of nodes and a relationship joining them. Each node has
 a single property, `name`, and is labelled as a `Person`. The relationship ``ab`` describes a
@@ -38,15 +38,18 @@ a single property, `name`, and is labelled as a `Person`. The relationship ``ab`
 
 .. class:: Node(*labels, **properties)
 
-    Construct a new node object with the labels and properties specified. This node will not
-    initially be bound to a Neo4j database.
+    Construct a new node object with the labels and properties specified. In its initial state, a
+    node is `unbound`. This means that it exists only on the client and does not reference a
+    corresponding server node. A node is typically `bound` by
+    :meth:`creating <.Transaction.create>` it in a Neo4j database.
 
     .. describe:: node == other
 
-        Return ``True`` if *node* and *other* are equal. Node equality is based on identity, not
-        properties or labels. This means that if bound, a node object will be equal to any other
-        node object that is bound to the same remote node; if unbound, it can only ever be equal
-        to itself.
+        Return ``True`` if *node* and *other* are equal. Node equality is based solely on the ID of
+        the remote node it represents; neither properties nor labels factor into equality. This
+        means that if `bound`, a node object can only be considered equal to another node object
+        that is bound to the same remote node. If a node is `unbound`, thereby having no
+        corresponding node ID, it can only ever be equal to itself.
 
     .. describe:: node != other
 
@@ -125,8 +128,10 @@ a single property, `name`, and is labelled as a `Person`. The relationship ``ab`
     .. describe:: relationship == other
 
         Return ``True`` if *relationship* and *other* are equal. Relationship equality is based on
-        equality of the start node, end node and type. This means that any two relationships of the
-        same type between the same nodes are always considered equal.
+        equality of the start node, the end node and the relationship type (node equality is
+        described above). This means that any two relationships of the same type between the same
+        nodes are always considered equal. Note that this behaviour differs slightly from Neo4j
+        itself which permits multiple relationships of the same type between the same nodes.
 
     .. describe:: relationship != other
 
@@ -176,7 +181,7 @@ Both :class:`.Node` and :class:`.Relationship` extend the :class:`.PropertyDict`
 extends Python's built-in dictionary. This means that nodes and relationships are both mapping
 types that can contain property values, indexed by key.
 
-Similarly to Neo4j, property values may not be ``None``. A missing property (i.e. no key present)
+As with Neo4j itself, property values may not be ``None``. A missing property (i.e. no key present)
 is the idiomatic way to model absence of value.
 
 The *PropertyDict* class is described in more detail below.
@@ -184,7 +189,7 @@ The *PropertyDict* class is described in more detail below.
 .. class:: PropertyDict(iterable, **kwargs)
 
     The *PropertyDict* extends Python's built-in *dict* type. All operations and methods are
-    identical to those of the base class with the exceptions of the ones described below.
+    identical to those of the base class except for those described below.
 
     .. describe:: properties == other
 
@@ -213,9 +218,10 @@ The *PropertyDict* class is described in more detail below.
 
     .. method:: update(iterable=None, **kwargs)
 
-        Update the PropertyDict with the key-value pairs from *iterable* combined with the keyword
-        arguments from *kwargs*, overwriting existing properties. Any values of ``None`` will not
-        be included and will remove any property with that key that already exists.
+        Update the PropertyDict with the key-value pairs from *iterable* followed by the keyword
+        arguments from *kwargs*. Individual properties already in the PropertyDict will be
+        overwritten by those in *iterable* and subsequently by those in *kwargs* if the keys match.
+        Any value of ``None`` will effectively delete the property with that key, should it exist.
 
 
 .. _subgraphs:
@@ -262,7 +268,7 @@ subgraph is by combining nodes and relationships using standard set operations. 
     .. describe:: subgraph - other - ...
 
         Difference. Return a new subgraph containing all nodes and relationships that exist in
-        *subgraph* but do not exist in *other* as well as all nodes that are connected by the
+        *subgraph* but do not exist in *other*, as well as all nodes that are connected by the
         relationships in *subgraph* regardless of whether or not they exist in *other*.
 
     .. describe:: subgraph ^ other ^ ...
@@ -273,11 +279,11 @@ subgraph is by combining nodes and relationships using standard set operations. 
 
     .. method:: subgraph.keys()
 
-        Return all the property keys used by the nodes and relationships in this subgraph.
+        Return the set of all property keys used by the nodes and relationships in this subgraph.
 
     .. method:: subgraph.labels()
 
-        Return all the node labels in this subgraph.
+        Return the set of all node labels in this subgraph.
 
     .. method:: subgraph.nodes()
 
@@ -289,15 +295,17 @@ subgraph is by combining nodes and relationships using standard set operations. 
 
     .. method:: subgraph.types()
 
-        Return all the relationship types in this subgraph.
+        Return the set of all relationship types in this subgraph.
 
 .. function:: order(subgraph)
 
-    Return the number of nodes in this subgraph.
+    Return the number of nodes in `subgraph`. This argument can be an instance of
+    :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
 
 .. function:: size(subgraph)
 
-    Return the number of relationships in this subgraph.
+    Return the number of relationships in `subgraph`. This argument can be an instance of
+    :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
 
 
 .. _walkable_types:
@@ -312,8 +320,8 @@ construct a walkable is by concatenating other graph objects::
     >>> w
     (alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)<-[:WORKS_WITH]-(alice)
 
-Traversal of a walkable object is achieved by using the :func:`walk` function which yields
-alternating nodes and relationships and always starts and ends with a node. Node or relationships
+The traversal of a walkable object is achieved by using the :func:`walk` function, which yields
+alternating nodes and relationships and always starts and ends with a node. Any node or relationship
 may be traversed one or more times in any direction.
 
 .. class:: Walkable(iterable)
@@ -322,16 +330,17 @@ may be traversed one or more times in any direction.
 
     .. describe:: walkable + other + ...
 
-        Concatenation. Return a new walkable that represents a walk of `subgraph` followed by a
-        walk of `other`. This is only possible if the end node of `subgraph` is the same as either
-        the start node or the end node of `other`; in the latter case, `other` will be walked in
-        reverse.
+        Concatenation. Return a new :class:`.Walkable` that represents a :func:`walk` of `walkable`
+        followed by a :func:`walk` of `other`. This is only possible if the end node of `walkable`
+        is the same as either the start node or the end node of `other`; in the latter case, `other`
+        will be walked in reverse.
 
-        Note that overlapping nodes are not duplicated.
+        Nodes that overlap from one operand onto another are not duplicated in the returned
+        :class:`.Walkable`.
 
     .. describe:: walk(walkable)
 
-        Perform a :func:`walk` of *walkable*, yielding nodes and relationships in turn.
+        Perform a :func:`walk` of *walkable*, yielding alternating nodes and relationships.
 
     .. method:: start_node()
 
@@ -343,12 +352,13 @@ may be traversed one or more times in any direction.
 
     .. method:: nodes()
 
-        Return an ordered collection of all nodes encountered on a :func:`walk` of this object.
+        Return a tuple of all nodes traversed on a :func:`walk` of this :class:`.Walkable`, listed
+        in the order in which they were first encountered.
 
     .. method:: relationships()
 
-        Return an ordered collection of all relationships encountered on a :func:`walk` of this
-        object.
+        Return a tuple of all relationships traversed on a :func:`walk` of this :class:`.Walkable`,
+        listed in the order in which they were first encountered.
 
 .. class:: Path(*entities)
 
@@ -356,4 +366,4 @@ may be traversed one or more times in any direction.
 
 .. function:: walk(*walkables)
 
-    Traverse over the arguments supplied, yielding the entities from each in turn.
+    Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.

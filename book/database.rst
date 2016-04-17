@@ -5,7 +5,7 @@
 .. module:: py2neo.database
 
 The ``py2neo.database`` package contains classes and functions required to interact with a Neo4j server.
-The most important of these is the :class:`.Graph` class which represents a Neo4j graph database instance and provides access to much of the available functionality.
+The most important of these is the :class:`.Graph` class which represents a Neo4j graph database instance and provides access to a large portion of the most commonly used py2neo API.
 
 To run a query against a local database is straightforward::
 

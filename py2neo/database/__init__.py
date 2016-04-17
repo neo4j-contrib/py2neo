@@ -216,7 +216,7 @@ class DBMS(object):
 
     @property
     def store_directory(self):
-        """ Return the location where the Neo4j store is located.
+        """ Return the location of the Neo4j store.
         """
         info = self._bean_dict("Kernel")
         return info.get("StoreDirectory")
@@ -238,8 +238,8 @@ class DBMS(object):
 
     @property
     def store_file_sizes(self):
-        """ Return a dictionary of information about the sizes of the
-        different parts of the Neo4j graph store.
+        """ Return a dictionary of file sizes for each file in the Neo4j
+        graph store.
         """
         return self._bean_dict("Store file sizes")
 
@@ -283,7 +283,7 @@ class Graph(object):
     ==============  =============================================  ==============  =============
     Keyword         Description                                    Type(s)         Default
     ==============  =============================================  ==============  =============
-    ``bolt``        Use Bolt protocol (`None` means autodetect)    bool, ``None``  ``None``
+    ``bolt``        Use Bolt* protocol (`None` means autodetect)   bool, ``None``  ``None``
     ``secure``      Use a secure connection (Bolt/TLS + HTTPS)     bool            ``False``
     ``host``        Database server host name                      str             ``'localhost'``
     ``http_port``   Port for HTTP traffic                          int             ``7474``
@@ -293,8 +293,10 @@ class Graph(object):
     ``password``    Password to use for authentication             str             `no default`
     ==============  =============================================  ==============  =============
 
+    *\* The new Bolt binary protocol is the successor to HTTP and available in Neo4j 3.0 and above.*
+
     Each setting can be provided as a keyword argument or as part of
-    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore the examples
+    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
     below are equivalent::
 
         >>> from py2neo import Graph
@@ -384,18 +386,10 @@ class Graph(object):
         """
         self.begin(autocommit=True).create(subgraph)
 
-    def create_unique(self, walkable):
-        """ Run a :meth:`.Transaction.create_unique` operation within
-        an `autocommit` :class:`.Transaction`.
-
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or
-                       other :class:`.Walkable` object
-        """
-        self.begin(autocommit=True).create_unique(walkable)
-
     @property
     def dbms(self):
-        """ The database management system to which this graph belongs.
+        """ The database management system to which this :class:`.Graph`
+        instance belongs.
         """
         return remote(self).dbms
 
@@ -419,7 +413,7 @@ class Graph(object):
         self.begin(autocommit=True).delete(subgraph)
 
     def delete_all(self):
-        """ Delete all nodes and relationships from the graph.
+        """ Delete all nodes and relationships from this :class:`.Graph`.
 
         .. warning::
             This method will permanently remove **all** nodes and relationships
@@ -450,7 +444,7 @@ class Graph(object):
 
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Iterate through a set of labelled nodes, optionally filtering
-        by property key and value
+        by property key and value.
 
         :param label:
         :param property_key:
@@ -527,21 +521,18 @@ class Graph(object):
             return data
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
-        """ Return an iterator for all relationships matching the
-        specified criteria.
+        """ Match and return all relationships with specific criteria.
 
         For example, to find all of Alice's friends::
 
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
-                print(rel.end_node.properties["name"])
+                print(rel.end_node()["name"])
 
-        :param start_node:
-        :param rel_type: type of relationships to match or :const:`None` if any
-        :param end_node:
+        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param rel_type: type of relationships to match (:const:`None` means any type)
+        :param end_node: end node of relationships to match (:const:`None` means any node)
         :param bidirectional: :const:`True` if reversed relationships should also be included
-        :param limit: maximum number of relationships to match or :const:`None` if no limit
-        :return: matching relationships
-        :rtype: generator
+        :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
         if start_node is None and end_node is None:
             statement = "MATCH (a)"
@@ -582,14 +573,12 @@ class Graph(object):
             yield cursor.current["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
-        """ Return a single relationship matching the
-        specified criteria. See :meth:`~py2neo.Graph.match` for
-        argument details.
+        """ Match and return one relationship with specific criteria.
 
-        :param start_node:
-        :param rel_type:
-        :param end_node:
-        :param bidirectional:
+        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param rel_type: type of relationships to match (:const:`None` means any type)
+        :param end_node: end node of relationships to match (:const:`None` means any node)
+        :param bidirectional: :const:`True` if reversed relationships should also be included
         """
         rels = list(self.match(start_node, rel_type, end_node,
                                bidirectional, 1))
@@ -598,16 +587,16 @@ class Graph(object):
         else:
             return None
 
-    def merge(self, walkable, label=None, *property_keys):
+    def merge(self, subgraph, label=None, *property_keys):
         """ Run a :meth:`.Transaction.merge` operation within an
         `autocommit` :class:`.Transaction`.
 
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        self.begin(autocommit=True).merge(walkable, label, *property_keys)
+        self.begin(autocommit=True).merge(subgraph, label, *property_keys)
 
     @property
     @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version instead")
@@ -1051,20 +1040,6 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to create object %r" % subgraph)
 
-    def create_unique(self, walkable):
-        """ Create unique remote nodes and relationships that correspond to those
-        in a local walkable object. This method is similar to :meth:`create` but
-        uses a Cypher `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
-        clause to ensure that only relationships that do not already exist are created.
-
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
-        """
-        try:
-            walkable.__db_createunique__(self)
-        except AttributeError:
-            raise TypeError("No method defined to uniquely create object %r" % walkable)
-
     def degree(self, subgraph):
         """ Return the total number of relationships attached to all nodes in
         a subgraph.
@@ -1104,20 +1079,35 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to determine the existence of object %r" % subgraph)
 
-    def merge(self, walkable, label=None, *property_keys):
-        """ Merge remote nodes and relationships that correspond to those in
-        a local walkable object. Optionally perform the merge based on a specific
-        label or set of property keys.
+    def merge(self, subgraph, primary_label=None, primary_key=None):
+        """ Merge nodes and relationships from a local subgraph into the
+        database. Each node and relationship is merged independently, with
+        nodes merged first and relationships merged second.
 
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
-        :param label: label on which to match any existing nodes
-        :param property_keys: property keys on which to match any existing nodes
+        For each node, the merge is carried out by comparing that node with a
+        potential remote equivalent on the basis of a label and property value.
+        If no remote match is found, a new node is created. The label and
+        property to use for comparison are determined by `primary_label` and
+        `primary_key` but may be overridden for individual nodes by the
+        presence of `__primarylabel__` and `__primarykey__` attributes on
+        the node itself. Note that multiple property keys may be specified by
+        using a tuple.
+
+        For each relationship, the merge is carried out by comparing that
+        relationship with a potential remote equivalent on the basis of matching
+        start and end nodes plus relationship type. If no remote match is found,
+        a new relationship is created.
+
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+        :param primary_label: label on which to match any existing nodes
+        :param primary_key: property key(s) on which to match any existing
+                            nodes
         """
         try:
-            walkable.__db_merge__(self, label, *property_keys)
+            subgraph.__db_merge__(self, primary_label, primary_key)
         except AttributeError:
-            raise TypeError("No method defined to merge object %r" % walkable)
+            raise TypeError("No method defined to merge object %r" % subgraph)
 
     def separate(self, subgraph):
         """ Delete the remote relationships that correspond to those in a local
@@ -1263,7 +1253,7 @@ class Cursor(object):
     forward direction.
 
     It is not generally necessary for application code to instantiate a
-    cursor directly, one will be returned by any Cypher execution method.
+    cursor directly as one will be returned by any Cypher execution method.
     However, cursor creation requires only a :class:`.DataSource` object
     which contains the logic for how to access the source data that the
     cursor navigates.
