@@ -386,15 +386,6 @@ class Graph(object):
         """
         self.begin(autocommit=True).create(subgraph)
 
-    def create_unique(self, walkable):
-        """ Run a :meth:`.Transaction.create_unique` operation within
-        an `autocommit` :class:`.Transaction`.
-
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or
-                       other :class:`.Walkable` object
-        """
-        self.begin(autocommit=True).create_unique(walkable)
-
     @property
     def dbms(self):
         """ The database management system to which this :class:`.Graph`
@@ -596,16 +587,16 @@ class Graph(object):
         else:
             return None
 
-    def merge(self, walkable, label=None, *property_keys):
+    def merge(self, subgraph, label=None, *property_keys):
         """ Run a :meth:`.Transaction.merge` operation within an
         `autocommit` :class:`.Transaction`.
 
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        self.begin(autocommit=True).merge(walkable, label, *property_keys)
+        self.begin(autocommit=True).merge(subgraph, label, *property_keys)
 
     @property
     @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version instead")
@@ -1049,20 +1040,6 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to create object %r" % subgraph)
 
-    def create_unique(self, walkable):
-        """ Create unique remote nodes and relationships that correspond to those
-        in a local walkable object. This method is similar to :meth:`create` but
-        uses a Cypher `CREATE UNIQUE <http://docs.neo4j.org/chunked/stable/query-create-unique.html>`_
-        clause to ensure that only relationships that do not already exist are created.
-
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
-        """
-        try:
-            walkable.__db_createunique__(self)
-        except AttributeError:
-            raise TypeError("No method defined to uniquely create object %r" % walkable)
-
     def degree(self, subgraph):
         """ Return the total number of relationships attached to all nodes in
         a subgraph.
@@ -1102,20 +1079,35 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to determine the existence of object %r" % subgraph)
 
-    def merge(self, walkable, label=None, *property_keys):
-        """ Merge remote nodes and relationships that correspond to those in
-        a local walkable object. Optionally perform the merge based on a specific
-        label or set of property keys.
+    def merge(self, subgraph, primary_label=None, primary_key=None):
+        """ Merge nodes and relationships from a local subgraph into the
+        database. Each node and relationship is merged independently, with
+        nodes merged first and relationships merged second.
 
-        :param walkable: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Walkable` object
-        :param label: label on which to match any existing nodes
-        :param property_keys: property keys on which to match any existing nodes
+        For each node, the merge is carried out by comparing that node with a
+        potential remote equivalent on the basis of a label and property value.
+        If no remote match is found, a new node is created. The label and
+        property to use for comparison are determined by `primary_label` and
+        `primary_key` but may be overridden for individual nodes by the
+        presence of `__primarylabel__` and `__primarykey__` attributes on
+        the node itself. Note that multiple property keys may be specified by
+        using a tuple.
+
+        For each relationship, the merge is carried out by comparing that
+        relationship with a potential remote equivalent on the basis of matching
+        start and end nodes plus relationship type. If no remote match is found,
+        a new relationship is created.
+
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph` object
+        :param primary_label: label on which to match any existing nodes
+        :param primary_key: property key(s) on which to match any existing
+                            nodes
         """
         try:
-            walkable.__db_merge__(self, label, *property_keys)
+            subgraph.__db_merge__(self, primary_label, primary_key)
         except AttributeError:
-            raise TypeError("No method defined to merge object %r" % walkable)
+            raise TypeError("No method defined to merge object %r" % subgraph)
 
     def separate(self, subgraph):
         """ Delete the remote relationships that correspond to those in a local

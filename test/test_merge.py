@@ -151,9 +151,9 @@ class TransactionMergeTestCase(Py2neoTestCase):
         assert new_order == old_order
         assert new_size == old_size
 
-    def test_cannot_merge_non_walkable(self):
+    def test_cannot_merge_non_subgraph(self):
         with self.assertRaises(TypeError):
-            self.graph.merge("this string is definitely not a walkable object")
+            self.graph.merge("this string is definitely not a subgraph")
 
     def test_can_merge_long_straight_walkable(self):
         a = Node("Person", name="Alice")
@@ -187,7 +187,53 @@ class TransactionMergeTestCase(Py2neoTestCase):
         self.graph.merge(ab + cb + cb + bd + cd)
         new_order = order(self.graph)
         new_size = size(self.graph)
-        import ipdb; ipdb.set_trace()
         assert new_order == old_order + 3
         assert new_size == old_size + 4
 
+    def test_can_merge_without_arguments(self):
+        a = Node("A", a=1)
+        b = Node("B", b=2)
+        self.graph.create(a | b)
+        a_id = remote(a)._id
+        b_id = remote(b)._id
+        node = Node("A", "B", a=1, b=2)
+        self.graph.merge(node)
+        assert remote(node)._id != a_id
+        assert remote(node)._id != b_id
+
+    def test_can_merge_with_arguments(self):
+        a = Node("A", a=1)
+        b = Node("B", b=2)
+        self.graph.create(a | b)
+        a_id = remote(a)._id
+        b_id = remote(b)._id
+        node = Node("A", "B", a=1, b=2)
+        self.graph.merge(node, "A", "a")
+        assert remote(node)._id == a_id
+        assert remote(node)._id != b_id
+
+    def test_merge_with_magic_values_overrides_arguments(self):
+        a = Node("A", a=1)
+        b = Node("B", b=2)
+        self.graph.create(a | b)
+        a_id = remote(a)._id
+        b_id = remote(b)._id
+        node = Node("A", "B", a=1, b=2)
+        node.__primarylabel__ = "B"
+        node.__primarykey__ = "b"
+        self.graph.merge(node, "A", "a")
+        assert remote(node)._id != a_id
+        assert remote(node)._id == b_id
+
+    def test_merge_with_primary_key_list(self):
+        a = Node("A", a=1)
+        b = Node("B", b=2)
+        self.graph.create(a | b)
+        a_id = remote(a)._id
+        b_id = remote(b)._id
+        node = Node("A", "B", a=1, b=2)
+        node.__primarylabel__ = "B"
+        node.__primarykey__ = ["b"]
+        self.graph.merge(node, "A", "a")
+        assert remote(node)._id != a_id
+        assert remote(node)._id == b_id

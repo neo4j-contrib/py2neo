@@ -384,6 +384,66 @@ class Subgraph(object):
         parameters = {"x": list(node_ids), "y": list(relationship_ids)}
         return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
+    def __db_merge__(self, tx, primary_label=None, primary_key=None):
+        from py2neo.database.cypher import cypher_escape, cypher_repr
+        nodes = list(self.nodes())
+        clauses = []
+        parameters = {}
+        returns = {}
+        for i, node in enumerate(nodes):
+            node_id = "a%d" % i
+            param_id = "x%d" % i
+            remote_node = remote(node)
+            if remote_node:
+                clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                parameters[param_id] = remote_node._id
+            else:
+                merge_label = getattr(node, "__primarylabel__", None) or primary_label
+                if merge_label is None:
+                    label_string = "".join(":" + cypher_escape(label)
+                                           for label in sorted(node.labels()))
+                elif node.labels():
+                    label_string = ":" + cypher_escape(merge_label)
+                else:
+                    label_string = ""
+                merge_keys = getattr(node, "__primarykey__", None) or primary_key
+                if merge_keys is None:
+                    merge_keys = ()
+                elif is_collection(merge_keys):
+                    merge_keys = tuple(merge_keys)
+                else:
+                    merge_keys = (merge_keys,)
+                if merge_keys:
+                    property_map_string = cypher_repr({k: v for k, v in dict(node).items()
+                                                       if k in merge_keys})
+                else:
+                    property_map_string = cypher_repr(dict(node))
+                clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
+                if node.labels():
+                    clauses.append("SET %s%s" % (
+                        node_id, "".join(":" + cypher_escape(label)
+                                         for label in sorted(node.labels()))))
+                if merge_keys:
+                    clauses.append("SET %s={%s}" % (node_id, param_id))
+                    parameters[param_id] = dict(node)
+                node._set_remote_pending(tx)
+            returns[node_id] = node
+        for i, relationship in enumerate(self.relationships()):
+            if not remote(relationship):
+                rel_id = "r%d" % i
+                start_node_id = "a%d" % nodes.index(relationship.start_node())
+                end_node_id = "a%d" % nodes.index(relationship.end_node())
+                type_string = cypher_escape(relationship.type())
+                param_id = "y%d" % i
+                clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
+                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
+                parameters[param_id] = dict(relationship)
+                returns[rel_id] = relationship
+                relationship._set_remote_pending(tx)
+        statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
+        tx.entities.append(returns)
+        tx.run(statement, parameters)
+
     def __db_pull__(self, graph):
         nodes = {node: None for node in self.nodes()}
         relationships = list(self.relationships())
@@ -535,110 +595,6 @@ class Walkable(Subgraph):
         object in order.
         """
         return iter(self.__sequence)
-
-    def __db_createunique__(self, tx):
-        if not any(remote(node) for node in self.nodes()):
-            raise ValueError("At least one node must be bound")
-        from py2neo.database.cypher import cypher_escape
-        matches = []
-        pattern = []
-        writes = []
-        parameters = {}
-        returns = {}
-        node = None
-        for i, entity in enumerate(walk(self)):
-            if i % 2 == 0:
-                # node
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                remote_entity = remote(entity)
-                if remote_entity:
-                    matches.append("MATCH (%s) "
-                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                    pattern.append("(%s)" % node_id)
-                    parameters[param_id] = remote_entity._id
-                else:
-                    label_string = "".join(":" + cypher_escape(label)
-                                           for label in sorted(entity.labels()))
-                    pattern.append("(%s%s {%s})" % (node_id, label_string, param_id))
-                    parameters[param_id] = dict(entity)
-                    entity._set_remote_pending(tx)
-                returns[node_id] = node = entity
-            else:
-                # relationship
-                rel_id = "r%d" % i
-                param_id = "x%d" % i
-                type_string = cypher_escape(entity.type())
-                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
-                pattern.append(template % (rel_id, type_string))
-                writes.append("SET %s={%s}" % (rel_id, param_id))
-                parameters[param_id] = dict(entity)
-                if not remote(entity):
-                    entity._set_remote_pending(tx)
-                returns[rel_id] = entity
-        statement = "\n".join(matches + ["CREATE UNIQUE %s" % "".join(pattern)] + writes +
-                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        tx.entities.append(returns)
-        tx.run(statement, parameters)
-
-    def __db_merge__(self, tx, label=None, *property_keys):
-        if size(self) == 0 and remote(self.start_node()):
-            return  # single, bound node - nothing to do
-        from py2neo.database.cypher import cypher_escape, cypher_repr
-        matches = []
-        pattern = []
-        writes = []
-        parameters = {}
-        returns = {}
-        node = None
-        for i, entity in enumerate(walk(self)):
-            if i % 2 == 0:
-                # node
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                remote_entity = remote(entity)
-                if remote_entity:
-                    matches.append("MATCH (%s) "
-                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                    pattern.append("(%s)" % node_id)
-                    parameters[param_id] = remote_entity._id
-                else:
-                    if label is None:
-                        label_string = "".join(":" + cypher_escape(label)
-                                               for label in sorted(entity.labels()))
-                    elif entity.labels():
-                        label_string = ":" + cypher_escape(label)
-                        writes.append("SET %s%s" % (
-                            node_id, "".join(":" + cypher_escape(label)
-                                             for label in sorted(entity.labels()))))
-                    else:
-                        label_string = ""
-                    if property_keys:
-                        property_map_string = cypher_repr({k: v for k, v in dict(entity).items()
-                                                           if k in property_keys})
-                        writes.append("SET %s={%s}" % (node_id, param_id))
-                        parameters[param_id] = dict(entity)
-                    else:
-                        property_map_string = cypher_repr(dict(entity))
-                    pattern.append("(%s%s %s)" % (node_id, label_string, property_map_string))
-                    entity._set_remote_pending(tx)
-                returns[node_id] = node = entity
-            else:
-                # relationship
-                rel_id = "r%d" % i
-                param_id = "x%d" % i
-                type_string = cypher_escape(entity.type())
-                template = "-[%s:%s]->" if entity.start_node() == node else "<-[%s:%s]-"
-                pattern.append(template % (rel_id, type_string))
-                writes.append("SET %s={%s}" % (rel_id, param_id))
-                parameters[param_id] = dict(entity)
-                if not remote(entity):
-                    entity._set_remote_pending(tx)
-                returns[rel_id] = entity
-        statement = "\n".join(matches + ["MERGE %s" % "".join(pattern)] + writes +
-                              ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        tx.entities.append(returns)
-        tx.run(statement, parameters)
 
     def start_node(self):
         """ The first node encountered on a :func:`.walk` of this object.

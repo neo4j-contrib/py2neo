@@ -79,7 +79,7 @@ class GregorianDate(object):
                          "YEAR", Node("Year", key='%04d' % year, year=year),
                          "MONTH", Node("Month", key='%04d-%02d' % (year, month), year=year, month=month),
                          "DAY", Node("Day", key='%04d-%02d-%02d' % (year, month, day), year=year, month=month, day=day))
-        self.graph.create_unique(self.path)
+        self.graph.merge(self.path)
 
     @property
     def year(self):
