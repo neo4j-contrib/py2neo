@@ -216,7 +216,7 @@ class DBMS(object):
 
     @property
     def store_directory(self):
-        """ Return the location where the Neo4j store is located.
+        """ Return the location of the Neo4j store.
         """
         info = self._bean_dict("Kernel")
         return info.get("StoreDirectory")
@@ -238,8 +238,8 @@ class DBMS(object):
 
     @property
     def store_file_sizes(self):
-        """ Return a dictionary of information about the sizes of the
-        different parts of the Neo4j graph store.
+        """ Return a dictionary of file sizes for each file in the Neo4j
+        graph store.
         """
         return self._bean_dict("Store file sizes")
 
@@ -1253,7 +1253,7 @@ class Cursor(object):
     forward direction.
 
     It is not generally necessary for application code to instantiate a
-    cursor directly, one will be returned by any Cypher execution method.
+    cursor directly as one will be returned by any Cypher execution method.
     However, cursor creation requires only a :class:`.DataSource` object
     which contains the logic for how to access the source data that the
     cursor navigates.
