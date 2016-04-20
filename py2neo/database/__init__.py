@@ -443,26 +443,30 @@ class Graph(object):
         return self.begin(autocommit=True).exists(subgraph)
 
     def find(self, label, property_key=None, property_value=None, limit=None):
-        """ Iterate through a set of labelled nodes, optionally filtering
+        """ Yield all nodes with a given label, optionally filtering
         by property key and value.
 
-        :param label:
-        :param property_key:
-        :param property_value:
-        :param limit:
+        :param label: node label to match
+        :param property_key: property key to match
+        :param property_value: property value to match; if a tuple or set is
+                               provided, any of these values may be matched
+        :param limit: maximum number of nodes to match
         """
         if not label:
             raise ValueError("Empty label")
-        if property_key is None:
-            statement = "MATCH (n:%s) RETURN n,labels(n)" % cypher_escape(label)
-            parameters = {}
-        else:
-            statement = "MATCH (n:%s {%s:{V}}) RETURN n,labels(n)" % (
-                cypher_escape(label), cypher_escape(property_key))
-            parameters = {"V": property_value}
+        clauses = ["MATCH (a:%s)" % cypher_escape(label)]
+        parameters = {}
+        if property_key is not None:
+            if isinstance(property_value, (tuple, set, frozenset)):
+                clauses.append("WHERE a.%s IN {x}" % cypher_escape(property_key))
+                parameters["x"] = list(property_value)
+            else:
+                clauses.append("WHERE a.%s = {x}" % cypher_escape(property_key))
+                parameters["x"] = property_value
+        clauses.append("RETURN a, labels(a)")
         if limit:
-            statement += " LIMIT %s" % limit
-        cursor = self.run(statement, parameters)
+            clauses.append("LIMIT %d" % limit)
+        cursor = self.run("\n".join(clauses), parameters)
         while cursor.forward():
             a = cursor.current[0]
             a.update_labels(cursor.current[1])
@@ -474,9 +478,10 @@ class Graph(object):
         intended to be used with a unique constraint and does not fail if more
         than one matching node is found.
 
-        :param label:
-        :param property_key:
-        :param property_value:
+        :param label: node label to match
+        :param property_key: property key to match
+        :param property_value: property value to match; if a tuple or set is
+                               provided, any of these values may be matched
         """
         for node in self.find(label, property_key, property_value, limit=1):
             return node
