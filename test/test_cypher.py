@@ -18,10 +18,10 @@
 
 from io import StringIO
 
-from py2neo.database import Transaction, HTTPTransaction, presubstitute, CypherWriter, cypher_repr
+from py2neo.database import Transaction, HTTPTransaction, CypherWriter, cypher_repr
 from py2neo.database.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, order, size, remote
-from test.util import Py2neoTestCase, TemporaryTransaction
+from test.util import Py2neoTestCase
 
 
 class CypherTestCase(Py2neoTestCase):
@@ -437,113 +437,6 @@ class CypherWriterTestCase(Py2neoTestCase):
         path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
         written = cypher_repr(path)
         assert written == "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
-
-
-class CypherPresubstitutionTestCase(Py2neoTestCase):
-
-    def new_tx(self):
-        return TemporaryTransaction(self.graph)
-
-    def test_can_use_parameter_for_property_value(self):
-        tx = self.new_tx()
-        if tx:
-            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
-                                       "RETURN labels(a), a.`full name`",
-                                       v="Alice Smith").next()
-            assert set(labels) == {"Homo Sapiens"}
-            assert full_name == "Alice Smith"
-
-    def test_can_use_parameter_for_property_set(self):
-        tx = self.new_tx()
-        if tx:
-            labels, full_name = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
-                                       "RETURN labels(a), a.`full name`",
-                                       p={"full name": "Alice Smith"}).next()
-            assert set(labels) == {"Homo Sapiens"}
-            assert full_name == "Alice Smith"
-
-    def test_can_use_parameter_for_property_key(self):
-        tx = self.new_tx()
-        if tx:
-            labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {{%k%}:'Alice Smith'}) "
-                                       "RETURN labels(a), a.`full name`",
-                                       k="full name").next()
-            assert set(labels) == {"Homo Sapiens"}
-            assert full_name == "Alice Smith"
-
-    def test_can_use_parameter_for_node_label(self):
-        tx = self.new_tx()
-        if tx:
-            labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
-                                       "RETURN labels(a), a.`full name`",
-                                       l="Homo Sapiens").next()
-            assert set(labels) == {"Homo Sapiens"}
-            assert full_name == "Alice Smith"
-
-    def test_can_use_parameter_for_multiple_node_labels(self):
-        tx = self.new_tx()
-        if tx:
-            labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
-                                       "RETURN labels(a), a.`full name`",
-                                       l=("Homo Sapiens", "Hunter", "Gatherer")).next()
-            assert set(labels) == {"Homo Sapiens", "Hunter", "Gatherer"}
-            assert full_name == "Alice Smith"
-
-    def test_can_use_parameter_mixture(self):
-        statement = u"CREATE (a:{%l%} {{%k%}:{v}})"
-        parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
-        s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})"
-        assert p == {"v": "Alice Smith"}
-
-    def test_can_use_multiple_parameters(self):
-        statement = u"CREATE (a:{%l%} {{%k%}:{v}})-->(a:{%l%} {{%k%}:{v}})"
-        parameters = {"l": "Homo Sapiens", "k": "full name", "v": "Alice Smith"}
-        s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a:`Homo Sapiens` {`full name`:{v}})-->" \
-                    "(a:`Homo Sapiens` {`full name`:{v}})"
-        assert p == {"v": "Alice Smith"}
-
-    def test_can_use_simple_parameter_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
-        parameters = {"t": "REALLY_LIKES"}
-        s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a)-[ab:REALLY_LIKES]->(b)"
-        assert p == {}
-
-    def test_can_use_parameter_with_special_character_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
-        parameters = {"t": "REALLY LIKES"}
-        s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a)-[ab:`REALLY LIKES`]->(b)"
-        assert p == {}
-
-    def test_can_use_parameter_with_backtick_for_relationship_type(self):
-        statement = u"CREATE (a)-[ab:{%t%}]->(b)"
-        parameters = {"t": "REALLY `LIKES`"}
-        s, p = presubstitute(statement, parameters)
-        assert s == "CREATE (a)-[ab:`REALLY ``LIKES```]->(b)"
-        assert p == {}
-
-    def test_can_use_parameter_for_relationship_count(self):
-        statement = u"MATCH (a)-[ab:KNOWS*{%x%}]->(b)"
-        parameters = {"x": 3}
-        s, p = presubstitute(statement, parameters)
-        assert s == "MATCH (a)-[ab:KNOWS*3]->(b)"
-        assert p == {}
-
-    def test_can_use_parameter_for_relationship_count_range(self):
-        statement = u"MATCH (a)-[ab:KNOWS*{%x%}]->(b)"
-        parameters = {"x": (3, 5)}
-        s, p = presubstitute(statement, parameters)
-        assert s == "MATCH (a)-[ab:KNOWS*3..5]->(b)"
-        assert p == {}
-
-    def test_fails_properly_if_presubstitution_key_does_not_exist(self):
-        tx = self.new_tx()
-        if tx:
-            with self.assertRaises(KeyError):
-                tx.run("CREATE (a)-[ab:{%t%}]->(b) RETURN ab")
 
 
 class CypherOverHTTPTestCase(Py2neoTestCase):

@@ -16,7 +16,6 @@
 # limitations under the License.
 
 
-import logging
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
@@ -30,40 +29,13 @@ from py2neo.packages.neo4j.v1 import GraphDatabase
 from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
-from py2neo.types import cast_node, Subgraph, walk, size, Walkable, remote
+from py2neo.types import cast_node, Subgraph, remote
 from py2neo.util import deprecated, version_tuple
 
 from py2neo.database.auth import *
 from py2neo.database.cypher import *
 from py2neo.database.http import *
 from py2neo.database.status import *
-
-
-def presubstitute(statement, parameters):
-    more = True
-    presub_parameters = []
-    while more:
-        before, opener, key = statement.partition(u"{%")
-        if opener:
-            key, closer, after = key.partition(u"%}")
-            try:
-                value = parameters[key]
-                presub_parameters.append(key)
-            except KeyError:
-                raise KeyError("Expected a presubstitution parameter named %r" % key)
-            if isinstance(value, integer):
-                value = ustr(value)
-            elif isinstance(value, tuple) and all(map(lambda x: isinstance(x, integer), value)):
-                value = u"%d..%d" % (value[0], value[-1])
-            elif is_collection(value):
-                value = ":".join(map(cypher_escape, value))
-            else:
-                value = cypher_escape(value)
-            statement = before + value + after
-        else:
-            more = False
-    parameters = {k: v for k, v in parameters.items() if k not in presub_parameters}
-    return statement, parameters
 
 
 def normalise_request(statement, parameters, **kwparameters):
@@ -86,7 +58,7 @@ def normalise_request(statement, parameters, **kwparameters):
                 p[k] = v
 
     add_parameters(dict(parameters or {}, **kwparameters))
-    return presubstitute(s, p)
+    return s, p
 
 
 def cypher_request(statement, parameters, **kwparameters):
