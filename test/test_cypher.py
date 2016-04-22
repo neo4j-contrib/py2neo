@@ -160,7 +160,8 @@ class CypherTestCase(Py2neoTestCase):
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
         params = {"N": node}
         cursor = self.graph.run(statement, params)
-        assert cursor.next["a_collection"] == [node]
+        record = cursor.next()
+        assert record["a_collection"] == [node]
 
     def test_param_used_once(self):
         node = Node()
@@ -168,14 +169,15 @@ class CypherTestCase(Py2neoTestCase):
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
         params = {"X": node}
         cursor = self.graph.run(statement, params)
-        assert cursor.next["a"] == node
+        record = cursor.next()
+        assert record["a"] == node
 
     def test_param_used_twice(self):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
         params = {"X": node}
-        record = self.graph.run(statement, params).next
+        record = self.graph.run(statement, params).next()
         assert record["a"] == node
         assert record["b"] == node
 
@@ -188,7 +190,7 @@ class CypherTestCase(Py2neoTestCase):
                     "RETURN a, b, c"
         params = {"X": node}
         cursor = self.graph.run(statement, params)
-        record = cursor.next
+        record = cursor.next()
         assert record["a"] == node
         assert record["b"] == node
         assert record["c"] == node
@@ -203,7 +205,7 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE b.age > {min_age} "
                  "RETURN b")
         params = {"A": a, "min_age": 50}
-        record = self.graph.run(query, params).next
+        record = self.graph.run(query, params).next()
         assert record["b"] == b
 
     def test_param_reused_twice_after_with_statement(self):
@@ -222,12 +224,12 @@ class CypherTestCase(Py2neoTestCase):
                  "WHERE c.age > {min_age} "
                  "RETURN c")
         params = {"A": a, "min_age": 50}
-        record = self.graph.run(query, params).next
+        record = self.graph.run(query, params).next()
         assert record["c"] == c
 
     def test_unique_path_not_unique_raises_cypher_error(self):
         graph = self.graph
-        record = graph.run("CREATE (a), (b) RETURN a, b").next
+        record = graph.run("CREATE (a), (b) RETURN a, b").next()
         parameters = {"A": record["a"], "B": record["b"]}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
                      "CREATE (a)-[:KNOWS]->(b)")
@@ -447,7 +449,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {`full name`:{v}}) "
                                        "RETURN labels(a), a.`full name`",
-                                       v="Alice Smith").next
+                                       v="Alice Smith").next()
             assert set(labels) == {"Homo Sapiens"}
             assert full_name == "Alice Smith"
 
@@ -456,7 +458,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             labels, full_name = tx.run("CREATE (a:`Homo Sapiens`) SET a={p} "
                                        "RETURN labels(a), a.`full name`",
-                                       p={"full name": "Alice Smith"}).next
+                                       p={"full name": "Alice Smith"}).next()
             assert set(labels) == {"Homo Sapiens"}
             assert full_name == "Alice Smith"
 
@@ -465,7 +467,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             labels, full_name = tx.run("CREATE (a:`Homo Sapiens` {{%k%}:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
-                                       k="full name").next
+                                       k="full name").next()
             assert set(labels) == {"Homo Sapiens"}
             assert full_name == "Alice Smith"
 
@@ -474,7 +476,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
-                                       l="Homo Sapiens").next
+                                       l="Homo Sapiens").next()
             assert set(labels) == {"Homo Sapiens"}
             assert full_name == "Alice Smith"
 
@@ -483,7 +485,7 @@ class CypherPresubstitutionTestCase(Py2neoTestCase):
         if tx:
             labels, full_name = tx.run("CREATE (a:{%l%} {`full name`:'Alice Smith'}) "
                                        "RETURN labels(a), a.`full name`",
-                                       l=("Homo Sapiens", "Hunter", "Gatherer")).next
+                                       l=("Homo Sapiens", "Hunter", "Gatherer")).next()
             assert set(labels) == {"Homo Sapiens", "Hunter", "Gatherer"}
             assert full_name == "Alice Smith"
 

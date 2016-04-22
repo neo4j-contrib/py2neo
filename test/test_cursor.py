@@ -83,35 +83,49 @@ class CursorCurrentTestCase(Py2neoTestCase):
 
     def test_current_is_none_at_start(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.current is None
+        assert cursor.current() is None
 
     def test_current_updates_after_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
         while cursor.forward():
             n += 1
-            assert cursor.current == Record(["n"], [n])
+            assert cursor.current() == Record(["n"], [n])
 
 
 class CursorSelectionTestCase(Py2neoTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
-        record = cursor.next
+        record = cursor.next()
         assert record == Record(["1"], [1])
 
     def test_cannot_select_past_end(self):
         cursor = self.graph.run("RETURN 1")
         cursor.forward()
-        record = cursor.next
-        assert record is None
+        with self.assertRaises(StopIteration):
+            _ = cursor.next()
 
     def test_selection_triggers_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         for i in range(1, 11):
-            n, n_sq = cursor.next
+            n, n_sq = cursor.next()
             assert n == i
             assert n_sq == i * i
+
+
+class CursorAsIteratorTestCase(Py2neoTestCase):
+
+    def test_can_use_next_function(self):
+        cursor = self.graph.run("RETURN 1")
+        record = next(cursor)
+        assert record == Record(["1"], [1])
+
+    def test_raises_stop_iteration(self):
+        cursor = self.graph.run("RETURN 1")
+        cursor.forward()
+        with self.assertRaises(StopIteration):
+            _ = next(cursor)
 
 
 class CursorStreamingTestCase(Py2neoTestCase):

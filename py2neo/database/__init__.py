@@ -468,8 +468,9 @@ class Graph(object):
             clauses.append("LIMIT %d" % limit)
         cursor = self.run("\n".join(clauses), parameters)
         while cursor.forward():
-            a = cursor.current[0]
-            a.update_labels(cursor.current[1])
+            record = cursor.current()
+            a = record[0]
+            a.update_labels(record[1])
             yield a
         cursor.close()
 
@@ -575,7 +576,8 @@ class Graph(object):
             statement += " LIMIT {0}".format(int(limit))
         cursor = self.run(statement, parameters)
         while cursor.forward():
-            yield cursor.current["r"]
+            record = cursor.current()
+            yield record["r"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Match and return one relationship with specific criteria.
@@ -1298,33 +1300,30 @@ class Cursor(object):
         self._source = source
         self._current = None
 
+    def __next__(self):
+        if self.forward():
+            return self._current
+        else:
+            raise StopIteration()
+
     def __iter__(self):
         while self.forward():
-            yield self.current
+            yield self._current
 
-    @property
     def current(self):
-        """ The current record or :py:const:`None` if no record is
-        currently available.
+        """ Returns the current record or :py:const:`None` if no record
+        has yet been selected.
         """
         return self._current
 
-    @property
     def next(self):
-        """ The next record in the stream, or :py:const:`None` if no more
-        records are available.
-
-        Note that every time this property is accessed, the cursor will
-        be moved one position forward. This property is exactly equivalent
-        to::
+        """ Returns the next record in the stream, or raises
+        :py:class:`StopIteration` if no more records are available.
 
             cursor.current if cursor.forward() else None
 
         """
-        if self.forward():
-            return self._current
-        else:
-            return None
+        return self.__next__()
 
     def close(self):
         """ Close this cursor and free up all associated resources.
