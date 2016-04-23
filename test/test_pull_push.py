@@ -17,10 +17,10 @@
 
 
 from py2neo.types import Node, Relationship, Path, remote, RemoteEntity
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class PullTestCase(Py2neoTestCase):
+class PullTestCase(GraphTestCase):
 
     def test_cannot_pull_non_graphy_object(self):
         with self.assertRaises(TypeError):
@@ -117,7 +117,7 @@ class PullTestCase(Py2neoTestCase):
                     (new_props, old_props)
 
 
-class PushTestCase(Py2neoTestCase):
+class PushTestCase(GraphTestCase):
 
     def test_cannot_push_non_graphy_object(self):
         with self.assertRaises(TypeError):
@@ -141,12 +141,12 @@ class PushTestCase(Py2neoTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=ab)
+                                    "RETURN ab.since", i=remote(ab)._id)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=ab)
+                                    "RETURN ab.since", i=remote(ab)._id)
         assert value == 1999
 
     def test_can_push_path(self):
@@ -160,7 +160,7 @@ class PushTestCase(Py2neoTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "RETURN ab.amount, bc.amount, cd.since")
-        parameters = {"ab": path[0], "bc": path[1], "cd": path[2]}
+        parameters = {"ab": remote(path[0])._id, "bc": remote(path[1])._id, "cd": remote(path[2])._id}
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999

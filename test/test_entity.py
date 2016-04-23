@@ -17,10 +17,10 @@
 
 
 from py2neo import Resource, Node, Relationship, remote, RemoteEntity
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class EntityTestCase(Py2neoTestCase):
+class EntityTestCase(GraphTestCase):
         
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
@@ -64,7 +64,7 @@ class EntityTestCase(Py2neoTestCase):
         assert remote(relationship).uri == uri
 
 
-class AutoNamingTestCase(Py2neoTestCase):
+class AutoNamingTestCase(GraphTestCase):
 
     def test_can_name_using_name_property(self):
         a = Node(name="Alice")

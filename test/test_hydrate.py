@@ -19,10 +19,10 @@
 from mock import patch
 
 from py2neo import Node, Relationship, Path, remote
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class NodeHydrationTestCase(Py2neoTestCase):
+class NodeHydrationTestCase(GraphTestCase):
 
     def setUp(self):
         Node.cache.clear()
@@ -146,7 +146,7 @@ class NodeHydrationTestCase(Py2neoTestCase):
         assert remote(hydrated).uri == dehydrated["self"]
 
 
-class RelationshipHydrationTestCase(Py2neoTestCase):
+class RelationshipHydrationTestCase(GraphTestCase):
 
     def setUp(self):
         Relationship.cache.clear()

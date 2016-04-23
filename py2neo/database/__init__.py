@@ -39,7 +39,6 @@ from py2neo.database.status import *
 
 
 def normalise_request(statement, parameters, **kwparameters):
-    from py2neo.types import Entity
 
     s = ustr(statement)
     p = {}
@@ -49,12 +48,6 @@ def normalise_request(statement, parameters, **kwparameters):
             for k, v in dict(params).items():
                 if isinstance(v, tuple):
                     v = list(v)
-                elif isinstance(v, Entity):
-                    remote_entity = remote(v)
-                    if remote_entity:
-                        v = remote_entity._id
-                    else:
-                        raise TypeError("Cannot pass an unbound entity as a parameter")
                 p[k] = v
 
     add_parameters(dict(parameters or {}, **kwparameters))
@@ -520,20 +513,20 @@ class Graph(object):
             start_node = cast_node(start_node)
             if not remote(start_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"A": start_node}
+            parameters = {"A": remote(start_node)._id}
         elif start_node is None:
             statement = "MATCH (b) WHERE id(b)={B}"
             end_node = cast_node(end_node)
             if not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"B": end_node}
+            parameters = {"B": remote(end_node)._id}
         else:
             statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
             start_node = cast_node(start_node)
             end_node = cast_node(end_node)
             if not remote(start_node) or not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"A": start_node, "B": end_node}
+            parameters = {"A": remote(start_node)._id, "B": remote(end_node)._id}
         if rel_type is None:
             rel_clause = ""
         elif is_collection(rel_type):

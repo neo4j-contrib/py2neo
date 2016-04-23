@@ -19,10 +19,10 @@
 from warnings import catch_warnings, simplefilter
 
 from py2neo import Node, Relationship, Path, remote, RemoteEntity
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class DeprecatedTestCase(Py2neoTestCase):
+class DeprecatedTestCase(GraphTestCase):
 
     def setUp(self):
         simplefilter("always")
@@ -232,12 +232,12 @@ class PushTestCase(DeprecatedTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=ab)
+                                    "RETURN ab.since", i=remote(ab)._id)
         assert value is None
         ab["since"] = 1999
         ab.push()
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=ab)
+                                    "RETURN ab.since", i=remote(ab)._id)
         assert value == 1999
 
 

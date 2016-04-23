@@ -17,10 +17,10 @@
 
 
 from py2neo.ext.batman import ManualIndexManager
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class IndexTestCase(Py2neoTestCase):
+class IndexTestCase(GraphTestCase):
 
     def __init__(self, *args, **kwargs):
         super(IndexTestCase, self).__init__(*args, **kwargs)

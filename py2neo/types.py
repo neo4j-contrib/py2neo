@@ -450,11 +450,11 @@ class Subgraph(object):
         tx = graph.begin()
         for node in nodes:
             tx.entities.append({"a": node})
-            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=node)
+            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=remote(node)._id)
             nodes[node] = cursor
         for relationship in relationships:
             tx.entities.append({"r": relationship})
-            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=relationship)
+            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id)
         tx.commit()
         for node, cursor in nodes.items():
             labels = node._Node__labels

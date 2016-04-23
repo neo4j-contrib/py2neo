@@ -21,10 +21,10 @@ from io import StringIO
 from py2neo.database import Transaction, HTTPTransaction, CypherWriter, cypher_repr
 from py2neo.database.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, order, size, remote
-from test.util import Py2neoTestCase
+from test.util import GraphTestCase
 
 
-class CypherTestCase(Py2neoTestCase):
+class CypherTestCase(GraphTestCase):
 
     def setUp(self):
         a = Node(name="Alice", age=66)
@@ -64,13 +64,6 @@ class CypherTestCase(Py2neoTestCase):
         assert set(value.labels()) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
-    def test_can_run_cypher_statement_with_node_parameter(self):
-        alice = Node(name="Alice")
-        self.graph.create(alice)
-        statement = "MATCH (a) WHERE id(a) = {N} RETURN a"
-        a = self.graph.run(statement, {"N": alice}).evaluate("a")
-        assert a is alice
-
     def test_can_evaluate_cypher_statement(self):
         value = self.graph.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
@@ -106,14 +99,6 @@ class CypherTestCase(Py2neoTestCase):
         assert len(records) == 1
         assert records[0]["name"] == "Alice"
 
-    def test_can_run_with_entity_parameter(self):
-        alice = Node(name="Alice")
-        self.graph.create(alice)
-        statement = "MATCH (a) WHERE id(a)={N} RETURN a.name AS name"
-        records = list(self.graph.run(statement, {"N": alice}))
-        assert len(records) == 1
-        assert records[0]["name"] == "Alice"
-
     def test_can_evaluate(self):
         value = self.graph.evaluate("CREATE (a {name:'Alice'}) RETURN a.name AS name")
         assert value == "Alice"
@@ -129,7 +114,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
-        records = list(self.graph.run(statement, {"A": a, "B": b}))
+        records = list(self.graph.run(statement, {"A": remote(a)._id, "B": remote(b)._id}))
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
@@ -144,7 +129,7 @@ class CypherTestCase(Py2neoTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        records = list(self.graph.run(statement, {"A": a, "B": b}))
+        records = list(self.graph.run(statement, {"A": remote(a)._id, "B": remote(b)._id}))
         assert len(records) == 1
         for record in records:
             assert isinstance(record["p"], Path)
@@ -158,7 +143,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
-        params = {"N": node}
+        params = {"N": remote(node)._id}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a_collection"] == [node]
@@ -167,7 +152,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
-        params = {"X": node}
+        params = {"X": remote(node)._id}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a"] == node
@@ -176,7 +161,7 @@ class CypherTestCase(Py2neoTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
-        params = {"X": node}
+        params = {"X": remote(node)._id}
         record = self.graph.run(statement, params).next()
         assert record["a"] == node
         assert record["b"] == node
@@ -188,7 +173,7 @@ class CypherTestCase(Py2neoTestCase):
                     "MATCH (b) WHERE id(b)={X} " \
                     "MATCH (c) WHERE id(c)={X} " \
                     "RETURN a, b, c"
-        params = {"X": node}
+        params = {"X": remote(node)._id}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a"] == node
@@ -204,7 +189,7 @@ class CypherTestCase(Py2neoTestCase):
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE b.age > {min_age} "
                  "RETURN b")
-        params = {"A": a, "min_age": 50}
+        params = {"A": remote(a)._id, "min_age": 50}
         record = self.graph.run(query, params).next()
         assert record["b"] == b
 
@@ -223,14 +208,14 @@ class CypherTestCase(Py2neoTestCase):
                  "MATCH (b)-[:KNOWS]->(c) "
                  "WHERE c.age > {min_age} "
                  "RETURN c")
-        params = {"A": a, "min_age": 50}
+        params = {"A": remote(a)._id, "min_age": 50}
         record = self.graph.run(query, params).next()
         assert record["c"] == c
 
     def test_unique_path_not_unique_raises_cypher_error(self):
         graph = self.graph
         record = graph.run("CREATE (a), (b) RETURN a, b").next()
-        parameters = {"A": record["a"], "B": record["b"]}
+        parameters = {"A": remote(record["a"])._id, "B": remote(record["b"])._id}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
                      "CREATE (a)-[:KNOWS]->(b)")
         graph.run(statement, parameters)
@@ -241,7 +226,7 @@ class CypherTestCase(Py2neoTestCase):
             graph.run(statement, parameters)
 
 
-class CypherCreateTestCase(Py2neoTestCase):
+class CypherCreateTestCase(GraphTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
@@ -288,7 +273,7 @@ class CypherCreateTestCase(Py2neoTestCase):
             self.graph.create("this string is definitely not graphy")
 
 
-class CypherWriterTestCase(Py2neoTestCase):
+class CypherWriterTestCase(GraphTestCase):
 
     def test_can_write_simple_identifier(self):
         string = StringIO()
@@ -439,7 +424,7 @@ class CypherWriterTestCase(Py2neoTestCase):
         assert written == "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
 
 
-class CypherOverHTTPTestCase(Py2neoTestCase):
+class CypherOverHTTPTestCase(GraphTestCase):
 
     def test_can_run_statement(self):
         tx = HTTPTransaction(self.graph)

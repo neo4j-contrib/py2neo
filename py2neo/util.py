@@ -44,6 +44,10 @@ def relationship_case(s):
     return WORD_ALL.sub(r"\1_\2", s1).upper()
 
 
+def label_case(s):
+    return "".join(word.title() for word in s.split("_"))
+
+
 def round_robin(*iterables):
     """ Cycle through a number of iterables, returning
         the next item from each in turn.
