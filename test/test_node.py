@@ -18,7 +18,7 @@
 
 from py2neo import Node, Relationship, cast_node, remote, RemoteEntity
 from test.compat import long
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 from py2neo.packages.httpstream import ClientError
 
 
@@ -26,7 +26,7 @@ class DodgyClientError(ClientError):
     status_code = 499
 
 
-class NodeTestCase(DatabaseTestCase):
+class NodeTestCase(GraphTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
@@ -88,7 +88,7 @@ class NodeTestCase(DatabaseTestCase):
         assert a["foo"] == "bar"
 
 
-class AbstractNodeTestCase(DatabaseTestCase):
+class AbstractNodeTestCase(GraphTestCase):
 
     def test_can_create_unbound_node(self):
         alice = Node(name="Alice", age=34)
@@ -113,7 +113,7 @@ class AbstractNodeTestCase(DatabaseTestCase):
         assert alice is not None
 
 
-class ConcreteNodeTestCase(DatabaseTestCase):
+class ConcreteNodeTestCase(GraphTestCase):
 
     def test_can_create_concrete_node(self):
         alice = cast_node({"name": "Alice", "age": 34})

@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Relationship, order, size, remote, TransactionFinished, CypherSyntaxError, ConstraintError
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class TransactionRunTestCase(DatabaseTestCase):
+class TransactionRunTestCase(GraphTestCase):
 
     def test_can_run_single_statement_transaction(self):
         tx = self.graph.begin()
@@ -103,7 +103,7 @@ class TransactionRunTestCase(DatabaseTestCase):
             assert False
 
 
-class TransactionCreateTestCase(DatabaseTestCase):
+class TransactionCreateTestCase(GraphTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
@@ -221,7 +221,7 @@ class TransactionCreateTestCase(DatabaseTestCase):
         assert size(self.graph) == 1
 
 
-class TransactionDeleteTestCase(DatabaseTestCase):
+class TransactionDeleteTestCase(GraphTestCase):
 
     def test_can_delete_relationship(self):
         a = Node()
@@ -236,7 +236,7 @@ class TransactionDeleteTestCase(DatabaseTestCase):
         assert not self.graph.exists(b)
 
 
-class TransactionSeparateTestCase(DatabaseTestCase):
+class TransactionSeparateTestCase(GraphTestCase):
 
     def test_can_delete_relationship_by_separating(self):
         a = Node()
@@ -255,7 +255,7 @@ class TransactionSeparateTestCase(DatabaseTestCase):
             self.graph.separate("this string is definitely not graphy")
 
 
-class TransactionDegreeTestCase(DatabaseTestCase):
+class TransactionDegreeTestCase(GraphTestCase):
 
     def test_degree_of_node(self):
         a = Node()
@@ -279,7 +279,7 @@ class TransactionDegreeTestCase(DatabaseTestCase):
                 tx.degree("this string is definitely not graphy")
 
 
-class TransactionExistsTestCase(DatabaseTestCase):
+class TransactionExistsTestCase(GraphTestCase):
 
     def test_cannot_check_existence_of_non_graphy_thing(self):
         with self.assertRaises(TypeError):
@@ -287,7 +287,7 @@ class TransactionExistsTestCase(DatabaseTestCase):
                 tx.exists("this string is definitely not graphy")
 
 
-class TransactionErrorTestCase(DatabaseTestCase):
+class TransactionErrorTestCase(GraphTestCase):
 
     def test_can_generate_transaction_error(self):
         tx = self.graph.begin()
@@ -300,7 +300,7 @@ class TransactionErrorTestCase(DatabaseTestCase):
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
         record = cursor.next()
-        parameters = {"A": record["a"], "B": record["b"]}
+        parameters = {"A": remote(record["a"])._id, "B": remote(record["b"])._id}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
         tx.run(statement, parameters)
@@ -312,7 +312,7 @@ class TransactionErrorTestCase(DatabaseTestCase):
             tx.commit()
 
 
-class TransactionAutocommitTestCase(DatabaseTestCase):
+class TransactionAutocommitTestCase(GraphTestCase):
 
     def test_can_autocommit(self):
         tx = self.graph.begin(autocommit=True)
@@ -321,7 +321,7 @@ class TransactionAutocommitTestCase(DatabaseTestCase):
         assert tx.finished()
 
 
-class TransactionCoverageTestCase(DatabaseTestCase):
+class TransactionCoverageTestCase(GraphTestCase):
     """ These tests exist purely to make the coverage counter happy.
     """
 

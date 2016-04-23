@@ -19,10 +19,10 @@
 import re
 
 from py2neo.types import Node, Relationship, Subgraph, Walkable
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class ReprTestCase(DatabaseTestCase):
+class ReprTestCase(GraphTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")

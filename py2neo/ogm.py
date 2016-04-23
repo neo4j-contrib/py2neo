@@ -145,7 +145,7 @@ class GraphObject(metaclass=GraphObjectMeta):
         self.__subgraph = value
 
     @classmethod
-    def load(cls, primary_value):
+    def load_one(cls, primary_value):
         graph = cls.__graph__
         primary_key = cls.__primarykey__
         if primary_key == "__id__":
@@ -156,8 +156,27 @@ class GraphObject(metaclass=GraphObjectMeta):
         if node is None:
             raise LookupError("Cannot load object")
         inst = GraphObject()
+        inst.__subgraph = node
         inst.__class__ = cls
         return inst
+
+    @classmethod
+    def load(cls, primary_values):
+        graph = cls.__graph__
+        primary_key = cls.__primarykey__
+        if primary_key == "__id__":
+            for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
+                                    cypher_escape(cls.__primarylabel__), x=list(primary_values)):
+                inst = GraphObject()
+                inst.__subgraph = record["a"]
+                inst.__class__ = cls
+                yield inst
+        else:
+            for node in graph.find(cls.__primarylabel__, primary_key, tuple(primary_values)):
+                inst = GraphObject()
+                inst.__subgraph = node
+                inst.__class__ = cls
+                yield inst
 
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__,

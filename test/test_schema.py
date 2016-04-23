@@ -20,7 +20,7 @@ from py2neo import GraphError, Node, cast_node
 from py2neo.database.status import ConstraintError
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 from test.compat import patch
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
 class NotFoundError(ClientError):
@@ -31,7 +31,7 @@ class DodgyClientError(ClientError):
     status_code = 499
 
 
-class SchemaTestCase(DatabaseTestCase):
+class SchemaTestCase(GraphTestCase):
 
     def setUp(self):
         self.reset()

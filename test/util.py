@@ -31,10 +31,10 @@ def unique_string_generator():
         yield uuid4().hex
 
 
-class DatabaseTestCase(TestCase):
+class GraphTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
-        super(DatabaseTestCase, self).__init__(*args, **kwargs)
+        super(GraphTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
         self.dbms = self.graph.dbms
         self.schema = self.graph.schema

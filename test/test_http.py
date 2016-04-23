@@ -22,7 +22,7 @@ from py2neo.database import DBMS, GraphError, set_http_header, get_http_headers,
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 from test.compat import patch
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
 dbms = DBMS()
@@ -70,7 +70,7 @@ class HTTPCounter(object):
         return len(self.responses)
 
 
-class HeaderTestCase(DatabaseTestCase):
+class HeaderTestCase(GraphTestCase):
 
     def test_can_add_and_retrieve_global_header(self):
         set_http_header("Key1", "Value1")
@@ -91,7 +91,7 @@ class HeaderTestCase(DatabaseTestCase):
         assert headers["Key2"] == "Value2"
 
 
-class ClientErrorTestCase(DatabaseTestCase):
+class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_400(self):
         resource = Resource("http://localhost:7474/db/data/cypher")
@@ -122,7 +122,7 @@ class ClientErrorTestCase(DatabaseTestCase):
             assert False
 
 
-class ServerErrorTestCase(DatabaseTestCase):
+class ServerErrorTestCase(GraphTestCase):
 
     def setUp(self):
         self.non_existent_resource = Resource("http://localhost:7474/db/data/x")

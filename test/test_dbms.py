@@ -17,10 +17,10 @@
 
 
 from py2neo import DBMS, remote
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class DBMSTestCase(DatabaseTestCase):
+class DBMSTestCase(GraphTestCase):
 
     def test_can_create_dbms_with_bolt_uri(self):
         uri = "bolt://localhost/"

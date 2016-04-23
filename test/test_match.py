@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Relationship
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class MatchTestCase(DatabaseTestCase):
+class MatchTestCase(GraphTestCase):
     
     def setUp(self):
         self.alice = Node(name="Alice")

@@ -18,7 +18,7 @@
 
 from py2neo import Resource, remote
 from py2neo.ext import ServerPlugin, UnmanagedExtension
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 from test.compat import patch
 
 
@@ -34,7 +34,7 @@ class NaughtyPlugin(ServerPlugin):
         super(NaughtyPlugin, self).__init__(graph, "NaughtyPlugin")
 
 
-class ServerPluginTestCase(DatabaseTestCase):
+class ServerPluginTestCase(GraphTestCase):
 
     def test_can_init_server_plugin(self):
         remote_graph = remote(self.graph)
@@ -61,7 +61,7 @@ class NaughtyExtension(UnmanagedExtension):
         super(NaughtyExtension, self).__init__(graph, "/naughty/")
 
 
-class UnmanagedExtensionTestCase(DatabaseTestCase):
+class UnmanagedExtensionTestCase(GraphTestCase):
 
     def test_can_init_unmanaged_extension(self):
         with patch("py2neo.http.Resource.get"):

@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class ParallelTestCase(DatabaseTestCase):
+class ParallelTestCase(GraphTestCase):
 
     def test_can_run_cypher_while_in_transaction(self):
         tx = self.graph.begin()

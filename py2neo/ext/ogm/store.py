@@ -18,7 +18,7 @@
 
 from __future__ import unicode_literals
 
-from py2neo import Node
+from py2neo import Node, remote
 from py2neo.ext.batman import ManualIndexManager, WriteBatch
 
 
@@ -220,7 +220,7 @@ class Store(object):
             subj.__node__.clear()
             subj.__node__.update(props)
             self.graph.run("MATCH (a) WHERE id(a)={a} "
-                           "MATCH (a)-[r]->(b) DELETE r", a=subj.__node__)
+                           "MATCH (a)-[r]->(b) DELETE r", a=remote(subj.__node__)._id)
         else:
             subj.__node__ = Node(**props)
             self.graph.create(subj.__node__)
@@ -272,4 +272,4 @@ class Store(object):
         self._assert_saved(subj)
         node = subj.__node__
         del subj.__node__
-        self.graph.run(self.__delete_query, {"A": node})
+        self.graph.run(self.__delete_query, {"A": remote(node)._id})

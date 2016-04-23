@@ -45,7 +45,7 @@ from unittest import TestCase
 
 from py2neo import order, size
 from py2neo.ogm import GraphObject, Label, Property, Related
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
 class MovieGraphObject(GraphObject):
@@ -58,9 +58,9 @@ class Person(MovieGraphObject):
     name = Property()
     year_of_birth = Property(key="born")
 
-    acted_in = Related("Movie")
-    directed = Related("Movie")
-    produced = Related("Movie")
+    acted_in = Related("Film")
+    directed = Related("Film")
+    produced = Related("Film")
 
 
 class Film(MovieGraphObject):
@@ -168,21 +168,26 @@ class InstancePropertyTestCase(TestCase):
         assert "year_of_release" not in self.film_node
 
 
+class MovieGraphTestCase(GraphTestCase):
 
-# class LoadTestCase(Py2neoTestCase):
-#
-#     def setUp(self):
-#         MovieGraphObject.__graph__ = self.graph
-#         self.graph.delete_all()
-#         with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-#             cypher = f.read()
-#         self.graph.run(cypher)
-#
-#     def test_can_load_object(self):
-#         keanu = Person.load("Keanu Reeves")  # load = attach + pull
-#         assert keanu.name == "Keanu Reeves"
-#         assert keanu.year_of_birth == 1964
-#
+    def setUp(self):
+        MovieGraphObject.__graph__ = self.graph
+        self.graph.delete_all()
+        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
+            cypher = f.read()
+        self.graph.run(cypher)
+
+    def tearDown(self):
+        self.graph.delete_all()
+
+
+class LoadOneTestCase(MovieGraphTestCase):
+
+    def test_can_load_one_object(self):
+        keanu = Person.load_one("Keanu Reeves")
+        assert keanu.name == "Keanu Reeves"
+        assert keanu.year_of_birth == 1964
+
 #     def test_can_load_related(self):
 #         keanu = Person.load("Keanu Reeves")
 #         matrix = Movie.load("The Matrix")
@@ -197,3 +202,13 @@ class InstancePropertyTestCase(TestCase):
 #
 #         self.graph.push(keanu)
 #         self.graph.push(keanu.acted_in)
+
+
+class LoadTestCase(MovieGraphTestCase):
+
+    def test_can_load_multiple_objects(self):
+        keanu, hugo = list(Person.load(["Keanu Reeves", "Hugo Weaving"]))
+        assert keanu.name == "Keanu Reeves"
+        assert keanu.year_of_birth == 1964
+        assert hugo.name == "Hugo Weaving"
+        assert hugo.year_of_birth == 1960

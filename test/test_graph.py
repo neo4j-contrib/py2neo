@@ -17,11 +17,11 @@
 
 
 from py2neo import Graph, Node, Relationship, cast_node, remote
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 from test.compat import patch, assert_repr
 
 
-class GraphTestCase(DatabaseTestCase):
+class GraphTestCase(GraphTestCase):
 
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
@@ -173,9 +173,3 @@ class GraphTestCase(DatabaseTestCase):
         self.graph.create(a)
         assert a["foo"] == "bar"
         assert a["no-foo"] is None
-
-    def test_cannot_use_unbound_entity_as_parameter(self):
-        from py2neo.database import normalise_request
-        with self.assertRaises(TypeError):
-            a = Node()
-            normalise_request("", {"x": a})

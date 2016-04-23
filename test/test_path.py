@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Path, Relationship, Graph, order, size
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
-class PathTestCase(DatabaseTestCase):
+class PathTestCase(GraphTestCase):
 
     def test_can_construct_simple_path(self):
         alice = Node(name="Alice")
@@ -168,7 +168,7 @@ class PathTestCase(DatabaseTestCase):
         assert path[2].end_node()["name"] == "Dave"
 
 
-class CreatePathTestCase(DatabaseTestCase):
+class CreatePathTestCase(GraphTestCase):
 
     def setUp(self):
         Graph.auto_sync_properties = True
@@ -204,7 +204,7 @@ class CreatePathTestCase(DatabaseTestCase):
         assert nodes[1]["name"] == "Bob"
 
 
-class PathIterationAndReversalTestCase(DatabaseTestCase):
+class PathIterationAndReversalTestCase(GraphTestCase):
 
     def setUp(self):
         self.alice = Node("Person", name="Alice", age=33)

@@ -21,7 +21,7 @@ from unittest import TestCase
 
 from py2neo.database import Record, Node, Relationship
 from py2neo.types import order, size
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -42,7 +42,7 @@ record_c = Record(record_keys, [1003, carol])
 record_d = Record(record_keys, [1004, dave])
 
 
-class CursorMovementTestCase(DatabaseTestCase):
+class CursorMovementTestCase(GraphTestCase):
     """ Tests for move and position
     """
 
@@ -60,7 +60,7 @@ class CursorMovementTestCase(DatabaseTestCase):
         assert cursor.forward(0) == 0
 
 
-class CursorKeysTestCase(DatabaseTestCase):
+class CursorKeysTestCase(GraphTestCase):
 
     def test_keys_are_populated_before_moving(self):
         cursor = self.graph.run("RETURN 1 AS n")
@@ -79,7 +79,7 @@ class CursorKeysTestCase(DatabaseTestCase):
             assert list(cursor.keys()) == ["n"]
 
 
-class CursorCurrentTestCase(DatabaseTestCase):
+class CursorCurrentTestCase(GraphTestCase):
 
     def test_current_is_none_at_start(self):
         cursor = self.graph.run("RETURN 1")
@@ -93,7 +93,7 @@ class CursorCurrentTestCase(DatabaseTestCase):
             assert cursor.current() == Record(["n"], [n])
 
 
-class CursorSelectionTestCase(DatabaseTestCase):
+class CursorSelectionTestCase(GraphTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
@@ -114,7 +114,7 @@ class CursorSelectionTestCase(DatabaseTestCase):
             assert n_sq == i * i
 
 
-class CursorAsIteratorTestCase(DatabaseTestCase):
+class CursorAsIteratorTestCase(GraphTestCase):
 
     def test_can_use_next_function(self):
         cursor = self.graph.run("RETURN 1")
@@ -128,7 +128,7 @@ class CursorAsIteratorTestCase(DatabaseTestCase):
             _ = next(cursor)
 
 
-class CursorStreamingTestCase(DatabaseTestCase):
+class CursorStreamingTestCase(GraphTestCase):
 
     def test_stream_yields_all(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
@@ -155,7 +155,7 @@ class CursorStreamingTestCase(DatabaseTestCase):
                                Record(["n", "n_sq"], [10, 100])]
 
 
-class CursorEvaluationTestCase(DatabaseTestCase):
+class CursorEvaluationTestCase(GraphTestCase):
 
     def test_can_evaluate_single_value(self):
         cursor = self.graph.run("RETURN 1")
@@ -184,7 +184,7 @@ class CursorEvaluationTestCase(DatabaseTestCase):
         assert value is None
 
 
-class CursorDumpTestCase(DatabaseTestCase):
+class CursorDumpTestCase(GraphTestCase):
 
     def test_dump(self):
         s = StringIO()

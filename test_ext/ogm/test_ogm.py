@@ -20,7 +20,7 @@ from py2neo import Graph, Node, Path
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.ext.ogm import Store
 
-from test.util import DatabaseTestCase
+from test.util import GraphTestCase
 
 
 class Person(object):
@@ -42,10 +42,10 @@ class Person(object):
         return "{0} <{1}>".format(self.name, self.email)
 
 
-class StoreTestCase(DatabaseTestCase):
+class StoreTestCase(GraphTestCase):
 
     def __init__(self, *args, **kwargs):
-        DatabaseTestCase.__init__(self, *args, **kwargs)
+        GraphTestCase.__init__(self, *args, **kwargs)
         self.store = Store(self.graph)
 
 
