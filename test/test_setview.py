@@ -17,10 +17,10 @@
 
 
 from py2neo.types import SetView
-from test.util import Py2neoTestCase
+from unittest import TestCase
 
 
-class SetViewTestCase(Py2neoTestCase):
+class SetViewTestCase(TestCase):
 
     weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
     weekend = {"Friday", "Saturday", "Sunday"}

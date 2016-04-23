@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship, cast, cast_node, cast_relationship, remote
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
 def assert_node(node, *labels, **properties):
@@ -26,7 +26,7 @@ def assert_node(node, *labels, **properties):
     assert dict(node) == properties
 
 
-class GraphyCastTestCase(Py2neoTestCase):
+class GraphyCastTestCase(DatabaseTestCase):
 
     def test_cast(self):
         assert cast(None) is None
@@ -79,7 +79,7 @@ class GraphyCastTestCase(Py2neoTestCase):
         assert casted["since"] == 1999
 
 
-class NodeCastTestCase(Py2neoTestCase):
+class NodeCastTestCase(DatabaseTestCase):
 
     def test_cast_node(self):
         alice = Node("Person", "Employee", name="Alice", age=33)
@@ -93,7 +93,7 @@ class NodeCastTestCase(Py2neoTestCase):
             cast_node(3.14)
 
     
-class RelationshipCastTestCase(Py2neoTestCase):
+class RelationshipCastTestCase(DatabaseTestCase):
     
     def test_can_cast_relationship(self):
         a = Node()

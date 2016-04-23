@@ -17,10 +17,10 @@
 
 
 from py2neo import order, size, Node, Relationship, remote
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class TransactionMergeTestCase(Py2neoTestCase):
+class TransactionMergeTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.graph.delete_all()

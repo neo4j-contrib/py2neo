@@ -17,10 +17,10 @@
 
 
 from py2neo.types import Node, Relationship, Path
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class DeleteTestCase(Py2neoTestCase):
+class DeleteTestCase(DatabaseTestCase):
 
     def test_can_delete_node(self):
         alice = Node("Person", name="Alice")

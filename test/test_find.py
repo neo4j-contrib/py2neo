@@ -17,10 +17,10 @@
 
 
 from py2neo import Node
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class FindTestCase(Py2neoTestCase):
+class FindTestCase(DatabaseTestCase):
 
     def test_will_find_no_nodes_with_non_existent_label(self):
         label = next(self.unique_string)
@@ -57,7 +57,7 @@ class FindTestCase(Py2neoTestCase):
             list(self.graph.find(""))
 
 
-class FindOneTestCase(Py2neoTestCase):
+class FindOneTestCase(DatabaseTestCase):
 
     def test_can_find_one_node_with_label_and_property(self):
         label = next(self.unique_string)

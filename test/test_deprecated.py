@@ -19,10 +19,10 @@
 from warnings import catch_warnings, simplefilter
 
 from py2neo import Node, Relationship, Path, remote, RemoteEntity
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class DeprecatedTestCase(Py2neoTestCase):
+class DeprecatedTestCase(DatabaseTestCase):
 
     def setUp(self):
         simplefilter("always")

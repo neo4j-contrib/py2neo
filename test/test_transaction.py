@@ -17,10 +17,10 @@
 
 
 from py2neo import Node, Relationship, order, size, remote, TransactionFinished, CypherSyntaxError, ConstraintError
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class TransactionRunTestCase(Py2neoTestCase):
+class TransactionRunTestCase(DatabaseTestCase):
 
     def test_can_run_single_statement_transaction(self):
         tx = self.graph.begin()
@@ -103,7 +103,7 @@ class TransactionRunTestCase(Py2neoTestCase):
             assert False
 
 
-class TransactionCreateTestCase(Py2neoTestCase):
+class TransactionCreateTestCase(DatabaseTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
@@ -221,7 +221,7 @@ class TransactionCreateTestCase(Py2neoTestCase):
         assert size(self.graph) == 1
 
 
-class TransactionDeleteTestCase(Py2neoTestCase):
+class TransactionDeleteTestCase(DatabaseTestCase):
 
     def test_can_delete_relationship(self):
         a = Node()
@@ -236,7 +236,7 @@ class TransactionDeleteTestCase(Py2neoTestCase):
         assert not self.graph.exists(b)
 
 
-class TransactionSeparateTestCase(Py2neoTestCase):
+class TransactionSeparateTestCase(DatabaseTestCase):
 
     def test_can_delete_relationship_by_separating(self):
         a = Node()
@@ -255,7 +255,7 @@ class TransactionSeparateTestCase(Py2neoTestCase):
             self.graph.separate("this string is definitely not graphy")
 
 
-class TransactionDegreeTestCase(Py2neoTestCase):
+class TransactionDegreeTestCase(DatabaseTestCase):
 
     def test_degree_of_node(self):
         a = Node()
@@ -279,7 +279,7 @@ class TransactionDegreeTestCase(Py2neoTestCase):
                 tx.degree("this string is definitely not graphy")
 
 
-class TransactionExistsTestCase(Py2neoTestCase):
+class TransactionExistsTestCase(DatabaseTestCase):
 
     def test_cannot_check_existence_of_non_graphy_thing(self):
         with self.assertRaises(TypeError):
@@ -287,7 +287,7 @@ class TransactionExistsTestCase(Py2neoTestCase):
                 tx.exists("this string is definitely not graphy")
 
 
-class TransactionErrorTestCase(Py2neoTestCase):
+class TransactionErrorTestCase(DatabaseTestCase):
 
     def test_can_generate_transaction_error(self):
         tx = self.graph.begin()
@@ -312,7 +312,7 @@ class TransactionErrorTestCase(Py2neoTestCase):
             tx.commit()
 
 
-class TransactionAutocommitTestCase(Py2neoTestCase):
+class TransactionAutocommitTestCase(DatabaseTestCase):
 
     def test_can_autocommit(self):
         tx = self.graph.begin(autocommit=True)
@@ -321,7 +321,7 @@ class TransactionAutocommitTestCase(Py2neoTestCase):
         assert tx.finished()
 
 
-class TransactionCoverageTestCase(Py2neoTestCase):
+class TransactionCoverageTestCase(DatabaseTestCase):
     """ These tests exist purely to make the coverage counter happy.
     """
 

@@ -21,10 +21,10 @@ from io import StringIO
 from py2neo.database import Transaction, HTTPTransaction, CypherWriter, cypher_repr
 from py2neo.database.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, order, size, remote
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class CypherTestCase(Py2neoTestCase):
+class CypherTestCase(DatabaseTestCase):
 
     def setUp(self):
         a = Node(name="Alice", age=66)
@@ -241,7 +241,7 @@ class CypherTestCase(Py2neoTestCase):
             graph.run(statement, parameters)
 
 
-class CypherCreateTestCase(Py2neoTestCase):
+class CypherCreateTestCase(DatabaseTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
@@ -288,7 +288,7 @@ class CypherCreateTestCase(Py2neoTestCase):
             self.graph.create("this string is definitely not graphy")
 
 
-class CypherWriterTestCase(Py2neoTestCase):
+class CypherWriterTestCase(DatabaseTestCase):
 
     def test_can_write_simple_identifier(self):
         string = StringIO()
@@ -439,7 +439,7 @@ class CypherWriterTestCase(Py2neoTestCase):
         assert written == "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
 
 
-class CypherOverHTTPTestCase(Py2neoTestCase):
+class CypherOverHTTPTestCase(DatabaseTestCase):
 
     def test_can_run_statement(self):
         tx = HTTPTransaction(self.graph)

@@ -17,11 +17,11 @@
 
 
 from py2neo import Graph, Node, Relationship, cast_node, remote
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 from test.compat import patch, assert_repr
 
 
-class GraphTestCase(Py2neoTestCase):
+class GraphTestCase(DatabaseTestCase):
 
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"

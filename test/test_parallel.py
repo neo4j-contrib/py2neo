@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class ParallelTestCase(Py2neoTestCase):
+class ParallelTestCase(DatabaseTestCase):
 
     def test_can_run_cypher_while_in_transaction(self):
         tx = self.graph.begin()

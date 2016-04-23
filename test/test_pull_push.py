@@ -17,10 +17,10 @@
 
 
 from py2neo.types import Node, Relationship, Path, remote, RemoteEntity
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class PullTestCase(Py2neoTestCase):
+class PullTestCase(DatabaseTestCase):
 
     def test_cannot_pull_non_graphy_object(self):
         with self.assertRaises(TypeError):
@@ -117,7 +117,7 @@ class PullTestCase(Py2neoTestCase):
                     (new_props, old_props)
 
 
-class PushTestCase(Py2neoTestCase):
+class PushTestCase(DatabaseTestCase):
 
     def test_cannot_push_non_graphy_object(self):
         with self.assertRaises(TypeError):

@@ -18,14 +18,14 @@
 
 from py2neo import Graph, Node, Relationship, size, remote
 from py2neo.packages.httpstream import ClientError
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
 class DodgyClientError(ClientError):
     status_code = 499
 
 
-class RelationshipTestCase(Py2neoTestCase):
+class RelationshipTestCase(DatabaseTestCase):
 
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types

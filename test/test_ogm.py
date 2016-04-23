@@ -44,8 +44,8 @@ from os.path import join as path_join, dirname
 from unittest import TestCase
 
 from py2neo import order, size
-from py2neo.ogm import GraphObject, Property, Related
-from test.util import Py2neoTestCase
+from py2neo.ogm import GraphObject, Label, Property, Related
+from test.util import DatabaseTestCase
 
 
 class MovieGraphObject(GraphObject):
@@ -63,12 +63,20 @@ class Person(MovieGraphObject):
     produced = Related("Movie")
 
 
-class Movie(MovieGraphObject):
+class Film(MovieGraphObject):
+    __primarylabel__ = "Movie"
     __primarykey__ = "title"
+
+    awesome = Label()
+    musical = Label()
+    science_fiction = Label(name="SciFi")
 
     title = Property()
     tag_line = Property(key="tagline")
     year_of_release = Property(key="released")
+
+    def __init__(self, title):
+        self.title = title
 
 
 class MacGuffin(MovieGraphObject):
@@ -80,32 +88,85 @@ class SubclassTestCase(TestCase):
     def test_class_primary_label_defaults_to_class_name(self):
         assert MacGuffin.__primarylabel__ == "MacGuffin"
 
+    def test_class_primary_label_can_be_overridden(self):
+        assert Film.__primarylabel__ == "Movie"
+
     def test_class_primary_key_defaults_to_id(self):
         assert MacGuffin.__primarykey__ == "__id__"
 
+    def test_class_primary_key_can_be_overridden(self):
+        assert Film.__primarykey__ == "title"
+
+
+class InstanceTestCase(TestCase):
+
+    def setUp(self):
+        self.macguffin = MacGuffin()
+        self.film = Film("Die Hard")
+
     def test_instance_primary_label_defaults_to_class_name(self):
-        macguffin = MacGuffin()
-        assert macguffin.__primarylabel__ == "MacGuffin"
+        assert self.macguffin.__primarylabel__ == "MacGuffin"
+
+    def test_instance_primary_label_can_be_overridden(self):
+        assert self.film.__primarylabel__ == "Movie"
 
     def test_instance_primary_key_defaults_to_id(self):
-        macguffin = MacGuffin()
-        assert macguffin.__primarykey__ == "__id__"
+        assert self.macguffin.__primarykey__ == "__id__"
+
+    def test_instance_primary_key_can_be_overridden(self):
+        assert self.film.__primarykey__ == "title"
+
+
+class InstanceSubgraphTestCase(TestCase):
+
+    def setUp(self):
+        self.film = Film("Die Hard")
+        self.film_node = self.film.__subgraph__
 
     def test_instance_subgraph_is_node_like(self):
-        macguffin = MacGuffin()
-        subgraph = macguffin.__subgraph__
-        assert order(subgraph) == 1
-        assert size(subgraph) == 0
+        assert order(self.film_node) == 1
+        assert size(self.film_node) == 0
 
-    def test_instance_subgraph_has_correct_primary_label(self):
-        macguffin = MacGuffin()
-        subgraph = macguffin.__subgraph__
-        assert subgraph.__primarylabel__ == "MacGuffin"
+    def test_instance_subgraph_inherits_primary_label(self):
+        assert self.film_node.__primarylabel__ == "Movie"
 
-    def test_instance_subgraph_has_correct_primary_key(self):
-        macguffin = MacGuffin()
-        subgraph = macguffin.__subgraph__
-        assert subgraph.__primarykey__ == "__id__"
+    def test_instance_subgraph_inherits_primary_key(self):
+        assert self.film_node.__primarykey__ == "title"
+
+
+class InstanceLabelTestCase(TestCase):
+
+    def setUp(self):
+        self.film = Film("Die Hard")
+        self.film.awesome = True
+        self.film.science_fiction = True
+        self.film_node = self.film.__subgraph__
+
+    def test_instance_label_name_defaults_to_attribute_name_variant(self):
+        assert self.film_node.has_label("Awesome")
+
+    def test_instance_label_name_can_be_overridden(self):
+        assert self.film_node.has_label("SciFi")
+        assert not self.film_node.has_label("ScienceFiction")
+
+    def test_instance_label_defaults_to_absent(self):
+        assert not self.film_node.has_label("Musical")
+
+
+class InstancePropertyTestCase(TestCase):
+
+    def setUp(self):
+        self.film = Film("Die Hard")
+        self.film.year_of_release = 1988
+        self.film_node = self.film.__subgraph__
+
+    def test_instance_property_key_defaults_to_attribute_name(self):
+        assert "title" in self.film_node
+
+    def test_instance_property_key_can_be_overridden(self):
+        assert "released" in self.film_node
+        assert "year_of_release" not in self.film_node
+
 
 
 # class LoadTestCase(Py2neoTestCase):

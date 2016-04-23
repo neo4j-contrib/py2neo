@@ -212,34 +212,3 @@ class GraphObject(metaclass=GraphObjectMeta):
 class RelationshipSet(GraphObject):
 
     pass
-
-
-
-
-
-
-
-
-
-
-class MovieGraphObject(GraphObject):
-    pass
-
-
-class Person(MovieGraphObject):
-    __primarykey__ = "name"
-
-    name = Property()
-    year_of_birth = Property(key="born")
-
-    acted_in = Related("Movie")
-    directed = Related("Movie")
-    produced = Related("Movie")
-
-
-class Movie(MovieGraphObject):
-    __primarykey__ = "title"
-
-    title = Property()
-    tag_line = Property(key="tagline")
-    year_of_release = Property(key="released")

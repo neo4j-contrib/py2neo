@@ -22,19 +22,19 @@ from py2neo import DBMS, Node, Relationship, cast_node, cast_relationship
 from py2neo.database.status import CypherSyntaxError, ConstraintError
 from py2neo.ext.batman import BatchRunner, WriteBatch, CypherJob, \
     BatchError, Job, Target, NodePointer, ManualIndexWriteBatch, BatchFinished
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 dbms = DBMS()
 version_2_1 = (2, 1) <= dbms.kernel_version < (2, 2)
 
 
-class BatchTestCase(Py2neoTestCase):
+class BatchTestCase(DatabaseTestCase):
     def __init__(self, *args, **kwargs):
         super(BatchTestCase, self).__init__(*args, **kwargs)
         self.runner = BatchRunner(self.graph)
 
 
-class NodeCreationTestCase(Py2neoTestCase):
+class NodeCreationTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -58,7 +58,7 @@ class NodeCreationTestCase(Py2neoTestCase):
         assert carol["name"] == "Carol"
 
 
-class RelationshipCreationTestCase(Py2neoTestCase):
+class RelationshipCreationTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -175,7 +175,7 @@ class RelationshipCreationTestCase(Py2neoTestCase):
         self.recycling = [ab, alice, bob]
 
 
-class UniqueRelationshipCreationRestCase(Py2neoTestCase):
+class UniqueRelationshipCreationRestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -255,7 +255,7 @@ class UniqueRelationshipCreationRestCase(Py2neoTestCase):
         self.recycling = [knows, alice, bob]
 
 
-class DeletionTestCase(Py2neoTestCase):
+class DeletionTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -274,7 +274,7 @@ class DeletionTestCase(Py2neoTestCase):
         assert not self.graph.exists(alice | bob | ab)
 
 
-class PropertyManagementTestCase(Py2neoTestCase):
+class PropertyManagementTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -318,7 +318,7 @@ class PropertyManagementTestCase(Py2neoTestCase):
         self._check_properties(self.alice, {})
 
 
-class MiscellaneousTestCase(Py2neoTestCase):
+class MiscellaneousTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = ManualIndexWriteBatch(self.graph)
@@ -357,7 +357,7 @@ class MiscellaneousTestCase(Py2neoTestCase):
             self.runner.run(self.batch)
 
 
-class BatchRequestTestCase(Py2neoTestCase):
+class BatchRequestTestCase(DatabaseTestCase):
 
     def test_can_create_batch_request(self):
         method = "POST"
@@ -390,7 +390,7 @@ class BatchRequestTestCase(Py2neoTestCase):
         assert hash(request_1) != hash(request_2)
 
 
-class WriteBatchTestCase(Py2neoTestCase):
+class WriteBatchTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.batch = WriteBatch(self.graph)
@@ -614,7 +614,7 @@ class WriteBatchTestCase(Py2neoTestCase):
         assert set(alice.labels()) == {"mystery", "badger"}
 
 
-class NodePointerTestCase(Py2neoTestCase):
+class NodePointerTestCase(DatabaseTestCase):
 
     def test_node_pointer_equality(self):
         p1 = NodePointer(42)

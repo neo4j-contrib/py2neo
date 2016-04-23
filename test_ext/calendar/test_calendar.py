@@ -18,7 +18,7 @@
 
 from py2neo import Node
 from py2neo.ext.calendar import GregorianCalendar
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
 def assert_similar(a, b):
@@ -28,7 +28,7 @@ def assert_similar(a, b):
     assert dict(a) == dict(b)
 
 
-class CalendarTestCase(Py2neoTestCase):
+class CalendarTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.calendar = GregorianCalendar(self.graph)

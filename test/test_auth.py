@@ -19,14 +19,14 @@
 from unittest import skipUnless
 
 from py2neo.database import DBMS, Resource, ServerAddress, register_server, keyring, authenticate, Unauthorized
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
 dbms = DBMS()
 supports_auth = dbms.supports_auth
 
 
-class AuthorizationFailedTestCase(Py2neoTestCase):
+class AuthorizationFailedTestCase(DatabaseTestCase):
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_get(self):
@@ -49,14 +49,14 @@ class AuthorizationFailedTestCase(Py2neoTestCase):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").delete().content
 
 
-class ServerAddressTestCase(Py2neoTestCase):
+class ServerAddressTestCase(DatabaseTestCase):
 
     def test_server_address_repr(self):
         address = ServerAddress()
         assert repr(address).startswith("<ServerAddress")
 
 
-class ServerRegistrationTestCase(Py2neoTestCase):
+class ServerRegistrationTestCase(DatabaseTestCase):
 
     def setUp(self):
         self.keyring = {}

@@ -19,10 +19,10 @@
 import re
 
 from py2neo.types import Node, Relationship, Subgraph, Walkable
-from test.util import Py2neoTestCase
+from test.util import DatabaseTestCase
 
 
-class ReprTestCase(Py2neoTestCase):
+class ReprTestCase(DatabaseTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")
@@ -53,7 +53,7 @@ class ReprTestCase(Py2neoTestCase):
             assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
         items = [item.strip() for item in relationships.split(",")]
         assert len(items) == 2
-        for i, item in enumerate(items):
+        for _ in items:
             assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
 
     def test_walkable_repr(self):
