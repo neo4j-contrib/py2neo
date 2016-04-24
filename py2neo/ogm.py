@@ -101,6 +101,35 @@ class RelationshipSet(object):
         pass
 
 
+class SubgraphWrapper(object):
+    __graph__ = None
+    _subgraph = None
+
+    @property
+    def __subgraph__(self):
+        return self._subgraph
+
+    @__subgraph__.setter
+    def __subgraph__(self, value):
+        self._subgraph = value
+
+    def __eq__(self, other):
+        try:
+            return self.__subgraph__ == other.__subgraph__
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__subgraph__)
+
+    @property
+    def __remote__(self):
+        return self.__subgraph__.__remote__
+
+
 class GraphObjectMeta(type):
 
     def __new__(mcs, name, bases, attributes):
@@ -123,27 +152,20 @@ class GraphObjectMeta(type):
 
 
 @metaclass(GraphObjectMeta)
-class GraphObject(object):
-    __graph__ = None
+class GraphObject(SubgraphWrapper):
     __primarylabel__ = None
     __primarykey__ = None
 
-    __subgraph = None
-
     @property
     def __subgraph__(self):
-        if self.__subgraph is None:
-            self.__subgraph = Node(self.__primarylabel__)
-        node = self.__subgraph
+        if self._subgraph is None:
+            self._subgraph = Node(self.__primarylabel__)
+        node = self._subgraph
         if not hasattr(node, "__primarylabel__"):
             setattr(node, "__primarylabel__", self.__primarylabel__)
         if not hasattr(node, "__primarykey__"):
             setattr(node, "__primarykey__", self.__primarykey__)
         return node
-
-    @__subgraph__.setter
-    def __subgraph__(self, value):
-        self.__subgraph = value
 
     @classmethod
     def load_one(cls, primary_value):
@@ -157,7 +179,7 @@ class GraphObject(object):
         if node is None:
             return None
         inst = GraphObject()
-        inst.__subgraph = node
+        inst._subgraph = node
         inst.__class__ = cls
         return inst
 
@@ -169,13 +191,13 @@ class GraphObject(object):
             for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
                                     cypher_escape(cls.__primarylabel__), x=list(primary_values)):
                 inst = GraphObject()
-                inst.__subgraph = record["a"]
+                inst._subgraph = record["a"]
                 inst.__class__ = cls
                 yield inst
         else:
             for node in graph.find(cls.__primarylabel__, primary_key, tuple(primary_values)):
                 inst = GraphObject()
-                inst.__subgraph = node
+                inst._subgraph = node
                 inst.__class__ = cls
                 yield inst
 
@@ -183,18 +205,6 @@ class GraphObject(object):
         return "<%s %s>" % (self.__class__.__name__,
                             " ".join("%s=%r" % (k, getattr(self, k)) for k in dir(self)
                                      if not k.startswith("_") and not callable(getattr(self, k))))
-
-    def __eq__(self, other):
-        try:
-            return self.__subgraph__ == other.__subgraph__
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__subgraph__)
 
     @property
     def __primaryvalue__(self):
@@ -208,10 +218,6 @@ class GraphObject(object):
                 return None
         else:
             return node[primary_key]
-
-    @property
-    def __remote__(self):
-        return self.__subgraph__.__remote__
 
     def __db_create__(self, tx):
         tx.create(self.__subgraph__)
@@ -229,6 +235,6 @@ class GraphObject(object):
         graph.push(self.__subgraph__)
 
 
-class RelationshipSet(GraphObject):
+class RelationshipSet(SubgraphWrapper):
 
     pass
