@@ -25,7 +25,6 @@ LATEST_VERSION=${LATEST_3_0_VERSION}
 SELF=$0
 COMMAND=$1
 shift
-ARGS=$@
 
 BAU_HOME=`pwd`/`dirname $SELF`
 DOWN="${BAU_HOME}/.bau/down"
@@ -94,7 +93,7 @@ function run_tests {
         export NEO4J_HOME="${BAU_HOME}"
         export NEO4J_URI="http://localhost:7474/"
         export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
-        ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $1
+        ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $*
         EXIT_STATUS=$?
 
         ${NEOKIT} uninstall ${NEOKIT_SERVER}
@@ -188,14 +187,14 @@ case ${COMMAND} in
         ;;
     test)
         NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
-        run_tests
+        run_tests $*
         ;;
     quicktest)
         NEO4J_VERSIONS="3.0"
-        run_tests
+        run_tests $*
         ;;
     test-2.0)
         NEO4J_VERSIONS="2.0"
-        run_tests
+        run_tests $*
         ;;
 esac

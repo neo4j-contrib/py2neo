@@ -43,7 +43,7 @@ graph.delete(nigel)
 from os.path import join as path_join, dirname
 from unittest import TestCase
 
-from py2neo import order, size
+from py2neo import order, size, remote
 from py2neo.ogm import GraphObject, Label, Property, Related
 from test.util import GraphTestCase
 
@@ -188,20 +188,9 @@ class LoadOneTestCase(MovieGraphTestCase):
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
-#     def test_can_load_related(self):
-#         keanu = Person.load("Keanu Reeves")
-#         matrix = Movie.load("The Matrix")
-#         keanu_movies = keanu.acted_in  # auto-pull if stale
-#         assert matrix in keanu_movies
-#
-#     def test_can_pull_related(self):
-#         keanu = Person.load("Keanu Reeves")
-#         matrix = Movie.load("The Matrix")
-#         keanu_movies = keanu.acted_in.pull()  # auto-pull if stale
-#         assert matrix in keanu_movies
-#
-#         self.graph.push(keanu)
-#         self.graph.push(keanu.acted_in)
+    def test_cannot_load_one_that_does_not_exist(self):
+        keanu = Person.load_one("Keanu Jones")
+        assert keanu is None
 
 
 class LoadTestCase(MovieGraphTestCase):
@@ -212,3 +201,28 @@ class LoadTestCase(MovieGraphTestCase):
         assert keanu.year_of_birth == 1964
         assert hugo.name == "Hugo Weaving"
         assert hugo.year_of_birth == 1960
+
+
+class PushTestCase(MovieGraphTestCase):
+
+    def test_can_load_and_push(self):
+        keanu = Person.load_one("Keanu Reeves")
+        keanu.name = "Keanu Charles Reeves"
+        assert keanu.__subgraph__["name"] == "Keanu Charles Reeves"
+        self.graph.push(keanu)
+        remote_node = remote(keanu.__subgraph__)
+        pushed_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+                                          "RETURN a.name", x=remote_node._id)
+        assert pushed_name == "Keanu Charles Reeves"
+
+
+class PullTestCase(MovieGraphTestCase):
+
+    def test_can_load_and_pull(self):
+        keanu = Person.load_one("Keanu Reeves")
+        assert keanu.name == "Keanu Reeves"
+        remote_node = remote(keanu.__subgraph__)
+        self.graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
+                       x=remote_node._id, y="Keanu Charles Reeves")
+        self.graph.pull(keanu)
+        assert keanu.name == "Keanu Charles Reeves"

@@ -18,7 +18,7 @@
 
 from py2neo.database import cypher_escape
 from py2neo.types import Node, remote
-from py2neo.util import label_case, relationship_case
+from py2neo.util import label_case, relationship_case, metaclass
 
 
 class Property(object):
@@ -122,7 +122,8 @@ class GraphObjectMeta(type):
         return super().__new__(mcs, name, bases, attributes)
 
 
-class GraphObject(metaclass=GraphObjectMeta):
+@metaclass(GraphObjectMeta)
+class GraphObject(object):
     __graph__ = None
     __primarylabel__ = None
     __primarykey__ = None
@@ -154,7 +155,7 @@ class GraphObject(metaclass=GraphObjectMeta):
         else:
             node = graph.find_one(cls.__primarylabel__, primary_key, primary_value)
         if node is None:
-            raise LookupError("Cannot load object")
+            return None
         inst = GraphObject()
         inst.__subgraph = node
         inst.__class__ = cls
