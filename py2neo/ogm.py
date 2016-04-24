@@ -119,7 +119,7 @@ class GraphObjectMeta(type):
         attributes["__related_attr__"] = related_attr
         attributes.setdefault("__primarylabel__", name)
         attributes.setdefault("__primarykey__", "__id__")
-        return super().__new__(mcs, name, bases, attributes)
+        return super(GraphObjectMeta, mcs).__new__(mcs, name, bases, attributes)
 
 
 @metaclass(GraphObjectMeta)
