@@ -65,10 +65,9 @@ def get_http_headers(scheme, host, port):
     for (s, h, p), headers in _http_headers.items():
         if (s is None or s == scheme) and (h is None or h == host) and (p is None or p == port):
             uri_headers.update(headers)
-    address = ServerAddress("%s://%s:%d/" % (scheme, host, port))
-    auth = keyring.get(address)
-    if auth is not None:
-        uri_headers["Authorization"] = auth.http_authorization
+    for address, auth in keyring.items():
+        if auth and address.host == host and address.http_port == port:
+            uri_headers["Authorization"] = auth.http_authorization
     return uri_headers
 
 

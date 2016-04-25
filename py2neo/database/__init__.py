@@ -300,7 +300,7 @@ class Graph(object):
             if use_bolt is None:
                 use_bolt = version_tuple(inst.__remote__.get().content["neo4j_version"]) >= (3,)
             if use_bolt:
-                auth = keyring.get(address)
+                auth = get_auth(address)
                 inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
                                                    auth=None if auth is None else auth.bolt_auth_token,
                                                    encypted=address.secure,

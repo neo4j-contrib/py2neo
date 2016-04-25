@@ -54,27 +54,25 @@ class ServerAddress(object):
                                          "http_port", "https_port", "bolt_port"]})
 
     def __repr__(self):
-        return "<ServerAddress host=%r http_port=%r bolt_port=%r>" % \
-               (self.host, self.http_port, self.bolt_port)
+        return "<ServerAddress settings=%r>" % self.__settings
 
     def __getitem__(self, item):
         return self.__settings[item]
 
     def __eq__(self, other):
-        return self.bolt == other.bolt and self.secure == other.secure and \
-               self.host == other.host and self.http_port == other.http_port and \
-               self.https_port == other.https_port and self.bolt_port == other.bolt_port
+        return (self.bolt is None or other.bolt is None or self.bolt == other.bolt) and \
+                self.secure == other.secure and self.host == other.host and \
+                self.http_port == other.http_port and self.https_port == other.https_port
 
     def __hash__(self):
-        return hash((self.bolt, self.secure, self.host,
-                     self.http_port, self.https_port, self.bolt_port))
+        return hash((self.bolt, self.secure, self.host, self.http_port, self.https_port))
 
     def keys(self):
         return self.__settings.keys()
 
     @property
     def bolt(self):
-        return self.__settings.get("bolt", None)
+        return self.__settings.get("bolt", 7687)
 
     @property
     def secure(self):
@@ -133,9 +131,11 @@ class ServerAuth(object):
         self.__settings.update({k: v for k, v in settings.items()
                                 if k in ["user", "password"]})
 
-        # Call parent constructor
         if self.password is None:
             raise TypeError("No auth details available")
+
+    def __repr__(self):
+        return "<ServerAuth settings=%r>" % self.__settings
 
     @property
     def user(self):
@@ -163,12 +163,16 @@ def register_server(*uris, **settings):
     :param settings:
     :return:
     """
-    address = ServerAddress(*uris, **settings)
+    new_address = ServerAddress(*uris, **settings)
     try:
-        keyring[address] = ServerAuth(*uris, **settings)
+        new_auth = ServerAuth(*uris, **settings)
     except TypeError:
-        keyring.setdefault(address)
-    return address
+        new_auth = None
+    if new_auth is None:
+        keyring.setdefault(new_address)
+    else:
+        keyring[new_address] = new_auth
+    return new_address
 
 
 def _register_server_from_environment():
@@ -181,6 +185,13 @@ def _register_server_from_environment():
             settings["user"] = user
             settings["password"] = password
         register_server(neo4j_uri, **settings)
+
+
+def get_auth(address):
+    for addr, auth in keyring.items():
+        if addr == address:
+            return auth
+    raise KeyError(address)
 
 
 def authenticate(host_port, user, password):
