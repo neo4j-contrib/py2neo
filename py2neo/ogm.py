@@ -63,71 +63,46 @@ class Related(object):
             if isinstance(self.related_class, type):
                 related_class = self.related_class
             else:
-                related_class = globals()[self.related_class]
+                module_name, _, class_name = self.related_class.rpartition(".")
+                if not module_name:
+                    module_name = instance.__class__.__module__
+                module = __import__(module_name, fromlist=".")
+                related_class = getattr(module, class_name)
             self.relationships = RelationshipSet(instance, self.relationship_type, related_class)
         return self.relationships
 
 
 class RelationshipSet(object):
 
-    def __init__(self, instance, relationship_type, related_class):
-        self.instance = instance
+    def __init__(self, subject, relationship_type, related_class):
+        self.subject = subject
         self.relationship_type = relationship_type
         self.related_class = related_class
-        self._relationships = None
+        self._related_objects = None
 
     def __iter__(self):
         self._refresh()
-        return iter(self._relationships)
+        return iter(self._related_objects)
 
     def _refresh(self):
-        if self._relationships is None:
+        if self._related_objects is None:
             self.pull()
 
     def add(self, item, properties, **kwproperties):
-        self._relationships[item] = dict(properties, **kwproperties)
+        self._related_objects[item] = dict(properties, **kwproperties)
 
     def remove(self, item):
-        del self._relationships[item]
+        del self._related_objects[item]
 
     def pull(self):
-        self._relationships = {}
-        instance = self.instance
-        for r in instance.__graph__.match(instance.__db_node__, self.relationship_type):
-            related_instance = self.related_class.wrap(r.end_node())
-            self._relationships[related_instance] = dict(r)
+        self._related_objects = {}
+        subject = self.subject
+        for r in subject.__graph__.match(subject.__subgraph__, self.relationship_type):
+            related_object = self.related_class.wrap(r.end_node())
+            self._related_objects[related_object] = dict(r)
 
     def push(self):
         pass
-
-
-class SubgraphWrapper(object):
-    __graph__ = None
-    _subgraph = None
-
-    @property
-    def __subgraph__(self):
-        return self._subgraph
-
-    @__subgraph__.setter
-    def __subgraph__(self, value):
-        self._subgraph = value
-
-    def __eq__(self, other):
-        try:
-            return self.__subgraph__ == other.__subgraph__
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(self.__subgraph__)
-
-    @property
-    def __remote__(self):
-        return self.__subgraph__.__remote__
 
 
 class GraphObjectMeta(type):
@@ -152,34 +127,46 @@ class GraphObjectMeta(type):
 
 
 @metaclass(GraphObjectMeta)
-class GraphObject(SubgraphWrapper):
+class GraphObject(object):
+    __graph__ = None
     __primarylabel__ = None
     __primarykey__ = None
+    __subgraph = None
 
     @property
     def __subgraph__(self):
-        if self._subgraph is None:
-            self._subgraph = Node(self.__primarylabel__)
-        node = self._subgraph
+        if self.__subgraph is None:
+            self.__subgraph = Node(self.__primarylabel__)
+        node = self.__subgraph
         if not hasattr(node, "__primarylabel__"):
             setattr(node, "__primarylabel__", self.__primarylabel__)
         if not hasattr(node, "__primarykey__"):
             setattr(node, "__primarykey__", self.__primarykey__)
         return node
 
+    @property
+    def __remote__(self):
+        return self.__subgraph__.__remote__
+
     @classmethod
     def load_one(cls, primary_value):
         graph = cls.__graph__
+        if graph is None:
+            raise RuntimeError("No graph database defined for %s" % cls.__name__)
         primary_key = cls.__primarykey__
         if primary_key == "__id__":
             node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x} RETURN a" %
                                   cypher_escape(cls.__primarylabel__), x=primary_value)
         else:
             node = graph.find_one(cls.__primarylabel__, primary_key, primary_value)
+        return cls.wrap(node)
+
+    @classmethod
+    def wrap(cls, node):
         if node is None:
             return None
         inst = GraphObject()
-        inst._subgraph = node
+        inst.__subgraph = node
         inst.__class__ = cls
         return inst
 
@@ -191,13 +178,13 @@ class GraphObject(SubgraphWrapper):
             for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
                                     cypher_escape(cls.__primarylabel__), x=list(primary_values)):
                 inst = GraphObject()
-                inst._subgraph = record["a"]
+                inst.__subgraph = record["a"]
                 inst.__class__ = cls
                 yield inst
         else:
             for node in graph.find(cls.__primarylabel__, primary_key, tuple(primary_values)):
                 inst = GraphObject()
-                inst._subgraph = node
+                inst.__subgraph = node
                 inst.__class__ = cls
                 yield inst
 
@@ -233,8 +220,3 @@ class GraphObject(SubgraphWrapper):
 
     def __db_push__(self, graph):
         graph.push(self.__subgraph__)
-
-
-class RelationshipSet(SubgraphWrapper):
-
-    pass

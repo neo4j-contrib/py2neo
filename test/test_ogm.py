@@ -59,8 +59,8 @@ class Person(MovieGraphObject):
     year_of_birth = Property(key="born")
 
     acted_in = Related("Film")
-    directed = Related("Film")
-    produced = Related("Film")
+    directed = Related("test.test_ogm.Film")
+    produced = Related("test.test_ogm.Film")
 
 
 class Film(MovieGraphObject):
@@ -81,6 +81,19 @@ class Film(MovieGraphObject):
 
 class MacGuffin(MovieGraphObject):
     pass
+
+
+class MovieGraphTestCase(GraphTestCase):
+
+    def setUp(self):
+        MovieGraphObject.__graph__ = self.graph
+        self.graph.delete_all()
+        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
+            cypher = f.read()
+        self.graph.run(cypher)
+
+    def tearDown(self):
+        self.graph.delete_all()
 
 
 class SubclassTestCase(TestCase):
@@ -168,17 +181,13 @@ class InstancePropertyTestCase(TestCase):
         assert "year_of_release" not in self.film_node
 
 
-class MovieGraphTestCase(GraphTestCase):
+class InstanceRelatedObjectTestCase(MovieGraphTestCase):
 
-    def setUp(self):
-        MovieGraphObject.__graph__ = self.graph
-        self.graph.delete_all()
-        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-            cypher = f.read()
-        self.graph.run(cypher)
-
-    def tearDown(self):
-        self.graph.delete_all()
+    def test_instance_property_key_defaults_to_attribute_name(self):
+        keanu = Person.load_one("Keanu Reeves")
+        film_titles = set(film.title for film in list(keanu.acted_in))
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+                               'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
 
 
 class LoadOneTestCase(MovieGraphTestCase):
