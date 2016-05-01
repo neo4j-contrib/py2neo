@@ -90,7 +90,6 @@ function run_tests {
         ${NEOKIT} update-password ${NEOKIT_SERVER} ${DEFAULT_USER} ${DEFAULT_PASSWORD} ${NEW_PASSWORD}
 
         echo ""
-        export NEO4J_HOME="${BAU_HOME}"
         export NEO4J_URI="http://localhost:7474/"
         export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
         ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $*
