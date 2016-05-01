@@ -109,6 +109,7 @@ client_errors = {
     # ConstraintError
     "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
     "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+    "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
     "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
 
     # CypherSyntaxError
