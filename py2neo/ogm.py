@@ -17,7 +17,7 @@
 
 
 from py2neo.database import cypher_escape
-from py2neo.types import Node, remote
+from py2neo.types import Node, Relationship, Subgraph, remote
 from py2neo.util import label_case, relationship_case, metaclass
 
 
@@ -56,10 +56,12 @@ class Related(object):
     def __init__(self, related_class, relationship_type=None):
         self.related_class = related_class
         self.relationship_type = relationship_type
-        self.relationships = None
 
     def __get__(self, instance, owner):
-        if self.relationships is None:
+        if instance._GraphObject__relationships is None:
+            instance._GraphObject__relationships = {}
+        rel_set = instance._GraphObject__relationships
+        if self.relationship_type not in rel_set:
             if isinstance(self.related_class, type):
                 related_class = self.related_class
             else:
@@ -68,8 +70,8 @@ class Related(object):
                     module_name = instance.__class__.__module__
                 module = __import__(module_name, fromlist=".")
                 related_class = getattr(module, class_name)
-            self.relationships = RelationshipSet(instance, self.relationship_type, related_class)
-        return self.relationships
+            rel_set[self.relationship_type] = RelationshipSet(instance, self.relationship_type, related_class)
+        return rel_set[self.relationship_type]
 
 
 class RelationshipSet(object):
@@ -81,28 +83,52 @@ class RelationshipSet(object):
         self._related_objects = None
 
     def __iter__(self):
-        self._refresh()
+        self.__ensure_pulled()
         return iter(self._related_objects)
 
-    def _refresh(self):
-        if self._related_objects is None:
-            self.pull()
+    @property
+    def __subgraph__(self):
+        self.__ensure_pulled()
+        s = Subgraph()
+        start_node = self.subject.__subgraph__
+        for related_object, properties in self._related_objects.items():
+            s |= Relationship(start_node, self.relationship_type, related_object.__subgraph__, **properties)
+        return s
 
-    def add(self, item, properties, **kwproperties):
-        self._related_objects[item] = dict(properties, **kwproperties)
+    def __ensure_pulled(self):
+        if self._related_objects is None:
+            self.__db_pull__(self.subject.__graph__)
+
+    def add(self, item, properties=None, **kwproperties):
+        self.__ensure_pulled()
+        self._related_objects[item] = dict(properties or {}, **kwproperties)
 
     def remove(self, item):
+        self.__ensure_pulled()
         del self._related_objects[item]
 
-    def pull(self):
+    def __db_create__(self, tx):
+        raise NotImplementedError()
+
+    def __db_merge__(self, tx):
+        raise NotImplementedError()
+
+    def __db_delete__(self, tx):
+        raise NotImplementedError()
+
+    def __db_pull__(self, graph):
         self._related_objects = {}
         subject = self.subject
-        for r in subject.__graph__.match(subject.__subgraph__, self.relationship_type):
+        for r in graph.match(subject.__subgraph__, self.relationship_type):
             related_object = self.related_class.wrap(r.end_node())
             self._related_objects[related_object] = dict(r)
 
-    def push(self):
-        pass
+    def __db_push__(self, graph):
+
+        # merge nodes
+        # merge relationships
+        # update properties
+        raise NotImplementedError()
 
 
 class GraphObjectMeta(type):
@@ -119,8 +145,6 @@ class GraphObjectMeta(type):
             elif isinstance(attr, Related):
                 if attr.relationship_type is None:
                     attr.relationship_type = relationship_case(attr_name)
-                related_attr[attr.relationship_type] = attr
-        attributes["__related_attr__"] = related_attr
         attributes.setdefault("__primarylabel__", name)
         attributes.setdefault("__primarykey__", "__id__")
         return super(GraphObjectMeta, mcs).__new__(mcs, name, bases, attributes)
@@ -131,13 +155,14 @@ class GraphObject(object):
     __graph__ = None
     __primarylabel__ = None
     __primarykey__ = None
-    __subgraph = None
+    __node = None
+    __relationships = None
 
     @property
     def __subgraph__(self):
-        if self.__subgraph is None:
-            self.__subgraph = Node(self.__primarylabel__)
-        node = self.__subgraph
+        if self.__node is None:
+            self.__node = Node(self.__primarylabel__)
+        node = self.__node
         if not hasattr(node, "__primarylabel__"):
             setattr(node, "__primarylabel__", self.__primarylabel__)
         if not hasattr(node, "__primarykey__"):
@@ -166,7 +191,7 @@ class GraphObject(object):
         if node is None:
             return None
         inst = GraphObject()
-        inst.__subgraph = node
+        inst.__node = node
         inst.__class__ = cls
         return inst
 
@@ -178,13 +203,13 @@ class GraphObject(object):
             for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
                                     cypher_escape(cls.__primarylabel__), x=list(primary_values)):
                 inst = GraphObject()
-                inst.__subgraph = record["a"]
+                inst.__node = record["a"]
                 inst.__class__ = cls
                 yield inst
         else:
             for node in graph.find(cls.__primarylabel__, primary_key, tuple(primary_values)):
                 inst = GraphObject()
-                inst.__subgraph = node
+                inst.__node = node
                 inst.__class__ = cls
                 yield inst
 

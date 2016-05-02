@@ -88,11 +88,13 @@ class MovieGraphTestCase(GraphTestCase):
     def setUp(self):
         MovieGraphObject.__graph__ = self.graph
         self.graph.delete_all()
+        self.graph.schema.create_uniqueness_constraint("Person", "name")
         with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
         self.graph.run(cypher)
 
     def tearDown(self):
+        self.graph.schema.drop_uniqueness_constraint("Person", "name")
         self.graph.delete_all()
 
 
@@ -183,11 +185,54 @@ class InstancePropertyTestCase(TestCase):
 
 class InstanceRelatedObjectTestCase(MovieGraphTestCase):
 
-    def test_instance_property_key_defaults_to_attribute_name(self):
+    def test_related_objects_are_automatically_loaded(self):
         keanu = Person.load_one("Keanu Reeves")
         film_titles = set(film.title for film in list(keanu.acted_in))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
+
+    def test_related_objects_subgraph_is_a_set_of_outgoing_relationships(self):
+        keanu = Person.load_one("Keanu Reeves")
+        subgraph = keanu.acted_in.__subgraph__
+        assert order(subgraph) == 8
+        assert size(subgraph) == 7
+        keanu_node = keanu.__subgraph__
+        for relationship in subgraph.relationships():
+            assert relationship.start_node() == keanu_node
+            assert relationship.type() == "ACTED_IN"
+            assert relationship.end_node().has_label("Movie")
+
+    # def test_can_add_and_push_related_object(self):
+    #     keanu = Person.load_one("Keanu Reeves")
+    #     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+    #     keanu.acted_in.add(bill_and_ted)
+    #     self.graph.push(keanu.acted_in)
+    #     remote_node = remote(keanu.__subgraph__)
+    #     film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+    #                                                          "WHERE id(a) = {x} "
+    #                                                          "RETURN b.title", x=remote_node._id))
+    #     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+    #                            'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
+    #                            "Bill & Ted's Excellent Adventure"}
+    #
+    # def test_can_add_and_push_related_object_with_properties(self):
+    #     keanu = Person.load_one("Keanu Reeves")
+    #     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+    #     keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
+    #     self.graph.push(keanu.acted_in)
+    #     remote_node = remote(keanu.__subgraph__)
+    #     films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+    #                                                              "WHERE id(a) = {x} "
+    #                                                              "RETURN b.title, ab.roles", x=remote_node._id)}
+    #     bill_and_ted_roles = films["Bill & Ted's Excellent Adventure"]
+    #     assert bill_and_ted_roles == ['Ted "Theodore" Logan']
+
+    # TODO: remove related object
+    # TODO: remove related object that has other relationships
+    # TODO: add property to existing relationship
+    # TODO: remove property from existing relationship
+    # TODO: change property on existing relationship
+    # TODO: push node and relationship set together
 
 
 class LoadOneTestCase(MovieGraphTestCase):

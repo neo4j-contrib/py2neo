@@ -214,9 +214,9 @@ def cast_relationship(obj, entities=None):
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
-    def __init__(self, nodes, relationships):
-        self.__nodes = frozenset(nodes)
-        self.__relationships = frozenset(relationships)
+    def __init__(self, nodes=None, relationships=None):
+        self.__nodes = frozenset(nodes or [])
+        self.__relationships = frozenset(relationships or [])
         self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
 
     def __repr__(self):
