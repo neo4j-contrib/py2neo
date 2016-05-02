@@ -202,33 +202,43 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
             assert relationship.type() == "ACTED_IN"
             assert relationship.end_node().has_label("Movie")
 
-    # def test_can_add_and_push_related_object(self):
-    #     keanu = Person.load_one("Keanu Reeves")
-    #     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-    #     keanu.acted_in.add(bill_and_ted)
-    #     self.graph.push(keanu.acted_in)
-    #     remote_node = remote(keanu.__subgraph__)
-    #     film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
-    #                                                          "WHERE id(a) = {x} "
-    #                                                          "RETURN b.title", x=remote_node._id))
-    #     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
-    #                            'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
-    #                            "Bill & Ted's Excellent Adventure"}
-    #
-    # def test_can_add_and_push_related_object_with_properties(self):
-    #     keanu = Person.load_one("Keanu Reeves")
-    #     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-    #     keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
-    #     self.graph.push(keanu.acted_in)
-    #     remote_node = remote(keanu.__subgraph__)
-    #     films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
-    #                                                              "WHERE id(a) = {x} "
-    #                                                              "RETURN b.title, ab.roles", x=remote_node._id)}
-    #     bill_and_ted_roles = films["Bill & Ted's Excellent Adventure"]
-    #     assert bill_and_ted_roles == ['Ted "Theodore" Logan']
+    def test_can_add_related_object_and_push(self):
+        keanu = Person.load_one("Keanu Reeves")
+        bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+        keanu.acted_in.add(bill_and_ted)
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                                             "WHERE id(a) = {x} "
+                                                             "RETURN b.title", x=remote_node._id))
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+                               'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
+                               "Bill & Ted's Excellent Adventure"}
 
-    # TODO: remove related object
-    # TODO: remove related object that has other relationships
+    def test_can_add_related_object_with_properties_and_push(self):
+        keanu = Person.load_one("Keanu Reeves")
+        bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+        keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+                                                                 "WHERE id(a) = {x} "
+                                                                 "RETURN b.title, ab.roles", x=remote_node._id)}
+        bill_and_ted_roles = films["Bill & Ted's Excellent Adventure"]
+        assert bill_and_ted_roles == ['Ted "Theodore" Logan']
+
+    def test_can_remove_related_object_and_push(self):
+        keanu = Person.load_one("Keanu Reeves")
+        johnny_mnemonic = Film.load_one("Johnny Mnemonic")
+        keanu.acted_in.remove(johnny_mnemonic)
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                                             "WHERE id(a) = {x} "
+                                                             "RETURN b.title", x=remote_node._id))
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+                               'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
+
     # TODO: add property to existing relationship
     # TODO: remove property from existing relationship
     # TODO: change property on existing relationship
