@@ -20,7 +20,7 @@ from py2neo import order, size, Node, Relationship, remote
 from test.util import GraphTestCase
 
 
-class TransactionMergeTestCase(GraphTestCase):
+class MergeNodeTestCase(GraphTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -101,6 +101,12 @@ class TransactionMergeTestCase(GraphTestCase):
         new_order = order(self.graph)
         assert new_order == old_order
 
+
+class MergeRelationshipTestCase(GraphTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
+
     def test_can_merge_relationship_that_does_not_exist(self):
         alice = Node("Person", name="Alice")
         bob = Node("Person", name="Bob")
@@ -151,9 +157,76 @@ class TransactionMergeTestCase(GraphTestCase):
         assert new_order == old_order
         assert new_size == old_size
 
+
+class MergeSubgraphTestCase(GraphTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
+
     def test_cannot_merge_non_subgraph(self):
         with self.assertRaises(TypeError):
             self.graph.merge("this string is definitely not a subgraph")
+
+    def test_can_merge_three_nodes_where_none_exist(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        carol = Node("Person", name="Carol")
+        old_order = order(self.graph)
+        subgraph = alice | bob | carol
+        self.graph.merge(subgraph)
+        for node in subgraph.nodes():
+            assert remote(node)
+            assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order + 3
+
+    def test_can_merge_three_nodes_where_one_exists(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        carol = Node("Person", name="Carol")
+        self.graph.create(alice)
+        old_order = order(self.graph)
+        subgraph = alice | bob | carol
+        self.graph.merge(subgraph)
+        for node in subgraph.nodes():
+            assert remote(node)
+            assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order + 2
+
+    def test_can_merge_three_nodes_where_two_exist(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        carol = Node("Person", name="Carol")
+        self.graph.create(alice | bob)
+        old_order = order(self.graph)
+        subgraph = alice | bob | carol
+        self.graph.merge(subgraph)
+        for node in subgraph.nodes():
+            assert remote(node)
+            assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
+    def test_can_merge_three_nodes_where_three_exist(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        carol = Node("Person", name="Carol")
+        self.graph.create(alice | bob | carol)
+        old_order = order(self.graph)
+        subgraph = alice | bob | carol
+        self.graph.merge(subgraph)
+        for node in subgraph.nodes():
+            assert remote(node)
+            assert self.graph.exists(node)
+        new_order = order(self.graph)
+        assert new_order == old_order
+
+
+class MergeWalkableTestCase(GraphTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
 
     def test_can_merge_long_straight_walkable(self):
         a = Node("Person", name="Alice")
