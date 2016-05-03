@@ -203,7 +203,16 @@ class GraphObject(object):
         return self.__subgraph__.__remote__
 
     @classmethod
-    def load_one(cls, primary_value):
+    def wrap(cls, node):
+        if node is None:
+            return None
+        inst = GraphObject()
+        inst.__node = node
+        inst.__class__ = cls
+        return inst
+
+    @classmethod
+    def find_one(cls, primary_value):
         graph = cls.__graph__
         if graph is None:
             raise RuntimeError("No graph database defined for %s" % cls.__name__)
@@ -216,16 +225,7 @@ class GraphObject(object):
         return cls.wrap(node)
 
     @classmethod
-    def wrap(cls, node):
-        if node is None:
-            return None
-        inst = GraphObject()
-        inst.__node = node
-        inst.__class__ = cls
-        return inst
-
-    @classmethod
-    def load(cls, primary_values):
+    def find(cls, primary_values):
         graph = cls.__graph__
         primary_key = cls.__primarykey__
         if primary_key == "__id__":

@@ -186,13 +186,13 @@ class InstancePropertyTestCase(TestCase):
 class InstanceRelatedObjectTestCase(MovieGraphTestCase):
 
     def test_related_objects_are_automatically_loaded(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         film_titles = set(film.title for film in list(keanu.acted_in))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_related_objects_subgraph_is_a_set_of_outgoing_relationships(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         subgraph = keanu.acted_in.__subgraph__
         assert order(subgraph) == 8
         assert size(subgraph) == 7
@@ -203,7 +203,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
             assert relationship.end_node().has_label("Movie")
 
     def test_can_add_related_object_and_push(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted)
         self.graph.push(keanu.acted_in)
@@ -216,7 +216,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
                                "Bill & Ted's Excellent Adventure"}
 
     def test_can_add_related_object_with_properties_and_push(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
         self.graph.push(keanu.acted_in)
@@ -228,8 +228,8 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         assert bill_and_ted_roles == ['Ted "Theodore" Logan']
 
     def test_can_remove_related_object_and_push(self):
-        keanu = Person.load_one("Keanu Reeves")
-        johnny_mnemonic = Film.load_one("Johnny Mnemonic")
+        keanu = Person.find_one("Keanu Reeves")
+        johnny_mnemonic = Film.find_one("Johnny Mnemonic")
         keanu.acted_in.remove(johnny_mnemonic)
         self.graph.push(keanu.acted_in)
         remote_node = remote(keanu.__subgraph__)
@@ -245,32 +245,36 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
     # TODO: push node and relationship set together
 
 
-class LoadOneTestCase(MovieGraphTestCase):
+class FindOneTestCase(MovieGraphTestCase):
 
-    def test_can_load_one_object(self):
-        keanu = Person.load_one("Keanu Reeves")
+    def test_can_find_one_object(self):
+        keanu = Person.find_one("Keanu Reeves")
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
-    def test_cannot_load_one_that_does_not_exist(self):
-        keanu = Person.load_one("Keanu Jones")
+    def test_cannot_find_one_that_does_not_exist(self):
+        keanu = Person.find_one("Keanu Jones")
         assert keanu is None
 
+    # TODO: more tests
 
-class LoadTestCase(MovieGraphTestCase):
 
-    def test_can_load_multiple_objects(self):
-        keanu, hugo = list(Person.load(["Keanu Reeves", "Hugo Weaving"]))
+class FindTestCase(MovieGraphTestCase):
+
+    def test_can_find_multiple_objects(self):
+        keanu, hugo = list(Person.find(["Keanu Reeves", "Hugo Weaving"]))
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
         assert hugo.name == "Hugo Weaving"
         assert hugo.year_of_birth == 1960
 
+    # TODO: more tests
+
 
 class PushTestCase(MovieGraphTestCase):
 
     def test_can_load_and_push(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         keanu.name = "Keanu Charles Reeves"
         assert keanu.__subgraph__["name"] == "Keanu Charles Reeves"
         self.graph.push(keanu)
@@ -283,7 +287,7 @@ class PushTestCase(MovieGraphTestCase):
 class PullTestCase(MovieGraphTestCase):
 
     def test_can_load_and_pull(self):
-        keanu = Person.load_one("Keanu Reeves")
+        keanu = Person.find_one("Keanu Reeves")
         assert keanu.name == "Keanu Reeves"
         remote_node = remote(keanu.__subgraph__)
         self.graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
