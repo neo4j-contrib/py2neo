@@ -205,7 +205,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
     def test_can_add_related_object_and_push(self):
         keanu = Person.find_one("Keanu Reeves")
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        keanu.acted_in.add(bill_and_ted)
+        keanu.acted_in.includes(bill_and_ted)
         self.graph.push(keanu.acted_in)
         remote_node = remote(keanu.__subgraph__)
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
@@ -218,7 +218,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
     def test_can_add_related_object_with_properties_and_push(self):
         keanu = Person.find_one("Keanu Reeves")
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
+        keanu.acted_in.includes(bill_and_ted, roles=['Ted "Theodore" Logan'])
         self.graph.push(keanu.acted_in)
         remote_node = remote(keanu.__subgraph__)
         films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
@@ -230,7 +230,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
     def test_can_remove_related_object_and_push(self):
         keanu = Person.find_one("Keanu Reeves")
         johnny_mnemonic = Film.find_one("Johnny Mnemonic")
-        keanu.acted_in.remove(johnny_mnemonic)
+        keanu.acted_in.excludes(johnny_mnemonic)
         self.graph.push(keanu.acted_in)
         remote_node = remote(keanu.__subgraph__)
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
@@ -239,9 +239,38 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
 
-    # TODO: add property to existing relationship
-    # TODO: remove property from existing relationship
-    # TODO: change property on existing relationship
+    def test_can_remove_related_object_using_primary_value_and_push(self):
+        keanu = Person.find_one("Keanu Reeves")
+        keanu.acted_in.excludes("Johnny Mnemonic")
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                                             "WHERE id(a) = {x} "
+                                                             "RETURN b.title", x=remote_node._id))
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+                               'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
+
+    def test_can_add_property_to_existing_relationship(self):
+        keanu = Person.find_one("Keanu Reeves")
+        johnny_mnemonic = Film.find_one("Johnny Mnemonic")
+        keanu.acted_in.includes(johnny_mnemonic, foo="bar")
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        johnny_foo = self.graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+                                         "WHERE id(a) = {x} AND b.title = 'Johnny Mnemonic' "
+                                         "RETURN ab.foo", x=remote_node._id)
+        assert johnny_foo == "bar"
+
+    def test_can_add_property_to_existing_relationship_using_primary_value(self):
+        keanu = Person.find_one("Keanu Reeves")
+        keanu.acted_in.includes("Johnny Mnemonic", foo="bar")
+        self.graph.push(keanu.acted_in)
+        remote_node = remote(keanu.__subgraph__)
+        johnny_foo = self.graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+                                         "WHERE id(a) = {x} AND b.title = 'Johnny Mnemonic' "
+                                         "RETURN ab.foo", x=remote_node._id)
+        assert johnny_foo == "bar"
+
     # TODO: push node and relationship set together
 
 

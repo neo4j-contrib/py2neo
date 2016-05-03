@@ -76,11 +76,12 @@ class Related(object):
 
 class RelationshipSet(object):
 
+    __related_objects = None
+
     def __init__(self, subject, relationship_type, related_class):
         self.subject = subject
         self.relationship_type = relationship_type
         self.related_class = related_class
-        self.__related_objects = None
 
     def __iter__(self):
         self.__ensure_pulled()
@@ -100,20 +101,26 @@ class RelationshipSet(object):
         if self.__related_objects is None:
             self.__db_pull__(self.subject.__graph__)
 
-    def add(self, item, properties=None, **kwproperties):
+    def includes(self, obj, properties=None, **kwproperties):
         self.__ensure_pulled()
+        if not isinstance(obj, GraphObject):
+            obj = self.related_class.find_one(obj)
         properties = dict(properties or {}, **kwproperties)
         added = False
-        for i, (obj, _) in enumerate(self.__related_objects):
-            if obj == item:
-                self.__related_objects[i] = properties
+        for i, (related_object, _) in enumerate(self.__related_objects):
+            if related_object == obj:
+                self.__related_objects[i] = (obj, properties)
                 added = True
         if not added:
-            self.__related_objects.append((item, properties))
+            self.__related_objects.append((obj, properties))
 
-    def remove(self, item):
+    def excludes(self, obj):
         self.__ensure_pulled()
-        self.__related_objects = [(obj, _) for obj, _ in self.__related_objects if obj != item]
+        if not isinstance(obj, GraphObject):
+            obj = self.related_class.find_one(obj)
+        self.__related_objects = [(related_object, _)
+                                  for related_object, _ in self.__related_objects
+                                  if related_object != obj]
 
     def __db_create__(self, tx):
         raise NotImplementedError()
@@ -155,7 +162,7 @@ class RelationshipSet(object):
             self.__db_merge__(tx)
 
 
-class GraphObjectMeta(type):
+class GraphObjectType(type):
 
     def __new__(mcs, name, bases, attributes):
         for attr_name, attr in list(attributes.items()):
@@ -170,14 +177,15 @@ class GraphObjectMeta(type):
                     attr.relationship_type = relationship_case(attr_name)
         attributes.setdefault("__primarylabel__", name)
         attributes.setdefault("__primarykey__", "__id__")
-        return super(GraphObjectMeta, mcs).__new__(mcs, name, bases, attributes)
+        return super(GraphObjectType, mcs).__new__(mcs, name, bases, attributes)
 
 
-@metaclass(GraphObjectMeta)
+@metaclass(GraphObjectType)
 class GraphObject(object):
     __graph__ = None
     __primarylabel__ = None
     __primarykey__ = None
+
     __node = None
     __relationships = None
 
