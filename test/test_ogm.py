@@ -271,8 +271,6 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
                                          "RETURN ab.foo", x=remote_node._id)
         assert johnny_foo == "bar"
 
-    # TODO: push node and relationship set together
-
 
 class FindOneTestCase(MovieGraphTestCase):
 
@@ -311,6 +309,24 @@ class PushTestCase(MovieGraphTestCase):
         pushed_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=remote_node._id)
         assert pushed_name == "Keanu Charles Reeves"
+
+    # def test_can_push_node_and_relationship_set_together(self):
+    #     keanu = Person.find_one("Keanu Reeves")
+    #     keanu.name = "Keanu Charles Reeves"
+    #     assert keanu.__subgraph__["name"] == "Keanu Charles Reeves"
+    #     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+    #     keanu.acted_in.includes(bill_and_ted)
+    #     self.graph.push(keanu | keanu.acted_in)
+    #     remote_node = remote(keanu.__subgraph__)
+    #     pushed_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+    #                                       "RETURN a.name", x=remote_node._id)
+    #     assert pushed_name == "Keanu Charles Reeves"
+    #     film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+    #                                                          "WHERE id(a) = {x} "
+    #                                                          "RETURN b.title", x=remote_node._id))
+    #     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
+    #                            'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
+    #                            "Bill & Ted's Excellent Adventure"}
 
 
 class PullTestCase(MovieGraphTestCase):

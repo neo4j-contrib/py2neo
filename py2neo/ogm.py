@@ -74,35 +74,33 @@ class Related(object):
         return relationships[self.relationship_type]
 
 
-class RelationshipSet(object):
+class Graphy(object):
+    __graph__ = None
 
-    __related_objects = None
+    def __init__(self, graph):
+        self.__graph__ = graph
 
-    def __init__(self, subject, relationship_type, related_class):
-        self.subject = subject
+
+class RelatedObjects(object):
+    """ A set of objects that are all related to a central object in a similar way.
+    """
+
+    def __init__(self, relationship_type, related_class):
         self.relationship_type = relationship_type
         self.related_class = related_class
+        self.__related_objects = []
 
     def __iter__(self):
-        self.__ensure_pulled()
         for obj, _ in self.__related_objects:
             yield obj
 
-    @property
-    def __subgraph__(self):
-        self.__ensure_pulled()
-        s = Subgraph()
-        start_node = self.subject.__subgraph__
-        for related_object, properties in self.__related_objects:
-            s |= Relationship(start_node, self.relationship_type, related_object.__subgraph__, **properties)
-        return s
+    def pull(self, graph, subject):
+        self.__related_objects = []
+        for r in graph.match(subject.__subgraph__, self.relationship_type):
+            related_object = self.related_class.wrap(r.end_node())
+            self.__related_objects.append((related_object, dict(r)))
 
-    def __ensure_pulled(self):
-        if self.__related_objects is None:
-            self.__db_pull__(self.subject.__graph__)
-
-    def includes(self, obj, properties=None, **kwproperties):
-        self.__ensure_pulled()
+    def include(self, obj, properties=None, **kwproperties):
         if not isinstance(obj, GraphObject):
             obj = self.related_class.find_one(obj)
         properties = dict(properties or {}, **kwproperties)
@@ -114,52 +112,45 @@ class RelationshipSet(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
-    def excludes(self, obj):
-        self.__ensure_pulled()
+    def exclude(self, obj):
         if not isinstance(obj, GraphObject):
             obj = self.related_class.find_one(obj)
         self.__related_objects = [(related_object, _)
                                   for related_object, _ in self.__related_objects
                                   if related_object != obj]
 
-    def __db_create__(self, tx):
-        raise NotImplementedError()
 
-    def __db_merge__(self, tx):
-        # merge nodes
-        subject_node = self.subject.__subgraph__
-        object_nodes = [obj.__subgraph__ for obj, _ in self.__related_objects]
-        escaped_type = cypher_escape(self.relationship_type)
-        nodes = subject_node
-        for node in object_nodes:
-            nodes |= node
-        tx.merge(nodes)
-        # remove deleted relationships
-        tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a)={x} AND NOT id(b) IN {y} DELETE r" % escaped_type,
-               x=remote(subject_node)._id, y=[remote(node)._id for node in object_nodes])
-        # merge relationships
-        for obj, properties in self.__related_objects:
-            tx.run("MATCH (a) WHERE id(a)={x} "
-                   "MATCH (b) WHERE id(b)={y} "
-                   "MERGE (a)-[r:%s]->(b) "
-                   "WITH r "
-                   "SET r={z}" % escaped_type,
-                   x=remote(subject_node)._id, y=remote(obj.__subgraph__)._id, z=properties)
+class ObjectWheel(Graphy):
+    """ A central object plus a set of RelatedObjects instances.
+    """
 
-    def __db_delete__(self, tx):
-        raise NotImplementedError()
+    def __init__(self, graph, subject):
+        Graphy.__init__(self, graph)
+        self.subject = subject
+        self.__related = {}
+        self.__fresh = False
 
-    def __db_pull__(self, graph):
-        self.__related_objects = []
-        subject = self.subject
-        for r in graph.match(subject.__subgraph__, self.relationship_type):
-            related_object = self.related_class.wrap(r.end_node())
-            self.__related_objects.append((related_object, dict(r)))
+    def set_class(self, relationship_type, related_class):
+        self.__related[relationship_type] = RelatedObjects(relationship_type, related_class)
 
-    def __db_push__(self, graph):
-        self.__ensure_pulled()
-        with graph.begin() as tx:
-            self.__db_merge__(tx)
+    def __getitem__(self, relationship_type):
+        return self.__related[relationship_type]
+
+    def refresh(self):
+        if not self.__fresh:
+            self.pull()
+
+    def pull(self):
+        graph = self.__graph__
+        graph.pull(self.subject.__subgraph__)
+        for related_objects in self.__related.values():
+            related_objects.pull(graph, self.subject)
+        self.__fresh = True
+
+    def push(self):
+        self.refresh()
+        with self.__graph__.begin() as tx:
+            self.merge(tx)
 
 
 class GraphObjectType(type):
@@ -282,3 +273,93 @@ class GraphObject(object):
 
     def __db_push__(self, graph):
         graph.push(self.__subgraph__)
+
+
+class RelationshipSet(object):
+    __graph__ = None
+
+    __node = None
+    __related_objects = None
+
+    def __init__(self, subject, relationship_type, related_class):
+        self.__graph__ = subject.__graph__
+        self.__node = subject.__subgraph__
+        self.relationship_type = relationship_type
+        self.related_class = related_class
+
+    def __iter__(self):
+        self.__ensure_pulled()
+        for obj, _ in self.__related_objects:
+            yield obj
+
+    @property
+    def __subgraph__(self):
+        self.__ensure_pulled()
+        s = Subgraph()
+        start_node = self.__node
+        for related_object, properties in self.__related_objects:
+            s |= Relationship(start_node, self.relationship_type, related_object.__subgraph__, **properties)
+        return s
+
+    def __ensure_pulled(self):
+        if self.__related_objects is None:
+            self.__db_pull__(self.__graph__)
+
+    def includes(self, obj, properties=None, **kwproperties):
+        self.__ensure_pulled()
+        if not isinstance(obj, GraphObject):
+            obj = self.related_class.find_one(obj)
+        properties = dict(properties or {}, **kwproperties)
+        added = False
+        for i, (related_object, _) in enumerate(self.__related_objects):
+            if related_object == obj:
+                self.__related_objects[i] = (obj, properties)
+                added = True
+        if not added:
+            self.__related_objects.append((obj, properties))
+
+    def excludes(self, obj):
+        self.__ensure_pulled()
+        if not isinstance(obj, GraphObject):
+            obj = self.related_class.find_one(obj)
+        self.__related_objects = [(related_object, _)
+                                  for related_object, _ in self.__related_objects
+                                  if related_object != obj]
+
+    def __db_create__(self, tx):
+        raise NotImplementedError()
+
+    def __db_merge__(self, tx):
+        # merge nodes
+        subject_node = self.__node
+        object_nodes = [obj.__subgraph__ for obj, _ in self.__related_objects]
+        escaped_type = cypher_escape(self.relationship_type)
+        nodes = subject_node
+        for node in object_nodes:
+            nodes |= node
+        tx.merge(nodes)
+        # remove deleted relationships
+        tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a)={x} AND NOT id(b) IN {y} DELETE r" % escaped_type,
+               x=remote(subject_node)._id, y=[remote(node)._id for node in object_nodes])
+        # merge relationships
+        for obj, properties in self.__related_objects:
+            tx.run("MATCH (a) WHERE id(a)={x} "
+                   "MATCH (b) WHERE id(b)={y} "
+                   "MERGE (a)-[r:%s]->(b) "
+                   "WITH r "
+                   "SET r={z}" % escaped_type,
+                   x=remote(subject_node)._id, y=remote(obj.__subgraph__)._id, z=properties)
+
+    def __db_delete__(self, tx):
+        raise NotImplementedError()
+
+    def __db_pull__(self, graph):
+        self.__related_objects = []
+        for r in graph.match(self.__node, self.relationship_type):
+            related_object = self.related_class.wrap(r.end_node())
+            self.__related_objects.append((related_object, dict(r)))
+
+    def __db_push__(self, graph):
+        self.__ensure_pulled()
+        with graph.begin() as tx:
+            self.__db_merge__(tx)
