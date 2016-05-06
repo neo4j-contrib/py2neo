@@ -1378,7 +1378,7 @@ class Cursor(object):
         out.write(u"".join("-" * (width + 2) for width in widths))
         out.write(u"\n")
         for i, record in enumerate(records):
-            out.write(u"".join(templates[i].format(value) for i, value in enumerate(record)))
+            out.write(u"".join(templates[i].format(ustr(value)) for i, value in enumerate(record)))
             out.write(u"\n")
 
 
