@@ -94,12 +94,6 @@ class RelatedObjects(object):
         for obj, _ in self.__related_objects:
             yield obj
 
-    def pull(self, graph, subject):
-        self.__related_objects = []
-        for r in graph.match(subject.__subgraph__, self.relationship_type):
-            related_object = self.related_class.wrap(r.end_node())
-            self.__related_objects.append((related_object, dict(r)))
-
     def include(self, obj, properties=None, **kwproperties):
         if not isinstance(obj, GraphObject):
             obj = self.related_class.find_one(obj)
@@ -118,6 +112,15 @@ class RelatedObjects(object):
         self.__related_objects = [(related_object, _)
                                   for related_object, _ in self.__related_objects
                                   if related_object != obj]
+
+    def pull(self, graph, subject):
+        self.__related_objects = []
+        for r in graph.match(subject.__subgraph__, self.relationship_type):
+            related_object = self.related_class.wrap(r.end_node())
+            self.__related_objects.append((related_object, dict(r)))
+
+    def push(self, graph, subject):
+        pass
 
 
 class ObjectWheel(Graphy):

@@ -44,7 +44,7 @@ from os.path import join as path_join, dirname
 from unittest import TestCase
 
 from py2neo import order, size, remote
-from py2neo.ogm import GraphObject, Label, Property, Related
+from py2neo.ogm import GraphObject, Label, Property, Related, RelatedObjects
 from test.util import GraphTestCase
 
 
@@ -339,3 +339,15 @@ class PullTestCase(MovieGraphTestCase):
                        x=remote_node._id, y="Keanu Charles Reeves")
         self.graph.pull(keanu)
         assert keanu.name == "Keanu Charles Reeves"
+
+
+class RelatedObjectsTestCase(MovieGraphTestCase):
+
+    def test_can_load_related_objects(self):
+        keanu = Person.find_one("Keanu Reeves")
+        films_acted_in = RelatedObjects("ACTED_IN", Film)
+        films_acted_in.pull(self.graph, keanu)
+        film_titles = set(film.title for film in films_acted_in)
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
+                               "Something's Gotta Give", 'The Matrix', 'The Replacements',
+                               'The Matrix Revolutions', 'Johnny Mnemonic'}
