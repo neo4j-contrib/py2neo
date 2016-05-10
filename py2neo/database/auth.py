@@ -72,7 +72,7 @@ class ServerAddress(object):
 
     @property
     def bolt(self):
-        return self.__settings.get("bolt", 7687)
+        return self.__settings.get("bolt", None)  # default=autodetect
 
     @property
     def secure(self):
