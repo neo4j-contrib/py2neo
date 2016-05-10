@@ -126,3 +126,18 @@ def raise_from(exception, cause):
 
 class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):
     pass
+
+
+def metaclass(mcs):
+    def _metaclass(cls):
+        attributes = cls.__dict__.copy()
+        slots = attributes.get("__slots__")
+        if slots is not None:
+            if isinstance(slots, str):
+                slots = [slots]
+            for slot in slots:
+                attributes.pop(slot)
+        attributes.pop("__dict__", None)
+        attributes.pop("__weakref__", None)
+        return mcs(cls.__name__, cls.__bases__, attributes)
+    return _metaclass

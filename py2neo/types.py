@@ -214,9 +214,9 @@ def cast_relationship(obj, entities=None):
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
-    def __init__(self, nodes, relationships):
-        self.__nodes = frozenset(nodes)
-        self.__relationships = frozenset(relationships)
+    def __init__(self, nodes=None, relationships=None):
+        self.__nodes = frozenset(nodes or [])
+        self.__relationships = frozenset(relationships or [])
         self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
 
     def __repr__(self):
@@ -387,7 +387,8 @@ class Subgraph(object):
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         from py2neo.database.cypher import cypher_escape, cypher_repr
         nodes = list(self.nodes())
-        clauses = []
+        match_clauses = []
+        merge_clauses = []
         parameters = {}
         returns = {}
         for i, node in enumerate(nodes):
@@ -395,7 +396,7 @@ class Subgraph(object):
             param_id = "x%d" % i
             remote_node = remote(node)
             if remote_node:
-                clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                match_clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 parameters[param_id] = remote_node._id
             else:
                 merge_label = getattr(node, "__primarylabel__", None) or primary_label
@@ -418,16 +419,17 @@ class Subgraph(object):
                                                        if k in merge_keys})
                 else:
                     property_map_string = cypher_repr(dict(node))
-                clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
+                merge_clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
                 if node.labels():
-                    clauses.append("SET %s%s" % (
+                    merge_clauses.append("SET %s%s" % (
                         node_id, "".join(":" + cypher_escape(label)
                                          for label in sorted(node.labels()))))
                 if merge_keys:
-                    clauses.append("SET %s={%s}" % (node_id, param_id))
+                    merge_clauses.append("SET %s={%s}" % (node_id, param_id))
                     parameters[param_id] = dict(node)
                 node._set_remote_pending(tx)
             returns[node_id] = node
+        clauses = match_clauses + merge_clauses
         for i, relationship in enumerate(self.relationships()):
             if not remote(relationship):
                 rel_id = "r%d" % i

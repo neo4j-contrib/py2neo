@@ -229,6 +229,14 @@ class DBMS(object):
         """
         return self.kernel_version >= (3,)
 
+    @property
+    def supports_detach_delete(self):
+        """ Returns :py:const:`True` if Cypher DETACH DELETE is
+        supported by this version of Neo4j, :py:const:`False`
+        otherwise.
+        """
+        return self.kernel_version >= (2, 3,)
+
 
 class Graph(object):
     """ The `Graph` class represents a Neo4j graph database. Connection
@@ -384,7 +392,12 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        if self.dbms.supports_detach_delete:
+            self.run("MATCH (a) DETACH DELETE a")
+        else:
+            self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        Node.cache.clear()
+        Relationship.cache.clear()
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.evaluate` operation within an

@@ -48,7 +48,7 @@ from argparse import ArgumentParser
 from base64 import b64encode
 from contextlib import contextmanager
 from json import dumps as json_dumps
-from os import curdir, getenv, linesep, listdir, makedirs, rename
+from os import chdir, curdir, getenv, linesep, listdir, makedirs, rename
 from os.path import basename, exists as path_exists, expanduser, isdir, isfile, join as path_join, abspath
 import re
 from shutil import rmtree
@@ -118,7 +118,7 @@ versions = [
     "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8",
     "2.2.0", "2.2.1", "2.2.2", "2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.2.8",
     "2.3.0", "2.3.1", "2.3.2",
-    "3.0.0-M05", "3.0.0-NIGHTLY",
+    "3.0.0", "3.0.1-NIGHTLY",
 ]
 version_aliases = {
     "2.0": "2.0.4",
@@ -129,13 +129,13 @@ version_aliases = {
     "2.2-LATEST": "2.2.8",
     "2.3": "2.3.2",
     "2.3-LATEST": "2.3.2",
-    "3.0": "3.0.0-M05",
-    "3.0-MILESTONE": "3.0.0-M05",
-    "3.0-LATEST": "3.0.0-M05",
-    "3.0-SNAPSHOT": "3.0.0-NIGHTLY",
-    "LATEST": "2.3.2",
-    "MILESTONE": "3.0.0-M05",
-    "SNAPSHOT": "3.0.0-NIGHTLY",
+    "3.0": "3.0.0",
+    "3.0-MILESTONE": "3.0.0",
+    "3.0-LATEST": "3.0.0",
+    "3.0-SNAPSHOT": "3.0.1-NIGHTLY",
+    "LATEST": "3.0.0",
+    "MILESTONE": "3.0.0",
+    "SNAPSHOT": "3.0.1-NIGHTLY",
 }
 
 dist = "http://dist.neo4j.org"
