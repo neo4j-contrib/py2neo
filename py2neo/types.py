@@ -336,7 +336,7 @@ class Subgraph(object):
         parameters = {"x": node_ids}
         return tx.evaluate(statement, parameters)
 
-    def __db_delete__(self, tx):
+    def __db_delete__(self, tx, rels_only=False):
         matches = []
         deletes = []
         parameters = {}
@@ -350,16 +350,17 @@ class Subgraph(object):
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = remote_relationship._id
                 del relationship.__remote__
-        for i, node in enumerate(self.nodes()):
-            remote_node = remote(node)
-            if remote_node:
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                matches.append("MATCH (%s) "
-                               "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = remote_node._id
-                del node.__remote__
+        if not rels_only:
+            for i, node in enumerate(self.nodes()):
+                remote_node = remote(node)
+                if remote_node:
+                    node_id = "a%d" % i
+                    param_id = "x%d" % i
+                    matches.append("MATCH (%s) "
+                                   "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
+                    deletes.append("DELETE %s" % node_id)
+                    parameters[param_id] = remote_node._id
+                    del node.__remote__
         statement = "\n".join(matches + deletes)
         tx.run(statement, parameters)
 
