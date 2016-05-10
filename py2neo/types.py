@@ -289,7 +289,7 @@ class Subgraph(object):
         n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
         return Subgraph(n, r)
 
-    def __db_create__(self, tx):
+    def __db_create__(self, tx, unique_rels=True):
         from py2neo.database.cypher import cypher_escape
         nodes = list(self.nodes())
         reads = []
@@ -317,8 +317,10 @@ class Subgraph(object):
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
                 type_string = cypher_escape(relationship.type())
                 param_id = "y%d" % i
-                writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
-                              (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
+                unique_str = 'UNIQUE ' if unique_rels else ''
+                writes.append("CREATE %s(%s)-[%s:%s]->(%s) SET %s={%s}" %
+                              (unique_str, start_node_id, rel_id, type_string, end_node_id, rel_id,
+                               param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
                 relationship._set_remote_pending(tx)
