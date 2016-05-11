@@ -47,15 +47,7 @@ Library Reference
    database
    ext/batman
    ext/calendar
-   ext/ogm
    neokit
-
-
-----
-
-
-Miscellany
-==========
 
 
 .. _Neo4j: http://neo4j.com/

@@ -1,1 +1,0 @@
-../../py2neo/ext/ogm/README.rst
