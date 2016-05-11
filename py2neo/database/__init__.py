@@ -376,14 +376,16 @@ class Graph(object):
         """
         return self.begin(autocommit=True).degree(subgraph)
 
-    def delete(self, subgraph):
+    def delete(self, subgraph, rels_only=False):
         """ Run a :meth:`.Transaction.delete` operation within an
         `autocommit` :class:`.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
+        :param rels_only: a flag indicating if only the relationships
+                          in the subgraph should be deleted
         """
-        self.begin(autocommit=True).delete(subgraph)
+        self.begin(autocommit=True).delete(subgraph, rels_only=rels_only)
 
     def delete_all(self):
         """ Delete all nodes and relationships from this :class:`.Graph`.
@@ -1038,15 +1040,17 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to determine the degree of object %r" % subgraph)
 
-    def delete(self, subgraph):
+    def delete(self, subgraph, rels_only=False):
         """ Delete the remote nodes and relationships that correspond to
         those in a local subgraph.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
+        :param rels_only: a flag indicating if only the relationships
+                          in the subgraph should be deleted
         """
         try:
-            subgraph.__db_delete__(self)
+            subgraph.__db_delete__(self, rels_only=rels_only)
         except AttributeError:
             raise TypeError("No method defined to delete object %r" % subgraph)
 
