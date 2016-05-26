@@ -95,8 +95,8 @@ div.body pre {
 
 div.body div.admonition, div.body div.impl-detail {
     border-radius: 3px;
-    background-color: #FFCCCC;
-    border-color: #AB0000;
+    background-color: #ffe4e4;
+    border-color: #f66;
 }
 
 div.body div.impl-detail > p {
