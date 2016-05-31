@@ -79,6 +79,23 @@ class CursorKeysTestCase(GraphTestCase):
             assert list(cursor.keys()) == ["n"]
 
 
+class CursorStatsTestCase(GraphTestCase):
+
+    def test_stats_available(self):
+        cursor = self.graph.run("CREATE (a:Banana)")
+        stats = cursor.stats()
+        assert stats["nodes_created"] == 1
+        assert stats["labels_added"] == 1
+        assert stats["contains_updates"] == 1
+
+    def test_stats_available_over_http(self):
+        cursor = self.http_graph.run("CREATE (a:Banana)")
+        stats = cursor.stats()
+        assert stats["nodes_created"] == 1
+        assert stats["labels_added"] == 1
+        assert stats["contains_updates"] == 1
+
+
 class CursorCurrentTestCase(GraphTestCase):
 
     def test_current_is_none_at_start(self):
