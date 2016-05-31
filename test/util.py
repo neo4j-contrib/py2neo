@@ -16,14 +16,12 @@
 # limitations under the License.
 
 
-import functools
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo import Graph, Node, remote
+from py2neo import Graph, Node, remote, HTTPTransaction
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
-from py2neo.packages.httpstream.watch import Watcher
 
 
 def unique_string_generator():
@@ -36,6 +34,9 @@ class GraphTestCase(TestCase):
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
+        self.http_graph = Graph()
+        self.http_graph.driver = None
+        self.http_graph.transaction_class = HTTPTransaction
         self.dbms = self.graph.dbms
         self.schema = self.graph.schema
         self.index_manager = ManualIndexManager(self.graph)

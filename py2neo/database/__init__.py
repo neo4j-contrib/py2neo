@@ -21,7 +21,7 @@ from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 from warnings import warn
 
-from py2neo.compat import integer, string
+from py2neo.compat import string
 from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -36,6 +36,21 @@ from py2neo.database.auth import *
 from py2neo.database.cypher import *
 from py2neo.database.http import *
 from py2neo.database.status import *
+
+
+update_stats_keys = [
+    "constraints_added",
+    "constraints_removed",
+    "indexes_added",
+    "indexes_removed",
+    "labels_added",
+    "labels_removed",
+    "nodes_created",
+    "nodes_deleted",
+    "properties_set",
+    "relationships_deleted",
+    "relationships_created",
+]
 
 
 def normalise_request(statement, parameters, **kwparameters):
@@ -62,6 +77,7 @@ def cypher_request(statement, parameters, **kwparameters):
         ("statement", s),
         ("parameters", p),
         ("resultDataContents", ["REST"]),
+        ("includeStats", True),
     ])
 
 
@@ -770,6 +786,10 @@ class DataSource(object):
         """ Return the keys for the whole data set.
         """
 
+    def stats(self):
+        """ Return the query statistics.
+        """
+
     def fetch(self):
         """ Fetch and return the next item.
         """
@@ -781,6 +801,7 @@ class HTTPDataSource(DataSource):
         self.graph = graph
         self.transaction = transaction
         self._keys = None
+        self._stats = None
         self.buffer = deque()
         self.loaded = False
         if data:
@@ -790,6 +811,11 @@ class HTTPDataSource(DataSource):
         if not self.loaded:
             self.transaction.process()
         return self._keys
+
+    def stats(self):
+        if not self.loaded:
+            self.transaction.process()
+        return self._stats
 
     def fetch(self):
         try:
@@ -808,6 +834,11 @@ class HTTPDataSource(DataSource):
         except (AttributeError, IndexError):
             entities = {}
         self._keys = keys = tuple(data["columns"])
+        self._stats = data["stats"]
+        # fix broken key
+        if "relationship_deleted" in self._stats:
+            self._stats["relationships_deleted"] = self._stats["relationship_deleted"]
+            del self._stats["relationship_deleted"]
         hydrate = self.graph._hydrate
         for record in data["data"]:
             values = []
@@ -826,6 +857,7 @@ class BoltDataSource(DataSource):
         self.entities = entities
         self.graph_uri = graph_uri
         self._keys = None
+        self._stats = None
         self.buffer = deque()
         self.loaded = False
 
@@ -834,6 +866,12 @@ class BoltDataSource(DataSource):
         while self._keys is None and not self.loaded:
             self.connection.fetch()
         return self._keys
+
+    def stats(self):
+        self.connection.send()
+        while self._stats is None and not self.loaded:
+            self.connection.fetch()
+        return self._stats
 
     def fetch(self):
         try:
@@ -874,8 +912,7 @@ class BoltDataSource(DataSource):
         :param metadata:
         """
         self.loaded = True
-        # TODO: summary data
-        #cursor.summary = ResultSummary(self.statement, self.parameters, **metadata)
+        self._stats = {k.replace("-", "_"): v for k, v in metadata.get("stats", {}).items()}
 
     def on_failure(self, metadata):
         """ Called on execution failure.
@@ -1313,6 +1350,14 @@ class Cursor(object):
         """ Return the field names for the records in the stream.
         """
         return self._source.keys()
+
+    def stats(self):
+        """ Return the query statistics.
+        """
+        s = dict.fromkeys(update_stats_keys, 0)
+        s.update(self._source.stats())
+        s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
+        return s
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
