@@ -17,7 +17,7 @@
 
 
 from py2neo import PRODUCT
-from py2neo.database.auth import ServerAddress, keyring
+from py2neo.database.auth import keyring
 from py2neo.database.status import GraphError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate

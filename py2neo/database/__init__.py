@@ -21,12 +21,13 @@ from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 from warnings import warn
 
+from py2neo import PRODUCT
 from py2neo.compat import string
 from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.packages.neo4j.v1 import GraphDatabase
-from py2neo.packages.neo4j.v1.connection import Response, RUN, PULL_ALL
+from py2neo.packages.neo4j.v1.bolt import Response, RUN, PULL_ALL
 from py2neo.packages.neo4j.v1.types import \
     Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
 from py2neo.types import cast_node, Subgraph, remote
