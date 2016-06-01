@@ -17,7 +17,7 @@
 
 
 from py2neo.database import cypher_escape
-from py2neo.types import Node, Relationship, Subgraph, remote
+from py2neo.types import Node, Relationship, Subgraph, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
 
 
@@ -115,7 +115,7 @@ class RelatedObjects(object):
         """
         if not isinstance(obj, GraphObject):
             obj = self.related_class.find_one(obj)
-        properties = dict(properties or {}, **kwproperties)
+        properties = PropertyDict(properties or {}, **kwproperties)
         added = False
         for i, (related_object, _) in enumerate(self.__related_objects):
             if related_object == obj:
@@ -148,7 +148,7 @@ class RelatedObjects(object):
         added = False
         for i, (related_object, p) in enumerate(self.__related_objects):
             if related_object == obj:
-                self.__related_objects[i] = (obj, dict(p, **properties))
+                self.__related_objects[i] = (obj, PropertyDict(p, **properties))
                 added = True
         if not added:
             self.__related_objects.append((obj, properties))
@@ -165,7 +165,7 @@ class RelatedObjects(object):
         related_objects = []
         for r in graph.match(subject.__subgraph__, self.relationship_type):
             related_object = self.related_class.wrap(r.end_node())
-            related_objects.append((related_object, dict(r)))
+            related_objects.append((related_object, PropertyDict(r)))
         self.__related_objects[:] = related_objects
 
     def push(self, graph, subject):
@@ -387,7 +387,7 @@ class RelationshipSet(object):
         self.__ensure_pulled()
         if not isinstance(obj, GraphObject):
             obj = self.related_class.find_one(obj)
-        properties = dict(properties or {}, **kwproperties)
+        properties = PropertyDict(properties or {}, **kwproperties)
         added = False
         for i, (related_object, _) in enumerate(self.__related_objects):
             if related_object == obj:
@@ -435,7 +435,7 @@ class RelationshipSet(object):
         self.__related_objects = []
         for r in graph.match(self.__node, self.relationship_type):
             related_object = self.related_class.wrap(r.end_node())
-            self.__related_objects.append((related_object, dict(r)))
+            self.__related_objects.append((related_object, PropertyDict(r)))
 
     def __db_push__(self, graph):
         self.__ensure_pulled()
