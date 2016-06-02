@@ -181,7 +181,7 @@ class RelatedObjects(object):
         tx.commit()
 
 
-class ObjectWheel(object):
+class Cog(object):
     """ A central object plus a set of RelatedObjects instances.
     """
 

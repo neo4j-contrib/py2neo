@@ -44,7 +44,7 @@ from os.path import join as path_join, dirname
 from unittest import TestCase
 
 from py2neo import order, size, remote, Node, Relationship
-from py2neo.ogm import GraphObject, Label, Property, Related, RelatedObjects, ObjectWheel
+from py2neo.ogm import GraphObject, Label, Property, Related, RelatedObjects, Cog
 from test.util import GraphTestCase
 
 
@@ -532,197 +532,197 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         assert roles == 1
 
 
-class ObjectWheelTestCase(MovieGraphTestCase):
+class SingleCogTestCase(MovieGraphTestCase):
 
     @classmethod
-    def new_keanu_wheel(cls):
+    def new_keanu_cog(cls):
         keanu = Person.find_one("Keanu Reeves")
-        keanu_wheel = ObjectWheel(keanu)
-        keanu_wheel.define_related("ACTED_IN", Film)
-        return keanu_wheel
+        keanu_cog = Cog(keanu)
+        keanu_cog.define_related("ACTED_IN", Film)
+        return keanu_cog
 
     def test_can_pull_related_objects(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
+        keanu_cog = self.new_keanu_cog()
 
         # when
-        keanu_wheel.pull(self.graph)
+        keanu_cog.pull(self.graph)
 
         # then
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_can_add_object(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        keanu_wheel.add(bill_and_ted)
+        keanu_cog.add(bill_and_ted)
 
         # then
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
 
     def test_can_add_object_when_already_present(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # and
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        keanu_wheel.add(bill_and_ted)
+        keanu_cog.add(bill_and_ted)
 
         # when
-        keanu_wheel.add(bill_and_ted)
+        keanu_cog.add(bill_and_ted)
 
         # then
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
 
     def test_can_remove_object(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         matrix_reloaded = Film.find_one("The Matrix Reloaded")
-        keanu_wheel.remove(matrix_reloaded)
+        keanu_cog.remove(matrix_reloaded)
 
         # then
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_can_remove_object_when_already_absent(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # and
         matrix_reloaded = Film.find_one("The Matrix Reloaded")
-        keanu_wheel.remove(matrix_reloaded)
+        keanu_cog.remove(matrix_reloaded)
 
         # when
-        keanu_wheel.remove(matrix_reloaded)
+        keanu_cog.remove(matrix_reloaded)
 
         # then
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_can_push_object_additions(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        keanu_wheel.add(bill_and_ted)
-        keanu_wheel.push(self.graph)
+        keanu_cog.add(bill_and_ted)
+        keanu_cog.push(self.graph)
 
         # then
-        del keanu_wheel
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        del keanu_cog
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
 
     def test_can_push_object_removals(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         matrix_reloaded = Film('The Matrix Reloaded')
-        keanu_wheel.remove(matrix_reloaded)
-        keanu_wheel.push(self.graph)
+        keanu_cog.remove(matrix_reloaded)
+        keanu_cog.push(self.graph)
 
         # then
-        del keanu_wheel
+        del keanu_cog
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
-        film_titles = set(film.title for film in keanu_wheel.related(Film))
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
+        film_titles = set(film.title for film in keanu_cog.related(Film))
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_can_get_relationship_property(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
         matrix_reloaded = Film('The Matrix Reloaded')
 
         # then
-        roles = keanu_wheel.get(matrix_reloaded, "roles")
+        roles = keanu_cog.get(matrix_reloaded, "roles")
         assert roles == ["Neo"]
 
     def test_can_push_property_additions(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
-        keanu_wheel.update(matrix, good=True)
-        keanu_wheel.push(self.graph)
+        keanu_cog.update(matrix, good=True)
+        keanu_cog.push(self.graph)
 
         # then
-        del keanu_wheel
+        del keanu_cog
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
-        good = keanu_wheel.get(matrix, "good")
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
+        good = keanu_cog.get(matrix, "good")
         assert good
 
     def test_can_push_property_removals(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
-        keanu_wheel.update(matrix, roles=None)
-        keanu_wheel.push(self.graph)
+        keanu_cog.update(matrix, roles=None)
+        keanu_cog.push(self.graph)
 
         # then
-        del keanu_wheel
+        del keanu_cog
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
-        roles = keanu_wheel.get(matrix, "roles")
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
+        roles = keanu_cog.get(matrix, "roles")
         assert roles is None
 
     def test_can_push_property_updates(self):
         # given
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
-        keanu_wheel.update(matrix, roles=1)
-        keanu_wheel.push(self.graph)
+        keanu_cog.update(matrix, roles=1)
+        keanu_cog.push(self.graph)
 
         # then
-        del keanu_wheel
+        del keanu_cog
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu_wheel = self.new_keanu_wheel()
-        keanu_wheel.pull(self.graph)
-        roles = keanu_wheel.get(matrix, "roles")
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.pull(self.graph)
+        roles = keanu_cog.get(matrix, "roles")
         assert roles == 1
