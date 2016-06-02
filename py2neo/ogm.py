@@ -86,7 +86,8 @@ class RelatedObjects(object):
     central object in a similar way.
     """
 
-    def __init__(self, relationship_type, related_class):
+    def __init__(self, subject, relationship_type, related_class):
+        self.subject = subject
         self.relationship_type = relationship_type
         self.related_class = related_class
         self.__related_objects = []
@@ -153,14 +154,14 @@ class RelatedObjects(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
-    def pull(self, graph, subject):
+    def pull(self, graph):
         related_objects = []
-        for r in graph.match(subject.__subgraph__, self.relationship_type):
+        for r in graph.match(self.subject.__subgraph__, self.relationship_type):
             related_object = self.related_class.wrap(r.end_node())
             related_objects.append((related_object, PropertyDict(r)))
         self.__related_objects[:] = related_objects
 
-    def push(self, graph, subject):
+    def push(self, graph):
         tx = graph.begin()
         # 1. merge all nodes (create ones that don't)
         for related_object, _ in self.__related_objects:
@@ -168,7 +169,7 @@ class RelatedObjects(object):
         tx.process()
         # 2a. remove any relationships not in list of nodes
         escaped_relationship_type = cypher_escape(self.relationship_type)
-        subject_id = remote(subject.__subgraph__)._id
+        subject_id = remote(self.subject.__subgraph__)._id
         tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} AND NOT id(b) IN {y} "
                "DELETE r" % escaped_relationship_type,
                x=subject_id,
@@ -191,7 +192,7 @@ class Cog(object):
         self.__related_by_class = {}
 
     def define_related(self, relationship_type, related_class):
-        related_objects = RelatedObjects(relationship_type, related_class)
+        related_objects = RelatedObjects(self.subject, relationship_type, related_class)
         self.__related_by_type[relationship_type] = related_objects
         self.__related_by_class[related_class] = related_objects
 
@@ -212,11 +213,11 @@ class Cog(object):
 
     def pull(self, graph):
         for related_objects in self.__related_by_class.values():
-            related_objects.pull(graph, self.subject)
+            related_objects.pull(graph)
 
     def push(self, graph):
         for related_objects in self.__related_by_class.values():
-            related_objects.push(graph, self.subject)
+            related_objects.push(graph)
 
 
 class GraphObjectType(type):

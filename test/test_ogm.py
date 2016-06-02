@@ -343,20 +343,24 @@ class PullTestCase(MovieGraphTestCase):
 
 class RelatedObjectsTestCase(MovieGraphTestCase):
 
-    def test_can_pull_related_objects(self):
+    @classmethod
+    def new_keanu_acted_in(cls):
         keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        keanu_acted_in = RelatedObjects(keanu, "ACTED_IN", Film)
+        return keanu_acted_in
+
+    def test_can_pull_related_objects(self):
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         film_titles = set(film.title for film in films_acted_in)
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_can_add_object(self):
-        keanu = Person.find_one("Keanu Reeves")
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
         films_acted_in.add(bill_and_ted)
         film_titles = set(film.title for film in films_acted_in)
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
@@ -364,10 +368,9 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
 
     def test_can_add_object_when_already_present(self):
-        keanu = Person.find_one("Keanu Reeves")
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
         films_acted_in.add(bill_and_ted)
         films_acted_in.add(bill_and_ted)
         film_titles = set(film.title for film in films_acted_in)
@@ -377,9 +380,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_remove_object(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         matrix_reloaded = Film.find_one("The Matrix Reloaded")
@@ -393,9 +395,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_remove_object_when_already_absent(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         matrix_reloaded = Film.find_one("The Matrix Reloaded")
         films_acted_in.remove(matrix_reloaded)
 
@@ -410,21 +411,18 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_push_object_additions(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         films_acted_in.add(bill_and_ted)
-        films_acted_in.push(self.graph, keanu)
+        films_acted_in.push(self.graph)
 
         # then
-        del keanu
         del films_acted_in
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         film_titles = set(film.title for film in films_acted_in)
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
@@ -432,23 +430,20 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_push_object_removals(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         matrix_reloaded = Film('The Matrix Reloaded')
         films_acted_in.remove(matrix_reloaded)
-        films_acted_in.push(self.graph, keanu)
+        films_acted_in.push(self.graph)
 
         # then
-        del keanu
         del films_acted_in
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         film_titles = set(film.title for film in films_acted_in)
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
@@ -456,9 +451,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_get_relationship_property(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         matrix_reloaded = Film('The Matrix Reloaded')
 
         # then
@@ -467,67 +461,58 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def test_can_push_property_additions(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
         films_acted_in.update(matrix, good=True)
-        films_acted_in.push(self.graph, keanu)
+        films_acted_in.push(self.graph)
 
         # then
-        del keanu
         del films_acted_in
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         good = films_acted_in.get(matrix, "good")
         assert good
 
     def test_can_push_property_removals(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
         films_acted_in.update(matrix, roles=None)
-        films_acted_in.push(self.graph, keanu)
+        films_acted_in.push(self.graph)
 
         # then
-        del keanu
         del films_acted_in
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         roles = films_acted_in.get(matrix, "roles")
         assert roles is None
 
     def test_can_push_property_updates(self):
         # given
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
 
         # when
         matrix = Film("The Matrix")
         films_acted_in.update(matrix, roles=1)
-        films_acted_in.push(self.graph, keanu)
+        films_acted_in.push(self.graph)
 
         # then
-        del keanu
         del films_acted_in
         Node.cache.clear()
         Relationship.cache.clear()
-        keanu = Person.find_one("Keanu Reeves")
-        films_acted_in = RelatedObjects("ACTED_IN", Film)
-        films_acted_in.pull(self.graph, keanu)
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.pull(self.graph)
         roles = films_acted_in.get(matrix, "roles")
         assert roles == 1
 
