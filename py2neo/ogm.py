@@ -113,8 +113,6 @@ class RelatedObjects(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
-        if not isinstance(obj, GraphObject):
-            obj = self.related_class.find_one(obj)
         properties = PropertyDict(properties or {}, **kwproperties)
         added = False
         for i, (related_object, _) in enumerate(self.__related_objects):
@@ -124,13 +122,17 @@ class RelatedObjects(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
+    def get(self, obj, key, default=None):
+        for related_object, properties in self.__related_objects:
+            if related_object == obj:
+                return properties.get(key, default)
+        return default
+
     def remove(self, obj):
         """ Remove a related object
 
         :param obj: the :py:class:`.GraphObject` to separate
         """
-        if not isinstance(obj, GraphObject):
-            obj = self.related_class.find_one(obj)
         self.__related_objects = [(related_object, properties)
                                   for related_object, properties in self.__related_objects
                                   if related_object != obj]
@@ -142,8 +144,6 @@ class RelatedObjects(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
-        if not isinstance(obj, GraphObject):
-            obj = self.related_class.find_one(obj)
         properties = dict(properties or {}, **kwproperties)
         added = False
         for i, (related_object, p) in enumerate(self.__related_objects):
@@ -152,14 +152,6 @@ class RelatedObjects(object):
                 added = True
         if not added:
             self.__related_objects.append((obj, properties))
-
-    def get(self, obj, key, default=None):
-        if not isinstance(obj, GraphObject):
-            obj = self.related_class.find_one(obj)
-        for related_object, properties in self.__related_objects:
-            if related_object == obj:
-                return properties.get(key, default)
-        return default
 
     def pull(self, graph, subject):
         related_objects = []
@@ -189,37 +181,42 @@ class RelatedObjects(object):
         tx.commit()
 
 
-class ObjectWheel(Graphy):
+class ObjectWheel(object):
     """ A central object plus a set of RelatedObjects instances.
     """
 
-    def __init__(self, graph, subject):
-        Graphy.__init__(self, graph)
+    def __init__(self, subject):
         self.subject = subject
-        self.__related = {}
-        self.__fresh = False
+        self.__related_by_type = {}
+        self.__related_by_class = {}
 
-    def set_class(self, relationship_type, related_class):
-        self.__related[relationship_type] = RelatedObjects(relationship_type, related_class)
+    def define_related(self, relationship_type, related_class):
+        related_objects = RelatedObjects(relationship_type, related_class)
+        self.__related_by_type[relationship_type] = related_objects
+        self.__related_by_class[related_class] = related_objects
 
-    def __getitem__(self, relationship_type):
-        return self.__related[relationship_type]
+    def related(self, related_class):
+        return self.__related_by_class[related_class]
 
-    def refresh(self):
-        if not self.__fresh:
-            self.pull()
+    def add(self, obj, properties=None, **kwproperties):
+        self.related(type(obj)).add(obj, properties, **kwproperties)
 
-    def pull(self):
-        graph = self.__graph__
-        graph.pull(self.subject.__subgraph__)
-        for related_objects in self.__related.values():
+    def get(self, obj, key, default=None):
+        return self.related(type(obj)).get(obj, key, default)
+
+    def remove(self, obj):
+        self.related(type(obj)).remove(obj)
+
+    def update(self, obj, properties=None, **kwproperties):
+        self.related(type(obj)).update(obj, properties, **kwproperties)
+
+    def pull(self, graph):
+        for related_objects in self.__related_by_class.values():
             related_objects.pull(graph, self.subject)
-        self.__fresh = True
 
-    def push(self):
-        self.refresh()
-        with self.__graph__.begin() as tx:
-            self.merge(tx)
+    def push(self, graph):
+        for related_objects in self.__related_by_class.values():
+            related_objects.push(graph, self.subject)
 
 
 class GraphObjectType(type):
