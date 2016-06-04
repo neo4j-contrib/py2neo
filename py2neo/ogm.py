@@ -191,6 +191,15 @@ class Cog(object):
         self.subject_node = subject_node
         self.related = {}  # key=relationship_type, value=related_objects
 
+    def __eq__(self, other):
+        try:
+            return self.subject_node == other.subject_node
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def is_defined(self, relationship_type):
         return relationship_type in self.related
 
@@ -267,8 +276,8 @@ class GraphObject(object):
     def __eq__(self, other):
         if not isinstance(other, GraphObject):
             return False
-        remote_self = remote(self)
-        remote_other = remote(other)
+        remote_self = remote(self.__cog__.subject_node)
+        remote_other = remote(other.__cog__.subject_node)
         if remote_self and remote_other:
             return remote_self == remote_other
         else:
