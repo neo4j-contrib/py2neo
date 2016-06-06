@@ -114,6 +114,9 @@ class RelatedObjects(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
+    def clear(self):
+        self.__related_objects.clear()
+
     def get(self, obj, key, default=None):
         for related_object, properties in self.__related_objects:
             if related_object == obj:
@@ -145,16 +148,40 @@ class RelatedObjects(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
-    def __db_create__(self, tx):
-        self.__db_merge__(tx)
+    # def __db_create__(self, tx):
+    #     self.__db_merge__(tx)
 
-    def __db_delete__(self, tx):
-        escaped_relationship_type = cypher_escape(self.relationship_type)
-        subject_id = remote(self.subject_node)._id
-        tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} DELETE r" % escaped_relationship_type,
-               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
+    # def __db_delete__(self, tx):
+    #     escaped_relationship_type = cypher_escape(self.relationship_type)
+    #     subject_id = remote(self.subject_node)._id
+    #     tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} DELETE r" % escaped_relationship_type,
+    #            x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
 
-    def __db_merge__(self, tx, primary_label=None, primary_key=None):
+    # def __db_merge__(self, tx, primary_label=None, primary_key=None):
+    #     # 1. merge all nodes (create ones that don't)
+    #     for related_object, _ in self.__related_objects:
+    #         tx.merge(related_object)
+    #     tx.process()
+    #     # 2a. remove any relationships not in list of nodes
+    #     escaped_relationship_type = cypher_escape(self.relationship_type)
+    #     subject_id = remote(self.subject_node)._id
+    #     tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
+    #            x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
+    #     # 2b. merge all relationships
+    #     for related_object, properties in self.__related_objects:
+    #         tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
+    #                "MERGE (a)-[r:%s]->(b) SET r = {z}" % escaped_relationship_type,
+    #                x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
+
+    def __db_pull__(self, graph):
+        related_objects = []
+        for r in graph.match(self.subject_node, self.relationship_type):
+            related_object = self.related_class.wrap(r.end_node())
+            related_objects.append((related_object, PropertyDict(r)))
+        self.__related_objects[:] = related_objects
+
+    def __db_push__(self, graph):
+        tx = graph.begin()
         # 1. merge all nodes (create ones that don't)
         for related_object, _ in self.__related_objects:
             tx.merge(related_object)
@@ -169,17 +196,6 @@ class RelatedObjects(object):
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE (a)-[r:%s]->(b) SET r = {z}" % escaped_relationship_type,
                    x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
-
-    def __db_pull__(self, graph):
-        related_objects = []
-        for r in graph.match(self.subject_node, self.relationship_type):
-            related_object = self.related_class.wrap(r.end_node())
-            related_objects.append((related_object, PropertyDict(r)))
-        self.__related_objects[:] = related_objects
-
-    def __db_push__(self, graph):
-        tx = graph.begin()
-        self.__db_merge__(tx)
         tx.commit()
 
 
@@ -223,28 +239,39 @@ class Cog(object):
         self.__db_merge__(tx)
 
     def __db_delete__(self, tx):
+        # TODO make atomic
+        graph = tx.graph
         for related_objects in self.related.values():
-            related_objects.__db_delete__(tx)
-        tx.delete(self.subject_node)
+            related_objects.clear()
+            related_objects.__db_push__(graph)
+        graph.delete(self.subject_node)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
+        # TODO make atomic
+        graph = tx.graph
         remote_node = remote(self.subject_node)
-        if remote_node:
-            tx.graph.push(self.subject_node)
-        else:
-            tx.merge(self.subject_node, primary_label, primary_key)
-        for related_objects in self.related.values():
-            related_objects.__db_merge__(tx)
+        if not remote_node:
+            graph.merge(self.subject_node, primary_label, primary_key)
+            for related_objects in self.related.values():
+                related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
-        graph.pull(self.subject_node)
+        remote_node = remote(self.subject_node)
+        if remote_node:
+            graph.pull(self.subject_node)
+        else:
+            graph.merge(self.subject_node)
         for related_objects in self.related.values():
             related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
-        tx = graph.begin()
-        self.__db_merge__(tx)
-        tx.commit()
+        remote_node = remote(self.subject_node)
+        if remote_node:
+            graph.push(self.subject_node)
+        else:
+            graph.merge(self.subject_node)
+        for related_objects in self.related.values():
+            related_objects.__db_push__(graph)
 
 
 class GraphObjectType(type):

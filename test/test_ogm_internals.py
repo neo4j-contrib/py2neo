@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, remote
 from py2neo.ogm import RelatedObjects
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film
@@ -389,3 +389,18 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.__db_pull__(self.graph)
         roles = keanu_cog.get("ACTED_IN", matrix, "roles")
         assert roles == 1
+
+    def test_can_create_on_push(self):
+        # given
+        alice = Person()
+        alice.name = "Alice"
+        alice.year_of_birth = 1970
+        alice_cog = alice.__cog__
+
+        # when
+        alice_cog.__db_push__(self.graph)
+
+        # then
+        node = alice_cog.subject_node
+        remote_node = remote(node)
+        assert remote_node

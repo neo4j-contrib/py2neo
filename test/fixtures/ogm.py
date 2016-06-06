@@ -63,11 +63,11 @@ class MovieGraphTestCase(GraphTestCase):
     def setUp(self):
         MovieGraphObject.__graph__ = self.graph
         self.graph.delete_all()
-        self.graph.schema.create_uniqueness_constraint("Person", "name")
+        #self.graph.schema.create_uniqueness_constraint("Person", "name")
         with open(path_join(dirname(__file__), "..", "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
         self.graph.run(cypher)
 
     def tearDown(self):
-        self.graph.schema.drop_uniqueness_constraint("Person", "name")
         self.graph.delete_all()
+        #self.graph.schema.drop_uniqueness_constraint("Person", "name")
