@@ -27,17 +27,6 @@ class MovieGraphObject(GraphObject):
     pass
 
 
-class Person(MovieGraphObject):
-    __primarykey__ = "name"
-
-    name = Property()
-    year_of_birth = Property(key="born")
-
-    acted_in = Related("Film")
-    directed = Related("test.fixtures.ogm.Film")
-    produced = Related("test.fixtures.ogm.Film")
-
-
 class Film(MovieGraphObject):
     __primarylabel__ = "Movie"
     __primarykey__ = "title"
@@ -54,6 +43,17 @@ class Film(MovieGraphObject):
         self.title = title
 
 
+class Person(MovieGraphObject):
+    __primarykey__ = "name"
+
+    name = Property()
+    year_of_birth = Property(key="born")
+
+    acted_in = Related(Film)
+    directed = Related("Film")
+    produced = Related("test.fixtures.ogm.Film")
+
+
 class MacGuffin(MovieGraphObject):
     pass
 
@@ -63,11 +63,9 @@ class MovieGraphTestCase(GraphTestCase):
     def setUp(self):
         MovieGraphObject.__graph__ = self.graph
         self.graph.delete_all()
-        #self.graph.schema.create_uniqueness_constraint("Person", "name")
         with open(path_join(dirname(__file__), "..", "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
         self.graph.run(cypher)
 
     def tearDown(self):
         self.graph.delete_all()
-        #self.graph.schema.drop_uniqueness_constraint("Person", "name")

@@ -17,7 +17,7 @@
 
 
 from py2neo.database import cypher_escape
-from py2neo.types import Node, Relationship, Subgraph, remote, PropertyDict
+from py2neo.types import Node, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
 
 
@@ -91,8 +91,6 @@ class RelatedObjects(object):
         return len(self.__related_objects)
 
     def __contains__(self, obj):
-        if not isinstance(obj, GraphObject):
-            obj = self.related_class.find_one(obj)
         for related_object, _ in self.__related_objects:
             if related_object == obj:
                 return True
@@ -148,31 +146,6 @@ class RelatedObjects(object):
         if not added:
             self.__related_objects.append((obj, properties))
 
-    # def __db_create__(self, tx):
-    #     self.__db_merge__(tx)
-
-    # def __db_delete__(self, tx):
-    #     escaped_relationship_type = cypher_escape(self.relationship_type)
-    #     subject_id = remote(self.subject_node)._id
-    #     tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} DELETE r" % escaped_relationship_type,
-    #            x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
-
-    # def __db_merge__(self, tx, primary_label=None, primary_key=None):
-    #     # 1. merge all nodes (create ones that don't)
-    #     for related_object, _ in self.__related_objects:
-    #         tx.merge(related_object)
-    #     tx.process()
-    #     # 2a. remove any relationships not in list of nodes
-    #     escaped_relationship_type = cypher_escape(self.relationship_type)
-    #     subject_id = remote(self.subject_node)._id
-    #     tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
-    #            x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
-    #     # 2b. merge all relationships
-    #     for related_object, properties in self.__related_objects:
-    #         tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
-    #                "MERGE (a)-[r:%s]->(b) SET r = {z}" % escaped_relationship_type,
-    #                x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
-
     def __db_pull__(self, graph):
         related_objects = []
         for r in graph.match(self.subject_node, self.relationship_type):
@@ -225,6 +198,9 @@ class Cog(object):
 
     def add(self, relationship_type, obj, properties=None, **kwproperties):
         self.related[relationship_type].add(obj, properties, **kwproperties)
+
+    def clear(self, relationship_type):
+        self.related[relationship_type].clear()
 
     def get(self, relationship_type, obj, key, default=None):
         return self.related[relationship_type].get(obj, key, default)
