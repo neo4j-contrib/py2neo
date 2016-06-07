@@ -711,3 +711,15 @@ class SingleCogTestCase(MovieGraphTestCase):
         node = alice_cog.subject_node
         remote_node = remote(node)
         assert remote_node
+
+    def test_can_delete(self):
+        # given
+        keanu_cog = self.new_keanu_cog()
+        keanu_cog.__db_pull__(self.graph)
+
+        # when
+        self.graph.delete(keanu_cog)
+
+        # then
+        node = keanu_cog.subject_node
+        assert not self.graph.exists(node)

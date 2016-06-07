@@ -113,7 +113,7 @@ class RelatedObjects(object):
             self.__related_objects.append((obj, properties))
 
     def clear(self):
-        self.__related_objects.clear()
+        self.__related_objects[:] = []
 
     def get(self, obj, key, default=None):
         for related_object, properties in self.__related_objects:
@@ -215,12 +215,11 @@ class Cog(object):
         self.__db_merge__(tx)
 
     def __db_delete__(self, tx):
-        # TODO make atomic
-        graph = tx.graph
+        remote_node = remote(self.subject_node)
+        if remote_node:
+            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
         for related_objects in self.related.values():
             related_objects.clear()
-            related_objects.__db_push__(graph)
-        graph.delete(self.subject_node)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         # TODO make atomic
