@@ -232,10 +232,8 @@ class Cog(object):
 
     def __db_pull__(self, graph):
         remote_node = remote(self.subject_node)
-        if remote_node:
-            graph.pull(self.subject_node)
-        else:
-            graph.merge(self.subject_node)
+        assert remote_node, "Can't pull if not bound to remote node"
+        graph.pull(self.subject_node)
         for related_objects in self.related.values():
             related_objects.__db_pull__(graph)
 
@@ -265,6 +263,15 @@ class GraphObjectType(type):
         attributes.setdefault("__primarylabel__", name)
         attributes.setdefault("__primarykey__", "__id__")
         return super(GraphObjectType, mcs).__new__(mcs, name, bases, attributes)
+
+
+def _find_one(graph, primary_label, primary_key, primary_value):
+    if primary_key == "__id__":
+        node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x} RETURN a" %
+                              cypher_escape(primary_label), x=primary_value)
+    else:
+        node = graph.find_one(primary_label, primary_key, primary_value)
+    return node
 
 
 @metaclass(GraphObjectType)
@@ -321,12 +328,7 @@ class GraphObject(object):
         graph = cls.__graph__
         if graph is None:
             raise RuntimeError("No graph database defined for %s" % cls.__name__)
-        primary_key = cls.__primarykey__
-        if primary_key == "__id__":
-            node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x} RETURN a" %
-                                  cypher_escape(cls.__primarylabel__), x=primary_value)
-        else:
-            node = graph.find_one(cls.__primarylabel__, primary_key, primary_value)
+        node = _find_one(graph, cls.__primarylabel__, cls.__primarykey__, primary_value)
         return cls.wrap(node)
 
     @classmethod
@@ -352,10 +354,7 @@ class GraphObject(object):
         primary_key = self.__primarykey__
         if primary_key == "__id__":
             remote_node = remote(node)
-            if remote_node:
-                return remote_node._id
-            else:
-                return None
+            return remote_node._id if remote_node else None
         else:
             return node[primary_key]
 
@@ -369,6 +368,10 @@ class GraphObject(object):
         self.__cog__.__db_merge__(tx, primary_label, primary_key)
 
     def __db_pull__(self, graph):
+        node = self.__cog__.subject_node
+        if not remote(node):
+            self.__cog__.subject_node = _find_one(self.__graph__, self.__primarylabel__,
+                                                  self.__primarykey__, self.__primaryvalue__)
         self.__cog__.__db_pull__(graph)
 
     def __db_push__(self, graph):

@@ -19,9 +19,20 @@
 from unittest import TestCase
 
 from py2neo import order, size, remote, Node, Relationship
-from py2neo.ogm import RelatedObjects
+from py2neo.ogm import RelatedObjects, Property, Related, GraphObject
 
-from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin
+from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
+
+
+class Elephant(GraphObject):
+    pass
+
+
+class NoGraphTestCase(TestCase):
+
+    def test_find_fails(self):
+        with self.assertRaises(RuntimeError):
+            _ = Elephant.find_one("Nellie")
 
 
 class SubclassTestCase(TestCase):
@@ -56,6 +67,12 @@ class InstanceTestCase(TestCase):
 
     def test_instance_primary_key_can_be_overridden(self):
         assert self.film.__primarykey__ == "title"
+
+    def test_instance_repr(self):
+        assert repr(self.film).startswith("<Film")
+
+    def test_instance_not_equal_to_non_graph_object(self):
+        assert self.film != "this is not a graph object"
 
 
 class InstanceSubgraphTestCase(TestCase):
@@ -177,6 +194,54 @@ class FindTestCase(MovieGraphTestCase):
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
+    def test_can_find_by_id(self):
+        # given
+        keanu_0 = Person.find_one("Keanu Reeves")
+        node_id = remote(keanu_0.__cog__.subject_node)._id
+
+        # when
+
+        class PersonById(MovieGraphObject):
+            __primarylabel__ = "Person"
+
+            name = Property()
+            year_of_birth = Property(key="born")
+
+            acted_in = Related(Film)
+            directed = Related("Film")
+            produced = Related("test.fixtures.ogm.Film")
+
+        found = list(PersonById.find([node_id]))
+        assert found
+        keanu = found[0]
+
+        # then
+        assert keanu.name == "Keanu Reeves"
+        assert keanu.year_of_birth == 1964
+
+    def test_can_find_one_by_id(self):
+        # given
+        keanu_0 = Person.find_one("Keanu Reeves")
+        node_id = remote(keanu_0.__cog__.subject_node)._id
+
+        # when
+
+        class PersonById(MovieGraphObject):
+            __primarylabel__ = "Person"
+
+            name = Property()
+            year_of_birth = Property(key="born")
+
+            acted_in = Related(Film)
+            directed = Related("Film")
+            produced = Related("test.fixtures.ogm.Film")
+
+        keanu = PersonById.find_one(node_id)
+
+        # then
+        assert keanu.name == "Keanu Reeves"
+        assert keanu.year_of_birth == 1964
+
     def test_cannot_find_one_that_does_not_exist(self):
         keanu = Person.find_one("Keanu Jones")
         assert keanu is None
@@ -189,21 +254,50 @@ class FindTestCase(MovieGraphTestCase):
         assert hugo.year_of_birth == 1960
 
 
-# class CreateTestCase(MovieGraphTestCase):
-#
-#     def test_create_has_no_effect_on_existing(self):
-#         # given
-#         keanu = Person.find_one("Keanu Reeves")
-#
-#         # when
-#         keanu.name = "Keanu Charles Reeves"
-#         self.graph.create(keanu)
-#
-#         # then
-#         remote_node = remote(keanu.__cog__.subject_node)
-#         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
-#                                           "RETURN a.name", x=remote_node._id)
-#         assert remote_name == "Keanu Reeves"
+class CreateTestCase(MovieGraphTestCase):
+
+    def test_create(self):
+        # given
+        alice = Person()
+        alice.name = "Alice"
+        alice.year_of_birth = 1970
+        alice.acted_in.add(Film.find_one("The Matrix"))
+
+        # when
+        self.graph.create(alice)
+
+        # then
+        node = alice.__cog__.subject_node
+        remote_node = remote(node)
+        assert remote_node
+
+    def test_create_has_no_effect_on_existing(self):
+        # given
+        keanu = Person.find_one("Keanu Reeves")
+
+        # when
+        keanu.name = "Keanu Charles Reeves"
+        self.graph.create(keanu)
+
+        # then
+        remote_node = remote(keanu.__cog__.subject_node)
+        remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+                                          "RETURN a.name", x=remote_node._id)
+        assert remote_name == "Keanu Reeves"
+
+
+class DeleteTestCase(MovieGraphTestCase):
+
+    def test_delete_on_existing(self):
+        # given
+        keanu = Person.find_one("Keanu Reeves")
+        node = keanu.__cog__.subject_node
+
+        # when
+        self.graph.delete(keanu)
+
+        # then
+        assert not self.graph.exists(node)
 
 
 class PushTestCase(MovieGraphTestCase):
@@ -282,6 +376,12 @@ class PullTestCase(MovieGraphTestCase):
                        x=remote_node._id, y="Keanu Charles Reeves")
         self.graph.pull(keanu)
         assert keanu.name == "Keanu Charles Reeves"
+
+    def test_can_pull_without_loading(self):
+        keanu = Person()
+        keanu.name = "Keanu Reeves"
+        self.graph.pull(keanu)
+        assert keanu.year_of_birth == 1964
 
 
 class RelatedObjectsTestCase(MovieGraphTestCase):
@@ -419,6 +519,26 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         roles = films_acted_in.get(matrix_reloaded, "roles")
         assert roles == ["Neo"]
 
+    def test_can_get_relationship_property_from_default(self):
+        # given
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.__db_pull__(self.graph)
+        matrix_reloaded = Film('The Matrix Reloaded')
+
+        # then
+        foo = films_acted_in.get(matrix_reloaded, "foo", "bar")
+        assert foo == "bar"
+
+    def test_can_get_relationship_property_from_default_and_unknown_object(self):
+        # given
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.__db_pull__(self.graph)
+        bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+
+        # then
+        foo = films_acted_in.get(bill_and_ted, "foo", "bar")
+        assert foo == "bar"
+
     def test_can_push_property_additions(self):
         # given
         films_acted_in = self.new_keanu_acted_in()
@@ -476,6 +596,31 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         roles = films_acted_in.get(matrix, "roles")
         assert roles == 1
 
+    def test_can_push_property_updates_on_new_object(self):
+        # given
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.__db_pull__(self.graph)
+
+        # when
+        bill_and_ted = Film("Bill & Ted's Excellent Adventure")
+        films_acted_in.update(bill_and_ted, good=True)
+        films_acted_in.__db_push__(self.graph)
+
+        # then
+        del films_acted_in
+        Node.cache.clear()
+        Relationship.cache.clear()
+        films_acted_in = self.new_keanu_acted_in()
+        films_acted_in.__db_pull__(self.graph)
+        film_titles = set(film.title for film in films_acted_in)
+        assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
+                               "Something's Gotta Give", 'The Matrix', 'The Replacements',
+                               'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
+
+        # and
+        good = films_acted_in.get(bill_and_ted, "good")
+        assert good
+
 
 class SingleCogTestCase(MovieGraphTestCase):
 
@@ -488,6 +633,15 @@ class SingleCogTestCase(MovieGraphTestCase):
         first_cog = self.new_keanu_cog()
         second_cog = self.new_keanu_cog()
         assert first_cog == second_cog
+
+    def test_inequality(self):
+        first_cog = self.new_keanu_cog()
+        second_cog = Person.find_one("Carrie-Anne Moss").__cog__
+        assert first_cog != second_cog
+
+    def test_inequality_with_other_types(self):
+        first_cog = self.new_keanu_cog()
+        assert first_cog != "this isn't even a cog"
 
     def test_can_pull_related_objects(self):
         # given
