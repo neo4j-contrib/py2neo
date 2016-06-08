@@ -991,11 +991,12 @@ class Transaction(object):
         return self._finished
 
     def run(self, statement, parameters=None, **kwparameters):
-        """ Add a statement to the current queue of statements to be
-        executed.
+        """ Send a Cypher statement to the server for execution and return
+        a :py:class:`.Cursor` for navigating its result.
 
         :param statement: Cypher statement
         :param parameters: dictionary of parameters
+        :returns: :py:class:`.Cursor` object
         """
 
     @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
@@ -1006,8 +1007,7 @@ class Transaction(object):
         pass
 
     def process(self):
-        """ Send all pending statements to the server for execution, leaving
-        the transaction open for further statements.
+        """ Send all pending statements to the server for processing.
         """
         self._post()
 
@@ -1016,13 +1016,12 @@ class Transaction(object):
         self._finished = True
 
     def commit(self):
-        """ Send all pending statements to the server for execution and commit
-        the transaction.
+        """ Commit the transaction.
         """
         self._post(commit=True)
 
     def rollback(self):
-        """ Rollback the current transaction, undoing all actions taken so far.
+        """ Roll back the current transaction, undoing all actions previously taken.
         """
 
     def evaluate(self, statement, parameters=None, **kwparameters):
