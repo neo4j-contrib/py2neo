@@ -72,7 +72,7 @@ class Related(object):
         return cog.related[self.relationship_type]
 
 
-class RelatedObjects(object):
+class Outgoing(object):
     """ A set of similarly-typed objects that are all related to a
     central object in a similar way.
     """
@@ -193,7 +193,7 @@ class Cog(object):
         return relationship_type in self.related
 
     def define_related(self, relationship_type, related_class):
-        related_objects = RelatedObjects(self.subject_node, relationship_type, related_class)
+        related_objects = Outgoing(self.subject_node, relationship_type, related_class)
         self.related[relationship_type] = related_objects
 
     def add(self, relationship_type, obj, properties=None, **kwproperties):
@@ -324,16 +324,12 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def find_one(cls, primary_value):
-        graph = cls.__graph__
-        if graph is None:
-            raise RuntimeError("No graph database defined for %s" % cls.__name__)
+    def find_one(cls, graph, primary_value):
         node = _find_one(graph, cls.__primarylabel__, cls.__primarykey__, primary_value)
         return cls.wrap(node)
 
     @classmethod
-    def find(cls, primary_values):
-        graph = cls.__graph__
+    def find(cls, graph, primary_values):
         primary_key = cls.__primarykey__
         if primary_key == "__id__":
             for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
@@ -370,7 +366,7 @@ class GraphObject(object):
     def __db_pull__(self, graph):
         node = self.__cog__.subject_node
         if not remote(node):
-            self.__cog__.subject_node = _find_one(self.__graph__, self.__primarylabel__,
+            self.__cog__.subject_node = _find_one(graph, self.__primarylabel__,
                                                   self.__primarykey__, self.__primaryvalue__)
         self.__cog__.__db_pull__(graph)
 

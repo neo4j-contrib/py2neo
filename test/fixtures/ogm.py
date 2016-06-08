@@ -61,7 +61,7 @@ class MacGuffin(MovieGraphObject):
 class MovieGraphTestCase(GraphTestCase):
 
     def setUp(self):
-        MovieGraphObject.__graph__ = self.graph
+        #MovieGraphObject.__graph__ = self.graph
         self.graph.delete_all()
         with open(path_join(dirname(__file__), "..", "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
