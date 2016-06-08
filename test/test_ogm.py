@@ -19,7 +19,7 @@
 from unittest import TestCase
 
 from py2neo import order, size, remote, Node, Relationship
-from py2neo.ogm import Outgoing, Property, Related
+from py2neo.ogm import RelatedObjects, Property, Related
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
 
@@ -126,6 +126,18 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         film_titles = set(film.title for film in list(keanu.acted_in))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
+
+    def test_graph_propagation(self):
+        keanu = Person.find_one(self.graph, "Keanu Reeves")
+        films = list(keanu.acted_in)
+        colleagues = set()
+        for film in films:
+            colleagues |= set(film.actors)
+        names = set(colleague.name for colleague in colleagues)
+        expected_names = {'Al Pacino', 'Dina Meyer', 'Keanu Reeves', 'Brooke Langton', 'Hugo Weaving', 'Diane Keaton',
+                          'Takeshi Kitano', 'Laurence Fishburne', 'Charlize Theron', 'Emil Eifrem', 'Orlando Jones',
+                          'Carrie-Anne Moss', 'Ice-T', 'Gene Hackman', 'Jack Nicholson'}
+        assert names == expected_names
 
     def test_can_add_related_object_and_push(self):
         keanu = Person.find_one(self.graph, "Keanu Reeves")
@@ -354,6 +366,22 @@ class PushTestCase(MovieGraphTestCase):
                                         x=remote_node._id)
         assert film_node["title"] == "The Dominatrix"
 
+    def test_can_push_with_incoming_relationships(self):
+        # given
+        matrix = Film.find_one(self.graph, "The Matrix")
+
+        # when
+        matrix.actors.remove(Person.find_one(self.graph, "Emil Eifrem"))
+        self.graph.push(matrix)
+
+        # then
+        remote_node = remote(matrix.__cog__.subject_node)
+        names = set()
+        for name, in self.graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = {x} "
+                                    "RETURN b.name", x=remote_node._id):
+            names.add(name)
+        assert names == {'Keanu Reeves', 'Carrie-Anne Moss', 'Hugo Weaving', 'Laurence Fishburne'}
+
 
 class PullTestCase(MovieGraphTestCase):
 
@@ -372,12 +400,26 @@ class PullTestCase(MovieGraphTestCase):
         self.graph.pull(keanu)
         assert keanu.year_of_birth == 1964
 
+    def test_can_pull_with_incoming_relationships(self):
+        # given
+        matrix = Film.find_one(self.graph, "The Matrix")
+        remote_node = remote(matrix.__cog__.subject_node)
+        self.graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = {x} AND b.name = 'Emil Eifrem' DELETE r",
+                       x=remote_node._id)
 
-class OutgoingTestCase(MovieGraphTestCase):
+        # when
+        self.graph.pull(matrix)
+
+        # then
+        names = set(a.name for a in matrix.actors)
+        assert names == {'Keanu Reeves', 'Carrie-Anne Moss', 'Hugo Weaving', 'Laurence Fishburne'}
+
+
+class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def new_keanu_acted_in(self):
         keanu_node = self.graph.find_one("Person", "name", "Keanu Reeves")
-        keanu_acted_in = Outgoing(keanu_node, "ACTED_IN", Film)
+        keanu_acted_in = RelatedObjects(keanu_node, "ACTED_IN", Film)
         return keanu_acted_in
 
     def test_can_pull_related_objects(self):
@@ -639,7 +681,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.__db_pull__(self.graph)
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
@@ -654,7 +696,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.add("ACTED_IN", bill_and_ted)
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
@@ -672,7 +714,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.add("ACTED_IN", bill_and_ted)
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
@@ -686,7 +728,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.clear("ACTED_IN")
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == set()
 
     def test_can_remove_object(self):
@@ -699,7 +741,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.remove("ACTED_IN", matrix_reloaded)
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
@@ -717,7 +759,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         keanu_cog.remove("ACTED_IN", matrix_reloaded)
 
         # then
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}
@@ -736,7 +778,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         del keanu_cog
         keanu_cog = self.new_keanu_cog()
         keanu_cog.__db_pull__(self.graph)
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
@@ -757,7 +799,7 @@ class SingleCogTestCase(MovieGraphTestCase):
         Relationship.cache.clear()
         keanu_cog = self.new_keanu_cog()
         keanu_cog.__db_pull__(self.graph)
-        film_titles = set(film.title for film in keanu_cog.related["ACTED_IN"])
+        film_titles = set(film.title for film in keanu_cog.outgoing["ACTED_IN"])
         assert film_titles == {"The Devil's Advocate",
                                "Something's Gotta Give", 'The Matrix', 'The Replacements',
                                'The Matrix Revolutions', 'Johnny Mnemonic'}

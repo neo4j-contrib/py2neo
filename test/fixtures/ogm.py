@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
@@ -19,7 +18,7 @@
 
 from os.path import join as path_join, dirname
 
-from py2neo.ogm import GraphObject, Label, Property, Related
+from py2neo.ogm import GraphObject, Label, Property, Related, RelatedFrom
 from test.util import GraphTestCase
 
 
@@ -39,6 +38,8 @@ class Film(MovieGraphObject):
     tag_line = Property(key="tagline")
     year_of_release = Property(key="released")
 
+    actors = RelatedFrom("Person", "ACTED_IN")
+
     def __init__(self, title):
         self.title = title
 
@@ -53,6 +54,9 @@ class Person(MovieGraphObject):
     directed = Related("Film")
     produced = Related("test.fixtures.ogm.Film")
 
+    def __hash__(self):
+        return hash(self.name)
+
 
 class MacGuffin(MovieGraphObject):
     pass
@@ -61,7 +65,6 @@ class MacGuffin(MovieGraphObject):
 class MovieGraphTestCase(GraphTestCase):
 
     def setUp(self):
-        #MovieGraphObject.__graph__ = self.graph
         self.graph.delete_all()
         with open(path_join(dirname(__file__), "..", "..", "resources", "movies.cypher")) as f:
             cypher = f.read()

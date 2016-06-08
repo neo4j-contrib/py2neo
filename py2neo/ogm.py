@@ -49,30 +49,41 @@ class Label(object):
 
 
 class Related(object):
-    """ Represents a set of relationships from a single start node to
-    (potentially) multiple end nodes.
+    """ Represents a set of outgoing relationships from a single start
+    node to (potentially) multiple end nodes.
     """
 
     def __init__(self, related_class, relationship_type=None):
         self.related_class = related_class
         self.relationship_type = relationship_type
 
+    def resolve_related_class(self, instance):
+        if not isinstance(self.related_class, type):
+            module_name, _, class_name = self.related_class.rpartition(".")
+            if not module_name:
+                module_name = instance.__class__.__module__
+            module = __import__(module_name, fromlist=".")
+            self.related_class = getattr(module, class_name)
+
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        if not cog.is_defined(self.relationship_type):
-            if isinstance(self.related_class, type):
-                related_class = self.related_class
-            else:
-                module_name, _, class_name = self.related_class.rpartition(".")
-                if not module_name:
-                    module_name = instance.__class__.__module__
-                module = __import__(module_name, fromlist=".")
-                related_class = getattr(module, class_name)
-            cog.define_related(self.relationship_type, related_class)
-        return cog.related[self.relationship_type]
+        if not cog.is_defined_outgoing(self.relationship_type):
+            self.resolve_related_class(instance)
+            cog.define_outgoing(self.relationship_type, self.related_class)
+        return cog.outgoing[self.relationship_type]
 
 
-class Outgoing(object):
+class RelatedFrom(Related):
+
+    def __get__(self, instance, owner):
+        cog = instance.__cog__
+        if not cog.is_defined_incoming(self.relationship_type):
+            self.resolve_related_class(instance)
+            cog.define_incoming(self.relationship_type, self.related_class)
+        return cog.incoming[self.relationship_type]
+
+
+class RelatedObjects(object):
     """ A set of similarly-typed objects that are all related to a
     central object in a similar way.
     """
@@ -81,20 +92,29 @@ class Outgoing(object):
         self.subject_node = subject_node
         self.relationship_type = relationship_type
         self.related_class = related_class
-        self.__related_objects = []
+        self.__related_objects = None
 
     def __iter__(self):
-        for obj, _ in self.__related_objects:
+        for obj, _ in self._related_objects:
             yield obj
 
     def __len__(self):
-        return len(self.__related_objects)
+        return len(self._related_objects)
 
     def __contains__(self, obj):
-        for related_object, _ in self.__related_objects:
+        for related_object, _ in self._related_objects:
             if related_object == obj:
                 return True
         return False
+
+    @property
+    def _related_objects(self):
+        if self.__related_objects is None:
+            self.__related_objects = []
+            remote_node = remote(self.subject_node)
+            if remote_node:
+                self.__db_pull__(remote_node.graph)
+        return self.__related_objects
 
     def add(self, obj, properties=None, **kwproperties):
         """ Add a related object.
@@ -103,20 +123,21 @@ class Outgoing(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
+        related_objects = self._related_objects
         properties = PropertyDict(properties or {}, **kwproperties)
         added = False
-        for i, (related_object, _) in enumerate(self.__related_objects):
+        for i, (related_object, _) in enumerate(related_objects):
             if related_object == obj:
-                self.__related_objects[i] = (obj, properties)
+                related_objects[i] = (obj, properties)
                 added = True
         if not added:
-            self.__related_objects.append((obj, properties))
+            related_objects.append((obj, properties))
 
     def clear(self):
-        self.__related_objects[:] = []
+        self._related_objects[:] = []
 
     def get(self, obj, key, default=None):
-        for related_object, properties in self.__related_objects:
+        for related_object, properties in self._related_objects:
             if related_object == obj:
                 return properties.get(key, default)
         return default
@@ -126,9 +147,10 @@ class Outgoing(object):
 
         :param obj: the :py:class:`.GraphObject` to separate
         """
-        self.__related_objects = [(related_object, properties)
-                                  for related_object, properties in self.__related_objects
-                                  if related_object != obj]
+        related_objects = self._related_objects
+        related_objects[:] = [(related_object, properties)
+                              for related_object, properties in related_objects
+                              if related_object != obj]
 
     def update(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
@@ -137,37 +159,67 @@ class Outgoing(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
+        related_objects = self._related_objects
         properties = dict(properties or {}, **kwproperties)
         added = False
-        for i, (related_object, p) in enumerate(self.__related_objects):
+        for i, (related_object, p) in enumerate(related_objects):
             if related_object == obj:
-                self.__related_objects[i] = (obj, PropertyDict(p, **properties))
+                related_objects[i] = (obj, PropertyDict(p, **properties))
                 added = True
         if not added:
-            self.__related_objects.append((obj, properties))
+            related_objects.append((obj, properties))
 
     def __db_pull__(self, graph):
         related_objects = []
         for r in graph.match(self.subject_node, self.relationship_type):
             related_object = self.related_class.wrap(r.end_node())
             related_objects.append((related_object, PropertyDict(r)))
-        self.__related_objects[:] = related_objects
+        self._related_objects[:] = related_objects
 
     def __db_push__(self, graph):
+        related_objects = self._related_objects
         tx = graph.begin()
         # 1. merge all nodes (create ones that don't)
-        for related_object, _ in self.__related_objects:
+        for related_object, _ in related_objects:
             tx.merge(related_object)
         tx.process()
         # 2a. remove any relationships not in list of nodes
         escaped_relationship_type = cypher_escape(self.relationship_type)
         subject_id = remote(self.subject_node)._id
         tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
-               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self.__related_objects])
+               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in related_objects])
         # 2b. merge all relationships
-        for related_object, properties in self.__related_objects:
+        for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE (a)-[r:%s]->(b) SET r = {z}" % escaped_relationship_type,
+                   x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
+        tx.commit()
+
+
+class RelatedFromObjects(RelatedObjects):
+
+    def __db_pull__(self, graph):
+        related_objects = []
+        for r in graph.match(None, self.relationship_type, self.subject_node):
+            related_object = self.related_class.wrap(r.start_node())
+            related_objects.append((related_object, PropertyDict(r)))
+        self._related_objects[:] = related_objects
+
+    def __db_push__(self, graph):
+        tx = graph.begin()
+        # 1. merge all nodes (create ones that don't)
+        for related_object, _ in self._related_objects:
+            tx.merge(related_object)
+        tx.process()
+        # 2a. remove any relationships not in list of nodes
+        escaped_relationship_type = cypher_escape(self.relationship_type)
+        subject_id = remote(self.subject_node)._id
+        tx.run("MATCH (a)<-[r:%s]-(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
+               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self._related_objects])
+        # 2b. merge all relationships
+        for related_object, properties in self._related_objects:
+            tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
+                   "MERGE (a)<-[r:%s]-(b) SET r = {z}" % escaped_relationship_type,
                    x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
         tx.commit()
 
@@ -178,7 +230,8 @@ class Cog(object):
 
     def __init__(self, subject_node):
         self.subject_node = subject_node
-        self.related = {}  # key=relationship_type, value=related_objects
+        self.outgoing = {}
+        self.incoming = {}
 
     def __eq__(self, other):
         try:
@@ -189,27 +242,32 @@ class Cog(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def is_defined(self, relationship_type):
-        return relationship_type in self.related
+    def is_defined_outgoing(self, relationship_type):
+        return relationship_type in self.outgoing
 
-    def define_related(self, relationship_type, related_class):
-        related_objects = Outgoing(self.subject_node, relationship_type, related_class)
-        self.related[relationship_type] = related_objects
+    def is_defined_incoming(self, relationship_type):
+        return relationship_type in self.incoming
+
+    def define_outgoing(self, relationship_type, related_class):
+        self.outgoing[relationship_type] = RelatedObjects(self.subject_node, relationship_type, related_class)
+
+    def define_incoming(self, relationship_type, related_class):
+        self.incoming[relationship_type] = RelatedFromObjects(self.subject_node, relationship_type, related_class)
 
     def add(self, relationship_type, obj, properties=None, **kwproperties):
-        self.related[relationship_type].add(obj, properties, **kwproperties)
+        self.outgoing[relationship_type].add(obj, properties, **kwproperties)
 
     def clear(self, relationship_type):
-        self.related[relationship_type].clear()
+        self.outgoing[relationship_type].clear()
 
     def get(self, relationship_type, obj, key, default=None):
-        return self.related[relationship_type].get(obj, key, default)
+        return self.outgoing[relationship_type].get(obj, key, default)
 
     def remove(self, relationship_type, obj):
-        self.related[relationship_type].remove(obj)
+        self.outgoing[relationship_type].remove(obj)
 
     def update(self, relationship_type, obj, properties=None, **kwproperties):
-        self.related[relationship_type].update(obj, properties, **kwproperties)
+        self.outgoing[relationship_type].update(obj, properties, **kwproperties)
 
     def __db_create__(self, tx):
         self.__db_merge__(tx)
@@ -218,7 +276,7 @@ class Cog(object):
         remote_node = remote(self.subject_node)
         if remote_node:
             tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
-        for related_objects in self.related.values():
+        for related_objects in self.outgoing.values():
             related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
@@ -227,14 +285,16 @@ class Cog(object):
         remote_node = remote(self.subject_node)
         if not remote_node:
             graph.merge(self.subject_node, primary_label, primary_key)
-            for related_objects in self.related.values():
+            for related_objects in self.outgoing.values():
                 related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
         remote_node = remote(self.subject_node)
         assert remote_node, "Can't pull if not bound to remote node"
         graph.pull(self.subject_node)
-        for related_objects in self.related.values():
+        for related_objects in self.outgoing.values():
+            related_objects.__db_pull__(graph)
+        for related_objects in self.incoming.values():
             related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
@@ -243,7 +303,9 @@ class Cog(object):
             graph.push(self.subject_node)
         else:
             graph.merge(self.subject_node)
-        for related_objects in self.related.values():
+        for related_objects in self.outgoing.values():
+            related_objects.__db_push__(graph)
+        for related_objects in self.incoming.values():
             related_objects.__db_push__(graph)
 
 
@@ -319,8 +381,7 @@ class GraphObject(object):
             _ = getattr(inst, attr)
         remote_node = remote(node)
         if remote_node:
-            # TODO: bootstrap define_related (somehow)
-            cog.__db_pull__(remote_node.graph)
+            remote_node.graph.pull(cog.subject_node)
         return inst
 
     @classmethod
@@ -340,9 +401,7 @@ class GraphObject(object):
                 yield cls.wrap(node)
 
     def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__,
-                            " ".join("%s=%r" % (k, getattr(self, k)) for k in dir(self)
-                                     if not k.startswith("_") and not callable(getattr(self, k))))
+        return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
 
     @property
     def __primaryvalue__(self):
