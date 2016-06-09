@@ -31,9 +31,11 @@ def unique_string_generator():
 
 class GraphTestCase(TestCase):
 
+    graph = Graph()
+
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
-        self.graph = Graph()
+        #self.graph = Graph()
         self.http_graph = Graph()
         self.http_graph.driver = None
         self.http_graph.transaction_class = HTTPTransaction

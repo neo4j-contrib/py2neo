@@ -36,6 +36,7 @@ from py2neo.util import deprecated, version_tuple
 from py2neo.database.auth import *
 from py2neo.database.cypher import *
 from py2neo.database.http import *
+from py2neo.database.selection import *
 from py2neo.database.status import *
 
 
