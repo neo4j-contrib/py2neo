@@ -332,6 +332,7 @@ class Graph(object):
                                                    encypted=address.secure,
                                                    user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
+            inst.node_selector = NodeSelector(inst)
             cls.__instances[key] = inst
         return inst
 
@@ -619,7 +620,7 @@ class Graph(object):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            node = self.evaluate("MATCH (a) WHERE id(a)={x} RETURN a", x=id_)
+            node = self.node_selector.select().where("id(_) = %d" % id_).one()
             if node is None:
                 raise IndexError("Node %d not found" % id_)
             else:

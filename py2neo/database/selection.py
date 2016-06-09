@@ -24,14 +24,24 @@ class NodeSelection(object):
     graph.
     """
 
-    def __init__(self, graph, labels=frozenset(), conditions=tuple()):
+    def __init__(self, graph, labels=frozenset(), conditions=tuple(), limit=None):
         self.graph = graph
         self.labels = frozenset(labels)
         self.conditions = tuple(conditions)
+        self._limit = limit
 
     def __iter__(self):
         for node, in self.graph.run(self.query):
             yield node
+
+    def one(self):
+        """ Evaluate the selection and return the first
+        :py:class:`.Node` selected or :py:const:`None` if no matching
+        nodes are found.
+
+        :return: a single matching :py:class:`.Node` or :py:const:`None`
+        """
+        return self.graph.evaluate(self.query)
 
     @property
     def query(self):
@@ -44,6 +54,8 @@ class NodeSelection(object):
         if self.conditions:
             clauses.append("WHERE %s" % " AND ".join(self.conditions))
         clauses.append("RETURN _")
+        if self._limit is not None:
+            clauses.append("LIMIT %d" % self._limit)
         return " ".join(clauses)
 
     def where(self, *conditions, **properties):
@@ -61,10 +73,18 @@ class NodeSelection(object):
         :param conditions: Cypher expressions to add to the selection
                            `WHERE` clause
         :param properties: exact property match keys and values
-        :return:
+        :return: refined selection object
         """
         property_conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
-        return self.__class__(self.graph, self.labels, self.conditions + conditions + property_conditions)
+        return self.__class__(self.graph, self.labels, self.conditions + conditions + property_conditions, self._limit)
+
+    def limit(self, amount):
+        """ Limit the selection by a maximum number of nodes.
+
+        :param amount: maximum number of nodes to select
+        :return: refined selection object
+        """
+        return self.__class__(self.graph, self.labels, self.conditions, amount)
 
 
 class NodeSelector(object):
@@ -102,6 +122,7 @@ class NodeSelector(object):
 
     def __init__(self, graph):
         self.graph = graph
+        self._all = self.selection_class(self.graph)
 
     def select(self, *labels, **properties):
         """ Describe a basic node selection using labels and property equality.
@@ -110,5 +131,8 @@ class NodeSelector(object):
         :param properties: set of property keys and values to match
         :return: :py:class:`.NodeSelection` instance
         """
-        conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
-        return self.selection_class(self.graph, frozenset(labels), conditions)
+        if labels or properties:
+            conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
+            return self.selection_class(self.graph, frozenset(labels), conditions)
+        else:
+            return self._all

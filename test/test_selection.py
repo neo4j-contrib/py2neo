@@ -72,6 +72,13 @@ class NodeFinderTestCase(GraphTestCase):
                                'Kevin Pollak', 'Kiefer Sutherland', 'Kelly Preston'}
 
     def test_multiple_custom_conditions(self):
-        found = list(self.selector.select("Person").where("_.name =~ 'J.*'", "1960 <= _.born < 1970"))
+        found = list(self.selector.select("Person").where("_.name =~ 'J.*'", "_.born >= 1960", "_.born < 1970"))
         found_names = {actor["name"] for actor in found}
         assert found_names == {'James Marshall', 'John Cusack', 'John Goodman', 'John C. Reilly', 'Julia Roberts'}
+
+    def test_limit(self):
+        found = list(self.selector.select("Person").where("_.name =~ 'K.*'").limit(3))
+        assert len(found) == 3
+        for actor in found:
+            assert actor["name"] in {'Keanu Reeves', 'Kelly McGillis', 'Kevin Bacon',
+                                     'Kevin Pollak', 'Kiefer Sutherland', 'Kelly Preston'}
