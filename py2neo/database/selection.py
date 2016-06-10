@@ -19,6 +19,14 @@
 from py2neo.database.cypher import cypher_escape, cypher_repr
 
 
+def property_equality_conditions(**properties):
+    for key, value in properties.items():
+        if isinstance(value, (tuple, set, frozenset)):
+            yield "_.%s IN %s" % (cypher_escape(key), cypher_repr(list(value)))
+        else:
+            yield "_.%s = %s" % (cypher_escape(key), cypher_repr(value))
+
+
 class NodeSelection(object):
     """ A set of criteria representing a selection of nodes from a
     graph.
@@ -81,8 +89,8 @@ class NodeSelection(object):
         :param properties: exact property match keys and values
         :return: refined selection object
         """
-        property_conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
-        return self.__class__(self.graph, self._labels, self._conditions + conditions + property_conditions,
+        return self.__class__(self.graph, self._labels,
+                              self._conditions + conditions + tuple(property_equality_conditions(**properties)),
                               self._order_by_fields, self._skip_amount, self._limit_amount)
 
     def order_by(self, *fields):
@@ -163,7 +171,7 @@ class NodeSelector(object):
         :return: :py:class:`.NodeSelection` instance
         """
         if labels or properties:
-            conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
-            return self.selection_class(self.graph, frozenset(labels), conditions)
+            return self.selection_class(self.graph, frozenset(labels),
+                                        tuple(property_equality_conditions(**properties)))
         else:
             return self._all

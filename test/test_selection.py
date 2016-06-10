@@ -95,3 +95,18 @@ class NodeFinderTestCase(GraphTestCase):
     def test_one(self):
         the_one = self.selector.select("Person").where("_.name =~ 'K.*'").order_by("_.name").one()
         assert the_one["name"] == 'Keanu Reeves'
+
+    def test_tuple_property_value(self):
+        found = list(self.selector.select("Person", name=("Kevin Bacon", "Kiefer Sutherland")))
+        found_names = {actor["name"] for actor in found}
+        assert found_names == {"Kevin Bacon", "Kiefer Sutherland"}
+
+    def test_set_property_value(self):
+        found = list(self.selector.select("Person", name={"Kevin Bacon", "Kiefer Sutherland"}))
+        found_names = {actor["name"] for actor in found}
+        assert found_names == {"Kevin Bacon", "Kiefer Sutherland"}
+
+    def test_frozenset_property_value(self):
+        found = list(self.selector.select("Person", name=frozenset(["Kevin Bacon", "Kiefer Sutherland"])))
+        found_names = {actor["name"] for actor in found}
+        assert found_names == {"Kevin Bacon", "Kiefer Sutherland"}
