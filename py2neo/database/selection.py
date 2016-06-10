@@ -24,11 +24,13 @@ class NodeSelection(object):
     graph.
     """
 
-    def __init__(self, graph, labels=frozenset(), conditions=tuple(), limit=None):
+    def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None):
         self.graph = graph
-        self.labels = frozenset(labels)
-        self.conditions = tuple(conditions)
-        self._limit = limit
+        self._labels = frozenset(labels)
+        self._conditions = tuple(conditions)
+        self._order_by_fields = tuple(order_by)
+        self._skip_amount = skip
+        self._limit_amount = limit
 
     def __iter__(self):
         for node, in self.graph.run(self.query):
@@ -50,12 +52,16 @@ class NodeSelection(object):
 
         :return: Cypher query string
         """
-        clauses = ["MATCH (_%s)" % "".join(":%s" % cypher_escape(label) for label in self.labels)]
-        if self.conditions:
-            clauses.append("WHERE %s" % " AND ".join(self.conditions))
+        clauses = ["MATCH (_%s)" % "".join(":%s" % cypher_escape(label) for label in self._labels)]
+        if self._conditions:
+            clauses.append("WHERE %s" % " AND ".join(self._conditions))
         clauses.append("RETURN _")
-        if self._limit is not None:
-            clauses.append("LIMIT %d" % self._limit)
+        if self._order_by_fields:
+            clauses.append("ORDER BY %s" % (", ".join(self._order_by_fields)))
+        if self._skip_amount:
+            clauses.append("SKIP %d" % self._skip_amount)
+        if self._limit_amount is not None:
+            clauses.append("LIMIT %d" % self._limit_amount)
         return " ".join(clauses)
 
     def where(self, *conditions, **properties):
@@ -76,15 +82,40 @@ class NodeSelection(object):
         :return: refined selection object
         """
         property_conditions = tuple("_.%s = %s" % (cypher_escape(k), cypher_repr(v)) for k, v in properties.items())
-        return self.__class__(self.graph, self.labels, self.conditions + conditions + property_conditions, self._limit)
+        return self.__class__(self.graph, self._labels, self._conditions + conditions + property_conditions,
+                              self._order_by_fields, self._skip_amount, self._limit_amount)
+
+    def order_by(self, *fields):
+        """ Order by the fields or field expressions specified.
+
+        To refer to the current node within a field or field expression,
+        use the underscore character ``_``. For example::
+
+            selection.order_by("_.name", "max(_.a, _.b)")
+
+        :param fields: fields or field expressions to order by
+        :return: refined selection object
+        """
+        return self.__class__(self.graph, self._labels, self._conditions,
+                              fields, self._skip_amount, self._limit_amount)
+
+    def skip(self, amount):
+        """ Skip the first `amount` nodes in the result.
+
+        :param amount: number of nodes to skip
+        :return: refined selection object
+        """
+        return self.__class__(self.graph, self._labels, self._conditions,
+                              self._order_by_fields, amount, self._limit_amount)
 
     def limit(self, amount):
-        """ Limit the selection by a maximum number of nodes.
+        """ Limit the selection to at most `amount` nodes.
 
         :param amount: maximum number of nodes to select
         :return: refined selection object
         """
-        return self.__class__(self.graph, self.labels, self.conditions, amount)
+        return self.__class__(self.graph, self._labels, self._conditions,
+                              self._order_by_fields, self._skip_amount, amount)
 
 
 class NodeSelector(object):
