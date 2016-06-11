@@ -21,10 +21,15 @@ from py2neo.database.cypher import cypher_escape, cypher_repr
 
 def property_equality_conditions(**properties):
     for key, value in properties.items():
-        if isinstance(value, (tuple, set, frozenset)):
-            yield "_.%s IN %s" % (cypher_escape(key), cypher_repr(list(value)))
+        if key == "__id__":
+            condition = "id(_)"
         else:
-            yield "_.%s = %s" % (cypher_escape(key), cypher_repr(value))
+            condition = "_.%s" % cypher_escape(key)
+        if isinstance(value, (tuple, set, frozenset)):
+            condition += " IN %s" % cypher_repr(list(value))
+        else:
+            condition += " = %s" % cypher_repr(value)
+        yield condition
 
 
 class NodeSelection(object):

@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo import order, size, remote, Node, Relationship
+from py2neo import order, size, remote, Node, Relationship, NodeSelector
 from py2neo.ogm import RelatedObjects, Property, Related
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
@@ -418,7 +418,7 @@ class PullTestCase(MovieGraphTestCase):
 class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def new_keanu_acted_in(self):
-        keanu_node = self.graph.find_one("Person", "name", "Keanu Reeves")
+        keanu_node = NodeSelector(self.graph).select("Person", name="Keanu Reeves").one()
         keanu_acted_in = RelatedObjects(keanu_node, "ACTED_IN", Film)
         return keanu_acted_in
 

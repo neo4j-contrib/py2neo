@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import GraphError, Node, cast_node
+from py2neo import GraphError, Node, cast_node, NodeSelector
 from py2neo.database.status import ConstraintError
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
 from test.compat import patch
@@ -47,10 +47,10 @@ class SchemaTestCase(GraphTestCase):
         self.schema.create_index(label_1, "key")
         self.schema.create_index(label_2, "name")
         self.schema.create_index(label_2, "key")
-        found_borough_via_name = self.graph.find(label_1, "name", "München")
-        found_borough_via_key = self.graph.find(label_1, "key", "09162000")
-        found_county_via_name = self.graph.find(label_2, "name", "München")
-        found_county_via_key = self.graph.find(label_2, "key", "09162000")
+        found_borough_via_name = self.node_selector.select(label_1, name="München")
+        found_borough_via_key = self.node_selector.select(label_1, key="09162000")
+        found_county_via_name = self.node_selector.select(label_2, name="München")
+        found_county_via_key = self.node_selector.select(label_2, key="09162000")
         assert list(found_borough_via_name) == list(found_borough_via_key)
         assert list(found_county_via_name) == list(found_county_via_key)
         assert list(found_borough_via_name) == list(found_county_via_name)
