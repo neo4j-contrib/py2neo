@@ -376,15 +376,8 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def find_one(cls, graph, primary_value):
-        node = GraphObjectSelector(graph, cls).select(primary_value).one()
-        return node
-
-    @classmethod
-    def find(cls, graph, primary_values):
-        nodes = GraphObjectSelector(graph, cls).select(tuple(primary_values))
-        for node in nodes:
-            yield node
+    def select(cls, graph, primary_value):
+        return GraphObjectSelector(cls, graph).select(primary_value)
 
     def __repr__(self):
         return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
@@ -411,9 +404,9 @@ class GraphObject(object):
     def __db_pull__(self, graph):
         node = self.__cog__.subject_node
         if not remote(node):
-            selector = GraphObjectSelector(graph, self.__class__)
+            selector = GraphObjectSelector(self.__class__, graph)
             selector.selection_class = NodeSelection
-            self.__cog__.subject_node = selector.select(self.__primaryvalue__).one()
+            self.__cog__.subject_node = selector.select(self.__primaryvalue__).first()
         self.__cog__.__db_pull__(graph)
 
     def __db_push__(self, graph):
@@ -429,15 +422,15 @@ class GraphObjectSelection(NodeSelection):
         for node in super(GraphObjectSelection, self).__iter__():
             yield wrap(node)
 
-    def one(self):
-        return self.object_class.wrap(super(GraphObjectSelection, self).one())
+    def first(self):
+        return self.object_class.wrap(super(GraphObjectSelection, self).first())
 
 
 class GraphObjectSelector(NodeSelector):
 
     selection_class = GraphObjectSelection
 
-    def __init__(self, graph, object_class):
+    def __init__(self, object_class, graph):
         NodeSelector.__init__(self, graph)
         self._object_class = object_class
         self.selection_class = type("%sSelection" % self._object_class.__name__, (GraphObjectSelection,),

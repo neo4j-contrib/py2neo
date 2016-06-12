@@ -49,7 +49,7 @@ class NodeSelection(object):
         for node, in self.graph.run(self.query):
             yield node
 
-    def one(self):
+    def first(self):
         """ Evaluate the selection and return the first
         :py:class:`.Node` selected or :py:const:`None` if no matching
         nodes are found.

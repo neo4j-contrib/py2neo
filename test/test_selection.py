@@ -93,7 +93,7 @@ class NodeFinderTestCase(GraphTestCase):
         assert found_names == {'James Marshall', 'John Cusack', 'John Goodman', 'John C. Reilly', 'Julia Roberts'}
 
     def test_one(self):
-        the_one = self.selector.select("Person").where("_.name =~ 'K.*'").order_by("_.name").one()
+        the_one = self.selector.select("Person").where("_.name =~ 'K.*'").order_by("_.name").first()
         assert the_one["name"] == 'Keanu Reeves'
 
     def test_tuple_property_value(self):

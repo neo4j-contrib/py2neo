@@ -472,7 +472,7 @@ class Graph(object):
         node_selection = self.node_selector.select(label).limit(1)
         if property_key:
             node_selection = node_selection.where(**{property_key: property_value})
-        return node_selection.one()
+        return node_selection.first()
 
     def _hydrate(self, data, inst=None):
         if isinstance(data, dict):
@@ -610,7 +610,7 @@ class Graph(object):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            node = self.node_selector.select().where("id(_) = %d" % id_).one()
+            node = self.node_selector.select().where("id(_) = %d" % id_).first()
             if node is None:
                 raise IndexError("Node %d not found" % id_)
             else:
