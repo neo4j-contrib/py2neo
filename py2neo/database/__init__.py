@@ -397,7 +397,8 @@ class Graph(object):
 
     def delete(self, subgraph):
         """ Run a :meth:`.Transaction.delete` operation within an
-        `autocommit` :class:`.Transaction`.
+        `autocommit` :class:`.Transaction`. To delete only the
+        relationships, use the :meth:`.separate` method.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
@@ -1069,7 +1070,8 @@ class Transaction(object):
 
     def delete(self, subgraph):
         """ Delete the remote nodes and relationships that correspond to
-        those in a local subgraph.
+        those in a local subgraph. To delete only the relationships, use
+        the :meth:`.separate` method.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
