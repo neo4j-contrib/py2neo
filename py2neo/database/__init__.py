@@ -36,6 +36,7 @@ from py2neo.util import deprecated, version_tuple
 from py2neo.database.auth import *
 from py2neo.database.cypher import *
 from py2neo.database.http import *
+from py2neo.database.selection import *
 from py2neo.database.status import *
 
 
@@ -331,6 +332,7 @@ class Graph(object):
                                                    encypted=address.secure,
                                                    user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
+            inst.node_selector = NodeSelector(inst)
             cls.__instances[key] = inst
         return inst
 
@@ -437,6 +439,7 @@ class Graph(object):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
+    @deprecated("Graph.find is deprecated, use NodeSelector instead")
     def find(self, label, property_key=None, property_value=None, limit=None):
         """ Yield all nodes with a given label, optionally filtering
         by property key and value.
@@ -447,28 +450,15 @@ class Graph(object):
                                provided, any of these values may be matched
         :param limit: maximum number of nodes to match
         """
-        if not label:
-            raise ValueError("Empty label")
-        clauses = ["MATCH (a:%s)" % cypher_escape(label)]
-        parameters = {}
-        if property_key is not None:
-            if isinstance(property_value, (tuple, set, frozenset)):
-                clauses.append("WHERE a.%s IN {x}" % cypher_escape(property_key))
-                parameters["x"] = list(property_value)
-            else:
-                clauses.append("WHERE a.%s = {x}" % cypher_escape(property_key))
-                parameters["x"] = property_value
-        clauses.append("RETURN a, labels(a)")
+        node_selection = self.node_selector.select(label)
+        if property_key:
+            node_selection = node_selection.where(**{property_key: property_value})
         if limit:
-            clauses.append("LIMIT %d" % limit)
-        cursor = self.run("\n".join(clauses), parameters)
-        while cursor.forward():
-            record = cursor.current()
-            a = record[0]
-            a.update_labels(record[1])
-            yield a
-        cursor.close()
+            node_selection = node_selection.limit(limit)
+        for node in node_selection:
+            yield node
 
+    @deprecated("Graph.find_one is deprecated, use NodeSelector instead")
     def find_one(self, label, property_key=None, property_value=None):
         """ Find a single node by label and optional property. This method is
         intended to be used with a unique constraint and does not fail if more
@@ -479,8 +469,10 @@ class Graph(object):
         :param property_value: property value to match; if a tuple or set is
                                provided, any of these values may be matched
         """
-        for node in self.find(label, property_key, property_value, limit=1):
-            return node
+        node_selection = self.node_selector.select(label).limit(1)
+        if property_key:
+            node_selection = node_selection.where(**{property_key: property_value})
+        return node_selection.first()
 
     def _hydrate(self, data, inst=None):
         if isinstance(data, dict):
@@ -618,7 +610,7 @@ class Graph(object):
         try:
             return Node.cache[uri_string]
         except KeyError:
-            node = self.evaluate("MATCH (a) WHERE id(a)={x} RETURN a", x=id_)
+            node = self.node_selector.select().where("id(_) = %d" % id_).first()
             if node is None:
                 raise IndexError("Node %d not found" % id_)
             else:

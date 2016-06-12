@@ -19,7 +19,7 @@
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo import Graph, Node, remote, HTTPTransaction
+from py2neo import Graph, Node, remote, HTTPTransaction, NodeSelector
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
 
@@ -31,9 +31,11 @@ def unique_string_generator():
 
 class GraphTestCase(TestCase):
 
+    graph = Graph()
+    node_selector = NodeSelector(graph)
+
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
-        self.graph = Graph()
         self.http_graph = Graph()
         self.http_graph.driver = None
         self.http_graph.transaction_class = HTTPTransaction

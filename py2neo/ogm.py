@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.database import cypher_escape
+from py2neo.database import cypher_escape, NodeSelection, NodeSelector
 from py2neo.types import Node, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
 
@@ -327,15 +327,6 @@ class GraphObjectType(type):
         return super(GraphObjectType, mcs).__new__(mcs, name, bases, attributes)
 
 
-def _find_one(graph, primary_label, primary_key, primary_value):
-    if primary_key == "__id__":
-        node = graph.evaluate("MATCH (a:%s) WHERE id(a)={x} RETURN a" %
-                              cypher_escape(primary_label), x=primary_value)
-    else:
-        node = graph.find_one(primary_label, primary_key, primary_value)
-    return node
-
-
 @metaclass(GraphObjectType)
 class GraphObject(object):
     __graph__ = None
@@ -385,20 +376,8 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def find_one(cls, graph, primary_value):
-        node = _find_one(graph, cls.__primarylabel__, cls.__primarykey__, primary_value)
-        return cls.wrap(node)
-
-    @classmethod
-    def find(cls, graph, primary_values):
-        primary_key = cls.__primarykey__
-        if primary_key == "__id__":
-            for record in graph.run("MATCH (a:%s) WHERE id(a) IN {x} RETURN a" %
-                                    cypher_escape(cls.__primarylabel__), x=list(primary_values)):
-                yield cls.wrap(record["a"])
-        else:
-            for node in graph.find(cls.__primarylabel__, primary_key, tuple(primary_values)):
-                yield cls.wrap(node)
+    def select(cls, graph, primary_value):
+        return GraphObjectSelector(cls, graph).select(primary_value)
 
     def __repr__(self):
         return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
@@ -425,9 +404,38 @@ class GraphObject(object):
     def __db_pull__(self, graph):
         node = self.__cog__.subject_node
         if not remote(node):
-            self.__cog__.subject_node = _find_one(graph, self.__primarylabel__,
-                                                  self.__primarykey__, self.__primaryvalue__)
+            selector = GraphObjectSelector(self.__class__, graph)
+            selector.selection_class = NodeSelection
+            self.__cog__.subject_node = selector.select(self.__primaryvalue__).first()
         self.__cog__.__db_pull__(graph)
 
     def __db_push__(self, graph):
         self.__cog__.__db_push__(graph)
+
+
+class GraphObjectSelection(NodeSelection):
+
+    object_class = GraphObject
+
+    def __iter__(self):
+        wrap = self.object_class.wrap
+        for node in super(GraphObjectSelection, self).__iter__():
+            yield wrap(node)
+
+    def first(self):
+        return self.object_class.wrap(super(GraphObjectSelection, self).first())
+
+
+class GraphObjectSelector(NodeSelector):
+
+    selection_class = GraphObjectSelection
+
+    def __init__(self, object_class, graph):
+        NodeSelector.__init__(self, graph)
+        self._object_class = object_class
+        self.selection_class = type("%sSelection" % self._object_class.__name__, (GraphObjectSelection,),
+                                    {"object_class": object_class})
+
+    def select(self, primary_value):
+        cls = self._object_class
+        return NodeSelector.select(self, cls.__primarylabel__, **{cls.__primarykey__: primary_value})
