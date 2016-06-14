@@ -366,17 +366,14 @@ class GraphObject(object):
         if node is None:
             return None
         inst = GraphObject()
-        inst.__cog = cog = Cog(node)
+        inst.__cog = Cog(node)
         inst.__class__ = cls
         for attr in dir(inst):
             _ = getattr(inst, attr)
-        remote_node = remote(node)
-        if remote_node:
-            remote_node.graph.pull(cog.subject_node)
         return inst
 
     @classmethod
-    def select(cls, graph, primary_value):
+    def select(cls, graph, primary_value=None):
         return GraphObjectSelector(cls, graph).select(primary_value)
 
     def __repr__(self):
@@ -436,6 +433,9 @@ class GraphObjectSelector(NodeSelector):
         self.selection_class = type("%sSelection" % self._object_class.__name__, (GraphObjectSelection,),
                                     {"object_class": object_class})
 
-    def select(self, primary_value):
+    def select(self, primary_value=None):
         cls = self._object_class
-        return NodeSelector.select(self, cls.__primarylabel__, **{cls.__primarykey__: primary_value})
+        properties = {}
+        if primary_value is not None:
+            properties[cls.__primarykey__] = primary_value
+        return NodeSelector.select(self, cls.__primarylabel__, **properties)

@@ -128,7 +128,7 @@ class Driver(object):
                 connected = True
             else:
                 if session.healthy:
-                    session.connection.reset()
+                    #session.connection.reset()
                     connected = session.healthy
         return session
 

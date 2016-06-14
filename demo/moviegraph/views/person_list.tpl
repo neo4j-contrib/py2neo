@@ -14,8 +14,8 @@
 
     <h1>People</h1>
     <ul>
-    % for name, in people:
-        <li><a href="/person/{{name}}">{{name}}</a></li>
+    % for person in people:
+        <li><a href="/person/{{person.name}}">{{person.name}}</a></li>
     % end
     </ul>
 
