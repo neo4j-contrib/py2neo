@@ -449,20 +449,15 @@ class Subgraph(object):
     def __db_pull__(self, graph):
         nodes = {node: None for node in self.nodes()}
         relationships = list(self.relationships())
-        if len(nodes) == 1 and len(relationships) == 0:
-            for node in nodes:
-                cursor = graph.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=remote(node)._id)
-                nodes[node] = cursor
-        else:
-            tx = graph.begin()
-            for node in nodes:
-                tx.entities.append({"a": node})
-                cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=remote(node)._id)
-                nodes[node] = cursor
-            for relationship in relationships:
-                tx.entities.append({"r": relationship})
-                tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id)
-            tx.commit()
+        tx = graph.begin()
+        for node in nodes:
+            tx.entities.append({"a": node})
+            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=remote(node)._id)
+            nodes[node] = cursor
+        for relationship in relationships:
+            tx.entities.append({"r": relationship})
+            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id)
+        tx.commit()
         for node, cursor in nodes.items():
             labels = node._Node__labels
             labels.clear()
