@@ -1170,6 +1170,8 @@ class HTTPTransaction(Transaction):
             self.finish()
         else:
             resource = self._execute or self._begin
+        if resource == self._begin_commit and not self.statements:
+            return
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:

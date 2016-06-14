@@ -196,6 +196,14 @@ case ${COMMAND} in
         NEO4J_VERSIONS="2.3"
         run_tests $*
         ;;
+    test-2.2)
+        NEO4J_VERSIONS="2.2"
+        run_tests $*
+        ;;
+    test-2.1)
+        NEO4J_VERSIONS="2.1"
+        run_tests $*
+        ;;
     test-2.0)
         NEO4J_VERSIONS="2.0"
         run_tests $*

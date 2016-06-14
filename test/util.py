@@ -19,7 +19,7 @@
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo import Graph, Node, remote, HTTPTransaction, NodeSelector
+from py2neo import Graph, Node, remote, BoltTransaction, HTTPTransaction, NodeSelector
 from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
 
@@ -36,13 +36,22 @@ class GraphTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
-        self.http_graph = Graph()
+        self.http_graph = Graph(bolt=False)
         self.http_graph.driver = None
         self.http_graph.transaction_class = HTTPTransaction
         self.dbms = self.graph.dbms
         self.schema = self.graph.schema
         self.index_manager = ManualIndexManager(self.graph)
         self.unique_string = unique_string_generator()
+
+        version = self.dbms.kernel_version
+        with self.graph.begin() as tx:
+            if version >= (3,):
+                assert isinstance(tx, BoltTransaction)
+            else:
+                assert isinstance(tx, HTTPTransaction)
+        with self.http_graph.begin() as tx:
+            assert isinstance(tx, HTTPTransaction)
 
     def tearDown(self):
         for key, puddle in ConnectionPool._puddles.items():

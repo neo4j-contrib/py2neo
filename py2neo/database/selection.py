@@ -16,20 +16,22 @@
 # limitations under the License.
 
 
-from py2neo.database.cypher import cypher_escape, cypher_repr
+from py2neo.database.cypher import cypher_escape
 
 
-def property_equality_conditions(**properties):
-    for key, value in properties.items():
+def property_equality_conditions(properties, offset=1):
+    for i, (key, value) in enumerate(properties.items(), start=offset):
         if key == "__id__":
             condition = "id(_)"
         else:
             condition = "_.%s" % cypher_escape(key)
         if isinstance(value, (tuple, set, frozenset)):
-            condition += " IN %s" % cypher_repr(list(value))
+            condition += " IN {%d}" % i
+            parameters = {"%d" % i: list(value)}
         else:
-            condition += " = %s" % cypher_repr(value)
-        yield condition
+            condition += " = {%d}" % i
+            parameters = {"%d" % i: value}
+        yield condition, parameters
 
 
 class NodeSelection(object):
@@ -46,7 +48,7 @@ class NodeSelection(object):
         self._limit_amount = limit
 
     def __iter__(self):
-        for node, in self.graph.run(self.query):
+        for node, in self.graph.run(*self.query):
             yield node
 
     def first(self):
@@ -56,18 +58,25 @@ class NodeSelection(object):
 
         :return: a single matching :py:class:`.Node` or :py:const:`None`
         """
-        return self.graph.evaluate(self.query)
+        return self.graph.evaluate(*self.query)
 
     @property
     def query(self):
-        """ The Cypher query used to select the nodes that match the
-        criteria for this selection.
+        """ A tuple of the Cypher query and parameters used to select
+        the nodes that match the criteria for this selection.
 
         :return: Cypher query string
         """
         clauses = ["MATCH (_%s)" % "".join(":%s" % cypher_escape(label) for label in self._labels)]
+        parameters = {}
         if self._conditions:
-            clauses.append("WHERE %s" % " AND ".join(self._conditions))
+            conditions = []
+            for condition in self._conditions:
+                if isinstance(condition, tuple):
+                    condition, param = condition
+                    parameters.update(param)
+                conditions.append(condition)
+            clauses.append("WHERE %s" % " AND ".join(conditions))
         clauses.append("RETURN _")
         if self._order_by_fields:
             clauses.append("ORDER BY %s" % (", ".join(self._order_by_fields)))
@@ -75,7 +84,7 @@ class NodeSelection(object):
             clauses.append("SKIP %d" % self._skip_amount)
         if self._limit_amount is not None:
             clauses.append("LIMIT %d" % self._limit_amount)
-        return " ".join(clauses)
+        return " ".join(clauses), parameters
 
     def where(self, *conditions, **properties):
         """ Create a new selection based on this selection. The
@@ -95,7 +104,7 @@ class NodeSelection(object):
         :return: refined selection object
         """
         return self.__class__(self.graph, self._labels,
-                              self._conditions + conditions + tuple(property_equality_conditions(**properties)),
+                              self._conditions + conditions + tuple(property_equality_conditions(properties)),
                               self._order_by_fields, self._skip_amount, self._limit_amount)
 
     def order_by(self, *fields):
@@ -177,6 +186,6 @@ class NodeSelector(object):
         """
         if labels or properties:
             return self.selection_class(self.graph, frozenset(labels),
-                                        tuple(property_equality_conditions(**properties)))
+                                        tuple(property_equality_conditions(properties)))
         else:
             return self._all

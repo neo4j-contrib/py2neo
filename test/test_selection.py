@@ -71,6 +71,14 @@ class NodeFinderTestCase(GraphTestCase):
         assert found_names == {'Keanu Reeves', 'Kelly McGillis', 'Kevin Bacon',
                                'Kevin Pollak', 'Kiefer Sutherland', 'Kelly Preston'}
 
+    def test_custom_conditions_with_parameters(self):
+        found = list(self.selector.select("Person").where(("_.name = {1}", {"1": "Keanu Reeves"})))
+        assert len(found) == 1
+        first = found[0]
+        assert isinstance(first, Node)
+        assert first["name"] == "Keanu Reeves"
+        assert first["born"] == 1964
+
     def test_order_by(self):
         found = list(self.selector.select("Person").where("_.name =~ 'K.*'").order_by("_.name"))
         found_names = [actor["name"] for actor in found]
