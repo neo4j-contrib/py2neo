@@ -284,9 +284,17 @@ class Cog(object):
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         # TODO make atomic
         graph = tx.graph
+        if primary_label is None:
+            primary_label = getattr(self.subject_node, "__primarylabel__", None)
+        if primary_key is None:
+            primary_key = getattr(self.subject_node, "__primarykey__", "__id__")
         remote_node = remote(self.subject_node)
         if not remote_node:
-            graph.merge(self.subject_node, primary_label, primary_key)
+            if primary_key == "__id__":
+                self.subject_node.add_label(primary_label)
+                graph.create(self.subject_node)
+            else:
+                graph.merge(self.subject_node, primary_label, primary_key)
             for related_objects in self.outgoing.values():
                 related_objects.__db_push__(graph)
             for related_objects in self.incoming.values():

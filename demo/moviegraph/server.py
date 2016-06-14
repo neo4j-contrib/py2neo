@@ -8,7 +8,6 @@ from datetime import date
 from os import getenv
 from os.path import dirname, join as path_join
 from py2neo import Graph, watch
-from uuid import uuid4
 
 from demo.moviegraph.model import Movie, Person, Comment
 
@@ -76,11 +75,8 @@ def post_movie_comment():
     """ Capture comment and redirect to movie page.
     """
     today = date.today()
-
-    comment = Comment(request.forms["name"], request.forms["text"])
-    # TODO: make this work for class without primary key
-    comment.uuid = uuid4().hex
-    comment.date = "%d %s %d" % (today.day, month_name[today.month], today.year)
+    comment_date = "%d %s %d" % (today.day, month_name[today.month], today.year)
+    comment = Comment(comment_date, request.forms["name"], request.forms["text"])
 
     title = request.forms["title"]
     movie = Movie.select(graph, title).first()

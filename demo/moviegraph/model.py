@@ -36,16 +36,15 @@ class Person(GraphObject):
 
 
 class Comment(GraphObject):
-    __primarykey__ = "uuid"
 
-    uuid = Property()
+    date = Property()
     name = Property()
     text = Property()
-    date = Property()
 
     subject = RelatedFrom(Movie, "COMMENT")
 
-    def __init__(self, name, text):
+    def __init__(self, date, name, text):
+        self.date = date
         self.name = name
         self.text = text
 
