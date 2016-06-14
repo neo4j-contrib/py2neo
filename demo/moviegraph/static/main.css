@@ -1,6 +1,6 @@
 body {
     font-family: sans-serif;
-    margin: 5em 20px 1em 20px;
+    margin: 6em 20px 1em 20px;
 }
 a {
     text-decoration: none;
@@ -14,11 +14,12 @@ a:hover {
     top: 0;
     left: 0;
     width: 100%;
-    color: #999999;
-    background: #024c7d url(/images/neo4j.png) no-repeat 20px 50%;
+    height: 80px;
+    color: #CCCCCC;
+    background: #666677 url(/images/camera.png) no-repeat 20px 50%;
 }
 nav {
-    padding: 1.2em 20px 1.2em 66px;
+    padding: 2em 20px 2em 100px;
 }
 nav a {
     color: #CCCCCC;

@@ -31,7 +31,6 @@
 
     <div class="footer">
       <code>(graphs)-[:ARE]->(everywhere)</code>
-      <p>With &hearts; from Sweden &amp; the <a href="http://neo4j.com/community/">Neo4j Community</a></p>
     </div>
 
   </body>
