@@ -278,6 +278,8 @@ class Cog(object):
             tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
         for related_objects in self.outgoing.values():
             related_objects.clear()
+        for related_objects in self.incoming.values():
+            related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         # TODO make atomic
@@ -286,6 +288,8 @@ class Cog(object):
         if not remote_node:
             graph.merge(self.subject_node, primary_label, primary_key)
             for related_objects in self.outgoing.values():
+                related_objects.__db_push__(graph)
+            for related_objects in self.incoming.values():
                 related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):

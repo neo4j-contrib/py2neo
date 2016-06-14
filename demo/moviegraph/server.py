@@ -82,12 +82,10 @@ def post_movie_comment():
     comment.uuid = uuid4().hex
     comment.date = "%d %s %d" % (today.day, month_name[today.month], today.year)
 
-    # TODO: make this work for reversed relationships:
-    # TODO: `comment.subject.add(movie); graph.push(comment)`
     title = request.forms["title"]
     movie = Movie.select(graph, title).first()
-    movie.comments.add(comment)
-    graph.push(movie)
+    comment.subject.add(movie)
+    graph.create(comment)
 
     redirect("/movie/%s" % title)
 
