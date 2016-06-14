@@ -8,6 +8,7 @@ from datetime import date
 from os import getenv
 from os.path import dirname, join as path_join
 from py2neo import Graph, watch
+from uuid import uuid4
 
 from demo.moviegraph.model import Movie, Person, Comment
 
@@ -74,25 +75,20 @@ def get_movie(title):
 def post_movie_comment():
     """ Capture comment and redirect to movie page.
     """
-    title = request.forms["title"]
-    name = request.forms["name"]
-    text = request.forms["text"]
     today = date.today()
-    comment_date = "{d} {m} {y}".format(y=today.year,
-                                        m=month_name[today.month],
-                                        d=today.day)
-    comment = Comment()
-    comment.name = name
-    comment.text = text
-    comment.date = comment_date
-    comment.subject.add(Movie.select(graph, title).first())
-    graph.create(comment)
-    # statement = """\
-    # MATCH (m:Movie) WHERE m.title = {T}
-    # WITH m
-    # CREATE (m)-[:COMMENT]->(r:Comment {name:{N},text:{C},date:{D}})
-    # """
-    # graph.run(statement, T=title, N=name, C=text, D=comment_date)
+
+    comment = Comment(request.forms["name"], request.forms["text"])
+    # TODO: make this work for class without primary key
+    comment.uuid = uuid4().hex
+    comment.date = "%d %s %d" % (today.day, month_name[today.month], today.year)
+
+    # TODO: make this work for reversed relationships:
+    # TODO: `comment.subject.add(movie); graph.push(comment)`
+    title = request.forms["title"]
+    movie = Movie.select(graph, title).first()
+    movie.comments.add(comment)
+    graph.push(movie)
+
     redirect("/movie/%s" % title)
 
 

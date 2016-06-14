@@ -36,12 +36,18 @@ class Person(GraphObject):
 
 
 class Comment(GraphObject):
+    __primarykey__ = "uuid"
 
+    uuid = Property()
     name = Property()
     text = Property()
     date = Property()
 
     subject = RelatedFrom(Movie, "COMMENT")
+
+    def __init__(self, name, text):
+        self.name = name
+        self.text = text
 
     def __lt__(self, other):
         return self.date < other.date
