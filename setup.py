@@ -24,7 +24,7 @@ except ImportError:
 from py2neo import __author__, __email__, __license__, __package__, __version__
 
 
-packages = find_packages(exclude=("book", "test", "test_ext", "test_ext.*"))
+packages = find_packages(exclude=("book", "demo", "test", "test_ext", "test_ext.*"))
 package_metadata = {
     "name": __package__,
     "version": __version__,

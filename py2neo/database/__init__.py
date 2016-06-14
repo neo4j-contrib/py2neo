@@ -528,44 +528,52 @@ class Graph(object):
         :param bidirectional: :const:`True` if reversed relationships should also be included
         :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
+        clauses = []
+        returns = []
         if start_node is None and end_node is None:
-            statement = "MATCH (a)"
+            clauses.append("MATCH (a)")
             parameters = {}
+            returns.append("a")
+            returns.append("b")
         elif end_node is None:
-            statement = "MATCH (a) WHERE id(a)={A}"
+            clauses.append("MATCH (a) WHERE id(a) = {1}")
             start_node = cast_node(start_node)
             if not remote(start_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"A": remote(start_node)._id}
+            parameters = {"1": remote(start_node)._id}
+            returns.append("b")
         elif start_node is None:
-            statement = "MATCH (b) WHERE id(b)={B}"
+            clauses.append("MATCH (b) WHERE id(b) = {2}")
             end_node = cast_node(end_node)
             if not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"B": remote(end_node)._id}
+            parameters = {"2": remote(end_node)._id}
+            returns.append("a")
         else:
-            statement = "MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
+            clauses.append("MATCH (a) WHERE id(a) = {1} MATCH (b) WHERE id(b) = {2}")
             start_node = cast_node(start_node)
             end_node = cast_node(end_node)
             if not remote(start_node) or not remote(end_node):
                 raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"A": remote(start_node)._id, "B": remote(end_node)._id}
+            parameters = {"1": remote(start_node)._id, "2": remote(end_node)._id}
         if rel_type is None:
-            rel_clause = ""
+            relationship_detail = ""
         elif is_collection(rel_type):
-            rel_clause = ":" + "|:".join("`{0}`".format(_) for _ in rel_type)
+            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in rel_type)
         else:
-            rel_clause = ":`{0}`".format(rel_type)
+            relationship_detail = ":%s" % cypher_escape(rel_type)
         if bidirectional:
-            statement += " MATCH (a)-[r" + rel_clause + "]-(b) RETURN r"
+            clauses.append("MATCH (a)-[_" + relationship_detail + "]-(b)")
         else:
-            statement += " MATCH (a)-[r" + rel_clause + "]->(b) RETURN r"
+            clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
+        returns.append("_")
+        clauses.append("RETURN %s" % ", ".join(returns))
         if limit is not None:
-            statement += " LIMIT {0}".format(int(limit))
-        cursor = self.run(statement, parameters)
+            clauses.append("LIMIT %d" % limit)
+        cursor = self.run(" ".join(clauses), parameters)
         while cursor.forward():
             record = cursor.current()
-            yield record["r"]
+            yield record["_"]
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Match and return one relationship with specific criteria.
