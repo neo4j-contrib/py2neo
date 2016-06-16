@@ -19,7 +19,7 @@
 from py2neo.database.cypher import cypher_escape
 
 
-def property_equality_conditions(properties, offset=1):
+def _property_equality_conditions(properties, offset=1):
     for i, (key, value) in enumerate(properties.items(), start=offset):
         if key == "__id__":
             condition = "id(_)"
@@ -35,20 +35,19 @@ def property_equality_conditions(properties, offset=1):
 
 
 class NodeSelection(object):
-    """ A set of criteria representing a selection of nodes from a
-    graph.
+    """ An immutable set of node selection criteria.
     """
 
     def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None):
         self.graph = graph
         self._labels = frozenset(labels)
         self._conditions = tuple(conditions)
-        self._order_by_fields = tuple(order_by)
-        self._skip_amount = skip
-        self._limit_amount = limit
+        self._order_by = tuple(order_by)
+        self._skip = skip
+        self._limit = limit
 
     def __iter__(self):
-        for node, in self.graph.run(*self.query):
+        for node, in self.graph.run(*self._query_and_parameters):
             yield node
 
     def first(self):
@@ -58,10 +57,10 @@ class NodeSelection(object):
 
         :return: a single matching :py:class:`.Node` or :py:const:`None`
         """
-        return self.graph.evaluate(*self.query)
+        return self.graph.evaluate(*self._query_and_parameters)
 
     @property
-    def query(self):
+    def _query_and_parameters(self):
         """ A tuple of the Cypher query and parameters used to select
         the nodes that match the criteria for this selection.
 
@@ -78,12 +77,12 @@ class NodeSelection(object):
                 conditions.append(condition)
             clauses.append("WHERE %s" % " AND ".join(conditions))
         clauses.append("RETURN _")
-        if self._order_by_fields:
-            clauses.append("ORDER BY %s" % (", ".join(self._order_by_fields)))
-        if self._skip_amount:
-            clauses.append("SKIP %d" % self._skip_amount)
-        if self._limit_amount is not None:
-            clauses.append("LIMIT %d" % self._limit_amount)
+        if self._order_by:
+            clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
+        if self._skip:
+            clauses.append("SKIP %d" % self._skip)
+        if self._limit is not None:
+            clauses.append("LIMIT %d" % self._limit)
         return " ".join(clauses), parameters
 
     def where(self, *conditions, **properties):
@@ -98,14 +97,18 @@ class NodeSelection(object):
 
             selection.where("_.name =~ 'J.*")
 
+        Simple property equalities can also be specified::
+        
+            selection.where(born=1976)
+
         :param conditions: Cypher expressions to add to the selection
                            `WHERE` clause
         :param properties: exact property match keys and values
         :return: refined selection object
         """
         return self.__class__(self.graph, self._labels,
-                              self._conditions + conditions + tuple(property_equality_conditions(properties)),
-                              self._order_by_fields, self._skip_amount, self._limit_amount)
+                              self._conditions + conditions + tuple(_property_equality_conditions(properties)),
+                              self._order_by, self._skip, self._limit)
 
     def order_by(self, *fields):
         """ Order by the fields or field expressions specified.
@@ -119,7 +122,7 @@ class NodeSelection(object):
         :return: refined selection object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
-                              fields, self._skip_amount, self._limit_amount)
+                              fields, self._skip, self._limit)
 
     def skip(self, amount):
         """ Skip the first `amount` nodes in the result.
@@ -128,7 +131,7 @@ class NodeSelection(object):
         :return: refined selection object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
-                              self._order_by_fields, amount, self._limit_amount)
+                              self._order_by, amount, self._limit)
 
     def limit(self, amount):
         """ Limit the selection to at most `amount` nodes.
@@ -137,26 +140,29 @@ class NodeSelection(object):
         :return: refined selection object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
-                              self._order_by_fields, self._skip_amount, amount)
+                              self._order_by, self._skip, amount)
 
 
 class NodeSelector(object):
-    """ A :py:class:`.NodeSelector` can be used to locate nodes within
-    a graph that fulfil a specified set of conditions. Typically, a
-    single node can be identified passing a specific label and property
-    key-value pair. However, any number of labels and any condition
-    supported by the Cypher `WHERE` clause is allowed.
+    """ A :py:class:`.NodeSelector` can be used to locate nodes that
+    fulfil a specific set of criteria. Typically, a single node can be
+    identified passing a specific label and property key-value pair.
+    However, any number of labels and any condition supported by the
+    Cypher `WHERE` clause is allowed.
 
     For a simple selection by label and property::
 
-        >>> from py2neo import Graph
+        >>> from py2neo import Graph, NodeSelector
         >>> graph = Graph()
         >>> selector = NodeSelector(graph)
         >>> selected = selector.select("Person", name="Keanu Reeves")
         >>> list(selected)
         [(f9726ea:Person {born:1964,name:"Keanu Reeves"})]
 
-    For a more comprehensive selection using Cypher expressions::
+    For a more comprehensive selection using Cypher expressions, the
+    :meth:`.NodeSelection.where` method can be used for further
+    refinement. Here, the underscore character can be used to refer to
+    the node being filtered::
 
         >>> selected = selector.select("Person").where("_.name =~ 'J.*'", "1960 <= _.born < 1970")
         >>> list(selected)
@@ -166,9 +172,11 @@ class NodeSelector(object):
          (b141775:Person {born:1965,name:"John C. Reilly"}),
          (e40244b:Person {born:1967,name:"Julia Roberts"})]
 
-    Note that the underlying query is only evaluated when the selection
-    undergoes iteration. This means that a :py:class:`NodeSelection`
-    instance may be reused to query the graph data multiple times.
+    The underlying query is only evaluated when the selection undergoes
+    iteration or when a specific evaluation method is called (such as
+    :meth:`.NodeSelection.first`). This means that a :class:`.NodeSelection`
+    instance may be reused before and after a data changes for different
+    results.
     """
 
     selection_class = NodeSelection
@@ -186,6 +194,6 @@ class NodeSelector(object):
         """
         if labels or properties:
             return self.selection_class(self.graph, frozenset(labels),
-                                        tuple(property_equality_conditions(properties)))
+                                        tuple(_property_equality_conditions(properties)))
         else:
             return self._all
