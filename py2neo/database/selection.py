@@ -98,7 +98,7 @@ class NodeSelection(object):
             selection.where("_.name =~ 'J.*")
 
         Simple property equalities can also be specified::
-        
+
             selection.where(born=1976)
 
         :param conditions: Cypher expressions to add to the selection

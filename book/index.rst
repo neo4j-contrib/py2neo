@@ -45,6 +45,7 @@ Library Reference
 
    types
    database
+   ogm
    ext/batman
    ext/calendar
    neokit

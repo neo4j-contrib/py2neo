@@ -19,7 +19,7 @@
 from unittest import TestCase
 
 from py2neo import order, size, remote, Node, Relationship, NodeSelector
-from py2neo.ogm import RelatedObjects, Property, Related
+from py2neo.ogm import RelatedObjects, Property, RelatedTo
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
 
@@ -208,9 +208,9 @@ class FindTestCase(MovieGraphTestCase):
             name = Property()
             year_of_birth = Property(key="born")
 
-            acted_in = Related(Film)
-            directed = Related("Film")
-            produced = Related("test.fixtures.ogm.Film")
+            acted_in = RelatedTo(Film)
+            directed = RelatedTo("Film")
+            produced = RelatedTo("test.fixtures.ogm.Film")
 
         found = list(PersonById.select(self.graph, node_id))
         assert found
@@ -233,9 +233,9 @@ class FindTestCase(MovieGraphTestCase):
             name = Property()
             year_of_birth = Property(key="born")
 
-            acted_in = Related(Film)
-            directed = Related("Film")
-            produced = Related("test.fixtures.ogm.Film")
+            acted_in = RelatedTo(Film)
+            directed = RelatedTo("Film")
+            produced = RelatedTo("test.fixtures.ogm.Film")
 
         keanu = PersonById.select(self.graph, node_id).first()
 

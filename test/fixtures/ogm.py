@@ -18,7 +18,7 @@
 
 from os.path import join as path_join, dirname
 
-from py2neo.ogm import GraphObject, Label, Property, Related, RelatedFrom
+from py2neo.ogm import GraphObject, Label, Property, RelatedTo, RelatedFrom
 from test.util import GraphTestCase
 
 
@@ -50,9 +50,9 @@ class Person(MovieGraphObject):
     name = Property()
     year_of_birth = Property(key="born")
 
-    acted_in = Related(Film)
-    directed = Related("Film")
-    produced = Related("test.fixtures.ogm.Film")
+    acted_in = RelatedTo(Film)
+    directed = RelatedTo("Film")
+    produced = RelatedTo("test.fixtures.ogm.Film")
 
     def __hash__(self):
         return hash(self.name)

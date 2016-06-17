@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 
-from py2neo.ogm import GraphObject, Property, Related, RelatedFrom
+from py2neo.ogm import GraphObject, Property, RelatedTo, RelatedFrom
 
 
 class Movie(GraphObject):
@@ -15,7 +15,7 @@ class Movie(GraphObject):
     actors = RelatedFrom("Person", "ACTED_IN")
     directors = RelatedFrom("Person", "DIRECTED")
     producers = RelatedFrom("Person", "PRODUCED")
-    comments = Related("Comment", "COMMENT")
+    comments = RelatedTo("Comment", "COMMENT")
 
     def __lt__(self, other):
         return self.title < other.title
@@ -27,9 +27,9 @@ class Person(GraphObject):
     name = Property()
     born = Property()
 
-    acted_in = Related(Movie)
-    directed = Related(Movie)
-    produced = Related(Movie)
+    acted_in = RelatedTo(Movie)
+    directed = RelatedTo(Movie)
+    produced = RelatedTo(Movie)
 
     def __lt__(self, other):
         return self.name < other.name

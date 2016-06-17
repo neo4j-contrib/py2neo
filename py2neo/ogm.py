@@ -22,6 +22,8 @@ from py2neo.util import label_case, relationship_case, metaclass
 
 
 class Property(object):
+    """ A property definition for a :class:`.GraphObject`.
+    """
 
     def __init__(self, key=None):
         self.key = key
@@ -34,6 +36,8 @@ class Property(object):
 
 
 class Label(object):
+    """ A label definition for a :class:`.GraphObject`.
+    """
 
     def __init__(self, name=None):
         self.name = name
@@ -48,9 +52,11 @@ class Label(object):
             instance.__cog__.subject_node.remove_label(self.name)
 
 
-class Related(object):
-    """ Represents a set of outgoing relationships from a single start
-    node to (potentially) multiple end nodes.
+class RelatedTo(object):
+    """ Define a type of outgoing relationship.
+
+    :param related_class: class of object to which these relationships connect
+    :param relationship_type: underlying relationship type for these relationships
     """
 
     def __init__(self, related_class, relationship_type=None):
@@ -73,7 +79,15 @@ class Related(object):
         return cog.outgoing[self.relationship_type]
 
 
-class RelatedFrom(Related):
+class RelatedFrom(RelatedTo):
+    """ Define a type of incoming relationship.
+
+    :param related_class: class of object to which these relationships connect
+    :param relationship_type: underlying relationship type for these relationships
+    """
+
+    def __init__(self, related_class, relationship_type=None):
+        RelatedTo.__init__(self, related_class, relationship_type)
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
@@ -84,15 +98,22 @@ class RelatedFrom(Related):
 
 
 class RelatedObjects(object):
-    """ A set of similarly-typed objects that are all related to a
-    central object in a similar way.
+    """ A set of similarly-typed and similarly-related objects,
+    relative to a central node.
     """
 
-    def __init__(self, subject_node, relationship_type, related_class):
+    def __init__(self, subject_node, relationship_type, related_class, reverse=False):
         self.subject_node = subject_node
-        self.relationship_type = relationship_type
         self.related_class = related_class
         self.__related_objects = None
+        if reverse:
+            self.__match_args = (None, relationship_type, self.subject_node)
+            self.__related_node = "start_node"
+            self.__relationship_pattern = "(a)<-[_:%s]-(b)" % cypher_escape(relationship_type)
+        else:
+            self.__match_args = (self.subject_node, relationship_type, None)
+            self.__related_node = "end_node"
+            self.__relationship_pattern = "(a)-[_:%s]->(b)" % cypher_escape(relationship_type)
 
     def __iter__(self):
         for obj, _ in self._related_objects:
@@ -171,8 +192,8 @@ class RelatedObjects(object):
 
     def __db_pull__(self, graph):
         related_objects = []
-        for r in graph.match(self.subject_node, self.relationship_type):
-            related_object = self.related_class.wrap(r.end_node())
+        for r in graph.match(*self.__match_args):
+            related_object = self.related_class.wrap(getattr(r, self.__related_node)())
             related_objects.append((related_object, PropertyDict(r)))
         self._related_objects[:] = related_objects
 
@@ -184,42 +205,13 @@ class RelatedObjects(object):
             tx.merge(related_object)
         tx.process()
         # 2a. remove any relationships not in list of nodes
-        escaped_relationship_type = cypher_escape(self.relationship_type)
         subject_id = remote(self.subject_node)._id
-        tx.run("MATCH (a)-[r:%s]->(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
+        tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
                x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
-                   "MERGE (a)-[r:%s]->(b) SET r = {z}" % escaped_relationship_type,
-                   x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
-        tx.commit()
-
-
-class RelatedFromObjects(RelatedObjects):
-
-    def __db_pull__(self, graph):
-        related_objects = []
-        for r in graph.match(None, self.relationship_type, self.subject_node):
-            related_object = self.related_class.wrap(r.start_node())
-            related_objects.append((related_object, PropertyDict(r)))
-        self._related_objects[:] = related_objects
-
-    def __db_push__(self, graph):
-        tx = graph.begin()
-        # 1. merge all nodes (create ones that don't)
-        for related_object, _ in self._related_objects:
-            tx.merge(related_object)
-        tx.process()
-        # 2a. remove any relationships not in list of nodes
-        escaped_relationship_type = cypher_escape(self.relationship_type)
-        subject_id = remote(self.subject_node)._id
-        tx.run("MATCH (a)<-[r:%s]-(b) WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE r" % escaped_relationship_type,
-               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in self._related_objects])
-        # 2b. merge all relationships
-        for related_object, properties in self._related_objects:
-            tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
-                   "MERGE (a)<-[r:%s]-(b) SET r = {z}" % escaped_relationship_type,
+                   "MERGE %s SET _ = {z}" % self.__relationship_pattern,
                    x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
         tx.commit()
 
@@ -252,7 +244,7 @@ class Cog(object):
         self.outgoing[relationship_type] = RelatedObjects(self.subject_node, relationship_type, related_class)
 
     def define_incoming(self, relationship_type, related_class):
-        self.incoming[relationship_type] = RelatedFromObjects(self.subject_node, relationship_type, related_class)
+        self.incoming[relationship_type] = RelatedObjects(self.subject_node, relationship_type, related_class, reverse=True)
 
     def add(self, relationship_type, obj, properties=None, **kwproperties):
         self.outgoing[relationship_type].add(obj, properties, **kwproperties)
@@ -331,7 +323,7 @@ class GraphObjectType(type):
             elif isinstance(attr, Label):
                 if attr.name is None:
                     attr.name = label_case(attr_name)
-            elif isinstance(attr, Related):
+            elif isinstance(attr, RelatedTo):
                 if attr.relationship_type is None:
                     attr.relationship_type = relationship_case(attr_name)
         attributes.setdefault("__primarylabel__", name)
@@ -341,7 +333,9 @@ class GraphObjectType(type):
 
 @metaclass(GraphObjectType)
 class GraphObject(object):
-    __graph__ = None
+    """ The base class for all OGM classes.
+    """
+
     __primarylabel__ = None
     __primarykey__ = None
 
