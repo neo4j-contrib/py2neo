@@ -73,9 +73,9 @@ class RelatedTo(object):
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        if not cog.is_defined_outgoing(self.relationship_type):
+        if self.relationship_type not in cog.outgoing:
             self.resolve_related_class(instance)
-            cog.define_outgoing(self.relationship_type, self.related_class)
+            cog.outgoing[self.relationship_type] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class)
         return cog.outgoing[self.relationship_type]
 
 
@@ -91,9 +91,9 @@ class RelatedFrom(RelatedTo):
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        if not cog.is_defined_incoming(self.relationship_type):
+        if self.relationship_type not in cog.incoming:
             self.resolve_related_class(instance)
-            cog.define_incoming(self.relationship_type, self.related_class)
+            cog.incoming[self.relationship_type] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class, reverse=True)
         return cog.incoming[self.relationship_type]
 
 
@@ -233,33 +233,6 @@ class Cog(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def is_defined_outgoing(self, relationship_type):
-        return relationship_type in self.outgoing
-
-    def is_defined_incoming(self, relationship_type):
-        return relationship_type in self.incoming
-
-    def define_outgoing(self, relationship_type, related_class):
-        self.outgoing[relationship_type] = RelatedObjects(self.subject_node, relationship_type, related_class)
-
-    def define_incoming(self, relationship_type, related_class):
-        self.incoming[relationship_type] = RelatedObjects(self.subject_node, relationship_type, related_class, reverse=True)
-
-    def add(self, relationship_type, obj, properties=None, **kwproperties):
-        self.outgoing[relationship_type].add(obj, properties, **kwproperties)
-
-    def clear(self, relationship_type):
-        self.outgoing[relationship_type].clear()
-
-    def get(self, relationship_type, obj, key, default=None):
-        return self.outgoing[relationship_type].get(obj, key, default)
-
-    def remove(self, relationship_type, obj):
-        self.outgoing[relationship_type].remove(obj)
-
-    def update(self, relationship_type, obj, properties=None, **kwproperties):
-        self.outgoing[relationship_type].update(obj, properties, **kwproperties)
 
     def __db_create__(self, tx):
         self.__db_merge__(tx)
