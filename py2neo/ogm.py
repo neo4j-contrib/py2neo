@@ -21,6 +21,11 @@ from py2neo.types import Node, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
 
 
+OUTGOING = 1
+UNDIRECTED = 0
+INCOMING = -1
+
+
 class Property(object):
     """ A property definition for a :class:`.GraphObject`.
     """
@@ -73,10 +78,11 @@ class RelatedTo(object):
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        if self.relationship_type not in cog.outgoing:
+        key = (OUTGOING, self.relationship_type)
+        if key not in cog.related:
             self.resolve_related_class(instance)
-            cog.outgoing[self.relationship_type] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class)
-        return cog.outgoing[self.relationship_type]
+            cog.related[key] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class)
+        return cog.related[key]
 
 
 class RelatedFrom(RelatedTo):
@@ -91,10 +97,11 @@ class RelatedFrom(RelatedTo):
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        if self.relationship_type not in cog.incoming:
+        key = (INCOMING, self.relationship_type)
+        if key not in cog.related:
             self.resolve_related_class(instance)
-            cog.incoming[self.relationship_type] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class, reverse=True)
-        return cog.incoming[self.relationship_type]
+            cog.related[key] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class, reverse=True)
+        return cog.related[key]
 
 
 class RelatedObjects(object):
@@ -222,8 +229,7 @@ class Cog(object):
 
     def __init__(self, subject_node):
         self.subject_node = subject_node
-        self.outgoing = {}
-        self.incoming = {}
+        self.related = {}
 
     def __eq__(self, other):
         try:
@@ -241,9 +247,7 @@ class Cog(object):
         remote_node = remote(self.subject_node)
         if remote_node:
             tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
-        for related_objects in self.outgoing.values():
-            related_objects.clear()
-        for related_objects in self.incoming.values():
+        for related_objects in self.related.values():
             related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
@@ -260,18 +264,14 @@ class Cog(object):
                 graph.create(self.subject_node)
             else:
                 graph.merge(self.subject_node, primary_label, primary_key)
-            for related_objects in self.outgoing.values():
-                related_objects.__db_push__(graph)
-            for related_objects in self.incoming.values():
+            for related_objects in self.related.values():
                 related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
         remote_node = remote(self.subject_node)
         assert remote_node, "Can't pull if not bound to remote node"
         graph.pull(self.subject_node)
-        for related_objects in self.outgoing.values():
-            related_objects.__db_pull__(graph)
-        for related_objects in self.incoming.values():
+        for related_objects in self.related.values():
             related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
@@ -280,9 +280,7 @@ class Cog(object):
             graph.push(self.subject_node)
         else:
             graph.merge(self.subject_node)
-        for related_objects in self.outgoing.values():
-            related_objects.__db_push__(graph)
-        for related_objects in self.incoming.values():
+        for related_objects in self.related.values():
             related_objects.__db_push__(graph)
 
 
