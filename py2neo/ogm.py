@@ -293,22 +293,6 @@ class Cog(object):
             for related_objects in self.related.values():
                 related_objects.__db_push__(graph)
 
-    def __db_pull__(self, graph):
-        remote_node = remote(self.subject_node)
-        assert remote_node, "Can't pull if not bound to remote node"
-        graph.pull(self.subject_node)
-        for related_objects in self.related.values():
-            related_objects.__db_pull__(graph)
-
-    def __db_push__(self, graph):
-        remote_node = remote(self.subject_node)
-        if remote_node:
-            graph.push(self.subject_node)
-        else:
-            graph.merge(self.subject_node)
-        for related_objects in self.related.values():
-            related_objects.__db_push__(graph)
-
 
 class GraphObjectType(type):
 
@@ -402,15 +386,24 @@ class GraphObject(object):
         self.__cog__.__db_merge__(tx, primary_label, primary_key)
 
     def __db_pull__(self, graph):
-        node = self.__cog__.subject_node
-        if not remote(node):
+        cog = self.__cog__
+        if not remote(cog.subject_node):
             selector = GraphObjectSelector(self.__class__, graph)
             selector.selection_class = NodeSelection
-            self.__cog__.subject_node = selector.select(self.__primaryvalue__).first()
-        self.__cog__.__db_pull__(graph)
+            cog.subject_node = selector.select(self.__primaryvalue__).first()
+        graph.pull(cog.subject_node)
+        for related_objects in cog.related.values():
+            related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
-        self.__cog__.__db_push__(graph)
+        cog = self.__cog__
+        node = cog.subject_node
+        if remote(node):
+            graph.push(node)
+        else:
+            graph.merge(node)
+        for related_objects in cog.related.values():
+            related_objects.__db_push__(graph)
 
 
 class GraphObjectSelection(NodeSelection):
