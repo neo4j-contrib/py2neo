@@ -34,10 +34,10 @@ class Property(object):
         self.key = key
 
     def __get__(self, instance, owner):
-        return instance.__cog__.subject_node[self.key]
+        return instance.__ogm__.node[self.key]
 
     def __set__(self, instance, value):
-        instance.__cog__.subject_node[self.key] = value
+        instance.__ogm__.node[self.key] = value
 
 
 class Label(object):
@@ -48,13 +48,13 @@ class Label(object):
         self.name = name
 
     def __get__(self, instance, owner):
-        return instance.__cog__.subject_node.has_label(self.name)
+        return instance.__ogm__.node.has_label(self.name)
 
     def __set__(self, instance, value):
         if value:
-            instance.__cog__.subject_node.add_label(self.name)
+            instance.__ogm__.node.add_label(self.name)
         else:
-            instance.__cog__.subject_node.remove_label(self.name)
+            instance.__ogm__.node.remove_label(self.name)
 
 
 class Related(object):
@@ -79,12 +79,12 @@ class Related(object):
             self.related_class = getattr(module, class_name)
 
     def __get__(self, instance, owner):
-        cog = instance.__cog__
+        cog = instance.__ogm__
         related = cog.related
         key = (self.direction, self.relationship_type)
         if key not in related:
             self.resolve_related_class(instance)
-            related[key] = RelatedObjects(cog.subject_node, self.direction, self.relationship_type, self.related_class)
+            related[key] = RelatedObjects(cog.node, self.direction, self.relationship_type, self.related_class)
         return related[key]
 
 
@@ -115,23 +115,23 @@ class RelatedObjects(object):
     relative to a central node.
     """
 
-    def __init__(self, subject_node, direction, relationship_type, related_class):
+    def __init__(self, node, direction, relationship_type, related_class):
         assert isinstance(direction, int) and not isinstance(direction, bool)
-        self.subject_node = subject_node
+        self.node = node
         self.related_class = related_class
         self.__related_objects = None
         if direction > 0:
-            self.__match_args = (self.subject_node, relationship_type, None)
+            self.__match_args = (self.node, relationship_type, None)
             self.__start_node = False
             self.__end_node = True
             self.__relationship_pattern = "(a)-[_:%s]->(b)" % cypher_escape(relationship_type)
         elif direction < 0:
-            self.__match_args = (None, relationship_type, self.subject_node)
+            self.__match_args = (None, relationship_type, self.node)
             self.__start_node = True
             self.__end_node = False
             self.__relationship_pattern = "(a)<-[_:%s]-(b)" % cypher_escape(relationship_type)
         else:
-            self.__match_args = (self.subject_node, relationship_type, None, True)
+            self.__match_args = (self.node, relationship_type, None, True)
             self.__start_node = True
             self.__end_node = True
             self.__relationship_pattern = "(a)-[_:%s]-(b)" % cypher_escape(relationship_type)
@@ -153,7 +153,7 @@ class RelatedObjects(object):
     def _related_objects(self):
         if self.__related_objects is None:
             self.__related_objects = []
-            remote_node = remote(self.subject_node)
+            remote_node = remote(self.node)
             if remote_node:
                 self.__db_pull__(remote_node.graph)
         return self.__related_objects
@@ -215,7 +215,7 @@ class RelatedObjects(object):
         related_objects = {}
         for r in graph.match(*self.__match_args):
             nodes = []
-            n = self.subject_node
+            n = self.node
             a = r.start_node()
             b = r.end_node()
             if a == b:
@@ -238,33 +238,22 @@ class RelatedObjects(object):
             tx.merge(related_object)
         tx.process()
         # 2a. remove any relationships not in list of nodes
-        subject_id = remote(self.subject_node)._id
+        subject_id = remote(self.node)._id
         tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
-               x=subject_id, y=[remote(obj.__cog__.subject_node)._id for obj, _ in related_objects])
+               x=subject_id, y=[remote(obj.__ogm__.node)._id for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE %s SET _ = {z}" % self.__relationship_pattern,
-                   x=subject_id, y=remote(related_object.__cog__.subject_node)._id, z=properties)
+                   x=subject_id, y=remote(related_object.__ogm__.node)._id, z=properties)
         tx.commit()
 
 
-class Cog(object):
-    """ A central node plus a set of RelatedObjects instances.
-    """
+class OGM(object):
 
-    def __init__(self, subject_node):
-        self.subject_node = subject_node
+    def __init__(self, node):
+        self.node = node
         self.related = {}
-
-    def __eq__(self, other):
-        try:
-            return self.subject_node == other.subject_node
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
 
 class GraphObjectType(type):
@@ -293,13 +282,13 @@ class GraphObject(object):
     __primarylabel__ = None
     __primarykey__ = None
 
-    __cog = None
+    __ogm = None
 
     def __eq__(self, other):
         if not isinstance(other, GraphObject):
             return False
-        remote_self = remote(self.__cog__.subject_node)
-        remote_other = remote(other.__cog__.subject_node)
+        remote_self = remote(self.__ogm__.node)
+        remote_other = remote(other.__ogm__.node)
         if remote_self and remote_other:
             return remote_self == remote_other
         else:
@@ -311,22 +300,22 @@ class GraphObject(object):
         return not self.__eq__(other)
 
     @property
-    def __cog__(self):
-        if self.__cog is None:
-            self.__cog = Cog(Node(self.__primarylabel__))
-        node = self.__cog.subject_node
+    def __ogm__(self):
+        if self.__ogm is None:
+            self.__ogm = OGM(Node(self.__primarylabel__))
+        node = self.__ogm.node
         if not hasattr(node, "__primarylabel__"):
             setattr(node, "__primarylabel__", self.__primarylabel__)
         if not hasattr(node, "__primarykey__"):
             setattr(node, "__primarykey__", self.__primarykey__)
-        return self.__cog
+        return self.__ogm
 
     @classmethod
     def wrap(cls, node):
         if node is None:
             return None
         inst = GraphObject()
-        inst.__cog = Cog(node)
+        inst.__ogm = OGM(node)
         inst.__class__ = cls
         for attr in dir(inst):
             _ = getattr(inst, attr)
@@ -341,7 +330,7 @@ class GraphObject(object):
 
     @property
     def __primaryvalue__(self):
-        node = self.__cog__.subject_node
+        node = self.__ogm__.node
         primary_key = self.__primarykey__
         if primary_key == "__id__":
             remote_node = remote(node)
@@ -353,8 +342,8 @@ class GraphObject(object):
         self.__db_merge__(tx)
 
     def __db_delete__(self, tx):
-        cog = self.__cog__
-        remote_node = remote(cog.subject_node)
+        cog = self.__ogm__
+        remote_node = remote(cog.node)
         if remote_node:
             tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
         for related_objects in cog.related.values():
@@ -363,8 +352,8 @@ class GraphObject(object):
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         # TODO make atomic
         graph = tx.graph
-        cog = self.__cog__
-        node = cog.subject_node
+        cog = self.__ogm__
+        node = cog.node
         if primary_label is None:
             primary_label = getattr(node, "__primarylabel__", None)
         if primary_key is None:
@@ -379,18 +368,18 @@ class GraphObject(object):
                 related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
-        cog = self.__cog__
-        if not remote(cog.subject_node):
+        cog = self.__ogm__
+        if not remote(cog.node):
             selector = GraphObjectSelector(self.__class__, graph)
             selector.selection_class = NodeSelection
-            cog.subject_node = selector.select(self.__primaryvalue__).first()
-        graph.pull(cog.subject_node)
+            cog.node = selector.select(self.__primaryvalue__).first()
+        graph.pull(cog.node)
         for related_objects in cog.related.values():
             related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
-        cog = self.__cog__
-        node = cog.subject_node
+        cog = self.__ogm__
+        node = cog.node
         if remote(node):
             graph.push(node)
         else:

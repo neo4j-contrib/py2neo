@@ -70,7 +70,7 @@ class InstanceSubgraphTestCase(TestCase):
 
     def setUp(self):
         self.film = Film("Die Hard")
-        self.film_node = self.film.__cog__.subject_node
+        self.film_node = self.film.__ogm__.node
 
     def test_instance_subgraph_is_node_like(self):
         assert order(self.film_node) == 1
@@ -89,7 +89,7 @@ class InstanceLabelTestCase(TestCase):
         self.film = Film("Die Hard")
         self.film.awesome = True
         self.film.science_fiction = True
-        self.film_node = self.film.__cog__.subject_node
+        self.film_node = self.film.__ogm__.node
 
     def test_instance_label_name_defaults_to_attribute_name_variant(self):
         assert self.film_node.has_label("Awesome")
@@ -111,7 +111,7 @@ class InstancePropertyTestCase(TestCase):
     def setUp(self):
         self.film = Film("Die Hard")
         self.film.year_of_release = 1988
-        self.film_node = self.film.__cog__.subject_node
+        self.film_node = self.film.__ogm__.node
 
     def test_instance_property_key_defaults_to_attribute_name(self):
         assert "title" in self.film_node
@@ -146,7 +146,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted)
         self.graph.push(keanu)
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
                                                              "WHERE id(a) = {x} "
                                                              "RETURN b.title", x=remote_node._id))
@@ -159,7 +159,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
         self.graph.push(keanu)
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
                                                                  "WHERE id(a) = {x} "
                                                                  "RETURN b.title, ab.roles", x=remote_node._id)}
@@ -171,7 +171,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         johnny_mnemonic = Film.select(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.remove(johnny_mnemonic)
         self.graph.push(keanu)
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
                                                              "WHERE id(a) = {x} "
                                                              "RETURN b.title", x=remote_node._id))
@@ -183,7 +183,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         johnny_mnemonic = Film.select(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.add(johnny_mnemonic, foo="bar")
         self.graph.push(keanu)
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         johnny_foo = self.graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
                                          "WHERE id(a) = {x} AND b.title = 'Johnny Mnemonic' "
                                          "RETURN ab.foo", x=remote_node._id)
@@ -200,7 +200,7 @@ class FindTestCase(MovieGraphTestCase):
     def test_can_find_by_id(self):
         # given
         keanu_0 = Person.select(self.graph, "Keanu Reeves").first()
-        node_id = remote(keanu_0.__cog__.subject_node)._id
+        node_id = remote(keanu_0.__ogm__.node)._id
 
         # when
 
@@ -225,7 +225,7 @@ class FindTestCase(MovieGraphTestCase):
     def test_can_find_one_by_id(self):
         # given
         keanu_0 = Person.select(self.graph, "Keanu Reeves").first()
-        node_id = remote(keanu_0.__cog__.subject_node)._id
+        node_id = remote(keanu_0.__ogm__.node)._id
 
         # when
 
@@ -270,7 +270,7 @@ class CreateTestCase(MovieGraphTestCase):
         self.graph.create(alice)
 
         # then
-        node = alice.__cog__.subject_node
+        node = alice.__ogm__.node
         remote_node = remote(node)
         assert remote_node
 
@@ -283,7 +283,7 @@ class CreateTestCase(MovieGraphTestCase):
         self.graph.create(keanu)
 
         # then
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=remote_node._id)
         assert remote_name == "Keanu Reeves"
@@ -294,7 +294,7 @@ class DeleteTestCase(MovieGraphTestCase):
     def test_delete_on_existing(self):
         # given
         keanu = Person.select(self.graph, "Keanu Reeves").first()
-        node = keanu.__cog__.subject_node
+        node = keanu.__ogm__.node
 
         # when
         self.graph.delete(keanu)
@@ -314,7 +314,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(keanu)
 
         # then
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=remote_node._id)
         assert remote_name == "Keanu Charles Reeves"
@@ -329,7 +329,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        remote_node = remote(alice.__cog__.subject_node)
+        remote_node = remote(alice.__ogm__.node)
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=remote_node._id)
         assert remote_name == "Alice Smith"
@@ -345,7 +345,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        remote_node = remote(alice.__cog__.subject_node)
+        remote_node = remote(alice.__ogm__.node)
         film_node = self.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
                                         x=remote_node._id)
         assert film_node["title"] == "The Matrix"
@@ -363,7 +363,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        remote_node = remote(alice.__cog__.subject_node)
+        remote_node = remote(alice.__ogm__.node)
         film_node = self.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
                                         x=remote_node._id)
         assert film_node["title"] == "The Dominatrix"
@@ -377,7 +377,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(matrix)
 
         # then
-        remote_node = remote(matrix.__cog__.subject_node)
+        remote_node = remote(matrix.__ogm__.node)
         names = set()
         for name, in self.graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = {x} "
                                     "RETURN b.name", x=remote_node._id):
@@ -390,7 +390,7 @@ class PullTestCase(MovieGraphTestCase):
     def test_can_load_and_pull(self):
         keanu = Person.select(self.graph, "Keanu Reeves").first()
         assert keanu.name == "Keanu Reeves"
-        remote_node = remote(keanu.__cog__.subject_node)
+        remote_node = remote(keanu.__ogm__.node)
         self.graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
                        x=remote_node._id, y="Keanu Charles Reeves")
         self.graph.pull(keanu)
@@ -405,7 +405,7 @@ class PullTestCase(MovieGraphTestCase):
     def test_can_pull_with_incoming_relationships(self):
         # given
         matrix = Film.select(self.graph, "The Matrix").first()
-        remote_node = remote(matrix.__cog__.subject_node)
+        remote_node = remote(matrix.__ogm__.node)
         self.graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = {x} AND b.name = 'Emil Eifrem' DELETE r",
                        x=remote_node._id)
 
@@ -729,14 +729,14 @@ class SimpleThingTestCase(GraphTestCase):
     def test_create(self):
         thing = SimpleThing()
         self.graph.create(thing)
-        assert remote(thing.__cog__.subject_node)
+        assert remote(thing.__ogm__.node)
 
     def test_merge(self):
         thing = SimpleThing()
         self.graph.merge(thing)
-        assert remote(thing.__cog__.subject_node)
+        assert remote(thing.__ogm__.node)
 
     def test_push(self):
         thing = SimpleThing()
         self.graph.push(thing)
-        assert remote(thing.__cog__.subject_node)
+        assert remote(thing.__ogm__.node)
