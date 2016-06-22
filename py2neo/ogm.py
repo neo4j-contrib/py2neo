@@ -101,7 +101,7 @@ class RelatedTo(Related):
 
 class RelatedFrom(Related):
     """ Describe a set of related objects  for a :class:`.GraphObject`
-     that are connected by incoming relationships.
+    that are connected by incoming relationships.
 
     :param related_class: class of object to which these relationships connect
     :param relationship_type: underlying relationship type for these relationships
@@ -176,16 +176,25 @@ class RelatedObjects(object):
             related_objects.append((obj, properties))
 
     def clear(self):
+        """ Remove all related objects from this set.
+        """
         self._related_objects[:] = []
 
     def get(self, obj, key, default=None):
+        """ Return a relationship property associated with a specific related object.
+
+        :param obj: related object
+        :param key: relationship property key
+        :param default: default value, in case the key is not found
+        :return: property value
+        """
         for related_object, properties in self._related_objects:
             if related_object == obj:
                 return properties.get(key, default)
         return default
 
     def remove(self, obj):
-        """ Remove a related object
+        """ Remove a related object.
 
         :param obj: the :py:class:`.GraphObject` to separate
         """
@@ -323,6 +332,12 @@ class GraphObject(object):
 
     @classmethod
     def select(cls, graph, primary_value=None):
+        """ Select one or more nodes from the database, wrapped as instances of this class.
+
+        :param graph: the :class:`.Graph` instance from which to select
+        :param primary_value: value of the primary property (optional)
+        :rtype: :class:`.GraphObjectSelection`
+        """
         return GraphObjectSelector(cls, graph).select(primary_value)
 
     def __repr__(self):
