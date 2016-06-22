@@ -41,7 +41,7 @@ class Property(object):
 
 
 class Label(object):
-    """ A label definition for a :class:`.GraphObject`.
+    """ Describe a node label for a :class:`.GraphObject`.
     """
 
     def __init__(self, name=None):
@@ -57,12 +57,14 @@ class Label(object):
             instance.__cog__.subject_node.remove_label(self.name)
 
 
-class RelatedTo(object):
-    """ Define a type of outgoing relationship.
+class Related(object):
+    """ Describe a set of related objects for a :class:`.GraphObject`.
 
     :param related_class: class of object to which these relationships connect
     :param relationship_type: underlying relationship type for these relationships
     """
+
+    direction = UNDIRECTED
 
     def __init__(self, related_class, relationship_type=None):
         self.related_class = related_class
@@ -78,30 +80,34 @@ class RelatedTo(object):
 
     def __get__(self, instance, owner):
         cog = instance.__cog__
-        key = (OUTGOING, self.relationship_type)
-        if key not in cog.related:
+        related = cog.related
+        key = (self.direction, self.relationship_type)
+        if key not in related:
             self.resolve_related_class(instance)
-            cog.related[key] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class)
-        return cog.related[key]
+            related[key] = RelatedObjects(cog.subject_node, self.direction, self.relationship_type, self.related_class)
+        return related[key]
 
 
-class RelatedFrom(RelatedTo):
-    """ Define a type of incoming relationship.
+class RelatedTo(Related):
+    """ Describe a set of related objects for a :class:`.GraphObject`
+    that are connected by outgoing relationships.
 
     :param related_class: class of object to which these relationships connect
     :param relationship_type: underlying relationship type for these relationships
     """
 
-    def __init__(self, related_class, relationship_type=None):
-        RelatedTo.__init__(self, related_class, relationship_type)
+    direction = OUTGOING
 
-    def __get__(self, instance, owner):
-        cog = instance.__cog__
-        key = (INCOMING, self.relationship_type)
-        if key not in cog.related:
-            self.resolve_related_class(instance)
-            cog.related[key] = RelatedObjects(cog.subject_node, self.relationship_type, self.related_class, reverse=True)
-        return cog.related[key]
+
+class RelatedFrom(Related):
+    """ Describe a set of related objects  for a :class:`.GraphObject`
+     that are connected by incoming relationships.
+
+    :param related_class: class of object to which these relationships connect
+    :param relationship_type: underlying relationship type for these relationships
+    """
+
+    direction = INCOMING
 
 
 class RelatedObjects(object):
@@ -109,18 +115,26 @@ class RelatedObjects(object):
     relative to a central node.
     """
 
-    def __init__(self, subject_node, relationship_type, related_class, reverse=False):
+    def __init__(self, subject_node, direction, relationship_type, related_class):
+        assert isinstance(direction, int) and not isinstance(direction, bool)
         self.subject_node = subject_node
         self.related_class = related_class
         self.__related_objects = None
-        if reverse:
+        if direction > 0:
+            self.__match_args = (self.subject_node, relationship_type, None)
+            self.__start_node = False
+            self.__end_node = True
+            self.__relationship_pattern = "(a)-[_:%s]->(b)" % cypher_escape(relationship_type)
+        elif direction < 0:
             self.__match_args = (None, relationship_type, self.subject_node)
-            self.__related_node = "start_node"
+            self.__start_node = True
+            self.__end_node = False
             self.__relationship_pattern = "(a)<-[_:%s]-(b)" % cypher_escape(relationship_type)
         else:
-            self.__match_args = (self.subject_node, relationship_type, None)
-            self.__related_node = "end_node"
-            self.__relationship_pattern = "(a)-[_:%s]->(b)" % cypher_escape(relationship_type)
+            self.__match_args = (self.subject_node, relationship_type, None, True)
+            self.__start_node = True
+            self.__end_node = True
+            self.__relationship_pattern = "(a)-[_:%s]-(b)" % cypher_escape(relationship_type)
 
     def __iter__(self):
         for obj, _ in self._related_objects:
@@ -198,11 +212,23 @@ class RelatedObjects(object):
             related_objects.append((obj, properties))
 
     def __db_pull__(self, graph):
-        related_objects = []
+        related_objects = {}
         for r in graph.match(*self.__match_args):
-            related_object = self.related_class.wrap(getattr(r, self.__related_node)())
-            related_objects.append((related_object, PropertyDict(r)))
-        self._related_objects[:] = related_objects
+            nodes = []
+            n = self.subject_node
+            a = r.start_node()
+            b = r.end_node()
+            if a == b:
+                nodes.append(a)
+            else:
+                if self.__start_node and a != n:
+                    nodes.append(r.start_node())
+                if self.__end_node and b != n:
+                    nodes.append(r.end_node())
+            for node in nodes:
+                related_object = self.related_class.wrap(node)
+                related_objects[node] = (related_object, PropertyDict(r))
+        self._related_objects[:] = related_objects.values()
 
     def __db_push__(self, graph):
         related_objects = self._related_objects

@@ -16,12 +16,14 @@
 # limitations under the License.
 
 
+from os.path import dirname, join as path_join
 from unittest import TestCase
 
 from py2neo import order, size, remote, Node, Relationship, NodeSelector
-from py2neo.ogm import RelatedObjects, Property, RelatedTo
+from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
+from test.util import GraphTestCase
 
 
 class SubclassTestCase(TestCase):
@@ -419,7 +421,7 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def new_keanu_acted_in(self):
         keanu_node = NodeSelector(self.graph).select("Person", name="Keanu Reeves").first()
-        keanu_acted_in = RelatedObjects(keanu_node, "ACTED_IN", Film)
+        keanu_acted_in = RelatedObjects(keanu_node, OUTGOING, "ACTED_IN", Film)
         return keanu_acted_in
 
     def test_can_pull_related_objects(self):
@@ -651,3 +653,90 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         # and
         good = films_acted_in.get(bill_and_ted, "good")
         assert good
+
+
+class Thing(GraphObject):
+    __primarykey__ = "name"
+
+    p = Label()
+    q = Label()
+
+    x = Related("Thing", "X")
+    y = Related("Thing", "Y")
+
+    x_out = RelatedTo("Thing", "X")
+    y_out = RelatedTo("Thing", "Y")
+
+    x_in = RelatedFrom("Thing", "X")
+    y_in = RelatedFrom("Thing", "Y")
+
+
+class ComprehensiveTestCase(GraphTestCase):
+
+    def setUp(self):
+        self.graph.delete_all()
+        with open(path_join(dirname(__file__), "..", "resources", "xxy.cypher")) as f:
+            cypher = f.read()
+        self.graph.run(cypher)
+
+    def test_a(self):
+        a = Thing.select(self.graph, "A").first()
+        # A is related to B and C
+        assert len(a.x) == 2
+        assert len(a.x_out) == 2
+        assert len(a.x_in) == 2
+        assert len(a.y) == 2
+        assert len(a.y_out) == 2
+        assert len(a.y_in) == 2
+
+    def test_b(self):
+        b = Thing.select(self.graph, "B").first()
+        # B is only related to A
+        assert len(b.x) == 1
+        assert len(b.x_out) == 1
+        assert len(b.x_in) == 1
+        assert len(b.y) == 1
+        assert len(b.y_out) == 1
+        assert len(b.y_in) == 1
+
+    def test_c(self):
+        c = Thing.select(self.graph, "C").first()
+        # Loops are related to themselves, hence C is related to A, C and D
+        assert len(c.x) == 3
+        assert len(c.x_out) == 3
+        assert len(c.x_in) == 3
+        assert len(c.y) == 3
+        assert len(c.y_out) == 3
+        assert len(c.y_in) == 3
+
+    def test_d(self):
+        d = Thing.select(self.graph, "D").first()
+        # D is only related to C
+        assert len(d.x) == 1
+        assert len(d.x_out) == 1
+        assert len(d.x_in) == 1
+        assert len(d.y) == 1
+        assert len(d.y_out) == 1
+        assert len(d.y_in) == 1
+
+
+class SimpleThing(GraphObject):
+    pass
+
+
+class SimpleThingTestCase(GraphTestCase):
+
+    def test_create(self):
+        thing = SimpleThing()
+        self.graph.create(thing)
+        assert remote(thing.__cog__.subject_node)
+
+    def test_merge(self):
+        thing = SimpleThing()
+        self.graph.merge(thing)
+        assert remote(thing.__cog__.subject_node)
+
+    def test_push(self):
+        thing = SimpleThing()
+        self.graph.push(thing)
+        assert remote(thing.__cog__.subject_node)
