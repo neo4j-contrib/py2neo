@@ -266,33 +266,6 @@ class Cog(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __db_create__(self, tx):
-        self.__db_merge__(tx)
-
-    def __db_delete__(self, tx):
-        remote_node = remote(self.subject_node)
-        if remote_node:
-            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
-        for related_objects in self.related.values():
-            related_objects.clear()
-
-    def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        # TODO make atomic
-        graph = tx.graph
-        if primary_label is None:
-            primary_label = getattr(self.subject_node, "__primarylabel__", None)
-        if primary_key is None:
-            primary_key = getattr(self.subject_node, "__primarykey__", "__id__")
-        remote_node = remote(self.subject_node)
-        if not remote_node:
-            if primary_key == "__id__":
-                self.subject_node.add_label(primary_label)
-                graph.create(self.subject_node)
-            else:
-                graph.merge(self.subject_node, primary_label, primary_key)
-            for related_objects in self.related.values():
-                related_objects.__db_push__(graph)
-
 
 class GraphObjectType(type):
 
@@ -377,13 +350,33 @@ class GraphObject(object):
             return node[primary_key]
 
     def __db_create__(self, tx):
-        self.__cog__.__db_create__(tx)
+        self.__db_merge__(tx)
 
     def __db_delete__(self, tx):
-        self.__cog__.__db_delete__(tx)
+        cog = self.__cog__
+        remote_node = remote(cog.subject_node)
+        if remote_node:
+            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
+        for related_objects in cog.related.values():
+            related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        self.__cog__.__db_merge__(tx, primary_label, primary_key)
+        # TODO make atomic
+        graph = tx.graph
+        cog = self.__cog__
+        node = cog.subject_node
+        if primary_label is None:
+            primary_label = getattr(node, "__primarylabel__", None)
+        if primary_key is None:
+            primary_key = getattr(node, "__primarykey__", "__id__")
+        if not remote(node):
+            if primary_key == "__id__":
+                node.add_label(primary_label)
+                graph.create(node)
+            else:
+                graph.merge(node, primary_label, primary_key)
+            for related_objects in cog.related.values():
+                related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
         cog = self.__cog__
