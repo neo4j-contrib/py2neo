@@ -13,7 +13,7 @@ A simple example, based on the movie graph data set::
        __primarykey__ = "title"
 
        title = Property()
-       tag_line = Property(key="tagline")
+       tag_line = Property("tagline")
        released = Property()
 
        actors = RelatedFrom("Person", "ACTED_IN")
@@ -45,7 +45,6 @@ Each instance may contain attributes that represent labels, nodes or related obj
 .. autoclass:: py2neo.ogm.GraphObject
    :members:
 
-TODO: push, pull, create, etc
 
 Primary Labels, Keys and Values
 -------------------------------
@@ -69,6 +68,7 @@ Properties
    :members:
 
 .. NOTE:: There is currently no support for constraining property type.
+
 
 Labels
 ======
@@ -120,3 +120,31 @@ Selection
 
 .. autoclass:: py2neo.ogm.GraphObjectSelection
    :members:
+
+
+Pull & Push
+===========
+
+.. method:: Graph.pull(graph_object)
+
+   TODO
+
+.. method:: Graph.push(graph_object)
+
+   TODO
+
+
+Create, Delete & Merge
+======================
+
+.. method:: Graph.create(graph_object)
+
+   TODO
+
+.. method:: Graph.delete(graph_object)
+
+   TODO
+
+.. method:: Graph.merge(graph_object)
+
+   TODO
