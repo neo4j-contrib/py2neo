@@ -42,27 +42,36 @@ Each `GraphObject` represents a node plus a set of pointers to :class:`.RelatedO
 A `GraphObject` instance may be constructed just like any other Python object but can also be `selected <#py2neo.ogm.GraphObject.select>`_ from the database.
 Each instance may contain attributes that represent labels, nodes or related objects.
 
-.. autoclass:: py2neo.ogm.GraphObject
-   :members:
+.. class:: py2neo.ogm.GraphObject
 
+   .. attribute:: __primarylabel__
 
-Primary Labels, Keys and Values
--------------------------------
+      The primary node label used for Cypher `MATCH` and `MERGE`
+      operations. By default the name of the class is used.
 
-A `GraphObject` instance may define `__primarylabel__` and `__primarykey__` attributes.
-These are strings representing the main label associated with the class and the name of a uniquely identifying property for that class.
-If undefined, `__primarylabel__` defaults to the name of the class and `__primarykey__` to ``"__id__"``, which is a special reference to the internal node ID.
+   .. attribute:: __primarykey__
 
-For example::
+      The primary property key used for Cypher `MATCH` and `MERGE`
+      operations. If undefined, the special value of ``"__id__"`` is used
+      to hinge uniqueness on the internal node ID instead of a property.
+      Note that this alters the behaviour of operations such as
+      :meth:`.Graph.create` and :meth:`.Graph.merge` on :class:`.GraphObject`
+      instances.
 
-    class Film(GraphObject):
-        __primarylabel__ = "Movie"  # alternative primary label, instead of "Film"
-        __primarykey__ = "title"    # film title is considered unique
+   .. attribute:: __primaryvalue__
 
-TODO: __primaryvalue__
+      The value of the property identified by :attr:`.__primarykey__`.
+      If the key is ``"__id__"`` then this value returns the internal
+      node ID.
+
+   .. automethod:: select
+
 
 Properties
 ==========
+
+A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to a property of the underlying central node.
+
 
 .. autoclass:: py2neo.ogm.Property
    :members:
@@ -72,6 +81,9 @@ Properties
 
 Labels
 ======
+
+A :class:`.Label` defined on a :class:`.GraphObject` provides an accessor to a label of the underlying central node.
+It is exposed as a boolean value, the setting of which allows the label to be toggled on or off.
 
 .. autoclass:: py2neo.ogm.Label
    :members:
@@ -115,36 +127,68 @@ Therefore to print a list of all friends::
    :members:
 
 
-Selection
-=========
+Object Selection
+================
+
+One or more :class:`.GraphObject` instances can be selected from the database by using the select method of the relevant subclass.
+
+To select a single instance using the primary label and primary key::
+
+    >>> Person.select(graph, "Keanu Reeves").first()
+    <Person name='Keanu Reeves'>
+
+To select all instances that match certain criteria, you can simply iterate through the selection object.
+Note the use of the underscore in the Cypher `WHERE` clause to refer to the underlying node::
+
+    >>> list(Person.select(graph).where("_.name =~ 'K.*'"))
+    [<Person name='Keanu Reeves'>,
+     <Person name='Kevin Bacon'>,
+     <Person name='Kiefer Sutherland'>,
+     <Person name='Kevin Pollak'>,
+     <Person name='Kelly McGillis'>,
+     <Person name='Kelly Preston'>]
+
 
 .. autoclass:: py2neo.ogm.GraphObjectSelection
-   :members:
+   :members: __iter__, first
 
 
-Pull & Push
-===========
+Object Operations
+=================
+
+:class:`.GraphObject` instances can be pushed into and pulled from the database just like other py2neo objects.
+Unlike with other kinds of object though, a `GraphObject` can be pushed without having first created or merged it.
+For example::
+
+    >>> alice = Person()
+    >>> alice.name = "Alice Smith"
+    >>> graph.push(alice)
+    >>> alice.__ogm__.node
+   (cc3030a:Person {name:"Alice Smith"})
+
 
 .. method:: Graph.pull(graph_object)
 
-   TODO
+   Update a :class:`.GraphObject` and its associated :class:`.RelatedObject` instances with
+   changes from the graph.
 
 .. method:: Graph.push(graph_object)
 
-   TODO
-
-
-Create, Delete & Merge
-======================
+   Update the graph with changes from a :class:`.GraphObject` and its associated
+   :class:`.RelatedObject` instances. If a corresponding remote node does not exist, one will be
+   created. If one does exist, it will be updated. The set of outgoing relationships will be
+   adjusted to match those described by the `RelatedObject` instances.
 
 .. method:: Graph.create(graph_object)
+            Graph.merge(graph_object)
 
-   TODO
+   For a :class:`.GraphObject`, `create` and `merge` are an identical operation. This is because
+   `GraphObject` instances have uniqueness defined by their primary label and primary key and so
+   both operations can be considered a form of `merge`.
+
+   If a corresponding remote node does not exist, one will be created. Unlike `push`, however,
+   no update will occur if a node already exists.
 
 .. method:: Graph.delete(graph_object)
 
-   TODO
-
-.. method:: Graph.merge(graph_object)
-
-   TODO
+   Delete the remote node and relationships that correspond to the given :class:`.GraphObject`.

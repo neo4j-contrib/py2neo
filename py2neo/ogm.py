@@ -357,18 +357,18 @@ class GraphObject(object):
         self.__db_merge__(tx)
 
     def __db_delete__(self, tx):
-        cog = self.__ogm__
-        remote_node = remote(cog.node)
+        ogm = self.__ogm__
+        remote_node = remote(ogm.node)
         if remote_node:
             tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
-        for related_objects in cog.related.values():
+        for related_objects in ogm.related.values():
             related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         # TODO make atomic
         graph = tx.graph
-        cog = self.__ogm__
-        node = cog.node
+        ogm = self.__ogm__
+        node = ogm.node
         if primary_label is None:
             primary_label = getattr(node, "__primarylabel__", None)
         if primary_key is None:
@@ -379,40 +379,52 @@ class GraphObject(object):
                 graph.create(node)
             else:
                 graph.merge(node, primary_label, primary_key)
-            for related_objects in cog.related.values():
+            for related_objects in ogm.related.values():
                 related_objects.__db_push__(graph)
 
     def __db_pull__(self, graph):
-        cog = self.__ogm__
-        if not remote(cog.node):
+        ogm = self.__ogm__
+        if not remote(ogm.node):
             selector = GraphObjectSelector(self.__class__, graph)
             selector.selection_class = NodeSelection
-            cog.node = selector.select(self.__primaryvalue__).first()
-        graph.pull(cog.node)
-        for related_objects in cog.related.values():
+            ogm.node = selector.select(self.__primaryvalue__).first()
+        graph.pull(ogm.node)
+        for related_objects in ogm.related.values():
             related_objects.__db_pull__(graph)
 
     def __db_push__(self, graph):
-        cog = self.__ogm__
-        node = cog.node
+        ogm = self.__ogm__
+        node = ogm.node
         if remote(node):
             graph.push(node)
         else:
-            graph.merge(node)
-        for related_objects in cog.related.values():
+            primary_key = getattr(node, "__primarykey__", "__id__")
+            if primary_key == "__id__":
+                graph.create(node)
+            else:
+                graph.merge(node)
+        for related_objects in ogm.related.values():
             related_objects.__db_push__(graph)
 
 
 class GraphObjectSelection(NodeSelection):
+    """ A selection of :class:`.GraphObject` instances that match a
+    given set of criteria.
+    """
 
     object_class = GraphObject
 
     def __iter__(self):
+        """ Iterate through items drawn from the underlying graph that
+        match the given criteria.
+        """
         wrap = self.object_class.wrap
         for node in super(GraphObjectSelection, self).__iter__():
             yield wrap(node)
 
     def first(self):
+        """ Return the first item that matches the given criteria.
+        """
         return self.object_class.wrap(super(GraphObjectSelection, self).first())
 
 
