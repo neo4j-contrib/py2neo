@@ -20,7 +20,7 @@ Maintained by: Simon Harrison <noisyboiler@googlemail.com>
 
 An API to the `Neo4j Spatial Extension`_ for creating, destroying and querying `Well Known Text`_ (WKT) geometries over GIS_ map Layers.
 
-Requires Neo4j >= 2.0, the `Neo4j Spatial Extension`_, libgeos_ and the Python package Shapely_.
+Requires Neo4j >= 2.0 <= 2.2.3, the `Neo4j Spatial Extension`_, libgeos_ and the Python package Shapely_.
 
 Neo4j Setup
 -----------
