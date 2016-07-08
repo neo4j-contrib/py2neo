@@ -217,6 +217,9 @@ class RecordTestCase(TestCase):
         assert len(record) == 2
         assert record.keys() == ("name", "age")
         assert record.values() == ("Alice", 33)
+        print(record.items())
+        assert record.items() == [("name", "Alice"), ("age", 33)]
+        assert record.data() == {"name": "Alice", "age": 33}
         r = repr(record)
         assert r.startswith("(") and r.endswith(")")
 

@@ -21,6 +21,11 @@ try:
 except ImportError:
     from ConfigParser import SafeConfigParser
 
+try:
+    from collections.abc import Mapping
+except ImportError:
+    from collections import Mapping
+
 from io import StringIO
 import os
 from sys import version_info
