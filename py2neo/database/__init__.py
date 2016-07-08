@@ -378,6 +378,43 @@ class Graph(object):
         """
         self.begin(autocommit=True).create(subgraph)
 
+    def data(self, statement, parameters=None, **kwparameters):
+        """ Run a :meth:`.Transaction.run` operation within an
+        `autocommit` :class:`.Transaction` and extract the data
+        as a list of dictionaries.
+
+        For example::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph(password="excalibur")
+            >>> graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4")
+            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
+             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
+             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
+             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
+
+        The extracted data can then be easily passed into an external data handler such as a
+        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
+        for subsequent processing::
+
+            >>> from pandas import DataFrame
+            >>> DataFrame(graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4"))
+               a.born              a.name
+            0    1964        Keanu Reeves
+            1    1967    Carrie-Anne Moss
+            2    1961  Laurence Fishburne
+            3    1960        Hugo Weaving
+
+        .. seealso:: :meth:`.Cursor.data`
+
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
+        :param kwparameters: additional keyword parameters
+        :return: the full query result
+        :rtype: `list` of `dict`
+        """
+        return self.begin(autocommit=True).run(statement, parameters, **kwparameters).data()
+
     @property
     def dbms(self):
         """ The database management system to which this :class:`.Graph`
@@ -1431,35 +1468,23 @@ class Cursor(object):
 
             >>> from py2neo import Graph
             >>> graph = Graph(password="excalibur")
-            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 10").data()
+            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data()
             [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
              {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
              {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
-             {'a.born': 1960, 'a.name': 'Hugo Weaving'},
-             {'a.born': 1967, 'a.name': 'Andy Wachowski'},
-             {'a.born': 1965, 'a.name': 'Lana Wachowski'},
-             {'a.born': 1952, 'a.name': 'Joel Silver'},
-             {'a.born': 1978, 'a.name': 'Emil Eifrem'},
-             {'a.born': 1975, 'a.name': 'Charlize Theron'},
-             {'a.born': 1940, 'a.name': 'Al Pacino'}]
+             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
 
         The extracted data can then be easily passed into an external data handler such as a
         `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
         for subsequent processing::
 
             >>> from pandas import DataFrame
-            >>> DataFrame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 10").data())
+            >>> DataFrame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data())
                a.born              a.name
             0    1964        Keanu Reeves
             1    1967    Carrie-Anne Moss
             2    1961  Laurence Fishburne
             3    1960        Hugo Weaving
-            4    1967      Andy Wachowski
-            5    1965      Lana Wachowski
-            6    1952         Joel Silver
-            7    1978         Emil Eifrem
-            8    1975     Charlize Theron
-            9    1940           Al Pacino
 
         :return: the full query result
         :rtype: `list` of `dict`

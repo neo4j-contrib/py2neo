@@ -104,6 +104,7 @@ div.body div.impl-detail > p {
 }
 
 div.body div.seealso {
+    background-color: #ffff99;
     border: 1px solid #dddd66;
 }
 
