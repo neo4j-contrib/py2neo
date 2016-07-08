@@ -52,8 +52,41 @@ Cursors
 .. autoclass:: Cursor
    :members:
 
-.. autoclass:: Record
-   :members:
+.. class:: Record
+
+    A :class:`.Record` holds a collection of result values that are
+    both indexed by position and keyed by name. A `Record` instance can
+    therefore be seen as a combination of a `tuple` and a `Mapping`.
+
+    .. describe:: record[index]
+                  record[key]
+
+        Return the value of *record* with the specified *key* or *index*.
+
+    .. describe:: len(record)
+
+        Return the number of fields in *record*.
+
+    .. describe:: dict(record)
+
+        Return a `dict` representation of *record*.
+
+    .. method:: data()
+
+        Return a `dict` representation of the contained keys and values.
+
+    .. method:: items()
+
+        Return a `list` of key-value pairs contained within 2-tuples.
+
+    .. method:: keys()
+
+        Return a `tuple` of names by which the contained values are keyed.
+
+    .. method:: values()
+
+        Return a `tuple` of the contained values.
+
 
 
 The DBMS

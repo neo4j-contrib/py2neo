@@ -22,7 +22,7 @@ from email.utils import parsedate_tz, mktime_tz
 from warnings import warn
 
 from py2neo import PRODUCT
-from py2neo.compat import string
+from py2neo.compat import Mapping, string
 from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
@@ -377,6 +377,43 @@ class Graph(object):
                        :class:`.Subgraph`
         """
         self.begin(autocommit=True).create(subgraph)
+
+    def data(self, statement, parameters=None, **kwparameters):
+        """ Run a :meth:`.Transaction.run` operation within an
+        `autocommit` :class:`.Transaction` and extract the data
+        as a list of dictionaries.
+
+        For example::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph(password="excalibur")
+            >>> graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4")
+            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
+             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
+             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
+             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
+
+        The extracted data can then be easily passed into an external data handler such as a
+        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
+        for subsequent processing::
+
+            >>> from pandas import DataFrame
+            >>> DataFrame(graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4"))
+               a.born              a.name
+            0    1964        Keanu Reeves
+            1    1967    Carrie-Anne Moss
+            2    1961  Laurence Fishburne
+            3    1960        Hugo Weaving
+
+        .. seealso:: :meth:`.Cursor.data`
+
+        :param statement: Cypher statement
+        :param parameters: dictionary of parameters
+        :param kwparameters: additional keyword parameters
+        :return: the full query result
+        :rtype: `list` of `dict`
+        """
+        return self.begin(autocommit=True).run(statement, parameters, **kwparameters).data()
 
     @property
     def dbms(self):
@@ -1422,6 +1459,38 @@ class Cursor(object):
         else:
             return None
 
+    def data(self):
+        """ Consume and extract the entire result as a list of
+        dictionaries. This method generates a self-contained set of
+        result data using only Python-native data types.
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph(password="excalibur")
+            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data()
+            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
+             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
+             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
+             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
+
+        The extracted data can then be easily passed into an external data handler such as a
+        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
+        for subsequent processing::
+
+            >>> from pandas import DataFrame
+            >>> DataFrame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data())
+               a.born              a.name
+            0    1964        Keanu Reeves
+            1    1967    Carrie-Anne Moss
+            2    1961  Laurence Fishburne
+            3    1960        Hugo Weaving
+
+        :return: the full query result
+        :rtype: `list` of `dict`
+        """
+        return [record.data() for record in self]
+
     def dump(self, out=stdout):
         """ Consume all records from this cursor and write in tabular
         form to the console.
@@ -1444,7 +1513,11 @@ class Cursor(object):
             out.write(u"\n")
 
 
-class Record(tuple, Subgraph):
+class Record(tuple, Mapping, Subgraph):
+    """ A :class:`.Record` holds a collection of result values that are
+    both indexed by position and keyed by name. A `Record` instance can
+    therefore be seen as a combination of a `tuple` and a `Mapping`.
+    """
 
     def __new__(cls, keys, values):
         if len(keys) == len(values):
@@ -1498,3 +1571,9 @@ class Record(tuple, Subgraph):
 
     def values(self):
         return tuple(self)
+
+    def items(self):
+        return list(zip(self.__keys, self))
+
+    def data(self):
+        return dict(self)
