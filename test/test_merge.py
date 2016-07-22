@@ -101,6 +101,26 @@ class MergeNodeTestCase(GraphTestCase):
         new_order = order(self.graph)
         assert new_order == old_order
 
+    def test_can_merge_node_with_conflicting_key(self):
+        self.graph.create(Node("Person", name="Alice"))
+        bob = Node("Person", name="Bob")
+        old_order = order(self.graph)
+        self.graph.merge(bob, "Person", "name")
+        assert remote(bob)
+        assert self.graph.exists(bob)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+    
+    def test_can_merge_node_with_conflicting_key_that_starts_with_underscore(self):
+        self.graph.create(Node("Person", _name="Alice"))
+        bob = Node("Person", _name="Bob")
+        old_order = order(self.graph)
+        self.graph.merge(bob, "Person", "_name")
+        assert remote(bob)
+        assert self.graph.exists(bob)
+        new_order = order(self.graph)
+        assert new_order == old_order + 1
+
 
 class MergeRelationshipTestCase(GraphTestCase):
 
