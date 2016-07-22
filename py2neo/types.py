@@ -416,9 +416,9 @@ class Subgraph(object):
                     merge_keys = (merge_keys,)
                 if merge_keys:
                     property_map_string = cypher_repr({k: v for k, v in dict(node).items()
-                                                       if k in merge_keys})
+                                                       if k in merge_keys}, private=True)
                 else:
-                    property_map_string = cypher_repr(dict(node))
+                    property_map_string = cypher_repr(dict(node), private=True)
                 merge_clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
                 if node.labels():
                     merge_clauses.append("SET %s%s" % (
