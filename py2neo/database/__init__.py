@@ -1486,6 +1486,14 @@ class Cursor(object):
             2    1961  Laurence Fishburne
             3    1960        Hugo Weaving
 
+        Similarly, to output the result data as a JSON-formatted string::
+
+            >>> from py2neo import Graph
+            >>> import json
+            >>> g = Graph(password="password")
+            >>> json.dumps(g.run("UNWIND range(1, 3) AS n RETURN n").data())
+            '[{"n": 1}, {"n": 2}, {"n": 3}]'
+
         :return: the full query result
         :rtype: `list` of `dict`
         """
