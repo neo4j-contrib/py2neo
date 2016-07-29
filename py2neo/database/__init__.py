@@ -329,7 +329,7 @@ class Graph(object):
                 auth = get_auth(address)
                 inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
                                                    auth=None if auth is None else auth.bolt_auth_token,
-                                                   encypted=address.secure,
+                                                   encrypted=address.secure,
                                                    user_agent="/".join(PRODUCT))
                 inst.transaction_class = BoltTransaction
             inst.node_selector = NodeSelector(inst)
