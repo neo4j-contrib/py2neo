@@ -218,6 +218,8 @@ class Subgraph(object):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])
         self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
+        if not self.__nodes:
+            raise ValueError("Subgraphs must contain at least one node")
 
     def __repr__(self):
         from py2neo.database.cypher import CypherWriter

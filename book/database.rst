@@ -83,6 +83,11 @@ Cursors
 
         Return a `tuple` of names by which the contained values are keyed.
 
+    .. method:: subgraph()
+
+        Convert to a :class:`.Subgraph` by collecting all nodes and relationships
+        contained within. If there are none, :const:`None` is returned.
+
     .. method:: values()
 
         Return a `tuple` of the contained values.

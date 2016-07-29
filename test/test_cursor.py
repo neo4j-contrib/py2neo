@@ -276,14 +276,19 @@ class RecordTestCase(TestCase):
         with self.assertRaises(TypeError):
             _ = record[None]
 
-    def test_record_can_be_exposed_as_graph(self):
+    def test_record_can_be_converted_to_subgraph(self):
         keys = ["a", "b", "ab", "msg"]
         values = [alice, bob, alice_knows_bob, "hello, world"]
         record = Record(keys, values)
-        assert len(record) == 4
-        assert order(record) == 2
-        assert size(record) == 1
-        assert record.nodes() == {alice, bob}
-        assert record.relationships() == {alice_knows_bob}
-        assert list(record.keys()) == keys
-        assert list(record.values()) == values
+        subgraph = record.subgraph()
+        assert order(subgraph) == 2
+        assert size(subgraph) == 1
+        assert subgraph.nodes() == {alice, bob}
+        assert subgraph.relationships() == {alice_knows_bob}
+
+    def test_record_with_no_graphy_objects_converts_to_null_subgraph(self):
+        keys = ["a", "b", "c"]
+        values = [1, 2.0, "three"]
+        record = Record(keys, values)
+        subgraph = record.subgraph()
+        assert subgraph is None

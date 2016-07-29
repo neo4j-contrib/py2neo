@@ -229,8 +229,13 @@ The *PropertyDict* class is described in more detail below.
 Subgraphs
 =========
 
-A :class:`.Subgraph` is a collection of nodes and relationships. The simplest way to construct a
-subgraph is by combining nodes and relationships using standard set operations. For example::
+A :class:`.Subgraph` is a collection of nodes and relationships. By definition, a *Subgraph* must
+contain at least one node; `null subgraphs <http://mathworld.wolfram.com/NullGraph.html>`_ should
+be represented by :const:`None`. To test for `emptiness <http://mathworld.wolfram.com/EmptyGraph.html>`_
+the built-in :func:`bool` function can be used.
+
+The simplest way to construct a subgraph is by combining nodes and relationships using standard set
+operations. For example::
 
     >>> s = ab | ac
     >>> s

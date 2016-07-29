@@ -1519,7 +1519,7 @@ class Cursor(object):
             out.write(u"\n")
 
 
-class Record(tuple, Mapping, Subgraph):
+class Record(tuple, Mapping):
     """ A :class:`.Record` holds a collection of result values that are
     both indexed by position and keyed by name. A `Record` instance can
     therefore be seen as a combination of a `tuple` and a `Mapping`.
@@ -1533,14 +1533,6 @@ class Record(tuple, Mapping, Subgraph):
 
     def __init__(self, keys, values):
         self.__keys = tuple(keys)
-        nodes = []
-        relationships = []
-        for value in values:
-            if hasattr(value, "nodes"):
-                nodes.extend(value.nodes())
-            if hasattr(value, "relationships"):
-                relationships.extend(value.relationships())
-        Subgraph.__init__(self, nodes, relationships)
         self.__repr = None
 
     def __repr__(self):
@@ -1583,3 +1575,16 @@ class Record(tuple, Mapping, Subgraph):
 
     def data(self):
         return dict(self)
+
+    def subgraph(self):
+        nodes = []
+        relationships = []
+        for value in self:
+            if hasattr(value, "nodes"):
+                nodes.extend(value.nodes())
+            if hasattr(value, "relationships"):
+                relationships.extend(value.relationships())
+        if nodes:
+            return Subgraph(nodes, relationships)
+        else:
+            return None

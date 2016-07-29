@@ -206,6 +206,10 @@ class SubgraphTestCase(TestCase):
     def test_property_keys(self):
         assert self.subgraph.keys() == {"name", "age", "since"}
 
+    def test_empty_subgraph(self):
+        with self.assertRaises(ValueError):
+            Subgraph()
+
 
 class WalkableTestCase(TestCase):
 
