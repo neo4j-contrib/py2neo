@@ -337,30 +337,24 @@ class Subgraph(object):
         return tx.evaluate(statement, parameters)
 
     def __db_delete__(self, tx):
-        matches = []
-        deletes = []
-        parameters = {}
-        for i, relationship in enumerate(self.relationships()):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                rel_id = "r%d" % i
-                param_id = "y%d" % i
-                matches.append("MATCH ()-[%s]->() "
-                               "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
-                deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = remote_relationship._id
-                del relationship.__remote__
+        node_ids = set()
+        relationship_ids = set()
         for i, node in enumerate(self.nodes()):
             remote_node = remote(node)
             if remote_node:
-                node_id = "a%d" % i
-                param_id = "x%d" % i
-                matches.append("MATCH (%s) "
-                               "WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                deletes.append("DELETE %s" % node_id)
-                parameters[param_id] = remote_node._id
-                del node.__remote__
-        statement = "\n".join(matches + deletes)
+                node_ids.add(remote_node._id)
+            else:
+                return False
+        for i, relationship in enumerate(self.relationships()):
+            remote_relationship = remote(relationship)
+            if remote_relationship:
+                relationship_ids.add(remote_relationship._id)
+            else:
+                return False
+        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
+                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
+                     "DELETE r, a")
+        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
         tx.run(statement, parameters)
 
     def __db_exists__(self, tx):
