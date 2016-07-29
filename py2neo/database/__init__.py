@@ -1326,17 +1326,17 @@ class Cursor(object):
     records, a `while` loop can be used::
 
         while cursor.forward():
-            print(cursor.current["name"])
+            print(cursor.current()["name"])
 
     If only the first record is of interest, a similar `if` structure will
     do the job::
 
         if cursor.forward():
-            print(cursor.current["name"])
+            print(cursor.current()["name"])
 
     To combine `forward` and `current` into a single step, use :attr:`.next`::
 
-        print(cursor.next["name"])
+        print(cursor.next()["name"])
 
     Cursors are also iterable, so can be used in a loop::
 
@@ -1453,7 +1453,7 @@ class Cursor(object):
         """
         if self.forward():
             try:
-                return self._current[field]
+                return self.current()[field]
             except IndexError:
                 return None
         else:
