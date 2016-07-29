@@ -179,11 +179,11 @@ class NodeSelector(object):
     results.
     """
 
-    selection_class = NodeSelection
+    _selection_class = NodeSelection
 
     def __init__(self, graph):
         self.graph = graph
-        self._all = self.selection_class(self.graph)
+        self._all = self._selection_class(self.graph)
 
     def select(self, *labels, **properties):
         """ Describe a basic node selection using labels and property equality.
@@ -193,7 +193,7 @@ class NodeSelector(object):
         :return: :py:class:`.NodeSelection` instance
         """
         if labels or properties:
-            return self.selection_class(self.graph, frozenset(labels),
-                                        tuple(_property_equality_conditions(properties)))
+            return self._selection_class(self.graph, frozenset(labels),
+                                         tuple(_property_equality_conditions(properties)))
         else:
             return self._all

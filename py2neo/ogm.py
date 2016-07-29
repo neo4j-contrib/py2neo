@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
+from inspect import getmro
+from itertools import chain
+
 from py2neo.database import cypher_escape, NodeSelection, NodeSelector
 from py2neo.types import Node, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
@@ -278,8 +281,19 @@ class GraphObjectType(type):
             elif isinstance(attr, RelatedTo):
                 if attr.relationship_type is None:
                     attr.relationship_type = relationship_case(attr_name)
+
         attributes.setdefault("__primarylabel__", name)
-        attributes.setdefault("__primarykey__", "__id__")
+
+        primary_key = attributes.get("__primarykey__")
+        if primary_key is None:
+            for base in bases:
+                if primary_key is None and hasattr(base, "__primarykey__"):
+                    primary_key = getattr(base, "__primarykey__")
+                    break
+            else:
+                primary_key = "__id__"
+            attributes["__primarykey__"] = primary_key
+
         return super(GraphObjectType, mcs).__new__(mcs, name, bases, attributes)
 
 
@@ -386,7 +400,7 @@ class GraphObject(object):
         ogm = self.__ogm__
         if not remote(ogm.node):
             selector = GraphObjectSelector(self.__class__, graph)
-            selector.selection_class = NodeSelection
+            selector._selection_class = NodeSelection
             ogm.node = selector.select(self.__primaryvalue__).first()
         graph.pull(ogm.node)
         for related_objects in ogm.related.values():
@@ -412,31 +426,31 @@ class GraphObjectSelection(NodeSelection):
     given set of criteria.
     """
 
-    object_class = GraphObject
+    _object_class = GraphObject
 
     def __iter__(self):
         """ Iterate through items drawn from the underlying graph that
         match the given criteria.
         """
-        wrap = self.object_class.wrap
+        wrap = self._object_class.wrap
         for node in super(GraphObjectSelection, self).__iter__():
             yield wrap(node)
 
     def first(self):
         """ Return the first item that matches the given criteria.
         """
-        return self.object_class.wrap(super(GraphObjectSelection, self).first())
+        return self._object_class.wrap(super(GraphObjectSelection, self).first())
 
 
 class GraphObjectSelector(NodeSelector):
 
-    selection_class = GraphObjectSelection
+    _selection_class = GraphObjectSelection
 
     def __init__(self, object_class, graph):
         NodeSelector.__init__(self, graph)
         self._object_class = object_class
-        self.selection_class = type("%sSelection" % self._object_class.__name__, (GraphObjectSelection,),
-                                    {"object_class": object_class})
+        self._selection_class = type("%sSelection" % self._object_class.__name__,
+                                     (GraphObjectSelection,), {"_object_class": object_class})
 
     def select(self, primary_value=None):
         cls = self._object_class

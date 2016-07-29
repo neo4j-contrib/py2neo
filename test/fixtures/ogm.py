@@ -72,3 +72,12 @@ class MovieGraphTestCase(GraphTestCase):
 
     def tearDown(self):
         self.graph.delete_all()
+
+
+class BaseThing(GraphObject):
+    __primarylabel__ = "MyLabel"
+    __primarykey__ = "my_key"
+
+
+class DerivedThing(BaseThing):
+    pass

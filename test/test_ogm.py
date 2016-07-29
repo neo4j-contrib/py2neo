@@ -22,7 +22,7 @@ from unittest import TestCase
 from py2neo import order, size, remote, Node, Relationship, NodeSelector
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 
-from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject
+from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject, DerivedThing
 from test.util import GraphTestCase
 
 
@@ -39,6 +39,9 @@ class SubclassTestCase(TestCase):
 
     def test_class_primary_key_can_be_overridden(self):
         assert Film.__primarykey__ == "title"
+
+    def test_class_primary_key_is_inherited(self):
+        assert DerivedThing.__primarykey__ == "my_key"
 
 
 class InstanceTestCase(TestCase):
@@ -682,6 +685,7 @@ class ComprehensiveTestCase(GraphTestCase):
     def test_a(self):
         a = Thing.select(self.graph, "A").first()
         # A is related to B and C
+        assert isinstance(a, Thing)
         assert len(a.x) == 2
         assert len(a.x_out) == 2
         assert len(a.x_in) == 2
@@ -692,6 +696,7 @@ class ComprehensiveTestCase(GraphTestCase):
     def test_b(self):
         b = Thing.select(self.graph, "B").first()
         # B is only related to A
+        assert isinstance(b, Thing)
         assert len(b.x) == 1
         assert len(b.x_out) == 1
         assert len(b.x_in) == 1
@@ -702,6 +707,7 @@ class ComprehensiveTestCase(GraphTestCase):
     def test_c(self):
         c = Thing.select(self.graph, "C").first()
         # Loops are related to themselves, hence C is related to A, C and D
+        assert isinstance(c, Thing)
         assert len(c.x) == 3
         assert len(c.x_out) == 3
         assert len(c.x_in) == 3
@@ -712,6 +718,7 @@ class ComprehensiveTestCase(GraphTestCase):
     def test_d(self):
         d = Thing.select(self.graph, "D").first()
         # D is only related to C
+        assert isinstance(d, Thing)
         assert len(d.x) == 1
         assert len(d.x_out) == 1
         assert len(d.x_in) == 1
