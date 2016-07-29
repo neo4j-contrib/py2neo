@@ -188,7 +188,11 @@ case ${COMMAND} in
         NEO4J_VERSIONS="3.0 2.3 2.2 2.1 2.0"
         run_tests $*
         ;;
-    quicktest)
+    test-latest)
+        NEO4J_VERSIONS="3.0"
+        run_tests $*
+        ;;
+    test-3.0)
         NEO4J_VERSIONS="3.0"
         run_tests $*
         ;;
