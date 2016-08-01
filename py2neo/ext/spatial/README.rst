@@ -1,13 +1,14 @@
-.. _Neo4j Spatial Extension: https://github.com/neo4j—contrib/spatial
+.. _Neo4j Spatial Extension: https://github.com/neo4j-contrib/spatial
 .. _Shapely: https://pypi.python.org/pypi/Shapely
 .. _libgeos: https://github.com/libgeos/libgeos
-.. _Well Known Text: http://en.wikipedia.org/wiki/Well—known_text
+.. _Well Known Text: http://en.wikipedia.org/wiki/Well-known_text
 .. _GIS: http://en.wikipedia.org/wiki/Geographic_information_system
 .. _Geoserver: http://geoserver.org/
-.. _Spatial: https://github.com/neo4j—contrib/spatial
+.. _Spatial: https://github.com/neo4j-contrib/spatial
 .. _Rtree: http://en.wikipedia.org/wiki/R—tree
-.. _Spatial: https://github.com/neo4j—contrib/spatial
 .. _geotools: http://www.geotools.org/
+.. _WGS84: http://spatialreference.org/ref/epsg/wgs-84/
+
 .. role:: bash(code)
    :language: bash
 
@@ -17,200 +18,92 @@ Extension: Spatial
 
 Maintained by: Simon Harrison <noisyboiler@googlemail.com>
 
-This is an API to the contrib `Neo4j Spatial Extension`_ for creating, destroying and querying `Well
-Known Text`_ (WKT) geometries over GIS_ map Layers.
+An API to the `Neo4j Spatial Extension`_ for creating, destroying and querying `Well Known Text`_ (WKT) geometries over GIS_ map Layers.
 
-An OSMLayer (Open Street Map Layer ) is also possible, but because one cannot be created over REST, only via the Java OSMImporter api, there is no Py2neo Spatial support.
+Requires Neo4j >= 2.0 <= 2.2.3, the `Neo4j Spatial Extension`_, libgeos_ and the Python package Shapely_.
 
-#############
-Prerequisites
-#############
+Neo4j Setup
+-----------
 
-The `Neo4j Spatial Extension`_ must first be installed — from a shell, look for "SpatialExtension" in the output from: ``curl —v http://localhost:7474/db/data/``.
+Clone the Neo4j Spatial project and checkout the branch that corresponds to the Neo4j version you are using, e.g. remotes/origin/0.14-neo4j-2.2 for Neo4j Community 2.2.3 makes sense, then build the Neo4j spatial extension.
 
-You'll need libgeos_ and the Python package Shapely_.
+	:bash:`mvn clean package install -Dmaven.test.skip=true`
 
+Stop your Neo4j server and install the plugin.
 
-Main API
-========
+	:bash:`cp $NEO4J_SPATIAL_HOME/target/neo4j-spatial-XXXX-server-plugin.zip $NEO4J_HOME/plugins`
 
-Each Layer you create will build a sub-graph modelling geographically aware nodes as an Rtree_ —
-which is your magical spatial index!
+	:bash:`unzip $NEO4J_HOME/plugins/neo4j-spatial-XXXX-server-plugin.zip -d $NEO4J_HOME/plugins`
 
-A geographically-aware Node is one with a 'wkt' property. When you add such a Node to your
-application you require a Layer for the Node and a unique name for this geometry. Internally, the
-Node will be created in your application's graph, an additional node is added to the Rtree_ index
-graph (the map Layer) and a relationship is created binding them together.
+To test your install, from a shell you can use `curl` to ask for the configuration of the Neo4j server.
+
+	:bash:`curl http://username:password@localhost:7474/db/data/`
+
+In the "extensions" section of response you should see "SpatialPlugin".
+
+Run Tests
+=========
+
+The py2neo Spatial APIs rely on the upstream project, the `Neo4j Spatial Extension`_, to be kept up to date with Neo4j. Because of this it's advised to run the tests for this extension to check for compatibility problems.
+
+	:bash:`pip install -r ./test/requirements.txt`
+
+	:bash:`py.test ./test/ext/spatial/`
+
+These tests have been run successfully against Neo4j 2.0 - 2.2.3 using Python 2.7.
+
+API Overview
+============
+
+Simple CRUD APIs for GIS Layers, Points Of Interest (POI) and other geometries plus some endpoints for spatial queries over your data.
+
+Each GIS Layer you create is essentially an "index" and is modelled as an Rtree_ within your graph which Neo4j will use when executing "spatial" type queries. This should not be confused with the Neo4j schema indexes, nor the "legacy" type of index, and is used internally by the spatial extension to optimise expensive spatial queries.
+
+py2neo Spatial creates layers of type ``org.neo4j.gis.spatial.EditableLayerImpl`` and encodes spatial data with the ``org.neo4j.gis.spatial.WKTGeometryEncoder``. See the `Neo4j Spatial Extension`_ for alternatives.
+
+Each vector geometry you create must be in the standard, unprojected `WGS84`_ (EPSG:4326) geographic coordinate system. For a vector geometry this will be marked-up in Well Known Text (WKT) and for a POI this will be as a longitude/latitude (x/y) pair. There is nothing stopping you adding your POI as WKT - the long/lat API exists for the convenience of the many clients that deal in point coordinates.
+
+.. note::
+	py2neo Spatial works with WGS84 (EPSG 4326) WKT strings. When py2neo Spatial handles Point Of Interest coordinates it use the  standard of POINT (x y) which translates to POINT (Lon Lat) - *not* lat/long.
+
+See wiki `Well Known Text`_ for a list of possible geometries that you can create. Internally the data will be stored as Well Known Binary (WKB).
 
 .. automodule:: py2neo.ext.spatial.plugin
     :members:
 
 
-Geoserver Integration
-=====================
+Neo4j Spatial & Geoserver
+=========================
 
-The Neo4j Server Spatial library can be integrated with Geoserver_ to allow the creation of a neo4j *type* **datasource** which you can use to visualise what you've created with Py2neo—Spatial.
+Geoserver is an open source server for sharing the geospatial data that you create using py2neo spatial and other GIS technologies.
 
-.. warning::
-
-	Neo4j server integration to Geoserver is work in progress. Because of this, it's recommended to work from the fork ``https://github.com/noisyboiler/spatial`` because this contains *some* of the required read—transactions now required by Neo4j.
-
-	And it's almost certain that you can help!
-
-#############
-Prerequisites
-#############
-
-Oracle JDK 7 or OpenJDK 7
-
-Geoserver >= 2.5.2
-
-Neo4j >= 2.1.5
-
-Source of Neo4j Spatial Server Extension
-— this documentation is based on the fork: ``https://github.com/noisyboiler/spatial``
-
-Py2neo latest
-
-
-Install Geoserver
-=================
-
-If you do not have a preferred method for your OS, find out how to do it for you from Geoserver_.
-
-##############
-Stop Geoserver
-##############
-
-You may have already started your server in a frenzy of excitement: :bash:`geoserver stop`
-
-
-Build The Spatial Extension
-===========================
-
-Pre—compliled archives do exist, but until an integration test suite between these and Geoserver, it's almost certain you'll need to build from the "supporting" fork.
-
-:bash:`mvn clean package —Dmaven.test.skip=true install`
-
-
-
-Integrate With Geoserver
-========================
-
-This is achieved by copying jars from Neo4j *and* Neo4j Spatial into the Geoserver WEB—INF/lib directory whilst Geoserver is *not* running.
-
-
-####################################
-Locate Your Geoserver Webapps Folder
-####################################
-
-Locate your Geoserver webapps lib folder, ``$GEOSERVER_HOME/webapps/geoserver/WEB—INF/lib`` — you'll be copying files from Neo4j *and* it's server extension into here.
-
-
-##############################
-Locate Your Neo4j Spatial Jars
-##############################
-
-Locate the Neo4j Spatial Extension archive: ``neo4j—spatial—X.XX—neo4j—X.X.X—server—plugin.zip``. Unzip this.
-
-
-######################
-Locate Your Neo4j Jars
-######################
-
-Locate your Neo4j source lib folder ``$NEO4J_HOME/lib``.
-
-###
-GO!
-###
-
-From your Neo4j Spatial Jars, copy everyhing but the geotools_ files (these are ones prefixed by 'gt') into ``$GEOSERVER_HOME/webapps/geoserver/WEB—INF/lib`` — Geoserver tends to prefer it's own versions of these. Do this now.
-
-From your Neo4j Jar folder copy *everything* into ``$GEOSERVER_HOME/webapps/geoserver/WEB—INF/lib``.
-
-Do notice the versioning of all files you copy over. If any of these libraries already exists in your Geoserver webapps lib folder and they are older... use your discretion. In my experience, Geoserver tends to prefer it's own versions of geotools_. At the very end of this exercise, if you fail to see any data, come back to these steps with suspicion.
-
-
-Run Geoserver
-=============
-
-The default configuration for Geoserver **will not** allocate enough memeory for the tasks ahead, so do **not** start Geoserver  with :bash:`geoserver start` — you need to allocate extra room.
-
-The following, for me, has been sufficient for small datasets, where ``start.jar`` is that from your Geoserver home directory.
-
-:bash:`java —server —Xmx256M —Xms48m —XX:MaxPermSize=128m —DGEOSERVER_DATA_DIR=/path/to/data/ —jar /path/to/geoserver/start.jar`
-
-For example, if you installed using homebrew you can expect to find yout ``start.jar`` somewhere like:
-
-:bash:`java —server —Xmx256M —Xms48m —XX:MaxPermSize=128m —jar /usr/local/Cellar/geoserver/2.5.2/libexec/start.jar`
-
-Check that all is okay: http://localhost:8080/geoserver/web/
-
-Then check you can login.
+In order to support a Neo4j type datastore we must first add the Neo4j and Neo4j Spatial source jars into your Geoservers ``WEB—INF/lib`` directory and restart it.
 
 .. note::
+	Documentation based on Neo4j 2.2.3, GeoServer 2.7 and Neo4j Spatial 0.14 on Ubunutu 14.04 VM
 
-	username/password is likely to be admin/geoserver
+Clone the Neo4j Spatial project and checkout the branch that corresponds to the Neo4j version you are using, e.g. remotes/origin/0.14-neo4j-2.2. Build the Neo4j spatial extension.
 
-Configure a workspace from the left sidebar "Workspaces" option. My imagination came up with "neo".
+	:bash:`mvn clean package install -Dmaven.test.skip=true`
+
+On success, unpack the ``neo4j—spatial—X.XX—neo4j—X.X.X—server—plugin.zip`` archive that you've created in the projects `target` directory and copy or move the contained jars into the ``WEB—INF/lib`` directory found under $GEOSERVER_HOME. Then copy the jars from ``$NEO4J_HOME/lib`` into the same directory. Restart Geoserver.
+
+If you've been successful you will now find a new Neo4j "Store" available from the Geoserver web UI:  **"Neo4j — A datasource backed by a Neo4j Spatial datasource"**.
+
+Visit the web interface at http://localhost:8080/geoserver/web to find this out.
 
 .. note::
+	The default username and password is "admin" and "geoserver"
 
-	Geoserver will run it's own Neo4j server and it will want to do this on the default port, 7474. Your preferred server will have to be stopped before visualising your data with Geoserver. It's most likely that you will have to *copy* the data directory from your preferred server (whist it is *not* running) and place this somewhere convienient in you file system — I chose the same folder Geoserver requires to know about for other data.
-
-.. warning::
-
-	the version of Neo that your data was created in **must** match that Geoserver is using. It's very easy to forget and if you grab data from a different version it's likely Geoserver will not spot the spatial data, leaving you with no raised warnings or errors and no fun.
-
-
-###########################
-Try This Out With Some Data
-###########################
-
-Getting spatial data into Neo is easy with Py2neo's spatial extension. But you may not have any and you just want to know whether your setup is working: Py2neo provides some example data and a script to load them.
+Getting spatial data into Neo4j is easy with py2neo's spatial extension but you may not have any yet and you may just want to try out Geoserver, so py2neo Spatial provides some example data and a script to load them.
 
 For example, to put a MultiPolygon modelling Cornwall on to a GIS layer called "uk", from the root of your project, run:
 
-:bash:`python py2neo/ext/spatial/scripts/load_data.py cornwall ——layer uk`
+	:bash:`python py2neo/ext/spatial/scripts/load_data.py --data cornwall --layer uk --username neo4j --password mysecret`
 
-You now have a GIS layer and a tiny piece of data to visualise!
+Whatever GIS data you have, stop your Neo4j server and place a copy of the database somewhere that Geoserver can access it. From the GeoServer web admin create a new Neo4j Store, name it, describe it, and add the path to your Neo4j database. Save it.
 
-Stop Neo4j (Geoserver will need the port) and go back to the Geoserver web admin: http://localhost:8080/geoserver/web/
+GeoServer should recognise the layers in the datastore, so whatever you named a Layer with py2neo, expect to see it listed now. Next step: pubish and preview the layers.
 
-Select "Stores", "Add new store", "Neo4j — A datasource backed by a Neo4j Spatial datasource".
-
-Give the source a name, say, "cornwall". The directory path of the Neo4j database should be absolute, e.g. ``/usr/local/Cellar/neo4j/2.1.4/libexec/data/``.
-
-.. note::
-
-	this does not include the name of the datastore ``graph.db``, just the path. including the name of the datastore will lead to long stack traces.
-
-
-
-###############
-Troubleshooting
-###############
-
-Mac OS
-
-1.
-BUILD FAILURE: Fatal error compiling: invalid target release: 1.7
-
-Even though ``java —version`` clearly reports 1.7, the maven build finds the OS default, which can be lower.
-
-Solution: override in your terminal session, e.g.
-
-:bash:`export JAVA_HOME=`/usr/libexec/java_home —v 1.7``
-
-2.
-ERROR org.mortbay.log — Nested in org.springframework.web.util.NestedServletException: Handler processing failed; nested exception is java.lang.NoClassDefFoundError: org/neo4j/graphdb/factory/GraphDatabaseFactory:
-java.lang.NoClassDefFoundError: org/neo4j/graphdb/factory/GraphDatabaseFactory
-
-Solution: Geoserver is not recognising Neo4j. All of Neo4j's source needs to be copied into the webapps lib directory as Geoserver will run it's own neo server. Try this step again.
-
-3.
-WARN  org.geoserver.web.data.store  — Error obtaining new data store
-java.io.IOException....
-Caused by: org.neo4j.graphdb.NotInTransactionException
-
-Solution: Write **and** reads from Neo are required to be in transactions so you must identify the call in the Neo4j Spatial source code and wrap it in a transaction (then raise a PR please!).
+.. warning::
+	Geoserver integration is flakey, and there are no integration tests between all the moving parts. Configuring Geoserver to not raise `java.lang.OutOfMemoryError` and patching Neo4j Spatial not to raise `org.neo4j.graphdb.NotInTransactionException` is only straight forward for JAVA developers. Getting your versions of Neo4j, Neo4j Spatial and Geoserver all to play well together is also a challenge. As exciting as the prospect of visualising Neo4j data sets in Geoserver is, it's currently incredibly hard work and requires someone to take this on seriously.
