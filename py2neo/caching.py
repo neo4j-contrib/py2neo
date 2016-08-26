@@ -26,6 +26,12 @@ class ThreadLocalEntityCache(local):
         self.lock = Lock()
         self._dict = WeakValueDictionary()
 
+    def __contains__(self, key):
+        return key in self._dict
+
+    def __getitem__(self, key):
+        return self._dict[key]
+
     def clear(self):
         self._dict.clear()
 
