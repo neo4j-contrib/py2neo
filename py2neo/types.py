@@ -22,8 +22,7 @@ from uuid import uuid4
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.database.http import Resource
-from py2neo.util import is_collection, round_robin, \
-    ThreadLocalWeakValueDictionary, deprecated, relationship_case, snake_case
+from py2neo.util import is_collection, round_robin, deprecated, relationship_case, snake_case
 
 
 # Maximum and minimum integers supported up to Java 7.
