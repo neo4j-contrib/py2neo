@@ -20,38 +20,37 @@ from threading import Lock, local
 from weakref import WeakValueDictionary
 
 
-class EntityCache(object):
+class ThreadLocalEntityCache(local):
 
-    def __init__(self, value_constructor):
-        self.value_constructor = value_constructor
+    def __init__(self):
         self.lock = Lock()
         self._dict = WeakValueDictionary()
 
     def clear(self):
         self._dict.clear()
 
-    def merge(self, key, value=None):
-        """ Ensure a value exists for a given key, creating a new value if
-        necessary but using an existing one if available.
+    def update(self, key, value):
+        """ Extract, insert or remove a value for a given key.
         """
         with self.lock:
             if value is None:
-                if key in self._dict:
-                    # extract
-                    value = self._dict[key]
+                # remove
+                try:
+                    del self._dict[key]
+                except KeyError:
+                    pass
                 else:
-                    # create and insert
-                    self._dict[key] = value = self.value_constructor()
+                    return None
+            elif callable(value):
+                try:
+                    # extract
+                    return self._dict[key]
+                except KeyError:
+                    # construct and insert
+                    new_value = value()
+                    self._dict[key] = new_value
+                    return new_value
             else:
-                # insert
+                # insert or replace
                 self._dict[key] = value
-            return value
-
-    def remove(self, key):
-        """ Ensure no value exists for a given key.
-        """
-        with self.lock:
-            try:
-                del self._dict[key]
-            except KeyError:
-                pass
+                return value

@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.caching import EntityCache
+from py2neo.caching import ThreadLocalEntityCache
 
 
 class Entity(object):
@@ -29,78 +29,87 @@ class Entity(object):
 
 class EntityCacheTestCase(TestCase):
 
-    def test_merge_of_none_where_key_does_not_exist(self):
+    def test_update_with_value_constructor_where_key_does_not_exist(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
 
         # When
         key = "X"
-        new_value = None
-        value = cache.merge(key, new_value)
+        value = cache.update(key, Entity)
 
         # Then a new value should have been created, inserted and extracted
         assert key in cache._dict
         assert isinstance(value, Entity)
 
-    def test_merge_of_none_where_key_already_exists(self):
+    def test_update_with_value_constructor_where_key_already_exists(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
         key = "X"
         old_value = Entity()
         cache._dict[key] = old_value
 
         # When
-        new_value = None
-        value = cache.merge(key, new_value)
+        value = cache.update(key, Entity)
 
         # Then the old value should be extracted
         assert key in cache._dict
         assert value is old_value
 
-    def test_merge_of_value_where_key_does_not_exist(self):
+    def test_update_with_value_where_key_does_not_exist(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
         key = "X"
 
         # When
         new_value = Entity()
-        value = cache.merge(key, new_value)
+        value = cache.update(key, new_value)
 
         # Then the new value should have been inserted
         assert key in cache._dict
         assert value is new_value
 
-    def test_merge_of_value_where_key_already_exists(self):
+    def test_update_with_value_where_key_already_exists(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
         key = "X"
         old_value = Entity()
         cache._dict[key] = old_value
 
         # When
         new_value = Entity()
-        value = cache.merge(key, new_value)
+        value = cache.update(key, new_value)
 
         # Then the old value should have been replaced by the new value
         assert key in cache._dict
         assert value is new_value
 
-    def test_explicit_removal_by_key(self):
+    def test_update_with_none_where_key_does_not_exist(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
+        key = "X"
+
+        # When
+        cache.update(key, None)
+
+        # Then the key should still not exist in the cache
+        assert key not in cache._dict
+
+    def test_update_with_none_where_key_already_exists(self):
+        # Given
+        cache = ThreadLocalEntityCache()
         key = "X"
         value = Entity()
         cache._dict[key] = value
 
         # When
-        cache.remove(key)
+        cache.update(key, None)
 
         # Then the key should no longer exist in the cache
         assert key not in cache._dict
 
     def test_implicit_removal_by_value_deletion(self):
         # Given
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
         key = "X"
         value = Entity()
         cache._dict[key] = value
@@ -116,7 +125,7 @@ class EntityCacheTestCase(TestCase):
         from threading import Event, Lock, Thread
         from time import time
 
-        cache = EntityCache(Entity)
+        cache = ThreadLocalEntityCache()
 
         keys = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
         values = []
@@ -136,10 +145,9 @@ class EntityCacheTestCase(TestCase):
 
             def merge_random_key_and_new_value(self):
                 key = choice(keys)
-                value = cache.merge(key, Entity())
+                value = cache.update(key, Entity())
                 with values_lock:
                     values.append(value)
-                # print("[%s] Merged explicit new value as key %s" % (self.name, key))
 
             def merge_random_key_and_old_value(self):
                 key = choice(keys)
@@ -148,20 +156,18 @@ class EntityCacheTestCase(TestCase):
                         value = choice(values)
                     else:
                         return
-                cache.merge(key, value)
-                # print("[%s] Merged old value as key %s" % (self.name, key))
+                cache.update(key, value)
 
-            def merge_random_key_and_none(self):
+            def merge_random_key_and_constructor(self):
                 key = choice(keys)
-                value = cache.merge(key)
+                value = cache.update(key, Entity)
                 with values_lock:
-                    values.append(value)
-                # print("[%s] Merged implicit new value as key %s" % (self.name, key))
+                    if value not in values:
+                        values.append(value)
 
             def remove_random_key(self):
                 key = choice(keys)
-                cache.remove(key)
-                # print("[%s] Removed key %s" % (self.name, key))
+                cache.update(key, None)
 
             def delete_random_values(self):
                 with values_lock:
@@ -181,7 +187,7 @@ class EntityCacheTestCase(TestCase):
 
             actions = [merge_random_key_and_new_value, merge_random_key_and_new_value,
                        merge_random_key_and_old_value, merge_random_key_and_old_value,
-                       merge_random_key_and_none, merge_random_key_and_none,
+                       merge_random_key_and_constructor, merge_random_key_and_constructor,
                        remove_random_key, delete_random_values, assert_integrity]
 
             def perform_random_action(self):
