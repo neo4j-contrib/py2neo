@@ -22,9 +22,7 @@ Utility module
 
 from itertools import cycle, islice
 import re
-from threading import local
 import warnings
-from weakref import WeakValueDictionary
 
 from .compat import string
 
@@ -122,10 +120,6 @@ has_all = lambda iterable, items: all(item in iterable for item in items)
 def raise_from(exception, cause):
     exception.__cause__ = cause
     raise exception
-
-
-class ThreadLocalWeakValueDictionary(WeakValueDictionary, local):
-    pass
 
 
 def metaclass(mcs):
