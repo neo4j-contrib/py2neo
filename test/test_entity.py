@@ -78,10 +78,6 @@ class AutoNamingTestCase(GraphTestCase):
         a = Node(name=("Alice", "爱丽丝"))
         assert a.__name__ == "alice_爱丽丝"
 
-    def test_can_name_using_set_as_name_property(self):
-        a = Node(name=set(["Alice", "Alicia"]))
-        assert a.__name__ == "alicia_alice"
-
     def test_can_name_using_magic_name_property(self):
         a = Node(__name__="Alice")
         assert a.__name__ == "Alice"
