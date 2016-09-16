@@ -33,11 +33,10 @@ WORD_ALL = re.compile("([a-z0-9])([A-Z])")
 
 
 def snake_case(s):
-    if isinstance(s, list) or isinstance(s, tuple) or isinstance(s, set):
+    if is_collection(s):
         s = "_".join(s)
 
     words = s.replace("_", " ").replace("-", " ").split()
-
     return "_".join(word.lower() for word in words)
 
 
