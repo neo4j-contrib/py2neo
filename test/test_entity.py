@@ -21,7 +21,7 @@ from test.util import GraphTestCase
 
 
 class EntityTestCase(GraphTestCase):
-        
+
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Node()
@@ -69,6 +69,14 @@ class AutoNamingTestCase(GraphTestCase):
     def test_can_name_using_name_property(self):
         a = Node(name="Alice")
         assert a.__name__ == "alice"
+
+    def test_can_name_using_list_as_name_property(self):
+        a = Node(name=["Alice", "爱丽丝"])
+        assert a.__name__ == "alice_爱丽丝"
+
+    def test_can_name_using_tuple_as_name_property(self):
+        a = Node(name=("Alice", "爱丽丝"))
+        assert a.__name__ == "alice_爱丽丝"
 
     def test_can_name_using_magic_name_property(self):
         a = Node(__name__="Alice")
