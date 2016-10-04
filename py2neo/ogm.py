@@ -125,7 +125,12 @@ class RelatedObjects(object):
     def __init__(self, node, direction, relationship_type, related_classes):
         assert isinstance(direction, int) and not isinstance(direction, bool)
         self.node = node
-        self.related_classes = related_classes
+        
+        if isinstance(related_classes, list): 
+            self.related_classes = related_classes
+        else: # to keep backward compatibility 
+            self.related_classes = [related_classes]
+
         self.__related_objects = None
         if direction > 0:
             self.__match_args = (self.node, relationship_type, None)
