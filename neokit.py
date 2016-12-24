@@ -53,7 +53,12 @@ from os.path import dirname, basename, exists as path_exists, expanduser, isdir,
 import re
 from shutil import rmtree
 from socket import create_connection
-from subprocess import call, check_call, check_output, CalledProcessError, DEVNULL
+from subprocess import call, check_call, check_output, CalledProcessError
+try:
+    from subprocess import DEVNULL
+except ImportError:
+    from os import devnull
+    DEVNULL = open(devnull, "rw")
 from sys import argv, stdout, stderr
 from tarfile import TarFile, ReadError
 from textwrap import dedent
