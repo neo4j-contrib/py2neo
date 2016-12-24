@@ -35,6 +35,9 @@ class ThreadLocalEntityCache(local):
     def clear(self):
         self._dict.clear()
 
+    def keys(self):
+        return self._dict.keys()
+
     def update(self, key, value):
         """ Extract, insert or remove a value for a given key.
         """

@@ -45,6 +45,8 @@ package_metadata = {
     },
     "packages": packages,
     "py_modules": ["neokit"],
+    "install_requires": [
+    ],
     "license": __license__,
     "classifiers": [
         "Development Status :: 5 - Production/Stable",
@@ -55,6 +57,7 @@ package_metadata = {
         "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Topic :: Database",
         "Topic :: Software Development",
     ],

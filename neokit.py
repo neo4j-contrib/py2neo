@@ -48,12 +48,12 @@ from argparse import ArgumentParser
 from base64 import b64encode
 from contextlib import contextmanager
 from json import dumps as json_dumps
-from os import chdir, curdir, getenv, linesep, listdir, makedirs, rename
-from os.path import basename, exists as path_exists, expanduser, isdir, isfile, join as path_join, abspath
+from os import curdir, getenv, linesep, listdir, makedirs, rename
+from os.path import dirname, basename, exists as path_exists, expanduser, isdir, isfile, join as path_join, abspath
 import re
 from shutil import rmtree
 from socket import create_connection
-from subprocess import call, check_call, check_output, CalledProcessError
+from subprocess import call, check_call, check_output, CalledProcessError, DEVNULL
 from sys import argv, stdout, stderr
 from tarfile import TarFile, ReadError
 from textwrap import dedent
@@ -103,6 +103,8 @@ except ImportError:
             self.readfp(data)
 
 
+ROOT_DIR = dirname(__file__)
+
 SERVER_AUTH_FAILURE = 9
 SERVER_NOT_RUNNING = 10
 SERVER_ALREADY_RUNNING = 11
@@ -113,29 +115,16 @@ editions = [
     "community",
     "enterprise",
 ]
-versions = [
-    "2.0.0", "2.0.1", "2.0.2", "2.0.3", "2.0.4",
-    "2.1.2", "2.1.3", "2.1.4", "2.1.5", "2.1.6", "2.1.7", "2.1.8",
-    "2.2.0", "2.2.1", "2.2.2", "2.2.3", "2.2.4", "2.2.5", "2.2.6", "2.2.7", "2.2.8", "2.2.8", "2.2.10",
-    "2.3.0", "2.3.1", "2.3.2", "2.3.3", "2.3.4", "2.3.5", "2.3.6",
-    "3.0.0", "3.0.1", "3.0.2", "3.0.3",
-    "3.1.0-M05",
-]
-version_aliases = {
-    "2.0": "2.0.4",
-    "2.0-LATEST": "2.0.4",
-    "2.1": "2.1.8",
-    "2.1-LATEST": "2.1.8",
-    "2.2": "2.2.10",
-    "2.2-LATEST": "2.2.10",
-    "2.3": "2.3.6",
-    "2.3-LATEST": "2.3.6",
-    "3.0": "3.0.3",
-    "3.0-LATEST": "3.0.3",
-    "LATEST": "3.0.3",
-    "3.1-MILESTONE": "3.1.0-M05",
-    "MILESTONE": "3.1.0-M05",
-}
+
+# TODO: make this a bit easier to read
+versions = open(path_join(ROOT_DIR, "versions.txt")).read().split()
+version_tuples = [tuple(map(int, v.split("."))) for v in versions]
+minor_version_tuples = sorted({v[:2] for v in version_tuples})
+minor_versions = [".".join(map(str, v)) for v in minor_version_tuples]
+latest_version_tuples = {w: max(v for v in version_tuples if v[:2] == w) for w in minor_version_tuples}
+latest_versions = {".".join(map(str, k)): ".".join(map(str, v)) for k, v in latest_version_tuples.items()}
+version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
+version_aliases["LATEST"] = versions[-1]
 
 dist = "http://dist.neo4j.org"
 dist_overrides = {
@@ -521,7 +510,7 @@ class GraphServer(object):
         :param key: the key of the item to look up
         """
         try:
-            out = check_output("%s info" % self.control_script, shell=True)
+            out = check_output("%s info" % self.control_script, shell=True, stderr=DEVNULL)
         except CalledProcessError as error:
             if error.returncode == 3:
                 return None
@@ -576,7 +565,10 @@ class GraphServerV3(GraphServer):
     def http_port(self):
         port = None
         if self.running():
-            port = self.info("NEO4J_SERVER_PORT")
+            try:
+                port = self.info("NEO4J_SERVER_PORT")
+            except OSError:
+                pass
         if port is None:
             http_address = self.config("dbms.connector.http.address")
             if http_address:
