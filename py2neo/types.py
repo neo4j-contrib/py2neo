@@ -326,7 +326,7 @@ class Subgraph(object):
                 relationship._set_remote_pending(tx)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_degree__(self, tx):
         node_ids = []
@@ -357,7 +357,7 @@ class Subgraph(object):
                      "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
                      "DELETE r, a")
         parameters = {"x": list(node_ids), "y": list(relationship_ids)}
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_exists__(self, tx):
         node_ids = set()
@@ -440,7 +440,7 @@ class Subgraph(object):
                 relationship._set_remote_pending(tx)
         statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_pull__(self, graph):
         nodes = {node: None for node in self.nodes()}
@@ -452,7 +452,7 @@ class Subgraph(object):
             nodes[node] = cursor
         for relationship in relationships:
             tx.entities.append({"r": relationship})
-            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id)
+            list(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id))
         tx.commit()
         for node, cursor in nodes.items():
             labels = node._Node__labels
@@ -498,7 +498,7 @@ class Subgraph(object):
                 parameters[param_id] = remote_relationship._id
                 del relationship.__remote__
         statement = "\n".join(matches + deletes)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def nodes(self):
         """ Set of all nodes.

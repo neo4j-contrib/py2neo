@@ -307,8 +307,8 @@ class TransactionErrorTestCase(GraphTestCase):
         tx.run(statement, parameters)
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-        tx.run(statement, parameters)
         with self.assertRaises(ConstraintError):
+            tx.run(statement, parameters)
             tx.commit()
 
 

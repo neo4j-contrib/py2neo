@@ -19,7 +19,7 @@
 from base64 import b64encode
 from os import getenv
 from py2neo.packages.httpstream.packages.urimagic import URI
-from py2neo.packages.neo4j.v1 import basic_auth
+from neo4j.v1 import basic_auth
 
 
 #: Authentication dictionary mapping server addresses to auth details
