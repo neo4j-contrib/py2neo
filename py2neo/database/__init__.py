@@ -21,14 +21,14 @@ from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 from warnings import warn
 
+from neo4j.v1 import GraphDatabase
+
 from py2neo import PRODUCT
+from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string
 from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-from neo4j.v1 import GraphDatabase, PackStreamValueSystem
-from neo4j.v1.types import \
-    Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath
 from py2neo.types import cast_node, Subgraph, remote
 from py2neo.util import deprecated, version_tuple
 
@@ -899,7 +899,7 @@ class BoltDataSource(DataSource):
     def __init__(self, result, entities, graph_uri):
         self.result = result
         self.result.error_class = GraphError.hydrate
-        self.result.value_system = BoltValueSystem(result.keys(), entities, graph_uri)
+        self.result.value_system = Py2neoPackStreamValueSystem(graph_uri, result.keys(), entities)
         self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
@@ -918,56 +918,6 @@ class BoltDataSource(DataSource):
             return next(self.result_iterator)
         except StopIteration:
             return None
-
-
-class BoltValueSystem(PackStreamValueSystem):
-
-    def __init__(self, keys, entities, graph_uri):
-        self.keys = keys
-        self.entities = entities
-        self.graph_uri = graph_uri
-
-    def hydrate(self, values):
-        keys = self.keys
-        hydrated = super(BoltValueSystem, self).hydrate(values)
-        rehydrated = []
-        for i, value in enumerate(hydrated):
-            key = keys[i]
-            cached = self.entities.get(key)
-            v = self.rehydrate(value, inst=cached)
-            rehydrated.append(v)
-        return rehydrated
-
-    def rehydrate(self, obj, inst=None):
-        # TODO: hydrate directly instead of via HTTP hydration
-        if isinstance(obj, BoltNode):
-            return Node.hydrate({
-                "self": "%snode/%d" % (self.graph_uri, obj.id),
-                "metadata": {"labels": list(obj.labels)},
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltRelationship):
-            return Relationship.hydrate({
-                "self": "%srelationship/%d" % (self.graph_uri, obj.id),
-                "start": "%snode/%d" % (self.graph_uri, obj.start),
-                "end": "%snode/%d" % (self.graph_uri, obj.end),
-                "type": obj.type,
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltPath):
-            return Path.hydrate({
-                "nodes": ["%snode/%d" % (self.graph_uri, n.id) for n in obj.nodes],
-                "relationships": ["%srelationship/%d" % (self.graph_uri, r.id)
-                                  for r in obj.relationships],
-                "directions": ["->" if r.start == obj.nodes[i].id else "<-"
-                               for i, r in enumerate(obj.relationships)],
-            })
-        elif isinstance(obj, list):
-            return list(map(self.rehydrate, obj))
-        elif isinstance(obj, dict):
-            return {key: self.rehydrate(value) for key, value in obj.items()}
-        else:
-            return obj
 
 
 class TransactionFinished(GraphError):
