@@ -9,3 +9,23 @@ Notable changes to this project are documented herein.
 
 ### Changed
 - Official driver 1.1.0 dependency replaces embedded 1.0 series driver. This is the first (and so far only) project dependency.
+
+### Removed
+- Previously deprecated attributes:
+  - Graph.find()
+  - Graph.find_one()
+  - Graph.neo4j_version
+  - Node.degree()
+  - Node.exists()
+  - Node.match()
+  - Node.match_incoming()
+  - Node.match_outgoing()
+  - Node.properties
+  - Node.pull()
+  - Node.push()
+  - Relationship.exists()
+  - Relationship.properties
+  - Relationship.pull()
+  - Relationship.push()
+  - Transaction.append()
+- "Batman" extension (HTTP batch interface and manual indexing support)

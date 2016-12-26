@@ -1,8 +1,10 @@
 [run]
 branch = False
 omit =
+    demo/*
     */__main__.py
     py2neo/compat.py
+    py2neo/util.py
     py2neo/packages/*
     test/*
     test_ext/*

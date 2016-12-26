@@ -30,7 +30,7 @@ from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.types import cast_node, Subgraph, remote
-from py2neo.util import deprecated, version_tuple
+from py2neo.util import version_tuple
 
 from py2neo.database.auth import *
 from py2neo.database.cypher import *
@@ -480,41 +480,6 @@ class Graph(object):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
-    @deprecated("Graph.find is deprecated, use NodeSelector instead")
-    def find(self, label, property_key=None, property_value=None, limit=None):
-        """ Yield all nodes with a given label, optionally filtering
-        by property key and value.
-
-        :param label: node label to match
-        :param property_key: property key to match
-        :param property_value: property value to match; if a tuple or set is
-                               provided, any of these values may be matched
-        :param limit: maximum number of nodes to match
-        """
-        node_selection = self.node_selector.select(label)
-        if property_key:
-            node_selection = node_selection.where(**{property_key: property_value})
-        if limit:
-            node_selection = node_selection.limit(limit)
-        for node in node_selection:
-            yield node
-
-    @deprecated("Graph.find_one is deprecated, use NodeSelector instead")
-    def find_one(self, label, property_key=None, property_value=None):
-        """ Find a single node by label and optional property. This method is
-        intended to be used with a unique constraint and does not fail if more
-        than one matching node is found.
-
-        :param label: node label to match
-        :param property_key: property key to match
-        :param property_value: property value to match; if a tuple or set is
-                               provided, any of these values may be matched
-        """
-        node_selection = self.node_selector.select(label).limit(1)
-        if property_key:
-            node_selection = node_selection.where(**{property_key: property_value})
-        return node_selection.first()
-
     def _hydrate(self, data, inst=None):
         if isinstance(data, dict):
             if "errors" in data and data["errors"]:
@@ -640,11 +605,6 @@ class Graph(object):
         :param property_keys: property keys on which to match any existing nodes
         """
         self.begin(autocommit=True).merge(subgraph, label, *property_keys)
-
-    @property
-    @deprecated("Graph.neo4j_version is deprecated, use DBMS.kernel_version instead")
-    def neo4j_version(self):
-        return version_tuple(remote(self).metadata["neo4j_version"])
 
     def node(self, id_):
         """ Fetch a node by ID. This method creates an object representing the
@@ -964,10 +924,6 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-
-    @deprecated("Transaction.append(...) is deprecated, use Transaction.run(...) instead")
-    def append(self, statement, parameters=None, **kwparameters):
-        return self.run(statement, parameters, **kwparameters)
 
     def _post(self, commit=False):
         pass
