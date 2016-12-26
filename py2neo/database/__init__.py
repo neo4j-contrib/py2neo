@@ -896,10 +896,10 @@ class BoltDataSource(DataSource):
     """ Wraps a BoltStatementResult
     """
 
-    def __init__(self, result, entities, graph_uri):
+    def __init__(self, graph, entities, result):
         self.result = result
         self.result.error_class = GraphError.hydrate
-        self.result.value_system = Py2neoPackStreamValueSystem(graph_uri, result.keys(), entities)
+        self.result.value_system = Py2neoPackStreamValueSystem(graph, entities, result.keys())
         self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
@@ -1196,7 +1196,7 @@ class BoltTransaction(Transaction):
             result = self.transaction.run(statement, parameters, **kwparameters)
         else:
             result = self.session.run(statement, parameters, **kwparameters)
-        source = BoltDataSource(result, entities, remote(self.graph).uri.string)
+        source = BoltDataSource(self.graph, entities, result)
         self.sources.append(source)
         if not self.transaction:
             self.finish()

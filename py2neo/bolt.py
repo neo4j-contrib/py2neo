@@ -23,14 +23,15 @@ from py2neo.types import Node, Relationship, Path, remote
 
 class Py2neoPackStreamValueSystem(ValueSystem):
 
-    def __init__(self, graph_uri, keys, entities):
-        self.graph_uri = graph_uri
+    def __init__(self, graph, entities, keys):
+        self.graph = graph
         self.keys = keys
         self.entities = entities
 
     def hydrate(self, values):
         """ Hydrate values from raw representations into client objects.
         """
+        graph_uri = remote(self.graph).uri.string
         entities = self.entities
         keys = self.keys
 
@@ -40,15 +41,15 @@ class Py2neoPackStreamValueSystem(ValueSystem):
                 signature, args = obj
                 if signature == b"N":
                     return Node.hydrate({
-                        "self": "%snode/%s" % (self.graph_uri, args[0]),
+                        "self": "%snode/%s" % (graph_uri, args[0]),
                         "metadata": {"labels": list(args[1])},
                         "data": hydrate_(args[2]),
                     }, inst)
                 elif signature == b"R":
                     return Relationship.hydrate({
-                        "self": "%srelationship/%s" % (self.graph_uri, args[0]),
-                        "start": "%snode/%s" % (self.graph_uri, args[1]),
-                        "end": "%snode/%s" % (self.graph_uri, args[2]),
+                        "self": "%srelationship/%s" % (graph_uri, args[0]),
+                        "start": "%snode/%s" % (graph_uri, args[1]),
+                        "end": "%snode/%s" % (graph_uri, args[2]),
                         "type": args[3],
                         "data": hydrate_(args[4]),
                     }, inst)
@@ -62,16 +63,16 @@ class Py2neoPackStreamValueSystem(ValueSystem):
                         next_node = nodes[sequence[2 * i + 1]]
                         if rel_index > 0:
                             u_rel = u_rels[rel_index - 1]
-                            data = {"self": "%srelationship/%s" % (self.graph_uri, u_rel.id),
-                                    "start": "%snode/%s" % (self.graph_uri, remote(last_node)._id),
-                                    "end": "%snode/%s" % (self.graph_uri, remote(next_node)._id),
+                            data = {"self": "%srelationship/%s" % (graph_uri, u_rel.id),
+                                    "start": "%snode/%s" % (graph_uri, remote(last_node)._id),
+                                    "end": "%snode/%s" % (graph_uri, remote(next_node)._id),
                                     "type": u_rel.type, "data": u_rel.properties}
                             rel = Relationship.hydrate(data)
                         else:
                             u_rel = u_rels[-rel_index - 1]
-                            data = {"self": "%srelationship/%s" % (self.graph_uri, u_rel.id),
-                                    "start": "%snode/%s" % (self.graph_uri, remote(next_node)._id),
-                                    "end": "%snode/%s" % (self.graph_uri, remote(last_node)._id),
+                            data = {"self": "%srelationship/%s" % (graph_uri, u_rel.id),
+                                    "start": "%snode/%s" % (graph_uri, remote(next_node)._id),
+                                    "end": "%snode/%s" % (graph_uri, remote(last_node)._id),
                                     "type": u_rel.type, "data": u_rel.properties}
                             rel = Relationship.hydrate(data)
                         steps.append(rel)
