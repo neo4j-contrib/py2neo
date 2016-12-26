@@ -522,7 +522,7 @@ class Graph(object):
                     raise GraphError.hydrate(error)
             elif "self" in data:
                 if "type" in data:
-                    return Relationship.hydrate(data, inst)
+                    return Relationship.hydrate(data["self"], inst=inst, **data)
                 else:
                     return Node.hydrate(data["self"], inst=inst, **data)
             elif "nodes" in data and "relationships" in data:

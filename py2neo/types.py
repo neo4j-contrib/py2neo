@@ -984,29 +984,28 @@ class Relationship(Entity):
         return ustr(relationship_case(cls.__name__))
 
     @classmethod
-    def hydrate(cls, data, inst=None):
-        self = data["self"]
-        start = data["start"]
-        end = data["end"]
+    def hydrate(cls, uri, inst=None, **rest):
+        start = rest["start"]
+        end = rest["end"]
 
         if inst is None:
 
             def inst_constructor():
-                return cls(Node.hydrate(start), data.get("type"),
-                           Node.hydrate(end), **data.get("data", {}))
+                return cls(Node.hydrate(start), rest.get("type"),
+                           Node.hydrate(end), **rest.get("data", {}))
 
-            inst = cls.cache.update(self, inst_constructor)
+            inst = cls.cache.update(uri, inst_constructor)
         else:
             Node.hydrate(start, inst=inst.start_node())
             Node.hydrate(end, inst=inst.end_node())
-            inst.__type = data.get("type")
-            if "data" in data:
+            inst.__type = rest.get("type")
+            if "data" in rest:
                 inst.clear()
-                inst.update(data["data"])
+                inst.update(rest["data"])
             else:
                 inst.__stale.add("properties")
-            cls.cache.update(self, inst)
-        inst.__remote__ = RemoteEntity(self, data)
+            cls.cache.update(uri, inst)
+        inst.__remote__ = RemoteEntity(uri, rest)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1145,9 +1144,9 @@ class Path(Walkable):
         relationship_uris = data["relationships"]
         offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
         nodes = [Node.hydrate(uri) for uri in node_uris]
-        relationships = [Relationship.hydrate({"self": uri,
-                                               "start": node_uris[i + offsets[i][0]],
-                                               "end": node_uris[i + offsets[i][1]]})
+        relationships = [Relationship.hydrate(uri,
+                                              start=node_uris[i + offsets[i][0]],
+                                              end=node_uris[i + offsets[i][1]])
                          for i, uri in enumerate(relationship_uris)]
         inst = Path(*round_robin(nodes, relationships))
         inst.__metadata = data

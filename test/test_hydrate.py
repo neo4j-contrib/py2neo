@@ -166,7 +166,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
             "type": "KNOWS",
             "end": "http://localhost:7474/db/data/node/%d" % remote(b)._id,
         }
-        hydrated = Relationship.hydrate(dehydrated, inst=ab)
+        hydrated = Relationship.hydrate(dehydrated["self"], inst=ab, **dehydrated)
         assert isinstance(hydrated, Relationship)
         assert remote(hydrated.start_node())
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
@@ -192,7 +192,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
         }
         with patch("weakref.WeakValueDictionary.setdefault") as mocked:
             mocked.return_value = None
-            hydrated = Relationship.hydrate(dehydrated)
+            hydrated = Relationship.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Relationship)
         assert remote(hydrated.start_node())
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
@@ -217,7 +217,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
                 "since": 1999,
             },
         }
-        hydrated = Relationship.hydrate(dehydrated)
+        hydrated = Relationship.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Relationship)
         assert remote(hydrated.start_node())
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
