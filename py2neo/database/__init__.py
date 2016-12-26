@@ -524,7 +524,7 @@ class Graph(object):
                 if "type" in data:
                     return Relationship.hydrate(data, inst)
                 else:
-                    return Node.hydrate(data, inst)
+                    return Node.hydrate(data["self"], inst=inst, **data)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
                     directions = []

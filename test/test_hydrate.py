@@ -31,7 +31,7 @@ class NodeHydrationTestCase(GraphTestCase):
         dehydrated = {
             "self": "http://localhost:7474/db/data/node/0",
         }
-        hydrated = Node.hydrate(dehydrated)
+        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]
@@ -44,7 +44,7 @@ class NodeHydrationTestCase(GraphTestCase):
                 "age": 33,
             },
         }
-        hydrated = Node.hydrate(dehydrated)
+        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert remote(hydrated)
@@ -72,7 +72,7 @@ class NodeHydrationTestCase(GraphTestCase):
                 "age": 33,
             },
         }
-        hydrated = Node.hydrate(dehydrated)
+        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert remote(hydrated)
@@ -103,7 +103,7 @@ class NodeHydrationTestCase(GraphTestCase):
                 "labels": ["Person", "Employee"],
             },
         }
-        hydrated = Node.hydrate(dehydrated)
+        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
@@ -138,7 +138,7 @@ class NodeHydrationTestCase(GraphTestCase):
 
         with patch("weakref.WeakValueDictionary.setdefault") as mocked:
             mocked.return_value = None
-            hydrated = Node.hydrate(dehydrated)
+            hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
         assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])

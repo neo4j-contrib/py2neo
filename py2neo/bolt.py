@@ -40,11 +40,8 @@ class Py2neoPackStreamValueSystem(ValueSystem):
             if isinstance(obj, Structure):
                 signature, args = obj
                 if signature == b"N":
-                    return Node.hydrate({
-                        "self": "%snode/%s" % (graph_uri, args[0]),
-                        "metadata": {"labels": list(args[1])},
-                        "data": hydrate_(args[2]),
-                    }, inst)
+                    uri = "%snode/%s" % (graph_uri, args[0])
+                    return Node.hydrate(uri, inst=inst, metadata={"labels": list(args[1])}, data=hydrate_(args[2]))
                 elif signature == b"R":
                     return Relationship.hydrate({
                         "self": "%srelationship/%s" % (graph_uri, args[0]),
