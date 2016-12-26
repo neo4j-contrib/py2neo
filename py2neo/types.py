@@ -22,7 +22,7 @@ from uuid import uuid4
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.database.http import Resource
-from py2neo.util import is_collection, round_robin, deprecated, relationship_case, snake_case
+from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
 
 # Maximum and minimum integers supported up to Java 7.
@@ -884,14 +884,6 @@ class Node(Relatable, Entity):
             remote_self.graph.pull(self)
         return Entity.__getitem__(self, item)
 
-    @deprecated("Node.degree() is deprecated, use graph.degree(node) instead")
-    def degree(self):
-        return remote(self).graph.degree(self)
-
-    @deprecated("Node.exists() is deprecated, use graph.exists(node) instead")
-    def exists(self):
-        return remote(self).graph.exists(self)
-
     def __ensure_labels(self):
         remote_self = remote(self)
         if remote_self and "labels" in self.__stale:
@@ -922,34 +914,6 @@ class Node(Relatable, Entity):
     def update_labels(self, labels):
         self.__ensure_labels()
         self.__labels.update(labels)
-
-    @deprecated("Node.match() is deprecated, use graph.match(node, ...) instead")
-    def match(self, rel_type=None, other_node=None, limit=None):
-        return remote(self).graph.match(self, rel_type, other_node, True, limit)
-
-    @deprecated("Node.match_incoming() is deprecated, use graph.match(node, ...) instead")
-    def match_incoming(self, rel_type=None, start_node=None, limit=None):
-        return remote(self).graph.match(start_node, rel_type, self, False, limit)
-
-    @deprecated("Node.match_outgoing() is deprecated, use graph.match(node, ...) instead")
-    def match_outgoing(self, rel_type=None, end_node=None, limit=None):
-        return remote(self).graph.match(self, rel_type, end_node, False, limit)
-
-    @property
-    @deprecated("Node.properties is deprecated, use dict(node) instead")
-    def properties(self):
-        remote_self = remote(self)
-        if remote_self and "properties" in self.__stale:
-            remote_self.graph.pull(self)
-        return dict(self)
-
-    @deprecated("Node.pull() is deprecated, use graph.pull(node) instead")
-    def pull(self):
-        remote(self).graph.pull(self)
-
-    @deprecated("Node.push() is deprecated, use graph.push(node) instead")
-    def push(self):
-        remote(self).graph.push(self)
 
 
 class Relationship(Entity):
@@ -1076,27 +1040,6 @@ class Relationship(Entity):
 
     def __hash__(self):
         return hash(self.nodes()) ^ hash(self.type())
-
-    @deprecated("Relationship.exists() is deprecated, "
-                "use graph.exists(relationship) instead")
-    def exists(self):
-        return remote(self).graph.exists(self)
-
-    @property
-    @deprecated("Relationship.properties is deprecated, use dict(relationship) instead")
-    def properties(self):
-        remote_self = remote(self)
-        if remote_self and "properties" in self.__stale:
-            remote_self.graph.pull(self)
-        return dict(self)
-
-    @deprecated("Relationship.pull() is deprecated, use graph.pull(relationship) instead")
-    def pull(self):
-        remote(self).graph.pull(self)
-
-    @deprecated("Relationship.push() is deprecated, use graph.push(relationship) instead")
-    def push(self):
-        remote(self).graph.push(self)
 
     def type(self):
         """ The type of this relationship.
