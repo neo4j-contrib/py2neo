@@ -20,7 +20,6 @@ from unittest import TestCase
 from uuid import uuid4
 
 from py2neo import Graph, Node, remote, BoltTransaction, HTTPTransaction, NodeSelector
-from py2neo.ext.batman import ManualIndexManager
 from py2neo.packages.httpstream.http import ConnectionPool
 
 
@@ -41,7 +40,6 @@ class GraphTestCase(TestCase):
         self.http_graph.transaction_class = HTTPTransaction
         self.dbms = self.graph.dbms
         self.schema = self.graph.schema
-        self.index_manager = ManualIndexManager(self.graph)
         self.unique_string = unique_string_generator()
 
         version = self.dbms.kernel_version
