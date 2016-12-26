@@ -326,7 +326,7 @@ class Subgraph(object):
                 relationship._set_remote_pending(tx)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_degree__(self, tx):
         node_ids = []
@@ -357,7 +357,7 @@ class Subgraph(object):
                      "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
                      "DELETE r, a")
         parameters = {"x": list(node_ids), "y": list(relationship_ids)}
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_exists__(self, tx):
         node_ids = set()
@@ -440,7 +440,7 @@ class Subgraph(object):
                 relationship._set_remote_pending(tx)
         statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def __db_pull__(self, graph):
         nodes = {node: None for node in self.nodes()}
@@ -452,7 +452,7 @@ class Subgraph(object):
             nodes[node] = cursor
         for relationship in relationships:
             tx.entities.append({"r": relationship})
-            tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id)
+            list(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id))
         tx.commit()
         for node, cursor in nodes.items():
             labels = node._Node__labels
@@ -498,7 +498,7 @@ class Subgraph(object):
                 parameters[param_id] = remote_relationship._id
                 del relationship.__remote__
         statement = "\n".join(matches + deletes)
-        tx.run(statement, parameters)
+        list(tx.run(statement, parameters))
 
     def nodes(self):
         """ Set of all nodes.
@@ -818,8 +818,7 @@ class Node(Relatable, Entity):
     cache = ThreadLocalEntityCache()
 
     @classmethod
-    def hydrate(cls, data, inst=None):
-        self = data["self"]
+    def instance(cls, uri, inst=None):
         if inst is None:
 
             def inst_constructor():
@@ -827,22 +826,22 @@ class Node(Relatable, Entity):
                 new_inst.__stale.update({"labels", "properties"})
                 return new_inst
 
-            inst = cls.cache.update(self, inst_constructor)
-            # inst = cls.cache.setdefault(self, new_inst)
-            # # The check below is a workaround for http://bugs.python.org/issue19542
-            # # See also: https://github.com/nigelsmall/py2neo/issues/391
-            # if inst is None:
-            #     inst = cls.cache[self] = new_inst
+            inst = cls.cache.update(uri, inst_constructor)
         else:
-            cls.cache.update(self, inst)
-        inst.__remote__ = RemoteEntity(self, data)
-        if "data" in data:
+            cls.cache.update(uri, inst)
+        return inst
+
+    @classmethod
+    def hydrate(cls, uri, inst=None, **rest):
+        inst = cls.instance(uri, inst)
+        inst.__remote__ = RemoteEntity(uri, rest)
+        if "data" in rest:
             inst.__stale.discard("properties")
             inst.clear()
-            inst.update(data["data"])
-        if "metadata" in data:
+            inst.update(rest["data"])
+        if "metadata" in rest:
             inst.__stale.discard("labels")
-            metadata = data["metadata"]
+            metadata = rest["metadata"]
             inst.clear_labels()
             inst.update_labels(metadata["labels"])
         return inst
@@ -985,29 +984,28 @@ class Relationship(Entity):
         return ustr(relationship_case(cls.__name__))
 
     @classmethod
-    def hydrate(cls, data, inst=None):
-        self = data["self"]
-        start = data["start"]
-        end = data["end"]
+    def hydrate(cls, uri, inst=None, **rest):
+        start = rest["start"]
+        end = rest["end"]
 
         if inst is None:
 
             def inst_constructor():
-                return cls(Node.hydrate({"self": start}), data.get("type"),
-                           Node.hydrate({"self": end}), **data.get("data", {}))
+                return cls(Node.hydrate(start), rest.get("type"),
+                           Node.hydrate(end), **rest.get("data", {}))
 
-            inst = cls.cache.update(self, inst_constructor)
+            inst = cls.cache.update(uri, inst_constructor)
         else:
-            Node.hydrate({"self": start}, inst.start_node())
-            Node.hydrate({"self": end}, inst.end_node())
-            inst.__type = data.get("type")
-            if "data" in data:
+            Node.hydrate(start, inst=inst.start_node())
+            Node.hydrate(end, inst=inst.end_node())
+            inst.__type = rest.get("type")
+            if "data" in rest:
                 inst.clear()
-                inst.update(data["data"])
+                inst.update(rest["data"])
             else:
                 inst.__stale.add("properties")
-            cls.cache.update(self, inst)
-        inst.__remote__ = RemoteEntity(self, data)
+            cls.cache.update(uri, inst)
+        inst.__remote__ = RemoteEntity(uri, rest)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -1145,10 +1143,10 @@ class Path(Walkable):
         node_uris = data["nodes"]
         relationship_uris = data["relationships"]
         offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-        nodes = [Node.hydrate({"self": uri}) for uri in node_uris]
-        relationships = [Relationship.hydrate({"self": uri,
-                                               "start": node_uris[i + offsets[i][0]],
-                                               "end": node_uris[i + offsets[i][1]]})
+        nodes = [Node.hydrate(uri) for uri in node_uris]
+        relationships = [Relationship.hydrate(uri,
+                                              start=node_uris[i + offsets[i][0]],
+                                              end=node_uris[i + offsets[i][1]])
                          for i, uri in enumerate(relationship_uris)]
         inst = Path(*round_robin(nodes, relationships))
         inst.__metadata = data

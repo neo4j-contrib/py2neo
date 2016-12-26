@@ -21,15 +21,14 @@ from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 from warnings import warn
 
+from neo4j.v1 import GraphDatabase
+
 from py2neo import PRODUCT
+from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string
 from py2neo.database.cypher import cypher_escape, cypher_repr
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-from py2neo.packages.neo4j.v1 import GraphDatabase
-from py2neo.packages.neo4j.v1.bolt import Response, RUN, PULL_ALL
-from py2neo.packages.neo4j.v1.types import \
-    Node as BoltNode, Relationship as BoltRelationship, Path as BoltPath, hydrated as bolt_hydrate
 from py2neo.types import cast_node, Subgraph, remote
 from py2neo.util import deprecated, version_tuple
 
@@ -336,6 +335,10 @@ class Graph(object):
             cls.__instances[key] = inst
         return inst
 
+    def __del__(self):
+        if self.driver:
+            self.driver.close()
+
     def __repr__(self):
         return "<Graph uri=%r>" % remote(self).uri.string
 
@@ -519,9 +522,9 @@ class Graph(object):
                     raise GraphError.hydrate(error)
             elif "self" in data:
                 if "type" in data:
-                    return Relationship.hydrate(data, inst)
+                    return Relationship.hydrate(data["self"], inst=inst, **data)
                 else:
-                    return Node.hydrate(data, inst)
+                    return Node.hydrate(data["self"], inst=inst, **data)
             elif "nodes" in data and "relationships" in data:
                 if "directions" not in data:
                     directions = []
@@ -890,106 +893,31 @@ class HTTPDataSource(DataSource):
 
 
 class BoltDataSource(DataSource):
+    """ Wraps a BoltStatementResult
+    """
 
-    def __init__(self, connection, entities, graph_uri):
-        self.connection = connection
-        self.entities = entities
-        self.graph_uri = graph_uri
-        self._keys = None
-        self._stats = None
-        self.buffer = deque()
-        self.loaded = False
+    def __init__(self, graph, entities, result):
+        self.result = result
+        self.result.error_class = GraphError.hydrate
+        self.result.value_system = Py2neoPackStreamValueSystem(graph, entities, result.keys())
+        self.result.zipper = Record
+        self.result_iterator = iter(self.result)
+
+    @property
+    def loaded(self):
+        return not self.result.online()
 
     def keys(self):
-        self.connection.send()
-        while self._keys is None and not self.loaded:
-            self.connection.fetch()
-        return self._keys
+        return self.result.keys()
 
     def stats(self):
-        self.connection.send()
-        while self._stats is None and not self.loaded:
-            self.connection.fetch()
-        return self._stats
+        return vars(self.result.summary().counters)
 
     def fetch(self):
         try:
-            return self.buffer.popleft()
-        except IndexError:
-            if self.loaded:
-                return None
-            else:
-                self.connection.send()
-                while not self.buffer and not self.loaded:
-                    self.connection.fetch()
-                return self.fetch()
-
-    def on_header(self, metadata):
-        """ Called on receipt of the result header.
-
-        :param metadata:
-        """
-        self._keys = metadata["fields"]
-
-    def on_record(self, values):
-        """ Called on receipt of each result record.
-
-        :param values:
-        """
-        keys = self._keys
-        hydrated_values = []
-        for i, value in enumerate(values):
-            key = keys[i]
-            cached = self.entities.get(key)
-            v = self.rehydrate(bolt_hydrate(value), inst=cached)
-            hydrated_values.append(v)
-        self.buffer.append(Record(keys, hydrated_values))
-
-    def on_footer(self, metadata):
-        """ Called on receipt of the result footer.
-
-        :param metadata:
-        """
-        self.loaded = True
-        self._stats = {k.replace("-", "_"): v for k, v in metadata.get("stats", {}).items()}
-
-    def on_failure(self, metadata):
-        """ Called on execution failure.
-
-        :param metadata:
-        """
-        raise GraphError.hydrate(metadata)
-
-    def rehydrate(self, obj, inst=None):
-        # TODO: hydrate directly instead of via HTTP hydration
-        if isinstance(obj, BoltNode):
-            return Node.hydrate({
-                "self": "%snode/%d" % (self.graph_uri, obj.id),
-                "metadata": {"labels": list(obj.labels)},
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltRelationship):
-            return Relationship.hydrate({
-                "self": "%srelationship/%d" % (self.graph_uri, obj.id),
-                "start": "%snode/%d" % (self.graph_uri, obj.start),
-                "end": "%snode/%d" % (self.graph_uri, obj.end),
-                "type": obj.type,
-                "data": obj.properties,
-            }, inst)
-        elif isinstance(obj, BoltPath):
-            return Path.hydrate({
-                "nodes": ["%snode/%d" % (self.graph_uri, n.id) for n in obj.nodes],
-                "relationships": ["%srelationship/%d" % (self.graph_uri, r.id)
-                                  for r in obj.relationships],
-                "directions": ["->" if r.start == obj.nodes[i].id else "<-"
-                               for i, r in enumerate(obj.relationships)],
-            })
-        elif isinstance(obj, list):
-            return list(map(self.rehydrate, obj))
-        elif isinstance(obj, dict):
-            return {key: self.rehydrate(value) for key, value in obj.items()}
-        else:
-            return obj
+            return next(self.result_iterator)
+        except StopIteration:
+            return None
 
 
 class TransactionFinished(GraphError):
@@ -1248,63 +1176,56 @@ class BoltTransaction(Transaction):
         self.driver = driver = self.graph.driver
         self.session = driver.session()
         self.sources = []
-        if not self.autocommit:
-            self.run("BEGIN")
+        if autocommit:
+            self.transaction = None
+        else:
+            self.transaction = self.session.begin_transaction()
+
+    def __del__(self):
+        if self.session:
+            self.session.close()
 
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
-        connection = self.session.connection
         try:
             entities = self.entities.popleft()
         except IndexError:
             entities = {}
-        source = BoltDataSource(connection, entities, remote(self.graph).uri.string)
 
-        run_response = Response(connection)
-        run_response.on_success = source.on_header
-        run_response.on_failure = source.on_failure
-
-        pull_all_response = Response(connection)
-        pull_all_response.on_record = source.on_record
-        pull_all_response.on_success = source.on_footer
-        pull_all_response.on_failure = source.on_failure
-
-        s, p = normalise_request(statement, parameters, **kwparameters)
-        connection.append(RUN, (s, p), run_response)
-        connection.append(PULL_ALL, (), pull_all_response)
+        if self.transaction:
+            result = self.transaction.run(statement, parameters, **kwparameters)
+        else:
+            result = self.session.run(statement, parameters, **kwparameters)
+        source = BoltDataSource(self.graph, entities, result)
         self.sources.append(source)
-        if self.autocommit:
+        if not self.transaction:
             self.finish()
         return Cursor(source)
 
-    def _sync(self):
-        connection = self.session.connection
-        connection.send()
-        while self.sources:
-            source = self.sources.pop(0)
-            while not source.loaded:
-                connection.fetch()
-
-    def _post(self, commit=False):
-        if commit:
-            self.run("COMMIT")
-            self.finish()
+    def process(self):
+        if self.transaction:
+            self.transaction.sync()
         else:
-            self._sync()
+            self.session.sync()
 
-    def finish(self):
-        self._sync()
-        Transaction.finish(self)
-        self.session.close()
-        self.session = None
+    def commit(self):
+        if self.transaction:
+            self.transaction.success = True
+        self.finish()
 
     def rollback(self):
         self._assert_unfinished()
-        try:
-            self.run("ROLLBACK")
-            self._sync()
-        finally:
-            self.finish()
+        if self.transaction:
+            self.transaction.success = False
+        self.finish()
+
+    def finish(self):
+        self.process()
+        if self.transaction:
+            self.transaction.close()
+        Transaction.finish(self)
+        self.session.close()
+        self.session = None
 
 
 class Cursor(object):
