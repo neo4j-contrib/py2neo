@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=v3)](https://travis-ci.org/nigelsmall/py2neo)
+[![Build Status](https://travis-ci.org/technige/py2neo.svg?branch=v4)](https://travis-ci.org/technige/py2neo)
 
 Py2neo v3
 =========
@@ -19,7 +19,7 @@ $ pip install py2neo
 To install the latest bleeding edge code directly from GitHub, use::
 
 ```
-$ pip install git+https://github.com/nigelsmall/py2neo.git#egg=py2neo
+$ pip install git+https://github.com/technige/py2neo.git#egg=py2neo
 ```
 
 Note that this code is likely to be unstable.

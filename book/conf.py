@@ -117,7 +117,7 @@ html_theme_options = {
     'collapsiblesidebar': True,
     #'logo': 'py2neo-v3.280x336.png',
     #'logo_align': 'left',
-    #'github_user': 'nigelsmall',
+    #'github_user': 'technige',
     #'github_repo': 'py2neo',
     #'github_branch': 'v3',
     #'travis_button': True,

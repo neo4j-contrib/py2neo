@@ -18,7 +18,7 @@ To install the latest stable version of py2neo, simply use pip_::
 
 To install the latest bleeding edge code directly from GitHub, use::
 
-    $ pip install git+https://github.com/nigelsmall/py2neo.git#egg=py2neo
+    $ pip install git+https://github.com/technige/py2neo.git#egg=py2neo
 
 Note that this code is likely to be unstable.
 Your mileage may vary.
