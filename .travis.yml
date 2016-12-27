@@ -9,8 +9,6 @@ python:
   - "3.5"
   - "3.6"
   - "3.7-dev"
-  - "pypi"
-  - "pypy3"
 
 install:
   - "pip install -r requirements.txt"
