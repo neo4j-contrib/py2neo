@@ -369,14 +369,16 @@ class Graph(object):
         """
         return self.transaction_class(self, autocommit)
 
-    def create(self, subgraph):
+    def create(self, subgraph, unique_rels=True):
         """ Run a :meth:`.Transaction.create` operation within an
         `autocommit` :class:`.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
+        :param unique_rels: a flag indicating if relationshipos created
+                            between nodes should be unique
         """
-        self.begin(autocommit=True).create(subgraph)
+        self.begin(autocommit=True).create(subgraph, unique_rels=unique_rels)
 
     def data(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -1072,7 +1074,7 @@ class Transaction(object):
         """
         return self.run(statement, parameters, **kwparameters).evaluate(0)
 
-    def create(self, subgraph):
+    def create(self, subgraph, unique_rels=True):
         """ Create remote nodes and relationships that correspond to those in a
         local subgraph. Any entities in *subgraph* that are already bound to
         remote entities will remain unchanged, those which are not will become
@@ -1096,7 +1098,7 @@ class Transaction(object):
                     creatable object
         """
         try:
-            subgraph.__db_create__(self)
+            subgraph.__db_create__(self, unique_rels=unique_rels)
         except AttributeError:
             raise TypeError("No method defined to create object %r" % subgraph)
 
