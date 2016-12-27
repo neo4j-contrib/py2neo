@@ -69,17 +69,21 @@ class Related(object):
 
     direction = UNDIRECTED
 
-    def __init__(self, related_class, relationship_type=None):
-        self.related_class = related_class
+    def __init__(self, related_classes, relationship_type=None): 
+        if isinstance(related_classes, list): 
+            self.related_classes = related_classes
+        else: # to keep backward compatibility 
+            self.related_classes = [related_classes]
         self.relationship_type = relationship_type
 
     def resolve_related_class(self, instance):
-        if not isinstance(self.related_class, type):
-            module_name, _, class_name = self.related_class.rpartition(".")
-            if not module_name:
-                module_name = instance.__class__.__module__
-            module = __import__(module_name, fromlist=".")
-            self.related_class = getattr(module, class_name)
+        for n, related_class in enumerate(self.related_classes):
+            if not isinstance(related_class, type):
+                module_name, _, class_name = related_class.rpartition(".")
+                if not module_name:
+                    module_name = instance.__class__.__module__
+                module = __import__(module_name, fromlist=".")
+                self.related_classes[n] = getattr(module, class_name)
 
     def __get__(self, instance, owner):
         cog = instance.__ogm__
@@ -87,7 +91,7 @@ class Related(object):
         key = (self.direction, self.relationship_type)
         if key not in related:
             self.resolve_related_class(instance)
-            related[key] = RelatedObjects(cog.node, self.direction, self.relationship_type, self.related_class)
+            related[key] = RelatedObjects(cog.node, self.direction, self.relationship_type, self.related_classes)
         return related[key]
 
 
@@ -118,10 +122,15 @@ class RelatedObjects(object):
     relative to a central node.
     """
 
-    def __init__(self, node, direction, relationship_type, related_class):
+    def __init__(self, node, direction, relationship_type, related_classes):
         assert isinstance(direction, int) and not isinstance(direction, bool)
         self.node = node
-        self.related_class = related_class
+        
+        if isinstance(related_classes, list): 
+            self.related_classes = related_classes
+        else: # to keep backward compatibility 
+            self.related_classes = [related_classes]
+
         self.__related_objects = None
         if direction > 0:
             self.__match_args = (self.node, relationship_type, None)
@@ -238,8 +247,11 @@ class RelatedObjects(object):
                 if self.__end_node and b != n:
                     nodes.append(r.end_node())
             for node in nodes:
-                related_object = self.related_class.wrap(node)
-                related_objects[node] = (related_object, PropertyDict(r))
+                for n, related_class in enumerate(self.related_classes):
+                    if related_class.__primarylabel__ in node.labels():
+                        related_object = self.related_classes[n].wrap(node)
+                        related_objects[node] = (related_object, PropertyDict(r))
+
         self._related_objects[:] = related_objects.values()
 
     def __db_push__(self, graph):

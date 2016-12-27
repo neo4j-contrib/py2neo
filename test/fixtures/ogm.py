@@ -81,3 +81,14 @@ class BaseThing(GraphObject):
 
 class DerivedThing(BaseThing):
     pass
+
+
+class Car(GraphObject):
+    model = Property()
+
+class House(GraphObject):
+    address = Property()
+
+class Human(GraphObject):
+    name = Property()
+    Owns = RelatedTo(["Car", "House"])

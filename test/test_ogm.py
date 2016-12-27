@@ -23,6 +23,7 @@ from py2neo import order, size, remote, Node, Relationship, NodeSelector
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject, DerivedThing
+from test.fixtures.ogm import Human, Car, House
 from test.util import GraphTestCase
 
 
@@ -192,6 +193,27 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
                                          "RETURN ab.foo", x=remote_node._id)
         assert johnny_foo == "bar"
 
+    def test_can_add_heterogeneous_relationship(self):
+        car = Car()
+        car.model = "Ferrari"
+        house = House()
+        house.address = "5th Av, New York"
+        human = Human()
+        human.name = "Peter"
+        human.Owns.add(car)
+        human.Owns.add(house)
+        self.graph.push(human)
+
+        human_foo = Human.select(self.graph).where(name="Peter").first()
+        house_foo = None
+        car_foo = None
+        for p in human_foo.Owns:
+            if isinstance(p, House):
+                house_foo = p
+            if isinstance(p, Car):
+                car_foo = p
+
+        assert house_foo.address == house.address and car_foo.model == car.model
 
 class FindTestCase(MovieGraphTestCase):
 
