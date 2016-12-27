@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/nigelsmall/py2neo.svg?branch=v3)](https://travis-ci.org/nigelsmall/py2neo)
+[![Build Status](https://travis-ci.org/technige/py2neo.svg?branch=v3)](https://travis-ci.org/nigelsmall/py2neo)
 
 Py2neo v3
 =========
