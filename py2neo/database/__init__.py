@@ -26,8 +26,7 @@ from neo4j.v1 import GraphDatabase
 from py2neo import PRODUCT
 from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string
-from py2neo.database.cypher import *
-from py2neo.database.cypher import cypher_escape, cypher_repr
+from py2neo.cypher import *
 from py2neo.database.http import *
 from py2neo.database.selection import *
 from py2neo.database.status import *

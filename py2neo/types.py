@@ -24,7 +24,6 @@ from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.database.http import Resource
 from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
-
 # Maximum and minimum integers supported up to Java 7.
 # Java 8 also supports unsigned long which can extend
 # to (2 ** 64 - 1) but Neo4j is not yet on Java 8.
@@ -222,7 +221,7 @@ class Subgraph(object):
             raise ValueError("Subgraphs must contain at least one node")
 
     def __repr__(self):
-        from py2neo.database.cypher import CypherWriter
+        from py2neo.cypher import CypherWriter
         r = ReprIO()
         writer = CypherWriter(r)
         writer.write_subgraph(self)
@@ -292,7 +291,7 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
-        from py2neo.database.cypher import cypher_escape
+        from py2neo.cypher import cypher_escape
         nodes = list(self.nodes())
         reads = []
         writes = []
@@ -381,7 +380,7 @@ class Subgraph(object):
         return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        from py2neo.database.cypher import cypher_escape, cypher_repr
+        from py2neo.cypher import cypher_escape, cypher_repr
         nodes = list(self.nodes())
         match_clauses = []
         merge_clauses = []
@@ -536,7 +535,7 @@ class Walkable(Subgraph):
         Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
     def __repr__(self):
-        from py2neo.database.cypher import CypherWriter
+        from py2neo.cypher import CypherWriter
         r = ReprIO()
         writer = CypherWriter(r)
         writer.write_walkable(self)
@@ -852,7 +851,7 @@ class Node(Relatable, Entity):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.database.cypher import CypherWriter
+        from py2neo.cypher import CypherWriter
         r = ReprIO()
         writer = CypherWriter(r)
         writer.write_node(self)
@@ -1013,7 +1012,7 @@ class Relationship(Entity):
         self.__stale = set()
 
     def __repr__(self):
-        from py2neo.database.cypher import CypherWriter
+        from py2neo.cypher import CypherWriter
         r = ReprIO()
         writer = CypherWriter(r)
         writer.write_relationship(self)
