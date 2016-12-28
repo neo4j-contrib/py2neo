@@ -26,18 +26,15 @@ from neo4j.v1 import GraphDatabase
 from py2neo import PRODUCT
 from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string
+from py2neo.database.cypher import *
 from py2neo.database.cypher import cypher_escape, cypher_repr
+from py2neo.database.http import *
+from py2neo.database.selection import *
+from py2neo.database.status import *
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.types import cast_node, Subgraph, remote
 from py2neo.util import version_tuple
-
-from py2neo.database.auth import *
-from py2neo.database.cypher import *
-from py2neo.database.http import *
-from py2neo.database.selection import *
-from py2neo.database.status import *
-
 
 update_stats_keys = [
     "constraints_added",
@@ -105,6 +102,7 @@ class DBMS(object):
     __graph = None
 
     def __new__(cls, *uris, **settings):
+        from py2neo.addressing import register_server
         address = register_server(*uris, **settings)
         http_uri = address.http_uri("/")
         try:
@@ -310,6 +308,7 @@ class Graph(object):
     transaction_class = None
 
     def __new__(cls, *uris, **settings):
+        from py2neo.addressing import register_server, get_auth
         database = settings.pop("database", "data")
         address = register_server(*uris, **settings)
         key = (cls, address, database)

@@ -18,7 +18,8 @@
 
 from unittest import skipUnless
 
-from py2neo.database import DBMS, Resource, ServerAddress, register_server, keyring, authenticate, Unauthorized
+from py2neo.database import DBMS, Resource, Unauthorized
+from py2neo.addressing import ServerAddress, register_server, keyring, authenticate
 from test.util import GraphTestCase
 
 
