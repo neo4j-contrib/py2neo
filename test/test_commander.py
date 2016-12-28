@@ -18,7 +18,10 @@
 
 from unittest import TestCase
 
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 try:
     from unittest.mock import MagicMock, call, patch
