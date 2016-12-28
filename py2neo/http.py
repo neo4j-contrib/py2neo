@@ -18,12 +18,12 @@
 
 from py2neo import PRODUCT
 from py2neo.addressing import keyring
-from py2neo.database.status import GraphError, Unauthorized
 from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.packages.httpstream.packages.urimagic import URI
+from py2neo.status import GraphError, Unauthorized
 from py2neo.util import raise_from
 
 http.default_encoding = "UTF-8"

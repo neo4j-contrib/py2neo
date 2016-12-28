@@ -16,10 +16,8 @@
 # limitations under the License.
 
 
-from inspect import getmro
-from itertools import chain
-
-from py2neo.database import cypher_escape, NodeSelection, NodeSelector
+from py2neo.cypher import cypher_escape
+from py2neo.selection import NodeSelection, NodeSelector
 from py2neo.types import Node, remote, PropertyDict
 from py2neo.util import label_case, relationship_case, metaclass
 

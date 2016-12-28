@@ -19,21 +19,22 @@
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
+from sys import stdout
 from warnings import warn
 
 from neo4j.v1 import GraphDatabase
 
 from py2neo import PRODUCT
 from py2neo.bolt import Py2neoPackStreamValueSystem
-from py2neo.compat import Mapping, string
-from py2neo.cypher import *
-from py2neo.database.http import *
-from py2neo.database.selection import *
-from py2neo.database.status import *
+from py2neo.compat import Mapping, string, ustr
+from py2neo.cypher import cypher_escape
+from py2neo.http import *
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
-from py2neo.types import cast_node, Subgraph, remote
-from py2neo.util import version_tuple
+from py2neo.selection import NodeSelector
+from py2neo.status import *
+from py2neo.types import cast_node, Subgraph, remote, Node, Relationship, Path
+from py2neo.util import is_collection, version_tuple
 
 update_stats_keys = [
     "constraints_added",

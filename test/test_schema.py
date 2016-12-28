@@ -16,9 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import GraphError, Node, cast_node, NodeSelector
-from py2neo.database.status import ConstraintError
+from py2neo import GraphError, Node, cast_node
 from py2neo.packages.httpstream import ClientError, Resource as _Resource
+from py2neo.status import ConstraintError
 from test.compat import patch
 from test.util import GraphTestCase
 

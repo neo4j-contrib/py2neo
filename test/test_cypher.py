@@ -18,8 +18,9 @@
 
 from io import StringIO
 
-from py2neo.database import Transaction, HTTPTransaction, CypherWriter, cypher_repr
-from py2neo.database.status import CypherSyntaxError, ConstraintError
+from py2neo.cypher import CypherWriter, cypher_repr
+from py2neo.database import Transaction, HTTPTransaction
+from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, order, size, remote
 from test.util import GraphTestCase
 
