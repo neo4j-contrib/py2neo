@@ -18,6 +18,8 @@
 
 from unittest import TestCase
 
+from StringIO import StringIO
+
 try:
     from unittest.mock import MagicMock, call, patch
 except ImportError:
@@ -33,20 +35,16 @@ class CommanderTestCase(TestCase):
         self.assertEqual(commander.out, stdout)
 
     def test_write_to_out(self):
-        from sys import stdout
-        stdout.write = MagicMock()
         commander = Commander()
+        commander.out = StringIO()
         commander.write('dummy')
-        stdout.write.assert_called_once_with('dummy')
+        assert commander.out.getvalue(), 'dummy'
 
     def test_write_line(self):
-        from sys import stdout
-        from os import linesep
-        stdout.write = MagicMock()
         commander = Commander()
+        commander.out = StringIO()
         commander.write_line('dummy')
-        calls = [call('dummy'), call(linesep)]
-        stdout.write.assert_has_calls(calls)
+        assert commander.out.getvalue(), 'dummy'
 
     def test_usage_w_commader_class_docs(self):
         commander = Commander()
