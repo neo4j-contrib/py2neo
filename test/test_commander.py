@@ -21,7 +21,7 @@ from unittest import TestCase
 try:
     from unittest.mock import MagicMock, call, patch
 except ImportError:
-    from mock import MagicMock, call
+    from mock import MagicMock, call, patch
 from py2neo import Commander
 
 
