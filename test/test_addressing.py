@@ -35,11 +35,6 @@ class AuthorizationFailedTestCase(GraphTestCase):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").get().content
 
     @skipUnless(supports_auth, "Auth not supported")
-    def test_can_raise_unauthorized_on_put(self):
-        with self.assertRaises(Unauthorized):
-            _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").put({}).content
-
-    @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_post(self):
         with self.assertRaises(Unauthorized):
             _ = Resource("http://foo:bar@127.0.0.1:7474/db/data/").post({}).content

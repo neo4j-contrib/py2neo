@@ -138,17 +138,6 @@ class ServerErrorTestCase(GraphTestCase):
         else:
             assert False
 
-    def test_can_handle_json_error_from_put(self):
-        try:
-            self.non_existent_resource.put("")
-        except GraphError as error:
-            cause = error.__cause__
-            assert isinstance(cause, _ClientError)
-            assert isinstance(cause, _Response)
-            assert cause.status_code == 404
-        else:
-            assert False
-
     def test_can_handle_json_error_from_post(self):
         try:
             self.non_existent_resource.post("")
@@ -177,17 +166,6 @@ class ServerErrorTestCase(GraphTestCase):
             resource = Resource("http://localhost:7474/db/data/node/spam")
             try:
                 resource.get()
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyServerError)
-            else:
-                assert False
-
-    def test_can_handle_other_error_from_put(self):
-        with patch.object(_Resource, "put") as mocked:
-            mocked.side_effect = DodgyServerError
-            resource = Resource("http://localhost:7474/db/data/node/spam")
-            try:
-                resource.put()
             except GraphError as error:
                 assert isinstance(error.__cause__, DodgyServerError)
             else:
