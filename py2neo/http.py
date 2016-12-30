@@ -208,21 +208,3 @@ class Resource(_Resource):
             raise_from(GraphError(message, **content), error)
         else:
             return response
-
-
-class ResourceTemplate(_ResourceTemplate):
-    """ A factory class for producing :class:`.Resource` objects dynamically
-    based on a template URI.
-    """
-
-    #: The class of error raised by failure responses from resources produced by this template.
-    error_class = GraphError
-
-    def expand(self, **values):
-        """ Produce a resource instance by substituting values into the
-        stored template URI.
-
-        :arg values: A set of named values to plug into the template URI.
-        :rtype: :class:`.Resource`
-        """
-        return Resource(self.uri_template.expand(**values).string)

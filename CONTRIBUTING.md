@@ -71,7 +71,6 @@ If you are building a non-core extension for py2neo, this should live within a *
 sub-package and may make use of the following classes:
 
 - **Resource** - represents a remote REST resource
-- **ResourceTemplate** - maintains a URI template for remote REST resources
 - **ServerPlugin** - base class for Neo4j [server plugins](http://neo4j.com/docs/stable/server-plugins.html)
 - **Entity** - a base class for objects that may be bound to remote resources
 - **DBMS** - the root service for a Neo4j server
