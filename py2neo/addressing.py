@@ -18,8 +18,10 @@
 
 from base64 import b64encode
 from os import getenv
-from py2neo.packages.httpstream.packages.urimagic import URI
+
 from neo4j.v1 import basic_auth
+
+from py2neo.compat import urlsplit
 
 
 #: Authentication dictionary mapping server addresses to auth details
@@ -34,15 +36,15 @@ class ServerAddress(object):
         self.__settings = {}
 
         def apply_uri(u):
-            uri_object = URI(u)
-            if uri_object.scheme == "bolt":
+            parsed = urlsplit(u)
+            if parsed.scheme == "bolt":
                 self.__settings.setdefault("bolt_port", 7687)
-            if uri_object.scheme == "https":
+            if parsed.scheme == "https":
                 self.__settings["secure"] = True
-            if uri_object.host:
-                self.__settings["host"] = uri_object.host
-            if uri_object.port:
-                self.__settings["%s_port" % uri_object.scheme] = uri_object.port
+            if parsed.hostname:
+                self.__settings["host"] = parsed.hostname
+            if parsed.port:
+                self.__settings["%s_port" % parsed.scheme] = parsed.port
 
         # Apply URIs
         for uri in uris:
@@ -112,9 +114,9 @@ class ServerAuth(object):
         }
 
         def apply_uri(u):
-            uri_object = URI(u)
-            if uri_object.user_info:
-                apply_auth(uri_object.user_info)
+            parsed = urlsplit(u)
+            if parsed.username:
+                apply_auth(parsed.username + ":" + parsed.password)
 
         def apply_auth(a):
             user, _, password = a.partition(":")

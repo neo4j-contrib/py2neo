@@ -26,6 +26,11 @@ try:
 except ImportError:
     from collections import Mapping
 
+try:
+    from urllib.parse import urlsplit
+except ImportError:
+    from urlparse import urlsplit
+
 from io import StringIO
 import os
 from sys import version_info

@@ -22,7 +22,6 @@ from py2neo.packages.httpstream import http, ClientError, ServerError, \
     Resource as _Resource, ResourceTemplate as _ResourceTemplate
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
-from py2neo.packages.httpstream.packages.urimagic import URI
 from py2neo.status import GraphError, Unauthorized
 from py2neo.util import raise_from
 
@@ -76,7 +75,6 @@ class Resource(_Resource):
     """
 
     def __init__(self, uri, metadata=None, headers=None):
-        uri = URI(uri)
         self._resource = _Resource.__init__(self, uri)
         self._headers = dict(headers or {})
         self.__base = super(Resource, self)
@@ -86,7 +84,6 @@ class Resource(_Resource):
             self.__initial_metadata = dict(metadata)
         self.__last_get_response = None
 
-        uri = uri.string
         dbms_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
         if dbms_uri == uri:
             self.__dbms = self
@@ -129,7 +126,7 @@ class Resource(_Resource):
         :arg strict: Strict mode flag.
         :rtype: :class:`.Resource`
         """
-        return Resource(_Resource.resolve(self, reference, strict).uri)
+        return Resource(_Resource.resolve(self, reference, strict).uri.string)
 
     @property
     def dbms(self):
@@ -252,4 +249,4 @@ class ResourceTemplate(_ResourceTemplate):
         :arg values: A set of named values to plug into the template URI.
         :rtype: :class:`.Resource`
         """
-        return Resource(self.uri_template.expand(**values))
+        return Resource(self.uri_template.expand(**values).string)
