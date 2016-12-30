@@ -136,19 +136,11 @@ class Resource(_Resource):
         """
         return self.__dbms
 
-    def get(self, headers=None, redirect_limit=5, **kwargs):
+    def get(self):
         """ Perform an HTTP GET to this resource.
-
-        :arg headers: Extra headers to pass in the request.
-        :arg redirect_limit: Maximum number of times to follow redirects.
-        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
-        :rtype: :class:`httpstream.Response`
-        :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.headers, **(headers or {}))
-        kwargs.update(cache=True)
         try:
-            response = self.__base.get(headers=headers, redirect_limit=redirect_limit, **kwargs)
+            response = self.__base.get(headers=self.headers, cache=True)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
                 raise Unauthorized(self.uri.string)
@@ -162,18 +154,11 @@ class Resource(_Resource):
             self.__last_get_response = response
             return response
 
-    def post(self, body=None, headers=None, **kwargs):
+    def post(self, body=None):
         """ Perform an HTTP POST to this resource.
-
-        :arg body: The payload of this request.
-        :arg headers: Extra headers to pass in the request.
-        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
-        :rtype: :class:`httpstream.Response`
-        :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.headers, **(headers or {}))
         try:
-            response = self.__base.post(body, headers, **kwargs)
+            response = self.__base.post(body, self.headers)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
                 raise Unauthorized(self.uri.string)
@@ -186,17 +171,11 @@ class Resource(_Resource):
         else:
             return response
 
-    def delete(self, headers=None, **kwargs):
+    def delete(self):
         """ Perform an HTTP DELETE to this resource.
-
-        :arg headers: Extra headers to pass in the request.
-        :arg kwargs: Other arguments to pass to the underlying `httpstream` method.
-        :rtype: :class:`httpstream.Response`
-        :raises: :class:`py2neo.GraphError`
         """
-        headers = dict(self.headers, **(headers or {}))
         try:
-            response = self.__base.delete(headers, **kwargs)
+            response = self.__base.delete(self.headers)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
                 raise Unauthorized(self.uri.string)
