@@ -28,12 +28,13 @@ from py2neo import PRODUCT
 from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
-from py2neo.http import *
+from py2neo.http import Resource
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.selection import NodeSelector
 from py2neo.status import *
-from py2neo.types import cast_node, Subgraph, remote, Node, Relationship, Path
+from py2neo.types import cast_node, Subgraph, Node, Relationship, Path
+from py2neo.remoting import Remote, remote
 from py2neo.util import is_collection, version_tuple
 
 update_stats_keys = [
@@ -317,7 +318,7 @@ class Graph(object):
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Resource(address.http_uri("/db/%s/" % database))
+            inst.__remote__ = Remote(address.http_uri("/db/%s/" % database))
             inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri
             inst.transaction_class = HTTPTransaction
             use_bolt = address.bolt

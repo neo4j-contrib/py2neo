@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.database import GraphError, Resource
-from py2neo.types import remote
+from py2neo.database import GraphError
+from py2neo.remoting import Remote, remote
 
 
 class ServerPlugin(object):
@@ -30,7 +30,7 @@ class ServerPlugin(object):
         remote_graph = remote(self.graph)
         extensions = remote_graph.metadata["extensions"]
         try:
-            self.resources = {key: Resource(value) for key, value in extensions[self.name].items()}
+            self.resources = {key: Remote(value) for key, value in extensions[self.name].items()}
         except KeyError:
             raise LookupError("No plugin named %r found on graph <%s>" % (self.name, remote_graph.uri))
 
@@ -42,7 +42,7 @@ class UnmanagedExtension(object):
     def __init__(self, graph, path):
         self.graph = graph
         dbms_uri = remote(self.graph.dbms).uri
-        self.remote = Resource(dbms_uri.rstrip("/") + path)
+        self.remote = Remote(dbms_uri.rstrip("/") + path)
         try:
             self.remote.get()
         except GraphError:

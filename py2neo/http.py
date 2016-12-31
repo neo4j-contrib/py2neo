@@ -18,8 +18,7 @@
 
 from py2neo import PRODUCT
 from py2neo.addressing import keyring
-from py2neo.packages.httpstream import http, ClientError, ServerError, \
-    Resource as _Resource, ResourceTemplate as _ResourceTemplate
+from py2neo.packages.httpstream import http, ClientError, ServerError
 from py2neo.packages.httpstream.http import JSONResponse, user_agent
 from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.status import GraphError, Unauthorized
@@ -74,23 +73,11 @@ class Resource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
-    def __init__(self, uri, metadata=None, headers=None):
+    def __init__(self, uri, headers=None):
+        from py2neo.packages.httpstream import Resource as Resource_
         self.uri = uri
-        self._resource = _Resource(uri)
+        self.resource = Resource_(uri)
         self._headers = dict(headers or {})
-        if metadata is None:
-            self.__initial_metadata = None
-        else:
-            self.__initial_metadata = dict(metadata)
-        self.__last_get_response = None
-
-        dbms_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
-        if dbms_uri == uri:
-            self.__dbms = self
-        else:
-            from py2neo.database import DBMS
-            self.__dbms = DBMS(dbms_uri)
-        self.__ref = NotImplemented
 
     def __eq__(self, other):
         return self.uri == other.uri
@@ -99,31 +86,13 @@ class Resource(object):
         return not self.__eq__(other)
 
     @property
-    def graph(self):
-        """ The parent graph of this resource.
-
-        :rtype: :class:`.Graph`
-        """
-        return self.__dbms.graph
-
-    @property
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        uri = self._resource.__uri__
+        uri = self.resource.__uri__
         headers = get_http_headers(uri.scheme, uri.host, uri.port)
         headers.update(self._headers)
         return headers
-
-    @property
-    def metadata(self):
-        """ Metadata received in the last HTTP response.
-        """
-        if self.__last_get_response is None:
-            if self.__initial_metadata is not None:
-                return self.__initial_metadata
-            self.get()
-        return self.__last_get_response.content
 
     def resolve(self, reference, strict=True):
         """ Resolve a URI reference against the URI for this resource,
@@ -133,21 +102,11 @@ class Resource(object):
         :arg strict: Strict mode flag.
         :rtype: :class:`.Resource`
         """
-        return Resource(self._resource.resolve(reference, strict).uri.string)
+        return Resource(self.resource.resolve(reference, strict).uri.string)
 
-    @property
-    def dbms(self):
-        """ The root service associated with this resource.
-
-        :return: :class:`.DBMS`
-        """
-        return self.__dbms
-
-    def get(self):
-        """ Perform an HTTP GET to this resource.
-        """
+    def request(self, method, **kwargs):
         try:
-            response = self._resource.get(headers=self.headers, cache=True)
+            response = method(headers=self.headers, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
                 raise Unauthorized(self.uri)
@@ -158,39 +117,19 @@ class Resource(object):
             message = content.pop("message", "HTTP GET returned response %s" % error.status_code)
             raise_from(GraphError(message, **content), error)
         else:
-            self.__last_get_response = response
             return response
+
+    def get(self):
+        """ Perform an HTTP GET to this resource.
+        """
+        return self.request(self.resource.get, cache=True)
 
     def post(self, body=None):
         """ Perform an HTTP POST to this resource.
         """
-        try:
-            response = self._resource.post(body, self.headers)
-        except (ClientError, ServerError) as error:
-            if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri)
-            if isinstance(error, JSONResponse):
-                content = dict(error.content, request=error.request, response=error)
-            else:
-                content = {}
-            message = content.pop("message", "HTTP POST returned response %s" % error.status_code)
-            raise_from(GraphError(message, **content), error)
-        else:
-            return response
+        return self.request(self.resource.post, body=body)
 
     def delete(self):
         """ Perform an HTTP DELETE to this resource.
         """
-        try:
-            response = self._resource.delete(self.headers)
-        except (ClientError, ServerError) as error:
-            if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri)
-            if isinstance(error, JSONResponse):
-                content = dict(error.content, request=error.request, response=error)
-            else:
-                content = {}
-            message = content.pop("message", "HTTP DELETE returned response %s" % error.status_code)
-            raise_from(GraphError(message, **content), error)
-        else:
-            return response
+        return self.request(self.resource.delete)

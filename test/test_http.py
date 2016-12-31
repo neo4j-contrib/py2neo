@@ -17,10 +17,13 @@
 
 
 import logging
+from unittest import TestCase
 
-from py2neo.database import DBMS, GraphError, set_http_header, get_http_headers, Resource
+from py2neo.database import DBMS, GraphError
+from py2neo.http import set_http_header, get_http_headers, Resource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
+
 from test.compat import patch
 from test.util import GraphTestCase
 
@@ -192,3 +195,16 @@ class ServerErrorTestCase(GraphTestCase):
                 assert isinstance(error.__cause__, DodgyServerError)
             else:
                 assert False
+
+
+class ResourceTestCase(TestCase):
+
+    def test_similar_resources_should_be_equal(self):
+        r1 = Resource("http://localhost:7474/db/data/node/1")
+        r2 = Resource("http://localhost:7474/db/data/node/1")
+        assert r1 == r2
+
+    def test_different_resources_should_be_unequal(self):
+        r1 = Resource("http://localhost:7474/db/data/node/1")
+        r2 = Resource("http://localhost:7474/db/data/node/2")
+        assert r1 != r2

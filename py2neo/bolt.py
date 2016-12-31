@@ -18,7 +18,8 @@
 
 from neo4j.v1 import ValueSystem, Structure, UnboundRelationship
 
-from py2neo.types import Node, Relationship, Path, remote
+from py2neo.types import Node, Relationship, Path
+from py2neo.remoting import remote
 
 
 class Py2neoPackStreamValueSystem(ValueSystem):

@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, Path, remote, RemoteEntity
+from py2neo.types import Node, Relationship, Path
+from py2neo import remote
+from py2neo.remoting import RemoteEntity
 from test.util import GraphTestCase
 
 

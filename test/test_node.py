@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, cast_node, remote, RemoteEntity
+from py2neo import Node, Relationship, cast_node, remote
+from py2neo.remoting import RemoteEntity
 from test.compat import long
 from test.util import GraphTestCase
 from py2neo.packages.httpstream import ClientError

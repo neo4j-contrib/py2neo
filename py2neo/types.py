@@ -21,7 +21,7 @@ from uuid import uuid4
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
-from py2neo.http import Resource
+from py2neo.remoting import RemoteEntity, remote
 from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
 # Maximum and minimum integers supported up to Java 7.
@@ -682,20 +682,6 @@ class PropertyDict(dict):
             self[key] = value
 
 
-class RemoteEntity(Resource):
-    """ A handle to a remote entity in a graph database.
-    """
-
-    def __init__(self, uri, metadata=None):
-        Resource.__init__(self, uri, metadata)
-        self.ref = self.uri[len(remote(self.graph).uri):]
-        self._id = int(self.ref.rpartition("/")[2])
-
-    def __repr__(self):
-        return "<%s graph=%r ref=%r>" % (self.__class__.__name__,
-                                         remote(self.graph).uri, self.ref)
-
-
 class Entity(PropertyDict, Walkable):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
@@ -750,18 +736,6 @@ class Entity(PropertyDict, Walkable):
                 cache.update(remote(self).uri, None)
         self.__remote = None
         self.__remote_pending_tx = None
-
-
-def remote(obj):
-    """ Return the remote counterpart of a local object.
-
-    :param obj: the local object
-    :return: the corresponding remote entity
-    """
-    try:
-        return obj.__remote__
-    except AttributeError:
-        return None
 
 
 class Relatable(object):

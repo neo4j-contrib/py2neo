@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Resource, remote
+from py2neo import Remote, remote
 from py2neo.ext import ServerPlugin, UnmanagedExtension
 from test.util import GraphTestCase
 from test.compat import patch
@@ -40,7 +40,7 @@ class ServerPluginTestCase(GraphTestCase):
         remote_graph = remote(self.graph)
         metadata = remote_graph.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.__remote__ = Resource(remote_graph.uri, metadata)
+        self.graph.__remote__ = Remote(remote_graph.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 

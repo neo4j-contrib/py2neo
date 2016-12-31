@@ -29,6 +29,7 @@ from py2neo.addressing import *
 from py2neo.cypher import *
 from py2neo.database import *
 from py2neo.ext import *
+from py2neo.remoting import *
 from py2neo.selection import *
 from py2neo.types import *
 
