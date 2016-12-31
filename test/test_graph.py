@@ -18,7 +18,7 @@
 
 from py2neo import Graph, Node, Relationship, cast_node, remote
 from test.util import GraphTestCase
-from test.compat import patch, assert_repr
+from test.compat import patch
 
 
 class GraphTestCase(GraphTestCase):
@@ -140,8 +140,7 @@ class GraphTestCase(GraphTestCase):
         assert hash(self.graph) == hash(self.graph)
 
     def test_graph_repr(self):
-        assert_repr(self.graph, "<Graph uri='http://localhost:7474/db/data/'>",
-                                "<Graph uri=u'http://localhost:7474/db/data/'>")
+        assert repr(self.graph) == "<Graph uri='http://localhost:7474/db/data/'>"
 
     def test_can_get_same_instance(self):
         graph_1 = Graph()
