@@ -70,14 +70,14 @@ def get_http_headers(scheme, host, port):
     return uri_headers
 
 
-class Resource(_Resource):
+class Resource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
     def __init__(self, uri, metadata=None, headers=None):
-        self._resource = _Resource.__init__(self, uri)
+        self.uri = uri
+        self._resource = _Resource(uri)
         self._headers = dict(headers or {})
-        self.__base = super(Resource, self)
         if metadata is None:
             self.__initial_metadata = None
         else:
@@ -92,6 +92,12 @@ class Resource(_Resource):
             self.__dbms = DBMS(dbms_uri)
         self.__ref = NotImplemented
 
+    def __eq__(self, other):
+        return self.uri == other.uri
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     @property
     def graph(self):
         """ The parent graph of this resource.
@@ -104,7 +110,8 @@ class Resource(_Resource):
     def headers(self):
         """ The HTTP headers sent with this resource.
         """
-        headers = get_http_headers(self.__uri__.scheme, self.__uri__.host, self.__uri__.port)
+        uri = self._resource.__uri__
+        headers = get_http_headers(uri.scheme, uri.host, uri.port)
         headers.update(self._headers)
         return headers
 
@@ -126,7 +133,7 @@ class Resource(_Resource):
         :arg strict: Strict mode flag.
         :rtype: :class:`.Resource`
         """
-        return Resource(_Resource.resolve(self, reference, strict).uri.string)
+        return Resource(self._resource.resolve(reference, strict).uri.string)
 
     @property
     def dbms(self):
@@ -140,10 +147,10 @@ class Resource(_Resource):
         """ Perform an HTTP GET to this resource.
         """
         try:
-            response = self.__base.get(headers=self.headers, cache=True)
+            response = self._resource.get(headers=self.headers, cache=True)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise Unauthorized(self.uri)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -158,10 +165,10 @@ class Resource(_Resource):
         """ Perform an HTTP POST to this resource.
         """
         try:
-            response = self.__base.post(body, self.headers)
+            response = self._resource.post(body, self.headers)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise Unauthorized(self.uri)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:
@@ -175,10 +182,10 @@ class Resource(_Resource):
         """ Perform an HTTP DELETE to this resource.
         """
         try:
-            response = self.__base.delete(self.headers)
+            response = self._resource.delete(self.headers)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri.string)
+                raise Unauthorized(self.uri)
             if isinstance(error, JSONResponse):
                 content = dict(error.content, request=error.request, response=error)
             else:

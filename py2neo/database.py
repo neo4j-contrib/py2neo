@@ -116,7 +116,7 @@ class DBMS(object):
         return inst
 
     def __repr__(self):
-        return "<DBMS uri=%r>" % remote(self).uri.string
+        return "<DBMS uri=%r>" % remote(self).uri
 
     def __eq__(self, other):
         try:
@@ -148,7 +148,7 @@ class DBMS(object):
         return self["data"]
 
     def _bean_dict(self, name):
-        info = Resource(remote(self).uri.string + "db/manage/server/jmx/domain/org.neo4j").get().content
+        info = Resource(remote(self).uri + "db/manage/server/jmx/domain/org.neo4j").get().content
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -318,7 +318,7 @@ class Graph(object):
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
             inst.__remote__ = Resource(address.http_uri("/db/%s/" % database))
-            inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri.string
+            inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri
             inst.transaction_class = HTTPTransaction
             use_bolt = address.bolt
             if use_bolt is None:
@@ -339,7 +339,7 @@ class Graph(object):
             self.driver.close()
 
     def __repr__(self):
-        return "<Graph uri=%r>" % remote(self).uri.string
+        return "<Graph uri=%r>" % remote(self).uri
 
     def __hash__(self):
         return hash(remote(self).uri)
@@ -361,7 +361,7 @@ class Graph(object):
 
     def __contains__(self, entity):
         remote_entity = remote(entity)
-        return remote_entity and remote_entity.uri.string.startswith(remote(self).uri.string)
+        return remote_entity and remote_entity.uri.startswith(remote(self).uri)
 
     def begin(self, autocommit=False):
         """ Begin a new :class:`.Transaction`.
@@ -614,9 +614,8 @@ class Graph(object):
         :param id_:
         """
         resource = remote(self).resolve("node/%s" % id_)
-        uri_string = resource.uri.string
         try:
-            return Node.cache[uri_string]
+            return Node.cache[resource.uri]
         except KeyError:
             node = self.node_selector.select().where("id(_) = %d" % id_).first()
             if node is None:
@@ -629,14 +628,14 @@ class Graph(object):
         """ The set of node labels currently defined within the graph.
         """
         if self.__node_labels is None:
-            self.__node_labels = Resource(remote(self).uri.string + "labels")
+            self.__node_labels = Resource(remote(self).uri + "labels")
         return frozenset(self.__node_labels.get().content)
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
         the Neo4j browser application for this graph.
         """
-        webbrowser.open(remote(self.dbms).uri.string)
+        webbrowser.open(remote(self.dbms).uri)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -664,9 +663,8 @@ class Graph(object):
         :param id_:
         """
         resource = remote(self).resolve("relationship/" + str(id_))
-        uri_string = resource.uri.string
         try:
-            return Relationship.cache[uri_string]
+            return Relationship.cache[resource.uri]
         except KeyError:
             relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=id_)
             if relationship is None:
@@ -679,7 +677,7 @@ class Graph(object):
         """ The set of relationship types currently defined within the graph.
         """
         if self.__relationship_types is None:
-            self.__relationship_types = Resource(remote(self).uri.string + "relationship/types")
+            self.__relationship_types = Resource(remote(self).uri + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
@@ -708,7 +706,7 @@ class Graph(object):
         :rtype: :class:`Schema`
         """
         if self.__schema is None:
-            self.__schema = Schema(remote(self).uri.string + "schema")
+            self.__schema = Schema(remote(self).uri + "schema")
         return self.__schema
 
 

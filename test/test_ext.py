@@ -40,7 +40,7 @@ class ServerPluginTestCase(GraphTestCase):
         remote_graph = remote(self.graph)
         metadata = remote_graph.metadata
         metadata["extensions"]["FakePlugin"] = {}
-        self.graph.__remote__ = Resource(remote_graph.uri.string, metadata)
+        self.graph.__remote__ = Resource(remote_graph.uri, metadata)
         plugin = FakePlugin(self.graph)
         assert plugin.resources == {}
 

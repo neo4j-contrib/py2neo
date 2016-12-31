@@ -237,8 +237,8 @@ class RelationshipHydrationTestCase(GraphTestCase):
         path = Path(a, ab, b, cb, c)
         self.graph.create(path)
         dehydrated = {
-            "nodes": [remote(a).uri.string, remote(b).uri.string, remote(c).uri.string],
-            "relationships": [remote(ab).uri.string, remote(cb).uri.string],
+            "nodes": [remote(a).uri, remote(b).uri, remote(c).uri],
+            "relationships": [remote(ab).uri, remote(cb).uri],
         }
         hydrated = self.graph._hydrate(dehydrated)
         assert isinstance(hydrated, Path)

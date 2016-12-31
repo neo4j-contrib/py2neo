@@ -32,7 +32,7 @@ class PullTestCase(GraphTestCase):
         self.graph.create(alice_2)
         assert set(alice_1.labels()) == set()
         assert dict(alice_1) == {}
-        alice_1.__remote__ = RemoteEntity(remote(alice_2).uri.string)
+        alice_1.__remote__ = RemoteEntity(remote(alice_2).uri)
         self.graph.pull(alice_1)
         assert set(alice_1.labels()) == set(alice_2.labels())
         assert dict(alice_1) == dict(alice_2)
@@ -129,7 +129,7 @@ class PushTestCase(GraphTestCase):
         self.graph.create(alice_2)
         assert set(alice_2.labels()) == set()
         assert dict(alice_2) == {}
-        alice_1.__remote__ = RemoteEntity(remote(alice_2).uri.string)
+        alice_1.__remote__ = RemoteEntity(remote(alice_2).uri)
         self.graph.push(alice_1)
         self.graph.pull(alice_2)
         assert set(alice_1.labels()) == set(alice_2.labels())

@@ -31,7 +31,7 @@ class Py2neoPackStreamValueSystem(ValueSystem):
     def hydrate(self, values):
         """ Hydrate values from raw representations into client objects.
         """
-        graph_uri = remote(self.graph).uri.string
+        graph_uri = remote(self.graph).uri
         entities = self.entities
         keys = self.keys
 

@@ -688,12 +688,12 @@ class RemoteEntity(Resource):
 
     def __init__(self, uri, metadata=None):
         Resource.__init__(self, uri, metadata)
-        self.ref = self.uri.string[len(remote(self.graph).uri.string):]
+        self.ref = self.uri[len(remote(self.graph).uri):]
         self._id = int(self.ref.rpartition("/")[2])
 
     def __repr__(self):
         return "<%s graph=%r ref=%r>" % (self.__class__.__name__,
-                                         remote(self.graph).uri.string, self.ref)
+                                         remote(self.graph).uri, self.ref)
 
 
 class Entity(PropertyDict, Walkable):
