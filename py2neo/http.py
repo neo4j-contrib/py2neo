@@ -90,16 +90,6 @@ class Resource(object):
     def uri(self):
         return self.resource.uri.string
 
-    def resolve(self, reference, strict=True):
-        """ Resolve a URI reference against the URI for this resource,
-        returning a new resource represented by the new target URI.
-
-        :arg reference: Relative URI to resolve.
-        :arg strict: Strict mode flag.
-        :rtype: :class:`.Resource`
-        """
-        return Resource(self.resource.resolve(reference, strict).uri.string)
-
     def request(self, method, **kwargs):
         uri = self.resource.__uri__
         headers = get_http_headers(uri.scheme, uri.host, uri.port)

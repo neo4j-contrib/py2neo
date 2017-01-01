@@ -614,7 +614,7 @@ class Graph(object):
 
         :param id_:
         """
-        resource = remote(self).resolve("node/%s" % id_)
+        resource = Remote("%snode/%s" % (remote(self).uri, id_))
         try:
             return Node.cache[resource.uri]
         except KeyError:
@@ -663,7 +663,7 @@ class Graph(object):
 
         :param id_:
         """
-        resource = remote(self).resolve("relationship/" + str(id_))
+        resource = Remote("%srelationship/%s" % (remote(self).uri, id_))
         try:
             return Relationship.cache[resource.uri]
         except KeyError:
