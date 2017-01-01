@@ -73,26 +73,22 @@ class Resource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
-    def __init__(self, uri, headers=None):
+    def __init__(self, uri):
         from py2neo.packages.httpstream import Resource as Resource_
-        self.uri = uri
         self.resource = Resource_(uri)
-        self._headers = dict(headers or {})
 
     def __eq__(self, other):
-        return self.uri == other.uri
+        try:
+            return self.uri == other.uri
+        except AttributeError:
+            return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     @property
-    def headers(self):
-        """ The HTTP headers sent with this resource.
-        """
-        uri = self.resource.__uri__
-        headers = get_http_headers(uri.scheme, uri.host, uri.port)
-        headers.update(self._headers)
-        return headers
+    def uri(self):
+        return self.resource.uri.string
 
     def resolve(self, reference, strict=True):
         """ Resolve a URI reference against the URI for this resource,
@@ -105,8 +101,10 @@ class Resource(object):
         return Resource(self.resource.resolve(reference, strict).uri.string)
 
     def request(self, method, **kwargs):
+        uri = self.resource.__uri__
+        headers = get_http_headers(uri.scheme, uri.host, uri.port)
         try:
-            response = method(headers=self.headers, **kwargs)
+            response = method(headers=headers, **kwargs)
         except (ClientError, ServerError) as error:
             if error.status_code == UNAUTHORIZED:
                 raise Unauthorized(self.uri)
