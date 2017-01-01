@@ -24,9 +24,7 @@ from py2neo.compat import integer, string, unicode, ustr, ReprIO
 from py2neo.remoting import RemoteEntity, remote
 from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
-# Maximum and minimum integers supported up to Java 7.
-# Java 8 also supports unsigned long which can extend
-# to (2 ** 64 - 1) but Neo4j is not yet on Java 8.
+
 JAVA_INTEGER_MIN_VALUE = -2 ** 63
 JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
 
