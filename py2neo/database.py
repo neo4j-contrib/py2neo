@@ -509,7 +509,7 @@ class Graph(object):
             elif "results" in data:
                 return self._hydrate(data["results"][0])
             elif "columns" in data and "data" in data:
-                return Cursor(HTTPDataSource(self, None, data))
+                return Cursor(HTTPResult(self, None, data))
             elif "neo4j_version" in data:
                 return self
             else:
@@ -783,7 +783,7 @@ class Schema(object):
         ]
 
 
-class DataSource(object):
+class Result(object):
 
     def keys(self):
         """ Return the keys for the whole data set.
@@ -798,7 +798,7 @@ class DataSource(object):
         """
 
 
-class HTTPDataSource(DataSource):
+class HTTPResult(Result):
 
     def __init__(self, graph, transaction, data=None):
         self.graph = graph
@@ -853,7 +853,7 @@ class HTTPDataSource(DataSource):
         self.loaded = True
 
 
-class BoltDataSource(DataSource):
+class BoltResult(Result):
     """ Wraps a BoltStatementResult
     """
 
@@ -1086,7 +1086,7 @@ class HTTPTransaction(Transaction):
     def run(self, statement, parameters=None, **kwparameters):
         self._assert_unfinished()
         self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        source = HTTPDataSource(self.graph, self)
+        source = HTTPResult(self.graph, self)
         cursor = Cursor(source)
         self.sources.append(source)
         if self.autocommit:
@@ -1153,7 +1153,7 @@ class BoltTransaction(Transaction):
             result = self.transaction.run(statement, parameters, **kwparameters)
         else:
             result = self.session.run(statement, parameters, **kwparameters)
-        source = BoltDataSource(self.graph, entities, result)
+        source = BoltResult(self.graph, entities, result)
         self.sources.append(source)
         if not self.transaction:
             self.finish()
