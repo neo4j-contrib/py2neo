@@ -16,10 +16,11 @@
 # limitations under the License.
 
 
-from py2neo import Remote, remote
 from py2neo.ext import ServerPlugin, UnmanagedExtension
-from test.util import GraphTestCase
+from py2neo.remoting import Remote, remote
+
 from test.compat import patch
+from test.util import GraphTestCase
 
 
 class FakePlugin(ServerPlugin):
@@ -64,7 +65,7 @@ class NaughtyExtension(UnmanagedExtension):
 class UnmanagedExtensionTestCase(GraphTestCase):
 
     def test_can_init_unmanaged_extension(self):
-        with patch("py2neo.http.Resource.get"):
+        with patch("py2neo.http.WebResource.get"):
             plugin = FakeExtension(self.graph)
             assert plugin.remote.uri == "http://localhost:7474/fake/"
 

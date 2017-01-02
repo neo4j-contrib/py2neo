@@ -16,8 +16,10 @@
 # limitations under the License.
 
 
-from py2neo import Resource, Node, Relationship, remote
-from py2neo.remoting import RemoteEntity
+from py2neo.http import WebResource
+from py2neo.types import Node, Relationship
+from py2neo.remoting import RemoteEntity, remote
+
 from test.util import GraphTestCase
 
 
@@ -48,7 +50,7 @@ class EntityTestCase(GraphTestCase):
         node = Node()
         node.__remote__ = RemoteEntity(uri)
         assert remote(node)
-        assert isinstance(remote(node), Resource)
+        assert isinstance(remote(node), WebResource)
         assert remote(node).uri == uri
 
     def test_can_bind_relationship_to_resource(self):
@@ -61,7 +63,7 @@ class EntityTestCase(GraphTestCase):
         # Pass in metadata to avoid callback to server
         relationship.__remote__ = RemoteEntity(uri, metadata=metadata)
         assert remote(relationship)
-        assert isinstance(remote(relationship), Resource)
+        assert isinstance(remote(relationship), WebResource)
         assert remote(relationship).uri == uri
 
 

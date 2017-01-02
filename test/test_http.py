@@ -20,7 +20,7 @@ import logging
 from unittest import TestCase
 
 from py2neo.database import DBMS, GraphError
-from py2neo.http import set_http_header, get_http_headers, Resource
+from py2neo.http import set_http_header, get_http_headers, WebResource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
 
@@ -97,7 +97,7 @@ class HeaderTestCase(GraphTestCase):
 class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_400(self):
-        resource = Resource("http://localhost:7474/db/data/cypher")
+        resource = WebResource("http://localhost:7474/db/data/cypher")
         try:
             resource.post()
         except GraphError as error:
@@ -114,7 +114,7 @@ class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_404(self):
         node_id = self.get_non_existent_node_id()
-        resource = Resource("http://localhost:7474/db/data/node/%s" % node_id)
+        resource = WebResource("http://localhost:7474/db/data/node/%s" % node_id)
         try:
             resource.get()
         except GraphError as error:
@@ -128,7 +128,7 @@ class ClientErrorTestCase(GraphTestCase):
 class ServerErrorTestCase(GraphTestCase):
 
     def setUp(self):
-        self.non_existent_resource = Resource("http://localhost:7474/db/data/x")
+        self.non_existent_resource = WebResource("http://localhost:7474/db/data/x")
 
     def test_can_handle_json_error_from_get(self):
         try:
@@ -166,7 +166,7 @@ class ServerErrorTestCase(GraphTestCase):
     def test_can_handle_other_error_from_get(self):
         with patch.object(_Resource, "get") as mocked:
             mocked.side_effect = DodgyServerError
-            resource = Resource("http://localhost:7474/db/data/node/spam")
+            resource = WebResource("http://localhost:7474/db/data/node/spam")
             try:
                 resource.get()
             except GraphError as error:
@@ -177,7 +177,7 @@ class ServerErrorTestCase(GraphTestCase):
     def test_can_handle_other_error_from_post(self):
         with patch.object(_Resource, "post") as mocked:
             mocked.side_effect = DodgyServerError
-            resource = Resource("http://localhost:7474/db/data/node/spam")
+            resource = WebResource("http://localhost:7474/db/data/node/spam")
             try:
                 resource.post()
             except GraphError as error:
@@ -188,7 +188,7 @@ class ServerErrorTestCase(GraphTestCase):
     def test_can_handle_other_error_from_delete(self):
         with patch.object(_Resource, "delete") as mocked:
             mocked.side_effect = DodgyServerError
-            resource = Resource("http://localhost:7474/db/data/node/spam")
+            resource = WebResource("http://localhost:7474/db/data/node/spam")
             try:
                 resource.delete()
             except GraphError as error:
@@ -200,11 +200,11 @@ class ServerErrorTestCase(GraphTestCase):
 class ResourceTestCase(TestCase):
 
     def test_similar_resources_should_be_equal(self):
-        r1 = Resource("http://localhost:7474/db/data/node/1")
-        r2 = Resource("http://localhost:7474/db/data/node/1")
+        r1 = WebResource("http://localhost:7474/db/data/node/1")
+        r2 = WebResource("http://localhost:7474/db/data/node/1")
         assert r1 == r2
 
     def test_different_resources_should_be_unequal(self):
-        r1 = Resource("http://localhost:7474/db/data/node/1")
-        r2 = Resource("http://localhost:7474/db/data/node/2")
+        r1 = WebResource("http://localhost:7474/db/data/node/1")
+        r2 = WebResource("http://localhost:7474/db/data/node/2")
         assert r1 != r2

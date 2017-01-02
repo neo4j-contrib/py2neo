@@ -69,13 +69,13 @@ def get_http_headers(scheme, host, port):
     return uri_headers
 
 
-class Resource(object):
+class WebResource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
     def __init__(self, uri):
-        from py2neo.packages.httpstream import Resource as Resource_
-        self.resource = Resource_(uri)
+        from py2neo.packages.httpstream import Resource
+        self.resource = Resource(uri)
 
     def __eq__(self, other):
         try:
@@ -94,18 +94,9 @@ class Resource(object):
         uri = self.resource.__uri__
         headers = get_http_headers(uri.scheme, uri.host, uri.port)
         try:
-            response = method(headers=headers, **kwargs)
+            return HTTPResponse(uri.string, method(headers=headers, **kwargs))
         except (ClientError, ServerError) as error:
-            if error.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri)
-            if isinstance(error, JSONResponse):
-                content = dict(error.content, request=error.request, response=error)
-            else:
-                content = {}
-            message = content.pop("message", "HTTP GET returned response %s" % error.status_code)
-            raise_from(GraphError(message, **content), error)
-        else:
-            return response
+            return HTTPResponse(uri.string, error)
 
     def get(self):
         """ Perform an HTTP GET to this resource.
@@ -121,3 +112,31 @@ class Resource(object):
         """ Perform an HTTP DELETE to this resource.
         """
         return self.request(self.resource.delete)
+
+
+class HTTPResponse(object):
+
+    def __init__(self, uri, response):
+        self.uri = uri
+        self.inner = response
+        self.status_code = response.status_code
+        if 400 <= self.status_code < 600:
+            if self.status_code == UNAUTHORIZED:
+                raise Unauthorized(self.uri)
+            if isinstance(response, JSONResponse):
+                content = dict(response.content, request=response.request, response=response)
+            else:
+                content = {}
+            message = content.pop("message", "HTTP request returned response %s" % self.status_code)
+            raise_from(GraphError(message, **content), response)
+
+    @property
+    def location(self):
+        return self.inner.location
+
+    @property
+    def content(self):
+        return self.inner.content
+
+    def close(self):
+        self.inner.close()

@@ -16,15 +16,15 @@
 # limitations under the License.
 
 
-from py2neo.http import Resource
+from py2neo.http import WebResource
 
 
-class Remote(Resource):
+class Remote(WebResource):
 
     _dbms = None
 
     def __init__(self, uri, metadata=None):
-        Resource.__init__(self, uri)
+        WebResource.__init__(self, uri)
         self._last_get_response = None
         if metadata is None:
             self._initial_metadata = None

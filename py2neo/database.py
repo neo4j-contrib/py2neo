@@ -28,7 +28,6 @@ from py2neo import PRODUCT
 from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
-from py2neo.http import Resource
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.selection import NodeSelector
@@ -102,6 +101,8 @@ class DBMS(object):
     __instances = {}
     __graph = None
 
+    _jmx_remote = None
+
     def __new__(cls, *uris, **settings):
         from py2neo.addressing import register_server
         address = register_server(*uris, **settings)
@@ -111,7 +112,8 @@ class DBMS(object):
         except KeyError:
             inst = super(DBMS, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Resource(http_uri)
+            inst.__remote__ = Remote(http_uri)
+            inst._jmx_remote = Remote(inst.__remote__.uri + "db/manage/server/jmx/domain/org.neo4j")
             inst.__graph = None
             cls.__instances[address] = inst
         return inst
@@ -149,7 +151,7 @@ class DBMS(object):
         return self["data"]
 
     def _bean_dict(self, name):
-        info = Resource(remote(self).uri + "db/manage/server/jmx/domain/org.neo4j").get().content
+        info = self._jmx_remote.get().content
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -319,7 +321,7 @@ class Graph(object):
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
             inst.__remote__ = Remote(address.http_uri("/db/%s/" % database))
-            inst.transaction_uri = Resource(address.http_uri("/db/%s/transaction" % database)).uri
+            inst.transaction_uri = Remote(address.http_uri("/db/%s/transaction" % database)).uri
             inst.transaction_class = HTTPTransaction
             use_bolt = address.bolt
             if use_bolt is None:
@@ -629,7 +631,7 @@ class Graph(object):
         """ The set of node labels currently defined within the graph.
         """
         if self.__node_labels is None:
-            self.__node_labels = Resource(remote(self).uri + "labels")
+            self.__node_labels = Remote(remote(self).uri + "labels")
         return frozenset(self.__node_labels.get().content)
 
     def open_browser(self):
@@ -678,7 +680,7 @@ class Graph(object):
         """ The set of relationship types currently defined within the graph.
         """
         if self.__relationship_types is None:
-            self.__relationship_types = Resource(remote(self).uri + "relationship/types")
+            self.__relationship_types = Remote(remote(self).uri + "relationship/types")
         return frozenset(self.__relationship_types.get().content)
 
     def run(self, statement, parameters=None, **kwparameters):
@@ -726,23 +728,20 @@ class Schema(object):
         key combination.
         """
         uri = self._index_uri.format(label=label)
-        resource = Resource(uri)
-        resource.post({"property_keys": [property_key]})
+        Remote(uri).post({"property_keys": [property_key]})
 
     def create_uniqueness_constraint(self, label, property_key):
         """ Create a uniqueness constraint for a label.
         """
         uri = self._uniqueness_constraint_uri.format(label=label)
-        resource = Resource(uri)
-        resource.post({"property_keys": [property_key]})
+        Remote(uri).post({"property_keys": [property_key]})
 
     def drop_index(self, label, property_key):
         """ Remove label index for a given property key.
         """
         uri = self._index_key_uri.format(label=label, property_key=property_key)
-        resource = Resource(uri)
         try:
-            resource.delete()
+            Remote(uri).delete()
         except GraphError as error:
             cause = error.__cause__
             if isinstance(cause, HTTPResponse):
@@ -755,9 +754,8 @@ class Schema(object):
         """ Remove the uniqueness constraint for a given property key.
         """
         uri = self._uniqueness_constraint_key_uri.format(label=label, property_key=property_key)
-        resource = Resource(uri)
         try:
-            resource.delete()
+            Remote(uri).delete()
         except GraphError as error:
             cause = error.__cause__
             if isinstance(cause, HTTPResponse):
@@ -770,20 +768,18 @@ class Schema(object):
         """ Fetch a list of indexed property keys for a label.
         """
         uri = self._index_uri.format(label=label)
-        resource = Resource(uri)
         return [
             indexed["property_keys"][0]
-            for indexed in resource.get().content
+            for indexed in Remote(uri).get().content
         ]
 
     def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
         uri = self._uniqueness_constraint_uri.format(label=label)
-        resource = Resource(uri)
         return [
             unique["property_keys"][0]
-            for unique in resource.get().content
+            for unique in Remote(uri).get().content
         ]
 
 
@@ -1082,8 +1078,8 @@ class HTTPTransaction(Transaction):
         self.statements = []
         self.sources = []
         uri = graph.transaction_uri
-        self._begin = Resource(uri)
-        self._begin_commit = Resource(uri + "/commit")
+        self._begin = Remote(uri)
+        self._begin_commit = Remote(uri + "/commit")
         self._execute = None
         self._commit = None
 
@@ -1109,12 +1105,12 @@ class HTTPTransaction(Transaction):
         rs = resource.post({"statements": self.statements})
         location = rs.location
         if location:
-            self._execute = Resource(location)
+            self._execute = Remote(location)
         raw = rs.content
         rs.close()
         self.statements = []
         if "commit" in raw:
-            self._commit = Resource(raw["commit"])
+            self._commit = Remote(raw["commit"])
         for raw_error in raw["errors"]:
             raise GraphError.hydrate(raw_error)
         for raw_result in raw["results"]:
