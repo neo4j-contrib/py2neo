@@ -16,12 +16,16 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, cast_node, remote
+from py2neo.database import Graph
+from py2neo.json import JSONValueSystem
+from py2neo.remoting import remote
+from py2neo.types import Node, Relationship, cast_node
+
 from test.util import GraphTestCase
 from test.compat import patch
 
 
-class GraphTestCase(GraphTestCase):
+class GraphObjectTestCase(GraphTestCase):
 
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
@@ -53,20 +57,17 @@ class GraphTestCase(GraphTestCase):
         assert self.graph.__bool__()
         assert self.graph.__nonzero__()
 
-    def test_can_hydrate_graph(self):
-        data = remote(self.graph).get().content
-        hydrated = self.graph._hydrate(data)
-        assert hydrated is self.graph
-
     def test_graph_contains(self):
         node = Node()
         self.graph.create(node)
         assert node in self.graph
 
-    def test_can_hydrate_map(self):
+    def test_can_hydrate_map_from_json_result(self):
+        # TODO: check that a warning is raised
         data = {"foo": "bar"}
-        hydrated = self.graph._hydrate(data)
-        assert isinstance(hydrated, dict)
+        value_system = JSONValueSystem(self.graph, ["a"])
+        hydrated = value_system.hydrate([data])
+        assert hydrated[0] == data
 
     def test_can_open_browser(self):
         with patch("webbrowser.open") as mocked:

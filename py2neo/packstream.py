@@ -18,19 +18,19 @@
 
 from neo4j.v1 import ValueSystem, Structure, UnboundRelationship
 
-from py2neo.types import Node, Relationship, Path
 from py2neo.remoting import remote
+from py2neo.types import Node, Relationship, Path
 
 
-class Py2neoPackStreamValueSystem(ValueSystem):
+class PackStreamValueSystem(ValueSystem):
 
-    def __init__(self, graph, entities, keys):
+    def __init__(self, graph, keys, entities=None):
         self.graph = graph
         self.keys = keys
-        self.entities = entities
+        self.entities = entities or {}
 
     def hydrate(self, values):
-        """ Hydrate values from raw representations into client objects.
+        """ Hydrate values from raw PackStream representations into client objects.
         """
         graph_uri = remote(self.graph).uri
         entities = self.entities

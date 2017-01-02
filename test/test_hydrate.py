@@ -18,7 +18,10 @@
 
 from mock import patch
 
-from py2neo import Node, Relationship, Path, remote
+from py2neo.json import JSONValueSystem
+from py2neo.remoting import remote
+from py2neo.types import Node, Relationship, Path
+
 from test.util import GraphTestCase
 
 
@@ -240,10 +243,12 @@ class RelationshipHydrationTestCase(GraphTestCase):
             "nodes": [remote(a).uri, remote(b).uri, remote(c).uri],
             "relationships": [remote(ab).uri, remote(cb).uri],
         }
-        hydrated = self.graph._hydrate(dehydrated)
-        assert isinstance(hydrated, Path)
+        value_system = JSONValueSystem(self.graph, ["a"])
+        hydrated = value_system.hydrate([dehydrated])
+        assert isinstance(hydrated[0], Path)
 
     def test_list_hydration(self):
         dehydrated = [1, 2, 3]
-        hydrated = self.graph._hydrate(dehydrated)
-        assert hydrated == [1, 2, 3]
+        value_system = JSONValueSystem(self.graph, ["a"])
+        hydrated = value_system.hydrate([dehydrated])
+        assert hydrated[0] == [1, 2, 3]

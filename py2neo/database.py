@@ -20,19 +20,19 @@ import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
 from sys import stdout
-from warnings import warn
 
 from neo4j.v1 import GraphDatabase
 
 from py2neo import PRODUCT
-from py2neo.bolt import Py2neoPackStreamValueSystem
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
+from py2neo.json import JSONValueSystem
+from py2neo.packstream import PackStreamValueSystem
 from py2neo.packages.httpstream import Response as HTTPResponse
 from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.selection import NodeSelector
 from py2neo.status import *
-from py2neo.types import cast_node, Subgraph, Node, Relationship, Path
+from py2neo.types import cast_node, Subgraph, Node, Relationship
 from py2neo.remoting import Remote, remote
 from py2neo.util import is_collection, version_tuple
 
@@ -482,44 +482,44 @@ class Graph(object):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
-    def _hydrate(self, data, inst=None):
-        if isinstance(data, dict):
-            if "errors" in data and data["errors"]:
-                for error in data["errors"]:
-                    raise GraphError.hydrate(error)
-            elif "self" in data:
-                if "type" in data:
-                    return Relationship.hydrate(data["self"], inst=inst, **data)
-                else:
-                    return Node.hydrate(data["self"], inst=inst, **data)
-            elif "nodes" in data and "relationships" in data:
-                if "directions" not in data:
-                    directions = []
-                    relationships = self.evaluate(
-                        "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
-                        x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
-                    node_uris = data["nodes"]
-                    for i, relationship in enumerate(relationships):
-                        if remote(relationship.start_node()).uri == node_uris[i]:
-                            directions.append("->")
-                        else:
-                            directions.append("<-")
-                    data["directions"] = directions
-                return Path.hydrate(data)
-            elif "results" in data:
-                return self._hydrate(data["results"][0])
-            elif "columns" in data and "data" in data:
-                return Cursor(HTTPResult(self, None, data))
-            elif "neo4j_version" in data:
-                return self
-            else:
-                warn("Map literals returned over the Neo4j REST interface are ambiguous "
-                     "and may be hydrated as graph objects")
-                return data
-        elif is_collection(data):
-            return type(data)(map(self._hydrate, data))
-        else:
-            return data
+    # def _hydrate(self, data, inst=None):
+    #     if isinstance(data, dict):
+    #         if "errors" in data and data["errors"]:
+    #             for error in data["errors"]:
+    #                 raise GraphError.hydrate(error)
+    #         elif "self" in data:
+    #             if "type" in data:
+    #                 return Relationship.hydrate(data["self"], inst=inst, **data)
+    #             else:
+    #                 return Node.hydrate(data["self"], inst=inst, **data)
+    #         elif "nodes" in data and "relationships" in data:
+    #             if "directions" not in data:
+    #                 directions = []
+    #                 relationships = self.evaluate(
+    #                     "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
+    #                     x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
+    #                 node_uris = data["nodes"]
+    #                 for i, relationship in enumerate(relationships):
+    #                     if remote(relationship.start_node()).uri == node_uris[i]:
+    #                         directions.append("->")
+    #                     else:
+    #                         directions.append("<-")
+    #                 data["directions"] = directions
+    #             return Path.hydrate(data)
+    #         elif "results" in data:
+    #             return self._hydrate(data["results"][0])
+    #         elif "columns" in data and "data" in data:
+    #             return Cursor(HTTPResult(self, None, data))
+    #         elif "neo4j_version" in data:
+    #             return self
+    #         else:
+    #             warn("Map literals returned over the Neo4j REST interface are ambiguous "
+    #                  "and may be hydrated as graph objects")
+    #             return data
+    #     elif is_collection(data):
+    #         return type(data)(map(self._hydrate, data))
+    #     else:
+    #         return data
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -842,14 +842,9 @@ class HTTPResult(Result):
         if "relationship_deleted" in self._stats:
             self._stats["relationships_deleted"] = self._stats["relationship_deleted"]
             del self._stats["relationship_deleted"]
-        hydrate = self.graph._hydrate
+        value_system = JSONValueSystem(self.graph, keys, entities)
         for record in data["data"]:
-            values = []
-            for i, value in enumerate(record["rest"]):
-                key = keys[i]
-                cached = entities.get(key)
-                values.append(hydrate(value, inst=cached))
-            self.buffer.append(Record(keys, values))
+            self.buffer.append(Record(keys, value_system.hydrate(record["rest"])))
         self.loaded = True
 
 
@@ -860,7 +855,7 @@ class BoltResult(Result):
     def __init__(self, graph, entities, result):
         self.result = result
         self.result.error_class = GraphError.hydrate
-        self.result.value_system = Py2neoPackStreamValueSystem(graph, entities, result.keys())
+        self.result.value_system = PackStreamValueSystem(graph, result.keys(), entities)
         self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
