@@ -40,7 +40,7 @@ class JSONValueSystem(ValueSystem):
         def hydrate_(data, inst=None):
             if isinstance(data, dict):
                 if "errors" in data and data["errors"]:
-                    from py2neo.database import GraphError
+                    from py2neo.graph import GraphError
                     for error in data["errors"]:
                         raise GraphError.hydrate(error)
                 elif "self" in data:

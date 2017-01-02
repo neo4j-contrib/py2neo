@@ -326,16 +326,16 @@ class TransactionCoverageTestCase(GraphTestCase):
     """
 
     def test_base_class_rollback_does_nothing(self):
-        from py2neo.database import Transaction
+        from py2neo.graph import Transaction
         tx = Transaction(self.graph)
         tx.rollback()
 
     def test_base_class_post_does_nothing(self):
-        from py2neo.database import Transaction
+        from py2neo.graph import Transaction
         tx = Transaction(self.graph)
         tx._post()
 
     def test_base_class_run_does_nothing(self):
-        from py2neo.database import Transaction
+        from py2neo.graph import Transaction
         tx = Transaction(self.graph)
         tx.run("")

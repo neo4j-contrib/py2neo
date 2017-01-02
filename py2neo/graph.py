@@ -79,22 +79,22 @@ def cypher_request(statement, parameters, **kwparameters):
     ])
 
 
-class DBMS(object):
+class GraphService(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the root URI in
     the HTTP API.
 
     An explicit URI can be passed to the constructor::
 
-        >>> from py2neo import DBMS
-        >>> my_dbms = DBMS("http://myserver:7474/")
+        >>> from py2neo import GraphService
+        >>> gs = GraphService("http://myserver:7474/")
 
     Alternatively, the default value of ``http://localhost:7474/`` is
     used::
 
-        >>> default_dbms = DBMS()
-        >>> default_dbms
-        <DBMS uri='http://localhost:7474/'>
+        >>> default_gs = GraphService()
+        >>> default_gs
+        <GraphService uri='http://localhost:7474/'>
 
     """
 
@@ -110,7 +110,7 @@ class DBMS(object):
         try:
             inst = cls.__instances[address]
         except KeyError:
-            inst = super(DBMS, cls).__new__(cls)
+            inst = super(GraphService, cls).__new__(cls)
             inst.address = address
             inst.__remote__ = Remote(http_uri)
             inst._jmx_remote = Remote(inst.__remote__.uri + "db/manage/server/jmx/domain/org.neo4j")
@@ -119,7 +119,7 @@ class DBMS(object):
         return inst
 
     def __repr__(self):
-        return "<DBMS uri=%r>" % remote(self).uri
+        return "<%s uri=%r>" % (self.__class__.__name__, remote(self).uri)
 
     def __eq__(self, other):
         try:

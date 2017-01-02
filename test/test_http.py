@@ -19,7 +19,7 @@
 import logging
 from unittest import TestCase
 
-from py2neo.database import DBMS, GraphError
+from py2neo.graph import GraphService, GraphError
 from py2neo.http import set_http_header, get_http_headers, WebResource
 from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
     Resource as _Resource, Response as _Response
@@ -28,7 +28,7 @@ from test.compat import patch
 from test.util import GraphTestCase
 
 
-dbms = DBMS()
+dbms = GraphService()
 supports_bolt = dbms.supports_bolt
 
 

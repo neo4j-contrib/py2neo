@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import absolute_import
+
 from io import StringIO
 from json import dumps as json_dumps
 from sys import stdout

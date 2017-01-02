@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import DBMS, remote
+from py2neo.graph import GraphService
+from py2neo.remoting import remote
+
 from test.util import GraphTestCase
 
 
@@ -24,58 +26,58 @@ class DBMSTestCase(GraphTestCase):
 
     def test_can_create_dbms_with_bolt_uri(self):
         uri = "bolt://localhost/"
-        dbms = DBMS(uri)
-        assert repr(dbms).startswith("<DBMS")
+        dbms = GraphService(uri)
+        assert repr(dbms).startswith("<GraphService")
         assert remote(dbms).uri == "http://localhost:7474/"
         index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_settings(self):
         uri = "http://127.0.0.1:7474/"
-        dbms = DBMS(host="127.0.0.1")
-        assert repr(dbms).startswith("<DBMS")
+        dbms = GraphService(host="127.0.0.1")
+        assert repr(dbms).startswith("<GraphService")
         assert remote(dbms).uri == uri
         index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_trailing_slash(self):
         uri = "http://localhost:7474/"
-        dbms = DBMS(uri)
-        assert repr(dbms).startswith("<DBMS")
+        dbms = GraphService(uri)
+        assert repr(dbms).startswith("<GraphService")
         assert remote(dbms).uri == uri
         index = remote(dbms).get().content
         assert "data" in index
 
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
-        dbms = DBMS(uri[:-1])
+        dbms = GraphService(uri[:-1])
         assert remote(dbms).uri == uri
         index = remote(dbms).get().content
         assert "data" in index
 
     def test_same_uri_gives_same_instance(self):
         uri = "http://localhost:7474/"
-        dbms_1 = DBMS(uri)
-        dbms_2 = DBMS(uri)
+        dbms_1 = GraphService(uri)
+        dbms_2 = GraphService(uri)
         assert dbms_1 is dbms_2
 
     def test_dbms_equality(self):
         uri = "http://localhost:7474/"
-        dbms_1 = DBMS(uri)
-        dbms_2 = DBMS(uri)
+        dbms_1 = GraphService(uri)
+        dbms_2 = GraphService(uri)
         assert dbms_1 == dbms_2
         assert hash(dbms_1) == hash(dbms_2)
 
     def test_dbms_inequality(self):
         uri = "http://localhost:7474/"
-        dbms_1 = DBMS(uri)
-        dbms_2 = DBMS("http://remotehost:7474/")
+        dbms_1 = GraphService(uri)
+        dbms_2 = GraphService("http://remotehost:7474/")
         assert dbms_1 != dbms_2
         assert hash(dbms_1) != hash(dbms_2)
 
     def test_dbms_is_not_equal_to_non_dbms(self):
         uri = "http://localhost:7474/"
-        dbms = DBMS(uri)
+        dbms = GraphService(uri)
         assert dbms != object()
 
     def test_dbms_metadata(self):

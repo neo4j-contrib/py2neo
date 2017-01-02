@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.database import Graph
+from py2neo.graph import Graph
 from py2neo.json import JSONValueSystem
 from py2neo.remoting import remote
 from py2neo.types import Node, Relationship, cast_node
@@ -141,7 +141,7 @@ class GraphObjectTestCase(GraphTestCase):
         assert hash(self.graph) == hash(self.graph)
 
     def test_graph_repr(self):
-        assert repr(self.graph) == "<Graph uri='http://localhost:7474/db/data/'>"
+        assert repr(self.graph).startswith("<Graph")
 
     def test_can_get_same_instance(self):
         graph_1 = Graph()

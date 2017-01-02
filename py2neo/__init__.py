@@ -27,7 +27,7 @@ PRODUCT = ("py2neo", __version__)
 
 from py2neo.addressing import *
 from py2neo.cypher import *
-from py2neo.database import *
+from py2neo.graph import *
 from py2neo.ext import *
 from py2neo.remoting import *
 from py2neo.selection import *
@@ -128,7 +128,7 @@ class Commander(object):
         parser.add_argument("term", nargs="*", help="filter by term")
         parser.description = "Display configuration"
         parsed = parser.parse_args(args[1:])
-        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms = GraphService("http://%s:%d" % (parsed.host, parsed.port))
         for name, value in sorted(dbms.config().items()):
             if not parsed.term or all(term in name for term in parsed.term):
                 self.write_line("%s %s" % (name.ljust(50), value))
@@ -141,7 +141,7 @@ class Commander(object):
         parser.description = "Evaluate a Cypher statement"
         parser.add_argument("statement", help="Cypher statement")
         parsed = parser.parse_args(args[1:])
-        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms = GraphService("http://%s:%d" % (parsed.host, parsed.port))
         self.write_line(ustr(dbms.graph.evaluate(parsed.statement)))
 
     def kernel_info(self, *args):
@@ -151,7 +151,7 @@ class Commander(object):
         parser = self.parser_with_connection(args[0])
         parser.description = "Display kernel information"
         parsed = parser.parse_args(args[1:])
-        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms = GraphService("http://%s:%d" % (parsed.host, parsed.port))
         self.write_line("Kernel version: %s" % dbms.kernel_version())
         self.write_line("Store directory: %s" % dbms.store_directory())
         self.write_line("Store ID: %s" % dbms.store_id())
@@ -163,7 +163,7 @@ class Commander(object):
         parser = self.parser_with_connection(args[0])
         parser.description = "Display store file sizes"
         parsed = parser.parse_args(args[1:])
-        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms = GraphService("http://%s:%d" % (parsed.host, parsed.port))
         for store, size in dbms.store_file_sizes().items():
             self.write_line("%s: %s" % (store, size))
 
@@ -175,7 +175,7 @@ class Commander(object):
         parser.description = "Run a Cypher statement"
         parser.add_argument("statement", help="Cypher statement")
         parsed = parser.parse_args(args[1:])
-        dbms = DBMS("http://%s:%d" % (parsed.host, parsed.port))
+        dbms = GraphService("http://%s:%d" % (parsed.host, parsed.port))
         dbms.graph.run(parsed.statement).dump(self.out)
 
 

@@ -19,7 +19,7 @@
 from io import StringIO
 from unittest import TestCase
 
-from py2neo.database import Record, Node, Relationship
+from py2neo.graph import Record, Node, Relationship
 from py2neo.types import order, size
 from test.util import GraphTestCase
 

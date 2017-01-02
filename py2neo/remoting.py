@@ -44,8 +44,8 @@ class Remote(WebResource):
             if dbms_uri == uri:
                 self._dbms = self
             else:
-                from py2neo.database import DBMS
-                self._dbms = DBMS(dbms_uri)
+                from py2neo.graph import GraphService
+                self._dbms = GraphService(dbms_uri)
         return self._dbms
 
     @property

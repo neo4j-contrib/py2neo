@@ -19,13 +19,13 @@
 from unittest import skipUnless
 
 from py2neo.addressing import ServerAddress, register_server, keyring, authenticate
-from py2neo.database import DBMS, Unauthorized
+from py2neo.graph import GraphService, Unauthorized
 from py2neo.http import WebResource
 
 from test.util import GraphTestCase
 
 
-dbms = DBMS()
+dbms = GraphService()
 supports_auth = dbms.supports_auth
 
 
