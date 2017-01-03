@@ -18,7 +18,7 @@
 
 from unittest import skipUnless
 
-from py2neo.addressing import ServerAddress, register_server, keyring, authenticate
+from py2neo.addressing import GraphServiceAddress, register_graph_service, keyring, authenticate
 from py2neo.graph import GraphService, Unauthorized
 from py2neo.http import WebResource
 
@@ -47,14 +47,14 @@ class AuthorizationFailedTestCase(GraphTestCase):
             _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").delete().content
 
 
-class ServerAddressTestCase(GraphTestCase):
+class ServiceAddressTestCase(GraphTestCase):
 
-    def test_server_address_repr(self):
-        address = ServerAddress()
-        assert repr(address).startswith("<ServerAddress")
+    def test_service_address_repr(self):
+        address = GraphServiceAddress()
+        assert repr(address).startswith("<GraphServiceAddress")
 
 
-class ServerRegistrationTestCase(GraphTestCase):
+class ServiceRegistrationTestCase(GraphTestCase):
 
     def setUp(self):
         self.keyring = {}
@@ -64,22 +64,22 @@ class ServerRegistrationTestCase(GraphTestCase):
     def tearDown(self):
         keyring.update(self.keyring)
 
-    def test_can_register_server_via_uri(self):
-        register_server("http://camelot:1234/")
-        expected_address = ServerAddress("http://camelot:1234/")
-        assert expected_address in keyring
-        assert keyring[expected_address] is None
+    def test_can_register_service_via_uri(self):
+        register_graph_service("http://camelot:1234/")
+        address = GraphServiceAddress("http://camelot:1234/")
+        assert address.http_uri in keyring
+        assert keyring[address.http_uri] is None
 
-    def test_can_register_server_and_password_via_uri(self):
-        register_server("http://camelot:1234/", user="arthur", password="excalibur")
-        expected_address = ServerAddress("http://camelot:1234/")
-        assert expected_address in keyring
-        assert keyring[expected_address].user == "arthur"
-        assert keyring[expected_address].password == "excalibur"
+    def test_can_register_service_and_password_via_uri(self):
+        register_graph_service("http://camelot:1234/", user="arthur", password="excalibur")
+        address = GraphServiceAddress("http://camelot:1234/")
+        assert address.http_uri in keyring
+        assert keyring[address.http_uri].user == "arthur"
+        assert keyring[address.http_uri].password == "excalibur"
 
-    def test_can_register_server_and_password_through_authenticate_function(self):
+    def test_can_register_service_and_password_through_authenticate_function(self):
         authenticate("camelot:1234", "arthur", "excalibur")
-        expected_address = ServerAddress("http://camelot:1234/")
-        assert expected_address in keyring
-        assert keyring[expected_address].user == "arthur"
-        assert keyring[expected_address].password == "excalibur"
+        address = GraphServiceAddress("http://camelot:1234/")
+        assert address.http_uri in keyring
+        assert keyring[address.http_uri].user == "arthur"
+        assert keyring[address.http_uri].password == "excalibur"

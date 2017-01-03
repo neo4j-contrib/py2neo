@@ -38,11 +38,11 @@ class GraphTestCase(TestCase):
         self.http_graph = Graph(bolt=False)
         self.http_graph.driver = None
         self.http_graph.transaction_class = HTTPTransaction
-        self.dbms = self.graph.dbms
+        self.graph_service = self.graph.graph_service
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()
 
-        version = self.dbms.kernel_version
+        version = self.graph_service.kernel_version
         with self.graph.begin() as tx:
             if version >= (3,):
                 assert isinstance(tx, BoltTransaction)

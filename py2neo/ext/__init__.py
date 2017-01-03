@@ -41,7 +41,7 @@ class UnmanagedExtension(object):
 
     def __init__(self, graph, path):
         self.graph = graph
-        dbms_uri = remote(self.graph.dbms).uri
+        dbms_uri = remote(self.graph.graph_service).uri
         self.remote = Remote(dbms_uri.rstrip("/") + path)
         try:
             self.remote.get()

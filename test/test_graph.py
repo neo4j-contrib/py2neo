@@ -72,7 +72,7 @@ class GraphObjectTestCase(GraphTestCase):
     def test_can_open_browser(self):
         with patch("webbrowser.open") as mocked:
             self.graph.open_browser()
-            assert mocked.called_once_with(remote(self.graph.dbms).uri)
+            assert mocked.called_once_with(remote(self.graph.graph_service).uri)
 
     def test_graph_is_not_equal_to_non_graph(self):
         graph = Graph()

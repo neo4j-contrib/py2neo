@@ -21,7 +21,7 @@ from py2neo.http import WebResource
 
 class Remote(WebResource):
 
-    _dbms = None
+    _graph_service = None
 
     def __init__(self, uri, metadata=None):
         WebResource.__init__(self, uri)
@@ -35,24 +35,24 @@ class Remote(WebResource):
         return "<%s uri=%r>" % (self.__class__.__name__, self.uri)
 
     @property
-    def dbms(self):
+    def graph_service(self):
         """ The root service associated with this resource.
         """
-        if self._dbms is None:
+        if self._graph_service is None:
             uri = self.uri
-            dbms_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
-            if dbms_uri == uri:
-                self._dbms = self
+            graph_service_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
+            if graph_service_uri == uri:
+                self._graph_service = self
             else:
                 from py2neo.graph import GraphService
-                self._dbms = GraphService(dbms_uri)
-        return self._dbms
+                self._graph_service = GraphService(graph_service_uri)
+        return self._graph_service
 
     @property
     def graph(self):
         """ The parent graph of this resource.
         """
-        return self.dbms.graph
+        return self.graph_service.graph
 
     @property
     def metadata(self):

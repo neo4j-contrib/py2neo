@@ -104,16 +104,16 @@ class GraphService(object):
     _jmx_remote = None
 
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_server
-        address = register_server(*uris, **settings)
-        http_uri = address.http_uri("/")
+        from py2neo.addressing import register_graph_service
+        address = register_graph_service(*uris, **settings)
+        http_uri = address.http_uri
         try:
             inst = cls.__instances[address]
         except KeyError:
             inst = super(GraphService, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Remote(http_uri)
-            inst._jmx_remote = Remote(inst.__remote__.uri + "db/manage/server/jmx/domain/org.neo4j")
+            inst.__remote__ = Remote(http_uri.resolve("/"))
+            inst._jmx_remote = Remote(http_uri.resolve("/db/manage/server/jmx/domain/org.neo4j"))
             inst.__graph = None
             cls.__instances[address] = inst
         return inst
@@ -311,24 +311,21 @@ class Graph(object):
     transaction_class = None
 
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_server, get_auth
+        from py2neo.addressing import register_graph_service, get_graph_service_auth
         database = settings.pop("database", "data")
-        address = register_server(*uris, **settings)
+        address = register_graph_service(*uris, **settings)
         key = (cls, address, database)
         try:
             inst = cls.__instances[key]
         except KeyError:
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Remote(address.http_uri("/db/%s/" % database))
-            inst.transaction_uri = Remote(address.http_uri("/db/%s/transaction" % database)).uri
+            inst.__remote__ = Remote(address.http_uri.resolve("/db/%s/" % database))
+            inst.transaction_uri = address.http_uri.resolve("/db/%s/transaction" % database)
             inst.transaction_class = HTTPTransaction
-            use_bolt = address.bolt
-            if use_bolt is None:
-                use_bolt = version_tuple(inst.__remote__.get().content["neo4j_version"]) >= (3,)
-            if use_bolt:
-                auth = get_auth(address)
-                inst.driver = GraphDatabase.driver(address.bolt_uri("/"),
+            if address.bolt_uri:
+                auth = get_graph_service_auth(address)
+                inst.driver = GraphDatabase.driver(address.bolt_uri.resolve("/"),
                                                    auth=None if auth is None else auth.bolt_auth_token,
                                                    encrypted=address.secure,
                                                    user_agent="/".join(PRODUCT))
@@ -420,13 +417,6 @@ class Graph(object):
         """
         return self.begin(autocommit=True).run(statement, parameters, **kwparameters).data()
 
-    @property
-    def dbms(self):
-        """ The database management system to which this :class:`.Graph`
-        instance belongs.
-        """
-        return remote(self).dbms
-
     def degree(self, subgraph):
         """ Run a :meth:`.Transaction.degree` operation within an
         `autocommit` :class:`.Transaction`.
@@ -454,7 +444,7 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        if self.dbms.supports_detach_delete:
+        if self.graph_service.supports_detach_delete:
             self.run("MATCH (a) DETACH DELETE a")
         else:
             self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
@@ -482,44 +472,12 @@ class Graph(object):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
-    # def _hydrate(self, data, inst=None):
-    #     if isinstance(data, dict):
-    #         if "errors" in data and data["errors"]:
-    #             for error in data["errors"]:
-    #                 raise GraphError.hydrate(error)
-    #         elif "self" in data:
-    #             if "type" in data:
-    #                 return Relationship.hydrate(data["self"], inst=inst, **data)
-    #             else:
-    #                 return Node.hydrate(data["self"], inst=inst, **data)
-    #         elif "nodes" in data and "relationships" in data:
-    #             if "directions" not in data:
-    #                 directions = []
-    #                 relationships = self.evaluate(
-    #                     "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
-    #                     x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
-    #                 node_uris = data["nodes"]
-    #                 for i, relationship in enumerate(relationships):
-    #                     if remote(relationship.start_node()).uri == node_uris[i]:
-    #                         directions.append("->")
-    #                     else:
-    #                         directions.append("<-")
-    #                 data["directions"] = directions
-    #             return Path.hydrate(data)
-    #         elif "results" in data:
-    #             return self._hydrate(data["results"][0])
-    #         elif "columns" in data and "data" in data:
-    #             return Cursor(HTTPResult(self, None, data))
-    #         elif "neo4j_version" in data:
-    #             return self
-    #         else:
-    #             warn("Map literals returned over the Neo4j REST interface are ambiguous "
-    #                  "and may be hydrated as graph objects")
-    #             return data
-    #     elif is_collection(data):
-    #         return type(data)(map(self._hydrate, data))
-    #     else:
-    #         return data
+    @property
+    def graph_service(self):
+        """ The database management system to which this :class:`.Graph`
+        instance belongs.
+        """
+        return remote(self).graph_service
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -638,7 +596,7 @@ class Graph(object):
         """ Open a page in the default system web browser pointing at
         the Neo4j browser application for this graph.
         """
-        webbrowser.open(remote(self.dbms).uri)
+        webbrowser.open(remote(self.graph_service).uri)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -1122,6 +1080,8 @@ class HTTPTransaction(Transaction):
 
 
 class BoltTransaction(Transaction):
+
+    session = None
 
     def __init__(self, graph, autocommit=False):
         Transaction.__init__(self, graph, autocommit)

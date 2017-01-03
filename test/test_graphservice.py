@@ -22,37 +22,37 @@ from py2neo.remoting import remote
 from test.util import GraphTestCase
 
 
-class DBMSTestCase(GraphTestCase):
+class GraphServiceTestCase(GraphTestCase):
 
     def test_can_create_dbms_with_bolt_uri(self):
         uri = "bolt://localhost/"
-        dbms = GraphService(uri)
-        assert repr(dbms).startswith("<GraphService")
-        assert remote(dbms).uri == "http://localhost:7474/"
-        index = remote(dbms).get().content
+        graph_service = GraphService(uri)
+        assert repr(graph_service).startswith("<GraphService")
+        assert remote(graph_service).uri == "http://localhost:7474/"
+        index = remote(graph_service).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_settings(self):
         uri = "http://127.0.0.1:7474/"
-        dbms = GraphService(host="127.0.0.1")
-        assert repr(dbms).startswith("<GraphService")
-        assert remote(dbms).uri == uri
-        index = remote(dbms).get().content
+        graph_service = GraphService(host="127.0.0.1")
+        assert repr(graph_service).startswith("<GraphService")
+        assert remote(graph_service).uri == uri
+        index = remote(graph_service).get().content
         assert "data" in index
 
     def test_can_create_dbms_with_trailing_slash(self):
         uri = "http://localhost:7474/"
-        dbms = GraphService(uri)
-        assert repr(dbms).startswith("<GraphService")
-        assert remote(dbms).uri == uri
-        index = remote(dbms).get().content
+        graph_service = GraphService(uri)
+        assert repr(graph_service).startswith("<GraphService")
+        assert remote(graph_service).uri == uri
+        index = remote(graph_service).get().content
         assert "data" in index
 
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
-        dbms = GraphService(uri[:-1])
-        assert remote(dbms).uri == uri
-        index = remote(dbms).get().content
+        graph_service = GraphService(uri[:-1])
+        assert remote(graph_service).uri == uri
+        index = remote(graph_service).get().content
         assert "data" in index
 
     def test_same_uri_gives_same_instance(self):
@@ -77,26 +77,26 @@ class DBMSTestCase(GraphTestCase):
 
     def test_dbms_is_not_equal_to_non_dbms(self):
         uri = "http://localhost:7474/"
-        dbms = GraphService(uri)
-        assert dbms != object()
+        graph_service = GraphService(uri)
+        assert graph_service != object()
 
     def test_dbms_metadata(self):
-        assert self.dbms.kernel_start_time
-        assert self.dbms.kernel_version
-        assert self.dbms.store_creation_time
-        assert self.dbms.store_id
-        assert self.dbms.primitive_counts
-        assert self.dbms.store_file_sizes
-        assert self.dbms.config
+        assert self.graph_service.kernel_start_time
+        assert self.graph_service.kernel_version
+        assert self.graph_service.store_creation_time
+        assert self.graph_service.store_id
+        assert self.graph_service.primitive_counts
+        assert self.graph_service.store_file_sizes
+        assert self.graph_service.config
 
     def test_database_name(self):
-        _ = self.dbms.database_name
+        _ = self.graph_service.database_name
 
     def test_store_directory(self):
-        _ = self.dbms.store_directory
+        _ = self.graph_service.store_directory
 
     def test_kernel_version(self):
-        version = self.dbms.kernel_version
+        version = self.graph_service.kernel_version
         assert isinstance(version, tuple)
         assert 3 <= len(version) <= 4
         assert isinstance(version[0], int)
@@ -104,10 +104,10 @@ class DBMSTestCase(GraphTestCase):
         assert isinstance(version[2], int)
 
     def test_can_get_list_of_databases(self):
-        databases = list(self.dbms)
+        databases = list(self.graph_service)
         assert databases == ["data"]
 
     def test_can_get_dictionary_of_databases(self):
-        databases = dict(self.dbms)
+        databases = dict(self.graph_service)
         assert len(databases) == 1
         assert databases["data"] is self.graph

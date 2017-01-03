@@ -28,85 +28,137 @@ from py2neo.compat import urlsplit
 keyring = {}
 
 
-class ServerAddress(object):
-    """ A DBMS or graph database address.
-    """
+class GraphServiceURI(object):
 
-    def __init__(self, *uris, **settings):
-        self.__settings = {}
+    @classmethod
+    def default_scheme(cls, secure=False):
+        return "https" if secure else "http"
 
-        def apply_uri(u):
-            parsed = urlsplit(u)
-            if parsed.scheme == "bolt":
-                self.__settings.setdefault("bolt_port", 7687)
-            if parsed.scheme == "https":
-                self.__settings["secure"] = True
-            if parsed.hostname:
-                self.__settings["host"] = parsed.hostname
-            if parsed.port:
-                self.__settings["%s_port" % parsed.scheme] = parsed.port
+    @classmethod
+    def default_host(cls):
+        return "localhost"
 
-        # Apply URIs
-        for uri in uris:
-            apply_uri(uri)
+    @classmethod
+    def default_port(cls, scheme):
+        return {
+            "http": 7474,
+            "https": 7473,
+            "bolt": 7687,
+            "bolt+routing": 7687,
+        }.get(scheme, 7474)
 
-        # Apply individual settings
-        self.__settings.update({k: v for k, v in settings.items()
-                                if k in ["bolt", "secure", "host",
-                                         "http_port", "https_port", "bolt_port"]})
+    def __init__(self, uri=None, **parts):
+        parsed = urlsplit(uri or "")
+        self.secure = parts.get("secure", False)
+        self.scheme = parts.get("scheme") or parsed.scheme or self.default_scheme(self.secure)
+        if self.scheme == "https":
+            self.secure = True
+        self.host = (parts.get("%s_host" % self.scheme) or parts.get("host") or
+                     parsed.hostname or self.default_host())
+        self.port = (parts.get("%s_port" % self.scheme) or parts.get("port") or
+                     parsed.port or self.default_port(self.scheme))
 
     def __repr__(self):
-        return "<ServerAddress settings=%r>" % self.__settings
-
-    def __getitem__(self, item):
-        return self.__settings[item]
-
-    def __eq__(self, other):
-        return (self.bolt is None or other.bolt is None or self.bolt == other.bolt) and \
-                self.secure == other.secure and self.host == other.host and \
-                self.http_port == other.http_port and self.https_port == other.https_port
+        return repr(self.resolve("/"))
 
     def __hash__(self):
-        return hash((self.bolt, self.secure, self.host, self.http_port, self.https_port))
+        return hash((self.secure, self.scheme, self.host, self.port))
 
-    def keys(self):
-        return self.__settings.keys()
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
-    def bolt(self):
-        return self.__settings.get("bolt", None)  # default=autodetect
+    def authority(self):
+        return "%s:%d" % (self.host, self.port)
+
+    def resolve(self, path):
+        return "%s://%s%s" % (self.scheme, self.authority, path)
+
+
+class GraphServiceAddress(object):
+
+    def __init__(self, *uris, **parts):
+        self.uris = []
+        self.http_uri = None
+        self.bolt_uri = None
+        for raw_uri in uris:
+            uri = GraphServiceURI(raw_uri, **parts)
+            self.uris.append(uri)
+            if self.http_uri is None and uri.scheme in ("http", "https"):
+                self.http_uri = uri
+            if self.bolt_uri is None and uri.scheme in ("bolt", "bolt+routing"):
+                self.bolt_uri = uri
+
+        if self.http_uri is None:
+            self.http_uri = GraphServiceURI(**parts)
+        http_uri = self.http_uri
+        http_scheme = http_uri.scheme
+        http_host = http_uri.host
+        http_port = http_uri.port
+
+        bolt = parts.get("bolt")
+        if bolt is None:
+            from socket import create_connection
+            try:
+                s = create_connection((http_host, parts.get("bolt_port", 7687)))
+            except IOError:
+                bolt = False
+            else:
+                s.close()
+                bolt = True
+        if bolt:
+            if self.bolt_uri is None:
+                self.bolt_uri = GraphServiceURI(scheme="bolt", **parts)
+        else:
+            self.bolt_uri = None
+
+        self.data = {
+            "secure": self.secure,
+            "http_host": http_host,
+            "http_port": http_port if http_scheme == "http" else None,
+            "https_port": http_port if http_scheme == "https" else None,
+            "bolt": False,
+            "bolt_host": None,
+            "bolt_port": None,
+        }
+        if self.bolt_uri:
+            self.data.update({
+                "bolt": True,
+                "bolt_host": self.bolt_uri.host,
+                "bolt_port": self.bolt_uri.port,
+            })
+
+    def __repr__(self):
+        return "<%s http_uri=%r bolt_uri=%r>" % (self.__class__.__name__, self.http_uri, self.bolt_uri)
+
+    def __getitem__(self, item):
+        return self.data[item]
+
+    def __hash__(self):
+        return hash((self.http_uri, self.bolt_uri))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def secure(self):
-        return self.__settings.get("secure", False)
+        return self.http_uri.secure
 
     @property
-    def host(self):
-        return self.__settings.get("host", "localhost")
+    def uri(self):
+        return self.bolt_uri or self.http_uri
 
-    @property
-    def http_port(self):
-        return self.__settings.get("http_port", 7474)
-
-    @property
-    def https_port(self):
-        return self.__settings.get("https_port", 7473)
-
-    @property
-    def bolt_port(self):
-        return self.__settings.get("bolt_port", 7687)
-
-    def bolt_uri(self, path):
-        return "bolt://%s:%d%s" % (self.host, self.bolt_port, path)
-
-    def http_uri(self, path):
-        if self.secure:
-            return "https://%s:%d%s" % (self.host, self.https_port, path)
-        else:
-            return "http://%s:%d%s" % (self.host, self.http_port, path)
+    def keys(self):
+        return self.data.keys()
 
 
-class ServerAuth(object):
+class GraphServiceAuth(object):
 
     def __init__(self, *uris, **settings):
         self.__settings = {
@@ -157,27 +209,31 @@ class ServerAuth(object):
                                      self.password).encode("UTF-8")).decode("ASCII")
 
 
-def register_server(*uris, **settings):
-    """ Register server address details and return a
-    :class:`.ServerAddress` instance.
+def register_graph_service(*uris, **settings):
+    """ Register service address details and return a
+    :class:`.ServiceAddress` instance.
 
     :param uris:
     :param settings:
     :return:
     """
-    new_address = ServerAddress(*uris, **settings)
+    new_address = GraphServiceAddress(*uris, **settings)
     try:
-        new_auth = ServerAuth(*uris, **settings)
+        new_auth = GraphServiceAuth(*uris, **settings)
     except TypeError:
         new_auth = None
     if new_auth is None:
-        keyring.setdefault(new_address)
+        keyring.setdefault(new_address.http_uri)
+        if new_address.bolt_uri:
+            keyring.setdefault(new_address.bolt_uri)
     else:
-        keyring[new_address] = new_auth
+        keyring[new_address.http_uri] = new_auth
+        if new_address.bolt_uri:
+            keyring[new_address.bolt_uri] = new_auth
     return new_address
 
 
-def _register_server_from_environment():
+def _register_graph_service_from_environment():
     neo4j_uri = getenv("NEO4J_URI")
     if neo4j_uri:
         settings = {}
@@ -186,12 +242,12 @@ def _register_server_from_environment():
             user, _, password = neo4j_auth.partition(":")
             settings["user"] = user
             settings["password"] = password
-        register_server(neo4j_uri, **settings)
+        register_graph_service(neo4j_uri, **settings)
 
 
-def get_auth(address):
+def get_graph_service_auth(address):
     for addr, auth in keyring.items():
-        if addr == address:
+        if addr in (address.http_uri, address.bolt_uri):
             return auth
     raise KeyError(address)
 
@@ -218,7 +274,7 @@ def authenticate(host_port, user, password):
     :arg user: the user name to authenticate as
     :arg password: the password
     """
-    register_server("http://%s/" % host_port, user=user, password=password)
+    register_graph_service("http://%s/" % host_port, user=user, password=password)
 
 
-_register_server_from_environment()
+_register_graph_service_from_environment()
