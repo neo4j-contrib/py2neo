@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from json import loads as json_loads
+
 from py2neo.graph import Graph
 from py2neo.json import JSONValueSystem
 from py2neo.remoting import remote
@@ -31,14 +33,14 @@ class GraphObjectTestCase(GraphTestCase):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri)
         assert remote(graph).uri == uri
-        index = remote(graph).get().content
+        index = remote(graph).get_json(force=True)
         assert "node" in index
 
     def test_can_create_graph_without_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri[:-1])
         assert remote(graph).uri == uri
-        index = remote(graph).get().content
+        index = remote(graph).get_json(force=True)
         assert "node" in index
 
     def test_same_uri_gives_same_instance(self):

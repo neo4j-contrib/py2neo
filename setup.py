@@ -21,7 +21,7 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-from py2neo import __author__, __email__, __license__, __package__, __version__
+from py2neo.meta import __author__, __email__, __license__, __package__, __version__
 
 
 packages = find_packages(exclude=("book", "demo", "test", "test_ext", "test_ext.*"))
@@ -47,6 +47,7 @@ package_metadata = {
     "py_modules": ["neokit"],
     "install_requires": [
         "git+https://github.com/neo4j/neo4j-python-driver.git#egg=neo4j-driver",
+        "urllib3",
     ],
     "license": __license__,
     "classifiers": [

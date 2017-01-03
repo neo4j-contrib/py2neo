@@ -39,7 +39,8 @@ class EntityTestCase(GraphTestCase):
         entity.__remote__  = RemoteEntity(uri, metadata)
         assert remote(entity)
         assert remote(entity).uri == uri
-        assert remote(entity).metadata == metadata
+        remote_metadata = remote(entity).get_json(force=False)
+        assert remote_metadata == metadata
 
     def test_default_state_for_node_is_unbound(self):
         node = Node()
