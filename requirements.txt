@@ -1,1 +1,2 @@
 git+https://github.com/neo4j/neo4j-python-driver.git#egg=neo4j-driver
+urllib3

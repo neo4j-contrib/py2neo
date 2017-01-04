@@ -39,7 +39,7 @@ class ServerPluginTestCase(GraphTestCase):
 
     def test_can_init_server_plugin(self):
         remote_graph = remote(self.graph)
-        metadata = remote_graph.metadata
+        metadata = remote_graph.get_json(force=False)
         metadata["extensions"]["FakePlugin"] = {}
         self.graph.__remote__ = Remote(remote_graph.uri, metadata)
         plugin = FakePlugin(self.graph)
@@ -65,7 +65,7 @@ class NaughtyExtension(UnmanagedExtension):
 class UnmanagedExtensionTestCase(GraphTestCase):
 
     def test_can_init_unmanaged_extension(self):
-        with patch("py2neo.http.WebResource.get"):
+        with patch("py2neo.http.WebResource.get_json"):
             plugin = FakeExtension(self.graph)
             assert plugin.remote.uri == "http://localhost:7474/fake/"
 

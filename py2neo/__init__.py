@@ -16,24 +16,16 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <nigel@py2neo.org>"
-__copyright__ = "2011-2016, Nigel Small"
-__email__ = "nigel@py2neo.org"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "4.0.0b1"
-
-PRODUCT = ("py2neo", __version__)
-
 from py2neo.addressing import *
 from py2neo.cypher import *
 from py2neo.graph import *
 from py2neo.ext import *
+from py2neo.meta import *
 from py2neo.remoting import *
 from py2neo.selection import *
 from py2neo.types import *
 
-from py2neo.packages.httpstream.watch import Watcher
+from neo4j.util import Watcher
 
 
 def watch(logger, level=None, out=None):
@@ -54,7 +46,7 @@ def watch(logger, level=None, out=None):
     :param out: output channel (default ``stdout``)
     """
     if logger == "neo4j.http":
-        logger = "httpstream"
+        logger = "urllib3"
     if level is None:
         from logging import INFO
         level = INFO

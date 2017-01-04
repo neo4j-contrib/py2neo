@@ -16,13 +16,11 @@
 # limitations under the License.
 
 
-from py2neo import Graph, Node, Relationship, size, remote
-from py2neo.packages.httpstream import ClientError
+from py2neo.graph import Graph
+from py2neo.remoting import remote
+from py2neo.types import Node, Relationship, size
+
 from test.util import GraphTestCase
-
-
-class DodgyClientError(ClientError):
-    status_code = 499
 
 
 class RelationshipTestCase(GraphTestCase):
