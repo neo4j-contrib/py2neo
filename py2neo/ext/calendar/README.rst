@@ -2,7 +2,7 @@
 ``py2neo.ext.calendar`` -- Calendar
 ***********************************
 
-Maintained by: Nigel Small <nigel@py2neo.org>
+Maintained by: Nigel Small <technige@nige.tech>
 
 The `calendar` module provides standardised date management functionality based on a calendar
 subgraph::

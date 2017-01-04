@@ -24,9 +24,9 @@ import neo4j
 __all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package__", "__version__",
            "BOLT_USER_AGENT", "HTTP_USER_AGENT"]
 
-__author__ = "Nigel Small <nigel@py2neo.org>"
+__author__ = "Nigel Small <technige@nige.tech>"
 __copyright__ = "2011-2016, Nigel Small"
-__email__ = "nigel@py2neo.org"
+__email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
 __version__ = "4.0.0b1"

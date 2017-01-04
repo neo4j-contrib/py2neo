@@ -43,4 +43,4 @@ Contact
 
 For more information, read the [handbook](http://py2neo.org/v3).
 
-To get in touch, contact me via [email](mailto:nigel@py2neo.org) or on [Twitter](https://twitter.com/technige).
+To get in touch, contact me via [email](mailto:py2neo@nige.tech) or on [Twitter](https://twitter.com/technige).

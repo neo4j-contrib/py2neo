@@ -602,7 +602,7 @@ class GraphServerV3(GraphServer):
 
 class Commander(object):
 
-    epilog = "Report bugs to nigel@py2neo.org"
+    epilog = "Report bugs to py2neo@nige.tech"
 
     def __init__(self, out=None, err=None):
         self.out = out or stdout
