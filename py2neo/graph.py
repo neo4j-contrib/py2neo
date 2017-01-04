@@ -15,21 +15,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
+from json import loads as json_loads
 from sys import stdout
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo import PRODUCT
+from py2neo.meta import BOLT_USER_AGENT
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
+from py2neo.http import OK, NO_CONTENT, NOT_FOUND
 from py2neo.json import JSONValueSystem
 from py2neo.packstream import PackStreamValueSystem
-from py2neo.packages.httpstream import Response as HTTPResponse
-from py2neo.packages.httpstream.numbers import NOT_FOUND
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
@@ -151,7 +152,7 @@ class GraphService(object):
         return self["data"]
 
     def _bean_dict(self, name):
-        info = self._jmx_remote.get().content
+        info = self._jmx_remote.get_json(force=True)
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -325,10 +326,11 @@ class Graph(object):
             inst.transaction_class = HTTPTransaction
             if address.bolt_uri:
                 auth = get_graph_service_auth(address)
-                inst.driver = GraphDatabase.driver(address.bolt_uri.resolve("/"),
-                                                   auth=None if auth is None else auth.bolt_auth_token,
-                                                   encrypted=address.secure,
-                                                   user_agent="/".join(PRODUCT))
+                inst.driver = GraphDatabase.driver(
+                    address.bolt_uri.resolve("/"),
+                    auth=None if auth is None else auth.bolt_auth_token,
+                    encrypted=address.secure,
+                    user_agent=BOLT_USER_AGENT)
                 inst.transaction_class = BoltTransaction
             inst.node_selector = NodeSelector(inst)
             cls.__instances[key] = inst
@@ -590,7 +592,7 @@ class Graph(object):
         """
         if self.__node_labels is None:
             self.__node_labels = Remote(remote(self).uri + "labels")
-        return frozenset(self.__node_labels.get().content)
+        return frozenset(self.__node_labels.get_json(force=True))
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
@@ -639,7 +641,7 @@ class Graph(object):
         """
         if self.__relationship_types is None:
             self.__relationship_types = Remote(remote(self).uri + "relationship/types")
-        return frozenset(self.__relationship_types.get().content)
+        return frozenset(self.__relationship_types.get_json(force=True))
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -686,59 +688,41 @@ class Schema(object):
         key combination.
         """
         uri = self._index_uri.format(label=label)
-        Remote(uri).post({"property_keys": [property_key]})
+        Remote(uri).post({"property_keys": [property_key]}, expected=(OK,)).close()
 
     def create_uniqueness_constraint(self, label, property_key):
         """ Create a uniqueness constraint for a label.
         """
         uri = self._uniqueness_constraint_uri.format(label=label)
-        Remote(uri).post({"property_keys": [property_key]})
+        Remote(uri).post({"property_keys": [property_key]}, expected=(OK,)).close()
 
     def drop_index(self, label, property_key):
         """ Remove label index for a given property key.
         """
         uri = self._index_key_uri.format(label=label, property_key=property_key)
-        try:
-            Remote(uri).delete()
-        except GraphError as error:
-            cause = error.__cause__
-            if isinstance(cause, HTTPResponse):
-                if cause.status_code == NOT_FOUND:
-                    raise GraphError("No such schema index (label=%r, key=%r)" % (
-                        label, property_key))
-            raise
+        rs = Remote(uri).delete(expected=(NO_CONTENT, NOT_FOUND))
+        if rs.status == NOT_FOUND:
+            raise GraphError("No such schema index (label=%r, key=%r)" % (label, property_key))
 
     def drop_uniqueness_constraint(self, label, property_key):
         """ Remove the uniqueness constraint for a given property key.
         """
         uri = self._uniqueness_constraint_key_uri.format(label=label, property_key=property_key)
-        try:
-            Remote(uri).delete()
-        except GraphError as error:
-            cause = error.__cause__
-            if isinstance(cause, HTTPResponse):
-                if cause.status_code == NOT_FOUND:
-                    raise GraphError("No such unique constraint (label=%r, key=%r)" % (
-                        label, property_key))
-            raise
+        rs = Remote(uri).delete(expected=(NO_CONTENT, NOT_FOUND))
+        if rs.status == NOT_FOUND:
+            raise GraphError("No such unique constraint (label=%r, key=%r)" % (label, property_key))
 
     def get_indexes(self, label):
         """ Fetch a list of indexed property keys for a label.
         """
         uri = self._index_uri.format(label=label)
-        return [
-            indexed["property_keys"][0]
-            for indexed in Remote(uri).get().content
-        ]
+        return [indexed["property_keys"][0] for indexed in Remote(uri).get_json(force=True)]
 
     def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
         uri = self._uniqueness_constraint_uri.format(label=label)
-        return [
-            unique["property_keys"][0]
-            for unique in Remote(uri).get().content
-        ]
+        return [unique["property_keys"][0] for unique in Remote(uri).get_json(force=True)]
 
 
 class Result(object):
@@ -1055,11 +1039,11 @@ class HTTPTransaction(Transaction):
             resource = self._execute or self._begin
         if resource == self._begin_commit and not self.statements:
             return
-        rs = resource.post({"statements": self.statements})
-        location = rs.location
+        rs = resource.post({"statements": self.statements}, expected=(200, 201))
+        location = rs.headers.get("Location")
         if location:
             self._execute = Remote(location)
-        raw = rs.content
+        raw = json_loads(rs.data.decode('utf-8'))
         rs.close()
         self.statements = []
         if "commit" in raw:
@@ -1074,7 +1058,7 @@ class HTTPTransaction(Transaction):
         self._assert_unfinished()
         try:
             if self._execute:
-                self._execute.delete()
+                self._execute.delete(expected=(OK,))
         finally:
             self.finish()
 

@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 
 from py2neo.http import WebResource
 
@@ -24,12 +25,7 @@ class Remote(WebResource):
     _graph_service = None
 
     def __init__(self, uri, metadata=None):
-        WebResource.__init__(self, uri)
-        self._last_get_response = None
-        if metadata is None:
-            self._initial_metadata = None
-        else:
-            self._initial_metadata = dict(metadata)
+        WebResource.__init__(self, uri, metadata)
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, self.uri)
@@ -53,20 +49,6 @@ class Remote(WebResource):
         """ The parent graph of this resource.
         """
         return self.graph_service.graph
-
-    @property
-    def metadata(self):
-        """ Metadata received in the last HTTP response.
-        """
-        if self._last_get_response is None:
-            if self._initial_metadata is not None:
-                return self._initial_metadata
-            self.get()
-        return self._last_get_response.content
-
-    def get(self):
-        self._last_get_response = super(Remote, self).get()
-        return self._last_get_response
 
 
 class RemoteEntity(Remote):

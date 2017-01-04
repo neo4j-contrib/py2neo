@@ -25,6 +25,7 @@ class GraphError(Exception):
 
     __cause__ = None
 
+    http_status_code = None
     code = None
     message = None
 

@@ -19,8 +19,10 @@
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo import Graph, Node, remote, BoltTransaction, HTTPTransaction, NodeSelector
-from py2neo.packages.httpstream.http import ConnectionPool
+from py2neo.graph import Graph, BoltTransaction, HTTPTransaction
+from py2neo.remoting import remote
+from py2neo.selection import NodeSelector
+from py2neo.types import Node
 
 
 def unique_string_generator():
@@ -51,14 +53,6 @@ class GraphTestCase(TestCase):
         with self.http_graph.begin() as tx:
             assert isinstance(tx, HTTPTransaction)
 
-    def tearDown(self):
-        for key, puddle in ConnectionPool._puddles.items():
-            for connection in puddle._ConnectionPuddle__active:
-                puddle.release(connection)
-            while puddle._ConnectionPuddle__passive:
-                connection = puddle._ConnectionPuddle__passive.pop()
-                connection.close()
-
     def reset(self):
         graph = self.graph
         schema = self.schema
@@ -69,7 +63,7 @@ class GraphTestCase(TestCase):
                 schema.drop_index(label, key)
         graph.delete_all()
 
-    def assert_error(self, error, classes, fullname, cause_classes, status_code=None):
+    def assert_error(self, error, classes, fullname):
         for cls in classes:
             assert isinstance(error, cls)
         name = fullname.rpartition(".")[-1]
@@ -77,11 +71,6 @@ class GraphTestCase(TestCase):
         assert error.exception == name
         assert error.fullname in [None, fullname]
         assert error.stacktrace
-        cause = error.__cause__
-        for cls in cause_classes:
-            assert isinstance(cause, cls)
-        if status_code:
-            assert cause.status_code == status_code
 
     def assert_new_error(self, error, classes, code):
         for cls in classes:

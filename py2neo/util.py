@@ -117,11 +117,6 @@ def is_collection(obj):
 has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
-def raise_from(exception, cause):
-    exception.__cause__ = cause
-    raise exception
-
-
 def metaclass(mcs):
     def _metaclass(cls):
         attributes = cls.__dict__.copy()

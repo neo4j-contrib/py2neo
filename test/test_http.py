@@ -21,20 +21,12 @@ from unittest import TestCase
 
 from py2neo.graph import GraphService, GraphError
 from py2neo.http import set_http_header, get_http_headers, WebResource
-from py2neo.packages.httpstream import ClientError as _ClientError, ServerError as _ServerError, \
-    Resource as _Resource, Response as _Response
 
-from test.compat import patch
 from test.util import GraphTestCase
 
 
 dbms = GraphService()
 supports_bolt = dbms.supports_bolt
-
-
-class DodgyServerError(_ServerError):
-
-    status_code = 599
 
 
 class TestHandler(logging.Handler):
@@ -99,16 +91,14 @@ class ClientErrorTestCase(GraphTestCase):
     def test_can_handle_400(self):
         resource = WebResource("http://localhost:7474/db/data/cypher")
         try:
-            resource.post()
+            resource.post({}, expected=(201,))
         except GraphError as error:
             try:
                 self.assert_error(
-                    error, (GraphError,), "org.neo4j.server.rest.repr.BadInputException",
-                    (_ClientError, _Response), 400)
+                    error, (GraphError,), "org.neo4j.server.rest.repr.BadInputException")
             except AssertionError:
                 self.assert_error(
-                    error, (GraphError,), "org.neo4j.server.rest.repr.InvalidArgumentsException",
-                    (_ClientError, _Response), 400)
+                    error, (GraphError,), "org.neo4j.server.rest.repr.InvalidArgumentsException")
         else:
             assert False
 
@@ -116,11 +106,10 @@ class ClientErrorTestCase(GraphTestCase):
         node_id = self.get_non_existent_node_id()
         resource = WebResource("http://localhost:7474/db/data/node/%s" % node_id)
         try:
-            resource.get()
+            resource.get_json(force=True)
         except GraphError as error:
             self.assert_error(
-                error, (GraphError,), "org.neo4j.server.rest.web.NodeNotFoundException",
-                (_ClientError, _Response), 404)
+                error, (GraphError,), "org.neo4j.server.rest.web.NodeNotFoundException")
         else:
             assert False
 
@@ -132,69 +121,27 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_get(self):
         try:
-            self.non_existent_resource.get()
+            self.non_existent_resource.get_json(force=True)
         except GraphError as error:
-            cause = error.__cause__
-            assert isinstance(cause, _ClientError)
-            assert isinstance(cause, _Response)
-            assert cause.status_code == 404
+            assert error.http_status_code == 404
         else:
             assert False
 
     def test_can_handle_json_error_from_post(self):
         try:
-            self.non_existent_resource.post("")
+            self.non_existent_resource.post({}, expected=(201,)).close()
         except GraphError as error:
-            cause = error.__cause__
-            assert isinstance(cause, _ClientError)
-            assert isinstance(cause, _Response)
-            assert cause.status_code == 404
+            assert error.http_status_code == 404
         else:
             assert False
 
     def test_can_handle_json_error_from_delete(self):
         try:
-            self.non_existent_resource.delete()
+            self.non_existent_resource.delete(expected=(204,)).close()
         except GraphError as error:
-            cause = error.__cause__
-            assert isinstance(cause, _ClientError)
-            assert isinstance(cause, _Response)
-            assert cause.status_code == 404
+            assert error.http_status_code == 404
         else:
             assert False
-
-    def test_can_handle_other_error_from_get(self):
-        with patch.object(_Resource, "get") as mocked:
-            mocked.side_effect = DodgyServerError
-            resource = WebResource("http://localhost:7474/db/data/node/spam")
-            try:
-                resource.get()
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyServerError)
-            else:
-                assert False
-
-    def test_can_handle_other_error_from_post(self):
-        with patch.object(_Resource, "post") as mocked:
-            mocked.side_effect = DodgyServerError
-            resource = WebResource("http://localhost:7474/db/data/node/spam")
-            try:
-                resource.post()
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyServerError)
-            else:
-                assert False
-
-    def test_can_handle_other_error_from_delete(self):
-        with patch.object(_Resource, "delete") as mocked:
-            mocked.side_effect = DodgyServerError
-            resource = WebResource("http://localhost:7474/db/data/node/spam")
-            try:
-                resource.delete()
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyServerError)
-            else:
-                assert False
 
 
 class ResourceTestCase(TestCase):

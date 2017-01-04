@@ -479,7 +479,7 @@ class Subgraph(object):
                               "body": dict(relationship)})
                 i += 1
         from py2neo.remoting import Remote
-        Remote(remote(graph).uri + "batch").post(batch)
+        Remote(remote(graph).uri + "batch").post(batch, expected=(200,)).close()
 
     def __db_separate__(self, tx):
         matches = []

@@ -15,6 +15,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+
+from json import loads as json_loads
 
 from py2neo.graph import GraphService
 from py2neo.remoting import remote
@@ -29,7 +32,7 @@ class GraphServiceTestCase(GraphTestCase):
         graph_service = GraphService(uri)
         assert repr(graph_service).startswith("<GraphService")
         assert remote(graph_service).uri == "http://localhost:7474/"
-        index = remote(graph_service).get().content
+        index = remote(graph_service).get_json(force=True)
         assert "data" in index
 
     def test_can_create_dbms_with_settings(self):
@@ -37,7 +40,7 @@ class GraphServiceTestCase(GraphTestCase):
         graph_service = GraphService(host="127.0.0.1")
         assert repr(graph_service).startswith("<GraphService")
         assert remote(graph_service).uri == uri
-        index = remote(graph_service).get().content
+        index = remote(graph_service).get_json(force=True)
         assert "data" in index
 
     def test_can_create_dbms_with_trailing_slash(self):
@@ -45,14 +48,14 @@ class GraphServiceTestCase(GraphTestCase):
         graph_service = GraphService(uri)
         assert repr(graph_service).startswith("<GraphService")
         assert remote(graph_service).uri == uri
-        index = remote(graph_service).get().content
+        index = remote(graph_service).get_json(force=True)
         assert "data" in index
 
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
         graph_service = GraphService(uri[:-1])
         assert remote(graph_service).uri == uri
-        index = remote(graph_service).get().content
+        index = remote(graph_service).get_json(force=True)
         assert "data" in index
 
     def test_same_uri_gives_same_instance(self):

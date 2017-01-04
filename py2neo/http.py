@@ -15,20 +15,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
 
-from py2neo import PRODUCT
+from json import dumps as json_dumps, loads as json_loads
+
+from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
+
+from py2neo.meta import HTTP_USER_AGENT
+from py2neo.compat import urlsplit
 from py2neo.addressing import keyring
-from py2neo.packages.httpstream import http, ClientError, ServerError
-from py2neo.packages.httpstream.http import JSONResponse, user_agent
-from py2neo.packages.httpstream.numbers import UNAUTHORIZED
 from py2neo.status import GraphError, Unauthorized
-from py2neo.util import raise_from
 
-http.default_encoding = "UTF-8"
+
+OK = 200
+CREATED = 201
+NO_CONTENT = 204
+UNAUTHORIZED = 401
+NOT_FOUND = 404
+
+
+ConnectionPool = {
+    "http": HTTPConnectionPool,
+    "https": HTTPSConnectionPool,
+}
 
 _http_headers = {
     (None, None, None): [
-        ("User-Agent", user_agent(PRODUCT)),
+        ("User-Agent", HTTP_USER_AGENT),
         ("X-Stream", "true"),
     ],
 }
@@ -73,9 +86,20 @@ class WebResource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
-    def __init__(self, uri):
-        from py2neo.packages.httpstream import Resource
-        self.resource = Resource(uri)
+    def __init__(self, uri, cached_json=None):
+        self.uri = uri
+        self.cached_json = cached_json
+        parts = urlsplit(uri)
+        scheme = parts.scheme
+        host = parts.hostname
+        port = parts.port
+        self.path = parts.path
+        self.http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
+        self.request = http.request
+        self.headers = get_http_headers(scheme, host, port)
+
+    def __del__(self):
+        self.http.close()
 
     def __eq__(self, other):
         try:
@@ -86,57 +110,50 @@ class WebResource(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
-    def uri(self):
-        return self.resource.uri.string
-
-    def request(self, method, **kwargs):
-        uri = self.resource.__uri__
-        headers = get_http_headers(uri.scheme, uri.host, uri.port)
-        try:
-            return HTTPResponse(uri.string, method(headers=headers, **kwargs))
-        except (ClientError, ServerError) as error:
-            return HTTPResponse(uri.string, error)
-
-    def get(self):
-        """ Perform an HTTP GET to this resource.
+    def get_json(self, force=True):
+        """ Perform an HTTP GET to this resource and return JSON.
         """
-        return self.request(self.resource.get, cache=True)
+        if not force and self.cached_json is not None:
+            return self.cached_json
+        rs = self.request("GET", self.path, headers=self.headers)
+        try:
+            if rs.status == 200:
+                self.cached_json = json_loads(rs.data.decode('utf-8'))
+                return self.cached_json
+            else:
+                raise_error(self.uri, rs.status, rs.data)
+        finally:
+            rs.close()
 
-    def post(self, body=None):
+    def post(self, body, expected):
         """ Perform an HTTP POST to this resource.
         """
-        return self.request(self.resource.post, body=body)
+        headers = dict(self.headers)
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            body = json_dumps(body).encode('utf-8')
+        rs = self.request("POST", self.path, headers=self.headers, body=body)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
 
-    def delete(self):
+    def delete(self, expected):
         """ Perform an HTTP DELETE to this resource.
         """
-        return self.request(self.resource.delete)
+        rs = self.request("DELETE", self.path, headers=self.headers)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
 
 
-class HTTPResponse(object):
-
-    def __init__(self, uri, response):
-        self.uri = uri
-        self.inner = response
-        self.status_code = response.status_code
-        if 400 <= self.status_code < 600:
-            if self.status_code == UNAUTHORIZED:
-                raise Unauthorized(self.uri)
-            if isinstance(response, JSONResponse):
-                content = dict(response.content, request=response.request, response=response)
-            else:
-                content = {}
-            message = content.pop("message", "HTTP request returned response %s" % self.status_code)
-            raise_from(GraphError(message, **content), response)
-
-    @property
-    def location(self):
-        return self.inner.location
-
-    @property
-    def content(self):
-        return self.inner.content
-
-    def close(self):
-        self.inner.close()
+def raise_error(uri, status_code, data):
+    if status_code == UNAUTHORIZED:
+        raise Unauthorized(uri)
+    if data:
+        content = json_loads(data.decode('utf-8'))
+    else:
+        content = {}
+    message = content.pop("message", "HTTP request returned unexpected status code %s" % status_code)
+    error = GraphError(message, **content)
+    error.http_status_code = status_code
+    raise error

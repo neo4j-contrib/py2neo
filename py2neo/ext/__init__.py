@@ -28,7 +28,8 @@ class ServerPlugin(object):
         self.graph = graph
         self.name = name
         remote_graph = remote(self.graph)
-        extensions = remote_graph.metadata["extensions"]
+        metadata = remote_graph.get_json(force=False)
+        extensions = metadata["extensions"]
         try:
             self.resources = {key: Remote(value) for key, value in extensions[self.name].items()}
         except KeyError:
@@ -44,7 +45,7 @@ class UnmanagedExtension(object):
         dbms_uri = remote(self.graph.graph_service).uri
         self.remote = Remote(dbms_uri.rstrip("/") + path)
         try:
-            self.remote.get()
+            self.remote.get_json(force=True)
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
                                       "graph <%s>" % (path, remote(self.graph).uri))

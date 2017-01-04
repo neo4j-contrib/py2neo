@@ -16,19 +16,14 @@
 # limitations under the License.
 
 
-from py2neo import GraphError, Node, cast_node
-from py2neo.packages.httpstream import ClientError, Resource as _Resource
+from mock import patch, MagicMock, Mock
+
+from py2neo.graph import GraphError
+from py2neo.http import WebResource, NOT_FOUND
 from py2neo.status import ConstraintError
-from test.compat import patch
+from py2neo.types import Node, cast_node
+
 from test.util import GraphTestCase
-
-
-class NotFoundError(ClientError):
-    status_code = 404
-
-
-class DodgyClientError(ClientError):
-    status_code = 499
 
 
 class SchemaTestCase(GraphTestCase):
@@ -94,7 +89,7 @@ class SchemaTestCase(GraphTestCase):
             self.schema.drop_index(label_1, "name")
         except GraphError as error:
             # this is probably a server bug
-            assert error.__cause__.status_code // 100 == 5
+            assert error.http_status_code // 100 == 5
         else:
             assert False
         b.remove_label(label_1)
@@ -105,33 +100,15 @@ class SchemaTestCase(GraphTestCase):
         self.graph.delete(a | b)
 
     def test_drop_index_handles_404_errors_correctly(self):
-        with patch.object(_Resource, "delete") as mocked:
-            mocked.side_effect = NotFoundError
+        mocked = Mock()
+        mocked.status = NOT_FOUND
+        with patch.object(WebResource, "delete", return_value=mocked):
             with self.assertRaises(GraphError):
                 self.schema.drop_index("Person", "name")
-
-    def test_drop_index_handles_non_404_errors_correctly(self):
-        with patch.object(_Resource, "delete") as mocked:
-            mocked.side_effect = DodgyClientError
-            try:
-                self.schema.drop_index("Person", "name")
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyClientError)
-            else:
-                assert False
 
     def test_drop_unique_constraint_handles_404_errors_correctly(self):
-        with patch.object(_Resource, "delete") as mocked:
-            mocked.side_effect = NotFoundError
+        mocked = Mock()
+        mocked.status = NOT_FOUND
+        with patch.object(WebResource, "delete", return_value=mocked):
             with self.assertRaises(GraphError):
                 self.schema.drop_uniqueness_constraint("Person", "name")
-
-    def test_drop_unique_constraint_handles_non_404_errors_correctly(self):
-        with patch.object(_Resource, "delete") as mocked:
-            mocked.side_effect = DodgyClientError
-            try:
-                self.schema.drop_uniqueness_constraint("Person", "name")
-            except GraphError as error:
-                assert isinstance(error.__cause__, DodgyClientError)
-            else:
-                assert False
