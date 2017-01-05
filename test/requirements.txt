@@ -1,3 +1,4 @@
 boltkit
+codecov
 coverage
 mock
