@@ -40,7 +40,6 @@ package_metadata = {
         "console_scripts": [
             "py2neo = py2neo.__init__:main",
             "neokit = neokit:main",
-            "geoff = py2neo.ext.geoff.__main__:main",
         ],
     },
     "packages": packages,
