@@ -19,8 +19,9 @@
 import logging
 from unittest import TestCase
 
-from py2neo.graph import GraphService, GraphError
+from py2neo.graph import GraphService, GraphError, CypherSyntaxError
 from py2neo.http import set_http_header, get_http_headers, WebResource
+from py2neo.types import Node
 
 from test.util import GraphTestCase
 
@@ -155,3 +156,61 @@ class ResourceTestCase(TestCase):
         r1 = WebResource("http://localhost:7474/db/data/node/1")
         r2 = WebResource("http://localhost:7474/db/data/node/2")
         assert r1 != r2
+
+
+class HTTPSchemeTestCase(GraphTestCase):
+
+    def test_should_be_able_to_run_transaction_with_http_scheme(self):
+        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        try:
+            with driver.session() as session:
+                with session.begin_transaction() as tx:
+                    result = tx.run("UNWIND range(1, 3) AS n RETURN n")
+                    records = list(result)
+                    assert len(records) == 3
+                    assert records[0][0] == 1
+                    assert records[1][0] == 2
+                    assert records[2][0] == 3
+        finally:
+            driver.close()
+
+    def test_should_hydrate_node_to_py2neo_object(self):
+        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        try:
+            with driver.session() as session:
+                with session.begin_transaction() as tx:
+                    result = tx.run("CREATE (a) RETURN a")
+                    records = list(result)
+                    assert len(records) == 1
+                    node = records[0][0]
+                    assert isinstance(node, Node)
+        finally:
+            driver.close()
+
+    def test_should_be_able_to_rollback(self):
+        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        try:
+            with driver.session() as session:
+                with session.begin_transaction() as tx:
+                    result = tx.run("CREATE (a) RETURN id(a)")
+                    records = list(result)
+                    assert len(records) == 1
+                    node_id = records[0][0]
+                    tx.success = False
+                result = session.run("MATCH (a) WHERE id(a) = {x} RETURN count(a)", x=node_id)
+                records = list(result)
+                assert len(records) == 1
+                count = records[0][0]
+                assert count == 0
+        finally:
+            driver.close()
+
+    def test_should_fail_on_bad_cypher(self):
+        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        try:
+            with driver.session() as session:
+                _ = session.run("X")
+                with self.assertRaises(CypherSyntaxError):
+                    session.sync()
+        finally:
+            driver.close()

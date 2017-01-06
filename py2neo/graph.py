@@ -100,8 +100,20 @@ class GraphService(object):
     """
 
     __instances = {}
-    __graph = None
 
+    @classmethod
+    def driver(cls, uri, **config):
+        """ Construct an official Neo4j Driver object instance.
+
+        Notes: HTTP support; Graphy objects returned are py2neo objects
+        """
+        from neo4j.v1 import GraphDatabase
+        from py2neo.http_scheme import HTTPDriver
+        if "http" not in GraphDatabase.uri_schemes:
+            GraphDatabase.uri_schemes["http"] = HTTPDriver
+        return GraphDatabase.driver(uri, **config)
+
+    __graph = None
     _jmx_remote = None
 
     def __new__(cls, *uris, **settings):

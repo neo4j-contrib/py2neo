@@ -43,17 +43,14 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
 
 
 
-from neo4j.compat import urlparse
-from neo4j.v1 import ProtocolError, CypherError
-from neo4j.v1.api import ValueSystem, GraphDatabase, Driver, Session, StatementResult
-from neo4j.v1.types import Record, Node, Relationship, UnboundRelationship, Path
+from neo4j.v1.api import GraphDatabase, Driver, Session, StatementResult
+from neo4j.v1.types import Record
 
 from py2neo.json import JSONValueSystem
 from py2neo.addressing import authenticate
 from py2neo.compat import urlsplit
 from py2neo.graph import GraphService, GraphError
-from py2neo.http import WebResource, get_http_headers
-from py2neo.remoting import remote
+from py2neo.http import WebResource, OK, CREATED
 
 
 DEFAULT_PORT = 7474
@@ -126,7 +123,7 @@ class HTTPSession(Session):
     def sync(self):
         count = 0
         try:
-            response = self.resource.post({"statements": self._statements}, expected=(200, 201))
+            response = self.resource.post({"statements": self._statements}, expected=(OK, CREATED))
             if response.status == 201:
                 self.transaction_path = urlsplit(response.headers["Location"]).path
                 self.commit_path = "%s/commit" % self.transaction_path
@@ -164,7 +161,7 @@ class HTTPSession(Session):
         try:
             if self.transaction_path:
                 self.resource.path = self.transaction_path
-                self.resource.request("DELETE")
+                self.resource.delete(expected=(OK,))
         finally:
             self.commit_path = self.transaction_path = None
             self.resource.path = self.autocommit_path
