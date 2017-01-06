@@ -394,7 +394,7 @@ class Graph(object):
         :param autocommit: if :py:const:`True`, the transaction will
                          automatically commit after the first operation
         """
-        return BoltTransaction(self, autocommit)
+        return Transaction(self, autocommit)
 
     def create(self, subgraph):
         """ Run a :meth:`.Transaction.create` operation within an
@@ -797,15 +797,28 @@ class TransactionFinished(GraphError):
 
 
 class Transaction(object):
-    """ A transaction is a transient resource that allows multiple Cypher
-    statements to be executed within a single server transaction.
+    """ A transaction is a logical container for multiple Cypher statements.
     """
+
+    session = None
+
+    _finished = False
 
     def __init__(self, graph, autocommit=False):
         self.graph = graph
         self.autocommit = autocommit
-        self._finished = False
         self.entities = deque()
+        self.driver = driver = self.graph.graph_service.driver
+        self.session = driver.session()
+        self.sources = []
+        if autocommit:
+            self.transaction = None
+        else:
+            self.transaction = self.session.begin_transaction()
+
+    def __del__(self):
+        if self.session:
+            self.session.close()
 
     def __enter__(self):
         return self
@@ -834,27 +847,53 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
+        self._assert_unfinished()
+        try:
+            entities = self.entities.popleft()
+        except IndexError:
+            entities = {}
 
-    def _post(self, commit=False):
-        pass
+        if self.transaction:
+            result = self.transaction.run(statement, parameters, **kwparameters)
+        else:
+            result = self.session.run(statement, parameters, **kwparameters)
+        source = Result(self.graph, entities, result)
+        self.sources.append(source)
+        if not self.transaction:
+            self.finish()
+        return Cursor(source)
 
     def process(self):
         """ Send all pending statements to the server for processing.
         """
-        self._post()
+        if self.transaction:
+            self.transaction.sync()
+        else:
+            self.session.sync()
 
     def finish(self):
+        self.process()
+        if self.transaction:
+            self.transaction.close()
         self._assert_unfinished()
         self._finished = True
+        self.session.close()
+        self.session = None
 
     def commit(self):
         """ Commit the transaction.
         """
-        self._post(commit=True)
+        if self.transaction:
+            self.transaction.success = True
+        self.finish()
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
+        self._assert_unfinished()
+        if self.transaction:
+            self.transaction.success = False
+        self.finish()
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -987,67 +1026,6 @@ class Transaction(object):
             raise TypeError("No method defined to separate object %r" % subgraph)
         else:
             separate(self)
-
-
-class BoltTransaction(Transaction):
-
-    session = None
-
-    def __init__(self, graph, autocommit=False):
-        Transaction.__init__(self, graph, autocommit)
-        self.driver = driver = self.graph.graph_service.driver
-        self.session = driver.session()
-        self.sources = []
-        if autocommit:
-            self.transaction = None
-        else:
-            self.transaction = self.session.begin_transaction()
-
-    def __del__(self):
-        if self.session:
-            self.session.close()
-
-    def run(self, statement, parameters=None, **kwparameters):
-        self._assert_unfinished()
-        try:
-            entities = self.entities.popleft()
-        except IndexError:
-            entities = {}
-
-        if self.transaction:
-            result = self.transaction.run(statement, parameters, **kwparameters)
-        else:
-            result = self.session.run(statement, parameters, **kwparameters)
-        source = Result(self.graph, entities, result)
-        self.sources.append(source)
-        if not self.transaction:
-            self.finish()
-        return Cursor(source)
-
-    def process(self):
-        if self.transaction:
-            self.transaction.sync()
-        else:
-            self.session.sync()
-
-    def commit(self):
-        if self.transaction:
-            self.transaction.success = True
-        self.finish()
-
-    def rollback(self):
-        self._assert_unfinished()
-        if self.transaction:
-            self.transaction.success = False
-        self.finish()
-
-    def finish(self):
-        self.process()
-        if self.transaction:
-            self.transaction.close()
-        Transaction.finish(self)
-        self.session.close()
-        self.session = None
 
 
 class Cursor(object):

@@ -11,6 +11,7 @@ Notable changes to this project are documented herein.
 - Official driver 1.1.0 dependency replaces embedded 1.0 series driver. This is the first (and so far only) project dependency.
 - Simplified internal module structure (see TODO:CONTRIBUTING.md for current module structure).
 - Renamed DBMS to GraphService and rebuilt URI handling and service addressing in `py2neo.addressing` module.
+- Collapsed transactional Cypher all through offcial driver interface (including HTTP scheme handler)
 
 ### Removed
 - Previously deprecated attributes:
