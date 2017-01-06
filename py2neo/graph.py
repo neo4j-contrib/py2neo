@@ -749,21 +749,6 @@ class Schema(object):
 
 
 class Result(object):
-
-    def keys(self):
-        """ Return the keys for the whole data set.
-        """
-
-    def stats(self):
-        """ Return the query statistics.
-        """
-
-    def fetch(self):
-        """ Fetch and return the next item.
-        """
-
-
-class BoltResult(Result):
     """ Wraps a BoltStatementResult
     """
 
@@ -787,12 +772,18 @@ class BoltResult(Result):
         return not self.result.online()
 
     def keys(self):
+        """ Return the keys for the whole data set.
+        """
         return self.result.keys()
 
     def stats(self):
+        """ Return the query statistics.
+        """
         return vars(self.result.summary().counters)
 
     def fetch(self):
+        """ Fetch and return the next item.
+        """
         try:
             return next(self.result_iterator)
         except StopIteration:
@@ -1027,7 +1018,7 @@ class BoltTransaction(Transaction):
             result = self.transaction.run(statement, parameters, **kwparameters)
         else:
             result = self.session.run(statement, parameters, **kwparameters)
-        source = BoltResult(self.graph, entities, result)
+        source = Result(self.graph, entities, result)
         self.sources.append(source)
         if not self.transaction:
             self.finish()
