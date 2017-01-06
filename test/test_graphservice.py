@@ -58,6 +58,13 @@ class GraphServiceTestCase(GraphTestCase):
         index = remote(graph_service).get_json(force=True)
         assert "data" in index
 
+    def test_can_create_dbms_with_uri_and_auth_tuple(self):
+        uri = "http://localhost:7474/"
+        graph_service = GraphService(uri, auth=("neo4j", "password"))
+        assert remote(graph_service).uri == uri
+        index = remote(graph_service).get_json(force=True)
+        assert "data" in index
+
     def test_same_uri_gives_same_instance(self):
         uri = "http://localhost:7474/"
         dbms_1 = GraphService(uri)

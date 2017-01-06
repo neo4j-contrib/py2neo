@@ -47,9 +47,7 @@ from neo4j.v1.api import GraphDatabase, Driver, Session, StatementResult
 from neo4j.v1.types import Record
 
 from py2neo.json import JSONValueSystem
-from py2neo.addressing import authenticate
 from py2neo.compat import urlsplit
-from py2neo.graph import GraphService, GraphError
 from py2neo.http import WebResource, OK, CREATED
 
 
@@ -58,11 +56,23 @@ DEFAULT_PORT = 7474
 
 class HTTPDriver(Driver):
 
+    _graph_service = None
+
     def __init__(self, uri, **config):
         super(HTTPDriver, self).__init__(None)
-        authenticate("localhost:7474", "neo4j", "password")
-        self.graph_service = GraphService(uri)
-        self.graph = self.graph_service.graph
+        self._uri = uri
+        self._auth = config.get("auth")
+
+    @property
+    def graph_service(self):
+        if self._graph_service is None:
+            from py2neo.graph import GraphService
+            self._graph_service = GraphService(self._uri, auth=self._auth)
+        return self._graph_service
+
+    @property
+    def graph(self):
+        return self.graph_service.graph
 
     def session(self, access_mode=None):
         return HTTPSession(self.graph)
@@ -131,6 +141,7 @@ class HTTPSession(Session):
             content = json_loads(response.data.decode("utf-8"))
             errors = content["errors"]
             if errors:
+                from py2neo.graph import GraphError
                 raise GraphError.hydrate(errors[0])
             for i, result_loader in enumerate(self._result_loaders):
                 try:
@@ -188,3 +199,14 @@ class HTTPStatementResult(StatementResult):
 
         result_loader.load = load
         result_loader.fail = fail
+
+
+def register_http_driver():
+    """ TODO
+
+    Notes: HTTP support; Graphy objects returned are py2neo objects
+    """
+    from neo4j.v1 import GraphDatabase
+    if "http" not in GraphDatabase.uri_schemes:
+        GraphDatabase.uri_schemes["http"] = HTTPDriver
+        # TODO: HTTPS

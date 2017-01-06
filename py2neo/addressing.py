@@ -183,7 +183,7 @@ class GraphServiceAuth(object):
 
         # Apply individual settings
         self.__settings.update({k: v for k, v in settings.items()
-                                if k in ["user", "password"]})
+                                if k in ["auth", "user", "password"]})
 
         if self.password is None:
             raise TypeError("No auth details available")
@@ -193,11 +193,27 @@ class GraphServiceAuth(object):
 
     @property
     def user(self):
-        return self.__settings.get("user")
+        settings = self.__settings
+        if "user" in settings:
+            return settings["user"]
+        elif "auth" in settings:
+            return settings["auth"][0]
+        else:
+            return None
 
     @property
     def password(self):
-        return self.__settings.get("password")
+        settings = self.__settings
+        if "password" in settings:
+            return settings["password"]
+        elif "auth" in settings:
+            return settings["auth"][1]
+        else:
+            return None
+
+    @property
+    def token(self):
+        return self.user, self.password
 
     @property
     def bolt_auth_token(self):

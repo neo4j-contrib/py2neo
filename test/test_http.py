@@ -19,6 +19,8 @@
 import logging
 from unittest import TestCase
 
+from neo4j.v1 import GraphDatabase
+
 from py2neo.graph import GraphService, GraphError, CypherSyntaxError
 from py2neo.http import set_http_header, get_http_headers, WebResource
 from py2neo.types import Node
@@ -160,8 +162,13 @@ class ResourceTestCase(TestCase):
 
 class HTTPSchemeTestCase(GraphTestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        from py2neo.http_scheme import register_http_driver
+        register_http_driver()
+
     def test_should_be_able_to_run_transaction_with_http_scheme(self):
-        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))
         try:
             with driver.session() as session:
                 with session.begin_transaction() as tx:
@@ -175,7 +182,7 @@ class HTTPSchemeTestCase(GraphTestCase):
             driver.close()
 
     def test_should_hydrate_node_to_py2neo_object(self):
-        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))
         try:
             with driver.session() as session:
                 with session.begin_transaction() as tx:
@@ -188,7 +195,7 @@ class HTTPSchemeTestCase(GraphTestCase):
             driver.close()
 
     def test_should_be_able_to_rollback(self):
-        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))
         try:
             with driver.session() as session:
                 with session.begin_transaction() as tx:
@@ -206,7 +213,7 @@ class HTTPSchemeTestCase(GraphTestCase):
             driver.close()
 
     def test_should_fail_on_bad_cypher(self):
-        driver = GraphService.driver("http://localhost:7474", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))
         try:
             with driver.session() as session:
                 _ = session.run("X")

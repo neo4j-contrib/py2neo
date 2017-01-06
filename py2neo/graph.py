@@ -25,10 +25,11 @@ from sys import stdout
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo.meta import BOLT_USER_AGENT
+from py2neo.meta import BOLT_USER_AGENT, HTTP_USER_AGENT
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND
+from py2neo.http_scheme import register_http_driver
 from py2neo.json import JSONValueSystem
 from py2neo.packstream import PackStreamValueSystem
 from py2neo.selection import NodeSelector
@@ -36,6 +37,10 @@ from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
 from py2neo.remoting import Remote, remote
 from py2neo.util import is_collection, version_tuple
+
+
+register_http_driver()
+
 
 update_stats_keys = [
     "constraints_added",
@@ -101,35 +106,39 @@ class GraphService(object):
 
     __instances = {}
 
-    @classmethod
-    def driver(cls, uri, **config):
-        """ Construct an official Neo4j Driver object instance.
-
-        Notes: HTTP support; Graphy objects returned are py2neo objects
-        """
-        from neo4j.v1 import GraphDatabase
-        from py2neo.http_scheme import HTTPDriver
-        if "http" not in GraphDatabase.uri_schemes:
-            GraphDatabase.uri_schemes["http"] = HTTPDriver
-        return GraphDatabase.driver(uri, **config)
-
-    __graph = None
+    _http_driver = None
+    _bolt_driver = None
     _jmx_remote = None
+    _graphs = None
 
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_graph_service
+        from py2neo.addressing import register_graph_service, get_graph_service_auth
         address = register_graph_service(*uris, **settings)
-        http_uri = address.http_uri
         try:
             inst = cls.__instances[address]
         except KeyError:
+            http_uri = address.http_uri
+            bolt_uri = address.bolt_uri
             inst = super(GraphService, cls).__new__(cls)
+            inst._uris = uris
+            inst._settings = settings
             inst.address = address
+            auth = get_graph_service_auth(address)
             inst.__remote__ = Remote(http_uri.resolve("/"))
+            auth_token = auth.token if auth else None
+            inst._http_driver = GraphDatabase.driver(http_uri.resolve("/"), auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
+            if bolt_uri:
+                inst._bolt_driver = GraphDatabase.driver(bolt_uri.resolve("/"), auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
             inst._jmx_remote = Remote(http_uri.resolve("/db/manage/server/jmx/domain/org.neo4j"))
-            inst.__graph = None
+            inst._graphs = {}
             cls.__instances[address] = inst
         return inst
+
+    def __del__(self):
+        if self._http_driver:
+            self._http_driver.close()
+        if self._bolt_driver:
+            self._bolt_driver.close()
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, remote(self).uri)
@@ -146,14 +155,29 @@ class GraphService(object):
     def __hash__(self):
         return hash(remote(self).uri)
 
+    def __contains__(self, database):
+        return database in self._graphs
+
     def __getitem__(self, database):
-        return Graph(database=database, **dict(self.address))
+        return self._graphs[database]
+
+    def __setitem__(self, database, graph):
+        self._graphs[database] = graph
 
     def __iter__(self):
         yield "data"
 
-    def keys(self):
-        return list(self)
+    @property
+    def driver(self):
+        return self._bolt_driver or self._http_driver
+
+    @property
+    def http_driver(self):
+        return self._http_driver
+
+    @property
+    def bolt_driver(self):
+        return self._bolt_driver
 
     @property
     def graph(self):
@@ -162,6 +186,9 @@ class GraphService(object):
         :rtype: :class:`.Graph`
         """
         return self["data"]
+
+    def keys(self):
+        return list(self)
 
     def _bean_dict(self, name):
         info = self._jmx_remote.get_json(force=True)
@@ -314,43 +341,32 @@ class Graph(object):
     is enabled, this will be used for Cypher queries instead of HTTP.
     """
 
-    __instances = {}
+    _graph_service = None
 
     __schema = None
     __node_labels = None
     __relationship_types = None
 
-    driver = None
     transaction_class = None
 
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_graph_service, get_graph_service_auth
         database = settings.pop("database", "data")
-        address = register_graph_service(*uris, **settings)
-        key = (cls, address, database)
-        try:
-            inst = cls.__instances[key]
-        except KeyError:
+        graph_service = GraphService(*uris, **settings)
+        address = graph_service.address
+        if database in graph_service:
+            inst = graph_service[database]
+        else:
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
             inst.__remote__ = Remote(address.http_uri.resolve("/db/%s/" % database))
             inst.transaction_uri = address.http_uri.resolve("/db/%s/transaction" % database)
             inst.transaction_class = HTTPTransaction
             if address.bolt_uri:
-                auth = get_graph_service_auth(address)
-                inst.driver = GraphDatabase.driver(
-                    address.bolt_uri.resolve("/"),
-                    auth=None if auth is None else auth.bolt_auth_token,
-                    encrypted=address.secure,
-                    user_agent=BOLT_USER_AGENT)
                 inst.transaction_class = BoltTransaction
             inst.node_selector = NodeSelector(inst)
-            cls.__instances[key] = inst
+            inst._graph_service = graph_service
+            graph_service[database] = inst
         return inst
-
-    def __del__(self):
-        if self.driver:
-            self.driver.close()
 
     def __repr__(self):
         return "<Graph uri=%r>" % remote(self).uri
@@ -491,7 +507,7 @@ class Graph(object):
         """ The database management system to which this :class:`.Graph`
         instance belongs.
         """
-        return remote(self).graph_service
+        return self._graph_service
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -1081,7 +1097,7 @@ class BoltTransaction(Transaction):
 
     def __init__(self, graph, autocommit=False):
         Transaction.__init__(self, graph, autocommit)
-        self.driver = driver = self.graph.driver
+        self.driver = driver = self.graph.graph_service.driver
         self.session = driver.session()
         self.sources = []
         if autocommit:
