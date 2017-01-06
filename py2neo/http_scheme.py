@@ -44,6 +44,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
 
 
 from neo4j.v1.api import GraphDatabase, Driver, Session, StatementResult
+from neo4j.v1.summary import ResultSummary
 from neo4j.v1.types import Record
 
 from py2neo.json import JSONValueSystem
@@ -122,6 +123,7 @@ class HTTPSession(Session):
             ("statement", statement),
             ("parameters", dict(parameters or {}, **kwparameters)),
             ("resultDataContents", ["REST"]),
+            ("includeStats", True),
         ]))
         result_loader = HTTPResultLoader()
         self._result_loaders.append(result_loader)
@@ -191,6 +193,14 @@ class HTTPStatementResult(StatementResult):
         def load(result):
             self._keys = self.value_system.keys = tuple(result["columns"])
             self._records.extend(record["rest"] for record in result["data"])
+            stats = result["stats"]
+            # fix broken key
+            if "relationship_deleted" in stats:
+                stats["relationships_deleted"] = stats["relationship_deleted"]
+                del stats["relationship_deleted"]
+            if "contains_updates" in stats:
+                del stats["contains_updates"]
+            self._summary = ResultSummary(None, None, stats=stats)  # TODO: statement and params
             self._session = None
             return len(self._records)
 

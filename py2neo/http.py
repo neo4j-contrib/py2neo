@@ -161,10 +161,3 @@ def raise_error(uri, status_code, data):
     error = GraphError(message, **content)
     error.http_status_code = status_code
     raise error
-
-
-def register_http_driver():
-    from neo4j.v1 import GraphDatabase
-    from py2neo.http_scheme import HTTPDriver
-    if "http" not in GraphDatabase.uri_schemes:
-        GraphDatabase.uri_schemes["http"] = HTTPDriver

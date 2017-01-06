@@ -19,7 +19,7 @@
 from io import StringIO
 
 from py2neo.cypher import CypherWriter, cypher_repr
-from py2neo.graph import Transaction, HTTPTransaction
+from py2neo.graph import Transaction, BoltTransaction
 from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, order, size
 from py2neo import remote
@@ -429,7 +429,7 @@ class CypherWriterTestCase(GraphTestCase):
 class CypherOverHTTPTestCase(GraphTestCase):
 
     def test_can_run_statement(self):
-        tx = HTTPTransaction(self.graph)
+        tx = BoltTransaction(self.http_graph)
         result = tx.run("CREATE (a:Person {name:'Alice'}) RETURN a")
         tx.commit()
         assert list(result.keys()) == ["a"]
@@ -442,7 +442,7 @@ class CypherOverHTTPTestCase(GraphTestCase):
         assert dict(a) == {"name": "Alice"}
 
     def test_can_process_mid_transaction(self):
-        tx = HTTPTransaction(self.graph)
+        tx = BoltTransaction(self.http_graph)
         result1 = tx.run("RETURN 1")
         tx.process()
         assert result1.evaluate() == 1
@@ -451,19 +451,19 @@ class CypherOverHTTPTestCase(GraphTestCase):
         tx.commit()
 
     def test_can_force_process_to_get_keys(self):
-        tx = HTTPTransaction(self.graph)
+        tx = BoltTransaction(self.http_graph)
         result = tx.run("RETURN 1 AS n")
         assert list(result.keys()) == ["n"]
         tx.commit()
 
     def test_rollback(self):
-        tx = HTTPTransaction(self.graph)
+        tx = BoltTransaction(self.http_graph)
         tx.run("RETURN 1")
         tx.rollback()
         assert tx.finished()
 
     def test_rollback_after_process(self):
-        tx = HTTPTransaction(self.graph)
+        tx = BoltTransaction(self.http_graph)
         tx.run("RETURN 1")
         tx.process()
         tx.run("RETURN 2")
@@ -472,11 +472,11 @@ class CypherOverHTTPTestCase(GraphTestCase):
 
     def test_error(self):
         with self.assertRaises(CypherSyntaxError):
-            tx = HTTPTransaction(self.graph)
+            tx = BoltTransaction(self.http_graph)
             tx.run("X")
             tx.commit()
 
     def test_autocommit(self):
-        tx = HTTPTransaction(self.graph, autocommit=True)
+        tx = BoltTransaction(self.http_graph, autocommit=True)
         cursor = tx.run("RETURN 1")
         assert cursor.evaluate() == 1

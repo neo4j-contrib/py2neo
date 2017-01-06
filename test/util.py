@@ -19,7 +19,7 @@
 from unittest import TestCase
 from uuid import uuid4
 
-from py2neo.graph import Graph, BoltTransaction, HTTPTransaction
+from py2neo.graph import Graph
 from py2neo.remoting import remote
 from py2neo.selection import NodeSelector
 from py2neo.types import Node
@@ -38,20 +38,9 @@ class GraphTestCase(TestCase):
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
         self.http_graph = Graph(bolt=False)
-        self.http_graph.driver = None
-        self.http_graph.transaction_class = HTTPTransaction
         self.graph_service = self.graph.graph_service
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()
-
-        version = self.graph_service.kernel_version
-        with self.graph.begin() as tx:
-            if version >= (3,):
-                assert isinstance(tx, BoltTransaction)
-            else:
-                assert isinstance(tx, HTTPTransaction)
-        with self.http_graph.begin() as tx:
-            assert isinstance(tx, HTTPTransaction)
 
     def reset(self):
         graph = self.graph
