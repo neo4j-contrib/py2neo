@@ -133,6 +133,12 @@ class HTTPSession(Session):
         return self.sync()
 
     def sync(self):
+        path = self.resource.path
+        # Some of the transactional URIs do not support empty statement
+        # lists in versions earlier than 2.3. Which doesn't really matter
+        # as it's a waste sending anything anyway.
+        if path in (self.autocommit_path, self.begin_path, self.transaction_path) and not self._statements:
+            return 0
         count = 0
         try:
             response = self.resource.post({"statements": self._statements}, expected=(OK, CREATED))
