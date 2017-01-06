@@ -98,6 +98,9 @@ class WebResource(object):
         self.request = http.request
         self.headers = get_http_headers(scheme, host, port)
 
+    def __del__(self):
+        self.close()
+
     def __eq__(self, other):
         try:
             return self.uri == other.uri
@@ -143,7 +146,7 @@ class WebResource(object):
         return rs
 
     def close(self):
-        if self.http:
+        if self.http and self.http.pool:
             self.http.close()
 
 
