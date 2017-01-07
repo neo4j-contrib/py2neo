@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.remoting import RemoteEntity, remote
+from py2neo.http import Remote, remote
 from py2neo.types import Node, Relationship, cast_node
 
 from test.compat import long
@@ -40,17 +40,17 @@ class NodeTestCase(GraphTestCase):
 
     def test_bound_node_equals_unbound_node_with_same_properties(self):
         alice_1 = Node(name="Alice")
-        alice_1.__remote__ = RemoteEntity("http://localhost:7474/db/data/node/1")
+        alice_1.__remote__ = Remote("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
         assert set(alice_1.labels()) == set(alice_2.labels())
         assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
         alice_1 = Node(name="Alice")
-        alice_1.__remote__ = RemoteEntity("http://localhost:7474/db/data/node/1")
+        alice_1.__remote__ = Remote("http://localhost:7474/db/data/node/1")
         Node.cache.clear()
         alice_2 = Node(name="Alice")
-        alice_2.__remote__ = RemoteEntity(remote(alice_1).uri)
+        alice_2.__remote__ = Remote(remote(alice_1).uri)
         assert alice_1 == alice_2
 
     def test_unbound_node_equality(self):
@@ -168,6 +168,6 @@ class ConcreteNodeTestCase(GraphTestCase):
         node_1 = Node("Person", name="Alice")
         self.graph.create(node_1)
         node_2 = Node("Person", name="Alice")
-        node_2.__remote__ = RemoteEntity(remote(node_1).uri)
+        node_2.__remote__ = Remote(remote(node_1).uri)
         assert node_1 is not node_2
         assert hash(node_1) == hash(node_2)

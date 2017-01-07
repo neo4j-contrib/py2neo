@@ -18,7 +18,7 @@
 
 from neo4j.v1 import ValueSystem
 
-from py2neo.remoting import remote
+from py2neo.http import remote
 from py2neo.types import Node, Relationship, Path
 from py2neo.util import is_collection
 

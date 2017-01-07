@@ -19,7 +19,7 @@
 from mock import patch
 
 from py2neo.json import JSONValueSystem
-from py2neo.remoting import remote
+from py2neo.http import remote
 from py2neo.types import Node, Relationship, Path
 
 from test.util import GraphTestCase

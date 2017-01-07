@@ -17,10 +17,8 @@
 
 from __future__ import absolute_import
 
-from json import loads as json_loads
-
 from py2neo.graph import GraphService
-from py2neo.remoting import remote
+from py2neo.http import remote
 
 from test.util import GraphTestCase
 
@@ -54,6 +52,13 @@ class GraphServiceTestCase(GraphTestCase):
     def test_can_create_dbms_without_trailing_slash(self):
         uri = "http://localhost:7474/"
         graph_service = GraphService(uri[:-1])
+        assert remote(graph_service).uri == uri
+        index = remote(graph_service).get_json(force=True)
+        assert "data" in index
+
+    def test_can_create_dbms_with_uri_and_auth_tuple(self):
+        uri = "http://localhost:7474/"
+        graph_service = GraphService(uri, auth=("neo4j", "password"))
         assert remote(graph_service).uri == uri
         index = remote(graph_service).get_json(force=True)
         assert "data" in index

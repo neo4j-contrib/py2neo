@@ -20,22 +20,23 @@ from __future__ import absolute_import
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
-from json import loads as json_loads
 from sys import stdout
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo.meta import BOLT_USER_AGENT
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
-from py2neo.http import OK, NO_CONTENT, NOT_FOUND
-from py2neo.json import JSONValueSystem
+from py2neo.http import OK, NO_CONTENT, NOT_FOUND, register_http_driver, Remote, remote
+from py2neo.meta import BOLT_USER_AGENT, HTTP_USER_AGENT
 from py2neo.packstream import PackStreamValueSystem
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
-from py2neo.remoting import Remote, remote
 from py2neo.util import is_collection, version_tuple
+
+
+register_http_driver()
+
 
 update_stats_keys = [
     "constraints_added",
@@ -100,24 +101,40 @@ class GraphService(object):
     """
 
     __instances = {}
-    __graph = None
 
+    _http_driver = None
+    _bolt_driver = None
     _jmx_remote = None
+    _graphs = None
 
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_graph_service
+        from py2neo.addressing import register_graph_service, get_graph_service_auth
         address = register_graph_service(*uris, **settings)
-        http_uri = address.http_uri
         try:
             inst = cls.__instances[address]
         except KeyError:
+            http_uri = address.http_uri
+            bolt_uri = address.bolt_uri
             inst = super(GraphService, cls).__new__(cls)
+            inst._uris = uris
+            inst._settings = settings
             inst.address = address
-            inst.__remote__ = Remote(http_uri.resolve("/"))
-            inst._jmx_remote = Remote(http_uri.resolve("/db/manage/server/jmx/domain/org.neo4j"))
-            inst.__graph = None
+            auth = get_graph_service_auth(address)
+            inst.__remote__ = Remote(http_uri["/"])
+            auth_token = auth.token if auth else None
+            inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
+            if bolt_uri:
+                inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
+            inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
+            inst._graphs = {}
             cls.__instances[address] = inst
         return inst
+
+    def __del__(self):
+        if self._http_driver:
+            self._http_driver.close()
+        if self._bolt_driver:
+            self._bolt_driver.close()
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, remote(self).uri)
@@ -134,14 +151,29 @@ class GraphService(object):
     def __hash__(self):
         return hash(remote(self).uri)
 
+    def __contains__(self, database):
+        return database in self._graphs
+
     def __getitem__(self, database):
-        return Graph(database=database, **dict(self.address))
+        return self._graphs[database]
+
+    def __setitem__(self, database, graph):
+        self._graphs[database] = graph
 
     def __iter__(self):
         yield "data"
 
-    def keys(self):
-        return list(self)
+    @property
+    def driver(self):
+        return self._bolt_driver or self._http_driver
+
+    @property
+    def http_driver(self):
+        return self._http_driver
+
+    @property
+    def bolt_driver(self):
+        return self._bolt_driver
 
     @property
     def graph(self):
@@ -150,6 +182,9 @@ class GraphService(object):
         :rtype: :class:`.Graph`
         """
         return self["data"]
+
+    def keys(self):
+        return list(self)
 
     def _bean_dict(self, name):
         info = self._jmx_remote.get_json(force=True)
@@ -302,43 +337,27 @@ class Graph(object):
     is enabled, this will be used for Cypher queries instead of HTTP.
     """
 
-    __instances = {}
+    _graph_service = None
 
     __schema = None
     __node_labels = None
     __relationship_types = None
 
-    driver = None
-    transaction_class = None
-
     def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_graph_service, get_graph_service_auth
         database = settings.pop("database", "data")
-        address = register_graph_service(*uris, **settings)
-        key = (cls, address, database)
-        try:
-            inst = cls.__instances[key]
-        except KeyError:
+        graph_service = GraphService(*uris, **settings)
+        address = graph_service.address
+        if database in graph_service:
+            inst = graph_service[database]
+        else:
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Remote(address.http_uri.resolve("/db/%s/" % database))
-            inst.transaction_uri = address.http_uri.resolve("/db/%s/transaction" % database)
-            inst.transaction_class = HTTPTransaction
-            if address.bolt_uri:
-                auth = get_graph_service_auth(address)
-                inst.driver = GraphDatabase.driver(
-                    address.bolt_uri.resolve("/"),
-                    auth=None if auth is None else auth.bolt_auth_token,
-                    encrypted=address.secure,
-                    user_agent=BOLT_USER_AGENT)
-                inst.transaction_class = BoltTransaction
+            inst.__remote__ = Remote(address.http_uri["/db/%s/" % database])
+            inst.transaction_uri = address.http_uri["/db/%s/transaction" % database]
             inst.node_selector = NodeSelector(inst)
-            cls.__instances[key] = inst
+            inst._graph_service = graph_service
+            graph_service[database] = inst
         return inst
-
-    def __del__(self):
-        if self.driver:
-            self.driver.close()
 
     def __repr__(self):
         return "<Graph uri=%r>" % remote(self).uri
@@ -371,7 +390,7 @@ class Graph(object):
         :param autocommit: if :py:const:`True`, the transaction will
                          automatically commit after the first operation
         """
-        return self.transaction_class(self, autocommit)
+        return Transaction(self, autocommit)
 
     def create(self, subgraph):
         """ Run a :meth:`.Transaction.create` operation within an
@@ -479,7 +498,7 @@ class Graph(object):
         """ The database management system to which this :class:`.Graph`
         instance belongs.
         """
-        return remote(self).graph_service
+        return self._graph_service
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -606,9 +625,11 @@ class Graph(object):
         :param subgraph: the collection of nodes and relationships to pull
         """
         try:
-            subgraph.__db_pull__(self)
+            pull = subgraph.__db_pull__
         except AttributeError:
             raise TypeError("No method defined to pull object %r" % subgraph)
+        else:
+            pull(self)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
@@ -616,9 +637,11 @@ class Graph(object):
         :param subgraph: the collection of nodes and relationships to push
         """
         try:
-            subgraph.__db_push__(self)
+            push = subgraph.__db_push__
         except AttributeError:
             raise TypeError("No method defined to push object %r" % subgraph)
+        else:
+            push(self)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -726,78 +749,21 @@ class Schema(object):
 
 
 class Result(object):
-
-    def keys(self):
-        """ Return the keys for the whole data set.
-        """
-
-    def stats(self):
-        """ Return the query statistics.
-        """
-
-    def fetch(self):
-        """ Fetch and return the next item.
-        """
-
-
-class HTTPResult(Result):
-
-    def __init__(self, graph, transaction, data=None):
-        self.graph = graph
-        self.transaction = transaction
-        self._keys = None
-        self._stats = None
-        self.buffer = deque()
-        self.loaded = False
-        if data:
-            self.load(data)
-
-    def keys(self):
-        if not self.loaded:
-            self.transaction.process()
-        return self._keys
-
-    def stats(self):
-        if not self.loaded:
-            self.transaction.process()
-        return self._stats
-
-    def fetch(self):
-        try:
-            return self.buffer.popleft()
-        except IndexError:
-            if self.loaded:
-                return None
-            else:
-                self.transaction.process()
-                return self.fetch()
-
-    def load(self, data):
-        assert not self.loaded
-        try:
-            entities = self.transaction.entities.popleft()
-        except (AttributeError, IndexError):
-            entities = {}
-        self._keys = keys = tuple(data["columns"])
-        self._stats = data["stats"]
-        # fix broken key
-        if "relationship_deleted" in self._stats:
-            self._stats["relationships_deleted"] = self._stats["relationship_deleted"]
-            del self._stats["relationship_deleted"]
-        value_system = JSONValueSystem(self.graph, keys, entities)
-        for record in data["data"]:
-            self.buffer.append(Record(keys, value_system.hydrate(record["rest"])))
-        self.loaded = True
-
-
-class BoltResult(Result):
     """ Wraps a BoltStatementResult
     """
 
     def __init__(self, graph, entities, result):
+        from py2neo.http import HTTPStatementResult
+        from neo4j.v1 import BoltStatementResult
         self.result = result
         self.result.error_class = GraphError.hydrate
-        self.result.value_system = PackStreamValueSystem(graph, result.keys(), entities)
+        # TODO: un-yuk this
+        if isinstance(result, HTTPStatementResult):
+            self.result.value_system.entities = entities
+        elif isinstance(result, BoltStatementResult):
+            self.result.value_system = PackStreamValueSystem(graph, result.keys(), entities)
+        else:
+            raise RuntimeError("Unexpected statement result class %r" % result.__class__.__name__)
         self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
@@ -806,12 +772,18 @@ class BoltResult(Result):
         return not self.result.online()
 
     def keys(self):
+        """ Return the keys for the whole data set.
+        """
         return self.result.keys()
 
     def stats(self):
+        """ Return the query statistics.
+        """
         return vars(self.result.summary().counters)
 
     def fetch(self):
+        """ Fetch and return the next item.
+        """
         try:
             return next(self.result_iterator)
         except StopIteration:
@@ -825,15 +797,28 @@ class TransactionFinished(GraphError):
 
 
 class Transaction(object):
-    """ A transaction is a transient resource that allows multiple Cypher
-    statements to be executed within a single server transaction.
+    """ A transaction is a logical container for multiple Cypher statements.
     """
+
+    session = None
+
+    _finished = False
 
     def __init__(self, graph, autocommit=False):
         self.graph = graph
         self.autocommit = autocommit
-        self._finished = False
         self.entities = deque()
+        self.driver = driver = self.graph.graph_service.driver
+        self.session = driver.session()
+        self.sources = []
+        if autocommit:
+            self.transaction = None
+        else:
+            self.transaction = self.session.begin_transaction()
+
+    def __del__(self):
+        if self.session:
+            self.session.close()
 
     def __enter__(self):
         return self
@@ -862,27 +847,53 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
+        self._assert_unfinished()
+        try:
+            entities = self.entities.popleft()
+        except IndexError:
+            entities = {}
 
-    def _post(self, commit=False):
-        pass
+        if self.transaction:
+            result = self.transaction.run(statement, parameters, **kwparameters)
+        else:
+            result = self.session.run(statement, parameters, **kwparameters)
+        source = Result(self.graph, entities, result)
+        self.sources.append(source)
+        if not self.transaction:
+            self.finish()
+        return Cursor(source)
 
     def process(self):
         """ Send all pending statements to the server for processing.
         """
-        self._post()
+        if self.transaction:
+            self.transaction.sync()
+        else:
+            self.session.sync()
 
     def finish(self):
+        self.process()
+        if self.transaction:
+            self.transaction.close()
         self._assert_unfinished()
         self._finished = True
+        self.session.close()
+        self.session = None
 
     def commit(self):
         """ Commit the transaction.
         """
-        self._post(commit=True)
+        if self.transaction:
+            self.transaction.success = True
+        self.finish()
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
+        self._assert_unfinished()
+        if self.transaction:
+            self.transaction.success = False
+        self.finish()
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -918,9 +929,11 @@ class Transaction(object):
                     creatable object
         """
         try:
-            subgraph.__db_create__(self)
+            create = subgraph.__db_create__
         except AttributeError:
             raise TypeError("No method defined to create object %r" % subgraph)
+        else:
+            create(self)
 
     def degree(self, subgraph):
         """ Return the total number of relationships attached to all nodes in
@@ -931,9 +944,11 @@ class Transaction(object):
         :returns: the total number of distinct relationships
         """
         try:
-            return subgraph.__db_degree__(self)
+            degree = subgraph.__db_degree__
         except AttributeError:
             raise TypeError("No method defined to determine the degree of object %r" % subgraph)
+        else:
+            return degree(self)
 
     def delete(self, subgraph):
         """ Delete the remote nodes and relationships that correspond to
@@ -944,9 +959,11 @@ class Transaction(object):
                        :class:`.Subgraph`
         """
         try:
-            subgraph.__db_delete__(self)
+            delete = subgraph.__db_delete__
         except AttributeError:
             raise TypeError("No method defined to delete object %r" % subgraph)
+        else:
+            delete(self)
 
     def exists(self, subgraph):
         """ Determine whether one or more graph entities all exist within the
@@ -958,9 +975,11 @@ class Transaction(object):
         :returns: ``True`` if all entities exist remotely, ``False`` otherwise
         """
         try:
-            return subgraph.__db_exists__(self)
+            exists = subgraph.__db_exists__
         except AttributeError:
             raise TypeError("No method defined to determine the existence of object %r" % subgraph)
+        else:
+            return exists(self)
 
     def merge(self, subgraph, primary_label=None, primary_key=None):
         """ Merge nodes and relationships from a local subgraph into the
@@ -988,9 +1007,11 @@ class Transaction(object):
                             nodes
         """
         try:
-            subgraph.__db_merge__(self, primary_label, primary_key)
+            merge = subgraph.__db_merge__
         except AttributeError:
             raise TypeError("No method defined to merge object %r" % subgraph)
+        else:
+            merge(self, primary_label, primary_key)
 
     def separate(self, subgraph):
         """ Delete the remote relationships that correspond to those in a local
@@ -1000,128 +1021,11 @@ class Transaction(object):
                        :class:`.Subgraph`
         """
         try:
-            subgraph.__db_separate__(self)
+            separate = subgraph.__db_separate__
         except AttributeError:
             raise TypeError("No method defined to separate object %r" % subgraph)
-
-
-class HTTPTransaction(Transaction):
-    """ A transaction is a transient resource that allows multiple Cypher
-    statements to be executed within a single server transaction.
-    """
-
-    def __init__(self, graph, autocommit=False):
-        Transaction.__init__(self, graph, autocommit)
-        self.statements = []
-        self.sources = []
-        uri = graph.transaction_uri
-        self._begin = Remote(uri)
-        self._begin_commit = Remote(uri + "/commit")
-        self._execute = None
-        self._commit = None
-
-    def run(self, statement, parameters=None, **kwparameters):
-        self._assert_unfinished()
-        self.statements.append(cypher_request(statement, parameters, **kwparameters))
-        source = HTTPResult(self.graph, self)
-        cursor = Cursor(source)
-        self.sources.append(source)
-        if self.autocommit:
-            self.commit()
-        return cursor
-
-    def _post(self, commit=False):
-        self._assert_unfinished()
-        if commit:
-            resource = self._commit or self._begin_commit
-            self.finish()
         else:
-            resource = self._execute or self._begin
-        if resource == self._begin_commit and not self.statements:
-            return
-        rs = resource.post({"statements": self.statements}, expected=(200, 201))
-        location = rs.headers.get("Location")
-        if location:
-            self._execute = Remote(location)
-        raw = json_loads(rs.data.decode('utf-8'))
-        rs.close()
-        self.statements = []
-        if "commit" in raw:
-            self._commit = Remote(raw["commit"])
-        for raw_error in raw["errors"]:
-            raise GraphError.hydrate(raw_error)
-        for raw_result in raw["results"]:
-            source = self.sources.pop(0)
-            source.load(raw_result)
-
-    def rollback(self):
-        self._assert_unfinished()
-        try:
-            if self._execute:
-                self._execute.delete(expected=(OK,))
-        finally:
-            self.finish()
-
-
-class BoltTransaction(Transaction):
-
-    session = None
-
-    def __init__(self, graph, autocommit=False):
-        Transaction.__init__(self, graph, autocommit)
-        self.driver = driver = self.graph.driver
-        self.session = driver.session()
-        self.sources = []
-        if autocommit:
-            self.transaction = None
-        else:
-            self.transaction = self.session.begin_transaction()
-
-    def __del__(self):
-        if self.session:
-            self.session.close()
-
-    def run(self, statement, parameters=None, **kwparameters):
-        self._assert_unfinished()
-        try:
-            entities = self.entities.popleft()
-        except IndexError:
-            entities = {}
-
-        if self.transaction:
-            result = self.transaction.run(statement, parameters, **kwparameters)
-        else:
-            result = self.session.run(statement, parameters, **kwparameters)
-        source = BoltResult(self.graph, entities, result)
-        self.sources.append(source)
-        if not self.transaction:
-            self.finish()
-        return Cursor(source)
-
-    def process(self):
-        if self.transaction:
-            self.transaction.sync()
-        else:
-            self.session.sync()
-
-    def commit(self):
-        if self.transaction:
-            self.transaction.success = True
-        self.finish()
-
-    def rollback(self):
-        self._assert_unfinished()
-        if self.transaction:
-            self.transaction.success = False
-        self.finish()
-
-    def finish(self):
-        self.process()
-        if self.transaction:
-            self.transaction.close()
-        Transaction.finish(self)
-        self.session.close()
-        self.session = None
+            separate(self)
 
 
 class Cursor(object):
