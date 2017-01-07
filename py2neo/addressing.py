@@ -59,7 +59,7 @@ class GraphServiceURI(object):
                      parsed.port or self.default_port(self.scheme))
 
     def __repr__(self):
-        return repr(self.resolve("/"))
+        return repr(self["/"])
 
     def __hash__(self):
         return hash((self.secure, self.scheme, self.host, self.port))
@@ -70,12 +70,8 @@ class GraphServiceURI(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    @property
-    def authority(self):
-        return "%s:%d" % (self.host, self.port)
-
-    def resolve(self, path):
-        return "%s://%s%s" % (self.scheme, self.authority, path)
+    def __getitem__(self, path):
+        return "%s://%s:%d%s" % (self.scheme, self.host, self.port, path)
 
 
 class GraphServiceAddress(object):

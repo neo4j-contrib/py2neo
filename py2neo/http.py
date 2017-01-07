@@ -375,6 +375,9 @@ class WebResource(object):
 class Remote(WebResource):
 
     _graph_service = None
+    _ref = None
+    _entity_type = None
+    _entity_id = None
 
     def __init__(self, uri, metadata=None):
         WebResource.__init__(self, uri, metadata)
@@ -402,16 +405,39 @@ class Remote(WebResource):
         """
         return self.graph_service.graph
 
+    @property
+    def ref(self):
+        from py2neo.types import Node, Relationship
+        if self._ref is None:
+            self._ref = ref = self.uri[len(remote(self.graph).uri):]
+            ref_parts = ref.partition("/")
+            if ref_parts[0] == "node":
+                try:
+                    self._entity_id = int(ref_parts[-1])
+                except ValueError:
+                    pass
+                else:
+                    self._entity_type = Node
+            elif ref_parts[0] == "relationship":
+                try:
+                    self._entity_id = int(ref_parts[-1])
+                except ValueError:
+                    pass
+                else:
+                    self._entity_type = Relationship
+        return self._ref
 
-class RemoteEntity(Remote):
-    """ A handle to a remote entity in a graph database.
-    """
+    @property
+    def entity_type(self):
+        _ = self.ref
+        return self._entity_type
 
-    def __init__(self, uri, metadata=None):
-        super(RemoteEntity, self).__init__(uri, metadata=metadata)
-        self.ref = self.uri[len(remote(self.graph).uri):]
-        self._id = int(self.ref.rpartition("/")[2])
+    @property
+    def entity_id(self):
+        _ = self.ref
+        return self._entity_id
 
-    def __repr__(self):
-        return "<%s graph=%r ref=%r>" % (self.__class__.__name__,
-                                         remote(self.graph).uri, self.ref)
+    @property
+    def _id(self):
+        # TODO: deprecate
+        return self.entity_id

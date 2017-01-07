@@ -120,12 +120,12 @@ class GraphService(object):
             inst._settings = settings
             inst.address = address
             auth = get_graph_service_auth(address)
-            inst.__remote__ = Remote(http_uri.resolve("/"))
+            inst.__remote__ = Remote(http_uri["/"])
             auth_token = auth.token if auth else None
-            inst._http_driver = GraphDatabase.driver(http_uri.resolve("/"), auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
+            inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
             if bolt_uri:
-                inst._bolt_driver = GraphDatabase.driver(bolt_uri.resolve("/"), auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
-            inst._jmx_remote = Remote(http_uri.resolve("/db/manage/server/jmx/domain/org.neo4j"))
+                inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
+            inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
             inst._graphs = {}
             cls.__instances[address] = inst
         return inst
@@ -352,8 +352,8 @@ class Graph(object):
         else:
             inst = super(Graph, cls).__new__(cls)
             inst.address = address
-            inst.__remote__ = Remote(address.http_uri.resolve("/db/%s/" % database))
-            inst.transaction_uri = address.http_uri.resolve("/db/%s/transaction" % database)
+            inst.__remote__ = Remote(address.http_uri["/db/%s/" % database])
+            inst.transaction_uri = address.http_uri["/db/%s/transaction" % database]
             inst.node_selector = NodeSelector(inst)
             inst._graph_service = graph_service
             graph_service[database] = inst
@@ -625,9 +625,11 @@ class Graph(object):
         :param subgraph: the collection of nodes and relationships to pull
         """
         try:
-            subgraph.__db_pull__(self)
+            pull = subgraph.__db_pull__
         except AttributeError:
             raise TypeError("No method defined to pull object %r" % subgraph)
+        else:
+            pull(self)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
@@ -635,9 +637,11 @@ class Graph(object):
         :param subgraph: the collection of nodes and relationships to push
         """
         try:
-            subgraph.__db_push__(self)
+            push = subgraph.__db_push__
         except AttributeError:
             raise TypeError("No method defined to push object %r" % subgraph)
+        else:
+            push(self)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.http import WebResource, RemoteEntity, remote
+from py2neo.http import WebResource, Remote, remote
 from py2neo.types import Node, Relationship
 
 from test.util import GraphTestCase
@@ -27,7 +27,7 @@ class EntityTestCase(GraphTestCase):
     def test_can_create_entity_with_initial_uri(self):
         uri = "http://localhost:7474/db/data/node/1"
         entity = Node()
-        entity.__remote__ = RemoteEntity(uri)
+        entity.__remote__ = Remote(uri)
         assert remote(entity)
         assert remote(entity).uri == uri
 
@@ -35,7 +35,7 @@ class EntityTestCase(GraphTestCase):
         uri = "http://localhost:7474/db/data/node/1"
         metadata = {"foo": "bar"}
         entity = Node()
-        entity.__remote__  = RemoteEntity(uri, metadata)
+        entity.__remote__ = Remote(uri, metadata)
         assert remote(entity)
         assert remote(entity).uri == uri
         remote_metadata = remote(entity).get_json(force=False)
@@ -48,7 +48,7 @@ class EntityTestCase(GraphTestCase):
     def test_can_bind_node_to_resource(self):
         uri = "http://localhost:7474/db/data/node/1"
         node = Node()
-        node.__remote__ = RemoteEntity(uri)
+        node.__remote__ = Remote(uri)
         assert remote(node)
         assert isinstance(remote(node), WebResource)
         assert remote(node).uri == uri
@@ -61,7 +61,7 @@ class EntityTestCase(GraphTestCase):
         }
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
-        relationship.__remote__ = RemoteEntity(uri, metadata=metadata)
+        relationship.__remote__ = Remote(uri, metadata=metadata)
         assert remote(relationship)
         assert isinstance(remote(relationship), WebResource)
         assert remote(relationship).uri == uri

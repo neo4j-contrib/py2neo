@@ -21,7 +21,7 @@ from uuid import uuid4
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
-from py2neo.http import RemoteEntity, remote
+from py2neo.http import Remote, remote
 from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
 
@@ -806,7 +806,7 @@ class Node(Relatable, Entity):
     @classmethod
     def hydrate(cls, uri, inst=None, **rest):
         inst = cls.instance(uri, inst)
-        inst.__remote__ = RemoteEntity(uri, rest)
+        inst.__remote__ = Remote(uri, rest)
         if "data" in rest:
             inst.__stale.discard("properties")
             inst.clear()
@@ -941,7 +941,7 @@ class Relationship(Entity):
             else:
                 inst.__stale.add("properties")
             cls.cache.update(uri, inst)
-        inst.__remote__ = RemoteEntity(uri, rest)
+        inst.__remote__ = Remote(uri, rest)
         return inst
 
     def __init__(self, *nodes, **properties):
