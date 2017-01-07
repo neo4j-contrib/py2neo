@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.remoting import RemoteEntity, remote
+from py2neo.http import RemoteEntity, remote
 from py2neo.types import Node, Relationship, cast_node
 
 from test.compat import long

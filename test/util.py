@@ -20,7 +20,7 @@ from unittest import TestCase
 from uuid import uuid4
 
 from py2neo.graph import Graph
-from py2neo.remoting import remote
+from py2neo.http import remote
 from py2neo.selection import NodeSelector
 from py2neo.types import Node
 

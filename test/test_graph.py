@@ -16,11 +16,9 @@
 # limitations under the License.
 
 
-from json import loads as json_loads
-
 from py2neo.graph import Graph
+from py2neo.http import remote
 from py2neo.json import JSONValueSystem
-from py2neo.remoting import remote
 from py2neo.types import Node, Relationship, cast_node
 
 from test.util import GraphTestCase

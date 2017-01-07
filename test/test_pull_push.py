@@ -17,8 +17,7 @@
 
 
 from py2neo.types import Node, Relationship, Path
-from py2neo import remote
-from py2neo.remoting import RemoteEntity
+from py2neo.http import RemoteEntity, remote
 from test.util import GraphTestCase
 
 

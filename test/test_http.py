@@ -164,7 +164,7 @@ class HTTPSchemeTestCase(GraphTestCase):
 
     @classmethod
     def setUpClass(cls):
-        from py2neo.http_scheme import register_http_driver
+        from py2neo.http import register_http_driver
         register_http_driver()
 
     def test_should_be_able_to_run_transaction_with_http_scheme(self):

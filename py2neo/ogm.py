@@ -17,9 +17,9 @@
 
 
 from py2neo.cypher import cypher_escape
+from py2neo.http import remote
 from py2neo.selection import NodeSelection, NodeSelector
 from py2neo.types import Node, PropertyDict
-from py2neo.remoting import remote
 from py2neo.util import label_case, relationship_case, metaclass
 
 

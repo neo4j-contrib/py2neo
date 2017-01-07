@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.http import WebResource
+from py2neo.http import WebResource, RemoteEntity, remote
 from py2neo.types import Node, Relationship
-from py2neo.remoting import RemoteEntity, remote
 
 from test.util import GraphTestCase
 

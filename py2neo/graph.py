@@ -20,22 +20,18 @@ from __future__ import absolute_import
 import webbrowser
 from collections import deque, OrderedDict
 from email.utils import parsedate_tz, mktime_tz
-from json import loads as json_loads
 from sys import stdout
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo.meta import BOLT_USER_AGENT, HTTP_USER_AGENT
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
-from py2neo.http import OK, NO_CONTENT, NOT_FOUND
-from py2neo.http_scheme import register_http_driver
-from py2neo.json import JSONValueSystem
+from py2neo.http import OK, NO_CONTENT, NOT_FOUND, register_http_driver, Remote, remote
+from py2neo.meta import BOLT_USER_AGENT, HTTP_USER_AGENT
 from py2neo.packstream import PackStreamValueSystem
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
-from py2neo.remoting import Remote, remote
 from py2neo.util import is_collection, version_tuple
 
 
@@ -753,7 +749,7 @@ class Result(object):
     """
 
     def __init__(self, graph, entities, result):
-        from py2neo.http_scheme import HTTPStatementResult
+        from py2neo.http import HTTPStatementResult
         from neo4j.v1 import BoltStatementResult
         self.result = result
         self.result.error_class = GraphError.hydrate

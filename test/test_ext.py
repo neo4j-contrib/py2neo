@@ -17,7 +17,7 @@
 
 
 from py2neo.ext import ServerPlugin, UnmanagedExtension
-from py2neo.remoting import Remote, remote
+from py2neo.http import Remote, remote
 
 from test.compat import patch
 from test.util import GraphTestCase

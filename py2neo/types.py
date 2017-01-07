@@ -21,7 +21,7 @@ from uuid import uuid4
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
-from py2neo.remoting import RemoteEntity, remote
+from py2neo.http import RemoteEntity, remote
 from py2neo.util import is_collection, round_robin, relationship_case, snake_case
 
 
@@ -478,7 +478,7 @@ class Subgraph(object):
                               "to": "%s/properties" % remote_relationship.ref,
                               "body": dict(relationship)})
                 i += 1
-        from py2neo.remoting import Remote
+        from py2neo import Remote
         Remote(remote(graph).uri + "batch").post(batch, expected=(200,)).close()
 
     def __db_separate__(self, tx):

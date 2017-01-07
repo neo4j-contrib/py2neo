@@ -17,7 +17,7 @@
 
 
 from py2neo.graph import GraphError
-from py2neo.remoting import Remote, remote
+from py2neo.http import Remote, remote
 
 
 class ServerPlugin(object):
