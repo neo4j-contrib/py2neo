@@ -187,7 +187,7 @@ class GraphService(object):
         return list(self)
 
     def _bean_dict(self, name):
-        info = self._jmx_remote.get_json(force=True)
+        info = self._jmx_remote.get_json()
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -611,7 +611,7 @@ class Graph(object):
         """
         if self.__node_labels is None:
             self.__node_labels = Remote(remote(self).uri + "labels")
-        return frozenset(self.__node_labels.get_json(force=True))
+        return frozenset(self.__node_labels.get_json())
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
@@ -664,7 +664,7 @@ class Graph(object):
         """
         if self.__relationship_types is None:
             self.__relationship_types = Remote(remote(self).uri + "relationship/types")
-        return frozenset(self.__relationship_types.get_json(force=True))
+        return frozenset(self.__relationship_types.get_json())
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -739,13 +739,13 @@ class Schema(object):
         """ Fetch a list of indexed property keys for a label.
         """
         uri = self._index_uri.format(label=label)
-        return [indexed["property_keys"][0] for indexed in Remote(uri).get_json(force=True)]
+        return [indexed["property_keys"][0] for indexed in Remote(uri).get_json()]
 
     def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
         uri = self._uniqueness_constraint_uri.format(label=label)
-        return [unique["property_keys"][0] for unique in Remote(uri).get_json(force=True)]
+        return [unique["property_keys"][0] for unique in Remote(uri).get_json()]
 
 
 class Result(object):

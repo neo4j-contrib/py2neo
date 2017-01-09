@@ -16,38 +16,10 @@
 # limitations under the License.
 
 
-from py2neo.ext import ServerPlugin, UnmanagedExtension
-from py2neo.http import Remote, remote
+from py2neo.ext import UnmanagedExtension
 
 from test.compat import patch
 from test.util import GraphTestCase
-
-
-class FakePlugin(ServerPlugin):
-
-    def __init__(self, graph):
-        super(FakePlugin, self).__init__(graph, "FakePlugin")
-
-
-class NaughtyPlugin(ServerPlugin):
-
-    def __init__(self, graph):
-        super(NaughtyPlugin, self).__init__(graph, "NaughtyPlugin")
-
-
-class ServerPluginTestCase(GraphTestCase):
-
-    def test_can_init_server_plugin(self):
-        remote_graph = remote(self.graph)
-        metadata = remote_graph.get_json(force=False)
-        metadata["extensions"]["FakePlugin"] = {}
-        self.graph.__remote__ = Remote(remote_graph.uri, metadata)
-        plugin = FakePlugin(self.graph)
-        assert plugin.resources == {}
-
-    def test_cannot_init_non_existent_server_plugin(self):
-        with self.assertRaises(LookupError):
-            NaughtyPlugin(self.graph)
 
 
 class FakeExtension(UnmanagedExtension):

@@ -806,7 +806,7 @@ class Node(Relatable, Entity):
     @classmethod
     def hydrate(cls, uri, inst=None, **rest):
         inst = cls.instance(uri, inst)
-        inst.__remote__ = Remote(uri, rest)
+        inst.__remote__ = Remote(uri)
         if "data" in rest:
             inst.__stale.discard("properties")
             inst.clear()
@@ -941,7 +941,7 @@ class Relationship(Entity):
             else:
                 inst.__stale.add("properties")
             cls.cache.update(uri, inst)
-        inst.__remote__ = Remote(uri, rest)
+        inst.__remote__ = Remote(uri)
         return inst
 
     def __init__(self, *nodes, **properties):

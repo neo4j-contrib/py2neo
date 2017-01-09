@@ -109,7 +109,7 @@ class ClientErrorTestCase(GraphTestCase):
         node_id = self.get_non_existent_node_id()
         resource = WebResource("http://localhost:7474/db/data/node/%s" % node_id)
         try:
-            resource.get_json(force=True)
+            resource.get_json()
         except GraphError as error:
             self.assert_error(
                 error, (GraphError,), "org.neo4j.server.rest.web.NodeNotFoundException")
@@ -124,7 +124,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_get(self):
         try:
-            self.non_existent_resource.get_json(force=True)
+            self.non_existent_resource.get_json()
         except GraphError as error:
             assert error.http_status_code == 404
         else:

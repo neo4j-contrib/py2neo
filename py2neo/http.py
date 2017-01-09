@@ -308,9 +308,8 @@ class WebResource(object):
     """ Base class for all local resources mapped to remote counterparts.
     """
 
-    def __init__(self, uri, cached_json=None):
+    def __init__(self, uri):
         self.uri = uri
-        self.cached_json = cached_json
         parts = urlsplit(uri)
         scheme = parts.scheme
         host = parts.hostname
@@ -332,16 +331,13 @@ class WebResource(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def get_json(self, force=True):
+    def get_json(self):
         """ Perform an HTTP GET to this resource and return JSON.
         """
-        if not force and self.cached_json is not None:
-            return self.cached_json
         rs = self.request("GET", self.path, headers=self.headers)
         try:
             if rs.status == 200:
-                self.cached_json = json_loads(rs.data.decode('utf-8'))
-                return self.cached_json
+                return json_loads(rs.data.decode('utf-8'))
             else:
                 raise_error(self.uri, rs.status, rs.data)
         finally:
@@ -379,8 +375,8 @@ class Remote(WebResource):
     _entity_type = None
     _entity_id = None
 
-    def __init__(self, uri, metadata=None):
-        WebResource.__init__(self, uri, metadata)
+    def __init__(self, uri):
+        WebResource.__init__(self, uri)
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, self.uri)

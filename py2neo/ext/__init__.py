@@ -20,22 +20,6 @@ from py2neo.graph import GraphError
 from py2neo.http import Remote, remote
 
 
-class ServerPlugin(object):
-    """ Base class for server plugins.
-    """
-
-    def __init__(self, graph, name):
-        self.graph = graph
-        self.name = name
-        remote_graph = remote(self.graph)
-        metadata = remote_graph.get_json(force=False)
-        extensions = metadata["extensions"]
-        try:
-            self.resources = {key: Remote(value) for key, value in extensions[self.name].items()}
-        except KeyError:
-            raise LookupError("No plugin named %r found on graph <%s>" % (self.name, remote_graph.uri))
-
-
 class UnmanagedExtension(object):
     """ Base class for unmanaged extensions.
     """
@@ -45,7 +29,7 @@ class UnmanagedExtension(object):
         dbms_uri = remote(self.graph.graph_service).uri
         self.remote = Remote(dbms_uri.rstrip("/") + path)
         try:
-            self.remote.get_json(force=True)
+            self.remote.get_json()
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
                                       "graph <%s>" % (path, remote(self.graph).uri))

@@ -31,16 +31,6 @@ class EntityTestCase(GraphTestCase):
         assert remote(entity)
         assert remote(entity).uri == uri
 
-    def test_can_create_entity_with_initial_uri_and_metadata(self):
-        uri = "http://localhost:7474/db/data/node/1"
-        metadata = {"foo": "bar"}
-        entity = Node()
-        entity.__remote__ = Remote(uri, metadata)
-        assert remote(entity)
-        assert remote(entity).uri == uri
-        remote_metadata = remote(entity).get_json(force=False)
-        assert remote_metadata == metadata
-
     def test_default_state_for_node_is_unbound(self):
         node = Node()
         assert not remote(node)
@@ -61,7 +51,7 @@ class EntityTestCase(GraphTestCase):
         }
         relationship = Relationship({}, "", {})
         # Pass in metadata to avoid callback to server
-        relationship.__remote__ = Remote(uri, metadata=metadata)
+        relationship.__remote__ = Remote(uri)
         assert remote(relationship)
         assert isinstance(remote(relationship), WebResource)
         assert remote(relationship).uri == uri
