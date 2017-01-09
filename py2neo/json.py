@@ -59,9 +59,9 @@ class JSONValueSystem(ValueSystem):
                         data["directions"] = directions
                     return Path.hydrate(data)
                 else:
-                    from warnings import warn
-                    warn("Map literals returned over the Neo4j REST interface are ambiguous "
-                         "and may be hydrated as graph objects")
+                    # from warnings import warn
+                    # warn("Map literals returned over the Neo4j REST interface are ambiguous "
+                    #      "and may be hydrated as graph objects")
                     return data
             elif is_collection(data):
                 return type(data)(map(hydrate_, data))

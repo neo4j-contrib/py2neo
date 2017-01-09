@@ -265,7 +265,7 @@ class HTTPSession(Session):
         try:
             if self.transaction_path:
                 self.resource.path = self.transaction_path
-                self.resource.delete(expected=(OK,))
+                self.resource.delete(expected=(OK, NOT_FOUND))
         finally:
             self.commit_path = self.transaction_path = None
             self.resource.path = self.autocommit_path

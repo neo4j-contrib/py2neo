@@ -131,10 +131,12 @@ latest_versions = {".".join(map(str, k)): ".".join(map(str, v)) for k, v in late
 version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
 version_aliases["LATEST"] = versions[-1]
 
-dist = "http://dist.neo4j.org"
+dist = "http://{}".format(getenv("DIST_HOST") or "dist.neo4j.com")
 dist_overrides = {
     # "3.0.0-NIGHTLY": "http://alpha.neohq.net/dist",
 }
+
+archive_format = getenv("ARCHIVE_FORMAT") or "gz"
 
 
 @contextmanager
@@ -187,7 +189,7 @@ class Package(object):
         """ The full name of the archive file, e.g.
         ``neo4j-community-2.3.2-unix.tar.gz``.
         """
-        return "neo4j-%s-unix.tar.gz" % self.key
+        return "neo4j-{}-unix.tar.{}".format(self.key, archive_format)
 
     @property
     def uri(self):
@@ -255,7 +257,7 @@ class Warehouse(object):
         makedirs(container)
         archive_file = Package(edition, version).download(self.dist)
         try:
-            with TarFile.open(archive_file, "r:gz") as archive:
+            with TarFile.open(archive_file, "r:{}".format(archive_format)) as archive:
                 archive.extractall(container)
         except ReadError:
             # The tarfile module sometimes has trouble with certain tar

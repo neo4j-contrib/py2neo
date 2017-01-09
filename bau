@@ -32,12 +32,11 @@ DOWN="${BAU_HOME}/.bau/down"
 LOG="${BAU_HOME}/.bau/log"
 RUN="${BAU_HOME}/.bau/run"
 
-NEOKIT="python -m neokit"
+NEOKIT="python3 -m neokit"
 NEOKIT_SERVER="bau"
 
-DEFAULT_USER="neo4j"
-DEFAULT_PASSWORD="neo4j"
-NEW_PASSWORD="password"
+USER="neo4j"
+PASSWORD="password"
 
 
 function install_dependencies {
@@ -82,17 +81,14 @@ function run_tests {
     for NEO4J_VERSION in ${NEO4J_VERSIONS}
     do
         print_version_banner ${NEO4J_VERSION}
-        ${NEOKIT} install ${NEOKIT_SERVER} ${NEO4J_VERSION}
+        DIST_HOST=dist.nige.tech ARCHIVE_FORMAT=xz ${NEOKIT} install ${NEOKIT_SERVER} ${NEO4J_VERSION}
         check_exit_status $?
 
         mkdir -p "${LOG}/${NEO4J_VERSION}" 2> /dev/null
 
-        echo "Updating password"
-        ${NEOKIT} update-password ${NEOKIT_SERVER} ${DEFAULT_USER} ${DEFAULT_PASSWORD} ${NEW_PASSWORD}
-
         echo ""
         export NEO4J_URI="http://localhost:7474/"
-        export NEO4J_AUTH="neo4j:${NEW_PASSWORD}"
+        export NEO4J_AUTH="${USER}:${PASSWORD}"
         ${NEOKIT} run ${NEOKIT_SERVER} ${BAU_HOME}/runtests.sh $*
         EXIT_STATUS=$?
 
