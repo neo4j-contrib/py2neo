@@ -34,17 +34,17 @@ class AuthorizationFailedTestCase(GraphTestCase):
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_get(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").get_json()
+            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").get_json("")
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_post(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").post({}, expected=(201,)).close()
+            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").post("", {}, expected=(201,)).close()
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_delete(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").delete(expected=(204,)).close()
+            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").delete("", expected=(204,)).close()
 
 
 class ServiceAddressTestCase(GraphTestCase):

@@ -187,7 +187,7 @@ class GraphService(object):
         return list(self)
 
     def _bean_dict(self, name):
-        info = self._jmx_remote.get_json()
+        info = remote(self).get_json("db/manage/server/jmx/domain/org.neo4j")
         raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
         d = {}
         for attribute in raw_config["attributes"]:
@@ -339,9 +339,7 @@ class Graph(object):
 
     _graph_service = None
 
-    __schema = None
-    __node_labels = None
-    __relationship_types = None
+    _schema = None
 
     def __new__(cls, *uris, **settings):
         database = settings.pop("database", "data")
@@ -595,9 +593,9 @@ class Graph(object):
 
         :param id_:
         """
-        resource = Remote("%snode/%s" % (remote(self).uri, id_))
+        entity_uri = "%snode/%s" % (remote(self).uri, id_)
         try:
-            return Node.cache[resource.uri]
+            return Node.cache[entity_uri]
         except KeyError:
             node = self.node_selector.select().where("id(_) = %d" % id_).first()
             if node is None:
@@ -609,9 +607,7 @@ class Graph(object):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        if self.__node_labels is None:
-            self.__node_labels = Remote(remote(self).uri + "labels")
-        return frozenset(self.__node_labels.get_json())
+        return frozenset(remote(self).get_json("labels"))
 
     def open_browser(self):
         """ Open a page in the default system web browser pointing at
@@ -648,9 +644,9 @@ class Graph(object):
 
         :param id_:
         """
-        resource = Remote("%srelationship/%s" % (remote(self).uri, id_))
+        entity_uri = "%srelationship/%s" % (remote(self).uri, id_)
         try:
-            return Relationship.cache[resource.uri]
+            return Relationship.cache[entity_uri]
         except KeyError:
             relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=id_)
             if relationship is None:
@@ -662,9 +658,7 @@ class Graph(object):
     def relationship_types(self):
         """ The set of relationship types currently defined within the graph.
         """
-        if self.__relationship_types is None:
-            self.__relationship_types = Remote(remote(self).uri + "relationship/types")
-        return frozenset(self.__relationship_types.get_json())
+        return frozenset(remote(self).get_json("relationship/types"))
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -691,61 +685,62 @@ class Graph(object):
 
         :rtype: :class:`Schema`
         """
-        if self.__schema is None:
-            self.__schema = Schema(remote(self).uri + "schema")
-        return self.__schema
+        if self._schema is None:
+            self._schema = Schema(self, "schema")
+        return self._schema
 
 
 class Schema(object):
     """ The schema resource attached to a `Graph` instance.
     """
 
-    def __init__(self, uri):
-        self._index_uri = uri + "/index/{label}"
-        self._index_key_uri = uri + "/index/{label}/{property_key}"
-        self._uniqueness_constraint_uri = uri + "/constraint/{label}/uniqueness"
-        self._uniqueness_constraint_key_uri = uri + "/constraint/{label}/uniqueness/{property_key}"
+    def __init__(self, graph, ref):
+        self.remote_graph = remote(graph)
+        self._index_ref = ref + "/index/{label}"
+        self._index_key_ref = ref + "/index/{label}/{property_key}"
+        self._uniqueness_constraint_ref = ref + "/constraint/{label}/uniqueness"
+        self._uniqueness_constraint_key_ref = ref + "/constraint/{label}/uniqueness/{property_key}"
 
     def create_index(self, label, property_key):
         """ Create a schema index for a label and property
         key combination.
         """
-        uri = self._index_uri.format(label=label)
-        Remote(uri).post({"property_keys": [property_key]}, expected=(OK,)).close()
+        ref = self._index_ref.format(label=label)
+        self.remote_graph.post(ref, {"property_keys": [property_key]}, expected=(OK,)).close()
 
     def create_uniqueness_constraint(self, label, property_key):
         """ Create a uniqueness constraint for a label.
         """
-        uri = self._uniqueness_constraint_uri.format(label=label)
-        Remote(uri).post({"property_keys": [property_key]}, expected=(OK,)).close()
+        ref = self._uniqueness_constraint_ref.format(label=label)
+        self.remote_graph.post(ref, {"property_keys": [property_key]}, expected=(OK,)).close()
 
     def drop_index(self, label, property_key):
         """ Remove label index for a given property key.
         """
-        uri = self._index_key_uri.format(label=label, property_key=property_key)
-        rs = Remote(uri).delete(expected=(NO_CONTENT, NOT_FOUND))
+        ref = self._index_key_ref.format(label=label, property_key=property_key)
+        rs = self.remote_graph.delete(ref, expected=(NO_CONTENT, NOT_FOUND))
         if rs.status == NOT_FOUND:
             raise GraphError("No such schema index (label=%r, key=%r)" % (label, property_key))
 
     def drop_uniqueness_constraint(self, label, property_key):
         """ Remove the uniqueness constraint for a given property key.
         """
-        uri = self._uniqueness_constraint_key_uri.format(label=label, property_key=property_key)
-        rs = Remote(uri).delete(expected=(NO_CONTENT, NOT_FOUND))
+        ref = self._uniqueness_constraint_key_ref.format(label=label, property_key=property_key)
+        rs = self.remote_graph.delete(ref, expected=(NO_CONTENT, NOT_FOUND))
         if rs.status == NOT_FOUND:
             raise GraphError("No such unique constraint (label=%r, key=%r)" % (label, property_key))
 
     def get_indexes(self, label):
         """ Fetch a list of indexed property keys for a label.
         """
-        uri = self._index_uri.format(label=label)
-        return [indexed["property_keys"][0] for indexed in Remote(uri).get_json()]
+        ref = self._index_ref.format(label=label)
+        return [indexed["property_keys"][0] for indexed in self.remote_graph.get_json(ref)]
 
     def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
-        uri = self._uniqueness_constraint_uri.format(label=label)
-        return [unique["property_keys"][0] for unique in Remote(uri).get_json()]
+        ref = self._uniqueness_constraint_ref.format(label=label)
+        return [unique["property_keys"][0] for unique in self.remote_graph.get_json(ref)]
 
 
 class Result(object):

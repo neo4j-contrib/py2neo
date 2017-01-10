@@ -94,7 +94,7 @@ class ClientErrorTestCase(GraphTestCase):
     def test_can_handle_400(self):
         resource = WebResource("http://localhost:7474/db/data/cypher")
         try:
-            resource.post({}, expected=(201,))
+            resource.post("", {}, expected=(201,))
         except GraphError as error:
             try:
                 self.assert_error(
@@ -107,9 +107,9 @@ class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_404(self):
         node_id = self.get_non_existent_node_id()
-        resource = WebResource("http://localhost:7474/db/data/node/%s" % node_id)
+        resource = WebResource("http://localhost:7474/db/data/")
         try:
-            resource.get_json()
+            resource.get_json("node/%s" % node_id)
         except GraphError as error:
             self.assert_error(
                 error, (GraphError,), "org.neo4j.server.rest.web.NodeNotFoundException")
@@ -124,7 +124,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_get(self):
         try:
-            self.non_existent_resource.get_json()
+            self.non_existent_resource.get_json("")
         except GraphError as error:
             assert error.http_status_code == 404
         else:
@@ -132,7 +132,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_post(self):
         try:
-            self.non_existent_resource.post({}, expected=(201,)).close()
+            self.non_existent_resource.post("", {}, expected=(201,)).close()
         except GraphError as error:
             assert error.http_status_code == 404
         else:
@@ -140,7 +140,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_delete(self):
         try:
-            self.non_existent_resource.delete(expected=(204,)).close()
+            self.non_existent_resource.delete("", expected=(204,)).close()
         except GraphError as error:
             assert error.http_status_code == 404
         else:

@@ -31,14 +31,14 @@ class GraphObjectTestCase(GraphTestCase):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri)
         assert remote(graph).uri == uri
-        index = remote(graph).get_json()
+        index = remote(graph).get_json("")
         assert "node" in index
 
     def test_can_create_graph_without_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
         graph = Graph(uri[:-1])
         assert remote(graph).uri == uri
-        index = remote(graph).get_json()
+        index = remote(graph).get_json("")
         assert "node" in index
 
     def test_same_uri_gives_same_instance(self):
