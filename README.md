@@ -32,7 +32,7 @@ Requirements
 The following versions of Python and Neo4j are supported:
 
 - Python 2.7 / 3.3 / 3.4 / 3.5 / 3.6
-- Neo4j 2.0 / 2.1 / 2.2 / 2.3 / 3.0 / 3.1 (the latest point release of each version is recommended)
+- Neo4j 2.2 / 2.3 / 3.0 / 3.1 (the latest point release of each version is recommended)
 
 Note also that Py2neo is developed and tested exclusively under Linux using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
