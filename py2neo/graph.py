@@ -363,13 +363,14 @@ class Graph(object):
         return Transaction(self, autocommit)
 
     def create(self, subgraph):
-        """ Run a :meth:`.Transaction.create` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.Transaction.create` operation within a
+        :class:`.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.begin(autocommit=True).create(subgraph)
+        with self.begin() as tx:
+            tx.create(subgraph)
 
     def data(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -555,7 +556,8 @@ class Graph(object):
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        self.begin(autocommit=True).merge(subgraph, label, *property_keys)
+        with self.begin() as tx:
+            tx.merge(subgraph, label, *property_keys)
 
     def node(self, id_):
         """ Fetch a node by ID. This method creates an object representing the
@@ -592,14 +594,16 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        self.begin(autocommit=True).pull(subgraph)
+        with self.begin() as tx:
+            tx.pull(subgraph)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        self.begin(autocommit=True).push(subgraph)
+        with self.begin() as tx:
+            tx.push(subgraph)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -823,6 +827,7 @@ class Transaction(object):
     def process(self):
         """ Send all pending statements to the server for processing.
         """
+        self._assert_unfinished()
         if self.transaction:
             self.transaction.sync()
         else:

@@ -247,7 +247,6 @@ class RelatedObjects(object):
         # 1. merge all nodes (create ones that don't)
         for related_object, _ in related_objects:
             tx.merge(related_object)
-        tx.process()
         # 2a. remove any relationships not in list of nodes
         subject_id = remote(self.node)._id
         tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
