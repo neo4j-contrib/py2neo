@@ -592,24 +592,14 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        try:
-            pull = subgraph.__db_pull__
-        except AttributeError:
-            raise TypeError("No method defined to pull object %r" % subgraph)
-        else:
-            pull(self)
+        self.begin(autocommit=True).pull(subgraph)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        try:
-            push = subgraph.__db_push__
-        except AttributeError:
-            raise TypeError("No method defined to push object %r" % subgraph)
-        else:
-            push(self)
+        self.begin(autocommit=True).push(subgraph)
 
     def relationship(self, id_):
         """ Fetch a relationship by ID.
@@ -979,6 +969,32 @@ class Transaction(object):
             raise TypeError("No method defined to merge object %r" % subgraph)
         else:
             merge(self, primary_label, primary_key)
+
+    def pull(self, subgraph):
+        """ TODO
+
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
+        try:
+            pull = subgraph.__db_pull__
+        except AttributeError:
+            raise TypeError("No method defined to pull object %r" % subgraph)
+        else:
+            return pull(self)
+
+    def push(self, subgraph):
+        """ TODO
+
+        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                       :class:`.Subgraph`
+        """
+        try:
+            push = subgraph.__db_push__
+        except AttributeError:
+            raise TypeError("No method defined to push object %r" % subgraph)
+        else:
+            return push(self)
 
     def separate(self, subgraph):
         """ Delete the remote relationships that correspond to those in a local

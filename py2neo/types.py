@@ -439,10 +439,9 @@ class Subgraph(object):
         tx.entities.append(returns)
         list(tx.run(statement, parameters))
 
-    def __db_pull__(self, graph):
+    def __db_pull__(self, tx):
         nodes = {node: None for node in self.nodes()}
         relationships = list(self.relationships())
-        tx = graph.begin()
         for node in nodes:
             tx.entities.append({"_": node})
             cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=remote(node)._id)
@@ -450,7 +449,6 @@ class Subgraph(object):
         for relationship in relationships:
             tx.entities.append({"_": relationship})
             list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=remote(relationship)._id))
-        tx.commit()
         for node, cursor in nodes.items():
             new_labels = cursor.evaluate(1)
             if new_labels:
@@ -459,9 +457,9 @@ class Subgraph(object):
                 labels.clear()
                 labels.update(new_labels)
 
-    def __db_push__(self, graph):
+    def __db_push__(self, tx):
+        # TODO: reimplement this when REMOVE a:* is available in Cypher
         from py2neo.cypher import cypher_escape
-        tx = graph.begin()
         for node in self.nodes():
             remote_node = remote(node)
             if remote_node:
@@ -480,7 +478,6 @@ class Subgraph(object):
                 clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
                 parameters = {"x": remote_relationship._id, "y": dict(relationship)}
                 tx.run("\n".join(clauses), parameters)
-        tx.commit()
 
     def __db_separate__(self, tx):
         matches = []

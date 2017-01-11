@@ -157,7 +157,8 @@ class RelatedObjects(object):
             self.__related_objects = []
             remote_node = remote(self.node)
             if remote_node:
-                self.__db_pull__(remote_node.graph)
+                with remote_node.graph.begin() as tx:
+                    self.__db_pull__(tx)
         return self.__related_objects
 
     def add(self, obj, properties=None, **kwproperties):
@@ -222,9 +223,9 @@ class RelatedObjects(object):
         if not added:
             related_objects.append((obj, properties))
 
-    def __db_pull__(self, graph):
+    def __db_pull__(self, tx):
         related_objects = {}
-        for r in graph.match(*self.__match_args):
+        for r in tx.graph.match(*self.__match_args):
             nodes = []
             n = self.node
             a = r.start_node()
@@ -241,9 +242,8 @@ class RelatedObjects(object):
                 related_objects[node] = (related_object, PropertyDict(r))
         self._related_objects[:] = related_objects.values()
 
-    def __db_push__(self, graph):
+    def __db_push__(self, tx):
         related_objects = self._related_objects
-        tx = graph.begin()
         # 1. merge all nodes (create ones that don't)
         for related_object, _ in related_objects:
             tx.merge(related_object)
@@ -257,7 +257,6 @@ class RelatedObjects(object):
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE %s SET _ = {z}" % self.__relationship_pattern,
                    x=subject_id, y=remote(related_object.__ogm__.node)._id, z=properties)
-        tx.commit()
 
 
 class OGM(object):
@@ -378,8 +377,6 @@ class GraphObject(object):
             related_objects.clear()
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        # TODO make atomic
-        graph = tx.graph
         ogm = self.__ogm__
         node = ogm.node
         if primary_label is None:
@@ -389,35 +386,35 @@ class GraphObject(object):
         if not remote(node):
             if primary_key == "__id__":
                 node.add_label(primary_label)
-                graph.create(node)
+                tx.create(node)
             else:
-                graph.merge(node, primary_label, primary_key)
+                tx.merge(node, primary_label, primary_key)
             for related_objects in ogm.related.values():
-                related_objects.__db_push__(graph)
+                related_objects.__db_push__(tx)
 
-    def __db_pull__(self, graph):
+    def __db_pull__(self, tx):
         ogm = self.__ogm__
         if not remote(ogm.node):
-            selector = GraphObjectSelector(self.__class__, graph)
+            selector = GraphObjectSelector(self.__class__, tx.graph)
             selector._selection_class = NodeSelection
             ogm.node = selector.select(self.__primaryvalue__).first()
-        graph.pull(ogm.node)
+        tx.pull(ogm.node)
         for related_objects in ogm.related.values():
-            related_objects.__db_pull__(graph)
+            related_objects.__db_pull__(tx)
 
-    def __db_push__(self, graph):
+    def __db_push__(self, tx):
         ogm = self.__ogm__
         node = ogm.node
         if remote(node):
-            graph.push(node)
+            tx.push(node)
         else:
             primary_key = getattr(node, "__primarykey__", "__id__")
             if primary_key == "__id__":
-                graph.create(node)
+                tx.create(node)
             else:
-                graph.merge(node)
+                tx.merge(node)
         for related_objects in ogm.related.values():
-            related_objects.__db_push__(graph)
+            related_objects.__db_push__(tx)
 
 
 class GraphObjectSelection(NodeSelection):
