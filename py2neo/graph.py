@@ -53,34 +53,6 @@ update_stats_keys = [
 ]
 
 
-def normalise_request(statement, parameters, **kwparameters):
-
-    s = ustr(statement)
-    p = {}
-
-    def add_parameters(params):
-        if params:
-            for k, v in dict(params).items():
-                if isinstance(v, tuple):
-                    v = list(v)
-                p[k] = v
-
-    add_parameters(dict(parameters or {}, **kwparameters))
-    return s, p
-
-
-def cypher_request(statement, parameters, **kwparameters):
-    s, p = normalise_request(statement, parameters, **kwparameters)
-
-    # OrderedDict is used here to avoid statement/parameters ordering bug
-    return OrderedDict([
-        ("statement", s),
-        ("parameters", p),
-        ("resultDataContents", ["REST"]),
-        ("includeStats", True),
-    ])
-
-
 class GraphService(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the root URI in
