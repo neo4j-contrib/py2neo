@@ -20,7 +20,7 @@ from unittest import skipUnless
 
 from py2neo.addressing import GraphServiceAddress, register_graph_service, keyring, authenticate
 from py2neo.graph import GraphService, Unauthorized
-from py2neo.http import WebResource
+from py2neo.http import HTTP
 
 from test.util import GraphTestCase
 
@@ -34,17 +34,17 @@ class AuthorizationFailedTestCase(GraphTestCase):
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_get(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").get_json("")
+            _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").get_json("")
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_post(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").post("", {}, expected=(201,)).close()
+            _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").post("", {}, expected=(201,)).close()
 
     @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_delete(self):
         with self.assertRaises(Unauthorized):
-            _ = WebResource("http://foo:bar@127.0.0.1:7474/db/data/").delete("", expected=(204,)).close()
+            _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").delete("", expected=(204,)).close()
 
 
 class ServiceAddressTestCase(GraphTestCase):

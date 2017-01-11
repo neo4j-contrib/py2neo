@@ -19,7 +19,7 @@
 from mock import patch, MagicMock, Mock
 
 from py2neo.graph import GraphError
-from py2neo.http import WebResource, NOT_FOUND
+from py2neo.http import HTTP, NOT_FOUND
 from py2neo.status import ConstraintError
 from py2neo.types import Node, cast_node
 
@@ -102,13 +102,13 @@ class SchemaTestCase(GraphTestCase):
     def test_drop_index_handles_404_errors_correctly(self):
         mocked = Mock()
         mocked.status = NOT_FOUND
-        with patch.object(WebResource, "delete", return_value=mocked):
+        with patch.object(HTTP, "delete", return_value=mocked):
             with self.assertRaises(GraphError):
                 self.schema.drop_index("Person", "name")
 
     def test_drop_unique_constraint_handles_404_errors_correctly(self):
         mocked = Mock()
         mocked.status = NOT_FOUND
-        with patch.object(WebResource, "delete", return_value=mocked):
+        with patch.object(HTTP, "delete", return_value=mocked):
             with self.assertRaises(GraphError):
                 self.schema.drop_uniqueness_constraint("Person", "name")

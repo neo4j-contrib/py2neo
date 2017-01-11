@@ -143,6 +143,70 @@ def raise_error(uri, status_code, data):
     raise error
 
 
+class HTTP(object):
+    """ Wrapper for HTTP method calls.
+    """
+
+    def __init__(self, uri):
+        self.uri = uri
+        parts = urlsplit(uri)
+        scheme = parts.scheme
+        host = parts.hostname
+        port = parts.port
+        self.path = parts.path
+        self._http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
+        self._request = http.request
+        self._headers = get_http_headers(scheme, host, port)
+
+    def __del__(self):
+        self.close()
+
+    def __eq__(self, other):
+        try:
+            return self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def get_json(self, ref):
+        """ Perform an HTTP GET to this resource and return JSON.
+        """
+        rs = self._request("GET", self.path + ref, headers=self._headers)
+        try:
+            if rs.status == 200:
+                return json_loads(rs.data.decode('utf-8'))
+            else:
+                raise_error(self.uri, rs.status, rs.data)
+        finally:
+            rs.close()
+
+    def post(self, ref, json, expected):
+        """ Perform an HTTP POST to this resource.
+        """
+        headers = dict(self._headers)
+        if json is not None:
+            headers["Content-Type"] = "application/json"
+            json = json_dumps(json).encode('utf-8')
+        rs = self._request("POST", self.path + ref, headers=self._headers, body=json)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
+
+    def delete(self, ref, expected):
+        """ Perform an HTTP DELETE to this resource.
+        """
+        rs = self._request("DELETE", self.path + ref, headers=self._headers)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
+
+    def close(self):
+        if self._http and self._http.pool:
+            self._http.close()
+
+
 class HTTPDriver(Driver):
 
     _graph_service = None
@@ -300,71 +364,7 @@ class HTTPStatementResult(StatementResult):
         result_loader.fail = fail
 
 
-class WebResource(object):
-    """ Base class for all local resources mapped to remote counterparts.
-    """
-
-    def __init__(self, uri):
-        self.uri = uri
-        parts = urlsplit(uri)
-        scheme = parts.scheme
-        host = parts.hostname
-        port = parts.port
-        self.path = parts.path
-        self.http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
-        self.request = http.request
-        self.headers = get_http_headers(scheme, host, port)
-
-    def __del__(self):
-        self.close()
-
-    def __eq__(self, other):
-        try:
-            return self.uri == other.uri
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def get_json(self, ref):
-        """ Perform an HTTP GET to this resource and return JSON.
-        """
-        rs = self.request("GET", self.path + ref, headers=self.headers)
-        try:
-            if rs.status == 200:
-                return json_loads(rs.data.decode('utf-8'))
-            else:
-                raise_error(self.uri, rs.status, rs.data)
-        finally:
-            rs.close()
-
-    def post(self, ref, body, expected):
-        """ Perform an HTTP POST to this resource.
-        """
-        headers = dict(self.headers)
-        if body is not None:
-            headers["Content-Type"] = "application/json"
-            body = json_dumps(body).encode('utf-8')
-        rs = self.request("POST", self.path + ref, headers=self.headers, body=body)
-        if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
-        return rs
-
-    def delete(self, ref, expected):
-        """ Perform an HTTP DELETE to this resource.
-        """
-        rs = self.request("DELETE", self.path + ref, headers=self.headers)
-        if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
-        return rs
-
-    def close(self):
-        if self.http and self.http.pool:
-            self.http.close()
-
-
-class Remote(WebResource):
+class Remote(HTTP):
 
     _graph_service = None
     _ref = None
@@ -372,7 +372,7 @@ class Remote(WebResource):
     _entity_id = None
 
     def __init__(self, uri):
-        WebResource.__init__(self, uri)
+        HTTP.__init__(self, uri)
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, self.uri)
