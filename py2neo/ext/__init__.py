@@ -29,7 +29,7 @@ class UnmanagedExtension(object):
         dbms_uri = remote(self.graph.graph_service).uri
         self.remote = Remote(dbms_uri.rstrip("/") + path)
         try:
-            self.remote.get_json()
+            self.remote.get_json("")
         except GraphError:
             raise NotImplementedError("No extension found at path %r on "
                                       "graph <%s>" % (path, remote(self.graph).uri))

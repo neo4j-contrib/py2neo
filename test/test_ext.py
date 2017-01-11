@@ -37,7 +37,7 @@ class NaughtyExtension(UnmanagedExtension):
 class UnmanagedExtensionTestCase(GraphTestCase):
 
     def test_can_init_unmanaged_extension(self):
-        with patch("py2neo.http.WebResource.get_json"):
+        with patch("py2neo.http.HTTP.get_json"):
             plugin = FakeExtension(self.graph)
             assert plugin.remote.uri == "http://localhost:7474/fake/"
 

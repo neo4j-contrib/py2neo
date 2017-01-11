@@ -22,7 +22,7 @@ from unittest import TestCase
 from neo4j.v1 import GraphDatabase
 
 from py2neo.graph import GraphService, GraphError, CypherSyntaxError
-from py2neo.http import set_http_header, get_http_headers, WebResource
+from py2neo.http import set_http_header, get_http_headers, HTTP
 from py2neo.types import Node
 
 from test.util import GraphTestCase
@@ -92,9 +92,9 @@ class HeaderTestCase(GraphTestCase):
 class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_400(self):
-        resource = WebResource("http://localhost:7474/db/data/cypher")
+        resource = HTTP("http://localhost:7474/db/data/cypher")
         try:
-            resource.post({}, expected=(201,))
+            resource.post("", {}, expected=(201,))
         except GraphError as error:
             try:
                 self.assert_error(
@@ -107,9 +107,9 @@ class ClientErrorTestCase(GraphTestCase):
 
     def test_can_handle_404(self):
         node_id = self.get_non_existent_node_id()
-        resource = WebResource("http://localhost:7474/db/data/node/%s" % node_id)
+        resource = HTTP("http://localhost:7474/db/data/")
         try:
-            resource.get_json()
+            resource.get_json("node/%s" % node_id)
         except GraphError as error:
             self.assert_error(
                 error, (GraphError,), "org.neo4j.server.rest.web.NodeNotFoundException")
@@ -120,11 +120,11 @@ class ClientErrorTestCase(GraphTestCase):
 class ServerErrorTestCase(GraphTestCase):
 
     def setUp(self):
-        self.non_existent_resource = WebResource("http://localhost:7474/db/data/x")
+        self.non_existent_resource = HTTP("http://localhost:7474/db/data/x")
 
     def test_can_handle_json_error_from_get(self):
         try:
-            self.non_existent_resource.get_json()
+            self.non_existent_resource.get_json("")
         except GraphError as error:
             assert error.http_status_code == 404
         else:
@@ -132,7 +132,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_post(self):
         try:
-            self.non_existent_resource.post({}, expected=(201,)).close()
+            self.non_existent_resource.post("", {}, expected=(201,)).close()
         except GraphError as error:
             assert error.http_status_code == 404
         else:
@@ -140,7 +140,7 @@ class ServerErrorTestCase(GraphTestCase):
 
     def test_can_handle_json_error_from_delete(self):
         try:
-            self.non_existent_resource.delete(expected=(204,)).close()
+            self.non_existent_resource.delete("", expected=(204,)).close()
         except GraphError as error:
             assert error.http_status_code == 404
         else:
@@ -150,13 +150,13 @@ class ServerErrorTestCase(GraphTestCase):
 class ResourceTestCase(TestCase):
 
     def test_similar_resources_should_be_equal(self):
-        r1 = WebResource("http://localhost:7474/db/data/node/1")
-        r2 = WebResource("http://localhost:7474/db/data/node/1")
+        r1 = HTTP("http://localhost:7474/db/data/node/1")
+        r2 = HTTP("http://localhost:7474/db/data/node/1")
         assert r1 == r2
 
     def test_different_resources_should_be_unequal(self):
-        r1 = WebResource("http://localhost:7474/db/data/node/1")
-        r2 = WebResource("http://localhost:7474/db/data/node/2")
+        r1 = HTTP("http://localhost:7474/db/data/node/1")
+        r2 = HTTP("http://localhost:7474/db/data/node/2")
         assert r1 != r2
 
 

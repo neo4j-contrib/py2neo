@@ -143,6 +143,70 @@ def raise_error(uri, status_code, data):
     raise error
 
 
+class HTTP(object):
+    """ Wrapper for HTTP method calls.
+    """
+
+    def __init__(self, uri):
+        self.uri = uri
+        parts = urlsplit(uri)
+        scheme = parts.scheme
+        host = parts.hostname
+        port = parts.port
+        self.path = parts.path
+        self._http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
+        self._request = http.request
+        self._headers = get_http_headers(scheme, host, port)
+
+    def __del__(self):
+        self.close()
+
+    def __eq__(self, other):
+        try:
+            return self.uri == other.uri
+        except AttributeError:
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def get_json(self, ref):
+        """ Perform an HTTP GET to this resource and return JSON.
+        """
+        rs = self._request("GET", self.path + ref, headers=self._headers)
+        try:
+            if rs.status == 200:
+                return json_loads(rs.data.decode('utf-8'))
+            else:
+                raise_error(self.uri, rs.status, rs.data)
+        finally:
+            rs.close()
+
+    def post(self, ref, json, expected):
+        """ Perform an HTTP POST to this resource.
+        """
+        headers = dict(self._headers)
+        if json is not None:
+            headers["Content-Type"] = "application/json"
+            json = json_dumps(json).encode('utf-8')
+        rs = self._request("POST", self.path + ref, headers=self._headers, body=json)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
+
+    def delete(self, ref, expected):
+        """ Perform an HTTP DELETE to this resource.
+        """
+        rs = self._request("DELETE", self.path + ref, headers=self._headers)
+        if rs.status not in expected:
+            raise_error(self.uri, rs.status, rs.data)
+        return rs
+
+    def close(self):
+        if self._http and self._http.pool:
+            self._http.close()
+
+
 class HTTPDriver(Driver):
 
     _graph_service = None
@@ -178,30 +242,25 @@ class HTTPResultLoader(object):
 
 class HTTPSession(Session):
 
-    #: e.g. http://localhost:7474/db/data/transaction
-    begin_path = None
+    begin_ref = "transaction"
 
-    #: e.g. http://localhost:7474/db/data/transaction/commit
-    autocommit_path = None
+    autocommit_ref = "transaction/commit"
 
-    #: e.g. http://localhost:7474/db/data/transaction/1
-    transaction_path = None
+    transaction_ref = None      # e.g. "transaction/1"
 
-    #: e.g. http://localhost:7474/db/data/transaction/1/commit
-    commit_path = None
+    commit_ref = None           # e.g. "transaction/1/commit"
 
     def __init__(self, graph):
         self.graph = graph
-        self.resource = WebResource(graph.transaction_uri)
-        self.begin_path = "/db/data/transaction"
-        self.autocommit_path = "%s/commit" % self.begin_path
-        self.resource.path = self.autocommit_path
+        remote_graph = remote(graph)
+        self.post = remote_graph.post
+        self.delete = remote_graph.delete
+        self.ref = self.autocommit_ref
         self._statements = []
         self._result_loaders = []
 
     def close(self):
         super(HTTPSession, self).close()
-        self.resource.close()
 
     def run(self, statement, parameters=None, **kwparameters):
         self._statements.append(OrderedDict([
@@ -218,19 +277,20 @@ class HTTPSession(Session):
         return self.sync()
 
     def sync(self):
-        path = self.resource.path
+        ref = self.ref
         # Some of the transactional URIs do not support empty statement
         # lists in versions earlier than 2.3. Which doesn't really matter
         # as it's a waste sending anything anyway.
-        if path in (self.autocommit_path, self.begin_path, self.transaction_path) and not self._statements:
+        if ref in (self.autocommit_ref, self.begin_ref, self.transaction_ref) and not self._statements:
             return 0
         count = 0
         try:
-            response = self.resource.post({"statements": self._statements}, expected=(OK, CREATED))
+            response = self.post(ref, {"statements": self._statements}, expected=(OK, CREATED))
             if response.status == 201:
-                self.transaction_path = urlsplit(response.headers["Location"]).path
-                self.commit_path = "%s/commit" % self.transaction_path
-                self.resource.path = self.transaction_path
+                location_path = urlsplit(response.headers["Location"]).path
+                self.transaction_ref = "".join(location_path.rpartition("transaction")[1:])
+                self.commit_ref = "%s/commit" % self.transaction_ref
+                self.ref = self.transaction_ref
             content = json_loads(response.data.decode("utf-8"))
             errors = content["errors"]
             if errors:
@@ -248,27 +308,27 @@ class HTTPSession(Session):
 
     def begin_transaction(self, bookmark=None):
         transaction = super(HTTPSession, self).begin_transaction(bookmark)
-        self.resource.path = self.begin_path
+        self.ref = self.begin_ref
         return transaction
 
     def commit_transaction(self):
         super(HTTPSession, self).commit_transaction()
-        self.resource.path = self.commit_path or self.autocommit_path
+        self.ref = self.commit_ref or self.autocommit_ref
         try:
             self.sync()
         finally:
-            self.commit_path = self.transaction_path = None
-            self.resource.path = self.autocommit_path
+            self.commit_ref = self.transaction_ref = None
+            self.ref = self.autocommit_ref
 
     def rollback_transaction(self):
         super(HTTPSession, self).rollback_transaction()
         try:
-            if self.transaction_path:
-                self.resource.path = self.transaction_path
-                self.resource.delete(expected=(OK, NOT_FOUND))
+            if self.transaction_ref:
+                self.ref = self.transaction_ref
+                self.delete(self.ref, expected=(OK, NOT_FOUND))
         finally:
-            self.commit_path = self.transaction_path = None
-            self.resource.path = self.autocommit_path
+            self.commit_ref = self.transaction_ref = None
+            self.ref = self.autocommit_ref
 
 
 class HTTPStatementResult(StatementResult):
@@ -304,71 +364,7 @@ class HTTPStatementResult(StatementResult):
         result_loader.fail = fail
 
 
-class WebResource(object):
-    """ Base class for all local resources mapped to remote counterparts.
-    """
-
-    def __init__(self, uri):
-        self.uri = uri
-        parts = urlsplit(uri)
-        scheme = parts.scheme
-        host = parts.hostname
-        port = parts.port
-        self.path = parts.path
-        self.http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
-        self.request = http.request
-        self.headers = get_http_headers(scheme, host, port)
-
-    def __del__(self):
-        self.close()
-
-    def __eq__(self, other):
-        try:
-            return self.uri == other.uri
-        except AttributeError:
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def get_json(self):
-        """ Perform an HTTP GET to this resource and return JSON.
-        """
-        rs = self.request("GET", self.path, headers=self.headers)
-        try:
-            if rs.status == 200:
-                return json_loads(rs.data.decode('utf-8'))
-            else:
-                raise_error(self.uri, rs.status, rs.data)
-        finally:
-            rs.close()
-
-    def post(self, body, expected):
-        """ Perform an HTTP POST to this resource.
-        """
-        headers = dict(self.headers)
-        if body is not None:
-            headers["Content-Type"] = "application/json"
-            body = json_dumps(body).encode('utf-8')
-        rs = self.request("POST", self.path, headers=self.headers, body=body)
-        if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
-        return rs
-
-    def delete(self, expected):
-        """ Perform an HTTP DELETE to this resource.
-        """
-        rs = self.request("DELETE", self.path, headers=self.headers)
-        if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
-        return rs
-
-    def close(self):
-        if self.http and self.http.pool:
-            self.http.close()
-
-
-class Remote(WebResource):
+class Remote(HTTP):
 
     _graph_service = None
     _ref = None
@@ -376,7 +372,7 @@ class Remote(WebResource):
     _entity_id = None
 
     def __init__(self, uri):
-        WebResource.__init__(self, uri)
+        HTTP.__init__(self, uri)
 
     def __repr__(self):
         return "<%s uri=%r>" % (self.__class__.__name__, self.uri)
