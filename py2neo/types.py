@@ -444,41 +444,43 @@ class Subgraph(object):
         relationships = list(self.relationships())
         tx = graph.begin()
         for node in nodes:
-            tx.entities.append({"a": node})
-            cursor = tx.run("MATCH (a) WHERE id(a)={x} RETURN a, labels(a)", x=remote(node)._id)
+            tx.entities.append({"_": node})
+            cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=remote(node)._id)
             nodes[node] = cursor
         for relationship in relationships:
-            tx.entities.append({"r": relationship})
-            list(tx.run("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=remote(relationship)._id))
+            tx.entities.append({"_": relationship})
+            list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=remote(relationship)._id))
         tx.commit()
         for node, cursor in nodes.items():
-            labels = node._Node__labels
-            labels.clear()
-            labels.update(cursor.evaluate(1))
+            new_labels = cursor.evaluate(1)
+            if new_labels:
+                node._Node__remote_labels = frozenset(new_labels)
+                labels = node._Node__labels
+                labels.clear()
+                labels.update(new_labels)
 
     def __db_push__(self, graph):
-        # TODO: convert this to transactional Cypher when delete/replace all labels is supported
-        batch = []
-        i = 0
+        from py2neo.cypher import cypher_escape
+        tx = graph.begin()
         for node in self.nodes():
             remote_node = remote(node)
             if remote_node:
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote_node.ref,
-                              "body": dict(node)})
-                i += 1
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/labels" % remote_node.ref,
-                              "body": list(node.labels())})
-                i += 1
+                clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
+                parameters = {"x": remote_node._id, "y": dict(node)}
+                old_labels = node._Node__remote_labels - node._Node__labels
+                if old_labels:
+                    clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
+                new_labels = node._Node__labels - node._Node__remote_labels
+                if new_labels:
+                    clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
+                tx.run("\n".join(clauses), parameters)
         for relationship in self.relationships():
             remote_relationship = remote(relationship)
             if remote_relationship:
-                batch.append({"id": i, "method": "PUT",
-                              "to": "%s/properties" % remote_relationship.ref,
-                              "body": dict(relationship)})
-                i += 1
-        remote(graph).post("batch", batch, expected=(200,)).close()
+                clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
+                parameters = {"x": remote_relationship._id, "y": dict(relationship)}
+                tx.run("\n".join(clauses), parameters)
+        tx.commit()
 
     def __db_separate__(self, tx):
         matches = []
@@ -813,11 +815,13 @@ class Node(Relatable, Entity):
         if "metadata" in rest:
             inst.__stale.discard("labels")
             metadata = rest["metadata"]
+            inst.__remote_labels = frozenset(metadata["labels"])
             inst.clear_labels()
             inst.update_labels(metadata["labels"])
         return inst
 
     def __init__(self, *labels, **properties):
+        self.__remote_labels = frozenset()
         self.__labels = set(labels)
         Entity.__init__(self, (self,), properties)
         self.__stale = set()

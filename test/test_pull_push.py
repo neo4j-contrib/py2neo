@@ -174,3 +174,70 @@ class PushTestCase(GraphTestCase):
         assert ab_amount == "lots"
         assert bc_amount == "some"
         assert cd_since == 1999
+
+    def assert_has_labels(self, node_id, expected):
+        actual = self.graph.evaluate("MATCH (_) WHERE id(_) = {x} return labels(_)", x=node_id)
+        assert set(actual) == set(expected)
+
+    def test_should_push_no_labels_onto_no_labels(self):
+        node = Node()
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {})
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {})
+
+    def test_should_push_no_labels_onto_one_label(self):
+        node = Node("A")
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {"A"})
+        node.clear_labels()
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {})
+
+    def test_should_push_one_label_onto_no_labels(self):
+        node = Node()
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {})
+        node.add_label("A")
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {"A"})
+
+    def test_should_push_one_label_onto_same_label(self):
+        node = Node("A")
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {"A"})
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {"A"})
+
+    def test_should_push_one_additional_label(self):
+        node = Node("A")
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {"A"})
+        node.add_label("B")
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {"A", "B"})
+
+    def test_should_push_one_label_onto_different_label(self):
+        node = Node("A")
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {"A"})
+        node.clear_labels()
+        node.add_label("B")
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {"B"})
+
+    def test_should_push_multiple_labels_with_overlap(self):
+        node = Node("A", "B")
+        self.graph.create(node)
+        node_id = remote(node)._id
+        self.assert_has_labels(node_id, {"A", "B"})
+        node.remove_label("A")
+        node.add_label("C")
+        self.graph.push(node)
+        self.assert_has_labels(node_id, {"B", "C"})
