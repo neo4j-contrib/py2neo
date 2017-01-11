@@ -29,12 +29,40 @@ DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 
 
+class SimpleCompleter(object):
+
+    matches = None
+
+    def __init__(self, options):
+        self.keywords = sorted(options)
+        return
+
+    def complete(self, text, state):
+        if state == 0:
+            # This is the first time for this text, so build a match list.
+            if text:
+                self.matches = [keyword
+                                for keyword in self.keywords
+                                if keyword and keyword.startswith(text.upper())]
+            else:
+                self.matches = self.keywords[:]
+
+        # Return the state'th item from the match list,
+        # if we have that many.
+        try:
+            response = self.matches[state] + " "
+        except IndexError:
+            response = None
+        return response
+
+
 class Console(InteractiveConsole):
 
     def __init__(self, hist_file=DEFAULT_HISTORY_FILE):
         super(Console, self).__init__()
         self.init_history(hist_file)
         self.graph = Graph(password="password")
+        readline.set_completer(SimpleCompleter(["CREATE", "MERGE", "MATCH", "RETURN", "OPTIONAL"]).complete)
 
     def init_history(self, history_file):
         readline.parse_and_bind("tab: complete")
@@ -43,11 +71,12 @@ class Console(InteractiveConsole):
                 readline.read_history_file(history_file)
             except IOError:
                 pass
-            atexit.register(self.save_history, history_file)
 
-    def save_history(self, history_file):
-        readline.set_history_length(1000)
-        readline.write_history_file(history_file)
+            def save_history():
+                readline.set_history_length(1000)
+                readline.write_history_file(history_file)
+
+            atexit.register(save_history)
 
     def interact(self, banner=None, exitmsg=None):
         super(Console, self).interact(banner or DEFAULT_BANNER, exitmsg or DEFAULT_EXIT_MESSAGE)
