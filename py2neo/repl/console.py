@@ -20,11 +20,12 @@ import atexit
 from code import InteractiveConsole
 import readline
 import os.path
+from sys import stderr
 
 from py2neo import Graph
 
 
-DEFAULT_BANNER = "Py2neo Console"
+DEFAULT_BANNER = "Py2neo Console\n"
 DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 
@@ -82,5 +83,6 @@ class Console(InteractiveConsole):
         super(Console, self).interact(banner or DEFAULT_BANNER, exitmsg or DEFAULT_EXIT_MESSAGE)
 
     def push(self, line):
-        self.graph.run(line).dump()
+        self.graph.run(line).dump(stderr)
+        stderr.write("\n")
         return 0
