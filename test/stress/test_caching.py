@@ -16,9 +16,13 @@
 # limitations under the License.
 
 
-from unittest import TestCase
+from platform import python_implementation
+from unittest import TestCase, skipIf
 
 from py2neo.internal.caching import ThreadLocalEntityCache
+
+
+IMPLEMENTATION = python_implementation()
 
 
 class Entity(object):
@@ -107,6 +111,7 @@ class EntityCacheTestCase(TestCase):
         # Then the key should no longer exist in the cache
         assert key not in cache._dict
 
+    @skipIf(IMPLEMENTATION == "PyPy", "Test not supported in PyPy yet")
     def test_implicit_removal_by_value_deletion(self):
         # Given
         cache = ThreadLocalEntityCache()
@@ -120,6 +125,7 @@ class EntityCacheTestCase(TestCase):
         # Then the key should no longer exist in the cache
         assert key not in cache._dict
 
+    @skipIf(IMPLEMENTATION == "PyPy", "Test not supported in PyPy yet")
     def test_threaded_usage(self):
         from random import choice, randint
         from threading import Event, Lock, Thread
