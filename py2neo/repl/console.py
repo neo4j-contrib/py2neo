@@ -22,7 +22,8 @@ import readline
 import os.path
 from sys import stderr
 
-from py2neo import Graph
+from py2neo.cypher.lang import keywords
+from py2neo.graph import Graph
 
 
 DEFAULT_BANNER = "Py2neo Console\n"
@@ -63,7 +64,7 @@ class Console(InteractiveConsole):
         super(Console, self).__init__()
         self.init_history(hist_file)
         self.graph = Graph(password="password")
-        readline.set_completer(SimpleCompleter(["CREATE", "MERGE", "MATCH", "RETURN", "OPTIONAL"]).complete)
+        readline.set_completer(SimpleCompleter(keywords).complete)
 
     def init_history(self, history_file):
         readline.parse_and_bind("tab: complete")
