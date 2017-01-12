@@ -61,7 +61,7 @@ class SimpleCompleter(object):
 class Console(InteractiveConsole):
 
     def __init__(self, hist_file=DEFAULT_HISTORY_FILE):
-        super(Console, self).__init__()
+        InteractiveConsole.__init__(self)
         self.init_history(hist_file)
         self.graph = Graph(password="password")
         readline.set_completer(SimpleCompleter(keywords).complete)
@@ -80,8 +80,8 @@ class Console(InteractiveConsole):
 
             atexit.register(save_history)
 
-    def interact(self, banner=None, exitmsg=None):
-        super(Console, self).interact(banner or DEFAULT_BANNER, exitmsg or DEFAULT_EXIT_MESSAGE)
+    def interact(self, banner=None):
+        InteractiveConsole.interact(self, banner or DEFAULT_BANNER)
 
     def push(self, line):
         self.graph.run(line).dump(stderr)
