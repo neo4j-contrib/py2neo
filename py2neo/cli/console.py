@@ -27,10 +27,10 @@ from sys import stderr
 
 from neo4j.v1 import ServiceUnavailable
 
-from py2neo import GraphService, Unauthorized, __version__ as py2neo_version
-from py2neo.cypher.lang import keywords
+from py2neo import GraphService, Unauthorized, __version__ as py2neo_version, CypherSyntaxError
+from py2neo.cypher.lang import keywords, first_words
 
-from .colour import bright_green, blue, bright_blue
+from .colour import bright_blue, cyan, bright_yellow, blue, bright_green, green
 
 WELCOME = """\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
@@ -40,6 +40,8 @@ Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
     python_version=python_version(),
     system=system(),
 )
+HTTP = "H"
+BOLT = "⚡"
 DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 
@@ -83,15 +85,17 @@ class Console(InteractiveConsole):
         user = getenv("NEO4J_USER", "neo4j")
         password = getenv("NEO4J_PASSWORD")
         while self.graph_service is None:
-            graph_service = GraphService(user=user, password=password)
+            graph_service = GraphService(bolt=True, user=user, password=password)
             try:
                 _ = graph_service.kernel_version
             except Unauthorized:
-                password = getpass()
+                stderr.write("\n")
+                password = getpass("Enter password for %s at %s: " % (user, graph_service.address.host))
             except ServiceUnavailable:
-                stderr.write("Cannot connect to database service\n")
+                stderr.write("Cannot connect to %s\n" % graph_service.address.host)
                 exit(1)
             else:
+                stderr.write("Connected to %s" % graph_service.address.host)
                 self.graph_service = graph_service
                 self.graph = graph_service.graph
 
@@ -112,14 +116,40 @@ class Console(InteractiveConsole):
     def interact(self, banner=""):
         InteractiveConsole.interact(self, banner)
 
-    def push(self, line):
-        self.graph.run(line).dump(stderr)
-        stderr.write("\n")
+    def runsource(self, source, filename="<input>", symbol="single"):
+        if not source:
+            return 0
+
+        words = source.strip().split()
+        first_word = words[0]
+        if first_word.upper() in first_words:
+            try:
+                return self.run_cypher_source(source)
+            except CypherSyntaxError as error:
+                message = error.args[0]
+                if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
+                    return 1
+                else:
+                    stderr.write("Syntax Error: %s\n" % error.args[0])
+                    return 0
+        stderr.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
+        return 0
+
+    def run_cypher_source(self, line):
+        result = self.graph.run(line)
+        result.dump(stderr)
+
+        plan = result.plan()
+        if plan:
+            stderr.write(cyan(repr(plan)))
+            stderr.write("\n")
         return 0
 
     def prompt(self):
-        user_at_host = "%s@%s" % (self.graph_service.user, self.graph_service.address.host)
-        return bright_blue(user_at_host) + "> "
+        if self.buffer:
+            return green("... ")
+        else:
+            return bright_green(">>> ")
 
     def raw_input(self, prompt=""):
         return InteractiveConsole.raw_input(self, self.prompt())

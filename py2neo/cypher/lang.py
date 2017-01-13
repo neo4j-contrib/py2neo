@@ -63,3 +63,18 @@ keywords = [
     "WITH",
     "YIELD",
 ]
+
+first_words = [
+    "CALL",
+    "CREATE",
+    "DROP",
+    "EXPLAIN",
+    "LOAD",
+    "MATCH",
+    "MERGE",
+    "OPTIONAL",
+    "PROFILE",
+    "RETURN",
+    "START",
+    "UNWIND",
+]

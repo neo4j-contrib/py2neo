@@ -741,6 +741,19 @@ class Result(object):
         """
         return self.result.keys()
 
+    def plan(self):
+        """ Return the query plan if available.
+        """
+        from py2neo.cypher.plan import Plan
+        metadata = self.result.summary().metadata
+        if "plan" in metadata:
+            return Plan(**metadata["plan"])
+        if "profile" in metadata:
+            return Plan(**metadata["profile"])
+        if "http_plan" in metadata:
+            return Plan(**metadata["http_plan"])
+        return None
+
     def stats(self):
         """ Return the query statistics.
         """
@@ -775,7 +788,7 @@ class Transaction(object):
         self.entities = deque()
         self.driver = driver = self.graph.graph_service.driver
         self.session = driver.session()
-        self.sources = []
+        self.results = []
         if autocommit:
             self.transaction = None
         else:
@@ -822,11 +835,11 @@ class Transaction(object):
             result = self.transaction.run(statement, parameters, **kwparameters)
         else:
             result = self.session.run(statement, parameters, **kwparameters)
-        source = Result(self.graph, entities, result)
-        self.sources.append(source)
+        result = Result(self.graph, entities, result)
+        self.results.append(result)
         if not self.transaction:
             self.finish()
-        return Cursor(source)
+        return Cursor(result)
 
     def process(self):
         """ Send all pending statements to the server for processing.
@@ -1065,8 +1078,8 @@ class Cursor(object):
 
     """
 
-    def __init__(self, source):
-        self._source = source
+    def __init__(self, result):
+        self._result = result
         self._current = None
 
     def __next__(self):
@@ -1097,19 +1110,24 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self._source = None
+        self._result = None
         self._current = None
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._source.keys()
+        return self._result.keys()
+
+    def plan(self):
+        """ Return the plan returned with this result, if any.
+        """
+        return self._result.plan()
 
     def stats(self):
         """ Return the query statistics.
         """
         s = dict.fromkeys(update_stats_keys, 0)
-        s.update(self._source.stats())
+        s.update(self._result.stats())
         s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
         return s
 
@@ -1128,7 +1146,7 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
-        fetch = self._source.fetch
+        fetch = self._result.fetch
         while moved != amount:
             new_current = fetch()
             if new_current is None:

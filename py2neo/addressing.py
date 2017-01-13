@@ -107,7 +107,9 @@ class GraphServiceAddress(object):
                 bolt = True
         if bolt:
             if self.bolt_uri is None:
-                self.bolt_uri = GraphServiceURI(scheme="bolt", **parts)
+                bolt_parts = dict(parts)
+                bolt_parts["scheme"] = "bolt"
+                self.bolt_uri = GraphServiceURI(**bolt_parts)
         else:
             self.bolt_uri = None
 

@@ -351,6 +351,7 @@ class HTTPStatementResult(StatementResult):
         def load(result):
             self._keys = self.value_system.keys = tuple(result["columns"])
             self._records.extend(record["rest"] for record in result["data"])
+
             stats = result["stats"]
             # fix broken key
             if "relationship_deleted" in stats:
@@ -358,7 +359,12 @@ class HTTPStatementResult(StatementResult):
                 del stats["relationship_deleted"]
             if "contains_updates" in stats:
                 del stats["contains_updates"]
-            self._summary = ResultSummary(None, None, stats=stats)  # TODO: statement and params
+
+            metadata = {"stats": stats}
+            if "plan" in result:
+                metadata["http_plan"] = result["plan"]
+
+            self._summary = ResultSummary(None, None, **metadata)  # TODO: statement and params
             self._session = None
             return len(self._records)
 
