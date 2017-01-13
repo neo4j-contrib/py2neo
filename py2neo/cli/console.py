@@ -18,15 +18,28 @@
 
 import atexit
 from code import InteractiveConsole
+from getpass import getpass
 import readline
+from os import getenv
 import os.path
+from platform import python_implementation, python_version, system
 from sys import stderr
 
+from neo4j.v1 import ServiceUnavailable
+
+from py2neo import GraphService, Unauthorized, __version__ as py2neo_version
 from py2neo.cypher.lang import keywords
-from py2neo.graph import Graph
 
+from .colour import bright_green, blue, bright_blue
 
-DEFAULT_BANNER = "Py2neo Console\n"
+WELCOME = """\
+Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
+""".format(
+    py2neo_version=py2neo_version,
+    python_implementation=python_implementation(),
+    python_version=python_version(),
+    system=system(),
+)
 DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 
@@ -60,13 +73,29 @@ class SimpleCompleter(object):
 
 class Console(InteractiveConsole):
 
-    def __init__(self, hist_file=DEFAULT_HISTORY_FILE):
-        InteractiveConsole.__init__(self)
-        self.init_history(hist_file)
-        self.graph = Graph(password="password")
-        readline.set_completer(SimpleCompleter(keywords).complete)
+    graph_service = None
 
-    def init_history(self, history_file):
+    def __init__(self, history_file=DEFAULT_HISTORY_FILE):
+        InteractiveConsole.__init__(self)
+
+        stderr.write(WELCOME)
+
+        user = getenv("NEO4J_USER", "neo4j")
+        password = getenv("NEO4J_PASSWORD")
+        while self.graph_service is None:
+            graph_service = GraphService(user=user, password=password)
+            try:
+                _ = graph_service.kernel_version
+            except Unauthorized:
+                password = getpass()
+            except ServiceUnavailable:
+                stderr.write("Cannot connect to database service\n")
+                exit(1)
+            else:
+                self.graph_service = graph_service
+                self.graph = graph_service.graph
+
+        readline.set_completer(SimpleCompleter(keywords).complete)
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
             try:
@@ -80,10 +109,22 @@ class Console(InteractiveConsole):
 
             atexit.register(save_history)
 
-    def interact(self, banner=None):
-        InteractiveConsole.interact(self, banner or DEFAULT_BANNER)
+    def interact(self, banner=""):
+        InteractiveConsole.interact(self, banner)
 
     def push(self, line):
         self.graph.run(line).dump(stderr)
         stderr.write("\n")
         return 0
+
+    def prompt(self):
+        user_at_host = "%s@%s" % (self.graph_service.user, self.graph_service.address.host)
+        return bright_blue(user_at_host) + "> "
+
+    def raw_input(self, prompt=""):
+        return InteractiveConsole.raw_input(self, self.prompt())
+
+
+def main():
+    console = Console()
+    console.interact()

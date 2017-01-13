@@ -16,7 +16,6 @@
 # limitations under the License.
 
 
-class Console(object):
-
-    def __init__(self):
-        pass
+if __name__ == "__main__":
+    from .console import main
+    main()

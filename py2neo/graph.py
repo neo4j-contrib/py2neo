@@ -82,24 +82,26 @@ class GraphService(object):
     def __new__(cls, *uris, **settings):
         from py2neo.addressing import register_graph_service, get_graph_service_auth
         address = register_graph_service(*uris, **settings)
+        auth = get_graph_service_auth(address)
+        key = (address, auth)
         try:
-            inst = cls.__instances[address]
+            inst = cls.__instances[key]
         except KeyError:
             http_uri = address.http_uri
             bolt_uri = address.bolt_uri
             inst = super(GraphService, cls).__new__(cls)
-            inst._uris = uris
-            inst._settings = settings
-            inst.address = address
-            auth = get_graph_service_auth(address)
+            inst._initial_uris = uris
+            inst._initial_settings = settings
             inst.__remote__ = Remote(http_uri["/"])
+            inst.address = address
+            inst.user = auth.user if auth else None
             auth_token = auth.token if auth else None
             inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
             if bolt_uri:
                 inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
             inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
             inst._graphs = {}
-            cls.__instances[address] = inst
+            cls.__instances[key] = inst
         return inst
 
     def __del__(self):
@@ -127,6 +129,8 @@ class GraphService(object):
         return database in self._graphs
 
     def __getitem__(self, database):
+        if database == "data" and database not in self._graphs:
+            self._graphs[database] = Graph(*self._initial_uris, **self._initial_settings)
         return self._graphs[database]
 
     def __setitem__(self, database, graph):
