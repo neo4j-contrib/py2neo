@@ -137,7 +137,8 @@ class Console(InteractiveConsole):
 
     def run_cypher_source(self, line):
         result = self.graph.run(line)
-        result.dump(stderr)
+        if result.keys():
+            result.dump(stderr, colour=True)
 
         plan = result.plan()
         if plan:

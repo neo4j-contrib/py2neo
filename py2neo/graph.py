@@ -24,6 +24,7 @@ from sys import stdout
 
 from neo4j.v1 import GraphDatabase
 
+from py2neo.cli.colour import yellow
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND, register_http_driver, Remote, remote
@@ -1228,26 +1229,54 @@ class Cursor(object):
         """
         return [record.data() for record in self]
 
-    def dump(self, out=stdout):
+    def dump(self, out=stdout, colour=False):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
         :param out: the channel to which output should be dumped
+        :param colour: apply colour to the output
         """
+        from py2neo.cli.colour import cyan
+        from py2neo.cypher.writer import cypher_repr
+
+        def value_str(x, width):
+            if x is None:
+                x = "null"
+            elif x is True:
+                x = "true"
+            elif x is False:
+                x = "false"
+            if isinstance(x, (int, float)):
+                template = u"{:>%d}" % width
+            else:
+                template = u"{:<%d}" % width
+            graphy = False
+            if isinstance(x, Node):
+                x = cypher_repr(x, name="_%d" % remote(x)._id)
+                graphy = True
+            val = template.format(ustr(x))
+            return yellow(val) if graphy else val
+
         records = list(self)
         keys = self.keys()
         widths = [len(key) for key in keys]
         for record in records:
             for i, value in enumerate(record):
                 widths[i] = max(widths[i], len(ustr(value)))
-        templates = [u" {:%d} " % width for width in widths]
-        out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
-        out.write(u"\n")
-        out.write(u"".join("-" * (width + 2) for width in widths))
-        out.write(u"\n")
+        templates = [u"{:%d}" % width for width in widths]
+        header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
+        header += u"  ".join("-" * width for width in widths) + u"\n"
+        if colour:
+            header = cyan(header)
+        out.write(header)
         for i, record in enumerate(records):
-            out.write(u"".join(templates[i].format(ustr(value)) for i, value in enumerate(record)))
+            out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
             out.write(u"\n")
+        num_records = len(records)
+        footer = "(%d record%s)\n" % (num_records, "" if num_records == 1 else "s")
+        if colour:
+            footer = cyan(footer)
+        out.write(footer)
 
 
 class Record(tuple, Mapping):
