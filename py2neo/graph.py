@@ -18,13 +18,12 @@
 from __future__ import absolute_import
 
 import webbrowser
-from collections import deque, OrderedDict
+from collections import deque
 from email.utils import parsedate_tz, mktime_tz
 from sys import stdout
 
-from neo4j.v1 import GraphDatabase
+from neo4j.v1 import GraphDatabase, ServiceUnavailable
 
-from py2neo.cli.colour import yellow
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND, register_http_driver, Remote, remote
@@ -267,6 +266,20 @@ class GraphService(object):
         otherwise.
         """
         return self.kernel_version >= (2, 3,)
+
+    def password_change_required(self):
+        """ Check if a password change is required for the current user.
+
+        :returns: :const:`True` if a password change is required, :const:`False` otherwise
+        """
+        status = remote(self).get_json("user/{}".format(self.user))
+        return status["password_change_required"]
+
+    def change_password(self, new_password):
+        """ Change the password for the current user.
+        """
+        remote(self).post("user/{}/password".format(self.user), {"password": new_password}, expected=(OK,))
+        return new_password
 
 
 class Graph(object):
@@ -1250,12 +1263,9 @@ class Cursor(object):
                 template = u"{:>%d}" % width
             else:
                 template = u"{:<%d}" % width
-            graphy = False
             if isinstance(x, Node):
                 x = cypher_repr(x, name="_%d" % remote(x)._id)
-                graphy = True
-            val = template.format(ustr(x))
-            return yellow(val) if graphy else val
+            return template.format(ustr(x))
 
         records = list(self)
         keys = self.keys()

@@ -27,7 +27,7 @@ from sys import stderr
 
 from neo4j.v1 import ServiceUnavailable
 
-from py2neo import GraphService, Unauthorized, __version__ as py2neo_version, CypherSyntaxError
+from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_version, CypherSyntaxError
 from py2neo.cypher.lang import keywords, first_words
 
 from .colour import bright_blue, cyan, bright_yellow, blue, bright_green, green
@@ -44,6 +44,7 @@ HTTP = "H"
 BOLT = "⚡"
 DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
+DEFAULT_WRITE = stderr.write
 
 
 class SimpleCompleter(object):
@@ -78,9 +79,10 @@ class Console(InteractiveConsole):
     services = None
     graph_service = None
 
-    def __init__(self, history_file=DEFAULT_HISTORY_FILE):
+    def __init__(self, write=DEFAULT_WRITE, history_file=DEFAULT_HISTORY_FILE):
         InteractiveConsole.__init__(self)
-        stderr.write(WELCOME)
+        self.write = write
+        self.write(WELCOME)
         self.services = {}
 
         readline.set_completer(SimpleCompleter(keywords).complete)
@@ -128,10 +130,10 @@ class Console(InteractiveConsole):
                 if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
                     return 1
                 else:
-                    stderr.write("Syntax Error: %s\n" % error.args[0])
+                    self.write("Syntax Error: %s\n" % error.args[0])
                     return 0
         else:
-            stderr.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
+            self.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
             return 0
 
     def run_cypher_source(self, line):
@@ -142,8 +144,8 @@ class Console(InteractiveConsole):
 
         plan = result.plan()
         if plan:
-            stderr.write(cyan(repr(plan)))
-            stderr.write("\n")
+            self.write(cyan(repr(plan)))
+            self.write("\n")
         return 0
 
     def run_slash_command(self, line):
@@ -156,11 +158,11 @@ class Console(InteractiveConsole):
         elif command == "/join":
             self.join(words[1])
         else:
-            stderr.write("Syntax Error: Invalid slash command '%s'\n" % command)
+            self.write("Syntax Error: Invalid slash command '%s'\n" % command)
         return 0
 
     def help(self):
-        stderr.write("HELP!\n")
+        self.write("HELP!\n")
 
     def connect(self, host, user="neo4j", password=None):
         while True:
@@ -168,19 +170,25 @@ class Console(InteractiveConsole):
             try:
                 _ = graph_service.kernel_version
             except Unauthorized:
-                stderr.write("\n")
-                password = getpass("Enter password for %s at %s: " % (user, host))
+                password = getpass("Enter password for user %s: " % user)
+            except Forbidden:
+                if graph_service.password_change_required():
+                    self.write("Password expired\n")
+                    new_password = getpass("Enter new password for user %s: " % user)
+                    password = graph_service.change_password(new_password)
+                else:
+                    raise
             except ServiceUnavailable:
-                stderr.write("Cannot connect to %s\n" % graph_service.address.host)
+                self.write("Cannot connect to %s\n" % graph_service.address.host)
                 exit(1)
             else:
-                stderr.write("Connected to %s as %s\n" % (host, user))
+                self.write("Connected to %s\n" % host)
                 self.services[host] = graph_service
                 return
 
     def join(self, host):
         self.graph_service = self.services[host]
-        stderr.write("Joined %s\n" % host)
+        self.write("Joined %s\n" % host)
 
 
 def main():

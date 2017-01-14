@@ -27,7 +27,7 @@ from urllib3.exceptions import MaxRetryError
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
 from py2neo.meta import HTTP_USER_AGENT
-from py2neo.status import GraphError, Unauthorized
+from py2neo.status import GraphError, Unauthorized, Forbidden
 
 
 
@@ -56,6 +56,7 @@ OK = 200
 CREATED = 201
 NO_CONTENT = 204
 UNAUTHORIZED = 401
+FORBIDDEN = 403
 NOT_FOUND = 404
 
 
@@ -133,6 +134,8 @@ def remote(obj):
 def raise_error(uri, status_code, data):
     if status_code == UNAUTHORIZED:
         raise Unauthorized(uri)
+    if status_code == FORBIDDEN:
+        raise Forbidden(uri)
     if data:
         content = json_loads(data.decode('utf-8'))
     else:
