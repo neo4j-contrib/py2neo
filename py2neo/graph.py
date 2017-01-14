@@ -1273,7 +1273,7 @@ class Cursor(object):
             out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
             out.write(u"\n")
         num_records = len(records)
-        footer = "(%d record%s)\n" % (num_records, "" if num_records == 1 else "s")
+        footer = u"(%d record%s)\n" % (num_records, u"" if num_records == 1 else u"s")
         if colour:
             footer = cyan(footer)
         out.write(footer)
