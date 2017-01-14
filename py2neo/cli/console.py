@@ -75,29 +75,13 @@ class SimpleCompleter(object):
 
 class Console(InteractiveConsole):
 
+    services = None
     graph_service = None
 
     def __init__(self, history_file=DEFAULT_HISTORY_FILE):
         InteractiveConsole.__init__(self)
-
         stderr.write(WELCOME)
-
-        user = getenv("NEO4J_USER", "neo4j")
-        password = getenv("NEO4J_PASSWORD")
-        while self.graph_service is None:
-            graph_service = GraphService(bolt=True, user=user, password=password)
-            try:
-                _ = graph_service.kernel_version
-            except Unauthorized:
-                stderr.write("\n")
-                password = getpass("Enter password for %s at %s: " % (user, graph_service.address.host))
-            except ServiceUnavailable:
-                stderr.write("Cannot connect to %s\n" % graph_service.address.host)
-                exit(1)
-            else:
-                stderr.write("Connected to %s" % graph_service.address.host)
-                self.graph_service = graph_service
-                self.graph = graph_service.graph
+        self.services = {}
 
         readline.set_completer(SimpleCompleter(keywords).complete)
         readline.parse_and_bind("tab: complete")
@@ -113,8 +97,20 @@ class Console(InteractiveConsole):
 
             atexit.register(save_history)
 
-    def interact(self, banner=""):
-        InteractiveConsole.interact(self, banner)
+        self.connect("localhost", getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
+        self.join("localhost")
+
+    def interact(self, banner="", *args, **kwargs):
+        InteractiveConsole.interact(self, banner, *args, **kwargs)
+
+    def prompt(self):
+        if self.buffer:
+            return "\x01\x1b[32m\x02...\x01\x1b[0m\x02 "
+        else:
+            return "\x01\x1b[32;1m\x02>>>\x01\x1b[0m\x02 "
+
+    def raw_input(self, prompt=""):
+        return InteractiveConsole.raw_input(self, self.prompt())
 
     def runsource(self, source, filename="<input>", symbol="single"):
         if not source:
@@ -122,7 +118,9 @@ class Console(InteractiveConsole):
 
         words = source.strip().split()
         first_word = words[0]
-        if first_word.upper() in first_words:
+        if first_word.startswith("/"):
+            return self.run_slash_command(source)
+        elif first_word.upper() in first_words:
             try:
                 return self.run_cypher_source(source)
             except CypherSyntaxError as error:
@@ -132,11 +130,13 @@ class Console(InteractiveConsole):
                 else:
                     stderr.write("Syntax Error: %s\n" % error.args[0])
                     return 0
-        stderr.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
-        return 0
+        else:
+            stderr.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
+            return 0
 
     def run_cypher_source(self, line):
-        result = self.graph.run(line)
+        graph = self.graph_service.graph
+        result = graph.run(line)
         if result.keys():
             result.dump(stderr, colour=True)
 
@@ -146,14 +146,41 @@ class Console(InteractiveConsole):
             stderr.write("\n")
         return 0
 
-    def prompt(self):
-        if self.buffer:
-            return green("... ")
+    def run_slash_command(self, line):
+        words = line.strip().split()
+        command = words[0].lower()
+        if command == "/help":
+            self.help()
+        elif command == "/connect":
+            self.connect(words[1])
+        elif command == "/join":
+            self.join(words[1])
         else:
-            return bright_green(">>> ")
+            stderr.write("Syntax Error: Invalid slash command '%s'\n" % command)
+        return 0
 
-    def raw_input(self, prompt=""):
-        return InteractiveConsole.raw_input(self, self.prompt())
+    def help(self):
+        stderr.write("HELP!\n")
+
+    def connect(self, host, user="neo4j", password=None):
+        while True:
+            graph_service = GraphService(host=host, user=user, password=password, bolt=True)
+            try:
+                _ = graph_service.kernel_version
+            except Unauthorized:
+                stderr.write("\n")
+                password = getpass("Enter password for %s at %s: " % (user, host))
+            except ServiceUnavailable:
+                stderr.write("Cannot connect to %s\n" % graph_service.address.host)
+                exit(1)
+            else:
+                stderr.write("Connected to %s as %s\n" % (host, user))
+                self.services[host] = graph_service
+                return
+
+    def join(self, host):
+        self.graph_service = self.services[host]
+        stderr.write("Joined %s\n" % host)
 
 
 def main():

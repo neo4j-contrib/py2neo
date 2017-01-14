@@ -45,7 +45,7 @@ def cyan(s):
 
 
 def white(s):
-    return "\x1b[36m{:s}\x1b[0m".format(s)
+    return "\x1b[37m{:s}\x1b[0m".format(s)
 
 
 def bright_black(s):
