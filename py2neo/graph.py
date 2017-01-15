@@ -1250,7 +1250,7 @@ class Cursor(object):
         :param colour: apply colour to the output
         """
         from py2neo.cli.colour import cyan
-        from py2neo.cypher.writer import cypher_repr
+        from py2neo.cypher.lang import cypher_repr
 
         def value_str(x, width):
             if x is None:
@@ -1269,19 +1269,20 @@ class Cursor(object):
 
         records = list(self)
         keys = self.keys()
-        widths = [len(key) for key in keys]
-        for record in records:
-            for i, value in enumerate(record):
-                widths[i] = max(widths[i], len(ustr(value)))
-        templates = [u"{:%d}" % width for width in widths]
-        header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
-        header += u"  ".join("-" * width for width in widths) + u"\n"
-        if colour:
-            header = cyan(header)
-        out.write(header)
-        for i, record in enumerate(records):
-            out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
-            out.write(u"\n")
+        if keys:
+            widths = [len(key) for key in keys]
+            for record in records:
+                for i, value in enumerate(record):
+                    widths[i] = max(widths[i], len(ustr(value)))
+            templates = [u"{:%d}" % width for width in widths]
+            header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
+            header += u"  ".join("-" * width for width in widths) + u"\n"
+            if colour:
+                header = cyan(header)
+            out.write(header)
+            for i, record in enumerate(records):
+                out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
+                out.write(u"\n")
         num_records = len(records)
         footer = u"(%d record%s)\n" % (num_records, u"" if num_records == 1 else u"s")
         if colour:

@@ -23,28 +23,46 @@ import readline
 from os import getenv
 import os.path
 from platform import python_implementation, python_version, system
-from sys import stderr
+from sys import stderr, exit
 
 from neo4j.v1 import ServiceUnavailable
 
-from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_version, CypherSyntaxError
-from py2neo.cypher.lang import keywords, first_words
+from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_version, CypherSyntaxError, \
+    ClientError
+from py2neo.cypher.lang import cypher_keywords, cypher_first_words
 
 from .colour import bright_blue, cyan, bright_yellow, blue, bright_green, green
 
 WELCOME = """\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
+Type "/help" for more information or "/exit" to exit the console.
 """.format(
     py2neo_version=py2neo_version,
     python_implementation=python_implementation(),
     python_version=python_version(),
     system=system(),
 )
-HTTP = "H"
-BOLT = "⚡"
-DEFAULT_EXIT_MESSAGE = "Tschüß!"
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 DEFAULT_WRITE = stderr.write
+
+HELP = """\
+The py2neo console accepts both raw Cypher and slash commands. For help with
+Cypher keywords, type "/help cypher" or for a full list of slash commands,
+type "/help commands".
+
+Basic Cypher queries consist of one of more MATCH clauses followed by a RETURN
+clause. For example:
+
+>>> MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b.name
+b.name
+------
+Bob
+Carol
+Dave
+(3 records)
+
+TODO:
+"""
 
 
 class SimpleCompleter(object):
@@ -85,7 +103,7 @@ class Console(InteractiveConsole):
         self.write(WELCOME)
         self.services = {}
 
-        readline.set_completer(SimpleCompleter(keywords).complete)
+        readline.set_completer(SimpleCompleter(cypher_keywords).complete)
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
             try:
@@ -115,34 +133,41 @@ class Console(InteractiveConsole):
         return InteractiveConsole.raw_input(self, self.prompt())
 
     def runsource(self, source, filename="<input>", symbol="single"):
-        if not source:
-            return 0
-
-        words = source.strip().split()
-        first_word = words[0]
-        if first_word.startswith("/"):
-            return self.run_slash_command(source)
-        elif first_word.upper() in first_words:
-            try:
-                return self.run_cypher_source(source)
-            except CypherSyntaxError as error:
-                message = error.args[0]
-                if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
-                    return 1
-                else:
-                    self.write("Syntax Error: %s\n" % error.args[0])
-                    return 0
-        else:
-            self.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
-            return 0
+        try:
+            source = source.lstrip()
+            if not source:
+                return 0
+            words = source.strip().split()
+            first_word = words[0]
+            if first_word.startswith("/"):
+                return self.run_slash_command(source)
+            elif first_word.upper() in cypher_first_words:
+                try:
+                    return self.run_cypher_source(source)
+                except CypherSyntaxError as error:
+                    message = error.args[0]
+                    if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
+                        return 1
+                    else:
+                        self.write("Syntax Error: %s\n" % error.args[0])
+                        return 0
+            else:
+                self.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
+                return 0
+        finally:
+            self.write("\n")
 
     def run_cypher_source(self, line):
-        graph = self.graph_service.graph
-        result = graph.run(line)
-        if result.keys():
-            result.dump(stderr, colour=True)
+        try:
+            result = self.graph_service.graph.run(line)
+        except ClientError as error:
+            self.write("{:s}\n".format(error))
+            return 0
+        else:
+            plan = result.plan()
 
-        plan = result.plan()
+        result.dump(stderr, colour=True)
+
         if plan:
             self.write(cyan(repr(plan)))
             self.write("\n")
@@ -153,16 +178,18 @@ class Console(InteractiveConsole):
         command = words[0].lower()
         if command == "/help":
             self.help()
+        elif command == "/exit":
+            exit(0)
         elif command == "/connect":
             self.connect(words[1])
-        elif command == "/join":
-            self.join(words[1])
+        elif command == "/push":
+            pass
         else:
             self.write("Syntax Error: Invalid slash command '%s'\n" % command)
         return 0
 
     def help(self):
-        self.write("HELP!\n")
+        self.write(HELP)
 
     def connect(self, host, user="neo4j", password=None):
         while True:
@@ -188,9 +215,7 @@ class Console(InteractiveConsole):
 
     def join(self, host):
         self.graph_service = self.services[host]
-        self.write("Joined %s\n" % host)
 
 
 def main():
-    console = Console()
-    console.interact()
+    Console().interact()
