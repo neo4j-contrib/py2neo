@@ -61,25 +61,29 @@ Carol
 Dave
 (3 records)
 
-TODO:
+TODO: more help
 """
 
 
 class SimpleCompleter(object):
 
+    node_labels = None
+    relationship_types = None
     matches = None
 
-    def __init__(self, options):
+    def __init__(self, graph_service, options):
+        self.graph = graph_service.graph
         self.keywords = sorted(options)
-        return
 
     def complete(self, text, state):
         if state == 0:
             # This is the first time for this text, so build a match list.
             if text:
-                self.matches = [keyword
-                                for keyword in self.keywords
-                                if keyword and keyword.startswith(text.upper())]
+                self.node_labels = self.graph.node_labels
+                self.relationship_types = self.graph.relationship_types
+                dictionary = self.node_labels | self.relationship_types | set(self.keywords)
+                upper_text = text.upper()
+                self.matches = [word for word in dictionary if word and word.upper().startswith(upper_text)]
             else:
                 self.matches = self.keywords[:]
 
@@ -103,7 +107,6 @@ class Console(InteractiveConsole):
         self.write(WELCOME)
         self.services = {}
 
-        readline.set_completer(SimpleCompleter(cypher_keywords).complete)
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
             try:
@@ -215,6 +218,7 @@ class Console(InteractiveConsole):
 
     def join(self, host):
         self.graph_service = self.services[host]
+        readline.set_completer(SimpleCompleter(self.graph_service, cypher_keywords).complete)
 
 
 def main():
