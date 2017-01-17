@@ -46,7 +46,7 @@ package_metadata = {
     "packages": packages,
     "py_modules": ["neokit"],
     "install_requires": [
-        "neo4j-driver==1.1.0b4",
+        "neo4j-driver==1.1.0rc1",
         "urllib3",
     ],
     "license": __license__,
