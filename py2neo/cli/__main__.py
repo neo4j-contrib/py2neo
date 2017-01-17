@@ -16,5 +16,6 @@
 # limitations under the License.
 
 
-from .plan import *
-from .lang import *
+if __name__ == "__main__":
+    from .console import main
+    main()

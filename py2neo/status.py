@@ -38,8 +38,9 @@ class GraphError(Exception):
             try:
                 error_cls = client_errors[code]
             except KeyError:
+                from py2neo import title_case
                 error_cls = ClientError
-                message += " [%s]" % code
+                message = "%s: %s" % (title_case(title), message)
         elif classification == "DatabaseError":
             error_cls = DatabaseError
         elif classification == "TransientError":

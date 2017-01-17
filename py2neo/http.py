@@ -20,13 +20,14 @@ from __future__ import absolute_import
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
-from neo4j.v1 import Driver, Session, StatementResult, Record, ResultSummary
+from neo4j.v1 import Driver, Session, StatementResult, Record, ResultSummary, ServiceUnavailable
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
+from urllib3.exceptions import MaxRetryError
 
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
 from py2neo.meta import HTTP_USER_AGENT
-from py2neo.status import GraphError, Unauthorized
+from py2neo.status import GraphError, Unauthorized, Forbidden
 
 
 
@@ -49,13 +50,13 @@ from py2neo.status import GraphError, Unauthorized
 # requests_log.propagate = True
 
 
-
 DEFAULT_PORT = 7474
 
 OK = 200
 CREATED = 201
 NO_CONTENT = 204
 UNAUTHORIZED = 401
+FORBIDDEN = 403
 NOT_FOUND = 404
 
 
@@ -133,6 +134,8 @@ def remote(obj):
 def raise_error(uri, status_code, data):
     if status_code == UNAUTHORIZED:
         raise Unauthorized(uri)
+    if status_code == FORBIDDEN:
+        raise Forbidden(uri)
     if data:
         content = json_loads(data.decode('utf-8'))
     else:
@@ -154,8 +157,7 @@ class HTTP(object):
         host = parts.hostname
         port = parts.port
         self.path = parts.path
-        self._http = http = ConnectionPool[scheme]("%s:%d" % (host, port))
-        self._request = http.request
+        self._http = ConnectionPool[scheme]("%s:%d" % (host, port))
         self._headers = get_http_headers(scheme, host, port)
 
     def __del__(self):
@@ -170,10 +172,16 @@ class HTTP(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def request(self, method, url, fields=None, headers=None, **urlopen_kw):
+        try:
+            return self._http.request(method, url, fields, headers, **urlopen_kw)
+        except MaxRetryError:
+            raise ServiceUnavailable("Cannot send %r request to %r" % (method, url))
+
     def get_json(self, ref):
         """ Perform an HTTP GET to this resource and return JSON.
         """
-        rs = self._request("GET", self.path + ref, headers=self._headers)
+        rs = self.request("GET", self.path + ref, headers=self._headers)
         try:
             if rs.status == 200:
                 return json_loads(rs.data.decode('utf-8'))
@@ -189,7 +197,7 @@ class HTTP(object):
         if json is not None:
             headers["Content-Type"] = "application/json"
             json = json_dumps(json).encode('utf-8')
-        rs = self._request("POST", self.path + ref, headers=self._headers, body=json)
+        rs = self.request("POST", self.path + ref, headers=self._headers, body=json)
         if rs.status not in expected:
             raise_error(self.uri, rs.status, rs.data)
         return rs
@@ -197,7 +205,7 @@ class HTTP(object):
     def delete(self, ref, expected):
         """ Perform an HTTP DELETE to this resource.
         """
-        rs = self._request("DELETE", self.path + ref, headers=self._headers)
+        rs = self.request("DELETE", self.path + ref, headers=self._headers)
         if rs.status not in expected:
             raise_error(self.uri, rs.status, rs.data)
         return rs
@@ -346,6 +354,7 @@ class HTTPStatementResult(StatementResult):
         def load(result):
             self._keys = self.value_system.keys = tuple(result["columns"])
             self._records.extend(record["rest"] for record in result["data"])
+
             stats = result["stats"]
             # fix broken key
             if "relationship_deleted" in stats:
@@ -353,7 +362,12 @@ class HTTPStatementResult(StatementResult):
                 del stats["relationship_deleted"]
             if "contains_updates" in stats:
                 del stats["contains_updates"]
-            self._summary = ResultSummary(None, None, stats=stats)  # TODO: statement and params
+
+            metadata = {"stats": stats}
+            if "plan" in result:
+                metadata["http_plan"] = result["plan"]
+
+            self._summary = ResultSummary(None, None, **metadata)  # TODO: statement and params
             self._session = None
             return len(self._records)
 

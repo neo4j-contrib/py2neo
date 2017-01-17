@@ -107,7 +107,9 @@ class GraphServiceAddress(object):
                 bolt = True
         if bolt:
             if self.bolt_uri is None:
-                self.bolt_uri = GraphServiceURI(scheme="bolt", **parts)
+                bolt_parts = dict(parts)
+                bolt_parts["scheme"] = "bolt"
+                self.bolt_uri = GraphServiceURI(**bolt_parts)
         else:
             self.bolt_uri = None
 
@@ -150,6 +152,10 @@ class GraphServiceAddress(object):
     def uri(self):
         return self.bolt_uri or self.http_uri
 
+    @property
+    def host(self):
+        return self.bolt_uri.host if self.bolt_uri else self.http_uri.host
+
     def keys(self):
         return self.data.keys()
 
@@ -186,6 +192,15 @@ class GraphServiceAuth(object):
 
     def __repr__(self):
         return "<ServerAuth settings=%r>" % self.__settings
+
+    def __hash__(self):
+        return hash((self.user, self.password))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     @property
     def user(self):

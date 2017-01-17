@@ -16,5 +16,11 @@
 # limitations under the License.
 
 
-from .plan import *
-from .lang import *
+class Plan(object):
+
+    def __init__(self, **metadata):
+        self.metadata = metadata
+
+    def __repr__(self):
+        from json import dumps
+        return dumps(self.metadata, indent=4)

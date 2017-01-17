@@ -16,12 +16,11 @@
 # limitations under the License.
 
 
-from py2neo.cypher import cypher_escape
+from py2neo.cypher.lang import cypher_escape, label_case, relationship_case
 from py2neo.http import remote
 from py2neo.selection import NodeSelection, NodeSelector
 from py2neo.types import Node, PropertyDict
-from py2neo.util import label_case, relationship_case, metaclass
-
+from py2neo.util import metaclass
 
 OUTGOING = 1
 UNDIRECTED = 0

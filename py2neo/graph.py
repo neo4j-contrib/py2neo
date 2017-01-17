@@ -18,11 +18,11 @@
 from __future__ import absolute_import
 
 import webbrowser
-from collections import deque, OrderedDict
+from collections import deque
 from email.utils import parsedate_tz, mktime_tz
 from sys import stdout
 
-from neo4j.v1 import GraphDatabase
+from neo4j.v1 import GraphDatabase, ServiceUnavailable
 
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
@@ -82,24 +82,26 @@ class GraphService(object):
     def __new__(cls, *uris, **settings):
         from py2neo.addressing import register_graph_service, get_graph_service_auth
         address = register_graph_service(*uris, **settings)
+        auth = get_graph_service_auth(address)
+        key = (address, auth)
         try:
-            inst = cls.__instances[address]
+            inst = cls.__instances[key]
         except KeyError:
             http_uri = address.http_uri
             bolt_uri = address.bolt_uri
             inst = super(GraphService, cls).__new__(cls)
-            inst._uris = uris
-            inst._settings = settings
-            inst.address = address
-            auth = get_graph_service_auth(address)
+            inst._initial_uris = uris
+            inst._initial_settings = settings
             inst.__remote__ = Remote(http_uri["/"])
+            inst.address = address
+            inst.user = auth.user if auth else None
             auth_token = auth.token if auth else None
             inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
             if bolt_uri:
                 inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
             inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
             inst._graphs = {}
-            cls.__instances[address] = inst
+            cls.__instances[key] = inst
         return inst
 
     def __del__(self):
@@ -127,6 +129,8 @@ class GraphService(object):
         return database in self._graphs
 
     def __getitem__(self, database):
+        if database == "data" and database not in self._graphs:
+            self._graphs[database] = Graph(*self._initial_uris, **self._initial_settings)
         return self._graphs[database]
 
     def __setitem__(self, database, graph):
@@ -262,6 +266,20 @@ class GraphService(object):
         otherwise.
         """
         return self.kernel_version >= (2, 3,)
+
+    def password_change_required(self):
+        """ Check if a password change is required for the current user.
+
+        :returns: :const:`True` if a password change is required, :const:`False` otherwise
+        """
+        status = remote(self).get_json("user/{}".format(self.user))
+        return status["password_change_required"]
+
+    def change_password(self, new_password):
+        """ Change the password for the current user.
+        """
+        remote(self).post("user/{}/password".format(self.user), {"password": new_password}, expected=(OK,))
+        return new_password
 
 
 class Graph(object):
@@ -737,6 +755,19 @@ class Result(object):
         """
         return self.result.keys()
 
+    def plan(self):
+        """ Return the query plan if available.
+        """
+        from py2neo.cypher.plan import Plan
+        metadata = self.result.summary().metadata
+        if "plan" in metadata:
+            return Plan(**metadata["plan"])
+        if "profile" in metadata:
+            return Plan(**metadata["profile"])
+        if "http_plan" in metadata:
+            return Plan(**metadata["http_plan"])
+        return None
+
     def stats(self):
         """ Return the query statistics.
         """
@@ -771,7 +802,7 @@ class Transaction(object):
         self.entities = deque()
         self.driver = driver = self.graph.graph_service.driver
         self.session = driver.session()
-        self.sources = []
+        self.results = []
         if autocommit:
             self.transaction = None
         else:
@@ -818,11 +849,11 @@ class Transaction(object):
             result = self.transaction.run(statement, parameters, **kwparameters)
         else:
             result = self.session.run(statement, parameters, **kwparameters)
-        source = Result(self.graph, entities, result)
-        self.sources.append(source)
+        result = Result(self.graph, entities, result)
+        self.results.append(result)
         if not self.transaction:
             self.finish()
-        return Cursor(source)
+        return Cursor(result)
 
     def process(self):
         """ Send all pending statements to the server for processing.
@@ -1061,8 +1092,8 @@ class Cursor(object):
 
     """
 
-    def __init__(self, source):
-        self._source = source
+    def __init__(self, result):
+        self._result = result
         self._current = None
 
     def __next__(self):
@@ -1093,19 +1124,24 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self._source = None
+        self._result = None
         self._current = None
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._source.keys()
+        return self._result.keys()
+
+    def plan(self):
+        """ Return the plan returned with this result, if any.
+        """
+        return self._result.plan()
 
     def stats(self):
         """ Return the query statistics.
         """
         s = dict.fromkeys(update_stats_keys, 0)
-        s.update(self._source.stats())
+        s.update(self._result.stats())
         s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
         return s
 
@@ -1124,7 +1160,7 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
-        fetch = self._source.fetch
+        fetch = self._result.fetch
         while moved != amount:
             new_current = fetch()
             if new_current is None:
@@ -1206,26 +1242,52 @@ class Cursor(object):
         """
         return [record.data() for record in self]
 
-    def dump(self, out=stdout):
+    def dump(self, out=stdout, colour=False):
         """ Consume all records from this cursor and write in tabular
         form to the console.
 
         :param out: the channel to which output should be dumped
+        :param colour: apply colour to the output
         """
+        from py2neo.cli.colour import cyan
+        from py2neo.cypher.lang import cypher_repr
+
+        def value_str(x, width):
+            if x is None:
+                x = "null"
+            elif x is True:
+                x = "true"
+            elif x is False:
+                x = "false"
+            if isinstance(x, (int, float)):
+                template = u"{:>%d}" % width
+            else:
+                template = u"{:<%d}" % width
+            if isinstance(x, Node):
+                x = cypher_repr(x, name="_%d" % remote(x)._id)
+            return template.format(ustr(x))
+
         records = list(self)
         keys = self.keys()
-        widths = [len(key) for key in keys]
-        for record in records:
-            for i, value in enumerate(record):
-                widths[i] = max(widths[i], len(ustr(value)))
-        templates = [u" {:%d} " % width for width in widths]
-        out.write(u"".join(templates[i].format(key) for i, key in enumerate(keys)))
-        out.write(u"\n")
-        out.write(u"".join("-" * (width + 2) for width in widths))
-        out.write(u"\n")
-        for i, record in enumerate(records):
-            out.write(u"".join(templates[i].format(ustr(value)) for i, value in enumerate(record)))
-            out.write(u"\n")
+        if keys:
+            widths = [len(key) for key in keys]
+            for record in records:
+                for i, value in enumerate(record):
+                    widths[i] = max(widths[i], len(ustr(value)))
+            templates = [u"{:%d}" % width for width in widths]
+            header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
+            header += u"  ".join("-" * width for width in widths) + u"\n"
+            if colour:
+                header = cyan(header)
+            out.write(header)
+            for i, record in enumerate(records):
+                out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
+                out.write(u"\n")
+        num_records = len(records)
+        footer = u"(%d record%s)\n" % (num_records, u"" if num_records == 1 else u"s")
+        if colour:
+            footer = cyan(footer)
+        out.write(footer)
 
 
 class Record(tuple, Mapping):

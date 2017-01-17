@@ -19,31 +19,11 @@
 Utility module
 """
 
-
-from itertools import cycle, islice
 import re
 import warnings
+from itertools import cycle, islice
 
 from .compat import string
-
-
-# Word separation patterns for re-casing strings.
-WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
-WORD_ALL = re.compile("([a-z0-9])([A-Z])")
-
-
-def snake_case(s):
-    words = s.replace("_", " ").replace("-", " ").split()
-    return "_".join(word.lower() for word in words)
-
-
-def relationship_case(s):
-    s1 = WORD_FIRST.sub(r"\1_\2", s)
-    return WORD_ALL.sub(r"\1_\2", s1).upper()
-
-
-def label_case(s):
-    return "".join(word.title() for word in s.split("_"))
 
 
 def round_robin(*iterables):
