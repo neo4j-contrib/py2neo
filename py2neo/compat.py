@@ -111,10 +111,13 @@ else:
     def ustr(s, encoding="utf-8"):
         """ Convert argument to unicode string.
         """
-        if isinstance(s, str):
-            return s.decode(encoding)
+        if isinstance(s, unicode):
+            return s
         else:
-            return unicode(s)
+            try:
+                return unicode(s)
+            except UnicodeDecodeError:
+                return str(s).decode(encoding)
 
     def xstr(s, encoding="utf-8"):
         """ Convert argument to string type returned by __str__.

@@ -18,6 +18,7 @@
 
 import atexit
 from code import InteractiveConsole
+import codecs
 from getpass import getpass
 import readline
 from os import getenv
@@ -31,11 +32,12 @@ from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_
     ClientError
 from py2neo.cypher.lang import cypher_keywords, cypher_first_words
 
-from .colour import bright_blue, cyan, bright_yellow, blue, bright_green, green
+from .colour import cyan
 
 WELCOME = """\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
-Type "/help" for more information or "/exit" to exit the console.
+Press [TAB] to auto-complete, type "/help" for more information or type
+"/exit" to exit the console.
 """.format(
     py2neo_version=py2neo_version,
     python_implementation=python_implementation(),
@@ -46,22 +48,15 @@ DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 DEFAULT_WRITE = stderr.write
 
 HELP = """\
-The py2neo console accepts both raw Cypher and slash commands. For help with
-Cypher keywords, type "/help cypher" or for a full list of slash commands,
-type "/help commands".
+The py2neo console accepts both raw Cypher and slash commands and supports
+basic auto-completion. Available slash commands are listed below:
 
-Basic Cypher queries consist of one of more MATCH clauses followed by a RETURN
-clause. For example:
+/exit
+/help
+/play <cypher file>
+/push (for adding parameters; not yet implemented)
 
->>> MATCH (a:Person)-[:KNOWS]->(b) WHERE a.name = 'Alice' RETURN b.name
-b.name
-------
-Bob
-Carol
-Dave
-(3 records)
-
-TODO: more help
+Report bugs to py2neo@nige.tech
 """
 
 
@@ -160,9 +155,9 @@ class Console(InteractiveConsole):
         finally:
             self.write("\n")
 
-    def run_cypher_source(self, line):
+    def run_cypher_source(self, source):
         try:
-            result = self.graph_service.graph.run(line)
+            result = self.graph_service.graph.run(source)
         except ClientError as error:
             self.write("{:s}\n".format(error))
             return 0
@@ -176,8 +171,8 @@ class Console(InteractiveConsole):
             self.write("\n")
         return 0
 
-    def run_slash_command(self, line):
-        words = line.strip().split()
+    def run_slash_command(self, source):
+        words = source.strip().split()
         command = words[0].lower()
         if command == "/help":
             self.help()
@@ -186,7 +181,11 @@ class Console(InteractiveConsole):
         elif command == "/connect":
             self.connect(words[1])
         elif command == "/push":
-            pass
+            pass  # push params
+        elif command == "/play":
+            with codecs.open(words[1], encoding="utf-8") as fin:
+                source = fin.read()
+            return self.run_cypher_source(source)
         else:
             self.write("Syntax Error: Invalid slash command '%s'\n" % command)
         return 0
