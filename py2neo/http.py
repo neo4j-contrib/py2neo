@@ -20,13 +20,14 @@ from __future__ import absolute_import
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
-from neo4j.v1 import Driver, Session, StatementResult, Record, ResultSummary, ServiceUnavailable
-from urllib3 import HTTPConnectionPool, HTTPSConnectionPool
-from urllib3.exceptions import MaxRetryError
+try:
+    from neo4j.v1 import Driver, Session, StatementResult, Record
+except ImportError:
+    Driver = Session = StatementResult = Record = type
 
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
-from py2neo.meta import HTTP_USER_AGENT
+from py2neo.meta import http_user_agent
 from py2neo.status import GraphError, Unauthorized, Forbidden
 
 
@@ -60,17 +61,17 @@ FORBIDDEN = 403
 NOT_FOUND = 404
 
 
-ConnectionPool = {
-    "http": HTTPConnectionPool,
-    "https": HTTPSConnectionPool,
-}
+_http_headers = {}
 
-_http_headers = {
-    (None, None, None): [
-        ("User-Agent", HTTP_USER_AGENT),
-        ("X-Stream", "true"),
-    ],
-}
+
+def _init_http_headers():
+    if _http_headers is {}:
+        _http_headers.update({
+            (None, None, None): [
+                ("User-Agent", http_user_agent()),
+                ("X-Stream", "true"),
+            ],
+        })
 
 
 def set_http_header(key, value, scheme=None, host=None, port=None):
@@ -84,6 +85,7 @@ def set_http_header(key, value, scheme=None, host=None, port=None):
     :arg host:
     :arg port:
     """
+    _init_http_headers()
     address_key = (scheme, host, port)
     if address_key in _http_headers:
         _http_headers[address_key].append((key, value))
@@ -98,6 +100,7 @@ def get_http_headers(scheme, host, port):
     :arg host:
     :arg port:
     """
+    _init_http_headers()
     uri_headers = {}
     for (s, h, p), headers in _http_headers.items():
         if (s is None or s == scheme) and (h is None or h == host) and (p is None or p == port):
@@ -156,8 +159,15 @@ class HTTP(object):
         scheme = parts.scheme
         host = parts.hostname
         port = parts.port
+        if scheme == "http":
+            from urllib3 import HTTPConnectionPool
+            self._http = HTTPConnectionPool("%s:%d" % (host, port))
+        elif scheme == "https":
+            from urllib3 import HTTPSConnectionPool
+            self._http = HTTPSConnectionPool("%s:%d" % (host, port))
+        else:
+            raise ValueError("Unsupported scheme %r" % scheme)
         self.path = parts.path
-        self._http = ConnectionPool[scheme]("%s:%d" % (host, port))
         self._headers = get_http_headers(scheme, host, port)
 
     def __del__(self):
@@ -173,6 +183,8 @@ class HTTP(object):
         return not self.__eq__(other)
 
     def request(self, method, url, fields=None, headers=None, **urlopen_kw):
+        from neo4j.v1 import ServiceUnavailable
+        from urllib3.exceptions import MaxRetryError
         try:
             return self._http.request(method, url, fields, headers, **urlopen_kw)
         except MaxRetryError:
@@ -352,6 +364,8 @@ class HTTPStatementResult(StatementResult):
         self.value_system = JSONValueSystem(session.graph, ())
 
         def load(result):
+            from neo4j.v1 import ResultSummary
+
             self._keys = self.value_system.keys = tuple(result["columns"])
             self._records.extend(record["rest"] for record in result["data"])
 

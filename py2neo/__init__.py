@@ -16,16 +16,14 @@
 # limitations under the License.
 
 
-from py2neo.addressing import *
 from py2neo.cypher import *
 from py2neo.ext import *
 from py2neo.graph import *
-from py2neo.http import *
 from py2neo.meta import *
 from py2neo.selection import *
 from py2neo.types import *
 
-from neo4j.util import Watcher
+from py2neo.cli.watcher import Watcher
 
 
 def watch(logger, level=None, out=None):

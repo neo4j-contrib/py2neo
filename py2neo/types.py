@@ -21,7 +21,6 @@ from uuid import uuid4
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr, ReprIO
-from py2neo.http import Remote, remote
 from py2neo.util import is_collection, round_robin
 
 
@@ -206,6 +205,18 @@ def cast_relationship(obj, entities=None):
         if isinstance(end_node, integer):
             end_node = entities[end_node]
     return Relationship(start_node, get_type(t), end_node, **properties)
+
+
+def remote(obj):
+    """ Return the remote counterpart of a local object.
+
+    :param obj: the local object
+    :return: the corresponding remote entity
+    """
+    try:
+        return obj.__remote__
+    except AttributeError:
+        return None
 
 
 class Subgraph(object):
@@ -804,6 +815,7 @@ class Node(Relatable, Entity):
 
     @classmethod
     def hydrate(cls, uri, inst=None, **rest):
+        from py2neo.http import Remote
         inst = cls.instance(uri, inst)
         inst.__remote__ = Remote(uri)
         if "data" in rest:
@@ -923,6 +935,7 @@ class Relationship(Entity):
 
     @classmethod
     def hydrate(cls, uri, inst=None, **rest):
+        from py2neo.http import Remote
         start = rest["start"]
         end = rest["end"]
 

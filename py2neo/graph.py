@@ -22,20 +22,14 @@ from collections import deque
 from email.utils import parsedate_tz, mktime_tz
 from sys import stdout
 
-from neo4j.v1 import GraphDatabase, ServiceUnavailable
-
 from py2neo.compat import Mapping, string, ustr
 from py2neo.cypher import cypher_escape
-from py2neo.http import OK, NO_CONTENT, NOT_FOUND, register_http_driver, Remote, remote
-from py2neo.meta import BOLT_USER_AGENT, HTTP_USER_AGENT
-from py2neo.packstream import PackStreamValueSystem
+from py2neo.http import OK, NO_CONTENT, NOT_FOUND, Remote, remote
+from py2neo.meta import bolt_user_agent, http_user_agent
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
 from py2neo.util import is_collection, version_tuple
-
-
-register_http_driver()
 
 
 update_stats_keys = [
@@ -81,6 +75,9 @@ class GraphService(object):
 
     def __new__(cls, *uris, **settings):
         from py2neo.addressing import register_graph_service, get_graph_service_auth
+        from py2neo.http import register_http_driver
+        from neo4j.v1 import GraphDatabase
+        register_http_driver()
         address = register_graph_service(*uris, **settings)
         auth = get_graph_service_auth(address)
         key = (address, auth)
@@ -96,9 +93,11 @@ class GraphService(object):
             inst.address = address
             inst.user = auth.user if auth else None
             auth_token = auth.token if auth else None
-            inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=HTTP_USER_AGENT)
+            inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token,
+                                                     encrypted=address.secure, user_agent=http_user_agent())
             if bolt_uri:
-                inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token, encrypted=address.secure, user_agent=BOLT_USER_AGENT)
+                inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token,
+                                                         encrypted=address.secure, user_agent=bolt_user_agent())
             inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
             inst._graphs = {}
             cls.__instances[key] = inst
@@ -732,8 +731,9 @@ class Result(object):
     """
 
     def __init__(self, graph, entities, result):
-        from py2neo.http import HTTPStatementResult
         from neo4j.v1 import BoltStatementResult
+        from py2neo.http import HTTPStatementResult
+        from py2neo.packstream import PackStreamValueSystem
         self.result = result
         self.result.error_class = GraphError.hydrate
         # TODO: un-yuk this

@@ -19,8 +19,6 @@
 from base64 import b64encode
 from os import getenv
 
-from neo4j.v1 import basic_auth
-
 from py2neo.compat import urlsplit
 
 
@@ -225,10 +223,6 @@ class GraphServiceAuth(object):
     @property
     def token(self):
         return self.user, self.password
-
-    @property
-    def bolt_auth_token(self):
-        return basic_auth(self.user, self.password)
 
     @property
     def http_authorization(self):
