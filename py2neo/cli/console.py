@@ -19,7 +19,13 @@
 import atexit
 from code import InteractiveConsole
 import codecs
+from collections import deque
 from getpass import getpass
+try:
+    from json import loads as json_loads, JSONDecodeError
+except ImportError:
+    from json import loads as json_loads
+    JSONDecodeError = ValueError
 import readline
 from os import getenv
 import os.path
@@ -99,6 +105,7 @@ class Console(InteractiveConsole):
         self.write = write
         self.write(WELCOME)
         self.services = {}
+        self.parameters = deque()
 
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
@@ -154,23 +161,25 @@ class Console(InteractiveConsole):
                 self.write("Syntax Error: Invalid input %s\n" % repr(first_word).lstrip("u"))
                 return 0
         finally:
-            self.write("\n")
+            self.writeln()
 
     def run_cypher_source(self, source):
         try:
-            result = self.graph_service.graph.run(source)
+            params = self.parameters.popleft()
+        except IndexError:
+            params = {}
+        try:
+            result = self.graph_service.graph.run(source, params)
         except ClientError as error:
             self.write("{:s}\n".format(error))
             return 0
         else:
+            result.dump(stderr, colour=True)
             plan = result.plan()
-
-        result.dump(stderr, colour=True)
-
-        if plan:
-            self.write(cyan(repr(plan)))
-            self.write("\n")
-        return 0
+            if plan:
+                self.write(cyan(repr(plan)))
+                self.write("\n")
+            return 0
 
     def run_slash_command(self, source):
         tokens = shlex_split(source)
@@ -181,12 +190,16 @@ class Console(InteractiveConsole):
             return self.exit(0)
         elif command == "/connect":
             return self.connect(*tokens)
-        elif command == "/push":
-            pass  # push params
         elif command == "/play":
             return self.play(*tokens)
+        elif command == "/params":
+            return self.params(*tokens)
+        elif command == "/push":
+            return self.push_(*tokens)
+        elif command == "/clear":
+            return self.clear(*tokens)
         else:
-            self.write("Syntax Error: Invalid slash command '%s'\n" % command)
+            self.writeln("Syntax Error: Invalid slash command '%s'" % command)
         return 0
 
     def help(self, topic=None, *args):
@@ -275,6 +288,45 @@ class Console(InteractiveConsole):
         with codecs.open(script, encoding="utf-8") as fin:
             source = fin.read()
         return self.run_cypher_source(source)
+
+    def params(self, *args):
+        """
+
+        :usage: /params
+        :param args:
+        :return:
+        """
+        for data in self.parameters:
+            self.writeln(repr(data))
+        num_sets = len(self.parameters)
+        self.writeln(cyan("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s")))
+
+    def push_(self, *args):
+        """
+
+        :usage: /push NAME=VALUE [NAME=VALUE ...]
+        :param args:
+        :return:
+        """
+        data = {}
+        for arg in args:
+            name, _, value = arg.partition("=")
+            try:
+                data[name] = json_loads(value)
+            except JSONDecodeError:
+                data[name] = value
+        self.parameters.append(data)
+
+    def clear(self, *args):
+        """
+
+        :usage: /clear
+        :param args:
+        :return:
+        """
+        self.parameters.clear()
+        num_sets = len(self.parameters)
+        self.writeln(cyan("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s")))
 
 
 def main():
