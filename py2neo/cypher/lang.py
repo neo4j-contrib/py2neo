@@ -268,6 +268,7 @@ cypher_keywords = [
     "CALL",
     "CASE",
     "CONSTRAINT",
+    "CREATE",
     "DELETE",
     "DETACH",
     "DISTINCT",
