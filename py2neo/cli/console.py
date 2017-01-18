@@ -24,6 +24,7 @@ import readline
 from os import getenv
 import os.path
 from platform import python_implementation, python_version, system
+from shlex import split as shlex_split
 from sys import stderr, exit
 
 from neo4j.v1 import ServiceUnavailable
@@ -32,7 +33,7 @@ from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_
     ClientError
 from py2neo.cypher.lang import cypher_keywords, cypher_first_words
 
-from .colour import cyan
+from .colour import cyan, green
 
 WELCOME = """\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
@@ -46,16 +47,13 @@ Press [TAB] to auto-complete, type "/help" for more information or type
 )
 DEFAULT_HISTORY_FILE = os.path.expanduser("~/.py2neo_history")
 DEFAULT_WRITE = stderr.write
+DEFAULT_USER = "neo4j"
 
 HELP = """\
 The py2neo console accepts both raw Cypher and slash commands and supports
 basic auto-completion. Available slash commands are listed below:
-
-/exit
-/help
-/play <cypher file>
-/push (for adding parameters; not yet implemented)
-
+"""
+EPILOGUE = """\
 Report bugs to py2neo@nige.tech
 """
 
@@ -116,7 +114,10 @@ class Console(InteractiveConsole):
             atexit.register(save_history)
 
         self.connect("localhost", getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
-        self.join("localhost")
+
+    def writeln(self, s=""):
+        self.write(s)
+        self.write("\n")
 
     def interact(self, banner="", *args, **kwargs):
         InteractiveConsole.interact(self, banner, *args, **kwargs)
@@ -172,28 +173,73 @@ class Console(InteractiveConsole):
         return 0
 
     def run_slash_command(self, source):
-        words = source.strip().split()
-        command = words[0].lower()
+        tokens = shlex_split(source)
+        command = tokens.pop(0).lower()
         if command == "/help":
-            self.help()
+            return self.help(*tokens)
         elif command == "/exit":
-            exit(0)
+            return self.exit(0)
         elif command == "/connect":
-            self.connect(words[1])
+            return self.connect(*tokens)
         elif command == "/push":
             pass  # push params
         elif command == "/play":
-            with codecs.open(words[1], encoding="utf-8") as fin:
-                source = fin.read()
-            return self.run_cypher_source(source)
+            return self.play(*tokens)
         else:
             self.write("Syntax Error: Invalid slash command '%s'\n" % command)
         return 0
 
-    def help(self):
-        self.write(HELP)
+    def help(self, topic=None, *args):
+        """
 
-    def connect(self, host, user="neo4j", password=None):
+        :usage: /help [TOPIC]
+        """
+        self.writeln(HELP)
+        for name in dir(self):
+            attr = getattr(self, name)
+            if callable(attr):
+                try:
+                    doc = attr.__doc__
+                except AttributeError:
+                    pass
+                else:
+                    if doc:
+                        lines = doc.splitlines()
+                        for line in lines:
+                            line = line.lstrip()
+                            if line.startswith(":usage:"):
+                                self.writeln(line[7:].lstrip())
+        self.writeln()
+        self.writeln(EPILOGUE.rstrip())
+
+    def exit(self, status=0):
+        """
+
+        :usage: /exit
+        :param status:
+        :return:
+        """
+        exit(status)
+
+    def connect(self, host=None, user="neo4j", password=None, *args):
+        """
+
+        :usage: /connect [HOST] [USER] [PASSWORD]
+        :param host:
+        :param user:
+        :param password:
+        :param args:
+        :return:
+        """
+        if not host:
+            for name, service in sorted(self.services.items()):
+                if service is self.graph_service:
+                    self.writeln("* {}".format(green(name)))
+                else:
+                    self.writeln("  {}".format(name))
+            return
+        if not user:
+            user = DEFAULT_USER
         while True:
             graph_service = GraphService(host=host, user=user, password=password, bolt=True)
             try:
@@ -209,15 +255,26 @@ class Console(InteractiveConsole):
                     raise
             except ServiceUnavailable:
                 self.write("Cannot connect to %s\n" % graph_service.address.host)
-                exit(1)
+                raise
             else:
                 self.write("Connected to %s\n" % host)
                 self.services[host] = graph_service
-                return
-
-    def join(self, host):
+                break
         self.graph_service = self.services[host]
         readline.set_completer(SimpleCompleter(self.graph_service, cypher_keywords).complete)
+        return 0
+
+    def play(self, script=None, *args):
+        """
+
+        :usage: /play CYPHER_SCRIPT
+        :param script:
+        :param args:
+        :return:
+        """
+        with codecs.open(script, encoding="utf-8") as fin:
+            source = fin.read()
+        return self.run_cypher_source(source)
 
 
 def main():
