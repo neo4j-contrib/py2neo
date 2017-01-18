@@ -865,7 +865,9 @@ class Transaction(object):
             else:
                 self.session.sync()
         except ClientError:
-            self.session.connection.reset()
+            # TODO: maybe fix this in the official driver?
+            if hasattr(self.session, "connection"):
+                self.session.connection.reset()
             raise
 
     def finish(self):
