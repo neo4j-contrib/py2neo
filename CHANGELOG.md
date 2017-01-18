@@ -7,30 +7,36 @@ Notable changes to this project are documented herein.
 - Support for Neo4j 3.1.
 - Support for Python 3.6.
 - New Cypher console
+- `Transaction.pull()`
+- `Transaction.push()`
 
 ### Changed
-- Official driver 1.1.0 dependency replaces embedded 1.0 series driver. This is the first (and so far only) project dependency.
+- Introduced project requirements:
+  - `neo4j-driver`
+  - `urllib3`
 - Simplified internal module structure (see TODO:CONTRIBUTING.md for current module structure).
-- Renamed DBMS to GraphService and rebuilt URI handling and service addressing in `py2neo.addressing` module.
-- Collapsed transactional Cypher all through official driver interface (including HTTP scheme handler)
-- Pull and push can now be combined with other operations inside a transaction.
+- Renamed `DBMS` to `GraphService`.
+- Replaced URI handling code by introducing new `py2neo.addressing` module.
+- Transactional Cypher over HTTP now goes via a plugin for the official driver
+- `Subgraph.__db_pull__` now takes a `Transaction` instead of a `Graph`
+- `Subgraph.__db_push__` now takes a `Transaction` instead of a `Graph`
 
 ### Removed
 - Previously deprecated attributes:
-  - Graph.find()
-  - Graph.find_one()
-  - Graph.neo4j_version
-  - Node.degree()
-  - Node.exists()
-  - Node.match()
-  - Node.match_incoming()
-  - Node.match_outgoing()
-  - Node.properties
-  - Node.pull()
-  - Node.push()
-  - Relationship.exists()
-  - Relationship.properties
-  - Relationship.pull()
-  - Relationship.push()
-  - Transaction.append()
+  - `Graph.find()`
+  - `Graph.find_one()`
+  - `Graph.neo4j_version`
+  - `Node.degree()`
+  - `Node.exists()`
+  - `Node.match()`
+  - `Node.match_incoming()`
+  - `Node.match_outgoing()`
+  - `Node.properties`
+  - `Node.pull()`
+  - `Node.push()`
+  - `Relationship.exists()`
+  - `Relationship.properties`
+  - `Relationship.pull()`
+  - `Relationship.push()`
+  - `Transaction.append()`
 - "Batman" extension (HTTP batch interface and manual indexing support)
