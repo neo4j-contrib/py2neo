@@ -859,10 +859,14 @@ class Transaction(object):
         """ Send all pending statements to the server for processing.
         """
         self._assert_unfinished()
-        if self.transaction:
-            self.transaction.sync()
-        else:
-            self.session.sync()
+        try:
+            if self.transaction:
+                self.transaction.sync()
+            else:
+                self.session.sync()
+        except ClientError:
+            self.session.connection.reset()
+            raise
 
     def finish(self):
         self.process()
