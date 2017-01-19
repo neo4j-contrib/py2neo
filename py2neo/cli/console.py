@@ -99,6 +99,8 @@ class Console(InteractiveConsole):
 
     services = None
     graph_service = None
+    transaction = None
+    run = None
 
     def __init__(self, write=DEFAULT_WRITE, history_file=DEFAULT_HISTORY_FILE):
         InteractiveConsole.__init__(self)
@@ -120,7 +122,10 @@ class Console(InteractiveConsole):
 
             atexit.register(save_history)
 
-        self.connect("localhost", getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
+        try:
+            self.connect("localhost", getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
+        except ServiceUnavailable:
+            exit(1)
 
     def writeln(self, s=""):
         self.write(s)
@@ -130,10 +135,11 @@ class Console(InteractiveConsole):
         InteractiveConsole.interact(self, banner, *args, **kwargs)
 
     def prompt(self):
+        colour = 31 if self.transaction else 32
         if self.buffer:
-            return "\x01\x1b[32m\x02...\x01\x1b[0m\x02 "
+            return "\x01\x1b[%dm\x02...\x01\x1b[0m\x02 " % colour
         else:
-            return "\x01\x1b[32;1m\x02>>>\x01\x1b[0m\x02 "
+            return "\x01\x1b[%d;1m\x02>>>\x01\x1b[0m\x02 " % colour
 
     def raw_input(self, prompt=""):
         return InteractiveConsole.raw_input(self, self.prompt())
@@ -169,7 +175,7 @@ class Console(InteractiveConsole):
         except IndexError:
             params = {}
         try:
-            result = self.graph_service.graph.run(source, params)
+            result = self.run(source, params)
         except ClientError as error:
             self.write("{:s}\n".format(error))
             return 0
@@ -190,6 +196,12 @@ class Console(InteractiveConsole):
             return self.exit(0)
         elif command == "/connect":
             return self.connect(*tokens)
+        elif command == "/begin":
+            return self.begin(*tokens)
+        elif command == "/commit":
+            return self.commit(*tokens)
+        elif command == "/rollback":
+            return self.rollback(*tokens)
         elif command == "/play":
             return self.play(*tokens)
         elif command == "/params":
@@ -274,8 +286,45 @@ class Console(InteractiveConsole):
                 self.services[host] = graph_service
                 break
         self.graph_service = self.services[host]
+        self.run = self.graph_service.graph.run
         readline.set_completer(SimpleCompleter(self.graph_service, cypher_keywords).complete)
         return 0
+
+    def begin(self, *args):
+        """
+
+        :usage: /begin
+        :param args:
+        :return:
+        """
+        self.transaction = self.graph_service.graph.begin()
+        self.run = self.transaction.run
+
+    def commit(self, *args):
+        """
+
+        :usage: /commit
+        :param args:
+        :return:
+        """
+        try:
+            self.transaction.commit()
+        finally:
+            self.run = self.graph_service.graph.run
+            self.transaction = None
+
+    def rollback(self, *args):
+        """
+
+        :usage: /rollback
+        :param args:
+        :return:
+        """
+        try:
+            self.transaction.rollback()
+        finally:
+            self.run = self.graph_service.graph.run
+            self.transaction = None
 
     def play(self, script=None, *args):
         """
