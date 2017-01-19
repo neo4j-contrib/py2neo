@@ -715,7 +715,12 @@ class Entity(PropertyDict, Walkable):
         if "__name__" in properties:
             self.__name__ = properties["__name__"]
         elif "name" in properties:
-            self.__name__ = snake_case(properties["name"])
+            name = properties["name"]
+            if is_collection(name):
+                self.__name__ = snake_case("_".join(name))
+            else:
+                self.__name__ = snake_case(name)
+
         else:
             self.__name__ = self.__uuid__[-7:]
 
