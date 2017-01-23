@@ -40,8 +40,12 @@ if version_info >= (3,):
     ReprIO = StringIO
 
     integer = int
+    number = (int, float)
     string = (bytes, str)
     unicode = str
+    unichr = chr
+
+    unicode_repr = str
 
     def bstr(s, encoding="utf-8"):
         if isinstance(s, bytes):
@@ -90,8 +94,13 @@ else:
     import codecs
 
     integer = (int, long)
+    number = (int, long, float)
     string = (str, unicode)
     unicode = unicode
+    unichr = unichr
+
+    def unicode_repr(s):
+        return s.encode("utf-8")
 
     class ReprIO(StringIO):
 

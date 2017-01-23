@@ -9,6 +9,7 @@ Notable changes to this project are documented herein.
 - New Cypher console
 - `Transaction.pull()`
 - `Transaction.push()`
+- `cypher_str`
 
 ### Changed
 - Introduced project requirements:
@@ -20,6 +21,9 @@ Notable changes to this project are documented herein.
 - Transactional Cypher over HTTP now goes via a plugin for the official driver
 - `Subgraph.__db_pull__` now takes a `Transaction` instead of a `Graph`
 - `Subgraph.__db_push__` now takes a `Transaction` instead of a `Graph`
+- Replaced `CypherWriter` with `CypherEncoder`
+  - Added `kwargs` to `cypher_escape`
+  - Added `kwargs` to `cypher_repr`
 
 ### Removed
 - Previously deprecated attributes:

@@ -16,16 +16,16 @@
 # limitations under the License.
 
 
-from py2neo.types import SetView
+from py2neo.types import LabelSetView
 from unittest import TestCase
 
 
-class SetViewTestCase(TestCase):
+class LabelSetViewTestCase(TestCase):
 
     weekdays = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"}
     weekend = {"Friday", "Saturday", "Sunday"}
-    weekday_view = SetView(weekdays)
-    weekend_view = SetView(weekend)
+    weekday_view = LabelSetView(weekdays)
+    weekend_view = LabelSetView(weekend)
 
     def test_repr(self):
         assert repr(self.weekday_view)

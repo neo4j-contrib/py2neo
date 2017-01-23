@@ -26,15 +26,15 @@ class ReprTestCase(GraphTestCase):
 
     def test_node_repr(self):
         a = Node("Person", name="Alice")
-        assert repr(a) == '(alice:Person {name:"Alice"})'
+        assert repr(a) == "(:Person {name: 'Alice'})"
         self.graph.create(a)
-        assert repr(a) == '(alice:Person {name:"Alice"})'
+        assert repr(a) == "(:Person {name: 'Alice'})"
 
     def test_relationship_repr(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         ab = Relationship(a, "KNOWS", b, since=1999)
-        assert repr(ab) == '(alice)-[:KNOWS {since:1999}]->(bob)'
+        assert repr(ab) == "(Alice)-[:KNOWS {since: 1999}]->(Bob)"
 
     def test_subgraph_repr(self):
         a = Node("Person", name="Alice")
@@ -50,11 +50,11 @@ class ReprTestCase(GraphTestCase):
         items = [item.strip() for item in nodes.split(",")]
         assert len(items) == 2
         for i, item in enumerate(items):
-            assert re.match(r'\(_?[0-9A-Za-z]+:Person \{name:"(Alice|Bob)"\}\)', item)
+            assert re.match(r"\(:Person \{name: '(Alice|Bob)'\}\)", item)
         items = [item.strip() for item in relationships.split(",")]
         assert len(items) == 2
         for _ in items:
-            assert re.match(r'\(.*\)-\[:(TO|FROM)\]->\(.*\)', repr(ab))
+            assert re.match(r'\(.*\)-\[:(TO|FROM) \{\}\]->\(.*\)', repr(ab))
 
     def test_walkable_repr(self):
         a = Node("Person", name="Alice")
@@ -66,5 +66,5 @@ class ReprTestCase(GraphTestCase):
         cd = Relationship(c, "KNOWS", d)
         t = Walkable([a, ab, b, cb, c, cd, d])
         r = repr(t)
-        expected = "(alice)-[:LOVES]->(bob)<-[:HATES]-(carol)-[:KNOWS]->(dave)"
+        expected = "(Alice)-[:LOVES {}]->(Bob)<-[:HATES {}]-(Carol)-[:KNOWS {}]->(Dave)"
         assert r == expected

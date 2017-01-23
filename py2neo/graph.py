@@ -1256,22 +1256,14 @@ class Cursor(object):
         :param colour: apply colour to the output
         """
         from py2neo.cli.colour import cyan
-        from py2neo.cypher.lang import cypher_repr
+        from py2neo.cypher import cypher_str
 
         def value_str(x, width):
-            if x is None:
-                x = "null"
-            elif x is True:
-                x = "true"
-            elif x is False:
-                x = "false"
             if isinstance(x, (int, float)):
                 template = u"{:>%d}" % width
             else:
                 template = u"{:<%d}" % width
-            if isinstance(x, Node):
-                x = cypher_repr(x, name="_%d" % remote(x)._id)
-            return template.format(ustr(x))
+            return template.format(cypher_str(x))
 
         records = list(self)
         keys = self.keys()

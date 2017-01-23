@@ -230,11 +230,7 @@ class Subgraph(object):
             raise ValueError("Subgraphs must contain at least one node")
 
     def __repr__(self):
-        from py2neo.cypher import CypherWriter
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_subgraph(self)
-        return r.getvalue()
+        return "({" + ", ".join(map(repr, self.nodes())) + "}, {" + ", ".join(map(repr, self.relationships())) + "})"
 
     def __eq__(self, other):
         try:
@@ -543,11 +539,9 @@ class Walkable(Subgraph):
         Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
     def __repr__(self):
-        from py2neo.cypher import CypherWriter
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_walkable(self)
-        return r.getvalue()
+        from py2neo.compat import unicode_repr
+        from py2neo.cypher import cypher_repr
+        return unicode_repr(cypher_repr(self))
 
     def __eq__(self, other):
         try:
@@ -713,6 +707,9 @@ class Entity(PropertyDict, Walkable):
         else:
             self.__name__ = self.__uuid__[-7:]
 
+    def __repr__(self):
+        return Walkable.__repr__(self)
+
     def __bool__(self):
         return len(self) > 0
 
@@ -753,14 +750,68 @@ class Relatable(object):
     pass
 
 
-class SetView(object):
+class LabelSetView(object):
 
-    def __init__(self, items):
-        assert isinstance(items, (set, frozenset))
-        self.__items = items
+    def __init__(self, elements=(), selected=(), **kwargs):
+        self.__elements = frozenset(elements)
+        self.__selected = tuple(selected)
+        self.__kwargs = kwargs
 
     def __repr__(self):
-        return "%s(%r)" % (self.__class__.__name__, set(self.__items))
+        from py2neo.cypher import cypher_escape
+        if self.__selected:
+            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self.__elements)
+        else:
+            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self.__elements))
+
+    def __getattr__(self, element):
+        if element in self.__selected:
+            return self.__class__(self.__elements, self.__selected)
+        else:
+            return self.__class__(self.__elements, self.__selected + (element,))
+
+    def __len__(self):
+        return len(self.__elements)
+
+    def __iter__(self):
+        return iter(self.__elements)
+
+    def __contains__(self, element):
+        return element in self.__elements
+
+    def __and__(self, other):
+        return self.__elements & set(other)
+
+    def __or__(self, other):
+        return self.__elements | set(other)
+
+    def __sub__(self, other):
+        return self.__elements - set(other)
+
+    def __xor__(self, other):
+        return self.__elements ^ set(other)
+
+
+class PropertyDictView(object):
+
+    def __init__(self, items=(), selected=(), **kwargs):
+        self.__items = dict(items)
+        self.__selected = tuple(selected)
+        self.__kwargs = kwargs
+
+    def __repr__(self):
+        from py2neo.cypher import cypher_repr
+        if self.__selected:
+            properties = {key: self.__items[key] for key in self.__selected if key in self.__items}
+        else:
+            properties = {key: self.__items[key] for key in sorted(self.__items)}
+        return cypher_repr(properties, **self.__kwargs)
+
+    def __getattr__(self, key):
+        if key in self.__selected:
+            return self.__class__(self.__items, self.__selected)
+        else:
+            return self.__class__(self.__items, self.__selected + (key,))
 
     def __len__(self):
         return len(self.__items)
@@ -768,20 +819,20 @@ class SetView(object):
     def __iter__(self):
         return iter(self.__items)
 
-    def __contains__(self, item):
-        return item in self.__items
+    def __contains__(self, key):
+        return key in self.__items
 
-    def __and__(self, other):
-        return self.__items & set(other)
 
-    def __or__(self, other):
-        return self.__items | set(other)
+class PropertySelector(object):
 
-    def __sub__(self, other):
-        return self.__items - set(other)
+    def __init__(self, items=(), default_value=None, **kwargs):
+        self.__items = dict(items)
+        self.__default_value = default_value
+        self.__kwargs = kwargs
 
-    def __xor__(self, other):
-        return self.__items ^ set(other)
+    def __getattr__(self, key):
+        from py2neo.cypher import cypher_str
+        return cypher_str(self.__items.get(key, self.__default_value), **self.__kwargs)
 
 
 class Node(Relatable, Entity):
@@ -836,13 +887,6 @@ class Node(Relatable, Entity):
         Entity.__init__(self, (self,), properties)
         self.__stale = set()
 
-    def __repr__(self):
-        from py2neo.cypher import CypherWriter
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_node(self)
-        return r.getvalue()
-
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -878,7 +922,7 @@ class Node(Relatable, Entity):
         """ Set of all node labels.
         """
         self.__ensure_labels()
-        return SetView(self.__labels)
+        return LabelSetView(self.__labels)
 
     def has_label(self, label):
         self.__ensure_labels()
@@ -998,13 +1042,6 @@ class Relationship(Entity):
         Entity.__init__(self, (n[0], self, n[1]), p)
 
         self.__stale = set()
-
-    def __repr__(self):
-        from py2neo.cypher import CypherWriter
-        r = ReprIO()
-        writer = CypherWriter(r)
-        writer.write_relationship(self)
-        return r.getvalue()
 
     def __eq__(self, other):
         if other is None:
