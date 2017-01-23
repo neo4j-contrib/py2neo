@@ -105,11 +105,11 @@ class CypherStringRepresentationTestCase(TestCase):
         assert encoded == u"'hello, world'"
 
     def test_should_encode_bytes_with_escaped_chars(self):
-        encoded = cypher_repr(b"hello, 'world'")
+        encoded = cypher_repr(b"hello, 'world'", quote=u"'")
         assert encoded == u"'hello, \\'world\\''"
 
     def test_should_encode_unicode_with_escaped_chars(self):
-        encoded = cypher_repr(u"hello, 'world'")
+        encoded = cypher_repr(u"hello, 'world'", quote=u"'")
         assert encoded == u"'hello, \\'world\\''"
 
     def test_should_encode_empty_string(self):
@@ -145,7 +145,7 @@ class CypherStringRepresentationTestCase(TestCase):
         assert encoded == u"'\"'"
 
     def test_should_encode_single_quote_when_single_quoted(self):
-        encoded = cypher_repr(u"'")
+        encoded = cypher_repr(u"'", quote=u"'")
         assert encoded == u"'\\''"
 
     def test_should_encode_double_quote_when_double_quoted(self):
@@ -167,6 +167,10 @@ class CypherStringRepresentationTestCase(TestCase):
     def test_should_encode_8_byte_extended_character(self):
         encoded = cypher_repr(u"\U0010ABCD")
         assert encoded == u"'\\U0010abcd'"
+
+    def test_should_encode_complex_sequence(self):
+        encoded = cypher_repr(u"'  '' '''")
+        assert encoded == u"\"'  '' '''\""
 
 
 class CypherListRepresentationTestCase(TestCase):
