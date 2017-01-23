@@ -137,7 +137,7 @@ class CypherEncoder(object):
 
         parts = safe.split(value)
         for i in range(0, len(parts), 2):
-            parts[i] = (X_ESCAPE.sub(u"\\u00\\2", parts[i].encode("unicode-escape")).
+            parts[i] = (X_ESCAPE.sub(u"\\\\u00\\2", parts[i].encode("unicode-escape").decode("utf-8")).
                         replace(quote, escaped_quote).replace(u"\\u0008", u"\\b").replace(u"\\u000c", u"\\f"))
         return quote + u"".join(parts) + quote
 
