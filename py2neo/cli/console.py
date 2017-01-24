@@ -123,7 +123,7 @@ class Console(InteractiveConsole):
             atexit.register(save_history)
 
         try:
-            self.connect("localhost", getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
+            self.connect(getenv("NEO4J_HOST", "localhost"), getenv("NEO4J_USER", "neo4j"), getenv("NEO4J_PASSWORD"))
         except ServiceUnavailable:
             exit(1)
 
