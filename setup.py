@@ -38,7 +38,7 @@ package_metadata = {
     "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
-            "p2n = py2neo.cli.console:main",
+            "p2n = py2neo.cli.tool:main",
             "py2neo = py2neo.cli.tool:main",
             "neokit = neokit:main",
         ],
