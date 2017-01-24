@@ -55,7 +55,7 @@ cypher_keywords = [
     "CONSTRAINT",
     "CREATE",
     "DELETE",
-    "DETACH",
+    "DETACH DELETE",
     "DISTINCT",
     "DROP",
     "ELSE",

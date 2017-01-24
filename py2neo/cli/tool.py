@@ -518,7 +518,8 @@ class Commander(BaseCommander):
         parser.add_argument("statement", help="Cypher statement")
         parsed = parser.parse_args(self.args[2:])
         graph_service = GraphService(NEO4J_URI, user=NEO4J_USER, password=NEO4J_PASSWORD)
-        graph_service.graph.run(parsed.statement).dump(self.out)
+        graph_service.graph.run(parsed.statement).dump(self.out, colour=True)
+        self.out.write("\n")
 
 
 def main(args=None, out=None):
