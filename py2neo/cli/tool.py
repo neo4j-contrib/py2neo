@@ -31,7 +31,7 @@ from os import getenv
 import os.path
 from platform import python_implementation, python_version, system
 from shlex import split as shlex_split
-from sys import stderr, exit
+from sys import stdin, stdout, stderr, exit
 
 from neo4j.v1 import ServiceUnavailable
 
@@ -40,6 +40,7 @@ from py2neo import GraphService, Unauthorized, Forbidden, __version__ as py2neo_
 from py2neo.cypher.lang import cypher_keywords, cypher_first_words
 
 from .colour import cyan, green
+from .env import Environment
 
 WELCOME = """\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
@@ -140,18 +141,12 @@ class BaseCommander(object):
 
 class Console(InteractiveConsole, BaseCommander):
 
-    services = None
-    graph_service = None
-    transaction = None
-    run = None
-
     def __init__(self, args=(), out=None, history_file=DEFAULT_HISTORY_FILE):
         InteractiveConsole.__init__(self)
         BaseCommander.__init__(self, args, out)
+        self.env = Environment(stdin, stdout)
         self.write = self.out.write
         self.write(WELCOME)
-        self.services = {}
-        self.parameters = deque()
 
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
@@ -168,7 +163,7 @@ class Console(InteractiveConsole, BaseCommander):
 
         self.writeln()
         try:
-            self.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+            self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
         except ServiceUnavailable:
             exit(1)
         else:
@@ -184,7 +179,7 @@ class Console(InteractiveConsole, BaseCommander):
         InteractiveConsole.interact(self, banner, *args, **kwargs)
 
     def prompt(self):
-        colour = 31 if self.transaction else 32
+        colour = 31 if self.env.transaction else 32
         if self.buffer:
             return "\x01\x1b[%dm\x02...\x01\x1b[0m\x02 " % colour
         else:
@@ -204,7 +199,8 @@ class Console(InteractiveConsole, BaseCommander):
                 return self.run_slash_command(source)
             elif first_word.upper() in cypher_first_words:
                 try:
-                    return self.run_cypher_source(source)
+                    self.env.run_cypher(source)
+                    return 0
                 except CypherSyntaxError as error:
                     message = error.args[0]
                     if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
@@ -218,24 +214,6 @@ class Console(InteractiveConsole, BaseCommander):
         finally:
             self.writeln()
 
-    def run_cypher_source(self, source):
-        try:
-            params = self.parameters.popleft()
-        except IndexError:
-            params = {}
-        try:
-            result = self.run(source, params)
-        except ClientError as error:
-            self.write("{:s}\n".format(error))
-            return 0
-        else:
-            result.dump(stderr, colour=True)
-            plan = result.plan()
-            if plan:
-                self.write(cyan(repr(plan)))
-                self.write("\n")
-            return 0
-
     def run_slash_command(self, source):
         tokens = shlex_split(source)
         command = tokens.pop(0).lower()
@@ -244,21 +222,21 @@ class Console(InteractiveConsole, BaseCommander):
         elif command == "/exit":
             return self.exit(0)
         elif command == "/connect":
-            return self.connect(*tokens)
+            self.env.connect(*tokens)
         elif command == "/begin":
-            return self.begin(*tokens)
+            self.env.begin_transaction()
         elif command == "/commit":
-            return self.commit(*tokens)
+            self.env.commit_transaction()
         elif command == "/rollback":
-            return self.rollback(*tokens)
+            self.env.rollback_transaction()
         elif command == "/play":
             return self.play(*tokens)
         elif command == "/params":
-            return self.params(*tokens)
+            self.env.list_parameter_sets()
         elif command == "/push":
-            return self.push_(*tokens)
+            self.env.append_parameter_set(*tokens)
         elif command == "/clear":
-            return self.clear(*tokens)
+            self.env.clear_parameter_sets()
         else:
             self.writeln("Syntax Error: Invalid slash command '%s'" % command)
         return 0
@@ -281,87 +259,6 @@ class Console(InteractiveConsole, BaseCommander):
         """
         exit(status)
 
-    def connect(self, uri=None, user="neo4j", password=None, *args):
-        """
-
-        :usage: /connect [<uri>] [<user>] [<password>]
-        :param uri:
-        :param user:
-        :param password:
-        :param args:
-        :return:
-        """
-        if not uri:
-            for name, service in sorted(self.services.items()):
-                if service is self.graph_service:
-                    self.writeln("* {}".format(green(name)))
-                else:
-                    self.writeln("  {}".format(name))
-            return
-        if not user:
-            user = NEO4J_USER
-        while True:
-            graph_service = GraphService(uri, auth=(user, password))
-            uri = graph_service.address.uri["/"]
-            try:
-                _ = graph_service.kernel_version
-            except Unauthorized:
-                password = getpass("Enter password for user %s: " % user)
-            except Forbidden:
-                if graph_service.password_change_required():
-                    self.write("Password expired\n")
-                    new_password = getpass("Enter new password for user %s: " % user)
-                    password = graph_service.change_password(new_password)
-                else:
-                    raise
-            except ServiceUnavailable:
-                self.write("Cannot connect to %s\n" % graph_service.address.host)
-                raise
-            else:
-                self.write("Connected to %s\n" % uri)
-                self.services[uri] = graph_service
-                break
-        self.graph_service = self.services[uri]
-        self.run = self.graph_service.graph.run
-        readline.set_completer(SimpleCompleter(self.graph_service, cypher_keywords).complete)
-        return 0
-
-    def begin(self, *args):
-        """
-
-        :usage: /begin
-        :param args:
-        :return:
-        """
-        self.transaction = self.graph_service.graph.begin()
-        self.run = self.transaction.run
-
-    def commit(self, *args):
-        """
-
-        :usage: /commit
-        :param args:
-        :return:
-        """
-        try:
-            self.transaction.commit()
-        finally:
-            self.run = self.graph_service.graph.run
-            self.transaction = None
-
-    def rollback(self, *args):
-        """
-
-        :usage: /rollback
-        :param args:
-        :return:
-        """
-        try:
-            self.transaction.rollback()
-        finally:
-            self.run = self.graph_service.graph.run
-            self.transaction = None
-
     def play(self, script=None, *args):
         """
 
@@ -372,46 +269,7 @@ class Console(InteractiveConsole, BaseCommander):
         """
         with codecs.open(script, encoding="utf-8") as fin:
             source = fin.read()
-        return self.run_cypher_source(source)
-
-    def params(self, *args):
-        """
-
-        :usage: /params
-        :param args:
-        :return:
-        """
-        for data in self.parameters:
-            self.writeln(repr(data))
-        num_sets = len(self.parameters)
-        self.writeln(cyan("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s")))
-
-    def push_(self, *args):
-        """
-
-        :usage: /push <name>=<value> [<name>=<value> ...]
-        :param args:
-        :return:
-        """
-        data = {}
-        for arg in args:
-            name, _, value = arg.partition("=")
-            try:
-                data[name] = json_loads(value)
-            except JSONDecodeError:
-                data[name] = value
-        self.parameters.append(data)
-
-    def clear(self, *args):
-        """
-
-        :usage: /clear
-        :param args:
-        :return:
-        """
-        self.parameters.clear()
-        num_sets = len(self.parameters)
-        self.writeln(cyan("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s")))
+        return self.env.run_cypher(source)
 
 
 class Commander(BaseCommander):
