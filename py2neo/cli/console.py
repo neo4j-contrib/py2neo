@@ -175,7 +175,7 @@ class Console(object):
 
     def write(self, s="", end="\n"):
         self.out_stream.write(s.encode(self.out_encoding))
-        self.out_stream.write(end)
+        self.out_stream.write(end.encode(self.out_encoding))
 
     def write_metadata(self, s="", end="\n"):
         if self.can_write_colour_out():

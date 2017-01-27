@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from io import StringIO
+from io import BytesIO
 from unittest import TestCase
 
 from py2neo.graph import Record, Node, Relationship
@@ -204,7 +204,7 @@ class CursorEvaluationTestCase(GraphTestCase):
 class CursorDumpTestCase(GraphTestCase):
 
     def test_dump(self):
-        s = StringIO()
+        s = BytesIO()
         cursor = self.graph.run("RETURN 1")
         cursor.dump(out=s)
         assert s.getvalue()
