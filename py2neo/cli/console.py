@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
+from sys import stdin, stdout, stderr
+
+
 def black(s):
     return "\x1b[30m{:s}\x1b[0m".format(s)
 
@@ -78,3 +81,33 @@ def bright_cyan(s):
 
 def bright_white(s):
     return "\x1b[37;1m{:s}\x1b[0m".format(s)
+
+
+class Console(object):
+
+    def __init__(self, in_stream=None, out_stream=None, err_stream=None, colour=True):
+        self._in = in_stream or stdin
+        self._out = out_stream or stdout
+        self._err = err_stream or stderr
+        self.colour = colour
+
+    def write(self, s="", end="\n"):
+        self._out.write(s)
+        self._out.write(end)
+
+    def write_err(self, s="", end="\n"):
+        self._err.write(s)
+        self._err.write(end)
+
+    def write_metadata(self, s="", end="\n"):
+        if self.colour:
+            s = cyan(s)
+        self.write(s, end=end)
+
+    def write_error(self, s="", end="\n"):
+        if self.colour:
+            s = bright_yellow(s)
+        self.write_err(s, end)
+
+    def write_help(self, s="", end="\n"):
+        self.write_err(s, end)

@@ -112,3 +112,8 @@ cypher_first_words = [
     "UNWIND",
     "WITH",
 ]
+
+
+def starts_like_cypher(source):
+    words = source.strip().split()
+    return words and words[0].upper() in cypher_first_words

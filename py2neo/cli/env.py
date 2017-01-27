@@ -21,7 +21,6 @@ from getpass import getpass
 from readline import set_completer
 
 from py2neo import GraphService, Unauthorized, Forbidden, cypher_keywords
-from py2neo.cli.colour import cyan
 
 
 class SimpleCompleter(object):
@@ -57,11 +56,6 @@ class SimpleCompleter(object):
 
 class Environment(object):
 
-    input_stream = None
-    output_stream = None
-    coloured_output = True
-    metadata_colour = cyan
-
     services = None
     graph_service = None
     user = "neo4j"
@@ -69,20 +63,33 @@ class Environment(object):
     run = None
     parameter_sets = None
 
-    def __init__(self, input_stream, output_stream):
-        self.input_stream = input_stream
-        self.output_stream = output_stream
+    def __init__(self, console, interactive=False):
+        self.console = console
+        self.interactive = interactive
         self.services = {}
         self.parameter_sets = deque()
 
-    def write(self, s="", end="\n"):
-        self.output_stream.write(s)
-        self.output_stream.write(end)
+    @property
+    def command_prefix(self):
+        return "/" if self.interactive else "--"
 
-    def write_metadata(self, s="", end="\n"):
-        if self.coloured_output:
-            s = self.metadata_colour(s)
-        self.write(s, end=end)
+    def print_usage_overview(self, commands):
+        write = self.console.write_help
+        write("The py2neo console accepts both raw Cypher and slash commands and supports\n"
+              "basic auto-completion.\n")
+        write("Commands:")
+        for command_str, command_class in sorted(commands.items()):
+            write("  %s%s %s" % (self.command_prefix, " ".join(command_str), command_class.summary()))
+
+    def list_connections(self):
+        for name, service in sorted(self.services.items()):
+            if service is self.graph_service:
+                if self.console.colour:
+                    from .console import green
+                    name = green(name)
+                self.console.write("* {}".format(name))
+            else:
+                self.console.write("  {}".format(name))
 
     def connect(self, uri, user=None, password=None):
         if not user:
@@ -93,9 +100,11 @@ class Environment(object):
             try:
                 _ = graph_service.kernel_version
             except Unauthorized:
+                self.console.write()
                 password = getpass("Enter password for user %s: " % user)
             except Forbidden:
                 if graph_service.password_change_required():
+                    self.console.write()
                     new_password = getpass("Password expired. Enter new password for user %s: " % user)
                     password = graph_service.change_password(new_password)
                 else:
@@ -125,11 +134,37 @@ class Environment(object):
             parameters = self.parameter_sets.popleft()
         except IndexError:
             parameters = {}
-        result = self.run(statement, parameters)
-        result.dump(self.output_stream, colour=self.coloured_output)
-        plan = result.plan()
-        if plan:
-            self.write_metadata(repr(plan))
+        return self.run(statement, parameters)
+
+    def dump(self, cursor):
+        from py2neo.cypher import cypher_str
+
+        def aligned_cypher_str(x, width):
+            if isinstance(x, (int, float)):
+                template = u"{:>%d}" % width
+            else:
+                template = u"{:<%d}" % width
+            return template.format(cypher_str(x))
+
+        records = list(cursor)
+        keys = cursor.keys()
+        if keys:
+            widths = [len(key) for key in keys]
+            for record in records:
+                for i, value in enumerate(record):
+                    widths[i] = max(widths[i], len(cypher_str(value)))
+            templates = [u"{:%d}" % width for width in widths]
+            header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
+            header += u"  ".join("-" * width for width in widths)
+            self.console.write_metadata(header)
+            for i, record in enumerate(records):
+                self.console.write(u"  ".join(aligned_cypher_str(value, widths[i]) for i, value in enumerate(record)))
+        num_records = len(records)
+        footer = u"(%d record%s)" % (num_records, u"" if num_records == 1 else u"s")
+        self.console.write_metadata(footer)
+
+    def has_transaction(self):
+        return bool(self.transaction)
 
     def begin_transaction(self):
         self.assert_connected()
@@ -157,9 +192,9 @@ class Environment(object):
 
     def list_parameter_sets(self):
         for data in self.parameter_sets:
-            self.write(repr(data))
+            self.console.write(repr(data))
         num_sets = len(self.parameter_sets)
-        self.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
+        self.console.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
 
     def append_parameter_set(self, parameters):
         self.parameter_sets.append(parameters)
@@ -167,4 +202,18 @@ class Environment(object):
     def clear_parameter_sets(self):
         self.parameter_sets.clear()
         num_sets = len(self.parameter_sets)
-        self.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
+        self.console.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
+
+    def print_dbms_details(self):
+        graph_service = self.graph_service
+        self.console.write_metadata("Kernel version: %s" % ".".join(map(str, graph_service.kernel_version)))
+        self.console.write_metadata("Store directory: %s" % graph_service.store_directory)
+        self.console.write_metadata("Store ID: %s" % graph_service.store_id)
+        for store, size in graph_service.store_file_sizes.items():
+            self.console.write_metadata("%s: %s" % (store, size))
+
+    def print_config(self, search_terms):
+        graph_service = self.graph_service
+        for name, value in sorted(graph_service.config.items()):
+            if not search_terms or all(term in name for term in search_terms):
+                self.console.write_metadata("%s %s" % (name.ljust(50), value))
