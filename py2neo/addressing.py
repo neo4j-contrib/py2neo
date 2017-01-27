@@ -59,6 +59,9 @@ class GraphServiceURI(object):
     def __repr__(self):
         return repr(self["/"])
 
+    def __str__(self):
+        return self["/"]
+
     def __hash__(self):
         return hash((self.secure, self.scheme, self.host, self.port))
 

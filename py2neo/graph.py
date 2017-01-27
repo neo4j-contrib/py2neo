@@ -20,9 +20,9 @@ from __future__ import absolute_import
 import webbrowser
 from collections import deque
 from email.utils import parsedate_tz, mktime_tz
-from sys import stdout
+from sys import stdout, stderr
 
-from py2neo.compat import Mapping, string, ustr
+from py2neo.compat import Mapping, string
 from py2neo.cypher import cypher_escape
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND, Remote, remote
 from py2neo.meta import bolt_user_agent, http_user_agent
@@ -1255,37 +1255,11 @@ class Cursor(object):
         :param out: the channel to which output should be dumped
         :param colour: apply colour to the output
         """
-        from py2neo.cli.colour import cyan
-        from py2neo.cypher import cypher_str
-
-        def value_str(x, width):
-            if isinstance(x, (int, float)):
-                template = u"{:>%d}" % width
-            else:
-                template = u"{:<%d}" % width
-            return template.format(cypher_str(x))
-
-        records = list(self)
-        keys = self.keys()
-        if keys:
-            widths = [len(key) for key in keys]
-            for record in records:
-                for i, value in enumerate(record):
-                    widths[i] = max(widths[i], len(ustr(value)))
-            templates = [u"{:%d}" % width for width in widths]
-            header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
-            header += u"  ".join("-" * width for width in widths) + u"\n"
-            if colour:
-                header = cyan(header)
-            out.write(header)
-            for i, record in enumerate(records):
-                out.write(u"  ".join(value_str(value, widths[i]) for i, value in enumerate(record)))
-                out.write(u"\n")
-        num_records = len(records)
-        footer = u"(%d record%s)\n" % (num_records, u"" if num_records == 1 else u"s")
-        if colour:
-            footer = cyan(footer)
-        out.write(footer)
+        from py2neo.cli.env import Environment
+        from py2neo.cli.console import Console
+        console = Console(None, out, stderr, use_colour=colour)
+        env = Environment(console)
+        env.dump(self)
 
 
 class Record(tuple, Mapping):
