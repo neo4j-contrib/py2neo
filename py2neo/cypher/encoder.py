@@ -121,7 +121,9 @@ class CypherEncoder(object):
 
         quote = self.quote
         if quote is None:
-            quote = DOUBLE_QUOTE if SINGLE_QUOTE in value and DOUBLE_QUOTE not in value else SINGLE_QUOTE
+            num_single = value.count(u"'")
+            num_double = value.count(u'"')
+            quote = SINGLE_QUOTE if num_single <= num_double else DOUBLE_QUOTE
 
         if quote == SINGLE_QUOTE:
             escaped_quote = ESCAPED_SINGLE_QUOTE
