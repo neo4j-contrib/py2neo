@@ -63,7 +63,7 @@ Report bugs to py2neo@nige.tech
 """
 
 
-class Py2neoCommandLineTool(InteractiveConsole):
+class Py2neoTool(InteractiveConsole):
 
     commands = {
         BeginTransactionCommand,
@@ -186,4 +186,4 @@ class Py2neoCommandLineTool(InteractiveConsole):
 
 def main(args=None, out=None):
     from sys import argv, stdout
-    Py2neoCommandLineTool(*args or argv, out_stream=out or stdout).use()
+    Py2neoTool(*args or argv, out_stream=out or stdout).use()
