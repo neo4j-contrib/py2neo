@@ -162,3 +162,21 @@ class ClearParameterSetsCommand(Command):
 
     def execute(self):
         self.env.clear_parameter_sets()
+
+
+class SetOutputFormatToHumanReadableCommand(Command):
+
+    def __init__(self, env):
+        super(SetOutputFormatToHumanReadableCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = None
+
+
+class SetOutputFormatToJSONCommand(Command):
+
+    def __init__(self, env):
+        super(SetOutputFormatToJSONCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "json"

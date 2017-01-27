@@ -72,6 +72,8 @@ class Py2neoCommandLineTool(InteractiveConsole):
         ("rollback",): RollbackTransactionCommand,
         ("server",): ShowServerDetailsCommand,
         ("exit",): ExitCommand,
+        ("human",): SetOutputFormatToHumanReadableCommand,
+        ("json",): SetOutputFormatToJSONCommand,
         ("play", "<script>"): PlayCypherCommand,
         ("params",): ListParameterSetsCommand,
         ("push",): AppendParameterSetCommand,
@@ -107,20 +109,27 @@ class Py2neoCommandLineTool(InteractiveConsole):
     def use(self):
         """ Run a set of batch commands or start the tool in interactive mode.
         """
-        try:
-            self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
-        except ServiceUnavailable:
-            exit(1)
         if self.env.interactive:
+            self.console.write_help(WELCOME, end="")
+            if version_info >= (3,):
+                self.console.write()
+
+            try:
+                self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+            except ServiceUnavailable:
+                exit(1)
+
             self.interact()
         else:
+            try:
+                self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+            except ServiceUnavailable:
+                exit(1)
+
             for arg in self.args[1:]:
                 self.runsource(arg)
 
     def interact(self, banner="", *args, **kwargs):
-        self.console.write_help(WELCOME, end="")
-        if version_info >= (3,):
-            self.console.write()
         readline.parse_and_bind("tab: complete")
         if hasattr(readline, "read_history_file"):
             try:
@@ -164,8 +173,8 @@ class Py2neoCommandLineTool(InteractiveConsole):
                     self.console.write_error("Syntax Error: %s" % error.args[0])
         else:
             self.console.write_error("Syntax Error: Invalid input")
-        if not more:
-            self.console.write()
+        # if not more:
+        #     self.console.write()
         return more
 
     def run_command(self, source):

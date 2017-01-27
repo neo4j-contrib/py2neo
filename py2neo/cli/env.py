@@ -18,6 +18,7 @@
 
 from collections import deque
 from getpass import getpass
+from json import dumps as json_dumps
 from readline import set_completer
 
 from py2neo import GraphService, Unauthorized, Forbidden, cypher_keywords
@@ -64,6 +65,7 @@ class Environment(object):
     transaction = None
     run = None
     parameter_sets = None
+    output_format = None
 
     def __init__(self, console, interactive=False):
         self.console = console
@@ -151,6 +153,12 @@ class Environment(object):
         return self.run(statement, parameters)
 
     def dump(self, cursor):
+        if self.output_format == "json":
+            self.dump_json(cursor)
+        else:
+            self.dump_human(cursor)
+
+    def dump_human(self, cursor):
         table = Table(self.console, str_function=cypher_str, header_rows=1, auto_align=True)
         table.append(cursor.keys())
         num_records = 0
@@ -160,6 +168,10 @@ class Environment(object):
         table.write()
         footer = u"(%d record%s)" % (num_records, u"" if num_records == 1 else u"s")
         self.console.write_metadata(footer)
+
+    def dump_json(self, cursor):
+        for record in cursor:
+            self.console.write(json_dumps(dict(record)))
 
     def has_transaction(self):
         return bool(self.transaction)
