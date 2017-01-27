@@ -21,6 +21,8 @@ from getpass import getpass
 from readline import set_completer
 
 from py2neo import GraphService, Unauthorized, Forbidden, cypher_keywords
+from py2neo.cli.console import Table
+from py2neo.cypher import cypher_str
 
 
 class SimpleCompleter(object):
@@ -83,20 +85,24 @@ class Environment(object):
 
     def show_server_details(self):
         graph_service = self.graph_service
-        self.console.write_metadata("Bolt URI: {}".format(graph_service.address.bolt_uri))
-        self.console.write_metadata("HTTP URI: {}".format(graph_service.address.http_uri))
-        self.console.write_metadata("User: {}".format(self.user))
-        self.console.write_metadata("Kernel Version: %s" % ".".join(map(str, graph_service.kernel_version)))
-        self.console.write_metadata("Store Directory: %s" % graph_service.store_directory)
-        self.console.write_metadata("Store ID: %s" % graph_service.store_id)
+        table = Table(self.console, header_columns=1)
+        table.append(("HTTP URI", graph_service.address.http_uri))
+        table.append(("Bolt URI", graph_service.address.bolt_uri))
+        table.append(("User", self.user))
+        table.append(("Kernel Version", ".".join(map(str, graph_service.kernel_version))))
+        table.append(("Store Directory", graph_service.store_directory))
+        table.append(("Store ID", graph_service.store_id))
         for store, size in graph_service.store_file_sizes.items():
-            self.console.write_metadata("%s: %s" % (store, size))
+            table.append((store, size))
+        table.write()
 
     def show_config(self, search_terms):
         graph_service = self.graph_service
+        table = Table(self.console, header_columns=1)
         for name, value in sorted(graph_service.config.items()):
             if not search_terms or all(term in name for term in search_terms):
-                self.console.write_metadata("%s %s" % (name.ljust(50), value))
+                table.append((name, value))
+        table.write()
 
     def connect(self, uri, user=None, password=None):
         if user:
@@ -145,29 +151,13 @@ class Environment(object):
         return self.run(statement, parameters)
 
     def dump(self, cursor):
-        from py2neo.cypher import cypher_str
-
-        def aligned_cypher_str(x, width):
-            if isinstance(x, (int, float)):
-                template = u"{:>%d}" % width
-            else:
-                template = u"{:<%d}" % width
-            return template.format(cypher_str(x))
-
-        records = list(cursor)
-        keys = cursor.keys()
-        if keys:
-            widths = [len(key) for key in keys]
-            for record in records:
-                for i, value in enumerate(record):
-                    widths[i] = max(widths[i], len(cypher_str(value)))
-            templates = [u"{:%d}" % width for width in widths]
-            header = u"  ".join(templates[i].format(key) for i, key in enumerate(keys)) + u"\n"
-            header += u"  ".join("-" * width for width in widths)
-            self.console.write_metadata(header)
-            for i, record in enumerate(records):
-                self.console.write(u"  ".join(aligned_cypher_str(value, widths[i]) for i, value in enumerate(record)))
-        num_records = len(records)
+        table = Table(self.console, str_function=cypher_str, header_rows=1, auto_align=True)
+        table.append(cursor.keys())
+        num_records = 0
+        for record in cursor:
+            table.append(record)
+            num_records += 1
+        table.write()
         footer = u"(%d record%s)" % (num_records, u"" if num_records == 1 else u"s")
         self.console.write_metadata(footer)
 

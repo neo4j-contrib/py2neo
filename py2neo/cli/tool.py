@@ -72,7 +72,7 @@ class Py2neoCommandLineTool(InteractiveConsole):
         ("rollback",): RollbackTransactionCommand,
         ("server",): ShowServerDetailsCommand,
         ("exit",): ExitCommand,
-        ("play",): PlayCypherCommand,
+        ("play", "<script>"): PlayCypherCommand,
         ("params",): ListParameterSetsCommand,
         ("push",): AppendParameterSetCommand,
         ("clear",): ClearParameterSetsCommand,
@@ -177,7 +177,7 @@ class Py2neoCommandLineTool(InteractiveConsole):
                 command = command_class(self.env, *tokens[1:])
                 command.execute()
                 return
-        self.console.write_error("Syntax Error: Invalid slash command '%s'" % tokens[0])
+        self.console.write_error("Syntax Error: Invalid command '%s'" % tokens[0])
 
 
 def main(args=None, out=None):
