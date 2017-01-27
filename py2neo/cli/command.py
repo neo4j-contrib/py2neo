@@ -67,13 +67,25 @@ class PlayCypherCommand(RunCypherCommand):
         super(PlayCypherCommand, self).__init__(env, statement)
 
 
-class ListConnectionsCommand(Command):
+class ShowServerDetailsCommand(Command):
+    """ Show details of the remote server.
+    """
 
     def __init__(self, env):
-        super(ListConnectionsCommand, self).__init__(env)
+        super(ShowServerDetailsCommand, self).__init__(env)
 
     def execute(self):
-        self.env.list_connections()
+        self.env.show_server_details()
+
+
+class ShowServerConfigCommand(Command):
+
+    def __init__(self, env, *search_terms):
+        super(ShowServerConfigCommand, self).__init__(env)
+        self.search_terms = search_terms
+
+    def execute(self):
+        self.env.show_config(self.search_terms)
 
 
 class ConnectCommand(Command):
@@ -122,25 +134,6 @@ class ExitCommand(Command):
 
     def execute(self):
         exit(0)
-
-
-class PrintDBMSDetailsCommand(Command):
-
-    def __init__(self, env):
-        super(PrintDBMSDetailsCommand, self).__init__(env)
-
-    def execute(self):
-        self.env.print_dbms_details()
-
-
-class PrintConfigCommand(Command):
-
-    def __init__(self, env, *search_terms):
-        super(PrintConfigCommand, self).__init__(env)
-        self.search_terms = search_terms
-
-    def execute(self):
-        self.env.print_config(self.search_terms)
 
 
 class ListParameterSetsCommand(Command):

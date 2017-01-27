@@ -81,18 +81,27 @@ class Environment(object):
         for command_str, command_class in sorted(commands.items()):
             write("  %s%s %s" % (self.command_prefix, " ".join(command_str), command_class.summary()))
 
-    def list_connections(self):
-        for name, service in sorted(self.services.items()):
-            if service is self.graph_service:
-                if self.console.colour:
-                    from .console import green
-                    name = green(name)
-                self.console.write("* {}".format(name))
-            else:
-                self.console.write("  {}".format(name))
+    def show_server_details(self):
+        graph_service = self.graph_service
+        self.console.write_metadata("Bolt URI: {}".format(graph_service.address.bolt_uri))
+        self.console.write_metadata("HTTP URI: {}".format(graph_service.address.http_uri))
+        self.console.write_metadata("User: {}".format(self.user))
+        self.console.write_metadata("Kernel Version: %s" % ".".join(map(str, graph_service.kernel_version)))
+        self.console.write_metadata("Store Directory: %s" % graph_service.store_directory)
+        self.console.write_metadata("Store ID: %s" % graph_service.store_id)
+        for store, size in graph_service.store_file_sizes.items():
+            self.console.write_metadata("%s: %s" % (store, size))
+
+    def show_config(self, search_terms):
+        graph_service = self.graph_service
+        for name, value in sorted(graph_service.config.items()):
+            if not search_terms or all(term in name for term in search_terms):
+                self.console.write_metadata("%s %s" % (name.ljust(50), value))
 
     def connect(self, uri, user=None, password=None):
-        if not user:
+        if user:
+            self.user = user
+        else:
             user = self.user
         while True:
             graph_service = GraphService(uri, auth=(user, password))
@@ -104,7 +113,6 @@ class Environment(object):
                 password = getpass("Enter password for user %s: " % user)
             except Forbidden:
                 if graph_service.password_change_required():
-                    self.console.write()
                     new_password = getpass("Password expired. Enter new password for user %s: " % user)
                     password = graph_service.change_password(new_password)
                 else:
@@ -203,17 +211,3 @@ class Environment(object):
         self.parameter_sets.clear()
         num_sets = len(self.parameter_sets)
         self.console.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
-
-    def print_dbms_details(self):
-        graph_service = self.graph_service
-        self.console.write_metadata("Kernel version: %s" % ".".join(map(str, graph_service.kernel_version)))
-        self.console.write_metadata("Store directory: %s" % graph_service.store_directory)
-        self.console.write_metadata("Store ID: %s" % graph_service.store_id)
-        for store, size in graph_service.store_file_sizes.items():
-            self.console.write_metadata("%s: %s" % (store, size))
-
-    def print_config(self, search_terms):
-        graph_service = self.graph_service
-        for name, value in sorted(graph_service.config.items()):
-            if not search_terms or all(term in name for term in search_terms):
-                self.console.write_metadata("%s %s" % (name.ljust(50), value))

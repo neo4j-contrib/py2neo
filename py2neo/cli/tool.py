@@ -70,17 +70,14 @@ class Py2neoCommandLineTool(InteractiveConsole):
         ("begin",): BeginTransactionCommand,
         ("commit",): CommitTransactionCommand,
         ("rollback",): RollbackTransactionCommand,
-        ("connect",): ListConnectionsCommand,
-        ("connect", "<uri>"): ConnectCommand,
-        ("connect", "<uri>", "<user>", "<password>"): ConnectCommand,
+        ("server",): ShowServerDetailsCommand,
         ("exit",): ExitCommand,
         ("play",): PlayCypherCommand,
-        ("dbms",): PrintDBMSDetailsCommand,
         ("params",): ListParameterSetsCommand,
         ("push",): AppendParameterSetCommand,
         ("clear",): ClearParameterSetsCommand,
-        ("config",): PrintConfigCommand,
-        ("config", "<search_term>"): PrintConfigCommand,
+        ("config",): ShowServerConfigCommand,
+        ("config", "<search_term>"): ShowServerConfigCommand,
     }
     epilogue = "Report bugs to %s" % py2neo_email
     history_file = os.path.expanduser("~/.py2neo_history")
