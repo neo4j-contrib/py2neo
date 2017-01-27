@@ -110,14 +110,17 @@ class Table(object):
                 w[i] = max(w[i], len(s(value)))
 
     def write(self):
+        self._calc_widths()
+        widths = self._widths
+        if not widths:
+            return
+
         if self.console.can_write_colour_out():
             colour = cyan
         else:
             colour = lambda x: x
 
-        self._calc_widths()
         table = []
-        widths = self._widths
 
         def row_join(values, is_header_row):
             r = []
