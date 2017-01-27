@@ -194,5 +194,5 @@ class Console(object):
 
     def write_error(self, s="", end="\n"):
         if self.can_write_colour_err():
-            s = yellow(s)
+            s = red(s)
         self.write_err(s, end)
