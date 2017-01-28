@@ -17,10 +17,19 @@
 
 
 from codecs import open as codecs_open
+from shlex import split as shlex_split
 from sys import exit
+
+try:
+    from json import loads as json_loads, JSONDecodeError
+except ImportError:
+    from json import loads as json_loads
+    JSONDecodeError = ValueError
 
 
 class Command(object):
+
+    name = None
 
     def __init__(self, env):
         self.env = env
@@ -35,6 +44,17 @@ class Command(object):
             return ""
         lines = doc_string.splitlines()
         return lines[0]
+
+    @classmethod
+    def match(cls, line):
+        tokens = shlex_split(line)
+        first_token = tokens[0].lower()
+        return first_token == cls.name
+
+    @classmethod
+    def instance(cls, env, line):
+        tokens = shlex_split(line)
+        return cls(env, *tokens[1:])
 
     def execute(self):
         """ Execute command.
@@ -61,6 +81,8 @@ class PlayCypherCommand(RunCypherCommand):
     """ Load and run Cypher from a file.
     """
 
+    name = "play"
+
     def __init__(self, env, script):
         with codecs_open(script, encoding="utf-8") as fin:
             statement = fin.read()
@@ -71,6 +93,8 @@ class ShowServerDetailsCommand(Command):
     """ Show details of the remote server.
     """
 
+    name = "server"
+
     def __init__(self, env):
         super(ShowServerDetailsCommand, self).__init__(env)
 
@@ -80,6 +104,8 @@ class ShowServerDetailsCommand(Command):
 
 class ShowServerConfigCommand(Command):
 
+    name = "config"
+
     def __init__(self, env, *search_terms):
         super(ShowServerConfigCommand, self).__init__(env)
         self.search_terms = search_terms
@@ -88,19 +114,9 @@ class ShowServerConfigCommand(Command):
         self.env.show_config(self.search_terms)
 
 
-class ConnectCommand(Command):
-
-    def __init__(self, env, uri, user=None, password=None):
-        super(ConnectCommand, self).__init__(env)
-        self.uri = uri
-        self.user = user
-        self.password = password
-
-    def execute(self):
-        self.env.connect(self.uri, self.user, self.password)
-
-
 class BeginTransactionCommand(Command):
+
+    name = "begin"
 
     def __init__(self, env):
         super(BeginTransactionCommand, self).__init__(env)
@@ -111,6 +127,8 @@ class BeginTransactionCommand(Command):
 
 class CommitTransactionCommand(Command):
 
+    name = "commit"
+
     def __init__(self, env):
         super(CommitTransactionCommand, self).__init__(env)
 
@@ -119,6 +137,8 @@ class CommitTransactionCommand(Command):
 
 
 class RollbackTransactionCommand(Command):
+
+    name = "rollback"
 
     def __init__(self, env):
         super(RollbackTransactionCommand, self).__init__(env)
@@ -129,6 +149,8 @@ class RollbackTransactionCommand(Command):
 
 class ExitCommand(Command):
 
+    name = "exit"
+
     def __init__(self, env):
         super(ExitCommand, self).__init__(env)
 
@@ -137,6 +159,8 @@ class ExitCommand(Command):
 
 
 class ListParameterSetsCommand(Command):
+
+    name = "params"
 
     def __init__(self, env):
         super(ListParameterSetsCommand, self).__init__(env)
@@ -147,12 +171,23 @@ class ListParameterSetsCommand(Command):
 
 class AppendParameterSetCommand(Command):
 
-    def __init__(self, env, parameters):
+    name = "push"
+
+    @classmethod
+    def parse_parameter(cls, source):
+        key, _, value = source.partition("=")
+        try:
+            value = json_loads(value)
+        except JSONDecodeError:
+            pass
+        return key, value
+
+    def __init__(self, env, *parameters):
         super(AppendParameterSetCommand, self).__init__(env)
-        self.parameters = parameters
+        self.parameters = dict(self.parse_parameter(parameter) for parameter in parameters)
 
     def execute(self):
-        self.env.append_parameter_set(self.parameters)
+        self.env.append_parameter_set(**self.parameters)
 
 
 class ClearParameterSetsCommand(Command):
@@ -166,6 +201,8 @@ class ClearParameterSetsCommand(Command):
 
 class SetOutputFormatToHumanReadableCommand(Command):
 
+    name = "human"
+
     def __init__(self, env):
         super(SetOutputFormatToHumanReadableCommand, self).__init__(env)
 
@@ -175,8 +212,54 @@ class SetOutputFormatToHumanReadableCommand(Command):
 
 class SetOutputFormatToJSONCommand(Command):
 
+    name = "json"
+
     def __init__(self, env):
         super(SetOutputFormatToJSONCommand, self).__init__(env)
 
     def execute(self):
         self.env.output_format = "json"
+
+
+class SetOutputFormatToCSVCommand(Command):
+
+    name = "csv"
+
+    def __init__(self, env):
+        super(SetOutputFormatToCSVCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "csv"
+
+
+class SetOutputFormatToCSVWithHeaderCommand(Command):
+
+    name = "csv-with-header"
+
+    def __init__(self, env):
+        super(SetOutputFormatToCSVWithHeaderCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "csv-with-header"
+
+
+class SetOutputFormatToTSVCommand(Command):
+
+    name = "tsv"
+
+    def __init__(self, env):
+        super(SetOutputFormatToTSVCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "tsv"
+
+
+class SetOutputFormatToTSVWithHeaderCommand(Command):
+
+    name = "tsv-with-header"
+
+    def __init__(self, env):
+        super(SetOutputFormatToTSVWithHeaderCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "tsv-with-header"

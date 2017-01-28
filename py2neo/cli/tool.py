@@ -27,13 +27,12 @@ import readline
 from os import getenv
 import os.path
 from platform import python_implementation, python_version, system
-from shlex import split as shlex_split
 from sys import version_info
 
 from neo4j.v1 import ServiceUnavailable
 
 from py2neo import __version__ as py2neo_version, __email__ as py2neo_email, \
-    CypherSyntaxError
+    CypherSyntaxError, ClientError
 from py2neo.cypher.lang import starts_like_cypher
 
 from .command import *
@@ -64,22 +63,24 @@ Report bugs to py2neo@nige.tech
 """
 
 
-class Py2neoCommandLineTool(InteractiveConsole):
+class Py2neoTool(InteractiveConsole):
 
     commands = {
-        ("begin",): BeginTransactionCommand,
-        ("commit",): CommitTransactionCommand,
-        ("rollback",): RollbackTransactionCommand,
-        ("server",): ShowServerDetailsCommand,
-        ("exit",): ExitCommand,
-        ("human",): SetOutputFormatToHumanReadableCommand,
-        ("json",): SetOutputFormatToJSONCommand,
-        ("play", "<script>"): PlayCypherCommand,
-        ("params",): ListParameterSetsCommand,
-        ("push",): AppendParameterSetCommand,
-        ("clear",): ClearParameterSetsCommand,
-        ("config",): ShowServerConfigCommand,
-        ("config", "<search_term>"): ShowServerConfigCommand,
+        BeginTransactionCommand,
+        CommitTransactionCommand,
+        RollbackTransactionCommand,
+        ShowServerDetailsCommand,
+        ExitCommand,
+        SetOutputFormatToHumanReadableCommand,
+        SetOutputFormatToJSONCommand,
+        SetOutputFormatToCSVCommand,
+        SetOutputFormatToCSVWithHeaderCommand,
+        SetOutputFormatToTSVCommand,
+        SetOutputFormatToTSVWithHeaderCommand,
+        PlayCypherCommand,
+        ShowServerConfigCommand,
+        AppendParameterSetCommand,
+        ListParameterSetsCommand,
     }
     epilogue = "Report bugs to %s" % py2neo_email
     history_file = os.path.expanduser("~/.py2neo_history")
@@ -98,13 +99,14 @@ class Py2neoCommandLineTool(InteractiveConsole):
             """ Get help.
             """
 
+            name = "help"
+
             def execute(self):
                 self.env.print_usage_overview(commands)
                 self.env.console.write()
                 self.env.console.write(epilogue)
 
-        commands[("help",)] = HelpCommand
-        commands[("help", "<topic>")] = HelpCommand
+        commands.add(HelpCommand)
 
     def use(self):
         """ Run a set of batch commands or start the tool in interactive mode.
@@ -164,31 +166,28 @@ class Py2neoCommandLineTool(InteractiveConsole):
             self.run_command(source[len(command_prefix):])
         elif starts_like_cypher(source):
             try:
-                RunCypherCommand(self.env, source).execute()
-            except CypherSyntaxError as error:
-                message = error.args[0]
-                if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
-                    more = 1
-                else:
-                    self.console.write_error("Syntax Error: %s" % error.args[0])
+                try:
+                    RunCypherCommand(self.env, source).execute()
+                except CypherSyntaxError as error:
+                    message = error.args[0]
+                    if message.startswith("Unexpected end of input") or message.startswith("Query cannot conclude with"):
+                        more = 1
+                    else:
+                        raise
+            except ClientError as error:
+                self.console.write_error(error.args[0])
         else:
             self.console.write_error("Syntax Error: Invalid input")
-        # if not more:
-        #     self.console.write()
         return more
 
     def run_command(self, source):
-        tokens = shlex_split(source)
-        tokens[0] = tokens[0].lower()
-        for pattern, command_class in self.commands.items():
-            slash_string = pattern[0]
-            if tokens[0] == slash_string and len(tokens) == len(pattern):
-                command = command_class(self.env, *tokens[1:])
-                command.execute()
+        for command in self.commands:
+            if command.match(source):
+                command.instance(self.env, source).execute()
                 return
-        self.console.write_error("Syntax Error: Invalid command '%s'" % tokens[0])
+        self.console.write_error("Unknown Command")
 
 
 def main(args=None, out=None):
     from sys import argv, stdout
-    Py2neoCommandLineTool(*args or argv, out_stream=out or stdout).use()
+    Py2neoTool(*args or argv, out_stream=out or stdout).use()

@@ -21,9 +21,9 @@ from getpass import getpass
 from json import dumps as json_dumps
 from readline import set_completer
 
-from py2neo import GraphService, Unauthorized, Forbidden, cypher_keywords
+from py2neo import GraphService, Unauthorized, Forbidden
 from py2neo.cli.console import Table
-from py2neo.cypher import cypher_str
+from py2neo.cypher import cypher_keywords, cypher_str, cypher_repr
 
 
 class SimpleCompleter(object):
@@ -82,8 +82,8 @@ class Environment(object):
         write("The py2neo console accepts both raw Cypher and slash commands and supports\n"
               "basic auto-completion.\n")
         write("Commands:")
-        for command_str, command_class in sorted(commands.items()):
-            write("  %s%s %s" % (self.command_prefix, " ".join(command_str), command_class.summary()))
+        for command in sorted(commands, key=lambda x: x.name):
+            write("  %s%s %s" % (self.command_prefix, command.name, command.summary()))
 
     def show_server_details(self):
         graph_service = self.graph_service
@@ -155,6 +155,14 @@ class Environment(object):
     def dump(self, cursor):
         if self.output_format == "json":
             self.dump_json(cursor)
+        elif self.output_format == "csv":
+            self.dump_separated_values(cursor, separator=u",", header=0)
+        elif self.output_format == "csv-with-header":
+            self.dump_separated_values(cursor, separator=u",", header=1)
+        elif self.output_format == "tsv":
+            self.dump_separated_values(cursor, separator=u"\t", header=0)
+        elif self.output_format == "tsv-with-header":
+            self.dump_separated_values(cursor, separator=u"\t", header=1)
         else:
             self.dump_human(cursor)
 
@@ -172,6 +180,12 @@ class Environment(object):
     def dump_json(self, cursor):
         for record in cursor:
             self.console.write(json_dumps(dict(record)))
+
+    def dump_separated_values(self, cursor, separator, header):
+        if header:
+            self.console.write_metadata(separator.join(cypher_repr(key, quote=u'"') for key in cursor.keys()))
+        for record in cursor:
+            self.console.write(separator.join(cypher_repr(value, quote=u'"') for value in record.values()))
 
     def has_transaction(self):
         return bool(self.transaction)
@@ -202,14 +216,12 @@ class Environment(object):
 
     def list_parameter_sets(self):
         for data in self.parameter_sets:
-            self.console.write(repr(data))
+            self.console.write(cypher_str(data))
         num_sets = len(self.parameter_sets)
         self.console.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
 
-    def append_parameter_set(self, parameters):
+    def append_parameter_set(self, **parameters):
         self.parameter_sets.append(parameters)
 
     def clear_parameter_sets(self):
         self.parameter_sets.clear()
-        num_sets = len(self.parameter_sets)
-        self.console.write_metadata("({} parameter set{})".format(num_sets, "" if num_sets == 1 else "s"))
