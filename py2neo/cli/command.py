@@ -219,3 +219,47 @@ class SetOutputFormatToJSONCommand(Command):
 
     def execute(self):
         self.env.output_format = "json"
+
+
+class SetOutputFormatToCSVCommand(Command):
+
+    name = "csv"
+
+    def __init__(self, env):
+        super(SetOutputFormatToCSVCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "csv"
+
+
+class SetOutputFormatToCSVWithHeaderCommand(Command):
+
+    name = "csv-with-header"
+
+    def __init__(self, env):
+        super(SetOutputFormatToCSVWithHeaderCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "csv-with-header"
+
+
+class SetOutputFormatToTSVCommand(Command):
+
+    name = "tsv"
+
+    def __init__(self, env):
+        super(SetOutputFormatToTSVCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "tsv"
+
+
+class SetOutputFormatToTSVWithHeaderCommand(Command):
+
+    name = "tsv-with-header"
+
+    def __init__(self, env):
+        super(SetOutputFormatToTSVWithHeaderCommand, self).__init__(env)
+
+    def execute(self):
+        self.env.output_format = "tsv-with-header"

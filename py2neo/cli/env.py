@@ -23,7 +23,7 @@ from readline import set_completer
 
 from py2neo import GraphService, Unauthorized, Forbidden
 from py2neo.cli.console import Table
-from py2neo.cypher import cypher_keywords, cypher_str
+from py2neo.cypher import cypher_keywords, cypher_str, cypher_repr
 
 
 class SimpleCompleter(object):
@@ -155,6 +155,14 @@ class Environment(object):
     def dump(self, cursor):
         if self.output_format == "json":
             self.dump_json(cursor)
+        elif self.output_format == "csv":
+            self.dump_separated_values(cursor, separator=u",", header=0)
+        elif self.output_format == "csv-with-header":
+            self.dump_separated_values(cursor, separator=u",", header=1)
+        elif self.output_format == "tsv":
+            self.dump_separated_values(cursor, separator=u"\t", header=0)
+        elif self.output_format == "tsv-with-header":
+            self.dump_separated_values(cursor, separator=u"\t", header=1)
         else:
             self.dump_human(cursor)
 
@@ -172,6 +180,12 @@ class Environment(object):
     def dump_json(self, cursor):
         for record in cursor:
             self.console.write(json_dumps(dict(record)))
+
+    def dump_separated_values(self, cursor, separator, header):
+        if header:
+            self.console.write_metadata(separator.join(cypher_repr(key, quote=u'"') for key in cursor.keys()))
+        for record in cursor:
+            self.console.write(separator.join(cypher_repr(value, quote=u'"') for value in record.values()))
 
     def has_transaction(self):
         return bool(self.transaction)
