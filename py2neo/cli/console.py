@@ -16,73 +16,74 @@
 # limitations under the License.
 
 
+from os import write as os_write
 from sys import stdin, stdout, stderr
 
 from py2neo.compat import number
 
 
 def black(s):
-    return "\x1b[30m{:s}\x1b[0m".format(s)
+    return b"\x1b[30m" + s + b"\x1b[0m"
 
 
 def red(s):
-    return "\x1b[31m{:s}\x1b[0m".format(s)
+    return b"\x1b[31m" + s + b"\x1b[0m"
 
 
 def green(s):
-    return "\x1b[32m{:s}\x1b[0m".format(s)
+    return b"\x1b[32m" + s + b"\x1b[0m"
 
 
 def yellow(s):
-    return "\x1b[33m{:s}\x1b[0m".format(s)
+    return b"\x1b[33m" + s + b"\x1b[0m"
 
 
 def blue(s):
-    return "\x1b[34m{:s}\x1b[0m".format(s)
+    return b"\x1b[34m" + s + b"\x1b[0m"
 
 
 def magenta(s):
-    return "\x1b[35m{:s}\x1b[0m".format(s)
+    return b"\x1b[35m" + s + b"\x1b[0m"
 
 
 def cyan(s):
-    return "\x1b[36m{:s}\x1b[0m".format(s)
+    return b"\x1b[36m" + s + b"\x1b[0m"
 
 
 def white(s):
-    return "\x1b[37m{:s}\x1b[0m".format(s)
+    return b"\x1b[37m" + s + b"\x1b[0m"
 
 
 def bright_black(s):
-    return "\x1b[30;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[30;1m" + s + b"\x1b[0m"
 
 
 def bright_red(s):
-    return "\x1b[31;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[31;1m" + s + b"\x1b[0m"
 
 
 def bright_green(s):
-    return "\x1b[32;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[32;1m" + s + b"\x1b[0m"
 
 
 def bright_yellow(s):
-    return "\x1b[33;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[33;1m" + s + b"\x1b[0m"
 
 
 def bright_blue(s):
-    return "\x1b[34;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[34;1m" + s + b"\x1b[0m"
 
 
 def bright_magenta(s):
-    return "\x1b[35;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[35;1m" + s + b"\x1b[0m"
 
 
 def bright_cyan(s):
-    return "\x1b[36;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[36;1m" + s + b"\x1b[0m"
 
 
 def bright_white(s):
-    return "\x1b[37;1m{:s}\x1b[0m".format(s)
+    return b"\x1b[37;1m" + s + b"\x1b[0m"
 
 
 class Table(object):
@@ -115,7 +116,7 @@ class Table(object):
         if not widths:
             return
 
-        if self.console.can_write_colour_out():
+        if self.console.ch_out.colour:
             colour = cyan
         else:
             colour = lambda x: x
@@ -161,38 +162,47 @@ class Table(object):
         self.console.write(u"\n".join(table))
 
 
+class Channel(object):
+
+    encoding = "utf-8"
+
+    def __init__(self, file, colour=True):
+        self.file = file
+        self.file_no = file.fileno()
+        self.encoding = file.encoding or self.encoding
+        self.colour = colour and file.isatty()
+
+    def write(self, s, colour=None):
+        if not isinstance(s, bytes):
+            s = s.encode(self.encoding)
+        os_write(self.file_no, s)
+
+
 class Console(object):
 
-    def __init__(self, in_stream=None, out_stream=None, err_stream=None, use_colour=True, out_encoding="utf-8"):
+    def __init__(self, in_stream=None, out_stream=None, err_stream=None, colour=True):
         self.in_stream = in_stream or stdin
-        self.out_stream = out_stream or stdout
-        self.err_stream = err_stream or stderr
-        self.use_colour = use_colour
-        self.out_encoding = out_encoding
-
-    def can_write_colour_out(self):
-        return self.use_colour and self.out_stream.isatty()
-
-    def can_write_colour_err(self):
-        return self.use_colour and self.err_stream.isatty()
+        self.ch_out = Channel(out_stream or stdout, colour)
+        self.ch_err = Channel(err_stream or stderr, colour)
+        self.colour = colour
 
     def write(self, s="", end="\n"):
-        self.out_stream.write(s.encode(self.out_encoding))
-        self.out_stream.write(end.encode(self.out_encoding))
+        self.ch_out.write(s)
+        self.ch_out.write(end)
 
     def write_metadata(self, s="", end="\n"):
-        if self.can_write_colour_out():
+        if self.ch_out.colour:
             s = cyan(s)
         self.write(s, end=end)
 
     def write_err(self, s="", end="\n"):
-        self.err_stream.write(s)
-        self.err_stream.write(end)
+        self.ch_err.write(s)
+        self.ch_err.write(end)
 
     def write_help(self, s="", end="\n"):
         self.write_err(s, end)
 
     def write_error(self, s="", end="\n"):
-        if self.can_write_colour_err():
+        if self.ch_err.colour:
             s = red(s)
         self.write_err(s, end)
