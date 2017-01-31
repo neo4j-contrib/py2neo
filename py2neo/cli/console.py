@@ -19,71 +19,98 @@
 from os import write as os_write
 from sys import stdin, stdout, stderr
 
-from py2neo.compat import number
+from py2neo.compat import number, unicode
+
+
+NATURAL = u"\x1b[0m"
+
+BLACK = u"\x1b[30m"
+RED = u"\x1b[31m"
+GREEN = u"\x1b[32m"
+YELLOW = u"\x1b[33m"
+BLUE = u"\x1b[34m"
+MAGENTA = u"\x1b[35m"
+CYAN = u"\x1b[36m"
+WHITE = u"\x1b[37m"
+
+BRIGHT_BLACK = u"\x1b[30;1m"
+BRIGHT_RED = u"\x1b[31;1m"
+BRIGHT_GREEN = u"\x1b[32;1m"
+BRIGHT_YELLOW = u"\x1b[33;1m"
+BRIGHT_BLUE = u"\x1b[34;1m"
+BRIGHT_MAGENTA = u"\x1b[35;1m"
+BRIGHT_CYAN = u"\x1b[36;1m"
+BRIGHT_WHITE = u"\x1b[37;1m"
+
+
+def colour(s, code):
+    assert isinstance(s, unicode)
+    assert isinstance(code, unicode)
+    return code + s + NATURAL
 
 
 def black(s):
-    return b"\x1b[30m" + s + b"\x1b[0m"
+    return colour(s, BLACK)
 
 
 def red(s):
-    return b"\x1b[31m" + s + b"\x1b[0m"
+    return colour(s, RED)
 
 
 def green(s):
-    return b"\x1b[32m" + s + b"\x1b[0m"
+    return colour(s, GREEN)
 
 
 def yellow(s):
-    return b"\x1b[33m" + s + b"\x1b[0m"
+    return colour(s, YELLOW)
 
 
 def blue(s):
-    return b"\x1b[34m" + s + b"\x1b[0m"
+    return colour(s, BLUE)
 
 
 def magenta(s):
-    return b"\x1b[35m" + s + b"\x1b[0m"
+    return colour(s, MAGENTA)
 
 
 def cyan(s):
-    return b"\x1b[36m" + s + b"\x1b[0m"
+    return colour(s, CYAN)
 
 
 def white(s):
-    return b"\x1b[37m" + s + b"\x1b[0m"
+    return colour(s, WHITE)
 
 
 def bright_black(s):
-    return b"\x1b[30;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_BLACK)
 
 
 def bright_red(s):
-    return b"\x1b[31;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_RED)
 
 
 def bright_green(s):
-    return b"\x1b[32;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_GREEN)
 
 
 def bright_yellow(s):
-    return b"\x1b[33;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_YELLOW)
 
 
 def bright_blue(s):
-    return b"\x1b[34;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_BLUE)
 
 
 def bright_magenta(s):
-    return b"\x1b[35;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_MAGENTA)
 
 
 def bright_cyan(s):
-    return b"\x1b[36;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_CYAN)
 
 
 def bright_white(s):
-    return b"\x1b[37;1m" + s + b"\x1b[0m"
+    return colour(s, BRIGHT_WHITE)
 
 
 class Table(object):
@@ -155,7 +182,7 @@ class Table(object):
                 if y == self.header_rows - 1:
                     hr = []
                     for width in self._widths:
-                        hr.append(width * "-")
+                        hr.append(width * u"-")
                     table.append(colour(row_join(hr, is_header_row)))
             else:
                 table.append(row_join(row, is_header_row))
@@ -165,17 +192,31 @@ class Table(object):
 class Channel(object):
 
     encoding = "utf-8"
+    file_no = None
+
+    _write = None
 
     def __init__(self, file, colour=True):
         self.file = file
-        self.file_no = file.fileno()
-        self.encoding = file.encoding or self.encoding
+        try:
+            file_no = file.fileno()
+        except OSError:
+            self._write = self.file.write
+        else:
+            self._write = lambda s: os_write(file_no, s)
+        try:
+            self.encoding = file.encoding or self.encoding
+        except AttributeError:
+            pass
         self.colour = colour and file.isatty()
 
-    def write(self, s, colour=None):
-        if not isinstance(s, bytes):
-            s = s.encode(self.encoding)
-        os_write(self.file_no, s)
+    def write_bytes(self, s):
+        assert isinstance(s, bytes)
+        self._write(s)
+
+    def write(self, s):
+        assert isinstance(s, unicode)
+        self.write_bytes(s.encode(self.encoding))
 
 
 class Console(object):
@@ -186,23 +227,23 @@ class Console(object):
         self.ch_err = Channel(err_stream or stderr, colour)
         self.colour = colour
 
-    def write(self, s="", end="\n"):
+    def write(self, s=u"", end=u"\n"):
         self.ch_out.write(s)
         self.ch_out.write(end)
 
-    def write_metadata(self, s="", end="\n"):
+    def write_metadata(self, s=u"", end=u"\n"):
         if self.ch_out.colour:
             s = cyan(s)
         self.write(s, end=end)
 
-    def write_err(self, s="", end="\n"):
+    def write_err(self, s=u"", end=u"\n"):
         self.ch_err.write(s)
         self.ch_err.write(end)
 
-    def write_help(self, s="", end="\n"):
+    def write_help(self, s=u"", end=u"\n"):
         self.write_err(s, end)
 
-    def write_error(self, s="", end="\n"):
+    def write_error(self, s=u"", end=u"\n"):
         if self.ch_err.colour:
             s = red(s)
         self.write_err(s, end)
