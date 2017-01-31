@@ -39,7 +39,7 @@ from .command import *
 from .console import Console
 from .env import Environment
 
-WELCOME = """\
+WELCOME = u"""\
 Py2neo {py2neo_version} ({python_implementation} {python_version} on {system})
 Press [TAB] to auto-complete, type "/help" for more information or type
 "/exit" to exit the console.
@@ -54,7 +54,7 @@ NEO4J_URI = getenv("NEO4J_URI", "localhost")
 NEO4J_USER = getenv("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = getenv("NEO4J_PASSWORD")
 
-HELP = """\
+HELP = u"""\
 The py2neo console accepts both raw Cypher and slash commands and supports
 basic auto-completion. Available slash commands are listed below:
 """
@@ -112,7 +112,7 @@ class Py2neoTool(InteractiveConsole):
         """ Run a set of batch commands or start the tool in interactive mode.
         """
         if self.env.interactive:
-            self.console.write_help(WELCOME, end="")
+            self.console.write_help(WELCOME, end=u"")
             if version_info >= (3,):
                 self.console.write()
 

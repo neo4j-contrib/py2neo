@@ -16,73 +16,101 @@
 # limitations under the License.
 
 
+from os import write as os_write
 from sys import stdin, stdout, stderr
 
-from py2neo.compat import number
+from py2neo.compat import number, unicode
+
+
+NATURAL = u"\x1b[0m"
+
+BLACK = u"\x1b[30m"
+RED = u"\x1b[31m"
+GREEN = u"\x1b[32m"
+YELLOW = u"\x1b[33m"
+BLUE = u"\x1b[34m"
+MAGENTA = u"\x1b[35m"
+CYAN = u"\x1b[36m"
+WHITE = u"\x1b[37m"
+
+BRIGHT_BLACK = u"\x1b[30;1m"
+BRIGHT_RED = u"\x1b[31;1m"
+BRIGHT_GREEN = u"\x1b[32;1m"
+BRIGHT_YELLOW = u"\x1b[33;1m"
+BRIGHT_BLUE = u"\x1b[34;1m"
+BRIGHT_MAGENTA = u"\x1b[35;1m"
+BRIGHT_CYAN = u"\x1b[36;1m"
+BRIGHT_WHITE = u"\x1b[37;1m"
+
+
+def colour(s, code):
+    assert isinstance(s, unicode)
+    assert isinstance(code, unicode)
+    return code + s + NATURAL
 
 
 def black(s):
-    return "\x1b[30m{:s}\x1b[0m".format(s)
+    return colour(s, BLACK)
 
 
 def red(s):
-    return "\x1b[31m{:s}\x1b[0m".format(s)
+    return colour(s, RED)
 
 
 def green(s):
-    return "\x1b[32m{:s}\x1b[0m".format(s)
+    return colour(s, GREEN)
 
 
 def yellow(s):
-    return "\x1b[33m{:s}\x1b[0m".format(s)
+    return colour(s, YELLOW)
 
 
 def blue(s):
-    return "\x1b[34m{:s}\x1b[0m".format(s)
+    return colour(s, BLUE)
 
 
 def magenta(s):
-    return "\x1b[35m{:s}\x1b[0m".format(s)
+    return colour(s, MAGENTA)
 
 
 def cyan(s):
-    return "\x1b[36m{:s}\x1b[0m".format(s)
+    return colour(s, CYAN)
 
 
 def white(s):
-    return "\x1b[37m{:s}\x1b[0m".format(s)
+    return colour(s, WHITE)
 
 
 def bright_black(s):
-    return "\x1b[30;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_BLACK)
 
 
 def bright_red(s):
-    return "\x1b[31;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_RED)
 
 
 def bright_green(s):
-    return "\x1b[32;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_GREEN)
 
 
 def bright_yellow(s):
-    return "\x1b[33;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_YELLOW)
 
 
 def bright_blue(s):
-    return "\x1b[34;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_BLUE)
 
 
 def bright_magenta(s):
-    return "\x1b[35;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_MAGENTA)
 
 
 def bright_cyan(s):
-    return "\x1b[36;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_CYAN)
 
 
 def bright_white(s):
-    return "\x1b[37;1m{:s}\x1b[0m".format(s)
+    return colour(s, BRIGHT_WHITE)
 
 
 class Table(object):
@@ -115,7 +143,7 @@ class Table(object):
         if not widths:
             return
 
-        if self.console.can_write_colour_out():
+        if self.console.ch_out.colour:
             colour = cyan
         else:
             colour = lambda x: x
@@ -154,45 +182,68 @@ class Table(object):
                 if y == self.header_rows - 1:
                     hr = []
                     for width in self._widths:
-                        hr.append(width * "-")
+                        hr.append(width * u"-")
                     table.append(colour(row_join(hr, is_header_row)))
             else:
                 table.append(row_join(row, is_header_row))
         self.console.write(u"\n".join(table))
 
 
+class Channel(object):
+
+    encoding = "utf-8"
+    file_no = None
+
+    _write = None
+
+    def __init__(self, file, colour=True):
+        self.file = file
+        try:
+            file_no = file.fileno()
+        except IOError:
+            self._write = self.file.write
+        else:
+            self._write = lambda s: os_write(file_no, s)
+        try:
+            self.encoding = file.encoding or self.encoding
+        except AttributeError:
+            pass
+        self.colour = colour and file.isatty()
+
+    def write_bytes(self, s):
+        assert isinstance(s, bytes)
+        self._write(s)
+
+    def write(self, s):
+        assert isinstance(s, unicode)
+        self.write_bytes(s.encode(self.encoding))
+
+
 class Console(object):
 
-    def __init__(self, in_stream=None, out_stream=None, err_stream=None, use_colour=True, out_encoding="utf-8"):
+    def __init__(self, in_stream=None, out_stream=None, err_stream=None, colour=True):
         self.in_stream = in_stream or stdin
-        self.out_stream = out_stream or stdout
-        self.err_stream = err_stream or stderr
-        self.use_colour = use_colour
-        self.out_encoding = out_encoding
+        self.ch_out = Channel(out_stream or stdout, colour)
+        self.ch_err = Channel(err_stream or stderr, colour)
+        self.colour = colour
 
-    def can_write_colour_out(self):
-        return self.use_colour and self.out_stream.isatty()
+    def write(self, s=u"", end=u"\n"):
+        self.ch_out.write(s)
+        self.ch_out.write(end)
 
-    def can_write_colour_err(self):
-        return self.use_colour and self.err_stream.isatty()
-
-    def write(self, s="", end="\n"):
-        self.out_stream.write(s.encode(self.out_encoding))
-        self.out_stream.write(end.encode(self.out_encoding))
-
-    def write_metadata(self, s="", end="\n"):
-        if self.can_write_colour_out():
+    def write_metadata(self, s=u"", end=u"\n"):
+        if self.ch_out.colour:
             s = cyan(s)
         self.write(s, end=end)
 
-    def write_err(self, s="", end="\n"):
-        self.err_stream.write(s)
-        self.err_stream.write(end)
+    def write_err(self, s=u"", end=u"\n"):
+        self.ch_err.write(s)
+        self.ch_err.write(end)
 
-    def write_help(self, s="", end="\n"):
+    def write_help(self, s=u"", end=u"\n"):
         self.write_err(s, end)
 
-    def write_error(self, s="", end="\n"):
-        if self.can_write_colour_err():
+    def write_error(self, s=u"", end=u"\n"):
+        if self.ch_err.colour:
             s = red(s)
         self.write_err(s, end)

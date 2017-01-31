@@ -1257,7 +1257,7 @@ class Cursor(object):
         """
         from py2neo.cli.env import Environment
         from py2neo.cli.console import Console
-        console = Console(None, out, stderr, use_colour=colour)
+        console = Console(None, out, stderr, colour=colour)
         env = Environment(console)
         env.dump(self)
 

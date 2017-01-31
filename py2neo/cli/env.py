@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from collections import deque
+from collections import deque, OrderedDict
 from getpass import getpass
 from json import dumps as json_dumps
 from readline import set_completer
@@ -24,6 +24,7 @@ from readline import set_completer
 from py2neo import GraphService, Unauthorized, Forbidden
 from py2neo.cli.console import Table
 from py2neo.cypher import cypher_keywords, cypher_str, cypher_repr
+from py2neo.types import Subgraph, Node, Walkable, remote, walk
 
 
 class SimpleCompleter(object):
@@ -178,8 +179,30 @@ class Environment(object):
         self.console.write_metadata(footer)
 
     def dump_json(self, cursor):
+
+        def json_value(obj):
+            if isinstance(obj, Node):
+                return dict(obj)
+            if isinstance(obj, Walkable):
+                w = []
+                for i, entity in enumerate(walk(obj)):
+                    if i % 2 == 0:
+                        w.append(json_value(entity))
+                    else:
+                        w.append({entity.type(): dict(entity)})
+                return w
+            return obj
+
         for record in cursor:
-            self.console.write(json_dumps(dict(record)))
+            data = OrderedDict()
+            for key, value in record.items():
+                if isinstance(value, Subgraph):
+                    value = json_value(value)
+                data[key] = value
+            dumped = json_dumps(data, ensure_ascii=False)
+            if isinstance(dumped, bytes):
+                dumped = dumped.decode("utf-8")
+            self.console.write(dumped)
 
     def dump_separated_values(self, cursor, separator, header):
         if header:
