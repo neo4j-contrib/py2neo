@@ -200,7 +200,7 @@ class Channel(object):
         self.file = file
         try:
             file_no = file.fileno()
-        except OSError:
+        except IOError:
             self._write = self.file.write
         else:
             self._write = lambda s: os_write(file_no, s)
