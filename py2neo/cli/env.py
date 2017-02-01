@@ -118,7 +118,6 @@ class Environment(object):
             try:
                 _ = graph_service.kernel_version
             except Unauthorized:
-                self.console.write()
                 password = getpass("Enter password for user %s: " % user)
             except Forbidden:
                 if graph_service.password_change_required():

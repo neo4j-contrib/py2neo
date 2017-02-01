@@ -112,13 +112,15 @@ class Py2neoTool(InteractiveConsole):
         """ Run a set of batch commands or start the tool in interactive mode.
         """
         if self.env.interactive:
-            self.console.write_help(WELCOME, end=u"")
             if version_info >= (3,):
-                self.console.write()
+                self.console.write_help(WELCOME)
+            else:
+                self.console.write_help(WELCOME, end=u"")
 
             try:
                 self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
             except ServiceUnavailable:
+                self.console.write_error("Service Unavailable: Unable to connect to database on %s" % NEO4J_URI)
                 exit(1)
 
             self.interact()
@@ -126,6 +128,7 @@ class Py2neoTool(InteractiveConsole):
             try:
                 self.env.connect(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
             except ServiceUnavailable:
+                self.console.write_error("Service Unavailable: Unable to connect to database on %s" % NEO4J_URI)
                 exit(1)
 
             for arg in self.args[1:]:
