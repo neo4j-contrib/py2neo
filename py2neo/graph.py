@@ -839,21 +839,28 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
+        from neo4j.v1 import CypherError
+
         self._assert_unfinished()
         try:
             entities = self.entities.popleft()
         except IndexError:
             entities = {}
 
-        if self.transaction:
-            result = self.transaction.run(statement, parameters, **kwparameters)
+        try:
+            if self.transaction:
+                result = self.transaction.run(statement, parameters, **kwparameters)
+            else:
+                result = self.session.run(statement, parameters, **kwparameters)
+        except CypherError as error:
+            raise GraphError.hydrate({"code": error.code, "message": error.message})
         else:
-            result = self.session.run(statement, parameters, **kwparameters)
-        result = Result(self.graph, entities, result)
-        self.results.append(result)
-        if not self.transaction:
-            self.finish()
-        return Cursor(result)
+            result = Result(self.graph, entities, result)
+            self.results.append(result)
+            return Cursor(result)
+        finally:
+            if not self.transaction:
+                self.finish()
 
     def process(self):
         """ Send all pending statements to the server for processing.
@@ -866,8 +873,8 @@ class Transaction(object):
                 self.session.sync()
         except ClientError:
             # TODO: maybe fix this in the official driver?
-            if hasattr(self.session, "connection"):
-                self.session.connection.reset()
+            if hasattr(self.session, "_connection"):
+                self.session._connection.reset()
             raise
 
     def finish(self):

@@ -364,7 +364,7 @@ class HTTPStatementResult(StatementResult):
         self.value_system = JSONValueSystem(session.graph, ())
 
         def load(result):
-            from neo4j.v1 import ResultSummary
+            from neo4j.v1 import BoltStatementResultSummary
 
             self._keys = self.value_system.keys = tuple(result["columns"])
             self._records.extend(record["rest"] for record in result["data"])
@@ -381,7 +381,7 @@ class HTTPStatementResult(StatementResult):
             if "plan" in result:
                 metadata["http_plan"] = result["plan"]
 
-            self._summary = ResultSummary(None, None, **metadata)  # TODO: statement and params
+            self._summary = BoltStatementResultSummary(statement=None, parameters=None, **metadata)  # TODO: statement and params
             self._session = None
             return len(self._records)
 

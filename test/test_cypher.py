@@ -85,7 +85,7 @@ class CypherTestCase(GraphTestCase):
         assert isinstance(tx, Transaction)
 
     def test_nonsense_query(self):
-        statement = "SELECT z=nude(0) RETURNS x"
+        statement = "X"
         with self.assertRaises(CypherSyntaxError):
             self.graph.run(statement)
 

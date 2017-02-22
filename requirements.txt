@@ -1,2 +1,2 @@
-neo4j-driver==1.1.0rc1
+neo4j-driver==1.2.0b1
 urllib3
