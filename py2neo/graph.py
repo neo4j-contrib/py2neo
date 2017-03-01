@@ -866,16 +866,7 @@ class Transaction(object):
         """ Send all pending statements to the server for processing.
         """
         self._assert_unfinished()
-        try:
-            if self.transaction:
-                self.transaction.sync()
-            else:
-                self.session.sync()
-        except ClientError:
-            # TODO: maybe fix this in the official driver?
-            if hasattr(self.session, "_connection"):
-                self.session._connection.reset()
-            raise
+        self.session.sync()
 
     def finish(self):
         self.process()

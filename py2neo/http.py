@@ -20,10 +20,8 @@ from __future__ import absolute_import
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
-try:
-    from neo4j.v1 import Driver, Session, StatementResult, Record
-except ImportError:
-    Driver = Session = StatementResult = Record = type
+from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError, fix_statement, \
+    fix_parameters
 
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
@@ -247,7 +245,7 @@ class HTTPDriver(Driver):
     def graph(self):
         return self.graph_service.graph
 
-    def session(self, access_mode=None):
+    def session(self, access_mode=None, bookmark=None):
         return HTTPSession(self.graph)
 
 
@@ -279,13 +277,22 @@ class HTTPSession(Session):
         self._statements = []
         self._result_loaders = []
 
-    def close(self):
-        super(HTTPSession, self).close()
+    def _connect(self, access_mode=None):
+        pass
+
+    def _disconnect(self, sync):
+        if sync:
+            self.sync()
 
     def run(self, statement, parameters=None, **kwparameters):
+        if self.closed():
+            raise SessionError("Session closed")
+        if not statement:
+            raise ValueError("Cannot run an empty statement")
+
         self._statements.append(OrderedDict([
-            ("statement", statement),
-            ("parameters", dict(parameters or {}, **kwparameters)),
+            ("statement", fix_statement(statement)),
+            ("parameters", fix_parameters(parameters, **kwparameters)),
             ("resultDataContents", ["REST"]),
             ("includeStats", True),
         ]))
@@ -293,8 +300,11 @@ class HTTPSession(Session):
         self._result_loaders.append(result_loader)
         return HTTPStatementResult(self, result_loader)
 
+    def send(self):
+        self.sync()
+
     def fetch(self):
-        return self.sync()
+        return 0
 
     def sync(self):
         ref = self.ref
@@ -326,22 +336,30 @@ class HTTPSession(Session):
             self._statements[:] = ()
             self._result_loaders[:] = ()
 
-    def begin_transaction(self, bookmark=None):
-        transaction = super(HTTPSession, self).begin_transaction(bookmark)
-        self.ref = self.begin_ref
-        return transaction
+    def detach(self, result):
+        return 0
+
+    def last_bookmark(self):
+        return None
 
     def commit_transaction(self):
-        super(HTTPSession, self).commit_transaction()
+        if not self.has_transaction():
+            raise TransactionError("No transaction to commit")
+        self._transaction = None
         self.ref = self.commit_ref or self.autocommit_ref
         try:
             self.sync()
         finally:
             self.commit_ref = self.transaction_ref = None
             self.ref = self.autocommit_ref
+        self._bookmark = None
+        return self._bookmark
 
     def rollback_transaction(self):
-        super(HTTPSession, self).rollback_transaction()
+        if not self.has_transaction():
+            raise TransactionError("No transaction to rollback")
+        self._transaction = None
+        self._bookmark = None
         try:
             if self.transaction_ref:
                 self.ref = self.transaction_ref
@@ -349,6 +367,9 @@ class HTTPSession(Session):
         finally:
             self.commit_ref = self.transaction_ref = None
             self.ref = self.autocommit_ref
+
+    def __begin__(self):
+        self.ref = self.begin_ref
 
 
 class HTTPStatementResult(StatementResult):

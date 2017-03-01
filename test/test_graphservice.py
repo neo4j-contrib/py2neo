@@ -34,8 +34,8 @@ class GraphServiceTestCase(GraphTestCase):
         assert "data" in index
 
     def test_can_create_dbms_with_settings(self):
-        uri = "http://127.0.0.1:7474/"
-        graph_service = GraphService(host="127.0.0.1")
+        uri = "http://localhost:7474/"
+        graph_service = GraphService(host="localhost")
         assert repr(graph_service).startswith("<GraphService")
         assert remote(graph_service).uri == uri
         index = remote(graph_service).get_json("")
