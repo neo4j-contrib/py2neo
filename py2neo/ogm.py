@@ -310,8 +310,6 @@ class GraphObject(object):
         for kwarg, value in kwargs.items():
             if hasattr(self,kwarg):
                 self.__setattr__(kwarg, value)
-            else:
-                raise ValueError('Object %s does not have attr: %s' %(self.__class__, kwarg))
 
     def __eq__(self, other):
         if not isinstance(other, GraphObject):
