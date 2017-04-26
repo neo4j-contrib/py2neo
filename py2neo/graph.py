@@ -649,6 +649,7 @@ class Graph(object):
 
         :param statement: Cypher statement
         :param parameters: dictionary of parameters
+        :param kwparameters: extra keyword parameters
         :return:
         """
         return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
