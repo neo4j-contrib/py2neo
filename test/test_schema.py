@@ -16,11 +16,12 @@
 # limitations under the License.
 
 
-from mock import patch, MagicMock, Mock
+from mock import patch, Mock
+
+from neo4j.exceptions import ConstraintError
 
 from py2neo.graph import GraphError
 from py2neo.http import HTTP, NOT_FOUND
-from py2neo.status import ConstraintError
 from py2neo.types import Node, cast_node
 
 from test.util import GraphTestCase

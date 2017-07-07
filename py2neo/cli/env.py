@@ -21,10 +21,12 @@ from getpass import getpass
 from json import dumps as json_dumps
 from readline import set_completer
 
-from py2neo import GraphService, Unauthorized, Forbidden
+from neo4j.v1 import AuthError, Forbidden
+
+from py2neo import GraphService
 from py2neo.cli.console import Table
 from py2neo.cypher import cypher_keywords, cypher_str, cypher_repr
-from py2neo.types import Subgraph, Node, Walkable, remote, walk
+from py2neo.types import Subgraph, Node, Walkable, walk
 
 
 class SimpleCompleter(object):
@@ -117,7 +119,7 @@ class Environment(object):
             uri = graph_service.address.uri["/"]
             try:
                 _ = graph_service.kernel_version
-            except Unauthorized:
+            except AuthError:
                 password = getpass("Enter password for user %s: " % user)
             except Forbidden:
                 if graph_service.password_change_required():

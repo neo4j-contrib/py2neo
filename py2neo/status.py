@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
+
 from py2neo.compat import xstr
 
 
@@ -81,31 +83,6 @@ class TransientError(GraphError):
     """
 
 
-class ConstraintError(ClientError):
-    """
-    """
-
-
-class CypherSyntaxError(ClientError):
-    """
-    """
-
-
-class CypherTypeError(ClientError):
-    """
-    """
-
-
-class Forbidden(ClientError):
-    """
-    """
-
-
-class Unauthorized(ClientError):
-    """
-    """
-
-
 client_errors = {
 
     # ConstraintError
@@ -132,7 +109,7 @@ client_errors = {
     "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
 
     # Unauthorized
-    "Neo.ClientError.Security.AuthorizationFailed": Unauthorized,
-    "Neo.ClientError.Security.Unauthorized": Unauthorized,
+    "Neo.ClientError.Security.AuthorizationFailed": AuthError,
+    "Neo.ClientError.Security.Unauthorized": AuthError,
 
 }

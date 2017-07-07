@@ -21,12 +21,12 @@ from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
 from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError, fix_statement, \
-    fix_parameters
+    fix_parameters, AuthError, Forbidden
 
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
 from py2neo.meta import http_user_agent
-from py2neo.status import GraphError, Unauthorized, Forbidden
+from py2neo.status import GraphError
 
 
 
@@ -134,7 +134,7 @@ def remote(obj):
 
 def raise_error(uri, status_code, data):
     if status_code == UNAUTHORIZED:
-        raise Unauthorized(uri)
+        raise AuthError(uri)
     if status_code == FORBIDDEN:
         raise Forbidden(uri)
     if data:
