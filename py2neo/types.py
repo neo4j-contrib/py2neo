@@ -19,7 +19,7 @@
 from itertools import chain
 from uuid import uuid4
 
-from cypy.encoding import cypher_escape, cypher_repr, cypher_str
+from cypy.encoding import LabelSetView, cypher_escape, cypher_repr, cypher_str
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr
@@ -742,89 +742,6 @@ class Relatable(object):
     """ Base class for objects that can be connected with relationships.
     """
     pass
-
-
-class LabelSetView(object):
-
-    def __init__(self, elements=(), selected=(), **kwargs):
-        self.__elements = frozenset(elements)
-        self.__selected = tuple(selected)
-        self.__kwargs = kwargs
-
-    # def __repr__(self):
-    #     from py2neo.cypher import cypher_escape
-    #     if self.__selected:
-    #         return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self.__elements)
-    #     else:
-    #         return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self.__elements))
-
-    def __getattr__(self, element):
-        if element in self.__selected:
-            return self.__class__(self.__elements, self.__selected)
-        else:
-            return self.__class__(self.__elements, self.__selected + (element,))
-
-    def __len__(self):
-        return len(self.__elements)
-
-    def __iter__(self):
-        return iter(self.__elements)
-
-    def __contains__(self, element):
-        return element in self.__elements
-
-    def __and__(self, other):
-        return self.__elements & set(other)
-
-    def __or__(self, other):
-        return self.__elements | set(other)
-
-    def __sub__(self, other):
-        return self.__elements - set(other)
-
-    def __xor__(self, other):
-        return self.__elements ^ set(other)
-
-
-class PropertyDictView(object):
-
-    def __init__(self, items=(), selected=(), **kwargs):
-        self.__items = dict(items)
-        self.__selected = tuple(selected)
-        self.__kwargs = kwargs
-
-    # def __repr__(self):
-    #     if self.__selected:
-    #         properties = {key: self.__items[key] for key in self.__selected if key in self.__items}
-    #     else:
-    #         properties = {key: self.__items[key] for key in sorted(self.__items)}
-    #     return cypher_repr(properties, **self.__kwargs)
-
-    def __getattr__(self, key):
-        if key in self.__selected:
-            return self.__class__(self.__items, self.__selected)
-        else:
-            return self.__class__(self.__items, self.__selected + (key,))
-
-    def __len__(self):
-        return len(self.__items)
-
-    def __iter__(self):
-        return iter(self.__items)
-
-    def __contains__(self, key):
-        return key in self.__items
-
-
-class PropertySelector(object):
-
-    def __init__(self, items=(), default_value=None, **kwargs):
-        self.__items = dict(items)
-        self.__default_value = default_value
-        self.__kwargs = kwargs
-
-    def __getattr__(self, key):
-        return cypher_str(self.__items.get(key, self.__default_value), **self.__kwargs)
 
 
 class Node(Relatable, Entity):
