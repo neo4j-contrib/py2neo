@@ -24,7 +24,7 @@ from test.util import GraphTestCase
 def assert_similar(a, b):
     assert isinstance(a, Node)
     assert isinstance(b, Node)
-    assert set(a.labels()) == set(b.labels())
+    assert set(a.labels) == set(b.labels)
     assert dict(a) == dict(b)
 
 

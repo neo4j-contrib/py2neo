@@ -19,8 +19,10 @@
 from itertools import chain
 from uuid import uuid4
 
+from cypy.encoding import cypher_escape, cypher_repr, cypher_str
+
 from py2neo.caching import ThreadLocalEntityCache
-from py2neo.compat import integer, string, unicode, ustr, ReprIO
+from py2neo.compat import integer, string, unicode, ustr
 from py2neo.util import is_collection, round_robin
 
 
@@ -74,7 +76,7 @@ def order(subgraph):
         return subgraph.__order__()
     except AttributeError:
         try:
-            return len(set(subgraph.nodes()))
+            return len(set(subgraph.nodes))
         except AttributeError:
             raise TypeError("Object %r is not graphy")
 
@@ -89,7 +91,7 @@ def size(subgraph):
         return subgraph.__size__()
     except AttributeError:
         try:
-            return len(set(subgraph.relationships()))
+            return len(set(subgraph.relationships))
         except AttributeError:
             raise TypeError("Object %r is not graphy")
 
@@ -167,7 +169,7 @@ def cast_relationship(obj, entities=None):
         if isinstance(r, string):
             return r
         elif hasattr(r, "type"):
-            return r.type()
+            return r.type
         elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
             return r[0]
         else:
@@ -176,7 +178,7 @@ def cast_relationship(obj, entities=None):
     def get_properties(r):
         if isinstance(r, string):
             return {}
-        elif hasattr(r, "type") and callable(r.type):
+        elif hasattr(r, "type"):
             return dict(r)
         elif hasattr(r, "properties"):
             return r.properties
@@ -225,16 +227,16 @@ class Subgraph(object):
     def __init__(self, nodes=None, relationships=None):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])
-        self.__nodes |= frozenset(chain(*(r.nodes() for r in self.__relationships)))
+        self.__nodes |= frozenset(chain(*(r.nodes for r in self.__relationships)))
         if not self.__nodes:
             raise ValueError("Subgraphs must contain at least one node")
 
-    def __repr__(self):
-        return "({" + ", ".join(map(repr, self.nodes())) + "}, {" + ", ".join(map(repr, self.relationships())) + "})"
+    # def __repr__(self):
+    #     return "Subgraph({" + ", ".join(map(repr, self.nodes)) + "}, {" + ", ".join(map(repr, self.relationships)) + "})"
 
     def __eq__(self, other):
         try:
-            return self.nodes() == other.nodes() and self.relationships() == other.relationships()
+            return self.nodes == other.nodes and self.relationships == other.relationships
         except AttributeError:
             return False
 
@@ -272,32 +274,23 @@ class Subgraph(object):
         return bool(self.__relationships)
 
     def __or__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        return Subgraph(nodes(self) | nodes(other), relationships(self) | relationships(other))
+        return Subgraph(set(self.nodes) | set(other.nodes), set(self.relationships) | set(other.relationships))
 
     def __and__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        return Subgraph(nodes(self) & nodes(other), relationships(self) & relationships(other))
+        return Subgraph(set(self.nodes) & set(other.nodes), set(self.relationships) & set(other.relationships))
 
     def __sub__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        r = relationships(self) - relationships(other)
-        n = (nodes(self) - nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        r = set(self.relationships) - set(other.relationships)
+        n = (set(self.nodes) - set(other.nodes)) | set().union(*(set(rel.nodes) for rel in r))
         return Subgraph(n, r)
 
     def __xor__(self, other):
-        nodes = Subgraph.nodes
-        relationships = Subgraph.relationships
-        r = relationships(self) ^ relationships(other)
-        n = (nodes(self) ^ nodes(other)) | set().union(*(nodes(rel) for rel in r))
+        r = set(self.relationships) ^ set(other.relationships)
+        n = (set(self.nodes) ^ set(other.nodes)) | set().union(*(set(rel.nodes) for rel in r))
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
-        from py2neo.cypher import cypher_escape
-        nodes = list(self.nodes())
+        nodes = list(self.nodes)
         reads = []
         writes = []
         parameters = {}
@@ -311,17 +304,17 @@ class Subgraph(object):
                 parameters[param_id] = remote_node._id
             else:
                 label_string = "".join(":" + cypher_escape(label)
-                                       for label in sorted(node.labels()))
+                                       for label in sorted(node.labels))
                 writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
                 node._set_remote_pending(tx)
             returns[node_id] = node
-        for i, relationship in enumerate(self.relationships()):
+        for i, relationship in enumerate(self.relationships):
             if not remote(relationship):
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
-                type_string = cypher_escape(relationship.type())
+                type_string = cypher_escape(relationship.type)
                 param_id = "y%d" % i
                 writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
@@ -334,7 +327,7 @@ class Subgraph(object):
 
     def __db_degree__(self, tx):
         node_ids = []
-        for i, node in enumerate(self.nodes()):
+        for i, node in enumerate(self.nodes):
             remote_node = remote(node)
             if remote_node:
                 node_ids.append(remote_node._id)
@@ -345,13 +338,13 @@ class Subgraph(object):
     def __db_delete__(self, tx):
         node_ids = set()
         relationship_ids = set()
-        for i, node in enumerate(self.nodes()):
+        for i, node in enumerate(self.nodes):
             remote_node = remote(node)
             if remote_node:
                 node_ids.add(remote_node._id)
             else:
                 return False
-        for i, relationship in enumerate(self.relationships()):
+        for i, relationship in enumerate(self.relationships):
             remote_relationship = remote(relationship)
             if remote_relationship:
                 relationship_ids.add(remote_relationship._id)
@@ -366,13 +359,13 @@ class Subgraph(object):
     def __db_exists__(self, tx):
         node_ids = set()
         relationship_ids = set()
-        for i, node in enumerate(self.nodes()):
+        for i, node in enumerate(self.nodes):
             remote_node = remote(node)
             if remote_node:
                 node_ids.add(remote_node._id)
             else:
                 return False
-        for i, relationship in enumerate(self.relationships()):
+        for i, relationship in enumerate(self.relationships):
             remote_relationship = remote(relationship)
             if remote_relationship:
                 relationship_ids.add(remote_relationship._id)
@@ -385,8 +378,7 @@ class Subgraph(object):
         return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        from py2neo.cypher import cypher_escape, cypher_repr
-        nodes = list(self.nodes())
+        nodes = list(self.nodes)
         match_clauses = []
         merge_clauses = []
         parameters = {}
@@ -402,8 +394,8 @@ class Subgraph(object):
                 merge_label = getattr(node, "__primarylabel__", None) or primary_label
                 if merge_label is None:
                     label_string = "".join(":" + cypher_escape(label)
-                                           for label in sorted(node.labels()))
-                elif node.labels():
+                                           for label in sorted(node.labels))
+                elif node.labels:
                     label_string = ":" + cypher_escape(merge_label)
                 else:
                     label_string = ""
@@ -420,22 +412,22 @@ class Subgraph(object):
                 else:
                     property_map_string = cypher_repr(dict(node))
                 merge_clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
-                if node.labels():
+                if node.labels:
                     merge_clauses.append("SET %s%s" % (
                         node_id, "".join(":" + cypher_escape(label)
-                                         for label in sorted(node.labels()))))
+                                         for label in sorted(node.labels))))
                 if merge_keys:
                     merge_clauses.append("SET %s={%s}" % (node_id, param_id))
                     parameters[param_id] = dict(node)
                 node._set_remote_pending(tx)
             returns[node_id] = node
         clauses = match_clauses + merge_clauses
-        for i, relationship in enumerate(self.relationships()):
+        for i, relationship in enumerate(self.relationships):
             if not remote(relationship):
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
-                type_string = cypher_escape(relationship.type())
+                type_string = cypher_escape(relationship.type)
                 param_id = "y%d" % i
                 clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
                                (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
@@ -447,8 +439,8 @@ class Subgraph(object):
         list(tx.run(statement, parameters))
 
     def __db_pull__(self, tx):
-        nodes = {node: None for node in self.nodes()}
-        relationships = list(self.relationships())
+        nodes = {node: None for node in self.nodes}
+        relationships = list(self.relationships)
         for node in nodes:
             tx.entities.append({"_": node})
             cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=remote(node)._id)
@@ -466,8 +458,7 @@ class Subgraph(object):
 
     def __db_push__(self, tx):
         # TODO: reimplement this when REMOVE a:* is available in Cypher
-        from py2neo.cypher import cypher_escape
-        for node in self.nodes():
+        for node in self.nodes:
             remote_node = remote(node)
             if remote_node:
                 clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
@@ -479,7 +470,7 @@ class Subgraph(object):
                 if new_labels:
                     clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
                 tx.run("\n".join(clauses), parameters)
-        for relationship in self.relationships():
+        for relationship in self.relationships:
             remote_relationship = remote(relationship)
             if remote_relationship:
                 clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
@@ -490,7 +481,7 @@ class Subgraph(object):
         matches = []
         deletes = []
         parameters = {}
-        for i, relationship in enumerate(self.relationships()):
+        for i, relationship in enumerate(self.relationships):
             remote_relationship = remote(relationship)
             if remote_relationship:
                 rel_id = "r%d" % i
@@ -503,25 +494,28 @@ class Subgraph(object):
         statement = "\n".join(matches + deletes)
         list(tx.run(statement, parameters))
 
+    @property
     def nodes(self):
         """ Set of all nodes.
         """
         return self.__nodes
 
+    @property
     def relationships(self):
         """ Set of all relationships.
         """
         return self.__relationships
 
+    @property
     def labels(self):
         """ Set of all node labels.
         """
-        return frozenset(chain(*(node.labels() for node in self.__nodes)))
+        return frozenset(chain(*(node.labels for node in self.__nodes)))
 
     def types(self):
         """ Set of all relationship types.
         """
-        return frozenset(rel.type() for rel in self.__relationships)
+        return frozenset(rel.type for rel in self.__relationships)
 
     def keys(self):
         """ Set of all property keys.
@@ -538,10 +532,9 @@ class Walkable(Subgraph):
         self.__sequence = tuple(iterable)
         Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
-    def __repr__(self):
-        from py2neo.compat import unicode_repr
-        from py2neo.cypher import cypher_repr
-        return unicode_repr(cypher_repr(self))
+    # def __repr__(self):
+    #     from py2neo.compat import unicode_repr
+    #     return unicode_repr(cypher_repr(self))
 
     def __eq__(self, other):
         try:
@@ -605,12 +598,14 @@ class Walkable(Subgraph):
         """
         return self.__sequence[-1]
 
+    @property
     def nodes(self):
         """ The sequence of nodes over which a :func:`.walk` of this
         object will traverse.
         """
         return self.__sequence[0::2]
 
+    @property
     def relationships(self):
         """ The sequence of relationships over which a :func:`.walk`
         of this object will traverse.
@@ -707,8 +702,8 @@ class Entity(PropertyDict, Walkable):
         else:
             self.__name__ = self.__uuid__[-7:]
 
-    def __repr__(self):
-        return Walkable.__repr__(self)
+    # def __repr__(self):
+    #     return Walkable.__repr__(self)
 
     def __bool__(self):
         return len(self) > 0
@@ -757,12 +752,12 @@ class LabelSetView(object):
         self.__selected = tuple(selected)
         self.__kwargs = kwargs
 
-    def __repr__(self):
-        from py2neo.cypher import cypher_escape
-        if self.__selected:
-            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self.__elements)
-        else:
-            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self.__elements))
+    # def __repr__(self):
+    #     from py2neo.cypher import cypher_escape
+    #     if self.__selected:
+    #         return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self.__elements)
+    #     else:
+    #         return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self.__elements))
 
     def __getattr__(self, element):
         if element in self.__selected:
@@ -799,13 +794,12 @@ class PropertyDictView(object):
         self.__selected = tuple(selected)
         self.__kwargs = kwargs
 
-    def __repr__(self):
-        from py2neo.cypher import cypher_repr
-        if self.__selected:
-            properties = {key: self.__items[key] for key in self.__selected if key in self.__items}
-        else:
-            properties = {key: self.__items[key] for key in sorted(self.__items)}
-        return cypher_repr(properties, **self.__kwargs)
+    # def __repr__(self):
+    #     if self.__selected:
+    #         properties = {key: self.__items[key] for key in self.__selected if key in self.__items}
+    #     else:
+    #         properties = {key: self.__items[key] for key in sorted(self.__items)}
+    #     return cypher_repr(properties, **self.__kwargs)
 
     def __getattr__(self, key):
         if key in self.__selected:
@@ -831,7 +825,6 @@ class PropertySelector(object):
         self.__kwargs = kwargs
 
     def __getattr__(self, key):
-        from py2neo.cypher import cypher_str
         return cypher_str(self.__items.get(key, self.__default_value), **self.__kwargs)
 
 
@@ -918,6 +911,7 @@ class Node(Relatable, Entity):
         if remote_self and "labels" in self.__stale:
             remote_self.graph.pull(self)
 
+    @property
     def labels(self):
         """ Set of all node labels.
         """
@@ -962,7 +956,7 @@ class Relationship(Entity):
 
         >>> class WorksWith(Relationship): pass
         >>> a_works_with_b = WorksWith(a, b)
-        >>> a_works_with_b.type()
+        >>> a_works_with_b.type
         'WORKS_WITH'
 
     """
@@ -1056,15 +1050,16 @@ class Relationship(Entity):
             if remote_self and remote_other:
                 return remote_self == remote_other
             else:
-                return (self.nodes() == other.nodes() and size(other) == 1 and
-                        self.type() == other.type() and dict(self) == dict(other))
+                return (self.nodes == other.nodes and size(other) == 1 and
+                        self.type == other.type and dict(self) == dict(other))
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.nodes()) ^ hash(self.type())
+        return hash(self.nodes) ^ hash(self.type)
 
+    @property
     def type(self):
         """ The type of this relationship.
         """
@@ -1097,7 +1092,7 @@ class Path(Walkable):
         >>> abcde = Path(abc, "KNOWS", de)
         >>> abcde
         <Path order=5 size=4>
-        >>> for relationship in abcde.relationships():
+        >>> for relationship in abcde.relationships:
         ...     print(relationship)
         ({name:"Alice"})-[:KNOWS]->({name:"Bob"})
         ({name:"Carol"})-[:KNOWS]->({name:"Bob"})

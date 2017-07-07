@@ -22,7 +22,7 @@ from test.util import GraphTestCase
 
 def assert_node(node, *labels, **properties):
     assert isinstance(node, Node)
-    assert set(node.labels()) == set(labels)
+    assert set(node.labels) == set(labels)
     assert dict(node) == properties
 
 
@@ -54,7 +54,7 @@ class GraphyCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert remote(casted)
         assert casted.start_node() == a
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() == b
 
     def test_can_cast_3_tuple(self):
@@ -64,7 +64,7 @@ class GraphyCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() is alice
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() is bob
 
     def test_can_cast_4_tuple(self):
@@ -74,7 +74,7 @@ class GraphyCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() is alice
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() is bob
         assert casted["since"] == 1999
 
@@ -104,7 +104,7 @@ class RelationshipCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert remote(casted)
         assert casted.start_node() == a
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() == b
         
     def test_cannot_cast_0_tuple(self):
@@ -126,7 +126,7 @@ class RelationshipCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() == alice
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() == bob
         
     def test_can_cast_3_tuple_with_unbound_rel(self):
@@ -136,7 +136,7 @@ class RelationshipCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() == alice
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() == bob
         assert casted["since"] == 1999
         
@@ -147,7 +147,7 @@ class RelationshipCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() == alice
-        assert casted.type() == "KNOWS"
+        assert casted.type == "KNOWS"
         assert casted.end_node() == bob
         assert casted["since"] == 1999
         
@@ -163,7 +163,7 @@ class RelationshipCastTestCase(GraphTestCase):
         assert isinstance(casted, Relationship)
         assert not remote(casted)
         assert casted.start_node() == a
-        assert casted.type() == "TO"
+        assert casted.type == "TO"
         assert casted.end_node() == b
 
     def test_can_cast_relationship_with_integer_nodes(self):
@@ -173,7 +173,7 @@ class RelationshipCastTestCase(GraphTestCase):
         r = cast_relationship((0, "TO", 1), nodes)
         assert r.start_node() is a
         assert r.end_node() is b
-        assert r.type() == "TO"
+        assert r.type == "TO"
 
     def test_cannot_cast_relationship_from_generic_object(self):
         class Foo(object):

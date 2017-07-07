@@ -27,13 +27,13 @@ class NodeTestCase(GraphTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
-        assert set(a.labels()) == {"Person"}
+        assert set(a.labels) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_can_create_remote_node(self):
         a = Node("Person", name="Alice", age=33)
         self.graph.create(a)
-        assert set(a.labels()) == {"Person"}
+        assert set(a.labels) == {"Person"}
         assert dict(a) == {"name": "Alice", "age": 33}
         assert remote(a).ref.startswith("node/")
         assert repr(remote(a))
@@ -42,7 +42,7 @@ class NodeTestCase(GraphTestCase):
         alice_1 = Node(name="Alice")
         alice_1.__remote__ = Remote("http://localhost:7474/db/data/node/1")
         alice_2 = Node(name="Alice")
-        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
 
     def test_bound_node_equality(self):
@@ -56,7 +56,7 @@ class NodeTestCase(GraphTestCase):
     def test_unbound_node_equality(self):
         alice_1 = Node("Person", name="Alice")
         alice_2 = Node("Person", name="Alice")
-        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
 
     def test_can_merge_unsaved_changes_when_querying_node(self):
@@ -74,7 +74,7 @@ class NodeTestCase(GraphTestCase):
         self.graph.create(a)
         a.remove_label("Thing")
         a._Node__stale.add("labels")
-        labels = a.labels()
+        labels = a.labels
         assert set(labels) == {"Thing"}
 
     def test_pull_node_property_if_stale(self):
@@ -97,7 +97,7 @@ class AbstractNodeTestCase(GraphTestCase):
     def test_node_equality(self):
         alice_1 = Node(name="Alice", age=34)
         alice_2 = Node(name="Alice", age=34)
-        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
 
     def test_node_inequality(self):

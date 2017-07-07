@@ -117,16 +117,6 @@ Cypher Utilities
 .. autoclass:: py2neo.database.selection.NodeSelection
    :members:
 
-.. autofunction:: py2neo.database.cypher.cypher_escape
-
-.. autofunction:: py2neo.database.cypher.cypher_repr
-
-
-Debugging
-=========
-
-.. autofunction:: py2neo.watch
-
 
 Errors & Warnings
 =================

@@ -88,7 +88,7 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes()[1]
+        return self.path.nodes[1]
 
     @property
     def month(self):
@@ -97,7 +97,7 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes()[2]
+        return self.path.nodes[2]
 
     @property
     def day(self):
@@ -106,4 +106,4 @@ class GregorianDate(object):
         :rtype: :class:`py2neo.Node`
 
         """
-        return self.path.nodes()[3]
+        return self.path.nodes[3]

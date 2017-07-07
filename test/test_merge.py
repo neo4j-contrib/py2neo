@@ -174,7 +174,7 @@ class MergeSubgraphTestCase(GraphTestCase):
         old_order = order(self.graph)
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
-        for node in subgraph.nodes():
+        for node in subgraph.nodes:
             assert remote(node)
             assert self.graph.exists(node)
         new_order = order(self.graph)
@@ -188,7 +188,7 @@ class MergeSubgraphTestCase(GraphTestCase):
         old_order = order(self.graph)
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
-        for node in subgraph.nodes():
+        for node in subgraph.nodes:
             assert remote(node)
             assert self.graph.exists(node)
         new_order = order(self.graph)
@@ -202,7 +202,7 @@ class MergeSubgraphTestCase(GraphTestCase):
         old_order = order(self.graph)
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
-        for node in subgraph.nodes():
+        for node in subgraph.nodes:
             assert remote(node)
             assert self.graph.exists(node)
         new_order = order(self.graph)
@@ -216,7 +216,7 @@ class MergeSubgraphTestCase(GraphTestCase):
         old_order = order(self.graph)
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
-        for node in subgraph.nodes():
+        for node in subgraph.nodes:
             assert remote(node)
             assert self.graph.exists(node)
         new_order = order(self.graph)

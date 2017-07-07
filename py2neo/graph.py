@@ -17,13 +17,12 @@
 
 from __future__ import absolute_import
 
-import webbrowser
 from collections import deque
 from email.utils import parsedate_tz, mktime_tz
-from sys import stdout, stderr
+
+from cypy.encoding import cypher_escape
 
 from py2neo.compat import Mapping, string
-from py2neo.cypher import cypher_escape
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND, Remote, remote
 from py2neo.meta import bolt_user_agent, http_user_agent
 from py2neo.selection import NodeSelector
@@ -599,12 +598,6 @@ class Graph(object):
         """ The set of node labels currently defined within the graph.
         """
         return frozenset(remote(self).get_json("labels"))
-
-    def open_browser(self):
-        """ Open a page in the default system web browser pointing at
-        the Neo4j browser application for this graph.
-        """
-        webbrowser.open(remote(self.graph_service).uri)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -1310,9 +1303,9 @@ class Record(tuple, Mapping):
         relationships = []
         for value in self:
             if hasattr(value, "nodes"):
-                nodes.extend(value.nodes())
+                nodes.extend(value.nodes)
             if hasattr(value, "relationships"):
-                relationships.extend(value.relationships())
+                relationships.extend(value.relationships)
         if nodes:
             return Subgraph(nodes, relationships)
         else:

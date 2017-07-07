@@ -109,7 +109,7 @@ class NodeHydrationTestCase(GraphTestCase):
         hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
-        assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
+        assert set(hydrated.labels) == set(dehydrated["metadata"]["labels"])
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]
 
@@ -144,7 +144,7 @@ class NodeHydrationTestCase(GraphTestCase):
             hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
         assert isinstance(hydrated, Node)
         assert dict(hydrated) == dehydrated["data"]
-        assert set(hydrated.labels()) == set(dehydrated["metadata"]["labels"])
+        assert set(hydrated.labels) == set(dehydrated["metadata"]["labels"])
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]
 
@@ -175,7 +175,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
         assert remote(hydrated.end_node())
         assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type() == dehydrated["type"]
+        assert hydrated.type == dehydrated["type"]
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]
 
@@ -201,7 +201,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
         assert remote(hydrated.end_node())
         assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type() == dehydrated["type"]
+        assert hydrated.type == dehydrated["type"]
         assert dict(hydrated) == dehydrated["data"]
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]
@@ -226,7 +226,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
         assert remote(hydrated.start_node()).uri == dehydrated["start"]
         assert remote(hydrated.end_node())
         assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type() == dehydrated["type"]
+        assert hydrated.type == dehydrated["type"]
         assert dict(hydrated) == dehydrated["data"]
         assert remote(hydrated)
         assert remote(hydrated).uri == dehydrated["self"]

@@ -31,11 +31,11 @@ class PullTestCase(GraphTestCase):
         alice_1 = Node()
         alice_2 = Node("Person", name="Alice")
         self.graph.create(alice_2)
-        assert set(alice_1.labels()) == set()
+        assert set(alice_1.labels) == set()
         assert dict(alice_1) == {}
         alice_1.__remote__ = Remote(remote(alice_2).uri)
         self.graph.pull(alice_1)
-        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
 
     def test_can_pull_path(self):
@@ -69,7 +69,7 @@ class PullTestCase(GraphTestCase):
                 node = Node(*old_labels)
                 self.graph.create(node)
                 node_id = remote(node)._id
-                assert set(node.labels()) == old_labels
+                assert set(node.labels) == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
                 else:
@@ -82,7 +82,7 @@ class PullTestCase(GraphTestCase):
                     self.graph.run("MATCH (a) WHERE id(a)={x} %s %s" %
                                    (remove_clause, set_clause), x=node_id)
                     self.graph.pull(node)
-                    assert set(node.labels()) == new_labels, \
+                    assert set(node.labels) == new_labels, \
                         "Failed to pull new labels %r over old labels %r" % \
                         (new_labels, old_labels)
 
@@ -128,12 +128,12 @@ class PushTestCase(GraphTestCase):
         alice_1 = Node("Person", name="Alice")
         alice_2 = Node()
         self.graph.create(alice_2)
-        assert set(alice_2.labels()) == set()
+        assert set(alice_2.labels) == set()
         assert dict(alice_2) == {}
         alice_1.__remote__ = Remote(remote(alice_2).uri)
         self.graph.push(alice_1)
         self.graph.pull(alice_2)
-        assert set(alice_1.labels()) == set(alice_2.labels())
+        assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
 
     def test_can_push_relationship(self):

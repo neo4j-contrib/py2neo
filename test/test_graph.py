@@ -22,7 +22,6 @@ from py2neo.json import JSONValueSystem
 from py2neo.types import Node, Relationship, cast_node
 
 from test.util import GraphTestCase
-from test.compat import patch
 
 
 class GraphObjectTestCase(GraphTestCase):
@@ -68,11 +67,6 @@ class GraphObjectTestCase(GraphTestCase):
         value_system = JSONValueSystem(self.graph, ["a"])
         hydrated = value_system.hydrate([data])
         assert hydrated[0] == data
-
-    def test_can_open_browser(self):
-        with patch("webbrowser.open") as mocked:
-            self.graph.open_browser()
-            assert mocked.called_once_with(remote(self.graph.graph_service).uri)
 
     def test_graph_is_not_equal_to_non_graph(self):
         graph = Graph()

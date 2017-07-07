@@ -55,25 +55,25 @@ class CypherTestCase(GraphTestCase):
     def test_can_run_cypher_statement_1(self):
         value = self.graph.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
-        assert set(value.labels()) == {"Person"}
+        assert set(value.labels) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_run_parametrised_cypher_statement_1(self):
         value = self.graph.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(value, Node)
-        assert set(value.labels()) == {"Person"}
+        assert set(value.labels) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_evaluate_cypher_statement(self):
         value = self.graph.evaluate("MERGE (a:Person {name:'Alice'}) RETURN a")
         assert isinstance(value, Node)
-        assert set(value.labels()) == {"Person"}
+        assert set(value.labels) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_can_evaluate_parametrised_cypher_statement(self):
         value = self.graph.evaluate("MERGE (a:Person {name:{N}}) RETURN a", {"N": "Alice"})
         assert isinstance(value, Node)
-        assert set(value.labels()) == {"Person"}
+        assert set(value.labels) == {"Person"}
         assert dict(value) == {"name": "Alice"}
 
     def test_evaluate_with_no_results_returns_none(self):
@@ -133,11 +133,11 @@ class CypherTestCase(GraphTestCase):
         assert len(records) == 1
         for record in records:
             assert isinstance(record["p"], Path)
-            nodes = record["p"].nodes()
+            nodes = record["p"].nodes
             assert len(nodes) == 2
             assert nodes[0] == a
             assert nodes[1] == b
-            assert record["p"][0].type() == "KNOWS"
+            assert record["p"][0].type == "KNOWS"
 
     def test_query_can_return_collection(self):
         node = Node()
@@ -285,7 +285,7 @@ class CypherOverHTTPTestCase(GraphTestCase):
         assert len(records[0]) == 1
         a = records[0][0]
         assert isinstance(a, Node)
-        assert set(a.labels()) == {"Person"}
+        assert set(a.labels) == {"Person"}
         assert dict(a) == {"name": "Alice"}
 
     def test_can_process_mid_transaction(self):

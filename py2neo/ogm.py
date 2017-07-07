@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo.cypher import cypher_escape, label_case, relationship_case
+from cypy.encoding import cypher_escape
+
+from py2neo.cypher import label_case, relationship_case
 from py2neo.http import remote
 from py2neo.selection import NodeSelection, NodeSelector
 from py2neo.types import Node, PropertyDict

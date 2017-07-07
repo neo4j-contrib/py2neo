@@ -273,8 +273,8 @@ class RecordTestCase(TestCase):
         subgraph = record.subgraph()
         assert order(subgraph) == 2
         assert size(subgraph) == 1
-        assert subgraph.nodes() == {alice, bob}
-        assert subgraph.relationships() == {alice_knows_bob}
+        assert set(subgraph.nodes) == {alice, bob}
+        assert set(subgraph.relationships) == {alice_knows_bob}
 
     def test_record_with_no_graphy_objects_converts_to_null_subgraph(self):
         keys = ["a", "b", "c"]

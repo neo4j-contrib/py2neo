@@ -37,8 +37,8 @@ class MatchTestCase(GraphTestCase):
     def test_can_match_start_node(self):
         relationships = list(self.graph.match(start_node=self.alice))
         assert len(relationships) == 2
-        assert "KNOWS" in [rel.type() for rel in relationships]
-        assert "LOVES" in [rel.type() for rel in relationships]
+        assert "KNOWS" in [rel.type for rel in relationships]
+        assert "LOVES" in [rel.type for rel in relationships]
         assert self.bob in [rel.end_node() for rel in relationships]
 
     def test_can_match_start_node_and_type(self):
@@ -49,8 +49,8 @@ class MatchTestCase(GraphTestCase):
     def test_can_match_start_node_and_end_node(self):
         relationships = list(self.graph.match(start_node=self.alice, end_node=self.bob))
         assert len(relationships) == 2
-        assert "KNOWS" in [rel.type() for rel in relationships]
-        assert "LOVES" in [rel.type() for rel in relationships]
+        assert "KNOWS" in [rel.type for rel in relationships]
+        assert "LOVES" in [rel.type for rel in relationships]
 
     def test_can_match_type_and_end_node(self):
         relationships = list(self.graph.match(rel_type="KNOWS", end_node=self.bob))
@@ -61,8 +61,8 @@ class MatchTestCase(GraphTestCase):
     def test_can_bidi_match_start_node(self):
         relationships = list(self.graph.match(start_node=self.bob, bidirectional=True))
         assert len(relationships) == 6
-        assert "KNOWS" in [rel.type() for rel in relationships]
-        assert "LOVES" in [rel.type() for rel in relationships]
+        assert "KNOWS" in [rel.type for rel in relationships]
+        assert "LOVES" in [rel.type for rel in relationships]
         assert self.alice in [rel.start_node() for rel in relationships]
         assert self.bob in [rel.start_node() for rel in relationships]
         assert self.carol in [rel.start_node() for rel in relationships]
@@ -83,8 +83,8 @@ class MatchTestCase(GraphTestCase):
     def test_can_bidi_match_start_node_and_end_node(self):
         relationships = list(self.graph.match(start_node=self.alice, end_node=self.bob, bidirectional=True))
         assert len(relationships) == 4
-        assert "KNOWS" in [rel.type() for rel in relationships]
-        assert "LOVES" in [rel.type() for rel in relationships]
+        assert "KNOWS" in [rel.type for rel in relationships]
+        assert "LOVES" in [rel.type for rel in relationships]
         assert self.alice in [rel.start_node() for rel in relationships]
         assert self.bob in [rel.start_node() for rel in relationships]
         assert self.alice in [rel.end_node() for rel in relationships]

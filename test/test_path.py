@@ -39,24 +39,24 @@ class PathTestCase(GraphTestCase):
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        nodes = path.nodes()
+        nodes = path.nodes
         assert len(path) == 1
         assert nodes[0]["name"] == "Alice"
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert nodes[-1]["name"] == "Bob"
         path = Path(path, "KNOWS", {"name": "Carol"})
-        nodes = path.nodes()
+        nodes = path.nodes
         assert len(path) == 2
         assert nodes[0]["name"] == "Alice"
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert nodes[1]["name"] == "Bob"
         path = Path({"name": "Zach"}, "KNOWS", path)
-        nodes = path.nodes()
+        nodes = path.nodes
         assert len(path) == 3
         assert nodes[0]["name"] == "Zach"
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert nodes[1]["name"] == "Alice"
-        assert path[1].type() == "KNOWS"
+        assert path[1].type == "KNOWS"
         assert nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
@@ -175,30 +175,30 @@ class CreatePathTestCase(GraphTestCase):
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
-        nodes = path.nodes()
+        nodes = path.nodes
         assert dict(nodes[0]) == {"name": "Alice"}
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert dict(nodes[1]) == {"name": "Bob"}
         self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert isinstance(nodes[1], Node)
         assert nodes[1]["name"] == "Bob"
 
     def test_can_create_path_with_rel_properties(self):
         path = Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
-        nodes = path.nodes()
+        nodes = path.nodes
         assert dict(nodes[0]) == {"name": "Alice"}
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert dict(path[0]) == {"since": 1999}
         assert dict(nodes[1]) == {"name": "Bob"}
         self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
-        assert path[0].type() == "KNOWS"
+        assert path[0].type == "KNOWS"
         assert dict(path[0]) == {"since": 1999}
         assert isinstance(nodes[1], Node)
         assert nodes[1]["name"] == "Bob"
