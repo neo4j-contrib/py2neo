@@ -19,51 +19,12 @@
 from itertools import chain
 from uuid import uuid4
 
-from cypy.encoding import LabelSetView, cypher_escape, cypher_repr, cypher_str
+from cypy.data.store import PropertyDict
+from cypy.encoding import LabelSetView, cypher_escape, cypher_repr
 
 from py2neo.caching import ThreadLocalEntityCache
-from py2neo.compat import integer, string, unicode, ustr
+from py2neo.compat import integer, string, ustr
 from py2neo.util import is_collection, round_robin, snake_case, relationship_case
-
-
-JAVA_INTEGER_MIN_VALUE = -2 ** 63
-JAVA_INTEGER_MAX_VALUE = 2 ** 63 - 1
-
-
-def coerce_atomic_property(x):
-    if isinstance(x, unicode):
-        return x
-    elif isinstance(x, string):
-        return ustr(x)
-    elif isinstance(x, bool):
-        return x
-    elif isinstance(x, integer):
-        if JAVA_INTEGER_MIN_VALUE <= x <= JAVA_INTEGER_MAX_VALUE:
-            return x
-        else:
-            raise ValueError("Integer value out of range: %s" % x)
-    elif isinstance(x, float):
-        return x
-    else:
-        raise TypeError("Properties of type %s are not supported" % x.__class__.__name__)
-
-
-def coerce_property(x):
-    if isinstance(x, (tuple, list, set, frozenset)):
-        collection = []
-        cls = None
-        for item in x:
-            item = coerce_atomic_property(item)
-            t = type(item)
-            if cls is None:
-                cls = t
-            elif t != cls:
-                raise TypeError("List properties must be homogenous "
-                                "(found %s in list of %s)" % (t.__name__, cls.__name__))
-            collection.append(item)
-        return x.__class__(collection)
-    else:
-        return coerce_atomic_property(x)
 
 
 def order(subgraph):
@@ -133,7 +94,7 @@ def walk(*walkables):
 def cast(obj, entities=None):
     if obj is None:
         return None
-    elif isinstance(obj, (Relatable, Relationship, Path)):
+    elif isinstance(obj, (Node, Relationship, Path)):
         return obj
     elif isinstance(obj, dict):
         return cast_node(obj)
@@ -144,7 +105,7 @@ def cast(obj, entities=None):
 
 
 def cast_node(obj):
-    if obj is None or isinstance(obj, Relatable):
+    if obj is None or isinstance(obj, Node):
         return obj
 
     def apply(x):
@@ -613,72 +574,6 @@ class Walkable(Subgraph):
         return self.__sequence[1::2]
 
 
-class PropertyDict(dict):
-    """ A dictionary for property values that treats :const:`None`
-    and missing values as semantically identical.
-
-    PropertyDict instances can be created and used in a similar way
-    to a standard dictionary. For example::
-
-        >>> from py2neo import PropertyDict
-        >>> fruit = PropertyDict({"name": "banana", "colour": "yellow"})
-        >>> fruit["name"]
-        'banana'
-
-    The key difference with a PropertyDict is in how it handles
-    missing values. Instead of raising a :py:class:`KeyError`,
-    attempts to access a missing value will simply return
-    :py:const:`None` instead.
-
-    These are the operations that the PropertyDict can support:
-
-   .. describe:: len(d)
-
-        Return the number of items in the PropertyDict `d`.
-
-   .. describe:: d[key]
-
-        Return the item of `d` with key `key`. Returns :py:const:`None`
-        if key is not in the map.
-
-    """
-
-    def __init__(self, iterable=None, **kwargs):
-        dict.__init__(self)
-        self.update(iterable, **kwargs)
-
-    def __eq__(self, other):
-        return dict.__eq__(self, {key: value for key, value in other.items() if value is not None})
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __getitem__(self, key):
-        return dict.get(self, key)
-
-    def __setitem__(self, key, value):
-        if value is None:
-            try:
-                dict.__delitem__(self, key)
-            except KeyError:
-                pass
-        else:
-            dict.__setitem__(self, key, coerce_property(value))
-
-    def setdefault(self, key, default=None):
-        if key in self:
-            value = self[key]
-        elif default is None:
-            value = None
-        else:
-            value = dict.setdefault(self, key, default)
-        return value
-
-    def update(self, iterable=None, **kwargs):
-        for key, value in dict(iterable or {}, **kwargs).items():
-            self[key] = value
-
-
 class Entity(PropertyDict, Walkable):
     """ Base class for objects that can be optionally bound to a remote resource. This
     class is essentially a container for a :class:`.Resource` instance.
@@ -738,13 +633,7 @@ class Entity(PropertyDict, Walkable):
         self.__remote_pending_tx = None
 
 
-class Relatable(object):
-    """ Base class for objects that can be connected with relationships.
-    """
-    pass
-
-
-class Node(Relatable, Entity):
+class Node(Entity):
     """ A node is a fundamental unit of data storage within a property
     graph that may optionally be connected, via relationships, to
     other nodes.

@@ -18,7 +18,9 @@
 
 from unittest import TestCase
 
-from py2neo.types import PropertyDict, Subgraph, Walkable, Node, Relationship, Path, walk, order, size
+from cypy.data.store import PropertyDict
+
+from py2neo.types import Subgraph, Walkable, Node, Relationship, Path, walk, order, size
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -31,53 +33,6 @@ alice_likes_carol = Relationship(alice, "LIKES", carol)
 carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
 carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
 dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
-
-
-class PropertyCoercionTestCase(TestCase):
-
-    def test_boolean(self):
-        props = PropertyDict({"value": True})
-        assert props == {"value": True}
-
-    def test_integer_in_range(self):
-        props = PropertyDict({"value": 1})
-        assert props == {"value": 1}
-
-    def test_integer_too_high(self):
-        with self.assertRaises(ValueError):
-            PropertyDict({"value": 2 ** 64})
-
-    def test_integer_too_low(self):
-        with self.assertRaises(ValueError):
-            PropertyDict({"value": -(2 ** 64)})
-
-    def test_float(self):
-        props = PropertyDict({"value": 3.141})
-        assert props == {"value": 3.141}
-
-    def test_byte_strings_are_supported(self):
-        props = PropertyDict({"value": b"hello, world"})
-        assert props == {"value": u"hello, world"}
-
-    def test_unicode_strings_are_supported(self):
-        props = PropertyDict({"value": u"hello, world"})
-        assert props == {"value": u"hello, world"}
-
-    def test_byte_arrays_are_not_supported(self):
-        with self.assertRaises(TypeError):
-            PropertyDict({"value": bytearray(b"hello, world")})
-
-    def test_homogenous_list(self):
-        props = PropertyDict({"value": [1, 2, 3]})
-        assert props == {"value": [1, 2, 3]}
-
-    def test_homogenous_list_of_strings(self):
-        props = PropertyDict({"value": [u"hello", b"world"]})
-        assert props == {"value": [u"hello", u"world"]}
-
-    def test_heterogenous_list(self):
-        with self.assertRaises(TypeError):
-            PropertyDict({"value": [True, 2, u"three"]})
 
 
 class PropertySetTestCase(TestCase):

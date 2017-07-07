@@ -139,24 +139,6 @@ class ConcreteNodeTestCase(GraphTestCase):
         for key, value in data.items():
             self.assertEqual(foo[key], value)
 
-    def test_cannot_assign_oversized_long(self):
-        foo = Node()
-        self.graph.create(foo)
-        with self.assertRaises(ValueError):
-            foo["long"] = long("9223372036854775808")
-
-    def test_cannot_assign_mixed_list(self):
-        foo = Node()
-        self.graph.create(foo)
-        with self.assertRaises(TypeError):
-            foo["mixed_list"] = [42, "life", "universe", "everything"]
-
-    def test_cannot_assign_dict(self):
-        foo = Node()
-        self.graph.create(foo)
-        with self.assertRaises(TypeError):
-            foo["dict"] = {"foo": 3, "bar": 4, "baz": 5}
-
     def test_relative_uri_of_bound_node(self):
         a = Node()
         self.graph.create(a)
