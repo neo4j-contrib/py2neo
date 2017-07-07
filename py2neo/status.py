@@ -19,6 +19,7 @@
 from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
 
 from py2neo.compat import xstr
+from py2neo.util import title_case
 
 
 class GraphError(Exception):
@@ -40,7 +41,6 @@ class GraphError(Exception):
             try:
                 error_cls = client_errors[code]
             except KeyError:
-                from py2neo import title_case
                 error_cls = ClientError
                 message = "%s: %s" % (title_case(title), message)
         elif classification == "DatabaseError":

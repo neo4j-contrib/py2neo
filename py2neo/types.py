@@ -23,7 +23,7 @@ from cypy.encoding import cypher_escape, cypher_repr, cypher_str
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, unicode, ustr
-from py2neo.util import is_collection, round_robin
+from py2neo.util import is_collection, round_robin, snake_case, relationship_case
 
 
 JAVA_INTEGER_MIN_VALUE = -2 ** 63
@@ -697,7 +697,6 @@ class Entity(PropertyDict, Walkable):
         if "__name__" in properties:
             self.__name__ = properties["__name__"]
         elif "name" in properties:
-            from py2neo.cypher.lang import snake_case
             self.__name__ = snake_case(properties["name"])
         else:
             self.__name__ = self.__uuid__[-7:]
@@ -965,7 +964,6 @@ class Relationship(Entity):
 
     @classmethod
     def default_type(cls):
-        from py2neo.cypher.lang import relationship_case
         if cls is Relationship:
             return "TO"
         assert issubclass(cls, Relationship)
