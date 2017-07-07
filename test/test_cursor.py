@@ -201,15 +201,6 @@ class CursorEvaluationTestCase(GraphTestCase):
         assert value is None
 
 
-class CursorDumpTestCase(GraphTestCase):
-
-    def test_dump(self):
-        s = BytesIO()
-        cursor = self.graph.run("RETURN 1")
-        cursor.dump(out=s)
-        assert s.getvalue()
-
-
 class RecordTestCase(TestCase):
 
     def test_can_build_record(self):

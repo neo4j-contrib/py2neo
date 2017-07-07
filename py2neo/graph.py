@@ -1247,19 +1247,6 @@ class Cursor(object):
         """
         return [record.data() for record in self]
 
-    def dump(self, out=stdout, colour=False):
-        """ Consume all records from this cursor and write in tabular
-        form to the console.
-
-        :param out: the channel to which output should be dumped
-        :param colour: apply colour to the output
-        """
-        from py2neo.cli.env import Environment
-        from py2neo.cli.console import Console
-        console = Console(None, out, stderr, colour=colour)
-        env = Environment(console)
-        env.dump(self)
-
 
 class Record(tuple, Mapping):
     """ A :class:`.Record` holds a collection of result values that are
