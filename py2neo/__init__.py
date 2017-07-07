@@ -16,7 +16,6 @@
 # limitations under the License.
 
 
-from py2neo.cypher import *
 from py2neo.ext import *
 from py2neo.graph import *
 from py2neo.meta import *

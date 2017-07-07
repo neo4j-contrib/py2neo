@@ -752,7 +752,6 @@ class Result(object):
     def plan(self):
         """ Return the query plan if available.
         """
-        from py2neo.cypher.plan import Plan
         metadata = self.result.summary().metadata
         if "plan" in metadata:
             return Plan(**metadata["plan"])
@@ -774,6 +773,16 @@ class Result(object):
             return next(self.result_iterator)
         except StopIteration:
             return None
+
+
+class Plan(object):
+
+    def __init__(self, **metadata):
+        self.metadata = metadata
+
+    def __repr__(self):
+        from json import dumps
+        return dumps(self.metadata, indent=4)
 
 
 class TransactionFinished(GraphError):
