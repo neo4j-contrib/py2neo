@@ -18,9 +18,10 @@
 
 from unittest import TestCase
 
+from cypy.data import order, size
 from cypy.data.store import PropertyDict
 
-from py2neo.types import Subgraph, Walkable, Node, Relationship, Path, walk, order, size
+from py2neo.types import Subgraph, Walkable, Node, Relationship, Path, walk
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -702,34 +703,4 @@ class SymmetricDifferenceTestCase(TestCase):
         assert size(graph) == 4
         assert graph.nodes == (alice | bob | carol | dave).nodes
         assert graph.relationships == frozenset(alice_knows_bob | alice_likes_carol |
-                                                  carol_married_to_dave | dave_works_for_dave)
-
-
-class OrderTestCase(TestCase):
-
-    def test_order_of_thing_with_nodes(self):
-        class Thing:
-            @property
-            def nodes(self):
-                return [Node(), Node(), Node()]
-        obj = Thing()
-        assert order(obj) == 3
-
-    def test_order_of_non_graphy_thing(self):
-        with self.assertRaises(TypeError):
-            _ = order("this string is not graphy")
-
-
-class SizeTestCase(TestCase):
-
-    def test_size_of_thing_with_relationships(self):
-        class Thing:
-            @property
-            def relationships(self):
-                return [1, 2, 3]
-        obj = Thing()
-        assert size(obj) == 3
-
-    def test_size_of_non_graphy_thing(self):
-        with self.assertRaises(TypeError):
-            _ = size("this string is not graphy")
+                                                carol_married_to_dave | dave_works_for_dave)

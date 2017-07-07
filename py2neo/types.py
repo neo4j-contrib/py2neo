@@ -19,42 +19,13 @@
 from itertools import chain
 from uuid import uuid4
 
+from cypy.data import size
 from cypy.data.store import PropertyDict
 from cypy.encoding import LabelSetView, cypher_escape, cypher_repr
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, ustr
 from py2neo.util import is_collection, round_robin, snake_case, relationship_case
-
-
-def order(subgraph):
-    """ Return the number of unique nodes in a subgraph.
-
-    :arg subgraph:
-    :return:
-    """
-    try:
-        return subgraph.__order__()
-    except AttributeError:
-        try:
-            return len(set(subgraph.nodes))
-        except AttributeError:
-            raise TypeError("Object %r is not graphy")
-
-
-def size(subgraph):
-    """ Return the number of unique relationships in a subgraph.
-
-    :arg subgraph:
-    :return:
-    """
-    try:
-        return subgraph.__size__()
-    except AttributeError:
-        try:
-            return len(set(subgraph.relationships))
-        except AttributeError:
-            raise TypeError("Object %r is not graphy")
 
 
 def walk(*walkables):
@@ -212,12 +183,12 @@ class Subgraph(object):
             value ^= hash(entity)
         return value
 
-    def __order__(self):
+    def __graph_order__(self):
         """ Total number of unique nodes.
         """
         return len(self.__nodes)
 
-    def __size__(self):
+    def __graph_size__(self):
         """ Total number of unique relationships.
         """
         return len(self.__relationships)

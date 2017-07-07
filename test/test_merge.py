@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import order, size, Node, Relationship, remote
+from cypy.data import order, size
+
+from py2neo import Node, Relationship, remote
 from test.util import GraphTestCase
 
 

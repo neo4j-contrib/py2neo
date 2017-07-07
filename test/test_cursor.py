@@ -16,11 +16,12 @@
 # limitations under the License.
 
 
-from io import BytesIO
 from unittest import TestCase
 
+from cypy.data import order, size
+
 from py2neo.graph import Record, Node, Relationship
-from py2neo.types import order, size
+
 from test.util import GraphTestCase
 
 

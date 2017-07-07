@@ -351,14 +351,14 @@ class Graph(object):
     def __hash__(self):
         return hash(remote(self).uri)
 
-    def __order__(self):
-        return self.evaluate("MATCH (n) RETURN count(n)")
+    def __graph_order__(self):
+        return self.evaluate("MATCH (_) RETURN count(_)")
 
-    def __size__(self):
-        return self.evaluate("MATCH ()-[r]->() RETURN count(r)")
+    def __graph_size__(self):
+        return self.evaluate("MATCH ()-[_]->() RETURN count(_)")
 
     def __len__(self):
-        return self.__size__()
+        return self.__graph_size__()
 
     def __bool__(self):
         return True

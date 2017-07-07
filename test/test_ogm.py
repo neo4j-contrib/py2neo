@@ -19,7 +19,9 @@
 from os.path import dirname, join as path_join
 from unittest import TestCase
 
-from py2neo import order, size, remote, Node, Relationship, NodeSelector
+from cypy.data import order, size
+
+from py2neo import remote, Node, Relationship, NodeSelector
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject, DerivedThing

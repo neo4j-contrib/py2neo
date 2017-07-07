@@ -16,9 +16,10 @@
 # limitations under the License.
 
 
+from cypy.data import order, size
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
-from py2neo import Node, Relationship, order, size, remote, TransactionFinished
+from py2neo import Node, Relationship, remote, TransactionFinished
 from test.util import GraphTestCase
 
 

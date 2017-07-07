@@ -47,7 +47,7 @@ package_metadata = {
     "py_modules": ["neokit"],
     "install_requires": [
         "neo4j-driver==1.4.0",
-        "technige.cypy",
+        "technige.cypy>=1.0.1",
         "urllib3",
     ],
     "license": __license__,

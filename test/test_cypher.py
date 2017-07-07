@@ -16,10 +16,12 @@
 # limitations under the License.
 
 
+from cypy.data import order, size
+
 from py2neo.graph import Transaction
 from py2neo.http import remote
 from py2neo.status import CypherSyntaxError, ConstraintError
-from py2neo.types import Node, Relationship, Path, order, size
+from py2neo.types import Node, Relationship, Path
 
 from test.util import GraphTestCase
 
