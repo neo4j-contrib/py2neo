@@ -306,6 +306,14 @@ class GraphObject(object):
 
     __ogm = None
 
+    # Little hack to be able to construct new instances of classes inheriting Graphobject
+    # using keyword arguments. I.e. doing myNewClass(property1='value1',property2='value2')
+    # instead of myNewClass.property1 = 'value1', myNewClass.property2 = 'value2'.
+    def __init__(self, **kwargs):
+        for kwarg, value in kwargs.items():
+            if hasattr(self,kwarg):
+                self.__setattr__(kwarg, value)
+
     def __eq__(self, other):
         if not isinstance(other, GraphObject):
             return False

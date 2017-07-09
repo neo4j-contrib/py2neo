@@ -279,6 +279,17 @@ class CreateTestCase(MovieGraphTestCase):
         remote_node = remote(node)
         assert remote_node
 
+    def test_create_with_kwargs(self):
+        alice = Person(name="Alice", year_of_birth=1970)
+        alice.acted_in.add(Film.select(self.graph, "The Matrix").first())
+
+        alice2 = Person()
+        alice2.name = "Alice"
+        alice2.year_of_birth = 1970
+        alice2.acted_in.add(Film.select(self.graph, "The Matrix").first())
+
+        assert alice == alice2
+
     def test_create_has_no_effect_on_existing(self):
         # given
         keanu = Person.select(self.graph, "Keanu Reeves").first()
