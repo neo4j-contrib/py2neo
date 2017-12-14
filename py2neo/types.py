@@ -161,7 +161,7 @@ class Subgraph(object):
         self.__relationships = frozenset(relationships or [])
         self.__nodes |= frozenset(chain(*(r.nodes for r in self.__relationships)))
         if not self.__nodes:
-            raise ValueError("Subgraphs must contain at least one node")
+            raise ValueError("Subgraphs must contain at least one node, or one relationship.")
 
     # def __repr__(self):
     #     return "Subgraph({" + ", ".join(map(repr, self.nodes)) + "}, {" + ", ".join(map(repr, self.relationships)) + "})"
