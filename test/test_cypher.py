@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from cypy.data import order, size
+from cypy.graph import order, size
 
 from py2neo.graph import Transaction
 from py2neo.http import remote

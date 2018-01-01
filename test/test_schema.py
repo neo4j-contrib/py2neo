@@ -16,7 +16,10 @@
 # limitations under the License.
 
 
-from mock import patch, Mock
+try:
+    from mock import patch, Mock
+except ModuleNotFoundError:
+    from unittest.mock import patch, Mock
 
 from neo4j.exceptions import ConstraintError
 

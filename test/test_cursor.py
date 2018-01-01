@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from cypy.data import order, size
+from cypy.graph import order, size
 
 from py2neo.graph import Record, Node, Relationship
 

@@ -19,7 +19,7 @@
 from os.path import dirname, join as path_join
 from unittest import TestCase
 
-from cypy.data import order, size
+from cypy.graph import order, size
 
 from py2neo import remote, Node, Relationship, NodeSelector
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
