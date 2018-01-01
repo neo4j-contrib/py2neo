@@ -19,8 +19,8 @@
 from itertools import chain
 from uuid import uuid4
 
-from cypy.data import size
-from cypy.data.store import PropertyDict
+from cypy.graph import size
+from cypy.graph.store import PropertyDict
 from cypy.encoding import LabelSetView, cypher_escape, cypher_repr
 
 from py2neo.caching import ThreadLocalEntityCache

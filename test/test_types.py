@@ -18,8 +18,8 @@
 
 from unittest import TestCase
 
-from cypy.data import order, size
-from cypy.data.store import PropertyDict
+from cypy.graph import order, size
+from cypy.graph.store import PropertyDict
 
 from py2neo.types import Subgraph, Walkable, Node, Relationship, Path, walk
 

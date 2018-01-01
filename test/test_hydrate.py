@@ -15,8 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from mock import patch
+try:
+    from mock import patch
+except ModuleNotFoundError:
+    from unittest.mock import patch
 
 from py2neo.json import JSONValueSystem
 from py2neo.http import remote
