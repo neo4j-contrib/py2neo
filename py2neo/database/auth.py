@@ -37,6 +37,7 @@ class ServerAddress(object):
             uri_object = URI(u)
             if uri_object.scheme == "bolt":
                 self.__settings.setdefault("bolt_port", 7687)
+                self.__settings.setdefault("bolt", True)
             if uri_object.scheme == "https":
                 self.__settings["secure"] = True
             if uri_object.host:
