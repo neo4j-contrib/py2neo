@@ -18,9 +18,8 @@
 
 from unittest import TestCase
 
-from cypy.data import order, size
-
-from py2neo.graph import Record, Node, Relationship
+from py2neo.graph import Record
+from py2neo.types import Node, Relationship, graph_order, graph_size
 
 from test.util import GraphTestCase
 
@@ -272,8 +271,8 @@ class RecordTestCase(TestCase):
         values = [alice, bob, alice_knows_bob, "hello, world"]
         record = Record(keys, values)
         subgraph = record.subgraph()
-        assert order(subgraph) == 2
-        assert size(subgraph) == 1
+        assert graph_order(subgraph) == 2
+        assert graph_size(subgraph) == 1
         assert set(subgraph.nodes) == {alice, bob}
         assert set(subgraph.relationships) == {alice_knows_bob}
 

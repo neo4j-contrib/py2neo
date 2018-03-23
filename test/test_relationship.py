@@ -18,7 +18,7 @@
 
 from py2neo.graph import Graph
 from py2neo.http import remote
-from py2neo.types import Node, Relationship, size
+from py2neo.types import Node, Relationship, graph_size
 
 from test.util import GraphTestCase
 
@@ -94,7 +94,7 @@ class RelationshipTestCase(GraphTestCase):
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
-        assert size(rel) == 1
+        assert graph_size(rel) == 1
 
     def test_relationship_equality_with_none(self):
         rel = Relationship({}, "KNOWS", {})

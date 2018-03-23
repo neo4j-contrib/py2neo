@@ -20,7 +20,9 @@ LATEST_2_3_VERSION="2.3"
 LATEST_3_0_VERSION="3.0"
 LATEST_3_1_VERSION="3.1"
 LATEST_3_2_VERSION="3.2"
-LATEST_VERSION=${LATEST_3_2_VERSION}
+LATEST_3_3_VERSION="3.3"
+LATEST_3_4_VERSION="3.4"
+LATEST_VERSION=${LATEST_3_4_VERSION}
 
 SELF=$0
 COMMAND=$1
@@ -126,7 +128,27 @@ function build_book {
 }
 
 function print_version_banner {
-    if [ "$1" == "3.2" ] || [ "$1" == "" ]
+    if [ "$1" == "3.4" ] || [ "$1" == "" ]
+    then
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.      ::   "
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::     ::    "
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       :::     ::  :: "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    :::::::"
+        echo "::::   ::  :::::   :::::      ::   ::     '::::' ::     :: "
+        echo "                                 :::"
+        echo ""
+    elif [ "$1" == "3.3" ]
+    then
+        echo ""
+        echo ":::   ::::                  ::     ''     .::::.    .::::."
+        echo " :::.  ::  :::::   :::::   ::     :::     ''  ::    ''  ::"
+        echo " :: :: :: ::...:: ::   :: ::  ::   ::       :::       ::: "
+        echo " ::  '::: ::''''' ::   :: :::::::  ::     ..  ::    ..  ::"
+        echo "::::   ::  :::::   :::::      ::   ::     '::::' :: '::::'"
+        echo "                                 :::"
+        echo ""
+    elif [ "$1" == "3.2" ]
     then
         echo ""
         echo ":::   ::::                  ::     ''     .::::.    .::::."
@@ -187,11 +209,19 @@ case ${COMMAND} in
         check_license
         ;;
     test)
-        NEO4J_VERSIONS="3.2 3.1 3.0 2.3 2.2"
+        NEO4J_VERSIONS="3.4 3.3 3.2 3.1 3.0 2.3 2.2"
         run_tests $*
         ;;
     test-latest)
         NEO4J_VERSIONS="3.2"
+        run_tests $*
+        ;;
+    test-3.4)
+        NEO4J_VERSIONS="3.4"
+        run_tests $*
+        ;;
+    test-3.3)
+        NEO4J_VERSIONS="3.3"
         run_tests $*
         ;;
     test-3.2)

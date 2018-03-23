@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from cypy.data.store import PropertyDict
-from cypy.encoding import cypher_escape
+from py2neo import PropertyDict
+from py2neo.packages.cypy.encoding import cypher_escape
 
 from py2neo.http import remote
 from py2neo.selection import NodeSelection, NodeSelector

@@ -16,9 +16,8 @@
 # limitations under the License.
 
 
-from cypy.data import order, size
-
-from py2neo import Node, Path, Relationship, Graph
+from py2neo.graph import Graph
+from py2neo.types import Node, Path, Relationship, graph_order, graph_size
 from test.util import GraphTestCase
 
 
@@ -28,15 +27,15 @@ class PathTestCase(GraphTestCase):
         alice = Node(name="Alice")
         bob = Node(name="Bob")
         path = Path(alice, "KNOWS", bob)
-        assert order(path) == 2
-        assert size(path) == 1
+        assert graph_order(path) == 2
+        assert graph_size(path) == 1
         assert len(path) == 1
 
     def test_can_construct_path_with_none_node(self):
         alice = Node(name="Alice")
         path = Path(alice, "KNOWS", None)
-        assert order(path) == 2
-        assert size(path) == 1
+        assert graph_order(path) == 2
+        assert graph_size(path) == 1
         assert len(path) == 1
 
     def test_can_create_path(self):

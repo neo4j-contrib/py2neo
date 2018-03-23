@@ -9,3 +9,4 @@ omit =
     test/*
     test_ext/*
     */site-packages/*
+    */dist-packages/*

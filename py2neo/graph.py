@@ -20,7 +20,7 @@ from __future__ import absolute_import
 from collections import deque
 from email.utils import parsedate_tz, mktime_tz
 
-from cypy.encoding import cypher_escape
+from py2neo.packages.cypy.encoding import cypher_escape
 
 from py2neo.compat import Mapping, string
 from py2neo.http import OK, NO_CONTENT, NOT_FOUND, Remote, remote

@@ -21,7 +21,8 @@ from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
 from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError, fix_statement, \
-    fix_parameters, AuthError, Forbidden
+    fix_parameters
+from neo4j.exceptions import AuthError, Forbidden
 
 from py2neo.addressing import keyring
 from py2neo.compat import urlsplit
@@ -186,7 +187,7 @@ class HTTP(object):
         try:
             return self._http.request(method, url, fields, headers, **urlopen_kw)
         except MaxRetryError:
-            raise ServiceUnavailable("Cannot send %r request to %r" % (method, url))
+            raise ServiceUnavailable("Cannot send %s request to <%s>" % (method, url))
 
     def get_json(self, ref):
         """ Perform an HTTP GET to this resource and return JSON.

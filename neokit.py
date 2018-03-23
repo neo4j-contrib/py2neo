@@ -114,6 +114,9 @@ SERVER_AUTH_FAILURE = 9
 SERVER_NOT_RUNNING = 10
 SERVER_ALREADY_RUNNING = 11
 
+
+version_string_pattern = re.compile("(\d+)\.(\d+)\.(\d+)-?(.*)")
+
 number_in_brackets = re.compile("\[(\d+)\]")
 
 editions = [
@@ -121,13 +124,35 @@ editions = [
     "enterprise",
 ]
 
+
+class Version(tuple):
+
+    def __new__(cls, string):
+        return tuple.__new__(cls, version_string_pattern.match(string).groups())
+
+    def __str__(self):
+        return ".".join(self[:3]) + "".join("-%s" % part for part in self[3:] if part)
+
+    @property
+    def major(self):
+        return int(self[0])
+
+    @property
+    def minor(self):
+        return int(self[1])
+
+    @property
+    def patch(self):
+        return int(self[2])
+
+
 # TODO: make this a bit easier to read
 versions = open(path_join(ROOT_DIR, "versions.txt")).read().split()
-version_tuples = [tuple(map(int, v.split("."))) for v in versions]
-minor_version_tuples = sorted({v[:2] for v in version_tuples})
+version_tuples = [Version(v) for v in versions]
+minor_version_tuples = sorted({(str(v.major), str(v.minor)) for v in version_tuples})
 minor_versions = [".".join(map(str, v)) for v in minor_version_tuples]
 latest_version_tuples = {w: max(v for v in version_tuples if v[:2] == w) for w in minor_version_tuples}
-latest_versions = {".".join(map(str, k)): ".".join(map(str, v)) for k, v in latest_version_tuples.items()}
+latest_versions = {".".join(map(str, k)): str(v) for k, v in latest_version_tuples.items()}
 version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
 version_aliases["LATEST"] = versions[-1]
 
@@ -218,6 +243,7 @@ class Package(object):
             makedirs(path)
         except OSError:
             pass
+        print("Downloading <%s>" % self.uri)
         urlretrieve(self.uri, file_name)
         return file_name
 
@@ -308,7 +334,7 @@ class GraphServer(object):
         # If you are of a nervous disposition, look away now.
         lib = path_join(home, "lib")
         kernel_jars = [f for f in listdir(lib)
-                       if f.startswith("neo4j-kernel-") and f.endswith(".jar")]
+                       if f.startswith("neo4j-kernel-") and "0" <= f[13] <= "9" and f.endswith(".jar")]
         if kernel_jars:
             kernel_jar = kernel_jars[0]
             kernel_version = kernel_jar[13:-4]

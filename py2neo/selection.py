@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from cypy.encoding import cypher_escape
+from py2neo.packages.cypy.encoding import cypher_escape
 
 
 def _property_equality_conditions(properties, offset=1):

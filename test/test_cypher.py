@@ -16,12 +16,10 @@
 # limitations under the License.
 
 
-from cypy.data import order, size
-
 from py2neo.graph import Transaction
 from py2neo.http import remote
 from py2neo.status import CypherSyntaxError, ConstraintError
-from py2neo.types import Node, Relationship, Path
+from py2neo.types import Node, Relationship, Path, graph_order, graph_size
 
 from test.util import GraphTestCase
 
@@ -267,8 +265,8 @@ class CypherCreateTestCase(GraphTestCase):
         assert remote(ca)
         assert ca.start_node() == c
         assert ca.end_node() == a
-        assert order(self.graph) == 3
-        assert size(self.graph) == 3
+        assert graph_order(self.graph) == 3
+        assert graph_size(self.graph) == 3
 
     def test_cannot_create_non_graphy_thing(self):
         with self.assertRaises(TypeError):

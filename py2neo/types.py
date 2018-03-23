@@ -19,13 +19,17 @@
 from itertools import chain
 from uuid import uuid4
 
-from cypy.data import size
-from cypy.data.store import PropertyDict
-from cypy.encoding import LabelSetView, cypher_escape, cypher_repr
+from py2neo.packages.cypy.encoding import LabelSetView, cypher_escape, cypher_repr
+from py2neo.packages.cypy.graph import graph_order as _graph_order, graph_size as _graph_size
+from py2neo.packages.cypy.graph.store import PropertyDict
 
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, ustr
 from py2neo.util import is_collection, round_robin, snake_case, relationship_case
+
+
+graph_order = _graph_order
+graph_size = _graph_size
 
 
 def walk(*walkables):
@@ -168,8 +172,9 @@ class Subgraph(object):
 
     def __eq__(self, other):
         try:
-            return self.nodes == other.nodes and self.relationships == other.relationships
-        except AttributeError:
+            return graph_order(self) == graph_order(other) and graph_size(self) == graph_size(other) and \
+                   self.nodes == other.nodes and self.relationships == other.relationships
+        except (AttributeError, TypeError):
             return False
 
     def __ne__(self, other):
@@ -825,7 +830,7 @@ class Relationship(Entity):
             if remote_self and remote_other:
                 return remote_self == remote_other
             else:
-                return (self.nodes == other.nodes and size(other) == 1 and
+                return (self.nodes == other.nodes and graph_size(other) == 1 and
                         self.type == other.type and dict(self) == dict(other))
 
     def __ne__(self, other):
