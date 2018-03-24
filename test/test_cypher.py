@@ -21,7 +21,7 @@ from py2neo.http import remote
 from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, graph_order, graph_size
 
-from test.util import GraphTestCase
+from test.util import GraphTestCase, HTTPGraphTestCase
 
 
 class CypherTestCase(GraphTestCase):
@@ -273,7 +273,7 @@ class CypherCreateTestCase(GraphTestCase):
             self.graph.create("this string is definitely not graphy")
 
 
-class CypherOverHTTPTestCase(GraphTestCase):
+class CypherOverHTTPTestCase(HTTPGraphTestCase):
 
     def test_can_run_statement(self):
         tx = Transaction(self.http_graph)

@@ -18,17 +18,20 @@
 from __future__ import absolute_import
 
 from collections import deque
-from email.utils import parsedate_tz, mktime_tz
+from datetime import datetime
+from time import sleep
 
-from py2neo.packages.cypy.encoding import cypher_escape
+from pygments.token import Token
 
 from py2neo.compat import Mapping, string
-from py2neo.http import OK, NO_CONTENT, NOT_FOUND, Remote, remote
+from py2neo.http import OK, Remote, remote
 from py2neo.meta import bolt_user_agent, http_user_agent
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
 from py2neo.util import is_collection, version_tuple
+from py2neo.packages.cypy.encoding import cypher_escape
+from py2neo.packages.cypy.lex import CypherLexer
 
 
 update_stats_keys = [
@@ -160,43 +163,56 @@ class GraphService(object):
     def keys(self):
         return list(self)
 
-    def _bean_dict(self, name):
-        info = remote(self).get_json("db/manage/server/jmx/domain/org.neo4j")
-        raw_config = [b for b in info["beans"] if b["name"].endswith("name=%s" % name)][0]
+    def query_jmx(self, namespace, instance=None, name=None, type=None):
         d = {}
-        for attribute in raw_config["attributes"]:
-            name = attribute["name"]
-            value = attribute.get("value")
-            if value == "true":
-                d[name] = True
-            elif value == "false":
-                d[name] = False
-            else:
-                try:
-                    d[name] = int(value)
-                except (TypeError, ValueError):
-                    d[name] = value
+        for nom, _, attributes in self.graph.run("CALL dbms.queryJmx('')"):
+            ns, _, terms = nom.partition(":")
+            if ns != namespace:
+                continue
+            terms = dict(tuple(term.partition("=")[0::2]) for term in terms.split(","))
+            if instance is not None and instance != terms["instance"]:
+                continue
+            if name is not None and name != terms["name"]:
+                continue
+            if type is not None and type != terms["type"]:
+                continue
+            for attr_name, attr_data in attributes.items():
+                attr_value = attr_data.get("value")
+                if attr_value == "true":
+                    d[attr_name] = True
+                elif attr_value == "false":
+                    d[attr_name] = False
+                elif isinstance(attr_value, string) and "." in attr_value:
+                    try:
+                        d[attr_name] = float(attr_value)
+                    except (TypeError, ValueError):
+                        d[attr_name] = attr_value
+                else:
+                    try:
+                        d[attr_name] = int(attr_value)
+                    except (TypeError, ValueError):
+                        d[attr_name] = attr_value
         return d
 
     @property
     def database_name(self):
         """ Return the name of the active Neo4j database.
         """
-        info = self._bean_dict("Kernel")
+        info = self.query_jmx("org.neo4j", name="Kernel")
         return info.get("DatabaseName")
 
     @property
     def kernel_start_time(self):
         """ Return the time from which this Neo4j instance was in operational mode.
         """
-        info = self._bean_dict("Kernel")
-        return mktime_tz(parsedate_tz(info["KernelStartTime"]))
+        info = self.query_jmx("org.neo4j", name="Kernel")
+        return datetime.fromtimestamp(info["KernelStartTime"] / 1000.0)
 
     @property
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
-        info = self._bean_dict("Kernel")
+        info = self.query_jmx("org.neo4j", name="Kernel")
         version_string = info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
         return version_tuple(version_string)
 
@@ -204,14 +220,14 @@ class GraphService(object):
     def store_creation_time(self):
         """ Return the time when this Neo4j graph store was created.
         """
-        info = self._bean_dict("Kernel")
-        return mktime_tz(parsedate_tz(info["StoreCreationDate"]))
+        info = self.query_jmx("org.neo4j", name="Kernel")
+        return datetime.fromtimestamp(info["StoreCreationDate"] / 1000.0)
 
     @property
     def store_directory(self):
         """ Return the location of the Neo4j store.
         """
-        info = self._bean_dict("Kernel")
+        info = self.query_jmx("org.neo4j", name="Kernel")
         return info.get("StoreDirectory")
 
     @property
@@ -219,7 +235,7 @@ class GraphService(object):
         """ Return an identifier that, together with store creation time,
         uniquely identifies this Neo4j graph store.
         """
-        info = self._bean_dict("Kernel")
+        info = self.query_jmx("org.neo4j", name="Kernel")
         return info["StoreId"]
 
     @property
@@ -227,43 +243,21 @@ class GraphService(object):
         """ Return a dictionary of estimates of the numbers of different
         kinds of Neo4j primitives.
         """
-        return self._bean_dict("Primitive count")
+        return self.query_jmx("org.neo4j", name="Primitive count")
 
     @property
     def store_file_sizes(self):
         """ Return a dictionary of file sizes for each file in the Neo4j
         graph store.
         """
-        return self._bean_dict("Store file sizes")
+        return self.query_jmx("org.neo4j", name="Store file sizes")
 
     @property
     def config(self):
         """ Return a dictionary of the configuration parameters used to
         configure Neo4j.
         """
-        return self._bean_dict("Configuration")
-
-    @property
-    def supports_auth(self):
-        """ Returns :py:const:`True` if auth is supported by this
-        version of Neo4j, :py:const:`False` otherwise.
-        """
-        return self.kernel_version >= (2, 2)
-
-    @property
-    def supports_bolt(self):
-        """ Returns :py:const:`True` if Bolt is supported by this
-        version of Neo4j, :py:const:`False` otherwise.
-        """
-        return self.kernel_version >= (3,)
-
-    @property
-    def supports_detach_delete(self):
-        """ Returns :py:const:`True` if Cypher DETACH DELETE is
-        supported by this version of Neo4j, :py:const:`False`
-        otherwise.
-        """
-        return self.kernel_version >= (2, 3,)
+        return self.query_jmx("org.neo4j", name="Configuration")
 
     def password_change_required(self):
         """ Check if a password change is required for the current user.
@@ -452,10 +446,7 @@ class Graph(object):
             This method will permanently remove **all** nodes and relationships
             from the graph and cannot be undone.
         """
-        if self.graph_service.supports_detach_delete:
-            self.run("MATCH (a) DETACH DELETE a")
-        else:
-            self.run("MATCH (a) OPTIONAL MATCH (a)-[r]->() DELETE r, a")
+        self.run("MATCH (a) DETACH DELETE a")
         Node.cache.clear()
         Relationship.cache.clear()
 
@@ -597,7 +588,7 @@ class Graph(object):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        return frozenset(remote(self).get_json("labels"))
+        return frozenset(record[0] for record in self.run("CALL db.labels"))
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -634,7 +625,7 @@ class Graph(object):
     def relationship_types(self):
         """ The set of relationship types currently defined within the graph.
         """
-        return frozenset(remote(self).get_json("relationship/types"))
+        return frozenset(record[0] for record in self.run("CALL db.relationshipTypes"))
 
     def run(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -672,52 +663,76 @@ class Schema(object):
     """
 
     def __init__(self, graph, ref):
-        self.remote_graph = remote(graph)
-        self._index_ref = ref + "/index/{label}"
-        self._index_key_ref = ref + "/index/{label}/{property_key}"
-        self._uniqueness_constraint_ref = ref + "/constraint/{label}/uniqueness"
-        self._uniqueness_constraint_key_ref = ref + "/constraint/{label}/uniqueness/{property_key}"
+        self.graph = graph
 
-    def create_index(self, label, property_key):
+    def create_index(self, label, *property_keys):
         """ Create a schema index for a label and property
         key combination.
         """
-        ref = self._index_ref.format(label=label)
-        self.remote_graph.post(ref, {"property_keys": [property_key]}, expected=(OK,)).close()
+        self.graph.run("CREATE INDEX ON :%s(%s)" %
+                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+        while property_keys not in self.get_indexes(label):
+            sleep(0.5)
 
-    def create_uniqueness_constraint(self, label, property_key):
+    def create_uniqueness_constraint(self, label, *property_keys):
         """ Create a uniqueness constraint for a label.
         """
-        ref = self._uniqueness_constraint_ref.format(label=label)
-        self.remote_graph.post(ref, {"property_keys": [property_key]}, expected=(OK,)).close()
+        self.graph.run("CREATE CONSTRAINT ON (a:%s) "
+                       "ASSERT a.%s IS UNIQUE" %
+                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+        while property_keys not in self.get_uniqueness_constraints(label):
+            sleep(0.5)
 
-    def drop_index(self, label, property_key):
+    def drop_index(self, label, *property_keys):
         """ Remove label index for a given property key.
         """
-        ref = self._index_key_ref.format(label=label, property_key=property_key)
-        rs = self.remote_graph.delete(ref, expected=(NO_CONTENT, NOT_FOUND))
-        if rs.status == NOT_FOUND:
-            raise GraphError("No such schema index (label=%r, key=%r)" % (label, property_key))
+        self.graph.run("DROP INDEX ON :%s(%s)" %
+                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
 
-    def drop_uniqueness_constraint(self, label, property_key):
+    def drop_uniqueness_constraint(self, label, *property_keys):
         """ Remove the uniqueness constraint for a given property key.
         """
-        ref = self._uniqueness_constraint_key_ref.format(label=label, property_key=property_key)
-        rs = self.remote_graph.delete(ref, expected=(NO_CONTENT, NOT_FOUND))
-        if rs.status == NOT_FOUND:
-            raise GraphError("No such unique constraint (label=%r, key=%r)" % (label, property_key))
+        self.graph.run("DROP CONSTRAINT ON (a:%s) "
+                       "ASSERT a.%s IS UNIQUE" %
+                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+
+    def _get_indexes(self, label, t=None):
+        indexes = []
+        for record in self.graph.run("CALL db.indexes"):
+            lbl = None
+            properties = []
+            if len(record) == 6:
+                description, lbl, properties, state, typ, provider = record
+            elif len(record) == 3:
+                description, state, typ = record
+            else:
+                raise RuntimeError("Unexpected response from procedure db.indexes (%d fields)" % len(record))
+            if state != u"ONLINE":
+                continue
+            if t and typ != t:
+                continue
+            if not lbl or not properties:
+                tokens = list(CypherLexer().get_tokens(description))
+                for token_type, token_value in tokens:
+                    if token_type is Token.Name.Label:
+                        lbl = token_value.strip("`")
+                    elif token_type is Token.Name.Variable:
+                        properties.append(token_value.strip("`"))
+            if not lbl or not properties:
+                continue
+            if lbl == label:
+                indexes.append(tuple(properties))
+        return indexes
 
     def get_indexes(self, label):
         """ Fetch a list of indexed property keys for a label.
         """
-        ref = self._index_ref.format(label=label)
-        return [indexed["property_keys"][0] for indexed in self.remote_graph.get_json(ref)]
+        return self._get_indexes(label)
 
     def get_uniqueness_constraints(self, label):
         """ Fetch a list of unique constraints for a label.
         """
-        ref = self._uniqueness_constraint_ref.format(label=label)
-        return [unique["property_keys"][0] for unique in self.remote_graph.get_json(ref)]
+        return self._get_indexes(label, "node_unique_property")
 
 
 class Result(object):

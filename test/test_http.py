@@ -21,21 +21,17 @@ from unittest import TestCase
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo.graph import GraphService, GraphError, CypherSyntaxError
+from py2neo.graph import GraphError, CypherSyntaxError
 from py2neo.http import set_http_header, get_http_headers, HTTP
 from py2neo.types import Node
 
-from test.util import GraphTestCase
+from test.util import HTTPGraphTestCase
 
 
-dbms = GraphService()
-supports_bolt = dbms.supports_bolt
-
-
-class TestHandler(logging.Handler):
+class HTTPLoggingHandler(logging.Handler):
 
     def __init__(self, counter, level):
-        super(TestHandler, self).__init__(level)
+        super(HTTPLoggingHandler, self).__init__(level)
         self.counter = counter
         self.counter.responses = []
 
@@ -47,7 +43,7 @@ class TestHandler(logging.Handler):
 class HTTPCounter(object):
 
     def __init__(self):
-        self.handler = TestHandler(self, logging.INFO)
+        self.handler = HTTPLoggingHandler(self, logging.INFO)
         self.logger = logging.getLogger("httpstream")
         self.logger.addHandler(self.handler)
         self.logger.setLevel(logging.DEBUG)
@@ -68,7 +64,7 @@ class HTTPCounter(object):
         return len(self.responses)
 
 
-class HeaderTestCase(GraphTestCase):
+class HeaderTestCase(HTTPGraphTestCase):
 
     def test_can_add_and_retrieve_global_header(self):
         set_http_header("Key1", "Value1")
@@ -89,7 +85,7 @@ class HeaderTestCase(GraphTestCase):
         assert headers["Key2"] == "Value2"
 
 
-class ClientErrorTestCase(GraphTestCase):
+class ClientErrorTestCase(HTTPGraphTestCase):
 
     def test_can_handle_400(self):
         resource = HTTP("http://localhost:7474/db/data/cypher")
@@ -117,9 +113,10 @@ class ClientErrorTestCase(GraphTestCase):
             assert False
 
 
-class ServerErrorTestCase(GraphTestCase):
+class ServerErrorTestCase(HTTPGraphTestCase):
 
     def setUp(self):
+        super(ServerErrorTestCase, self).setUp()
         self.non_existent_resource = HTTP("http://localhost:7474/db/data/x")
 
     def test_can_handle_json_error_from_get(self):
@@ -160,7 +157,7 @@ class ResourceTestCase(TestCase):
         assert r1 != r2
 
 
-class HTTPSchemeTestCase(GraphTestCase):
+class HTTPSchemeTestCase(HTTPGraphTestCase):
 
     @classmethod
     def setUpClass(cls):

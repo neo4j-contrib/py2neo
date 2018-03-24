@@ -21,10 +21,10 @@ from py2neo.http import remote
 from py2neo.json import JSONValueSystem
 from py2neo.types import Node, Relationship, cast_node
 
-from test.util import GraphTestCase
+from test.util import GraphTestCase, HTTPGraphTestCase
 
 
-class GraphObjectTestCase(GraphTestCase):
+class HTTPGraphObjectTestCase(HTTPGraphTestCase):
 
     def test_can_create_graph_with_trailing_slash(self):
         uri = "http://localhost:7474/db/data/"
@@ -40,8 +40,11 @@ class GraphObjectTestCase(GraphTestCase):
         index = remote(graph).get_json("")
         assert "node" in index
 
+
+class GraphObjectTestCase(GraphTestCase):
+
     def test_same_uri_gives_same_instance(self):
-        uri = "http://localhost:7474/db/data/"
+        uri = "bolt://localhost:7687"
         graph_1 = Graph(uri)
         graph_2 = Graph(uri)
         assert graph_1 is graph_2

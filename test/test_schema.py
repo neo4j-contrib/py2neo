@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from time import sleep
 
 from mock import patch, Mock
 
@@ -51,8 +51,8 @@ class SchemaTestCase(GraphTestCase):
         assert list(found_county_via_name) == list(found_county_via_key)
         assert list(found_borough_via_name) == list(found_county_via_name)
         keys = self.schema.get_indexes(label_1)
-        assert "name" in keys
-        assert "key" in keys
+        assert (u"name",) in keys
+        assert (u"key",) in keys
         self.schema.drop_index(label_1, "name")
         self.schema.drop_index(label_1, "key")
         self.schema.drop_index(label_2, "name")
@@ -67,7 +67,7 @@ class SchemaTestCase(GraphTestCase):
         self.graph.create(borough)
         self.schema.create_uniqueness_constraint(label_1, "name")
         constraints = self.schema.get_uniqueness_constraints(label_1)
-        assert "name" in constraints
+        assert (u"name",) in constraints
         with self.assertRaises(ConstraintError):
             self.graph.create(Node(label_1, name="Taufkirchen"))
         self.graph.delete(borough)
@@ -86,13 +86,6 @@ class SchemaTestCase(GraphTestCase):
         self.graph.push(a)
         b.add_label(label_1)
         self.graph.push(b)
-        try:
-            self.schema.drop_index(label_1, "name")
-        except GraphError as error:
-            # this is probably a server bug
-            assert error.http_status_code // 100 == 5
-        else:
-            assert False
         b.remove_label(label_1)
         self.graph.push(b)
         self.schema.drop_uniqueness_constraint(label_1, "name")

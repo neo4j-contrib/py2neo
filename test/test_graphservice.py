@@ -25,66 +25,21 @@ from test.util import GraphTestCase
 
 class GraphServiceTestCase(GraphTestCase):
 
-    def test_can_create_dbms_with_bolt_uri(self):
-        uri = "bolt://localhost/"
-        graph_service = GraphService(uri)
-        assert repr(graph_service).startswith("<GraphService")
-        assert remote(graph_service).uri == "http://localhost:7474/"
-        index = remote(graph_service).get_json("")
-        assert "data" in index
-
-    def test_can_create_dbms_with_settings(self):
-        uri = "http://localhost:7474/"
-        graph_service = GraphService(host="localhost")
-        assert repr(graph_service).startswith("<GraphService")
-        assert remote(graph_service).uri == uri
-        index = remote(graph_service).get_json("")
-        assert "data" in index
-
-    def test_can_create_dbms_with_trailing_slash(self):
-        uri = "http://localhost:7474/"
-        graph_service = GraphService(uri)
-        assert repr(graph_service).startswith("<GraphService")
-        assert remote(graph_service).uri == uri
-        index = remote(graph_service).get_json("")
-        assert "data" in index
-
-    def test_can_create_dbms_without_trailing_slash(self):
-        uri = "http://localhost:7474/"
-        graph_service = GraphService(uri[:-1])
-        assert remote(graph_service).uri == uri
-        index = remote(graph_service).get_json("")
-        assert "data" in index
-
-    def test_can_create_dbms_with_uri_and_auth_tuple(self):
-        uri = "http://localhost:7474/"
-        graph_service = GraphService(uri, auth=("neo4j", "password"))
-        assert remote(graph_service).uri == uri
-        index = remote(graph_service).get_json("")
-        assert "data" in index
-
     def test_same_uri_gives_same_instance(self):
-        uri = "http://localhost:7474/"
+        uri = "bolt://localhost:7687/"
         dbms_1 = GraphService(uri)
         dbms_2 = GraphService(uri)
         assert dbms_1 is dbms_2
 
     def test_dbms_equality(self):
-        uri = "http://localhost:7474/"
+        uri = "bolt://localhost:7687/"
         dbms_1 = GraphService(uri)
         dbms_2 = GraphService(uri)
         assert dbms_1 == dbms_2
         assert hash(dbms_1) == hash(dbms_2)
 
-    def test_dbms_inequality(self):
-        uri = "http://localhost:7474/"
-        dbms_1 = GraphService(uri)
-        dbms_2 = GraphService("http://remotehost:7474/")
-        assert dbms_1 != dbms_2
-        assert hash(dbms_1) != hash(dbms_2)
-
     def test_dbms_is_not_equal_to_non_dbms(self):
-        uri = "http://localhost:7474/"
+        uri = "bolt://localhost:7687/"
         graph_service = GraphService(uri)
         assert graph_service != object()
 

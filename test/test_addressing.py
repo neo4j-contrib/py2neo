@@ -21,29 +21,21 @@ from unittest import skipUnless
 from neo4j.exceptions import AuthError
 
 from py2neo.addressing import GraphServiceAddress, register_graph_service, keyring, authenticate
-from py2neo.graph import GraphService
 from py2neo.http import HTTP
 
-from test.util import GraphTestCase
+from test.util import GraphTestCase, HTTPGraphTestCase
 
 
-dbms = GraphService()
-supports_auth = dbms.supports_auth
+class AuthorizationFailedTestCase(HTTPGraphTestCase):
 
-
-class AuthorizationFailedTestCase(GraphTestCase):
-
-    @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_get(self):
         with self.assertRaises(AuthError):
             _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").get_json("")
 
-    @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_post(self):
         with self.assertRaises(AuthError):
             _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").post("", {}, expected=(201,)).close()
 
-    @skipUnless(supports_auth, "Auth not supported")
     def test_can_raise_unauthorized_on_delete(self):
         with self.assertRaises(AuthError):
             _ = HTTP("http://foo:bar@127.0.0.1:7474/db/data/").delete("", expected=(204,)).close()

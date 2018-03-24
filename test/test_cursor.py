@@ -21,7 +21,7 @@ from unittest import TestCase
 from py2neo.graph import Record
 from py2neo.types import Node, Relationship, graph_order, graph_size
 
-from test.util import GraphTestCase
+from test.util import GraphTestCase, HTTPGraphTestCase
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -88,7 +88,10 @@ class CursorStatsTestCase(GraphTestCase):
         assert stats["labels_added"] == 1
         assert stats["contains_updates"] == 1
 
-    def test_stats_available_over_http(self):
+
+class HTTPCursorStatsTestCase(HTTPGraphTestCase):
+
+    def test_stats_available(self):
         cursor = self.http_graph.run("CREATE (a:Banana)")
         stats = cursor.stats()
         assert stats["nodes_created"] == 1

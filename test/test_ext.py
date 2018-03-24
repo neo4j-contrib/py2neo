@@ -19,7 +19,7 @@
 from py2neo.ext import UnmanagedExtension
 
 from test.compat import patch
-from test.util import GraphTestCase
+from test.util import HTTPGraphTestCase
 
 
 class FakeExtension(UnmanagedExtension):
@@ -34,7 +34,7 @@ class NaughtyExtension(UnmanagedExtension):
         super(NaughtyExtension, self).__init__(graph, "/naughty/")
 
 
-class UnmanagedExtensionTestCase(GraphTestCase):
+class UnmanagedExtensionTestCase(HTTPGraphTestCase):
 
     def test_can_init_unmanaged_extension(self):
         with patch("py2neo.http.HTTP.get_json"):

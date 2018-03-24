@@ -49,6 +49,7 @@ cypher_keywords = [
     "FIELDTERMINATOR",
     "FOREACH",
     "FROM",
+    "INDEX ON",
     "LIMIT",
     "LOAD CSV",
     "MATCH",

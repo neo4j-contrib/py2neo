@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-from unittest import TestCase
+from os import getenv
+from unittest import TestCase, SkipTest
 from uuid import uuid4
 
 from py2neo.graph import Graph
@@ -27,7 +28,7 @@ from py2neo.types import Node
 
 def unique_string_generator():
     while True:
-        yield uuid4().hex
+        yield "_" + uuid4().hex
 
 
 class GraphTestCase(TestCase):
@@ -37,7 +38,6 @@ class GraphTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
-        self.http_graph = Graph(bolt=False)
         self.graph_service = self.graph.graph_service
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()
@@ -46,20 +46,19 @@ class GraphTestCase(TestCase):
         graph = self.graph
         schema = self.schema
         for label in graph.node_labels:
-            for key in schema.get_uniqueness_constraints(label):
-                schema.drop_uniqueness_constraint(label, key)
-            for key in schema.get_indexes(label):
-                schema.drop_index(label, key)
+            for property_keys in schema.get_uniqueness_constraints(label):
+                schema.drop_uniqueness_constraint(label, *property_keys)
+            for property_keys in schema.get_indexes(label):
+                schema.drop_index(label, *property_keys)
         graph.delete_all()
 
     def assert_error(self, error, classes, fullname):
         for cls in classes:
             assert isinstance(error, cls)
         name = fullname.rpartition(".")[-1]
-        assert error.__class__.__name__ == name
-        assert error.exception == name
-        assert error.fullname in [None, fullname]
-        assert error.stacktrace
+        self.assertEqual(error.__class__.__name__, error.exception, name)
+        self.assertIn(error.fullname, [None, fullname])
+        self.assertTrue(error.stacktrace)
 
     def assert_new_error(self, error, classes, code):
         for cls in classes:
@@ -78,6 +77,17 @@ class GraphTestCase(TestCase):
 
     def get_attached_node_id(self):
         return self.graph.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
+
+
+class HTTPGraphTestCase(GraphTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(HTTPGraphTestCase, self).__init__(*args, **kwargs)
+        self.http_graph = Graph(bolt=False)
+
+    def setUp(self):
+        if getenv("NEO4J_HTTP_DISABLED"):
+            raise SkipTest("HTTP disabled")
 
 
 class TemporaryTransaction(object):
