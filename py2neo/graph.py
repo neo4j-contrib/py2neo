@@ -707,7 +707,7 @@ class Schema(object):
                 description, state, typ = record
             else:
                 raise RuntimeError("Unexpected response from procedure db.indexes (%d fields)" % len(record))
-            if state != u"ONLINE":
+            if state not in (u"ONLINE", u"online"):
                 continue
             if t and typ != t:
                 continue

@@ -133,6 +133,15 @@ class Version(tuple):
     def __str__(self):
         return ".".join(self[:3]) + "".join("-%s" % part for part in self[3:] if part)
 
+    def __eq__(self, other):
+        return (int(self[0]), int(self[1]), int(self[2]), self[3]) == (int(other[0]), int(other[1]), int(other[2]), other[3])
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return (int(self[0]), int(self[1]), int(self[2]), self[3]) < (int(other[0]), int(other[1]), int(other[2]), other[3])
+
     @property
     def major(self):
         return int(self[0])
@@ -151,7 +160,7 @@ versions = open(path_join(ROOT_DIR, "versions.txt")).read().split()
 version_tuples = [Version(v) for v in versions]
 minor_version_tuples = sorted({(str(v.major), str(v.minor)) for v in version_tuples})
 minor_versions = [".".join(map(str, v)) for v in minor_version_tuples]
-latest_version_tuples = {w: max(v for v in version_tuples if v[:2] == w) for w in minor_version_tuples}
+latest_version_tuples = {w: sorted(v for v in version_tuples if v[:2] == w)[-1] for w in minor_version_tuples}
 latest_versions = {".".join(map(str, k)): str(v) for k, v in latest_version_tuples.items()}
 version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
 version_aliases["LATEST"] = versions[-1]
