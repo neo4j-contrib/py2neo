@@ -37,7 +37,7 @@ class GraphTestCase(TestCase):
 
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
-        self.graph_service = self.graph.graph_service
+        self.db = self.graph.graph_db
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()
 

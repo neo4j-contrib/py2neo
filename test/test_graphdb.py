@@ -17,48 +17,48 @@
 
 from __future__ import absolute_import
 
-from py2neo.graph import GraphService
+from py2neo.graph import GraphDB
 
 from test.util import GraphTestCase
 
 
-class GraphServiceTestCase(GraphTestCase):
+class GraphDBTestCase(GraphTestCase):
 
     def test_same_uri_gives_same_instance(self):
         uri = "bolt://localhost:7687/"
-        dbms_1 = GraphService(uri)
-        dbms_2 = GraphService(uri)
+        dbms_1 = GraphDB(uri)
+        dbms_2 = GraphDB(uri)
         assert dbms_1 is dbms_2
 
     def test_dbms_equality(self):
         uri = "bolt://localhost:7687/"
-        dbms_1 = GraphService(uri)
-        dbms_2 = GraphService(uri)
+        dbms_1 = GraphDB(uri)
+        dbms_2 = GraphDB(uri)
         assert dbms_1 == dbms_2
         assert hash(dbms_1) == hash(dbms_2)
 
     def test_dbms_is_not_equal_to_non_dbms(self):
         uri = "bolt://localhost:7687/"
-        graph_service = GraphService(uri)
-        assert graph_service != object()
+        db = GraphDB(uri)
+        assert db != object()
 
     def test_dbms_metadata(self):
-        assert self.graph_service.kernel_start_time
-        assert self.graph_service.kernel_version
-        assert self.graph_service.store_creation_time
-        assert self.graph_service.store_id
-        assert self.graph_service.primitive_counts
-        assert self.graph_service.store_file_sizes
-        assert self.graph_service.config
+        assert self.db.kernel_start_time
+        assert self.db.kernel_version
+        assert self.db.store_creation_time
+        assert self.db.store_id
+        assert self.db.primitive_counts
+        assert self.db.store_file_sizes
+        assert self.db.config
 
     def test_database_name(self):
-        _ = self.graph_service.database_name
+        _ = self.db.database_name
 
     def test_store_directory(self):
-        _ = self.graph_service.store_directory
+        _ = self.db.store_directory
 
     def test_kernel_version(self):
-        version = self.graph_service.kernel_version
+        version = self.db.kernel_version
         assert isinstance(version, tuple)
         assert 3 <= len(version) <= 4
         assert isinstance(version[0], int)
@@ -66,10 +66,10 @@ class GraphServiceTestCase(GraphTestCase):
         assert isinstance(version[2], int)
 
     def test_can_get_list_of_databases(self):
-        databases = list(self.graph_service)
+        databases = list(self.db)
         assert databases == ["data"]
 
     def test_can_get_dictionary_of_databases(self):
-        databases = dict(self.graph_service)
+        databases = dict(self.db)
         assert len(databases) == 1
         assert databases["data"] is self.graph

@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from __future__ import absolute_import
 
 from collections import deque
@@ -48,22 +49,22 @@ update_stats_keys = [
 ]
 
 
-class GraphService(object):
+class GraphDB(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the root URI in
     the HTTP API.
 
     An explicit URI can be passed to the constructor::
 
-        >>> from py2neo import GraphService
-        >>> gs = GraphService("http://myserver:7474/")
+        >>> from py2neo import GraphDB
+        >>> db = GraphDB("bolt://camelot.example.com:7687")
 
     Alternatively, the default value of ``http://localhost:7474/`` is
     used::
 
-        >>> default_gs = GraphService()
-        >>> default_gs
-        <GraphService uri='http://localhost:7474/'>
+        >>> default_db = GraphDB()
+        >>> default_db
+        <GraphDB uri='http://localhost:7474/'>
 
     """
 
@@ -80,7 +81,7 @@ class GraphService(object):
         try:
             inst = cls.__instances[key]
         except KeyError:
-            inst = super(GraphService, cls).__new__(cls)
+            inst = super(GraphDB, cls).__new__(cls)
             inst._connection_data = connection_data
             from neo4j.v1 import GraphDatabase
             inst._driver = GraphDatabase.driver(connection_data["uri"], auth=connection_data["auth"],
@@ -129,7 +130,7 @@ class GraphService(object):
 
     @property
     def graph(self):
-        """ The default graph database exposed by this database management system.
+        """ The default graph exposed by this database.
 
         :rtype: :class:`.Graph`
         """
@@ -280,29 +281,29 @@ class Graph(object):
     is enabled, this will be used for Cypher queries instead of HTTP.
     """
 
-    _graph_service = None
+    _graph_db = None
 
     _schema = None
 
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
-        graph_service = GraphService(uri, **settings)
-        if name in graph_service:
-            inst = graph_service[name]
+        db = GraphDB(uri, **settings)
+        if name in db:
+            inst = db[name]
         else:
             inst = super(Graph, cls).__new__(cls)
-            inst._graph_service = graph_service
+            inst._graph_db = db
             inst.__name__ = name
             inst.node_selector = NodeSelector(inst)
-            graph_service[name] = inst
+            db[name] = inst
         return inst
 
     def __repr__(self):
-        return "<Graph service=%r name=%r>" % (self._graph_service, self.__name__)
+        return "<Graph db=%r name=%r>" % (self._graph_db, self.__name__)
 
     def __eq__(self, other):
         try:
-            return self.graph_service == other.graph_service and self.__name__ == other.__name__
+            return self.graph_db == other.graph_db and self.__name__ == other.__name__
         except (AttributeError, TypeError):
             return False
 
@@ -310,7 +311,7 @@ class Graph(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self._graph_service) ^ hash(self.__name__)
+        return hash(self._graph_db) ^ hash(self.__name__)
 
     def __graph_order__(self):
         return self.evaluate("MATCH (_) RETURN count(_)")
@@ -441,11 +442,11 @@ class Graph(object):
         return self.begin(autocommit=True).exists(subgraph)
 
     @property
-    def graph_service(self):
+    def graph_db(self):
         """ The database management system to which this :class:`.Graph`
         instance belongs.
         """
-        return self._graph_service
+        return self._graph_db
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -801,7 +802,7 @@ class Transaction(object):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        self.driver = driver = self.graph.graph_service.driver
+        self.driver = driver = self.graph.graph_db.driver
         self.session = driver.session()
         self.results = []
         if autocommit:

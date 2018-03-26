@@ -175,7 +175,7 @@ class HTTPDriver(Driver):
             GraphDatabase.uri_schemes["http"] = HTTPDriver
             # TODO: HTTPS
 
-    _graph_service = None
+    _graph_db = None
 
     def __init__(self, uri, **config):
         super(HTTPDriver, self).__init__(None)
@@ -195,15 +195,15 @@ class HTTPDriver(Driver):
         self._http = HTTP(connection_data["uri"] + "/db/data/", **headers)
 
     @property
-    def graph_service(self):
-        if self._graph_service is None:
-            from py2neo.graph import GraphService
-            self._graph_service = GraphService(self._uri, auth=self._auth)
-        return self._graph_service
+    def graph_db(self):
+        if self._graph_db is None:
+            from py2neo.graph import GraphDB
+            self._graph_db = GraphDB(self._uri, auth=self._auth)
+        return self._graph_db
 
     @property
     def graph(self):
-        return self.graph_service.graph
+        return self.graph_db.graph
 
     def session(self, access_mode=None, bookmark=None):
         return HTTPSession(self.graph, self._http)
