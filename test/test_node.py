@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, cast_node
+from py2neo.types.graph import Node, Relationship, cast_node
 
 from test.compat import long
 from test.util import GraphTestCase

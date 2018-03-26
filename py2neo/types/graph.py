@@ -19,17 +19,29 @@
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.packages.cypy.encoding import LabelSetView, cypher_escape, cypher_repr
-from py2neo.packages.cypy.graph import graph_order as _graph_order, graph_size as _graph_size
-from py2neo.packages.cypy.graph.store import PropertyDict
-
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import integer, string, ustr
+from py2neo.cypher.encoding import LabelSetView, cypher_escape, cypher_repr
+from py2neo.packages.cypy.graph.store import PropertyDict
 from py2neo.util import is_collection, round_robin, snake_case, relationship_case
 
 
-graph_order = _graph_order
-graph_size = _graph_size
+def graph_order(graph_structure):
+    """ Count the number of nodes in a graph structure.
+    """
+    try:
+        return graph_structure.__graph_order__()
+    except AttributeError:
+        raise TypeError("Object is not a graph structure")
+
+
+def graph_size(graph_structure):
+    """ Count the number of relationships in a graph structure.
+    """
+    try:
+        return graph_structure.__graph_size__()
+    except AttributeError:
+        raise TypeError("Object is not a graph structure")
 
 
 def walk(*walkables):

@@ -18,7 +18,7 @@
 
 from neo4j.v1 import ValueSystem, Structure, UnboundRelationship
 
-from py2neo.types import Node, Relationship, Path
+from py2neo.types.graph import Node, Relationship, Path
 
 
 class PackStreamValueSystem(ValueSystem):

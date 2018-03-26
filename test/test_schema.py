@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from time import sleep
+
 
 from mock import patch, Mock
 
@@ -22,7 +22,7 @@ from neo4j.exceptions import ConstraintError
 
 from py2neo.graph import GraphError
 from py2neo.http import HTTP, NOT_FOUND
-from py2neo.types import Node, cast_node
+from py2neo.types.graph import Node, cast_node
 
 from test.util import GraphTestCase
 

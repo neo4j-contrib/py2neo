@@ -23,7 +23,7 @@ from re import compile as re_compile
 from sys import version_info
 from unicodedata import category
 
-from .compat import ustr
+from py2neo.packages.cypy.compat import ustr
 
 
 if version_info >= (3,):

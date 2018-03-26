@@ -20,7 +20,7 @@ from mock import patch
 
 from py2neo.graph import Graph
 from py2neo.json import JSONValueSystem
-from py2neo.types import Node, Relationship, Path
+from py2neo.types.graph import Node, Relationship, Path
 
 from test.util import GraphTestCase
 

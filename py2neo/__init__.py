@@ -19,4 +19,4 @@
 from py2neo.graph import *
 from py2neo.meta import *
 from py2neo.selection import *
-from py2neo.types import *
+from py2neo.types.graph import *

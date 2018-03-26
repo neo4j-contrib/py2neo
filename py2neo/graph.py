@@ -25,13 +25,12 @@ from pygments.token import Token
 
 from py2neo.addressing import get_connection_data
 from py2neo.compat import Mapping, string
-from py2neo.http import OK
+from py2neo.cypher.encoding import cypher_escape
+from py2neo.cypher.lex import CypherLexer
 from py2neo.selection import NodeSelector
 from py2neo.status import *
-from py2neo.types import cast_node, Subgraph, Node, Relationship
+from py2neo.types.graph import cast_node, Subgraph, Node, Relationship
 from py2neo.util import is_collection, version_tuple
-from py2neo.packages.cypy.encoding import cypher_escape
-from py2neo.packages.cypy.lex import CypherLexer
 
 
 update_stats_keys = [

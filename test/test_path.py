@@ -17,7 +17,8 @@
 
 
 from py2neo.graph import Graph
-from py2neo.types import Node, Path, Relationship, graph_order, graph_size
+from py2neo.types.graph import Node, Path, Relationship, graph_order, graph_size
+
 from test.util import GraphTestCase
 
 

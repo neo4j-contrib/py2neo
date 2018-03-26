@@ -16,8 +16,8 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, Path
-from py2neo.http import HTTP
+from py2neo.types.graph import Node, Relationship, Path
+
 from test.util import GraphTestCase
 
 

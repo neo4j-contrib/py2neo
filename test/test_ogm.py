@@ -21,7 +21,7 @@ from unittest import TestCase
 
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 from py2neo.selection import NodeSelector
-from py2neo.types import Node, Relationship, graph_order, graph_size
+from py2neo.types.graph import Node, Relationship, graph_order, graph_size
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject, DerivedThing
 from test.util import GraphTestCase

@@ -17,6 +17,7 @@
 
 
 from py2neo import Node, Relationship, cast, cast_node, cast_relationship
+
 from test.util import GraphTestCase
 
 
