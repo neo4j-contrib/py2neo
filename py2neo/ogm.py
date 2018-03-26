@@ -19,7 +19,6 @@
 from py2neo import PropertyDict
 from py2neo.packages.cypy.encoding import cypher_escape
 
-from py2neo.http import remote
 from py2neo.selection import NodeSelection, NodeSelector
 from py2neo.types import Node
 from py2neo.util import metaclass, label_case, relationship_case
@@ -157,9 +156,8 @@ class RelatedObjects(object):
     def _related_objects(self):
         if self.__related_objects is None:
             self.__related_objects = []
-            remote_node = remote(self.node)
-            if remote_node:
-                with remote_node.graph.begin() as tx:
+            if self.node.graph:
+                with self.node.graph.begin() as tx:
                     self.__db_pull__(tx)
         return self.__related_objects
 
@@ -250,14 +248,14 @@ class RelatedObjects(object):
         for related_object, _ in related_objects:
             tx.merge(related_object)
         # 2a. remove any relationships not in list of nodes
-        subject_id = remote(self.node)._id
+        subject_id = self.node.identity
         tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
-               x=subject_id, y=[remote(obj.__ogm__.node)._id for obj, _ in related_objects])
+               x=subject_id, y=[obj.__ogm__.node.identity for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE %s SET _ = {z}" % self.__relationship_pattern,
-                   x=subject_id, y=remote(related_object.__ogm__.node)._id, z=properties)
+                   x=subject_id, y=related_object.__ogm__.node.identity, z=properties)
 
 
 class OGM(object):
@@ -307,16 +305,20 @@ class GraphObject(object):
     __ogm = None
 
     def __eq__(self, other):
-        if not isinstance(other, GraphObject):
+        if self is other:
+            return True
+        try:
+            if type(self) is not type(other):
+                return False
+            self_node = self.__ogm__.node
+            other_node = other.__ogm__.node
+            if any(x is None for x in [self_node.graph, other_node.graph, self_node.identity, other_node.identity]):
+                return self.__primarylabel__ == other.__primarylabel__ and \
+                       self.__primarykey__ == other.__primarykey__ and \
+                       self.__primaryvalue__ == other.__primaryvalue__
+            return self_node.graph == other_node.graph and self_node.identity == other_node.identity
+        except (AttributeError, TypeError):
             return False
-        remote_self = remote(self.__ogm__.node)
-        remote_other = remote(other.__ogm__.node)
-        if remote_self and remote_other:
-            return remote_self == remote_other
-        else:
-            return self.__primarylabel__ == other.__primarylabel__ and \
-                   self.__primarykey__ == other.__primarykey__ and \
-                   self.__primaryvalue__ == other.__primaryvalue__
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -361,8 +363,7 @@ class GraphObject(object):
         node = self.__ogm__.node
         primary_key = self.__primarykey__
         if primary_key == "__id__":
-            remote_node = remote(node)
-            return remote_node._id if remote_node else None
+            return node.identity
         else:
             return node[primary_key]
 
@@ -371,9 +372,8 @@ class GraphObject(object):
 
     def __db_delete__(self, tx):
         ogm = self.__ogm__
-        remote_node = remote(ogm.node)
-        if remote_node:
-            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=remote_node._id)
+        if ogm.node.identity is not None:
+            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=ogm.node.identity)
         for related_objects in ogm.related.values():
             related_objects.clear()
 
@@ -384,7 +384,7 @@ class GraphObject(object):
             primary_label = getattr(node, "__primarylabel__", None)
         if primary_key is None:
             primary_key = getattr(node, "__primarykey__", "__id__")
-        if not remote(node):
+        if node.graph is None:
             if primary_key == "__id__":
                 node.add_label(primary_label)
                 tx.create(node)
@@ -395,7 +395,7 @@ class GraphObject(object):
 
     def __db_pull__(self, tx):
         ogm = self.__ogm__
-        if not remote(ogm.node):
+        if ogm.node.graph is None:
             selector = GraphObjectSelector(self.__class__, tx.graph)
             selector._selection_class = NodeSelection
             ogm.node = selector.select(self.__primaryvalue__).first()
@@ -406,7 +406,7 @@ class GraphObject(object):
     def __db_push__(self, tx):
         ogm = self.__ogm__
         node = ogm.node
-        if remote(node):
+        if node.graph is not None:
             tx.push(node)
         else:
             primary_key = getattr(node, "__primarykey__", "__id__")

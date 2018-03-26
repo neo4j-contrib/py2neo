@@ -21,7 +21,6 @@ from unittest import TestCase, SkipTest
 from uuid import uuid4
 
 from py2neo.graph import Graph
-from py2neo.http import remote
 from py2neo.selection import NodeSelector
 from py2neo.types import Node
 
@@ -71,7 +70,7 @@ class GraphTestCase(TestCase):
     def get_non_existent_node_id(self):
         node = Node()
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.graph.delete(node)
         return node_id
 

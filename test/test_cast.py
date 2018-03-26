@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, Relationship, cast, cast_node, cast_relationship, remote
+from py2neo import Node, Relationship, cast, cast_node, cast_relationship
 from test.util import GraphTestCase
 
 
@@ -35,15 +35,17 @@ class GraphyCastTestCase(GraphTestCase):
         alice = Node(name="Alice")
         self.graph.create(alice)
         casted = cast(alice)
-        assert isinstance(casted, Node)
-        assert remote(casted)
-        assert casted["name"] == "Alice"
+        self.assertIsInstance(casted, Node)
+        self.assertEqual(casted.graph, self.graph)
+        self.assertIsNotNone(casted.identity)
+        self.assertEqual(casted["name"], "Alice")
 
     def test_can_cast_dict(self):
         casted = cast({"name": "Alice"})
-        assert isinstance(casted, Node)
-        assert not remote(casted)
-        assert casted["name"] == "Alice"
+        self.assertIsInstance(casted, Node)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
+        self.assertEqual(casted["name"], "Alice")
 
     def test_can_cast_rel(self):
         a = Node()
@@ -51,8 +53,9 @@ class GraphyCastTestCase(GraphTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         casted = cast(ab)
-        assert isinstance(casted, Relationship)
-        assert remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertEqual(casted.graph, self.graph)
+        self.assertIsNotNone(casted.identity)
         assert casted.start_node() == a
         assert casted.type == "KNOWS"
         assert casted.end_node() == b
@@ -61,8 +64,9 @@ class GraphyCastTestCase(GraphTestCase):
         alice = Node()
         bob = Node()
         casted = cast((alice, "KNOWS", bob))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() is alice
         assert casted.type == "KNOWS"
         assert casted.end_node() is bob
@@ -71,8 +75,9 @@ class GraphyCastTestCase(GraphTestCase):
         alice = Node()
         bob = Node()
         casted = cast((alice, "KNOWS", bob, {"since": 1999}))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() is alice
         assert casted.type == "KNOWS"
         assert casted.end_node() is bob
@@ -101,8 +106,9 @@ class RelationshipCastTestCase(GraphTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(a | b | ab)
         casted = cast_relationship(ab)
-        assert isinstance(casted, Relationship)
-        assert remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNotNone(casted.graph)
+        self.assertIsNotNone(casted.identity)
         assert casted.start_node() == a
         assert casted.type == "KNOWS"
         assert casted.end_node() == b
@@ -123,8 +129,9 @@ class RelationshipCastTestCase(GraphTestCase):
         alice = Node()
         bob = Node()
         casted = cast_relationship((alice, "KNOWS", bob))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() == alice
         assert casted.type == "KNOWS"
         assert casted.end_node() == bob
@@ -133,8 +140,9 @@ class RelationshipCastTestCase(GraphTestCase):
         alice = Node()
         bob = Node()
         casted = cast_relationship((alice, ("KNOWS", {"since": 1999}), bob))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() == alice
         assert casted.type == "KNOWS"
         assert casted.end_node() == bob
@@ -144,8 +152,9 @@ class RelationshipCastTestCase(GraphTestCase):
         alice = Node()
         bob = Node()
         casted = cast_relationship((alice, "KNOWS", bob, {"since": 1999}))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() == alice
         assert casted.type == "KNOWS"
         assert casted.end_node() == bob
@@ -160,8 +169,9 @@ class RelationshipCastTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         casted = cast_relationship((a, r, b))
-        assert isinstance(casted, Relationship)
-        assert not remote(casted)
+        self.assertIsInstance(casted, Relationship)
+        self.assertIsNone(casted.graph)
+        self.assertIsNone(casted.identity)
         assert casted.start_node() == a
         assert casted.type == "TO"
         assert casted.end_node() == b

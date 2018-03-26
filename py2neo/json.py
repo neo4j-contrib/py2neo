@@ -18,7 +18,6 @@
 
 from neo4j.v1 import ValueSystem
 
-from py2neo.http import remote
 from py2neo.types import Node, Relationship, Path
 from py2neo.util import is_collection
 
@@ -37,27 +36,34 @@ class JSONValueSystem(ValueSystem):
         entities = self.entities
         keys = self.keys
 
+        def uri_to_id(uri):
+            _, _, identity = uri.rpartition("/")
+            return int(identity)
+
         def hydrate_(data, inst=None):
             if isinstance(data, dict):
                 if "self" in data:
                     if "type" in data:
-                        return Relationship.hydrate(data["self"], inst=inst, **data)
+                        data["start"] = uri_to_id(data["start"])
+                        data["end"] = uri_to_id(data["end"])
+                        return Relationship.hydrate(graph, uri_to_id(data["self"]), inst=inst, **data)
                     else:
-                        return Node.hydrate(data["self"], inst=inst, **data)
+                        return Node.hydrate(graph, uri_to_id(data["self"]), inst=inst, **data)
                 elif "nodes" in data and "relationships" in data:
                     if "directions" not in data:
+                        data["nodes"] = list(map(uri_to_id, data["nodes"]))
+                        data["relationships"] = list(map(uri_to_id, data["relationships"]))
                         directions = []
                         relationships = graph.evaluate(
                             "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
-                            x=[int(uri.rpartition("/")[-1]) for uri in data["relationships"]])
-                        node_uris = data["nodes"]
+                            x=data["relationships"])
                         for i, relationship in enumerate(relationships):
-                            if remote(relationship.start_node()).uri == node_uris[i]:
+                            if relationship.start_node().identity == data["nodes"][i]:
                                 directions.append("->")
                             else:
                                 directions.append("<-")
                         data["directions"] = directions
-                    return Path.hydrate(data)
+                    return Path.hydrate(graph, data)
                 else:
                     # from warnings import warn
                     # warn("Map literals returned over the Neo4j REST interface are ambiguous "

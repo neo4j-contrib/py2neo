@@ -18,8 +18,8 @@
 
 from mock import patch
 
+from py2neo.graph import Graph
 from py2neo.json import JSONValueSystem
-from py2neo.http import remote
 from py2neo.types import Node, Relationship, Path
 
 from test.util import GraphTestCase
@@ -29,15 +29,22 @@ class NodeHydrationTestCase(GraphTestCase):
 
     def setUp(self):
         Node.cache.clear()
+        self.graph = Graph()
+        self.node = Node()
+        self.hydrator = JSONValueSystem(self.graph, ["x"], {"x": self.node})
+
+    def hydrate(self, dehydrated):
+        hydrated, = self.hydrator.hydrate([dehydrated])
+        return hydrated
 
     def test_minimal_node_hydrate(self):
         dehydrated = {
             "self": "http://localhost:7474/db/data/node/0",
         }
-        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Node)
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Node)
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 0)
 
     def test_node_hydrate_with_properties(self):
         dehydrated = {
@@ -47,11 +54,11 @@ class NodeHydrationTestCase(GraphTestCase):
                 "age": 33,
             },
         }
-        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Node)
-        assert dict(hydrated) == dehydrated["data"]
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Node)
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 0)
 
     def test_full_node_hydrate_without_labels(self):
         dehydrated = {
@@ -75,11 +82,11 @@ class NodeHydrationTestCase(GraphTestCase):
                 "age": 33,
             },
         }
-        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Node)
-        assert dict(hydrated) == dehydrated["data"]
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Node)
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 0)
 
     def test_full_node_hydrate_with_labels(self):
         dehydrated = {
@@ -106,12 +113,12 @@ class NodeHydrationTestCase(GraphTestCase):
                 "labels": ["Person", "Employee"],
             },
         }
-        hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Node)
-        assert dict(hydrated) == dehydrated["data"]
-        assert set(hydrated.labels) == set(dehydrated["metadata"]["labels"])
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Node)
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(set(hydrated.labels), set(dehydrated["metadata"]["labels"]))
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 0)
 
     def test_node_hydration_with_issue_19542(self):
         dehydrated = {
@@ -141,43 +148,50 @@ class NodeHydrationTestCase(GraphTestCase):
 
         with patch("weakref.WeakValueDictionary.setdefault") as mocked:
             mocked.return_value = None
-            hydrated = Node.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Node)
-        assert dict(hydrated) == dehydrated["data"]
-        assert set(hydrated.labels) == set(dehydrated["metadata"]["labels"])
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+            hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Node)
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(set(hydrated.labels), set(dehydrated["metadata"]["labels"]))
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 0)
 
 
 class RelationshipHydrationTestCase(GraphTestCase):
 
     def setUp(self):
         Relationship.cache.clear()
+        self.graph = Graph()
+        self.hydrator = JSONValueSystem(self.graph, ["x"])
+
+    def hydrate(self, dehydrated):
+        hydrated, = self.hydrator.hydrate([dehydrated])
+        return hydrated
 
     def test_partial_relationship_hydration_with_inst(self):
         a = Node()
         b = Node()
         ab = Relationship(a, "TO", b)
+        self.hydrator = JSONValueSystem(self.graph, ["x"], {"x": ab})
         self.graph.create(ab)
         dehydrated = {
             "extensions": {
             },
-            "start": "http://localhost:7474/db/data/node/%d" % remote(a)._id,
-            "property": "http://localhost:7474/db/data/relationship/%d/properties/{key}" % remote(ab)._id,
-            "self": "http://localhost:7474/db/data/relationship/%d" % remote(ab)._id,
-            "properties": "http://localhost:7474/db/data/relationship/%d/properties" % remote(ab)._id,
+            "start": "http://localhost:7474/db/data/node/%d" % a.identity,
+            "property": "http://localhost:7474/db/data/relationship/%d/properties/{key}" % ab.identity,
+            "self": "http://localhost:7474/db/data/relationship/%d" % ab.identity,
+            "properties": "http://localhost:7474/db/data/relationship/%d/properties" % ab.identity,
             "type": "KNOWS",
-            "end": "http://localhost:7474/db/data/node/%d" % remote(b)._id,
+            "end": "http://localhost:7474/db/data/node/%d" % b.identity,
         }
-        hydrated = Relationship.hydrate(dehydrated["self"], inst=ab, **dehydrated)
-        assert isinstance(hydrated, Relationship)
-        assert remote(hydrated.start_node())
-        assert remote(hydrated.start_node()).uri == dehydrated["start"]
-        assert remote(hydrated.end_node())
-        assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type == dehydrated["type"]
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Relationship)
+        self.assertEqual(hydrated.start_node().graph, self.graph)
+        self.assertEqual(hydrated.start_node().identity, a.identity)
+        self.assertEqual(hydrated.end_node().graph, self.graph)
+        self.assertEqual(hydrated.end_node().identity, b.identity)
+        self.assertEqual(hydrated.type, dehydrated["type"])
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, ab.identity)
 
     def test_relationship_hydration_with_issue_19542(self):
         dehydrated = {
@@ -195,16 +209,16 @@ class RelationshipHydrationTestCase(GraphTestCase):
         }
         with patch("weakref.WeakValueDictionary.setdefault") as mocked:
             mocked.return_value = None
-            hydrated = Relationship.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Relationship)
-        assert remote(hydrated.start_node())
-        assert remote(hydrated.start_node()).uri == dehydrated["start"]
-        assert remote(hydrated.end_node())
-        assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type == dehydrated["type"]
-        assert dict(hydrated) == dehydrated["data"]
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+            hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Relationship)
+        self.assertEqual(hydrated.start_node().graph, self.graph)
+        self.assertEqual(hydrated.start_node().identity, 23)
+        self.assertEqual(hydrated.end_node().graph, self.graph)
+        self.assertEqual(hydrated.end_node().identity, 22)
+        self.assertEqual(hydrated.type, dehydrated["type"])
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 11)
 
     def test_full_relationship_hydrate(self):
         dehydrated = {
@@ -220,16 +234,16 @@ class RelationshipHydrationTestCase(GraphTestCase):
                 "since": 1999,
             },
         }
-        hydrated = Relationship.hydrate(dehydrated["self"], **dehydrated)
-        assert isinstance(hydrated, Relationship)
-        assert remote(hydrated.start_node())
-        assert remote(hydrated.start_node()).uri == dehydrated["start"]
-        assert remote(hydrated.end_node())
-        assert remote(hydrated.end_node()).uri == dehydrated["end"]
-        assert hydrated.type == dehydrated["type"]
-        assert dict(hydrated) == dehydrated["data"]
-        assert remote(hydrated)
-        assert remote(hydrated).uri == dehydrated["self"]
+        hydrated = self.hydrate(dehydrated)
+        self.assertIsInstance(hydrated, Relationship)
+        self.assertEqual(hydrated.start_node().graph, self.graph)
+        self.assertEqual(hydrated.start_node().identity, 23)
+        self.assertEqual(hydrated.end_node().graph, self.graph)
+        self.assertEqual(hydrated.end_node().identity, 22)
+        self.assertEqual(hydrated.type, dehydrated["type"])
+        self.assertEqual(dict(hydrated), dehydrated["data"])
+        self.assertEqual(hydrated.graph, self.graph)
+        self.assertEqual(hydrated.identity, 11)
 
     def test_path_hydration_without_directions(self):
         a = Node()
@@ -239,9 +253,13 @@ class RelationshipHydrationTestCase(GraphTestCase):
         cb = Relationship(c, "KNOWS", b)
         path = Path(a, ab, b, cb, c)
         self.graph.create(path)
+
+        def uri(entity):
+            return "http://localhost:7474/db/data/node/%d" % entity.identity
+
         dehydrated = {
-            "nodes": [remote(a).uri, remote(b).uri, remote(c).uri],
-            "relationships": [remote(ab).uri, remote(cb).uri],
+            "nodes": [uri(a), uri(b), uri(c)],
+            "relationships": [uri(ab), uri(cb)],
         }
         value_system = JSONValueSystem(self.graph, ["a"])
         hydrated = value_system.hydrate([dehydrated])

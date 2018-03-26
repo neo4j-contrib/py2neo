@@ -145,18 +145,6 @@ def cast_relationship(obj, entities=None):
     return Relationship(start_node, get_type(t), end_node, **properties)
 
 
-def remote(obj):
-    """ Return the remote counterpart of a local object.
-
-    :param obj: the local object
-    :return: the corresponding remote entity
-    """
-    try:
-        return obj.__remote__
-    except AttributeError:
-        return None
-
-
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
@@ -227,6 +215,7 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
+        graph = tx.graph
         nodes = list(self.nodes)
         reads = []
         writes = []
@@ -235,10 +224,9 @@ class Subgraph(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            remote_node = remote(node)
-            if remote_node:
+            if node in graph:
                 reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = remote_node._id
+                parameters[param_id] = node.identity
             else:
                 label_string = "".join(":" + cypher_escape(label)
                                        for label in sorted(node.labels))
@@ -247,7 +235,7 @@ class Subgraph(object):
                 node._set_remote_pending(tx)
             returns[node_id] = node
         for i, relationship in enumerate(self.relationships):
-            if not remote(relationship):
+            if relationship not in graph:
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
@@ -263,28 +251,27 @@ class Subgraph(object):
         list(tx.run(statement, parameters))
 
     def __db_degree__(self, tx):
+        graph = tx.graph
         node_ids = []
         for i, node in enumerate(self.nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_ids.append(remote_node._id)
+            if node in graph:
+                node_ids.append(node.identity)
         statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
         parameters = {"x": node_ids}
         return tx.evaluate(statement, parameters)
 
     def __db_delete__(self, tx):
+        graph = tx.graph
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(self.nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_ids.add(remote_node._id)
+            if node in graph:
+                node_ids.add(node.identity)
             else:
                 return False
         for i, relationship in enumerate(self.relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                relationship_ids.add(remote_relationship._id)
+            if relationship in graph:
+                relationship_ids.add(relationship.identity)
             else:
                 return False
         statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
@@ -294,18 +281,17 @@ class Subgraph(object):
         list(tx.run(statement, parameters))
 
     def __db_exists__(self, tx):
+        graph = tx.graph
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(self.nodes):
-            remote_node = remote(node)
-            if remote_node:
-                node_ids.add(remote_node._id)
+            if node in graph:
+                node_ids.add(node.identity)
             else:
                 return False
         for i, relationship in enumerate(self.relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
-                relationship_ids.add(remote_relationship._id)
+            if relationship in graph:
+                relationship_ids.add(relationship.identity)
             else:
                 return False
         statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
@@ -315,6 +301,7 @@ class Subgraph(object):
         return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
+        graph = tx.graph
         nodes = list(self.nodes)
         match_clauses = []
         merge_clauses = []
@@ -323,10 +310,9 @@ class Subgraph(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            remote_node = remote(node)
-            if remote_node:
+            if node in graph:
                 match_clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = remote_node._id
+                parameters[param_id] = node.identity
             else:
                 merge_label = getattr(node, "__primarylabel__", None) or primary_label
                 if merge_label is None:
@@ -360,7 +346,7 @@ class Subgraph(object):
             returns[node_id] = node
         clauses = match_clauses + merge_clauses
         for i, relationship in enumerate(self.relationships):
-            if not remote(relationship):
+            if relationship not in graph:
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node())
                 end_node_id = "a%d" % nodes.index(relationship.end_node())
@@ -376,15 +362,18 @@ class Subgraph(object):
         list(tx.run(statement, parameters))
 
     def __db_pull__(self, tx):
+        graph = tx.graph
         nodes = {node: None for node in self.nodes}
         relationships = list(self.relationships)
         for node in nodes:
-            tx.entities.append({"_": node})
-            cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=remote(node)._id)
-            nodes[node] = cursor
+            if node in graph:
+                tx.entities.append({"_": node})
+                cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=node.identity)
+                nodes[node] = cursor
         for relationship in relationships:
-            tx.entities.append({"_": relationship})
-            list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=remote(relationship)._id))
+            if relationship in graph:
+                tx.entities.append({"_": relationship})
+                list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=relationship.identity))
         for node, cursor in nodes.items():
             new_labels = cursor.evaluate(1)
             if new_labels:
@@ -394,12 +383,12 @@ class Subgraph(object):
                 labels.update(new_labels)
 
     def __db_push__(self, tx):
+        graph = tx.graph
         # TODO: reimplement this when REMOVE a:* is available in Cypher
         for node in self.nodes:
-            remote_node = remote(node)
-            if remote_node:
+            if node in graph:
                 clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
-                parameters = {"x": remote_node._id, "y": dict(node)}
+                parameters = {"x": node.identity, "y": dict(node)}
                 old_labels = node._Node__remote_labels - node._Node__labels
                 if old_labels:
                     clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
@@ -408,25 +397,24 @@ class Subgraph(object):
                     clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
                 tx.run("\n".join(clauses), parameters)
         for relationship in self.relationships:
-            remote_relationship = remote(relationship)
-            if remote_relationship:
+            if relationship in graph:
                 clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
-                parameters = {"x": remote_relationship._id, "y": dict(relationship)}
+                parameters = {"x": relationship.identity, "y": dict(relationship)}
                 tx.run("\n".join(clauses), parameters)
 
     def __db_separate__(self, tx):
+        graph = tx.graph
         matches = []
         deletes = []
         parameters = {}
         for i, relationship in enumerate(self.relationships):
-            remote_relationship = remote(relationship)
-            if remote_relationship:
+            if relationship in graph:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
-                parameters[param_id] = remote_relationship._id
+                parameters[param_id] = relationship.identity
                 del relationship.__remote__
         statement = "\n".join(matches + deletes)
         list(tx.run(statement, parameters))
@@ -555,6 +543,9 @@ class Entity(PropertyDict, Walkable):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
+    graph = None
+    identity = None
+
     __remote = None
     __remote_pending_tx = None
 
@@ -602,9 +593,9 @@ class Entity(PropertyDict, Walkable):
     def __remote__(self):
         cache = getattr(self, "cache", None)
         if cache:
-            uri = remote(self).uri
-            if uri in cache:
-                cache.update(remote(self).uri, None)
+            key = (self.graph, self.identity)
+            if key in cache:
+                cache.update(key, None)
         self.__remote = None
         self.__remote_pending_tx = None
 
@@ -625,24 +616,27 @@ class Node(Entity):
     cache = ThreadLocalEntityCache()
 
     @classmethod
-    def instance(cls, uri, inst=None):
+    def instance(cls, graph, identity, inst=None):
+        key = (graph, identity)
         if inst is None:
 
             def inst_constructor():
                 new_inst = cls()
+                new_inst.graph = graph
+                new_inst.identity = identity
                 new_inst.__stale.update({"labels", "properties"})
                 return new_inst
 
-            inst = cls.cache.update(uri, inst_constructor)
+            inst = cls.cache.update(key, inst_constructor)
         else:
-            cls.cache.update(uri, inst)
+            inst.graph = graph
+            inst.identity = identity
+            cls.cache.update(key, inst)
         return inst
 
     @classmethod
-    def hydrate(cls, uri, inst=None, **rest):
-        from py2neo.http import Remote
-        inst = cls.instance(uri, inst)
-        inst.__remote__ = Remote(uri)
+    def hydrate(cls, graph, identity, inst=None, **rest):
+        inst = cls.instance(graph, identity, inst)
         if "data" in rest:
             inst.__stale.discard("properties")
             inst.clear()
@@ -662,35 +656,43 @@ class Node(Entity):
         self.__stale = set()
 
     def __eq__(self, other):
-        if self.__class__ is not other.__class__:
+        if self is other:
+            return True
+        try:
+            if type(self) is not type(other):
+                return False
+            if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
+                return False
+            return type(self) == type(other) and self.graph == other.graph and self.identity == other.identity
+        except (AttributeError, TypeError):
             return False
-        remote_self = remote(self)
-        remote_other = remote(other)
-        if remote_self and remote_other:
-            return remote_self == remote_other
-        else:
-            return self is other
+
+    def __eqv__(self, other):
+        try:
+            return set(self.labels) == set(other.labels) and dict(self) == dict(other)
+        except (AttributeError, TypeError):
+            return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __neqv__(self, other):
+        return not self.__eqv__(other)
+
     def __hash__(self):
-        remote_self = remote(self)
-        if remote_self:
-            return hash(remote_self.uri)
+        if self.graph and self.identity:
+            return hash(self.graph) ^ hash(self.identity)
         else:
             return hash(id(self))
 
     def __getitem__(self, item):
-        remote_self = remote(self)
-        if remote_self and "properties" in self.__stale:
-            remote_self.graph.pull(self)
+        if self.graph is not None and self.identity is not None and "properties" in self.__stale:
+            self.graph.pull(self)
         return Entity.__getitem__(self, item)
 
     def __ensure_labels(self):
-        remote_self = remote(self)
-        if remote_self and "labels" in self.__stale:
-            remote_self.graph.pull(self)
+        if self.graph is not None and self.identity is not None and "labels" in self.__stale:
+            self.graph.pull(self)
 
     @property
     def labels(self):
@@ -752,29 +754,33 @@ class Relationship(Entity):
         return ustr(relationship_case(cls.__name__))
 
     @classmethod
-    def hydrate(cls, uri, inst=None, **rest):
-        from py2neo.http import Remote
+    def hydrate(cls, graph, identity, inst=None, **rest):
+        key = (graph, identity)
         start = rest["start"]
         end = rest["end"]
 
         if inst is None:
 
             def inst_constructor():
-                return cls(Node.hydrate(start), rest.get("type"),
-                           Node.hydrate(end), **rest.get("data", {}))
+                new_inst = cls(Node.hydrate(graph, start), rest.get("type"),
+                               Node.hydrate(graph, end), **rest.get("data", {}))
+                new_inst.graph = graph
+                new_inst.identity = identity
+                return new_inst
 
-            inst = cls.cache.update(uri, inst_constructor)
+            inst = cls.cache.update(key, inst_constructor)
         else:
-            Node.hydrate(start, inst=inst.start_node())
-            Node.hydrate(end, inst=inst.end_node())
+            inst.graph = graph
+            inst.identity = identity
+            Node.hydrate(graph, start, inst=inst.start_node())
+            Node.hydrate(graph, end, inst=inst.end_node())
             inst.__type = rest.get("type")
             if "data" in rest:
                 inst.clear()
                 inst.update(rest["data"])
             else:
                 inst.__stale.add("properties")
-            cls.cache.update(uri, inst)
-        inst.__remote__ = Remote(uri)
+            cls.cache.update(key, inst)
         return inst
 
     def __init__(self, *nodes, **properties):
@@ -818,23 +824,26 @@ class Relationship(Entity):
         self.__stale = set()
 
     def __eq__(self, other):
-        if other is None:
-            return False
+        if self is other:
+            return True
         try:
-            other = cast_relationship(other)
-        except TypeError:
+            if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
+                return self.__eqv__(other)
+            return type(self) == type(other) and self.graph == other.graph and self.identity == other.identity
+        except (AttributeError, TypeError):
             return False
-        else:
-            remote_self = remote(self)
-            remote_other = remote(other)
-            if remote_self and remote_other:
-                return remote_self == remote_other
-            else:
-                return (self.nodes == other.nodes and graph_size(other) == 1 and
-                        self.type == other.type and dict(self) == dict(other))
+
+    def __eqv__(self, other):
+        try:
+            return set(self.type) == set(other.type) and list(self.nodes) == list(other.nodes) and dict(self) == dict(other)
+        except (AttributeError, TypeError):
+            return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __neqv__(self, other):
+        return not self.__eqv__(other)
 
     def __hash__(self):
         return hash(self.nodes) ^ hash(self.type)
@@ -843,9 +852,8 @@ class Relationship(Entity):
     def type(self):
         """ The type of this relationship.
         """
-        remote_self = remote(self)
-        if remote_self and self.__type is None:
-            remote_self.graph.pull(self)
+        if self.graph is not None and self.identity is not None and self.__type is None:
+            self.graph.pull(self)
         return self.__type
 
 
@@ -881,15 +889,15 @@ class Path(Walkable):
 
     """
     @classmethod
-    def hydrate(cls, data):
-        node_uris = data["nodes"]
-        relationship_uris = data["relationships"]
+    def hydrate(cls, graph, data):
+        node_ids = data["nodes"]
+        relationship_ids = data["relationships"]
         offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-        nodes = [Node.hydrate(uri) for uri in node_uris]
-        relationships = [Relationship.hydrate(uri,
-                                              start=node_uris[i + offsets[i][0]],
-                                              end=node_uris[i + offsets[i][1]])
-                         for i, uri in enumerate(relationship_uris)]
+        nodes = [Node.hydrate(graph, identity) for identity in node_ids]
+        relationships = [Relationship.hydrate(graph, identity,
+                                              start=node_ids[i + offsets[i][0]],
+                                              end=node_ids[i + offsets[i][1]])
+                         for i, identity in enumerate(relationship_ids)]
         inst = Path(*round_robin(nodes, relationships))
         inst.__metadata = data
         return inst

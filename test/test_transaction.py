@@ -21,7 +21,7 @@ from test.util import GraphTestCase
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
 from py2neo.graph import TransactionFinished
-from py2neo.types import Node, Relationship, graph_order, graph_size, remote
+from py2neo.types import Node, Relationship, graph_order, graph_size
 
 
 class TransactionRunTestCase(GraphTestCase):
@@ -113,7 +113,8 @@ class TransactionCreateTestCase(GraphTestCase):
         a = Node("Person", name="Alice")
         with self.graph.begin() as tx:
             tx.create(a)
-        assert remote(a)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
@@ -121,9 +122,12 @@ class TransactionCreateTestCase(GraphTestCase):
         r = Relationship(a, "KNOWS", b, since=1999)
         with self.graph.begin() as tx:
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -137,9 +141,12 @@ class TransactionCreateTestCase(GraphTestCase):
             tx.process()
             r = Relationship(a, "KNOWS", b, since=1999)
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert r.start_node() == a
         assert r.end_node() == b
         assert graph_order(self.graph) == 2
@@ -154,9 +161,12 @@ class TransactionCreateTestCase(GraphTestCase):
             tx.create(b)
             r = Relationship(a, "KNOWS", b, since=1999)
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert r.start_node() == a
         assert r.end_node() == b
         assert graph_order(self.graph) == 2
@@ -171,9 +181,12 @@ class TransactionCreateTestCase(GraphTestCase):
             tx.create(a)
             tx.create(b)
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert r.start_node() == a
         assert r.end_node() == b
         assert graph_order(self.graph) == 2
@@ -189,16 +202,22 @@ class TransactionCreateTestCase(GraphTestCase):
             bc = Relationship(b, "TO", c)
             ca = Relationship(c, "TO", a)
             tx.create(ab | bc | ca)
-        assert remote(a)
-        assert remote(b)
-        assert remote(c)
-        assert remote(ab)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(c.graph, self.graph)
+        self.assertIsNotNone(c.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert remote(bc)
+        self.assertEqual(bc.graph, self.graph)
+        self.assertIsNotNone(bc.identity)
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert remote(ca)
+        self.assertEqual(ca.graph, self.graph)
+        self.assertIsNotNone(ca.identity)
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert graph_order(self.graph) == 3
@@ -211,16 +230,22 @@ class TransactionCreateTestCase(GraphTestCase):
         r = Relationship(a, "TO", b)
         with self.graph.begin() as tx:
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert graph_order(self.graph) == 2
         assert graph_size(self.graph) == 1
         with self.graph.begin() as tx:
             tx.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert graph_order(self.graph) == 2
         assert graph_size(self.graph) == 1
 
@@ -304,7 +329,7 @@ class TransactionErrorTestCase(GraphTestCase):
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
         record = cursor.next()
-        parameters = {"A": remote(record["a"])._id, "B": remote(record["b"])._id}
+        parameters = {"A": record["a"].identity, "B": record["b"].identity}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
         tx.run(statement, parameters)

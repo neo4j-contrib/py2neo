@@ -17,7 +17,6 @@
 
 
 from py2neo.graph import Graph
-from py2neo.http import remote
 from py2neo.types import Node, Relationship, graph_size
 
 from test.util import GraphTestCase
@@ -34,7 +33,7 @@ class RelationshipTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        got = self.graph.relationship(remote(r)._id)
+        got = self.graph.relationship(r.identity)
         assert got is r
         
     def test_can_get_relationship_by_id_when_not_cached(self):
@@ -43,8 +42,8 @@ class RelationshipTestCase(GraphTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         Relationship.cache.clear()
-        got = self.graph.relationship(remote(r)._id)
-        assert remote(got)._id == remote(r)._id
+        got = self.graph.relationship(r.identity)
+        assert got.identity == r.identity
         
     def test_relationship_cache_is_thread_local(self):
         import threading
@@ -52,7 +51,8 @@ class RelationshipTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert remote(r).uri in Relationship.cache
+        cache_key = (r.graph, r.identity)
+        assert cache_key in Relationship.cache
         other_relationship_cache_keys = []
     
         def check_cache():
@@ -62,15 +62,15 @@ class RelationshipTestCase(GraphTestCase):
         thread.start()
         thread.join()
     
-        assert remote(r).uri in Relationship.cache
-        assert remote(r).uri not in other_relationship_cache_keys
+        assert cache_key in Relationship.cache
+        assert cache_key not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        rel_id = remote(r)._id
+        rel_id = r.identity
         self.graph.delete(r)
         Relationship.cache.clear()
         with self.assertRaises(IndexError):
@@ -89,8 +89,8 @@ class RelationshipTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        assert remote(r)
-        assert remote(r).graph == Graph("http://localhost:7474/db/data/")
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})

@@ -17,28 +17,10 @@
 
 
 from py2neo.graph import Graph
-from py2neo.http import remote
 from py2neo.json import JSONValueSystem
 from py2neo.types import Node, Relationship, cast_node
 
-from test.util import GraphTestCase, HTTPGraphTestCase
-
-
-class HTTPGraphObjectTestCase(HTTPGraphTestCase):
-
-    def test_can_create_graph_with_trailing_slash(self):
-        uri = "http://localhost:7474/db/data/"
-        graph = Graph(uri)
-        assert remote(graph).uri == uri
-        index = remote(graph).get_json("")
-        assert "node" in index
-
-    def test_can_create_graph_without_trailing_slash(self):
-        uri = "http://localhost:7474/db/data/"
-        graph = Graph(uri[:-1])
-        assert remote(graph).uri == uri
-        index = remote(graph).get_json("")
-        assert "node" in index
+from test.util import GraphTestCase
 
 
 class GraphObjectTestCase(GraphTestCase):
@@ -79,7 +61,8 @@ class GraphObjectTestCase(GraphTestCase):
         a = Node()
         self.graph.create(a)
         assert isinstance(a, Node)
-        assert remote(a)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
         assert self.graph.exists(a)
         self.graph.delete(a)
         assert not self.graph.exists(a)
@@ -88,7 +71,8 @@ class GraphObjectTestCase(GraphTestCase):
         ab = Relationship(Node(), "KNOWS", Node())
         self.graph.create(ab)
         assert isinstance(ab, Relationship)
-        assert remote(ab)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert self.graph.exists(ab)
         self.graph.delete(ab | ab.start_node() | ab.end_node())
         assert not self.graph.exists(ab)
@@ -96,22 +80,24 @@ class GraphObjectTestCase(GraphTestCase):
     def test_can_get_node_by_id_when_cached(self):
         node = Node()
         self.graph.create(node)
-        assert remote(node).uri in Node.cache
-        got = self.graph.node(remote(node)._id)
+        cache_key = (node.graph, node.identity)
+        assert cache_key in Node.cache
+        got = self.graph.node(node.identity)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
         node = Node()
         self.graph.create(node)
         Node.cache.clear()
-        assert remote(node).uri not in Node.cache
-        got = self.graph.node(remote(node)._id)
-        assert remote(got)._id == remote(node)._id
+        cache_key = (node.graph, node.identity)
+        assert cache_key not in Node.cache
+        got = self.graph.node(node.identity)
+        assert got.identity == node.identity
 
     def test_get_non_existent_node_by_id(self):
         node = Node()
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.graph.delete(node)
         Node.cache.clear()
         with self.assertRaises(IndexError):
@@ -121,7 +107,8 @@ class GraphObjectTestCase(GraphTestCase):
         from threading import Thread
         node = Node()
         self.graph.create(node)
-        assert remote(node).uri in Node.cache
+        cache_key = (node.graph, node.identity)
+        assert cache_key in Node.cache
         other_cache_keys = []
 
         def check_cache():
@@ -131,8 +118,8 @@ class GraphObjectTestCase(GraphTestCase):
         thread.start()
         thread.join()
 
-        assert remote(node).uri in Node.cache
-        assert remote(node).uri not in other_cache_keys
+        assert cache_key in Node.cache
+        assert cache_key not in other_cache_keys
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)
@@ -148,12 +135,13 @@ class GraphObjectTestCase(GraphTestCase):
     def test_create_single_empty_node(self):
         a = Node()
         self.graph.create(a)
-        assert remote(a)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
 
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")
         self.graph.create(a1)
-        a2 = self.graph.node(remote(a1)._id)
+        a2 = self.graph.node(a1.identity)
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):

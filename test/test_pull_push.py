@@ -17,7 +17,7 @@
 
 
 from py2neo.types import Node, Relationship, Path
-from py2neo.http import Remote, remote
+from py2neo.http import HTTP
 from test.util import GraphTestCase
 
 
@@ -33,7 +33,8 @@ class PullTestCase(GraphTestCase):
         self.graph.create(alice_2)
         assert set(alice_1.labels) == set()
         assert dict(alice_1) == {}
-        alice_1.__remote__ = Remote(remote(alice_2).uri)
+        alice_1.graph = alice_2.graph
+        alice_1.identity = alice_2.identity
         self.graph.pull(alice_1)
         assert set(alice_1.labels) == set(alice_2.labels)
         assert dict(alice_1) == dict(alice_2)
@@ -52,9 +53,9 @@ class PullTestCase(GraphTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
-        id_0 = remote(path[0])._id
-        id_1 = remote(path[1])._id
-        id_2 = remote(path[2])._id
+        id_0 = path[0].identity
+        id_1 = path[1].identity
+        id_2 = path[2].identity
         parameters = {"ab": id_0, "bc": id_1, "cd": id_2}
         self.graph.run(statement, parameters)
         self.graph.pull(path)
@@ -68,7 +69,7 @@ class PullTestCase(GraphTestCase):
             for new_labels in label_sets:
                 node = Node(*old_labels)
                 self.graph.create(node)
-                node_id = remote(node)._id
+                node_id = node.identity
                 assert set(node.labels) == old_labels
                 if old_labels:
                     remove_clause = "REMOVE a:%s" % ":".join(old_labels)
@@ -92,7 +93,7 @@ class PullTestCase(GraphTestCase):
             for new_props in property_sets:
                 node = Node(**old_props)
                 self.graph.create(node)
-                node_id = remote(node)._id
+                node_id = node.identity
                 assert dict(node) == old_props
                 self.graph.run("MATCH (a) WHERE id(a)={x} SET a={y}", x=node_id, y=new_props)
                 self.graph.pull(node)
@@ -108,7 +109,7 @@ class PullTestCase(GraphTestCase):
                 b = Node()
                 relationship = Relationship(a, "TO", b, **old_props)
                 self.graph.create(relationship)
-                relationship_id = remote(relationship)._id
+                relationship_id = relationship.identity
                 assert dict(relationship) == old_props
                 self.graph.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
                                x=relationship_id, y=new_props)
@@ -130,7 +131,8 @@ class PushTestCase(GraphTestCase):
         self.graph.create(alice_2)
         assert set(alice_2.labels) == set()
         assert dict(alice_2) == {}
-        alice_1.__remote__ = Remote(remote(alice_2).uri)
+        alice_1.graph = alice_2.graph
+        alice_1.identity = alice_2.identity
         self.graph.push(alice_1)
         self.graph.pull(alice_2)
         assert set(alice_1.labels) == set(alice_2.labels)
@@ -142,12 +144,12 @@ class PushTestCase(GraphTestCase):
         ab = Relationship(a, "KNOWS", b)
         self.graph.create(ab)
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=remote(ab)._id)
+                                    "RETURN ab.since", i=ab.identity)
         assert value is None
         ab["since"] = 1999
         self.graph.push(ab)
         value = self.graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
-                                    "RETURN ab.since", i=remote(ab)._id)
+                                    "RETURN ab.since", i=ab.identity)
         assert value == 1999
 
     def test_can_push_path(self):
@@ -161,7 +163,7 @@ class PushTestCase(GraphTestCase):
                      "MATCH ()-[bc]->() WHERE id(bc)={bc} "
                      "MATCH ()-[cd]->() WHERE id(cd)={cd} "
                      "RETURN ab.amount, bc.amount, cd.since")
-        parameters = {"ab": remote(path[0])._id, "bc": remote(path[1])._id, "cd": remote(path[2])._id}
+        parameters = {"ab": path[0].identity, "bc": path[1].identity, "cd": path[2].identity}
         path[0]["amount"] = "lots"
         path[1]["amount"] = "some"
         path[2]["since"] = 1999
@@ -182,7 +184,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_no_labels_onto_no_labels(self):
         node = Node()
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {})
         self.graph.push(node)
         self.assert_has_labels(node_id, {})
@@ -190,7 +192,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_no_labels_onto_one_label(self):
         node = Node("A")
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {"A"})
         node.clear_labels()
         self.graph.push(node)
@@ -199,7 +201,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_one_label_onto_no_labels(self):
         node = Node()
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {})
         node.add_label("A")
         self.graph.push(node)
@@ -208,7 +210,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_one_label_onto_same_label(self):
         node = Node("A")
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {"A"})
         self.graph.push(node)
         self.assert_has_labels(node_id, {"A"})
@@ -216,7 +218,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_one_additional_label(self):
         node = Node("A")
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {"A"})
         node.add_label("B")
         self.graph.push(node)
@@ -225,7 +227,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_one_label_onto_different_label(self):
         node = Node("A")
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {"A"})
         node.clear_labels()
         node.add_label("B")
@@ -235,7 +237,7 @@ class PushTestCase(GraphTestCase):
     def test_should_push_multiple_labels_with_overlap(self):
         node = Node("A", "B")
         self.graph.create(node)
-        node_id = remote(node)._id
+        node_id = node.identity
         self.assert_has_labels(node_id, {"A", "B"})
         node.remove_label("A")
         node.add_label("C")

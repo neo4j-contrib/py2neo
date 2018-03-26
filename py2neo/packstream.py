@@ -18,7 +18,6 @@
 
 from neo4j.v1 import ValueSystem, Structure, UnboundRelationship
 
-from py2neo.http import remote
 from py2neo.types import Node, Relationship, Path
 
 
@@ -32,7 +31,7 @@ class PackStreamValueSystem(ValueSystem):
     def hydrate(self, values):
         """ Hydrate values from raw PackStream representations into client objects.
         """
-        graph_uri = remote(self.graph).uri
+        graph = self.graph
         entities = self.entities
         keys = self.keys
 
@@ -41,13 +40,11 @@ class PackStreamValueSystem(ValueSystem):
             if isinstance(obj, Structure):
                 signature, args = obj
                 if signature == b"N":
-                    uri = "%snode/%s" % (graph_uri, args[0])
-                    return Node.hydrate(uri, inst=inst, metadata={"labels": list(args[1])}, data=hydrate_(args[2]))
+                    return Node.hydrate(graph, args[0], inst=inst,
+                                        metadata={"labels": list(args[1])}, data=hydrate_(args[2]))
                 elif signature == b"R":
-                    uri = "%srelationship/%s" % (graph_uri, args[0])
-                    return Relationship.hydrate(uri, inst=inst,
-                                                start="%snode/%s" % (graph_uri, args[1]),
-                                                end="%snode/%s" % (graph_uri, args[2]),
+                    return Relationship.hydrate(graph, args[0], inst=inst,
+                                                start=args[1], end=args[2],
                                                 type=args[3], data=hydrate_(args[4]))
                 elif signature == b"P":
                     nodes = [hydrate_(node) for node in args[0]]
@@ -57,17 +54,15 @@ class PackStreamValueSystem(ValueSystem):
                     steps = [last_node]
                     for i, rel_index in enumerate(sequence[::2]):
                         next_node = nodes[sequence[2 * i + 1]]
-                        last_node_uri = "%snode/%s" % (graph_uri, remote(last_node)._id)
-                        next_node_uri = "%snode/%s" % (graph_uri, remote(next_node)._id)
                         if rel_index > 0:
                             u_rel = u_rels[rel_index - 1]
-                            uri = "%srelationship/%s" % (graph_uri, u_rel.id)
-                            rel = Relationship.hydrate(uri, start=last_node_uri, end=next_node_uri,
+                            rel = Relationship.hydrate(graph, u_rel.id,
+                                                       start=last_node.identity, end=next_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         else:
                             u_rel = u_rels[-rel_index - 1]
-                            uri = "%srelationship/%s" % (graph_uri, u_rel.id)
-                            rel = Relationship.hydrate(uri, start=next_node_uri, end=last_node_uri,
+                            rel = Relationship.hydrate(graph, u_rel.id,
+                                                       start=next_node.identity, end=last_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         steps.append(rel)
                         steps.append(next_node)

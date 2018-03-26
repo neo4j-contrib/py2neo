@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from unittest import skipUnless
-
 from neo4j.exceptions import AuthError
 
 from py2neo.addressing import GraphServiceAddress, register_graph_service, keyring, authenticate

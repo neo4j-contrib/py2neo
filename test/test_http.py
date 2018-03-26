@@ -17,12 +17,11 @@
 
 
 import logging
-from unittest import TestCase
 
 from neo4j.v1 import GraphDatabase
 
 from py2neo.graph import GraphError, CypherSyntaxError
-from py2neo.http import set_http_header, get_http_headers, HTTP
+from py2neo.http import HTTP
 from py2neo.types import Node
 
 from test.util import HTTPGraphTestCase
@@ -64,31 +63,13 @@ class HTTPCounter(object):
         return len(self.responses)
 
 
-class HeaderTestCase(HTTPGraphTestCase):
-
-    def test_can_add_and_retrieve_global_header(self):
-        set_http_header("Key1", "Value1")
-        headers = get_http_headers("http", "localhost", 7474)
-        assert headers["Key1"] == "Value1"
-
-    def test_can_add_and_retrieve_header_for_specific_host_port(self):
-        set_http_header("Key1", "Value1", "http", "example.com", 7474)
-        set_http_header("Key1", "Value2", "http", "example.net", 7474)
-        headers = get_http_headers("http", "example.com", 7474)
-        assert headers["Key1"] == "Value1"
-
-    def test_can_add_and_retrieve_multiple_headers_for_specific_host_port(self):
-        set_http_header("Key1", "Value1", "http", "example.com", 7474)
-        set_http_header("Key2", "Value2", "http", "example.com", 7474)
-        headers = get_http_headers("http", "example.com", 7474)
-        assert headers["Key1"] == "Value1"
-        assert headers["Key2"] == "Value2"
-
-
 class ClientErrorTestCase(HTTPGraphTestCase):
 
     def test_can_handle_400(self):
-        resource = HTTP("http://localhost:7474/db/data/cypher")
+        headers = {
+            "Authorization": HTTP.authorization("neo4j", "password")
+        }
+        resource = HTTP("http://localhost:7474/db/data/cypher", **headers)
         try:
             resource.post("", {}, expected=(201,))
         except GraphError as error:
@@ -103,7 +84,10 @@ class ClientErrorTestCase(HTTPGraphTestCase):
 
     def test_can_handle_404(self):
         node_id = self.get_non_existent_node_id()
-        resource = HTTP("http://localhost:7474/db/data/")
+        headers = {
+            "Authorization": HTTP.authorization("neo4j", "password")
+        }
+        resource = HTTP("http://localhost:7474/db/data/", **headers)
         try:
             resource.get_json("node/%s" % node_id)
         except GraphError as error:
@@ -117,7 +101,10 @@ class ServerErrorTestCase(HTTPGraphTestCase):
 
     def setUp(self):
         super(ServerErrorTestCase, self).setUp()
-        self.non_existent_resource = HTTP("http://localhost:7474/db/data/x")
+        headers = {
+            "Authorization": HTTP.authorization("neo4j", "password")
+        }
+        self.non_existent_resource = HTTP("http://localhost:7474/db/data/x", **headers)
 
     def test_can_handle_json_error_from_get(self):
         try:
@@ -144,25 +131,12 @@ class ServerErrorTestCase(HTTPGraphTestCase):
             assert False
 
 
-class ResourceTestCase(TestCase):
-
-    def test_similar_resources_should_be_equal(self):
-        r1 = HTTP("http://localhost:7474/db/data/node/1")
-        r2 = HTTP("http://localhost:7474/db/data/node/1")
-        assert r1 == r2
-
-    def test_different_resources_should_be_unequal(self):
-        r1 = HTTP("http://localhost:7474/db/data/node/1")
-        r2 = HTTP("http://localhost:7474/db/data/node/2")
-        assert r1 != r2
-
-
 class HTTPSchemeTestCase(HTTPGraphTestCase):
 
     @classmethod
     def setUpClass(cls):
-        from py2neo.http import register_http_driver
-        register_http_driver()
+        from py2neo.http import HTTPDriver
+        HTTPDriver.register()
 
     def test_should_be_able_to_run_transaction_with_http_scheme(self):
         driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))

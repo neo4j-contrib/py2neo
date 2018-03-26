@@ -17,7 +17,6 @@
 
 
 from py2neo.graph import Transaction
-from py2neo.http import remote
 from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types import Node, Relationship, Path, graph_order, graph_size
 
@@ -114,7 +113,7 @@ class CypherTestCase(GraphTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH (a)-[ab:KNOWS]->(b) "
                      "RETURN a, b, ab, a.name AS a_name, b.name AS b_name")
-        records = list(self.graph.run(statement, {"A": remote(a)._id, "B": remote(b)._id}))
+        records = list(self.graph.run(statement, {"A": a.identity, "B": b.identity}))
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
@@ -129,7 +128,7 @@ class CypherTestCase(GraphTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        records = list(self.graph.run(statement, {"A": remote(a)._id, "B": remote(b)._id}))
+        records = list(self.graph.run(statement, {"A": a.identity, "B": b.identity}))
         assert len(records) == 1
         for record in records:
             assert isinstance(record["p"], Path)
@@ -143,7 +142,7 @@ class CypherTestCase(GraphTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={N} RETURN collect(a) AS a_collection"
-        params = {"N": remote(node)._id}
+        params = {"N": node.identity}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a_collection"] == [node]
@@ -152,7 +151,7 @@ class CypherTestCase(GraphTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} RETURN a"
-        params = {"X": remote(node)._id}
+        params = {"X": node.identity}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a"] == node
@@ -161,7 +160,7 @@ class CypherTestCase(GraphTestCase):
         node = Node()
         self.graph.create(node)
         statement = "MATCH (a) WHERE id(a)={X} MATCH (b) WHERE id(b)={X} RETURN a, b"
-        params = {"X": remote(node)._id}
+        params = {"X": node.identity}
         record = self.graph.run(statement, params).next()
         assert record["a"] == node
         assert record["b"] == node
@@ -173,7 +172,7 @@ class CypherTestCase(GraphTestCase):
                     "MATCH (b) WHERE id(b)={X} " \
                     "MATCH (c) WHERE id(c)={X} " \
                     "RETURN a, b, c"
-        params = {"X": remote(node)._id}
+        params = {"X": node.identity}
         cursor = self.graph.run(statement, params)
         record = cursor.next()
         assert record["a"] == node
@@ -189,7 +188,7 @@ class CypherTestCase(GraphTestCase):
                  "MATCH (a)-[:KNOWS]->(b) "
                  "WHERE b.age > {min_age} "
                  "RETURN b")
-        params = {"A": remote(a)._id, "min_age": 50}
+        params = {"A": a.identity, "min_age": 50}
         record = self.graph.run(query, params).next()
         assert record["b"] == b
 
@@ -208,14 +207,14 @@ class CypherTestCase(GraphTestCase):
                  "MATCH (b)-[:KNOWS]->(c) "
                  "WHERE c.age > {min_age} "
                  "RETURN c")
-        params = {"A": remote(a)._id, "min_age": 50}
+        params = {"A": a.identity, "min_age": 50}
         record = self.graph.run(query, params).next()
         assert record["c"] == c
 
     def test_unique_path_not_unique_raises_cypher_error(self):
         graph = self.graph
         record = graph.run("CREATE (a), (b) RETURN a, b").next()
-        parameters = {"A": remote(record["a"])._id, "B": remote(record["b"])._id}
+        parameters = {"A": record["a"].identity, "B": record["b"].identity}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}"
                      "CREATE (a)-[:KNOWS]->(b)")
         graph.run(statement, parameters)
@@ -231,16 +230,20 @@ class CypherCreateTestCase(GraphTestCase):
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
         self.graph.create(a)
-        assert remote(a)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
 
     def test_can_create_relationship(self):
         a = Node("Person", name="Alice")
         b = Node("Person", name="Bob")
         r = Relationship(a, "KNOWS", b, since=1999)
         self.graph.create(r)
-        assert remote(a)
-        assert remote(b)
-        assert remote(r)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(r.graph, self.graph)
+        self.assertIsNotNone(r.identity)
         assert r.start_node() == a
         assert r.end_node() == b
 
@@ -252,17 +255,26 @@ class CypherCreateTestCase(GraphTestCase):
         ab = Relationship(a, "TO", b)
         bc = Relationship(b, "TO", c)
         ca = Relationship(c, "TO", a)
-        self.graph.create(ab | bc | ca)
-        assert remote(a)
-        assert remote(b)
-        assert remote(c)
-        assert remote(ab)
+        s = ab | bc | ca
+        assert graph_order(s) == 3
+        assert graph_size(s) == 3
+        self.graph.create(s)
+        self.assertEqual(a.graph, self.graph)
+        self.assertIsNotNone(a.identity)
+        self.assertEqual(b.graph, self.graph)
+        self.assertIsNotNone(b.identity)
+        self.assertEqual(c.graph, self.graph)
+        self.assertIsNotNone(c.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert ab.start_node() == a
         assert ab.end_node() == b
-        assert remote(bc)
+        self.assertEqual(bc.graph, self.graph)
+        self.assertIsNotNone(bc.identity)
         assert bc.start_node() == b
         assert bc.end_node() == c
-        assert remote(ca)
+        self.assertEqual(ca.graph, self.graph)
+        self.assertIsNotNone(ca.identity)
         assert ca.start_node() == c
         assert ca.end_node() == a
         assert graph_order(self.graph) == 3

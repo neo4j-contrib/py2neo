@@ -18,7 +18,6 @@
 from __future__ import absolute_import
 
 from py2neo.graph import GraphService
-from py2neo.http import remote
 
 from test.util import GraphTestCase
 

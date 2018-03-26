@@ -23,9 +23,9 @@ from time import sleep
 
 from pygments.token import Token
 
+from py2neo.addressing import get_connection_data
 from py2neo.compat import Mapping, string
-from py2neo.http import OK, Remote, remote
-from py2neo.meta import bolt_user_agent, http_user_agent
+from py2neo.http import OK
 from py2neo.selection import NodeSelector
 from py2neo.status import *
 from py2neo.types import cast_node, Subgraph, Node, Relationship
@@ -70,53 +70,33 @@ class GraphService(object):
 
     __instances = {}
 
-    _http_driver = None
-    _bolt_driver = None
-    _jmx_remote = None
+    _driver = None
     _graphs = None
 
-    def __new__(cls, *uris, **settings):
-        from py2neo.addressing import register_graph_service, get_graph_service_auth
-        from py2neo.http import register_http_driver
-        from neo4j.v1 import GraphDatabase
-        register_http_driver()
-        address = register_graph_service(*uris, **settings)
-        auth = get_graph_service_auth(address)
-        key = (address, auth)
+    def __new__(cls, uri=None, **settings):
+        from py2neo.http import HTTPDriver
+        HTTPDriver.register()
+        connection_data = get_connection_data(uri, **settings)
+        key = connection_data["hash"]
         try:
             inst = cls.__instances[key]
         except KeyError:
-            http_uri = address.http_uri
-            bolt_uri = address.bolt_uri
             inst = super(GraphService, cls).__new__(cls)
-            inst._initial_uris = uris
-            inst._initial_settings = settings
-            inst.__remote__ = Remote(http_uri["/"])
-            inst.address = address
-            inst.user = auth.user if auth else None
-            auth_token = auth.token if auth else None
-            inst._http_driver = GraphDatabase.driver(http_uri["/"], auth=auth_token,
-                                                     encrypted=address.secure, user_agent=http_user_agent())
-            if bolt_uri:
-                inst._bolt_driver = GraphDatabase.driver(bolt_uri["/"], auth=auth_token,
-                                                         encrypted=address.secure, user_agent=bolt_user_agent())
-            inst._jmx_remote = Remote(http_uri["/db/manage/server/jmx/domain/org.neo4j"])
+            inst._connection_data = connection_data
+            from neo4j.v1 import GraphDatabase
+            inst._driver = GraphDatabase.driver(connection_data["uri"], auth=connection_data["auth"],
+                                                encrypted=connection_data["secure"],
+                                                user_agent=connection_data["user_agent"])
             inst._graphs = {}
             cls.__instances[key] = inst
         return inst
 
-    def __del__(self):
-        if self._http_driver:
-            self._http_driver.close()
-        if self._bolt_driver:
-            self._bolt_driver.close()
-
     def __repr__(self):
-        return "<%s uri=%r>" % (self.__class__.__name__, remote(self).uri)
+        return "<%s uri=%r>" % (self.__class__.__name__, self._connection_data["uri"])
 
     def __eq__(self, other):
         try:
-            return remote(self) == remote(other)
+            return self.uri == other.uri
         except AttributeError:
             return False
 
@@ -124,14 +104,14 @@ class GraphService(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(remote(self).uri)
+        return self._connection_data["hash"]
 
     def __contains__(self, database):
         return database in self._graphs
 
     def __getitem__(self, database):
         if database == "data" and database not in self._graphs:
-            self._graphs[database] = Graph(*self._initial_uris, **self._initial_settings)
+            self._graphs[database] = Graph(**self._connection_data)
         return self._graphs[database]
 
     def __setitem__(self, database, graph):
@@ -142,15 +122,11 @@ class GraphService(object):
 
     @property
     def driver(self):
-        return self._bolt_driver or self._http_driver
+        return self._driver
 
     @property
-    def http_driver(self):
-        return self._http_driver
-
-    @property
-    def bolt_driver(self):
-        return self._bolt_driver
+    def uri(self):
+        return self._connection_data["uri"]
 
     @property
     def graph(self):
@@ -259,20 +235,6 @@ class GraphService(object):
         """
         return self.query_jmx("org.neo4j", name="Configuration")
 
-    def password_change_required(self):
-        """ Check if a password change is required for the current user.
-
-        :returns: :const:`True` if a password change is required, :const:`False` otherwise
-        """
-        status = remote(self).get_json("user/{}".format(self.user))
-        return status["password_change_required"]
-
-    def change_password(self, new_password):
-        """ Change the password for the current user.
-        """
-        remote(self).post("user/{}/password".format(self.user), {"password": new_password}, expected=(OK,))
-        return new_password
-
 
 class Graph(object):
     """ The `Graph` class represents a Neo4j graph database. Connection
@@ -323,27 +285,33 @@ class Graph(object):
 
     _schema = None
 
-    def __new__(cls, *uris, **settings):
-        database = settings.pop("database", "data")
-        graph_service = GraphService(*uris, **settings)
-        address = graph_service.address
-        if database in graph_service:
-            inst = graph_service[database]
+    def __new__(cls, uri=None, **settings):
+        name = settings.pop("name", "data")
+        graph_service = GraphService(uri, **settings)
+        if name in graph_service:
+            inst = graph_service[name]
         else:
             inst = super(Graph, cls).__new__(cls)
-            inst.address = address
-            inst.__remote__ = Remote(address.http_uri["/db/%s/" % database])
-            inst.transaction_uri = address.http_uri["/db/%s/transaction" % database]
-            inst.node_selector = NodeSelector(inst)
             inst._graph_service = graph_service
-            graph_service[database] = inst
+            inst.__name__ = name
+            inst.node_selector = NodeSelector(inst)
+            graph_service[name] = inst
         return inst
 
     def __repr__(self):
-        return "<Graph uri=%r>" % remote(self).uri
+        return "<Graph service=%r name=%r>" % (self._graph_service, self.__name__)
+
+    def __eq__(self, other):
+        try:
+            return self.graph_service == other.graph_service and self.__name__ == other.__name__
+        except (AttributeError, TypeError):
+            return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(remote(self).uri)
+        return hash(self._graph_service) ^ hash(self.__name__)
 
     def __graph_order__(self):
         return self.evaluate("MATCH (_) RETURN count(_)")
@@ -361,8 +329,10 @@ class Graph(object):
         return True
 
     def __contains__(self, entity):
-        remote_entity = remote(entity)
-        return remote_entity and remote_entity.uri.startswith(remote(self).uri)
+        try:
+            return entity.graph == self and entity.identity is not None
+        except AttributeError:
+            return False
 
     def begin(self, autocommit=False):
         """ Begin a new :class:`.Transaction`.
@@ -502,24 +472,34 @@ class Graph(object):
         elif end_node is None:
             clauses.append("MATCH (a) WHERE id(a) = {1}")
             start_node = cast_node(start_node)
-            if not remote(start_node):
-                raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"1": remote(start_node)._id}
+            if start_node.graph != self:
+                raise ValueError("Start node does not belong to this graph")
+            if start_node.identity is None:
+                raise ValueError("Start node is not bound to a graph")
+            parameters = {"1": start_node.identity}
             returns.append("b")
         elif start_node is None:
             clauses.append("MATCH (b) WHERE id(b) = {2}")
             end_node = cast_node(end_node)
-            if not remote(end_node):
-                raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"2": remote(end_node)._id}
+            if end_node.graph != self:
+                raise ValueError("End node does not belong to this graph")
+            if end_node.identity is None:
+                raise ValueError("End node is not bound to a graph")
+            parameters = {"2": end_node.identity}
             returns.append("a")
         else:
             clauses.append("MATCH (a) WHERE id(a) = {1} MATCH (b) WHERE id(b) = {2}")
             start_node = cast_node(start_node)
+            if start_node.graph != self:
+                raise ValueError("Start node does not belong to this graph")
+            if start_node.identity is None:
+                raise ValueError("Start node is not bound to a graph")
             end_node = cast_node(end_node)
-            if not remote(start_node) or not remote(end_node):
-                raise TypeError("Nodes for relationship match end points must be bound")
-            parameters = {"1": remote(start_node)._id, "2": remote(end_node)._id}
+            if end_node.graph != self:
+                raise ValueError("End node does not belong to this graph")
+            if end_node.identity is None:
+                raise ValueError("End node is not bound to a graph")
+            parameters = {"1": start_node.identity, "2": end_node.identity}
         if rel_type is None:
             relationship_detail = ""
         elif is_collection(rel_type):
@@ -566,21 +546,25 @@ class Graph(object):
         with self.begin() as tx:
             tx.merge(subgraph, label, *property_keys)
 
-    def node(self, id_):
+    @property
+    def name(self):
+        return self.__name__
+
+    def node(self, identity):
         """ Fetch a node by ID. This method creates an object representing the
         remote node with the ID specified but fetches no data from the server.
         For this reason, there is no guarantee that the entity returned
         actually exists.
 
-        :param id_:
+        :param identity:
         """
-        entity_uri = "%snode/%s" % (remote(self).uri, id_)
+        cache_key = (self, identity)
         try:
-            return Node.cache[entity_uri]
+            return Node.cache[cache_key]
         except KeyError:
-            node = self.node_selector.select().where("id(_) = %d" % id_).first()
+            node = self.node_selector.select().where("id(_) = %d" % identity).first()
             if node is None:
-                raise IndexError("Node %d not found" % id_)
+                raise IndexError("Node %d not found" % identity)
             else:
                 return node
 
@@ -606,18 +590,18 @@ class Graph(object):
         with self.begin() as tx:
             tx.push(subgraph)
 
-    def relationship(self, id_):
+    def relationship(self, identity):
         """ Fetch a relationship by ID.
 
-        :param id_:
+        :param identity:
         """
-        entity_uri = "%srelationship/%s" % (remote(self).uri, id_)
+        cache_key = (self, identity)
         try:
-            return Relationship.cache[entity_uri]
+            return Relationship.cache[cache_key]
         except KeyError:
-            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=id_)
+            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=identity)
             if relationship is None:
-                raise IndexError("Relationship %d not found" % id_)
+                raise IndexError("Relationship %d not found" % identity)
             else:
                 return relationship
 
@@ -654,7 +638,7 @@ class Graph(object):
         :rtype: :class:`Schema`
         """
         if self._schema is None:
-            self._schema = Schema(self, "schema")
+            self._schema = Schema(self)
         return self._schema
 
 
@@ -662,7 +646,7 @@ class Schema(object):
     """ The schema resource attached to a `Graph` instance.
     """
 
-    def __init__(self, graph, ref):
+    def __init__(self, graph):
         self.graph = graph
 
     def create_index(self, label, *property_keys):

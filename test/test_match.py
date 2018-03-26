@@ -123,13 +123,13 @@ class MatchTestCase(GraphTestCase):
         assert len(relationships) == 2
 
     def test_relationship_start_node_must_be_bound(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ValueError):
             list(self.graph.match(start_node=Node()))
 
     def test_relationship_end_node_must_be_bound(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ValueError):
             list(self.graph.match(end_node=Node()))
 
     def test_relationship_start_and_end_node_must_be_bound(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ValueError):
             list(self.graph.match(start_node=Node(), end_node=Node()))

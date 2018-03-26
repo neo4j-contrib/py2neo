@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.types import Node, Relationship, graph_order, graph_size, remote
+from py2neo.types import Node, Relationship, graph_order, graph_size
 from test.util import GraphTestCase
 
 
@@ -29,7 +29,8 @@ class MergeNodeTestCase(GraphTestCase):
         alice = Node("Person", name="Alice")
         old_order = graph_order(self.graph)
         self.graph.merge(alice)
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 1
@@ -39,7 +40,8 @@ class MergeNodeTestCase(GraphTestCase):
         alice = Node("Person", name="Alice")
         old_order = graph_order(self.graph)
         self.graph.merge(alice)
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order
@@ -49,7 +51,8 @@ class MergeNodeTestCase(GraphTestCase):
         self.graph.create(alice)
         old_order = graph_order(self.graph)
         self.graph.merge(alice)
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order
@@ -58,7 +61,8 @@ class MergeNodeTestCase(GraphTestCase):
         node = Node()
         old_order = graph_order(self.graph)
         self.graph.merge(node)
-        assert remote(node)
+        self.assertEqual(node.graph, self.graph)
+        self.assertIsNotNone(node.identity)
         assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 1
@@ -67,7 +71,8 @@ class MergeNodeTestCase(GraphTestCase):
         node = Node()
         old_order = graph_order(self.graph)
         self.graph.merge(node, "Person")
-        assert remote(node)
+        self.assertEqual(node.graph, self.graph)
+        self.assertIsNotNone(node.identity)
         assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 1
@@ -76,7 +81,8 @@ class MergeNodeTestCase(GraphTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = graph_order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 1
@@ -86,7 +92,8 @@ class MergeNodeTestCase(GraphTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = graph_order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order
@@ -96,7 +103,8 @@ class MergeNodeTestCase(GraphTestCase):
         alice = Node("Person", "Employee", name="Alice", age=33)
         old_order = graph_order(self.graph)
         self.graph.merge(alice, "Person", "name")
-        assert remote(alice)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = graph_order(self.graph)
         assert new_order == old_order
@@ -114,9 +122,12 @@ class MergeRelationshipTestCase(GraphTestCase):
         old_order = graph_order(self.graph)
         old_size = graph_size(self.graph)
         self.graph.merge(ab)
-        assert remote(alice)
-        assert remote(bob)
-        assert remote(ab)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
+        self.assertEqual(bob.graph, self.graph)
+        self.assertIsNotNone(bob.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert self.graph.exists(alice | bob | ab)
         new_order = graph_order(self.graph)
         new_size = graph_size(self.graph)
@@ -131,9 +142,12 @@ class MergeRelationshipTestCase(GraphTestCase):
         old_order = graph_order(self.graph)
         old_size = graph_size(self.graph)
         self.graph.merge(ab)
-        assert remote(alice)
-        assert remote(bob)
-        assert remote(ab)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
+        self.assertEqual(bob.graph, self.graph)
+        self.assertIsNotNone(bob.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert self.graph.exists(alice | bob | ab)
         new_order = graph_order(self.graph)
         new_size = graph_size(self.graph)
@@ -148,9 +162,12 @@ class MergeRelationshipTestCase(GraphTestCase):
         old_order = graph_order(self.graph)
         old_size = graph_size(self.graph)
         self.graph.merge(ab)
-        assert remote(alice)
-        assert remote(bob)
-        assert remote(ab)
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
+        self.assertEqual(bob.graph, self.graph)
+        self.assertIsNotNone(bob.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
         assert self.graph.exists(alice | bob | ab)
         new_order = graph_order(self.graph)
         new_size = graph_size(self.graph)
@@ -175,7 +192,8 @@ class MergeSubgraphTestCase(GraphTestCase):
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
         for node in subgraph.nodes:
-            assert remote(node)
+            self.assertEqual(node.graph, self.graph)
+            self.assertIsNotNone(node.identity)
             assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 3
@@ -189,7 +207,8 @@ class MergeSubgraphTestCase(GraphTestCase):
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
         for node in subgraph.nodes:
-            assert remote(node)
+            self.assertEqual(node.graph, self.graph)
+            self.assertIsNotNone(node.identity)
             assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 2
@@ -203,7 +222,8 @@ class MergeSubgraphTestCase(GraphTestCase):
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
         for node in subgraph.nodes:
-            assert remote(node)
+            self.assertEqual(node.graph, self.graph)
+            self.assertIsNotNone(node.identity)
             assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order + 1
@@ -217,7 +237,8 @@ class MergeSubgraphTestCase(GraphTestCase):
         subgraph = alice | bob | carol
         self.graph.merge(subgraph)
         for node in subgraph.nodes:
-            assert remote(node)
+            self.assertEqual(node.graph, self.graph)
+            self.assertIsNotNone(node.identity)
             assert self.graph.exists(node)
         new_order = graph_order(self.graph)
         assert new_order == old_order
@@ -267,46 +288,46 @@ class MergeWalkableTestCase(GraphTestCase):
         a = Node("A", a=1)
         b = Node("B", b=2)
         self.graph.create(a | b)
-        a_id = remote(a)._id
-        b_id = remote(b)._id
+        a_id = a.identity
+        b_id = b.identity
         node = Node("A", "B", a=1, b=2)
         self.graph.merge(node)
-        assert remote(node)._id != a_id
-        assert remote(node)._id != b_id
+        assert node.identity != a_id
+        assert node.identity != b_id
 
     def test_can_merge_with_arguments(self):
         a = Node("A", a=1)
         b = Node("B", b=2)
         self.graph.create(a | b)
-        a_id = remote(a)._id
-        b_id = remote(b)._id
+        a_id = a.identity
+        b_id = b.identity
         node = Node("A", "B", a=1, b=2)
         self.graph.merge(node, "A", "a")
-        assert remote(node)._id == a_id
-        assert remote(node)._id != b_id
+        assert node.identity == a_id
+        assert node.identity != b_id
 
     def test_merge_with_magic_values_overrides_arguments(self):
         a = Node("A", a=1)
         b = Node("B", b=2)
         self.graph.create(a | b)
-        a_id = remote(a)._id
-        b_id = remote(b)._id
+        a_id = a.identity
+        b_id = b.identity
         node = Node("A", "B", a=1, b=2)
         node.__primarylabel__ = "B"
         node.__primarykey__ = "b"
         self.graph.merge(node, "A", "a")
-        assert remote(node)._id != a_id
-        assert remote(node)._id == b_id
+        assert node.identity != a_id
+        assert node.identity == b_id
 
     def test_merge_with_primary_key_list(self):
         a = Node("A", a=1)
         b = Node("B", b=2)
         self.graph.create(a | b)
-        a_id = remote(a)._id
-        b_id = remote(b)._id
+        a_id = a.identity
+        b_id = b.identity
         node = Node("A", "B", a=1, b=2)
         node.__primarylabel__ = "B"
         node.__primarykey__ = ["b"]
         self.graph.merge(node, "A", "a")
-        assert remote(node)._id != a_id
-        assert remote(node)._id == b_id
+        assert node.identity != a_id
+        assert node.identity == b_id

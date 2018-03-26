@@ -15,8 +15,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from __future__ import absolute_import
 
+from base64 import b64encode
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
@@ -24,8 +26,8 @@ from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError,
     fix_parameters
 from neo4j.exceptions import AuthError, Forbidden
 
-from py2neo.addressing import keyring
-from py2neo.compat import urlsplit
+from py2neo.addressing import get_connection_data
+from py2neo.compat import urlsplit, ustr
 from py2neo.meta import http_user_agent
 from py2neo.status import GraphError
 
@@ -60,99 +62,15 @@ FORBIDDEN = 403
 NOT_FOUND = 404
 
 
-_http_headers = {}
-
-
-def _init_http_headers():
-    if _http_headers is {}:
-        _http_headers.update({
-            (None, None, None): [
-                ("User-Agent", http_user_agent()),
-                ("X-Stream", "true"),
-            ],
-        })
-
-
-def set_http_header(key, value, scheme=None, host=None, port=None):
-    """ Add an HTTP header for all future requests. If a `host_port` is
-    specified, this header will only be included in requests to that
-    destination.
-
-    :arg key: name of the HTTP header
-    :arg value: value of the HTTP header
-    :arg scheme:
-    :arg host:
-    :arg port:
-    """
-    _init_http_headers()
-    address_key = (scheme, host, port)
-    if address_key in _http_headers:
-        _http_headers[address_key].append((key, value))
-    else:
-        _http_headers[address_key] = [(key, value)]
-
-
-def get_http_headers(scheme, host, port):
-    """Fetch all HTTP headers relevant to the `host_port` provided.
-
-    :arg scheme:
-    :arg host:
-    :arg port:
-    """
-    _init_http_headers()
-    uri_headers = {}
-    for (s, h, p), headers in _http_headers.items():
-        if (s is None or s == scheme) and (h is None or h == host) and (p is None or p == port):
-            uri_headers.update(headers)
-    for uri, auth in keyring.items():
-        if auth and uri.scheme in ("http", "https") and uri.host == host and uri.port == port:
-            uri_headers["Authorization"] = auth.http_authorization
-    return uri_headers
-
-
-def register_http_driver():
-    """ TODO
-
-    Notes: HTTP support; Graphy objects returned are py2neo objects
-    """
-    from neo4j.v1 import GraphDatabase
-    if "http" not in GraphDatabase.uri_schemes:
-        GraphDatabase.uri_schemes["http"] = HTTPDriver
-        # TODO: HTTPS
-
-
-def remote(obj):
-    """ Return the remote counterpart of a local object.
-
-    :param obj: the local object
-    :return: the corresponding remote entity
-    """
-    try:
-        return obj.__remote__
-    except AttributeError:
-        return None
-
-
-def raise_error(uri, status_code, data):
-    if status_code == UNAUTHORIZED:
-        raise AuthError(uri)
-    if status_code == FORBIDDEN:
-        raise Forbidden(uri)
-    if data:
-        content = json_loads(data.decode('utf-8'))
-    else:
-        content = {}
-    message = content.pop("message", "HTTP request returned unexpected status code %s" % status_code)
-    error = GraphError(message, **content)
-    error.http_status_code = status_code
-    raise error
-
-
 class HTTP(object):
     """ Wrapper for HTTP method calls.
     """
 
-    def __init__(self, uri):
+    @staticmethod
+    def authorization(user, password):
+        return 'Basic ' + b64encode((user + ":" + password).encode("utf-8")).decode("ascii")
+
+    def __init__(self, uri, **headers):
         self.uri = uri
         parts = urlsplit(uri)
         scheme = parts.scheme
@@ -167,7 +85,11 @@ class HTTP(object):
         else:
             raise ValueError("Unsupported scheme %r" % scheme)
         self.path = parts.path
-        self._headers = get_http_headers(scheme, host, port)
+        if "auth" in headers:
+            user, password = headers.pop("auth")
+            headers["Authorization"] = 'Basic ' + b64encode(
+                (ustr(user) + u":" + ustr(password)).encode("utf-8")).decode("ascii")
+        self.headers = headers
 
     def __del__(self):
         self.close()
@@ -192,41 +114,66 @@ class HTTP(object):
     def get_json(self, ref):
         """ Perform an HTTP GET to this resource and return JSON.
         """
-        rs = self.request("GET", self.path + ref, headers=self._headers)
+        rs = self.request("GET", self.path + ref, headers=self.headers)
         try:
             if rs.status == 200:
                 return json_loads(rs.data.decode('utf-8'))
             else:
-                raise_error(self.uri, rs.status, rs.data)
+                self.raise_error(rs.status, rs.data)
         finally:
             rs.close()
 
     def post(self, ref, json, expected):
         """ Perform an HTTP POST to this resource.
         """
-        headers = dict(self._headers)
+        headers = dict(self.headers)
         if json is not None:
             headers["Content-Type"] = "application/json"
             json = json_dumps(json).encode('utf-8')
-        rs = self.request("POST", self.path + ref, headers=self._headers, body=json)
+        rs = self.request("POST", self.path + ref, headers=self.headers, body=json)
         if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
+            self.raise_error(rs.status, rs.data)
         return rs
 
     def delete(self, ref, expected):
         """ Perform an HTTP DELETE to this resource.
         """
-        rs = self.request("DELETE", self.path + ref, headers=self._headers)
+        rs = self.request("DELETE", self.path + ref, headers=self.headers)
         if rs.status not in expected:
-            raise_error(self.uri, rs.status, rs.data)
+            self.raise_error(rs.status, rs.data)
         return rs
 
     def close(self):
         if self._http and self._http.pool:
             self._http.close()
 
+    def raise_error(self, status_code, data):
+        if status_code == UNAUTHORIZED:
+            raise AuthError(self.uri)
+        if status_code == FORBIDDEN:
+            raise Forbidden(self.uri)
+        if data:
+            content = json_loads(data.decode('utf-8'))
+        else:
+            content = {}
+        message = content.pop("message", "HTTP request to <%s> returned unexpected status code %s" % (self.uri, status_code))
+        error = GraphError(message, **content)
+        error.http_status_code = status_code
+        raise error
+
 
 class HTTPDriver(Driver):
+
+    @staticmethod
+    def register():
+        """ TODO
+
+        Notes: HTTP support; Graphy objects returned are py2neo objects
+        """
+        from neo4j.v1 import GraphDatabase
+        if "http" not in GraphDatabase.uri_schemes:
+            GraphDatabase.uri_schemes["http"] = HTTPDriver
+            # TODO: HTTPS
 
     _graph_service = None
 
@@ -234,6 +181,18 @@ class HTTPDriver(Driver):
         super(HTTPDriver, self).__init__(None)
         self._uri = uri
         self._auth = config.get("auth")
+        headers = {
+            "X-Stream": "true",
+        }
+        if "user_agent" in config:
+            headers["User-Agent"] = config["user_agent"]
+        else:
+            headers["User-Agent"] = http_user_agent()
+        if "auth" in config:
+            user, password = config["auth"]
+            headers["Authorization"] = HTTP.authorization(user, password)
+        connection_data = get_connection_data(self._uri)
+        self._http = HTTP(connection_data["uri"] + "/db/data/", **headers)
 
     @property
     def graph_service(self):
@@ -247,7 +206,7 @@ class HTTPDriver(Driver):
         return self.graph_service.graph
 
     def session(self, access_mode=None, bookmark=None):
-        return HTTPSession(self.graph)
+        return HTTPSession(self.graph, self._http)
 
 
 class HTTPResultLoader(object):
@@ -269,14 +228,14 @@ class HTTPSession(Session):
 
     commit_ref = None           # e.g. "transaction/1/commit"
 
-    def __init__(self, graph):
+    def __init__(self, graph, http):
         self.graph = graph
-        remote_graph = remote(graph)
-        self.post = remote_graph.post
-        self.delete = remote_graph.delete
+        self.post = http.post
+        self.delete = http.delete
         self.ref = self.autocommit_ref
         self._statements = []
         self._result_loaders = []
+        self._bookmark = None
 
     def _connect(self, access_mode=None):
         pass
@@ -412,74 +371,3 @@ class HTTPStatementResult(StatementResult):
 
         result_loader.load = load
         result_loader.fail = fail
-
-
-class Remote(HTTP):
-
-    _graph_service = None
-    _ref = None
-    _entity_type = None
-    _entity_id = None
-
-    def __init__(self, uri):
-        HTTP.__init__(self, uri)
-
-    def __repr__(self):
-        return "<%s uri=%r>" % (self.__class__.__name__, self.uri)
-
-    @property
-    def graph_service(self):
-        """ The root service associated with this resource.
-        """
-        if self._graph_service is None:
-            uri = self.uri
-            graph_service_uri = uri[:uri.find("/", uri.find("//") + 2)] + "/"
-            if graph_service_uri == uri:
-                self._graph_service = self
-            else:
-                from py2neo.graph import GraphService
-                self._graph_service = GraphService(graph_service_uri)
-        return self._graph_service
-
-    @property
-    def graph(self):
-        """ The parent graph of this resource.
-        """
-        return self.graph_service.graph
-
-    @property
-    def ref(self):
-        from py2neo.types import Node, Relationship
-        if self._ref is None:
-            self._ref = ref = self.uri[len(remote(self.graph).uri):]
-            ref_parts = ref.partition("/")
-            if ref_parts[0] == "node":
-                try:
-                    self._entity_id = int(ref_parts[-1])
-                except ValueError:
-                    pass
-                else:
-                    self._entity_type = Node
-            elif ref_parts[0] == "relationship":
-                try:
-                    self._entity_id = int(ref_parts[-1])
-                except ValueError:
-                    pass
-                else:
-                    self._entity_type = Relationship
-        return self._ref
-
-    @property
-    def entity_type(self):
-        _ = self.ref
-        return self._entity_type
-
-    @property
-    def entity_id(self):
-        _ = self.ref
-        return self._entity_id
-
-    @property
-    def _id(self):
-        # TODO: deprecate
-        return self.entity_id

@@ -32,7 +32,7 @@ To run a query against a local database is straightforward::
 The Graph
 =========
 
-.. autoclass:: Graph(*uris, **settings)
+.. autoclass:: Graph(uri, **settings)
    :members:
 
 .. autoclass:: Schema
