@@ -3,10 +3,10 @@
 TESTS="$*"
 if [ "${TESTS}" == "" ]
 then
-    python -m coverage run -m unittest discover -vf
+    coverage run -m unittest discover -vf
     STATUS=$?
 else
-    python -m coverage run -m unittest -vf ${TESTS}
+    coverage run -m unittest -vf ${TESTS}
     STATUS=$?
 fi
 if [ "${STATUS}" == "0" ]
