@@ -28,8 +28,8 @@ from test.util import GraphTestCase
 class NodeHydrationTestCase(GraphTestCase):
 
     def setUp(self):
-        Node.cache.clear()
         self.graph = Graph()
+        self.graph.node_cache.clear()
         self.node = Node()
         self.hydrator = JSONValueSystem(self.graph, ["x"], {"x": self.node})
 
@@ -159,8 +159,8 @@ class NodeHydrationTestCase(GraphTestCase):
 class RelationshipHydrationTestCase(GraphTestCase):
 
     def setUp(self):
-        Relationship.cache.clear()
         self.graph = Graph()
+        self.graph.relationship_cache.clear()
         self.hydrator = JSONValueSystem(self.graph, ["x"])
 
     def hydrate(self, dehydrated):

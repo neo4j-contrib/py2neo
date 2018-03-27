@@ -40,7 +40,7 @@ class RelationshipTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        Relationship.cache.clear()
+        self.graph.relationship_cache.clear()
         got = self.graph.relationship(r.identity)
         assert got.identity == r.identity
         
@@ -50,19 +50,18 @@ class RelationshipTestCase(GraphTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        cache_key = (r.graph, r.identity)
-        assert cache_key in Relationship.cache
+        assert r.identity in self.graph.relationship_cache
         other_relationship_cache_keys = []
     
         def check_cache():
-            other_relationship_cache_keys.extend(Relationship.cache.keys())
+            other_relationship_cache_keys.extend(self.graph.relationship_cache.keys())
     
         thread = threading.Thread(target=check_cache)
         thread.start()
         thread.join()
     
-        assert cache_key in Relationship.cache
-        assert cache_key not in other_relationship_cache_keys
+        assert r.identity in self.graph.relationship_cache
+        assert r.identity not in other_relationship_cache_keys
         
     def test_cannot_get_relationship_by_id_when_id_does_not_exist(self):
         a = Node()
@@ -71,7 +70,7 @@ class RelationshipTestCase(GraphTestCase):
         self.graph.create(r)
         rel_id = r.identity
         self.graph.delete(r)
-        Relationship.cache.clear()
+        self.graph.relationship_cache.clear()
         with self.assertRaises(IndexError):
             _ = self.graph.relationship(rel_id)
 

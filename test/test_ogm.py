@@ -537,8 +537,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
         # then
         del films_acted_in
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.graph.node_cache.clear()
+        self.graph.relationship_cache.clear()
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
         film_titles = set(film.title for film in films_acted_in)
@@ -588,8 +588,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
         # then
         del films_acted_in
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.graph.node_cache.clear()
+        self.graph.relationship_cache.clear()
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
         good = films_acted_in.get(matrix, "good")
@@ -607,8 +607,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
         # then
         del films_acted_in
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.graph.node_cache.clear()
+        self.graph.relationship_cache.clear()
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
         roles = films_acted_in.get(matrix, "roles")
@@ -626,8 +626,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
         # then
         del films_acted_in
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.graph.node_cache.clear()
+        self.graph.relationship_cache.clear()
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
         roles = films_acted_in.get(matrix, "roles")
@@ -645,8 +645,8 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
 
         # then
         del films_acted_in
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.graph.node_cache.clear()
+        self.graph.relationship_cache.clear()
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
         film_titles = set(film.title for film in films_acted_in)

@@ -80,17 +80,15 @@ class GraphObjectTestCase(GraphTestCase):
     def test_can_get_node_by_id_when_cached(self):
         node = Node()
         self.graph.create(node)
-        cache_key = (node.graph, node.identity)
-        assert cache_key in Node.cache
+        assert node.identity in self.graph.node_cache
         got = self.graph.node(node.identity)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
         node = Node()
         self.graph.create(node)
-        Node.cache.clear()
-        cache_key = (node.graph, node.identity)
-        assert cache_key not in Node.cache
+        self.graph.node_cache.clear()
+        assert node.identity not in self.graph.node_cache
         got = self.graph.node(node.identity)
         assert got.identity == node.identity
 
@@ -99,7 +97,7 @@ class GraphObjectTestCase(GraphTestCase):
         self.graph.create(node)
         node_id = node.identity
         self.graph.delete(node)
-        Node.cache.clear()
+        self.graph.node_cache.clear()
         with self.assertRaises(IndexError):
             _ = self.graph.node(node_id)
 
@@ -107,19 +105,18 @@ class GraphObjectTestCase(GraphTestCase):
         from threading import Thread
         node = Node()
         self.graph.create(node)
-        cache_key = (node.graph, node.identity)
-        assert cache_key in Node.cache
+        assert node.identity in self.graph.node_cache
         other_cache_keys = []
 
         def check_cache():
-            other_cache_keys.extend(Node.cache.keys())
+            other_cache_keys.extend(self.graph.node_cache.keys())
 
         thread = Thread(target=check_cache)
         thread.start()
         thread.join()
 
-        assert cache_key in Node.cache
-        assert cache_key not in other_cache_keys
+        assert node.identity in self.graph.node_cache
+        assert node.identity not in other_cache_keys
 
     def test_graph_hashes(self):
         assert hash(self.graph) == hash(self.graph)

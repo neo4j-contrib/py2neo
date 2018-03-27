@@ -625,11 +625,8 @@ class Node(Entity):
 
     """
 
-    cache = ThreadLocalEntityCache()
-
     @classmethod
     def instance(cls, graph, identity, inst=None):
-        key = (graph, identity)
         if inst is None:
 
             def inst_constructor():
@@ -639,11 +636,11 @@ class Node(Entity):
                 new_inst.__stale.update({"labels", "properties"})
                 return new_inst
 
-            inst = cls.cache.update(key, inst_constructor)
+            inst = graph.node_cache.update(identity, inst_constructor)
         else:
             inst.graph = graph
             inst.identity = identity
-            cls.cache.update(key, inst)
+            graph.node_cache.update(identity, inst)
         return inst
 
     @classmethod
@@ -756,8 +753,6 @@ class Relationship(Entity):
 
     """
 
-    cache = ThreadLocalEntityCache()
-
     @classmethod
     def default_type(cls):
         if cls is Relationship:
@@ -767,7 +762,6 @@ class Relationship(Entity):
 
     @classmethod
     def hydrate(cls, graph, identity, inst=None, **rest):
-        key = (graph, identity)
         start = rest["start"]
         end = rest["end"]
 
@@ -780,7 +774,7 @@ class Relationship(Entity):
                 new_inst.identity = identity
                 return new_inst
 
-            inst = cls.cache.update(key, inst_constructor)
+            inst = graph.relationship_cache.update(identity, inst_constructor)
         else:
             inst.graph = graph
             inst.identity = identity
@@ -792,7 +786,7 @@ class Relationship(Entity):
                 inst.update(rest["data"])
             else:
                 inst.__stale.add("properties")
-            cls.cache.update(key, inst)
+            graph.relationship_cache.update(identity, inst)
         return inst
 
     def __init__(self, *nodes, **properties):

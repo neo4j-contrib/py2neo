@@ -25,6 +25,7 @@ from time import sleep
 from pygments.token import Token
 
 from py2neo.addressing import get_connection_data
+from py2neo.caching import ThreadLocalEntityCache
 from py2neo.compat import Mapping, string
 from py2neo.cypher.encoding import cypher_escape
 from py2neo.cypher.lex import CypherLexer
@@ -285,6 +286,9 @@ class Graph(object):
 
     _schema = None
 
+    node_cache = ThreadLocalEntityCache()
+    relationship_cache = ThreadLocalEntityCache()
+
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
         db = GraphDB(uri, **settings)
@@ -417,8 +421,8 @@ class Graph(object):
             from the graph and cannot be undone.
         """
         self.run("MATCH (a) DETACH DELETE a")
-        Node.cache.clear()
-        Relationship.cache.clear()
+        self.node_cache.clear()
+        self.relationship_cache.clear()
 
     def evaluate(self, statement, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.evaluate` operation within an
@@ -558,9 +562,8 @@ class Graph(object):
 
         :param identity:
         """
-        cache_key = (self, identity)
         try:
-            return Node.cache[cache_key]
+            return self.node_cache[identity]
         except KeyError:
             node = self.node_selector.select().where("id(_) = %d" % identity).first()
             if node is None:
@@ -595,9 +598,8 @@ class Graph(object):
 
         :param identity:
         """
-        cache_key = (self, identity)
         try:
-            return Relationship.cache[cache_key]
+            return self.relationship_cache[identity]
         except KeyError:
             relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=identity)
             if relationship is None:
