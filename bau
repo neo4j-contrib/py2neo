@@ -76,7 +76,7 @@ function run_tests {
         echo "$UNLICENSED"
         exit 1
     fi
-    echo "Running test suite"
+    echo "Running test suite under $(python --version)"
     echo ""
     install_dependencies
     pushd "${BAU_HOME}" > /dev/null

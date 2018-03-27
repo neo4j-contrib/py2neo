@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import absolute_import
+
 from neo4j.v1.api import Hydrator
 
 from py2neo.collections import is_collection
