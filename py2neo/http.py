@@ -22,12 +22,12 @@ from base64 import b64encode
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
-from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError, fix_statement, \
-    fix_parameters
+from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError
 from neo4j.exceptions import AuthError, Forbidden
 
 from py2neo.addressing import get_connection_data
 from py2neo.compat import urlsplit, ustr
+from py2neo.json import JSONDehydrator
 from py2neo.meta import http_user_agent
 from py2neo.status import GraphError
 
@@ -60,6 +60,19 @@ NO_CONTENT = 204
 UNAUTHORIZED = 401
 FORBIDDEN = 403
 NOT_FOUND = 404
+
+
+def fix_parameters(parameters):
+    if not parameters:
+        return {}
+    dehydrator = JSONDehydrator()
+    try:
+        dehydrated, = dehydrator.dehydrate([parameters])
+    except TypeError as error:
+        value = error.args[0]
+        raise TypeError("Parameters of type {} are not supported".format(type(value).__name__))
+    else:
+        return dehydrated
 
 
 class HTTP(object):
@@ -251,8 +264,8 @@ class HTTPSession(Session):
             raise ValueError("Cannot run an empty statement")
 
         self._statements.append(OrderedDict([
-            ("statement", fix_statement(statement)),
-            ("parameters", fix_parameters(parameters, **kwparameters)),
+            ("statement", ustr(statement)),
+            ("parameters", fix_parameters(dict(parameters or {}, **kwparameters))),
             ("resultDataContents", ["REST"]),
             ("includeStats", True),
         ]))
@@ -334,21 +347,20 @@ class HTTPSession(Session):
 
 class HTTPStatementResult(StatementResult):
 
-    value_system = None
-
     zipper = Record
 
     def __init__(self, session, result_loader):
-        from py2neo.json import JSONValueSystem
+        from py2neo.json import JSONHydrator
 
-        super(HTTPStatementResult, self).__init__(session)
-        self.value_system = JSONValueSystem(session.graph, ())
+        super(HTTPStatementResult, self).__init__(session, JSONHydrator(session.graph, ()))
 
         def load(result):
             from neo4j.v1 import BoltStatementResultSummary
 
-            self._keys = self.value_system.keys = tuple(result["columns"])
-            self._records.extend(record["rest"] for record in result["data"])
+            keys = self._keys = self._hydrant.keys = tuple(result["columns"])
+            hydrate = self._hydrant.hydrate
+            for record in result["data"]:
+                self._records.append(Record(zip(keys, hydrate(record["rest"]))))
 
             stats = result["stats"]
             # fix broken key
@@ -371,3 +383,15 @@ class HTTPStatementResult(StatementResult):
 
         result_loader.load = load
         result_loader.fail = fail
+
+    def records(self):
+        """ Generator for records obtained from this result.
+
+        :yields: iterable of :class:`.Record` objects
+        """
+        if self.attached():
+            self._session.send()
+            records = self._records
+            next_record = records.popleft
+            while records:
+                yield next_record()

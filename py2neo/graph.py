@@ -728,14 +728,14 @@ class Result(object):
     def __init__(self, graph, entities, result):
         from neo4j.v1 import BoltStatementResult
         from py2neo.http import HTTPStatementResult
-        from py2neo.packstream import PackStreamValueSystem
+        from py2neo.packstream import PackStreamHydrator
         self.result = result
         self.result.error_class = GraphError.hydrate
         # TODO: un-yuk this
         if isinstance(result, HTTPStatementResult):
-            self.result.value_system.entities = entities
+            self.result._hydrant.entities = entities
         elif isinstance(result, BoltStatementResult):
-            self.result.value_system = PackStreamValueSystem(graph, result.keys(), entities)
+            self.result._hydrant = PackStreamHydrator(graph, result.keys(), entities)
         else:
             raise RuntimeError("Unexpected statement result class %r" % result.__class__.__name__)
         self.result.zipper = Record

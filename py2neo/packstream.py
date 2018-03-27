@@ -16,12 +16,17 @@
 # limitations under the License.
 
 
-from neo4j.v1 import ValueSystem, Structure, UnboundRelationship
+from collections import namedtuple
+
+from neo4j.v1 import Hydrator, Structure
 
 from py2neo.types.graph import Node, Relationship, Path
 
 
-class PackStreamValueSystem(ValueSystem):
+_unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+
+
+class PackStreamHydrator(Hydrator):
 
     def __init__(self, graph, keys, entities=None):
         self.graph = graph
@@ -38,18 +43,19 @@ class PackStreamValueSystem(ValueSystem):
         def hydrate_(obj, inst=None):
             # TODO: hydrate directly instead of via HTTP hydration
             if isinstance(obj, Structure):
-                signature, args = obj
-                if signature == b"N":
-                    return Node.hydrate(graph, args[0], inst=inst,
-                                        metadata={"labels": list(args[1])}, data=hydrate_(args[2]))
-                elif signature == b"R":
-                    return Relationship.hydrate(graph, args[0], inst=inst,
-                                                start=args[1], end=args[2],
-                                                type=args[3], data=hydrate_(args[4]))
-                elif signature == b"P":
-                    nodes = [hydrate_(node) for node in args[0]]
-                    u_rels = [UnboundRelationship.hydrate(*map(hydrate_, r)) for _, r in args[1]]
-                    sequence = args[2]
+                tag = obj.tag
+                fields = obj.fields
+                if tag == b"N":
+                    return Node.hydrate(graph, fields[0], inst=inst,
+                                        metadata={"labels": list(fields[1])}, data=hydrate_(fields[2]))
+                elif tag == b"R":
+                    return Relationship.hydrate(graph, fields[0], inst=inst,
+                                                start=fields[1], end=fields[2],
+                                                type=fields[3], data=hydrate_(fields[4]))
+                elif tag == b"P":
+                    nodes = [hydrate_(node) for node in fields[0]]
+                    u_rels = [_unbound_relationship(*map(hydrate_, r)) for r in fields[1]]
+                    sequence = fields[2]
                     last_node = nodes[0]
                     steps = [last_node]
                     for i, rel_index in enumerate(sequence[::2]):

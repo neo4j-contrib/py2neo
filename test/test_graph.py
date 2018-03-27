@@ -17,7 +17,7 @@
 
 
 from py2neo.graph import Graph
-from py2neo.json import JSONValueSystem
+from py2neo.json import JSONHydrator
 from py2neo.types.graph import Node, Relationship, cast_node
 
 from test.util import GraphTestCase
@@ -49,7 +49,7 @@ class GraphObjectTestCase(GraphTestCase):
     def test_can_hydrate_map_from_json_result(self):
         # TODO: check that a warning is raised
         data = {"foo": "bar"}
-        value_system = JSONValueSystem(self.graph, ["a"])
+        value_system = JSONHydrator(self.graph, ["a"])
         hydrated = value_system.hydrate([data])
         assert hydrated[0] == data
 

@@ -19,7 +19,7 @@
 from mock import patch
 
 from py2neo.graph import Graph
-from py2neo.json import JSONValueSystem
+from py2neo.json import JSONHydrator
 from py2neo.types.graph import Node, Relationship, Path
 
 from test.util import GraphTestCase
@@ -31,7 +31,7 @@ class NodeHydrationTestCase(GraphTestCase):
         self.graph = Graph()
         self.graph.node_cache.clear()
         self.node = Node()
-        self.hydrator = JSONValueSystem(self.graph, ["x"], {"x": self.node})
+        self.hydrator = JSONHydrator(self.graph, ["x"], {"x": self.node})
 
     def hydrate(self, dehydrated):
         hydrated, = self.hydrator.hydrate([dehydrated])
@@ -161,7 +161,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
     def setUp(self):
         self.graph = Graph()
         self.graph.relationship_cache.clear()
-        self.hydrator = JSONValueSystem(self.graph, ["x"])
+        self.hydrator = JSONHydrator(self.graph, ["x"])
 
     def hydrate(self, dehydrated):
         hydrated, = self.hydrator.hydrate([dehydrated])
@@ -171,7 +171,7 @@ class RelationshipHydrationTestCase(GraphTestCase):
         a = Node()
         b = Node()
         ab = Relationship(a, "TO", b)
-        self.hydrator = JSONValueSystem(self.graph, ["x"], {"x": ab})
+        self.hydrator = JSONHydrator(self.graph, ["x"], {"x": ab})
         self.graph.create(ab)
         dehydrated = {
             "extensions": {
@@ -261,12 +261,12 @@ class RelationshipHydrationTestCase(GraphTestCase):
             "nodes": [uri(a), uri(b), uri(c)],
             "relationships": [uri(ab), uri(cb)],
         }
-        value_system = JSONValueSystem(self.graph, ["a"])
+        value_system = JSONHydrator(self.graph, ["a"])
         hydrated = value_system.hydrate([dehydrated])
         assert isinstance(hydrated[0], Path)
 
     def test_list_hydration(self):
         dehydrated = [1, 2, 3]
-        value_system = JSONValueSystem(self.graph, ["a"])
+        value_system = JSONHydrator(self.graph, ["a"])
         hydrated = value_system.hydrate([dehydrated])
         assert hydrated[0] == [1, 2, 3]

@@ -128,7 +128,8 @@ class CypherTestCase(GraphTestCase):
                      "MATCH (b) WHERE id(b)={B} "
                      "MATCH p=((a)-[ab:KNOWS]->(b)) "
                      "RETURN p")
-        records = list(self.graph.run(statement, {"A": a.identity, "B": b.identity}))
+        result = self.graph.run(statement, {"A": a.identity, "B": b.identity})
+        records = list(result)
         assert len(records) == 1
         for record in records:
             assert isinstance(record["p"], Path)

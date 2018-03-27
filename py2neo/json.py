@@ -16,13 +16,18 @@
 # limitations under the License.
 
 
-from neo4j.v1 import ValueSystem
+from neo4j.v1.api import Hydrator
 
+from py2neo.compat import integer, string, ustr
 from py2neo.types.graph import Node, Relationship, Path
 from py2neo.util import is_collection
 
 
-class JSONValueSystem(ValueSystem):
+INT64_MIN = -(2 ** 63)
+INT64_MAX = (2 ** 63) - 1
+
+
+class JSONHydrator(Hydrator):
 
     def __init__(self, graph, keys, entities=None):
         self.graph = graph
@@ -75,3 +80,43 @@ class JSONValueSystem(ValueSystem):
                 return data
 
         return tuple(hydrate_(value, entities.get(keys[i])) for i, value in enumerate(values))
+
+
+class JSONDehydrator(object):
+
+    def __init__(self):
+        self.dehydration_functions = {}
+
+    def dehydrate(self, values):
+        """ Convert native values into PackStream values.
+        """
+
+        def dehydrate_(obj):
+            try:
+                f = self.dehydration_functions[type(obj)]
+            except KeyError:
+                pass
+            else:
+                return f(obj)
+            if obj is None:
+                return None
+            elif isinstance(obj, bool):
+                return obj
+            elif isinstance(obj, integer):
+                if INT64_MIN <= obj <= INT64_MAX:
+                    return obj
+                raise ValueError("Integer out of bounds (64-bit signed integer values only)")
+            elif isinstance(obj, float):
+                return obj
+            elif isinstance(obj, string):
+                return ustr(obj)
+            elif isinstance(obj, (bytes, bytearray)):  # order is important here - bytes must be checked after string
+                raise TypeError("Parameters passed over JSON do not support BYTES")
+            elif isinstance(obj, list):
+                return list(map(dehydrate_, obj))
+            elif isinstance(obj, dict):
+                return {key: dehydrate_(value) for key, value in obj.items()}
+            else:
+                raise TypeError(obj)
+
+        return tuple(map(dehydrate_, values))
