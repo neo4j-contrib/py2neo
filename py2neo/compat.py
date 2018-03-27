@@ -37,35 +37,45 @@ from sys import version_info
 
 
 if version_info >= (3,):
-    ReprIO = StringIO
+    # Python 3
 
-    integer = int
-    number = (int, float)
-    string = (bytes, str)
-    unicode = str
-    unichr = chr
+    atomic_types = (bool, bytearray, bytes, float, int, str)
+    bytes_types = (bytearray, bytes)
+    integer_types = (int,)
+    numeric_types = (int, float)
+    string_types = (bytes, str)
+    unicode_types = (str,)
+    utf8_types = ()
 
-    unicode_repr = str
+    uchr = chr
 
     def bstr(s, encoding="utf-8"):
-        if isinstance(s, bytes):
+        """ Convert a value to a byte string, held in a Python `bytearray` object.
+        """
+        if isinstance(s, bytearray):
             return s
-        elif isinstance(s, bytearray):
-            return bytes(s)
+        elif isinstance(s, bytes):
+            return bytearray(s)
         elif isinstance(s, str):
-            return bytes(s, encoding)
+            return bytearray(s.encode(encoding=encoding))
         else:
-            return bytes(str(s), encoding)
+            try:
+                return bytearray(s.__bytes__())
+            except AttributeError:
+                return bytearray(str(s).encode(encoding=encoding))
 
     def ustr(s, encoding="utf-8"):
-        """ Convert argument to unicode string.
+        """ Convert a value to a Unicode string, held in a Python `str` object.
         """
         if isinstance(s, str):
             return s
-        try:
-            return s.decode(encoding)
-        except AttributeError:
-            return str(s)
+        elif isinstance(s, (bytes, bytearray)):
+            return s.decode(encoding=encoding)
+        else:
+            try:
+                return s.__str__()
+            except AttributeError:
+                return str(s, encoding=encoding)
 
     def xstr(s, encoding="utf-8"):
         """ Convert argument to string type returned by __str__.
@@ -91,42 +101,45 @@ if version_info >= (3,):
             self.read_string("[%s]\n%s" % (section, data), filename)
 
 else:
-    import codecs
+    # Python 2
 
-    integer = (int, long)
-    number = (int, long, float)
-    string = (str, unicode)
-    unicode = unicode
-    unichr = unichr
+    atomic_types = (bool, bytearray, float, int, long, str, unicode)
+    bytes_types = (bytearray,)
+    integer_types = (int, long)
+    numeric_types = (int, long, float)
+    string_types = (str, unicode)
+    unicode_types = (unicode,)
+    utf8_types = (str,)
 
-    def unicode_repr(s):
-        return s.encode("utf-8")
-
-    class ReprIO(StringIO):
-
-        def getvalue(self, *args, **kwargs):
-            return StringIO.getvalue(self, *args, **kwargs).encode("utf-8")
+    uchr = unichr
 
     def bstr(s, encoding="utf-8"):
-        if isinstance(s, bytes):
+        """ Convert a value to byte string, held in a Python `bytearray` object.
+        """
+        if isinstance(s, bytearray):
             return s
-        elif isinstance(s, bytearray):
-            return bytes(s)
+        elif isinstance(s, bytes):
+            return bytearray(s)
         elif isinstance(s, unicode):
-            return s.encode(encoding)
+            return bytearray(s.encode(encoding=encoding))
         else:
-            return str(s)
+            try:
+                return bytearray(s.__bytes__())
+            except AttributeError:
+                return bytearray(unicode(s).encode(encoding=encoding))
 
     def ustr(s, encoding="utf-8"):
-        """ Convert argument to unicode string.
+        """ Convert a value to a Unicode string, held in a Python `unicode` object.
         """
         if isinstance(s, unicode):
             return s
+        elif isinstance(s, (bytes, bytearray)):
+            return s.decode(encoding=encoding)
         else:
             try:
-                return unicode(s)
-            except UnicodeDecodeError:
-                return str(s).decode(encoding)
+                return s.__unicode__()
+            except AttributeError:
+                return str(s).decode(encoding=encoding)
 
     def xstr(s, encoding="utf-8"):
         """ Convert argument to string type returned by __str__.

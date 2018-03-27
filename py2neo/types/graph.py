@@ -19,11 +19,11 @@
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.caching import ThreadLocalEntityCache
-from py2neo.compat import integer, string, ustr
+from py2neo.collections import is_collection, round_robin
+from py2neo.compat import integer_types, string_types, ustr
 from py2neo.cypher.encoding import LabelSetView, cypher_escape, cypher_repr
 from py2neo.packages.cypy.graph.store import PropertyDict
-from py2neo.util import is_collection, round_robin, snake_case, relationship_case
+from py2neo.util import snake_case, relationship_case
 
 
 def graph_order(graph_structure):
@@ -101,7 +101,7 @@ def cast_node(obj):
         elif is_collection(x):
             for item in x:
                 apply(item)
-        elif isinstance(x, string):
+        elif isinstance(x, string_types):
             inst.add_label(ustr(x))
         else:
             raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
@@ -114,23 +114,23 @@ def cast_node(obj):
 def cast_relationship(obj, entities=None):
 
     def get_type(r):
-        if isinstance(r, string):
+        if isinstance(r, string_types):
             return r
         elif hasattr(r, "type"):
             return r.type
-        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
             return r[0]
         else:
             raise ValueError("Cannot determine relationship type from %r" % r)
 
     def get_properties(r):
-        if isinstance(r, string):
+        if isinstance(r, string_types):
             return {}
         elif hasattr(r, "type"):
             return dict(r)
         elif hasattr(r, "properties"):
             return r.properties
-        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string):
+        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
             return dict(r[1])
         else:
             raise ValueError("Cannot determine properties from %r" % r)
@@ -150,9 +150,9 @@ def cast_relationship(obj, entities=None):
         raise TypeError("Cannot cast relationship from %r" % obj)
 
     if entities:
-        if isinstance(start_node, integer):
+        if isinstance(start_node, integer_types):
             start_node = entities[start_node]
-        if isinstance(end_node, integer):
+        if isinstance(end_node, integer_types):
             end_node = entities[end_node]
     return Relationship(start_node, get_type(t), end_node, **properties)
 
@@ -793,9 +793,9 @@ class Relationship(Entity):
         n = []
         p = {}
         for value in nodes:
-            if isinstance(value, string):
+            if isinstance(value, string_types):
                 n.append(value)
-            elif isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], string):
+            elif isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], string_types):
                 t, props = value
                 n.append(t)
                 p.update(props)
@@ -811,7 +811,7 @@ class Relationship(Entity):
             self.__type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
-            if n[1] is None or isinstance(n[1], string):
+            if n[1] is None or isinstance(n[1], string_types):
                 # Relationship(a, "TO")
                 self.__type = n[1]
                 n = (n[0], n[0])
@@ -924,7 +924,7 @@ class Path(Walkable):
             except (IndexError, AttributeError):
                 pass
             else:
-                if isinstance(entity, string):
+                if isinstance(entity, string_types):
                     entities[i] = Relationship(start_node, entity, end_node)
                 elif isinstance(entity, tuple) and len(entity) == 2:
                     t, properties = entity

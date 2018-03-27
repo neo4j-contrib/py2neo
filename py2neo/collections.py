@@ -16,6 +16,61 @@
 # limitations under the License.
 
 
+from __future__ import absolute_import
+
+from itertools import cycle, islice
+
+from py2neo.compat import bytes_types, string_types
+
+
+def is_collection(obj):
+    """ Returns true for any iterable which is not a string or byte sequence.
+    """
+    if isinstance(obj, bytes_types) or isinstance(obj, string_types):
+        return False
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    else:
+        return True
+
+
+def iter_items(iterable):
+    """ Iterate through all items (key-value pairs) within an iterable
+    dictionary-like object. If the object has a `keys` method, this is
+    used along with `__getitem__` to yield each pair in turn. If no
+    `keys` method exists, each iterable element is assumed to be a
+    2-tuple of key and value.
+    """
+    if hasattr(iterable, "keys"):
+        for key in iterable.keys():
+            yield key, iterable[key]
+    else:
+        for key, value in iterable:
+            yield key, value
+
+
+def round_robin(*iterables):
+    """ Cycle through a number of iterables, returning
+        the next item from each in turn.
+
+        round_robin('ABC', 'D', 'EF') --> A D E B F C
+
+        Original recipe credited to George Sakkis
+        Python 2/3 cross-compatibility tweak by Nigel Small
+    """
+    pending = len(iterables)
+    nexts = cycle(iter(it) for it in iterables)
+    while pending:
+        try:
+            for n in nexts:
+                yield next(n)
+        except StopIteration:
+            pending -= 1
+            nexts = cycle(islice(nexts, pending))
+
+
 class ReactiveSet(set):
     """ A :class:`set` that can trigger callbacks for each element added
     or removed.
@@ -108,18 +163,3 @@ class ReactiveSet(set):
         set.clear(self)
         if callable(self._on_remove):
             self._on_remove(*elements)
-
-
-def iter_items(iterable):
-    """ Iterate through all items (key-value pairs) within an iterable
-    dictionary-like object. If the object has a `keys` method, this is
-    used along with `__getitem__` to yield each pair in turn. If no
-    `keys` method exists, each iterable element is assumed to be a
-    2-tuple of key and value.
-    """
-    if hasattr(iterable, "keys"):
-        for key in iterable.keys():
-            yield key, iterable[key]
-    else:
-        for key, value in iterable:
-            yield key, value

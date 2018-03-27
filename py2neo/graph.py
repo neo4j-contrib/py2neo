@@ -26,13 +26,14 @@ from pygments.token import Token
 
 from py2neo.addressing import get_connection_data
 from py2neo.caching import ThreadLocalEntityCache
-from py2neo.compat import Mapping, string
+from py2neo.collections import is_collection
+from py2neo.compat import Mapping, string_types
 from py2neo.cypher.encoding import cypher_escape
 from py2neo.cypher.lex import CypherLexer
 from py2neo.selection import NodeSelector
 from py2neo.status import *
-from py2neo.types.graph import cast_node, Subgraph, Node, Relationship
-from py2neo.util import is_collection, version_tuple
+from py2neo.types.graph import cast_node, Subgraph
+from py2neo.util import version_tuple
 
 
 update_stats_keys = [
@@ -159,7 +160,7 @@ class GraphDB(object):
                     d[attr_name] = True
                 elif attr_value == "false":
                     d[attr_name] = False
-                elif isinstance(attr_value, string) and "." in attr_value:
+                elif isinstance(attr_value, string_types) and "." in attr_value:
                     try:
                         d[attr_name] = float(attr_value)
                     except (TypeError, ValueError):
@@ -1282,7 +1283,7 @@ class Record(tuple, Mapping):
         return r
 
     def __getitem__(self, item):
-        if isinstance(item, string):
+        if isinstance(item, string_types):
             try:
                 return tuple.__getitem__(self, self.__keys.index(item))
             except ValueError:

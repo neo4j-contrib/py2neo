@@ -18,9 +18,9 @@
 
 from neo4j.v1.api import Hydrator
 
-from py2neo.compat import integer, string, ustr
+from py2neo.collections import is_collection
+from py2neo.compat import integer_types, string_types, ustr, bytes_types
 from py2neo.types.graph import Node, Relationship, Path
-from py2neo.util import is_collection
 
 
 INT64_MIN = -(2 ** 63)
@@ -102,15 +102,15 @@ class JSONDehydrator(object):
                 return None
             elif isinstance(obj, bool):
                 return obj
-            elif isinstance(obj, integer):
+            elif isinstance(obj, integer_types):
                 if INT64_MIN <= obj <= INT64_MAX:
                     return obj
                 raise ValueError("Integer out of bounds (64-bit signed integer values only)")
             elif isinstance(obj, float):
                 return obj
-            elif isinstance(obj, string):
+            elif isinstance(obj, string_types):
                 return ustr(obj)
-            elif isinstance(obj, (bytes, bytearray)):  # order is important here - bytes must be checked after string
+            elif isinstance(obj, bytes_types):  # order is important here - bytes must be checked after string
                 raise TypeError("Parameters passed over JSON do not support BYTES")
             elif isinstance(obj, list):
                 return list(map(dehydrate_, obj))

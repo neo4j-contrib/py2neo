@@ -23,8 +23,8 @@ This module contains support for Cypher data types and values.
 from functools import reduce
 from operator import xor as xor_operator
 
-from py2neo.packages.cypy.collections import iter_items
-from py2neo.packages.cypy.compat import integer_types, unicode_types, utf8_types, bytes_types, bstr, ustr
+from py2neo.collections import iter_items
+from py2neo.compat import integer_types, unicode_types, utf8_types, bytes_types, bstr, ustr
 
 
 class Value(object):

@@ -20,31 +20,20 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 from re import compile as re_compile
-from sys import version_info
 from unicodedata import category
 
-from py2neo.packages.cypy.compat import ustr
+from py2neo.compat import uchr, ustr, \
+    bytes_types, numeric_types, string_types, unicode_types
 
-
-if version_info >= (3,):
-    number = (int, float)
-    string = (bytes, str)
-    unicode = str
-    unichr = chr
-else:
-    number = (int, long, float)
-    string = (str, unicode)
-    unicode = unicode
-    unichr = unichr
 
 NULL = u"null"
 TRUE = u"true"
 FALSE = u"false"
 
-ID_START = {u"_"} | {unichr(x) for x in range(0xFFFF)
-                     if category(unichr(x)) in ("LC", "Ll", "Lm", "Lo", "Lt", "Lu", "Nl")}
-ID_CONTINUE = ID_START | {unichr(x) for x in range(0xFFFF)
-                          if category(unichr(x)) in ("Mn", "Mc", "Nd", "Pc", "Sc")}
+ID_START = {u"_"} | {uchr(x) for x in range(0xFFFF)
+                     if category(uchr(x)) in ("LC", "Ll", "Lm", "Lo", "Lt", "Lu", "Nl")}
+ID_CONTINUE = ID_START | {uchr(x) for x in range(0xFFFF)
+                          if category(uchr(x)) in ("Mn", "Mc", "Nd", "Pc", "Sc")}
 
 DOUBLE_QUOTE = u'"'
 SINGLE_QUOTE = u"'"
@@ -176,9 +165,7 @@ class CypherEncoder(object):
             self.relationship_template = relationship_template
 
     def encode_key(self, key):
-        if isinstance(key, bytes):
-            key = key.decode(self.encoding)
-        assert isinstance(key, unicode)
+        key = ustr(key)
         if not key:
             raise ValueError("Keys cannot be empty")
         if key[0] in ID_START and all(key[i] in ID_CONTINUE for i in range(1, len(key))):
@@ -193,9 +180,9 @@ class CypherEncoder(object):
             return TRUE
         if value is False:
             return FALSE
-        if isinstance(value, number):
-            return unicode(value)
-        if isinstance(value, string):
+        if isinstance(value, numeric_types):
+            return ustr(value)
+        if isinstance(value, string_types):
             return self.encode_string(value)
         if hasattr(value, "nodes"):
             if hasattr(value, "relationships"):
@@ -211,9 +198,7 @@ class CypherEncoder(object):
         raise TypeError("Values of type %s are not supported" % value.__class__.__name__)
 
     def encode_string(self, value):
-        if isinstance(value, bytes):
-            value = value.decode(self.encoding)
-        assert isinstance(value, unicode)
+        value = ustr(value)
 
         quote = self.quote
         if quote is None:
@@ -310,7 +295,7 @@ def cypher_escape(identifier, **kwargs):
 
     :arg identifier: any non-empty string
     """
-    if not isinstance(identifier, string):
+    if not isinstance(identifier, string_types):
         raise TypeError(type(identifier).__name__)
     encoder = CypherEncoder(**kwargs)
     return encoder.encode_key(identifier)
@@ -326,9 +311,9 @@ def cypher_repr(value, **kwargs):
 def cypher_str(value, **kwargs):
     """ Convert a Cypher value to a Python Unicode string.
     """
-    if isinstance(value, unicode):
+    if isinstance(value, unicode_types):
         return value
-    elif isinstance(value, bytes):
+    elif isinstance(value, bytes_types):
         return value.decode(kwargs.get("encoding", "utf-8"))
     else:
         return cypher_repr(value, **kwargs)

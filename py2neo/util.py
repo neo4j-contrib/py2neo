@@ -25,32 +25,12 @@ import re
 import warnings
 from itertools import cycle, islice
 
-from .compat import string
+from py2neo.compat import bytes_types, string_types
 
 
 # Word separation patterns for re-casing strings.
 WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
 WORD_ALL = re.compile("([a-z0-9])([A-Z])")
-
-
-def round_robin(*iterables):
-    """ Cycle through a number of iterables, returning
-        the next item from each in turn.
-
-        round_robin('ABC', 'D', 'EF') --> A D E B F C
-
-        Original recipe credited to George Sakkis
-        Python 2/3 cross-compatibility tweak by Nigel Small
-    """
-    pending = len(iterables)
-    nexts = cycle(iter(it) for it in iterables)
-    while pending:
-        try:
-            for n in nexts:
-                yield next(n)
-        except StopIteration:
-            pending -= 1
-            nexts = cycle(islice(nexts, pending))
 
 
 def deprecated(message):
@@ -86,22 +66,6 @@ def version_tuple(string):
     if extra:
         version += [extra]
     return tuple(version)
-
-
-def is_collection(obj):
-    """ Returns true for any iterable which is not a string or byte sequence.
-    """
-    if isinstance(obj, string):
-        return False
-    try:
-        iter(obj)
-    except TypeError:
-        return False
-    else:
-        return True
-
-
-has_all = lambda iterable, items: all(item in iterable for item in items)
 
 
 def metaclass(mcs):

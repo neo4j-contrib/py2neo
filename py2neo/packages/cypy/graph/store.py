@@ -26,8 +26,8 @@ from operator import and_ as and_operator
 from threading import RLock
 from uuid import UUID, uuid4
 
-from py2neo.packages.cypy.collections import ReactiveSet, iter_items
-from py2neo.packages.cypy.compat import atomic_types
+from py2neo.collections import ReactiveSet, iter_items
+from py2neo.compat import atomic_types
 from py2neo.packages.cypy.data import Value, Record
 
 
