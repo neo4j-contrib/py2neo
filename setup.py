@@ -38,16 +38,19 @@ package_metadata = {
     "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
-            "p2n = py2neo.cli.tool:main",
-            "py2neo = py2neo.cli.tool:main",
+            "py2neo = py2neo.cli.__main__:repl",
+            "py2neo-auth = py2neo.cli.auth:main",
             "neokit = neokit:main",
         ],
     },
     "packages": packages,
     "py_modules": ["neokit"],
     "install_requires": [
+        "click>=2.0",
+        "colorama",
         "neo4j-driver>=1.6.0a1",
-        "pygments",
+        "prompt_toolkit",
+        "pygments>=2.0",
         "urllib3",
     ],
     "license": __license__,
