@@ -45,14 +45,7 @@ function install_dependencies {
     if [ "${ONLINE}" ]
     then
         echo "Ensuring dependencies are up to date"
-        pip install --upgrade -r test/requirements.txt
-        for REQUIREMENTS in "$(find py2neo/ext -name requirements.txt)"
-        do
-            if [ "${REQUIREMENTS}" != "" ]
-            then
-                pip install --upgrade -r ${REQUIREMENTS}
-            fi
-        done
+        pip install --upgrade pip -r requirements.txt -r test/requirements.txt
         EXIT_STATUS=$?
         if [ "${EXIT_STATUS}" != "0" ]
         then
@@ -64,7 +57,7 @@ function install_dependencies {
 
 function check_license {
     pushd "${BAU_HOME}" > /dev/null
-    find py2neo -name '*.py' | grep -v -e '^py2neo/ext/' -e '/packages/' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    find py2neo -name '*.py' | grep -v -e '/packages/' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
     popd > /dev/null
 }
 
