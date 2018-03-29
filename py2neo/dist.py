@@ -103,7 +103,7 @@ latest_versions = {".".join(map(str, k)): str(v) for k, v in latest_version_tupl
 version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
 version_aliases["LATEST"] = versions[-1]
 
-dist = "http://{}".format(getenv("DIST_HOST") or "dist.neo4j.com")
+dist = "http://{}".format(getenv("DIST_HOST") or "dist.neo4j.org")
 dist_overrides = {
     # "3.0.0-NIGHTLY": "http://alpha.neohq.net/dist",
 }
