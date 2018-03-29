@@ -18,7 +18,7 @@
 
 import click
 
-from py2neo.ops.install import AuthFile
+from py2neo.install import AuthFile
 
 
 @click.group(help="""\

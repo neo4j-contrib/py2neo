@@ -51,6 +51,13 @@ update_stats_keys = [
 ]
 
 
+def reset_py2neo():
+    for _, db in GraphDB._instances.items():
+        db._driver.close()
+        db._driver = None
+    GraphDB._instances.clear()
+
+
 class GraphDB(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the root URI in
@@ -70,27 +77,27 @@ class GraphDB(object):
 
     """
 
-    __instances = {}
+    _instances = {}
 
     _driver = None
     _graphs = None
 
     def __new__(cls, uri=None, **settings):
-        from py2neo.http import HTTPDriver
-        HTTPDriver.register()
         connection_data = get_connection_data(uri, **settings)
         key = connection_data["hash"]
         try:
-            inst = cls.__instances[key]
+            inst = cls._instances[key]
         except KeyError:
             inst = super(GraphDB, cls).__new__(cls)
             inst._connection_data = connection_data
+            from py2neo.http import HTTPDriver
+            HTTPDriver.register()
             from neo4j.v1 import GraphDatabase
             inst._driver = GraphDatabase.driver(connection_data["uri"], auth=connection_data["auth"],
                                                 encrypted=connection_data["secure"],
                                                 user_agent=connection_data["user_agent"])
             inst._graphs = {}
-            cls.__instances[key] = inst
+            cls._instances[key] = inst
         return inst
 
     def __repr__(self):

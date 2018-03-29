@@ -51,6 +51,7 @@ package_metadata = {
         "neo4j-driver>=1.6.0a1",
         "prompt_toolkit",
         "pygments>=2.0",
+        "pytest",
         "urllib3",
     ],
     "license": __license__,

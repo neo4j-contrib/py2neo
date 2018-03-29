@@ -23,19 +23,15 @@ from test.util import GraphTestCase
 
 class NodeFinderTestCase(GraphTestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        cls.graph.delete_all()
+    def setUp(self):
+        self.graph.delete_all()
         with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
-        cls.graph.run(cypher)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.graph.delete_all()
-
-    def setUp(self):
+        self.graph.run(cypher)
         self.selector = NodeSelector(self.graph)
+
+    def tearDown(self):
+        self.graph.delete_all()
 
     def test_can_select_by_label_key_value(self):
         found = list(self.selector.select("Person", name="Keanu Reeves"))

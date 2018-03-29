@@ -27,6 +27,7 @@ pip-log.txt
 .coverage
 nosetests.xml
 .pytest_cache
+htmlcov
 
 # Translations
 *.mo

@@ -32,11 +32,10 @@ def unique_string_generator():
 
 class GraphTestCase(TestCase):
 
-    graph = Graph()
-    node_selector = NodeSelector(graph)
-
     def __init__(self, *args, **kwargs):
         super(GraphTestCase, self).__init__(*args, **kwargs)
+        self.graph = Graph()
+        self.node_selector = NodeSelector(self.graph)
         self.db = self.graph.graph_db
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()

@@ -17,8 +17,8 @@
 
 
 from hashlib import sha256
-from os import curdir, getenv, listdir, makedirs, rename
-from os.path import abspath, expanduser, isdir, join as path_join
+from os import curdir, getenv, kill, listdir, makedirs, rename
+from os.path import abspath, dirname, expanduser, isdir, isfile, join as path_join
 from random import randint
 from re import compile as re_compile
 from shutil import rmtree
@@ -29,7 +29,7 @@ from tarfile import TarFile, ReadError
 from time import sleep
 
 from py2neo.compat import bstr, DEVNULL
-from py2neo.ops.dist import archive_format, Distribution
+from py2neo.dist import archive_format, Distribution
 
 
 number_in_brackets = re_compile("\[(\d+)\]")
@@ -94,7 +94,7 @@ class Warehouse(object):
         :return:
         """
         container = path_join(self.run, name)
-        rmtree(container)
+        rmtree(container, ignore_errors=True)
 
     def directory(self):
         """ Fetch a dictionary of :class:`.Installation` objects, keyed
@@ -125,6 +125,7 @@ class Installation(object):
     def __init__(self, home=None):
         self.home = home or abspath(curdir)
         self.server = Server(self)
+        self.auth = AuthFile(path_join(self.home, "data", "dbms", "auth"))
 
     def __repr__(self):
         return "<%s home=%r>" % (self.__class__.__name__, self.home)
@@ -293,11 +294,21 @@ class Server(object):
     def stop(self):
         """ Stop the server.
         """
+        pid = self.running()
+        if not pid:
+            return
         try:
             check_output(("%s stop" % self.control_script), shell=True)
         except CalledProcessError as error:
             raise OSError("An error occurred while trying to stop the server "
                           "[%s]" % error.returncode)
+        while pid:
+            try:
+                kill(pid, 0)
+            except OSError:
+                pid = 0
+            else:
+                pass
 
     def restart(self):
         """ Restart the server.
@@ -351,6 +362,55 @@ class Server(object):
                         return v
 
 
+class AuthFile(object):
+
+    def __init__(self, name):
+        self.name = name
+        if not isfile(self.name):
+            d = dirname(self.name)
+            try:
+                makedirs(d)
+            except OSError:
+                pass
+            with open(self.name, "wb"):
+                pass
+
+    def __iter__(self):
+        with open(self.name, "rb") as f:
+            for line in f:
+                yield AuthUser.load(line)
+
+    def append(self, user_name, password):
+        user_name = bstr(user_name)
+        password = bstr(password)
+        line = AuthUser.create(user_name, password).dump()
+        if self.name == "-":
+            stdout.write(line.decode("utf-8"))
+        else:
+            with open(self.name, "ab") as f:
+                f.write(line)
+
+    def remove(self, user_name):
+        user_name = bstr(user_name)
+        with open(self.name, "rb") as f:
+            lines = [line for line in f.readlines() if not AuthUser.match(line, user_name)]
+        with open(self.name, "wb") as f:
+            f.writelines(lines)
+
+    def update(self, user_name, password):
+        user_name = bstr(user_name)
+        password = bstr(password)
+        with open(self.name, "rb") as f:
+            lines = []
+            for line in f.readlines():
+                if AuthUser.match(line, user_name):
+                    lines.append(AuthUser.create(user_name, password).dump())
+                else:
+                    lines.append(line)
+        with open(self.name, "wb") as f:
+            f.writelines(lines)
+
+
 class AuthUser(object):
 
     #: Name of user
@@ -361,13 +421,15 @@ class AuthUser(object):
 
     @classmethod
     def create(cls, user_name, password):
+        user_name = bstr(user_name)
+        password = bstr(password)
         inst = cls(user_name, b"SHA-256", None, None)
         inst.set_password(password)
         return inst
 
     @classmethod
     def load(cls, s):
-        assert isinstance(s, (bytes, bytearray))
+        s = bstr(s)
         fields = s.rstrip().split(b":")
         name = fields[0]
         hash_algorithm, digest, salt = fields[1].split(b",")
@@ -375,7 +437,8 @@ class AuthUser(object):
 
     @classmethod
     def match(cls, s, user_name):
-        assert isinstance(s, (bytes, bytearray))
+        s = bstr(s)
+        user_name = bstr(user_name)
         candidate_user_name, _, _ = s.partition(b":")
         return candidate_user_name == user_name
 
@@ -408,39 +471,3 @@ class AuthUser(object):
         m.update(self.salt)
         m.update(bstr(password))
         return m.digest() == self.digest
-
-
-class AuthFile(object):
-
-    def __init__(self, name):
-        self.name = name
-
-    def __iter__(self):
-        with open(self.name, "rb") as f:
-            for line in f:
-                yield AuthUser.load(line)
-
-    def append(self, user_name, password):
-        line = AuthUser.create(user_name, password).dump()
-        if self.name == "-":
-            stdout.write(line.decode("utf-8"))
-        else:
-            with open(self.name, "ab") as f:
-                f.write(line)
-
-    def remove(self, user_name):
-        with open(self.name, "rb") as f:
-            lines = [line for line in f.readlines() if not AuthUser.match(line, user_name)]
-        with open(self.name, "wb") as f:
-            f.writelines(lines)
-
-    def update(self, user_name, password):
-        with open(self.name, "rb") as f:
-            lines = []
-            for line in f.readlines():
-                if AuthUser.match(line, user_name):
-                    lines.append(AuthUser.create(user_name, password).dump())
-                else:
-                    lines.append(line)
-        with open(self.name, "wb") as f:
-            f.writelines(lines)
