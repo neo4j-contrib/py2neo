@@ -79,7 +79,7 @@ function run_tests {
         DIST_HOST=dist.neo4j.org ARCHIVE_FORMAT=gz ${NEOKIT} install ${NEOKIT_SERVER} ${NEO4J_VERSION}
         check_exit_status $?
 
-        METABASE="${HOME}/.neokit/run/${NEOKIT_SERVER}"
+        METABASE="${HOME}/.py2neo/run/${NEOKIT_SERVER}"
         NEO4J_BASE="${METABASE}/$(ls -1 ${METABASE} | head -1)"
         mkdir -p "${NEO4J_BASE}/data/dbms" 2> /dev/null
         echo "${AUTH}" >> "${NEO4J_BASE}/data/dbms/auth"

@@ -20,8 +20,8 @@ from __future__ import division, print_function
 
 from datetime import datetime
 import shlex
-import os
-from os.path import expanduser
+from os import environ, makedirs
+from os.path import expanduser, join as path_join
 from subprocess import call
 from tempfile import NamedTemporaryFile
 from timeit import default_timer as timer
@@ -42,8 +42,9 @@ from .meta import title, description, quick_help, full_help
 from .table import Table
 
 
-EDITOR = os.environ.get("EDITOR", "vim")
-HISTORY_FILE = expanduser("~/.n4_history")
+EDITOR = environ.get("EDITOR", "vim")
+HISTORY_FILE_DIR = expanduser("~/.py2neo")
+HISTORY_FILE = "console_history"
 
 
 class Console(object):
@@ -62,7 +63,11 @@ class Console(object):
         except ServiceUnavailable as error:
             raise ConsoleError("Could not connect to {} ({})".format(uri, error))
         self.uri = uri
-        self.history = FileHistory(HISTORY_FILE)
+        try:
+            makedirs(HISTORY_FILE_DIR)
+        except OSError:
+            pass
+        self.history = FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE))
         self.prompt_args = {
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
@@ -74,7 +79,7 @@ class Console(object):
         self.lexer = CypherLexer()
         self.result_writer = TabularResultWriter()
         if verbose:
-            from .watcher import watch
+            from py2neo.watcher import watch
             self.watcher = watch("neo4j.bolt")
 
         self.commands = {

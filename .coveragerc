@@ -1,9 +1,14 @@
 [run]
 branch = False
+source =
+    py2neo
 omit =
-    */__main__.py
+    demo
     py2neo/compat.py
     py2neo/util.py
     test/*
     */site-packages/*
     */dist-packages/*
+
+[report]
+show_missing = True

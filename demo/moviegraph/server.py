@@ -2,14 +2,15 @@
 # -*- encoding: utf-8 -*-
 
 
-from bottle import get, post, redirect, request, run, static_file, template, TEMPLATE_PATH
 from calendar import month_name
 from datetime import date
 from os import getenv
 from os.path import dirname, join as path_join
-from py2neo import Graph, watch
 
+from demo.moviegraph.bottle import get, post, redirect, request, run, static_file, template, TEMPLATE_PATH
 from demo.moviegraph.model import Movie, Person, Comment
+from py2neo import Graph
+from py2neo.watcher import watch
 
 
 home = dirname(__file__)

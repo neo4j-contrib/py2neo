@@ -2,3 +2,4 @@ boltkit
 codecov
 coverage
 mock
+pytest
