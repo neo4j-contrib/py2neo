@@ -443,13 +443,13 @@ class AuthUser(object):
         return candidate_user_name == user_name
 
     def dump(self, eol=b"\r\n"):
-        return (b"%s:%s,%s,%s:%s" %
-                (self.name, self.hash_algorithm, hex_bytes(self.digest), hex_bytes(self.salt), eol))
+        return self.name + b":" + self.hash_algorithm + b"," + hex_bytes(self.digest) + b"," + \
+               hex_bytes(self.salt) + b":" + bstr(eol)
 
     def __init__(self, name, hash_algorithm, digest, salt):
         assert hash_algorithm == b"SHA-256"
         self.name = bstr(name)
-        self.hash_algorithm = hash_algorithm
+        self.hash_algorithm = bstr(hash_algorithm)
         self.digest = digest
         self.salt = salt
 
