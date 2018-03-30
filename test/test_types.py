@@ -19,7 +19,7 @@
 from unittest import TestCase
 
 from py2neo import PropertyDict
-from py2neo.types.graph import Subgraph, Walkable, Node, Relationship, Path, walk, graph_order, graph_size
+from py2neo.types import Subgraph, Walkable, Node, Relationship, Path, walk, graph_order, graph_size
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)

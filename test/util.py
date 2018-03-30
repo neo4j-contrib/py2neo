@@ -22,7 +22,7 @@ from uuid import uuid4
 
 from py2neo.database import Graph
 from py2neo.selection import NodeSelector
-from py2neo.types.graph import Node
+from py2neo.types import Node
 
 
 def unique_string_generator():

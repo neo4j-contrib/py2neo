@@ -22,8 +22,7 @@ from neo4j.v1 import GraphDatabase
 
 from py2neo.database import GraphError, CypherSyntaxError
 from py2neo.http import HTTP
-from py2neo.types.graph import Node
-
+from py2neo.types import Node
 from test.util import HTTPGraphTestCase
 
 

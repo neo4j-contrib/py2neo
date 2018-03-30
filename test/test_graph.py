@@ -18,7 +18,7 @@
 
 from py2neo.database import Graph
 from py2neo.json import JSONHydrator
-from py2neo.types.graph import Node, Relationship, cast_node
+from py2neo.types import Node, Relationship, cast_node
 
 from test.util import GraphTestCase
 

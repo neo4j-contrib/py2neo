@@ -22,7 +22,7 @@ from neo4j.v1.api import Hydrator
 
 from py2neo.collections import is_collection
 from py2neo.compat import integer_types, string_types, ustr, bytes_types
-from py2neo.types.graph import Node, Relationship, Path
+from py2neo.types import Node, Relationship, Path
 
 
 INT64_MIN = -(2 ** 63)

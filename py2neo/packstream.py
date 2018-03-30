@@ -22,7 +22,7 @@ from collections import namedtuple
 
 from neo4j.v1 import Hydrator, Structure
 
-from py2neo.types.graph import Node, Relationship, Path
+from py2neo.types import Node, Relationship, Path
 
 
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])

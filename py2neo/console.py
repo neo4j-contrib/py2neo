@@ -18,17 +18,16 @@
 
 from __future__ import division, print_function
 
-from datetime import datetime
 import shlex
-from os import environ, makedirs
+from datetime import datetime
+from os import environ, getenv, makedirs
 from os.path import expanduser, join as path_join
 from subprocess import call
 from tempfile import NamedTemporaryFile
-from timeit import default_timer as timer
 from textwrap import dedent
+from timeit import default_timer as timer
 
 import click
-from py2neo.cypher.lex import CypherLexer
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
@@ -37,14 +36,68 @@ from prompt_toolkit.styles import style_from_pygments
 from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
-from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
-from .meta import title, description, quick_help, full_help
-from .table import Table
+from py2neo.cypher.reading import CypherLexer
+from py2neo.meta import __version__
+from py2neo.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
 
 
+DEFAULT_NEO4J_URI = "bolt://localhost:7687"
+DEFAULT_NEO4J_USER = "neo4j"
+DEFAULT_NEO4J_PASSWORD = "password"
 EDITOR = environ.get("EDITOR", "vim")
 HISTORY_FILE_DIR = expanduser("~/.py2neo")
 HISTORY_FILE = "console_history"
+
+
+title = "Py2neo console v{}".format(__version__)
+description = "Py2neo console is a Cypher runner and interactive tool for Neo4j."
+history_file = expanduser("~/.py2neo_history")
+quick_help = """\
+  //  to enter multi-line mode (press [Alt]+[Enter] to run)
+  /e  to launch external editor
+  /?  for help
+  /x  to exit\
+"""
+full_help = """\
+If command line arguments are provided, these are executed in order as
+statements. If no arguments are provided, an interactive console is
+presented.
+
+Statements entered at the interactive prompt or as arguments can be
+regular Cypher, transaction control keywords or slash commands. Multiple
+Cypher statements can be entered on the same line separated by semicolons.
+These will be executed within a single transaction.
+
+For a handy Cypher reference, see:
+
+  https://neo4j.com/docs/cypher-refcard/current/
+
+Transactions can be managed interactively. To do this, use the transaction
+control keywords BEGIN, COMMIT and ROLLBACK.
+
+Slash commands provide access to supplementary functionality.
+
+\b
+{}
+
+\b
+Playback commands:
+  /r FILE   load and run a Cypher file in a read transaction
+  /w FILE   load and run a Cypher file in a write transaction
+
+\b
+Formatting commands:
+  /csv      format output as comma-separated values
+  /table    format output in a table
+  /tsv      format output as tab-separated values
+
+\b
+Information commands:
+  /config   show Neo4j server configuration
+  /kernel   show Neo4j kernel information
+
+Report bugs to py2neo@nige.tech\
+""".format(quick_help)
 
 
 class Console(object):
@@ -61,7 +114,7 @@ class Console(object):
         try:
             self.driver = GraphDatabase.driver(uri, auth=auth, encrypted=secure)
         except ServiceUnavailable as error:
-            raise ConsoleError("Could not connect to {} ({})".format(uri, error))
+            raise ConsoleError("Could not connect to {} -- {}".format(uri, error))
         self.uri = uri
         try:
             makedirs(HISTORY_FILE_DIR)
@@ -383,3 +436,46 @@ def address_str(address):
         return "[{}]:{}".format(*address)
     else:  # IPv4
         return "{}:{}".format(*address)
+
+
+@click.command(help=description, epilog=full_help)
+@click.option("-U", "--uri",
+              default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI),
+              help="Set the connection URI.")
+@click.option("-u", "--user",
+              default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER),
+              help="Set the user.")
+@click.option("-p", "--password",
+              default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD),
+              help="Set the password.")
+@click.option("-i", "--insecure",
+              is_flag=True,
+              default=False,
+              help="Use unencrypted communication (no TLS).")
+@click.option("-v", "--verbose",
+              is_flag=True,
+              default=False,
+              help="Show low level communication detail.")
+@click.argument("statement", nargs=-1)
+def repl(statement, uri, user, password, insecure, verbose):
+    try:
+        console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
+        if statement:
+            gap = False
+            for s in statement:
+                if gap:
+                    click.echo(u"")
+                console.run(s)
+                if not s.startswith("/"):
+                    gap = True
+            exit_status = 0
+        else:
+            exit_status = console.loop()
+    except ConsoleError as e:
+        click.secho(e.args[0], err=True)
+        exit_status = 1
+    exit(exit_status)
+
+
+if __name__ == "__main__":
+    repl()

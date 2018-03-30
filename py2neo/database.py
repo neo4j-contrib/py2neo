@@ -28,11 +28,11 @@ from py2neo.addressing import get_connection_data
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.collections import is_collection
 from py2neo.compat import Mapping, string_types
-from py2neo.cypher.encoding import cypher_escape
-from py2neo.cypher.lex import CypherLexer
+from py2neo.cypher.reading import CypherLexer
+from py2neo.cypher.writing import cypher_escape
 from py2neo.selection import NodeSelector
 from py2neo.status import *
-from py2neo.types.graph import cast_node, Subgraph
+from py2neo.types import cast_node, Subgraph
 from py2neo.util import version_tuple
 
 

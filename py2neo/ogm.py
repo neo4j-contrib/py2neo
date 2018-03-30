@@ -16,11 +16,9 @@
 # limitations under the License.
 
 
-from py2neo import PropertyDict
-from py2neo.cypher.encoding import cypher_escape
-
+from py2neo.cypher.writing import cypher_escape
 from py2neo.selection import NodeSelection, NodeSelector
-from py2neo.types.graph import Node
+from py2neo.types import Node, PropertyDict
 from py2neo.util import metaclass, label_case, relationship_case
 
 
