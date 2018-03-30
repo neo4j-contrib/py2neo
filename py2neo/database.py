@@ -22,7 +22,6 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 
-from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
 from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
@@ -813,7 +812,7 @@ class GraphError(Exception):
         _, classification, category, title = code.split(".")
         if classification == "ClientError":
             try:
-                error_cls = client_errors[code]
+                error_cls = ClientError.get_mapped_class(code)
             except KeyError:
                 error_cls = ClientError
                 message = "%s: %s" % (title_case(title), message)
@@ -846,6 +845,40 @@ class ClientError(GraphError):
     """ The Client sent a bad request - changing the request might yield a successful outcome.
     """
 
+    @classmethod
+    def get_mapped_class(cls, status):
+        from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
+        return {
+
+            # ConstraintError
+            "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
+            "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+            "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
+            "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
+
+            # CypherSyntaxError
+            "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
+            "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+
+            # CypherTypeError
+            "Neo.ClientError.Procedure.TypeError": CypherTypeError,
+            "Neo.ClientError.Statement.InvalidType": CypherTypeError,
+            "Neo.ClientError.Statement.TypeError": CypherTypeError,
+
+            # Forbidden
+            "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
+            "Neo.ClientError.General.ReadOnly": Forbidden,
+            "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
+            "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
+            "Neo.ClientError.Security.Forbidden": Forbidden,
+            "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
+
+            # Unauthorized
+            "Neo.ClientError.Security.AuthorizationFailed": AuthError,
+            "Neo.ClientError.Security.Unauthorized": AuthError,
+
+        }[status]
+
 
 class DatabaseError(GraphError):
     """ The database failed to service the request.
@@ -855,38 +888,6 @@ class DatabaseError(GraphError):
 class TransientError(GraphError):
     """ The database cannot service the request right now, retrying later might yield a successful outcome.
     """
-
-
-client_errors = {
-
-    # ConstraintError
-    "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
-    "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
-    "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
-    "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
-
-    # CypherSyntaxError
-    "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
-    "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
-
-    # CypherTypeError
-    "Neo.ClientError.Procedure.TypeError": CypherTypeError,
-    "Neo.ClientError.Statement.InvalidType": CypherTypeError,
-    "Neo.ClientError.Statement.TypeError": CypherTypeError,
-
-    # Forbidden
-    "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
-    "Neo.ClientError.General.ReadOnly": Forbidden,
-    "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
-    "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
-    "Neo.ClientError.Security.Forbidden": Forbidden,
-    "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
-
-    # Unauthorized
-    "Neo.ClientError.Security.AuthorizationFailed": AuthError,
-    "Neo.ClientError.Security.Unauthorized": AuthError,
-
-}
 
 
 class TransactionFinished(GraphError):

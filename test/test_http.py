@@ -19,8 +19,8 @@
 import logging
 
 from neo4j.v1 import GraphDatabase
+from neo4j.exceptions import CypherSyntaxError
 
-from py2neo.database import CypherSyntaxError
 from py2neo import GraphError
 from py2neo.internal.http import HTTP
 from py2neo.types import Node

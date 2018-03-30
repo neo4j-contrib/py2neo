@@ -24,7 +24,7 @@ __copyright__ = "2011-2017, Nigel Small"
 __email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "4.0.0b3"
+__version__ = "4.0.0b4"
 
 
 def bolt_user_agent():

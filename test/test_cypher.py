@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo.database import Transaction, CypherSyntaxError, ConstraintError
+from neo4j.exceptions import CypherSyntaxError, ConstraintError
+
+from py2neo.database import Transaction
 from py2neo.types import Node, Relationship, Path, graph_order, graph_size
 
 from test.util import GraphTestCase, HTTPGraphTestCase
