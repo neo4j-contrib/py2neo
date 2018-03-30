@@ -28,6 +28,8 @@ from sys import stdout
 from tarfile import TarFile, ReadError
 from time import sleep
 
+import click
+
 from py2neo.compat import bstr, DEVNULL, urlretrieve
 from py2neo.versioning import Version
 
@@ -589,3 +591,78 @@ class AuthUser(object):
         m.update(self.salt)
         m.update(bstr(password))
         return m.digest() == self.digest
+
+
+@click.group(help="""\
+Tool for managing Neo4j installations.
+""")
+def cli():
+    pass
+
+
+@cli.command("list-users", help="""\
+List users in a Neo4j auth file.
+""")
+@click.argument("auth_file")
+def list_users(auth_file):
+    for user in AuthFile(auth_file):
+        click.echo(user.name)
+
+
+@cli.command("add-user", help="""\
+Add a user to a Neo4j auth file.
+
+For general interactive use, password and confirmation prompts will be presented.
+For batch mode, use the --password option.
+
+Example:
+
+    py2neo-admin add-user data/dbms/auth alice
+
+If AUTH_FILE contains only a dash `-` then the auth file entry will be written to stdout instead.
+""")
+@click.argument("auth_file")
+@click.argument("user_name")
+@click.password_option()
+def add_user(auth_file, user_name, password):
+    AuthFile(auth_file).append(user_name, password)
+
+
+@cli.command("remove-user", help="""\
+Remove a user from a Neo4j auth file.
+""")
+@click.argument("auth_file")
+@click.argument("user_name")
+def remove_user(auth_file, user_name):
+    AuthFile(auth_file).remove(user_name)
+
+
+@cli.command("set-password", help="""\
+Set the password for a user in a Neo4j auth file.
+
+For general interactive use, password and confirmation prompts will be presented.
+For batch mode, use the --password option.
+
+Example:
+
+    py2neo-admin set-password data/dbms/auth alice
+""")
+@click.argument("auth_file")
+@click.argument("user_name")
+@click.password_option()
+def set_password(auth_file, user_name, password):
+    AuthFile(auth_file).update(user_name, password)
+
+
+def main():
+    try:
+        cli(obj={})
+    except Exception as error:
+        click.secho(error.args[0], err=True)
+        exit(1)
+    else:
+        exit(0)
+
+
+if __name__ == "__main__":
+    main()

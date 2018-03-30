@@ -208,15 +208,15 @@ class HTTPDriver(Driver):
         self._http = HTTP(connection_data["uri"] + "/db/data/", **headers)
 
     @property
-    def graph_db(self):
+    def database(self):
         if self._graph_db is None:
-            from py2neo.graph import GraphDB
-            self._graph_db = GraphDB(self._uri, auth=self._auth)
+            from py2neo.database import Database
+            self._graph_db = Database(self._uri, auth=self._auth)
         return self._graph_db
 
     @property
     def graph(self):
-        return self.graph_db.graph
+        return self.database.default_graph
 
     def session(self, access_mode=None, bookmark=None):
         return HTTPSession(self.graph, self._http)
@@ -297,7 +297,7 @@ class HTTPSession(Session):
             content = json_loads(response.data.decode("utf-8"))
             errors = content["errors"]
             if errors:
-                from py2neo.graph import GraphError
+                from py2neo.database import GraphError
                 raise GraphError.hydrate(errors[0])
             for i, result_loader in enumerate(self._result_loaders):
                 try:

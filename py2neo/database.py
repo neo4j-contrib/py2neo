@@ -52,26 +52,26 @@ update_stats_keys = [
 
 
 def reset_py2neo():
-    for _, db in GraphDB._instances.items():
+    for _, db in Database._instances.items():
         db._driver.close()
         db._driver = None
-    GraphDB._instances.clear()
+    Database._instances.clear()
 
 
-class GraphDB(object):
+class Database(object):
     """ Accessor for the entire database management system belonging to
     a Neo4j server installation. This corresponds to the root URI in
     the HTTP API.
 
     An explicit URI can be passed to the constructor::
 
-        >>> from py2neo import GraphDB
-        >>> db = GraphDB("bolt://camelot.example.com:7687")
+        >>> from py2neo import Database
+        >>> db = Database("bolt://camelot.example.com:7687")
 
     Alternatively, the default value of ``http://localhost:7474/`` is
     used::
 
-        >>> default_db = GraphDB()
+        >>> default_db = Database()
         >>> default_db
         <GraphDB uri='http://localhost:7474/'>
 
@@ -88,7 +88,7 @@ class GraphDB(object):
         try:
             inst = cls._instances[key]
         except KeyError:
-            inst = super(GraphDB, cls).__new__(cls)
+            inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
             from py2neo.http import HTTPDriver
             HTTPDriver.register()
@@ -138,7 +138,7 @@ class GraphDB(object):
         return self._connection_data["uri"]
 
     @property
-    def graph(self):
+    def default_graph(self):
         """ The default graph exposed by this database.
 
         :rtype: :class:`.Graph`
@@ -150,7 +150,7 @@ class GraphDB(object):
 
     def query_jmx(self, namespace, instance=None, name=None, type=None):
         d = {}
-        for nom, _, attributes in self.graph.run("CALL dbms.queryJmx('')"):
+        for nom, _, attributes in self.default_graph.run("CALL dbms.queryJmx('')"):
             ns, _, terms = nom.partition(":")
             if ns != namespace:
                 continue
@@ -290,7 +290,7 @@ class Graph(object):
     is enabled, this will be used for Cypher queries instead of HTTP.
     """
 
-    _graph_db = None
+    _database = None
 
     _schema = None
 
@@ -299,7 +299,7 @@ class Graph(object):
 
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
-        db = GraphDB(uri, **settings)
+        db = Database(uri, **settings)
         if name in db:
             inst = db[name]
         else:
@@ -315,7 +315,7 @@ class Graph(object):
 
     def __eq__(self, other):
         try:
-            return self.graph_db == other.graph_db and self.__name__ == other.__name__
+            return self.database == other.database and self.__name__ == other.__name__
         except (AttributeError, TypeError):
             return False
 
@@ -454,7 +454,7 @@ class Graph(object):
         return self.begin(autocommit=True).exists(subgraph)
 
     @property
-    def graph_db(self):
+    def database(self):
         """ The database management system to which this :class:`.Graph`
         instance belongs.
         """
@@ -812,7 +812,7 @@ class Transaction(object):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        self.driver = driver = self.graph.graph_db.driver
+        self.driver = driver = self.graph.database.driver
         self.session = driver.session()
         self.results = []
         if autocommit:

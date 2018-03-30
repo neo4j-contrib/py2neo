@@ -15,31 +15,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from __future__ import absolute_import
 
-from py2neo.graph import GraphDB
+from py2neo.database import Database
 
 from test.util import GraphTestCase
 
 
-class GraphDBTestCase(GraphTestCase):
+class DatabaseTestCase(GraphTestCase):
 
     def test_same_uri_gives_same_instance(self):
         uri = "bolt://localhost:7687/"
-        dbms_1 = GraphDB(uri)
-        dbms_2 = GraphDB(uri)
+        dbms_1 = Database(uri)
+        dbms_2 = Database(uri)
         assert dbms_1 is dbms_2
 
     def test_dbms_equality(self):
         uri = "bolt://localhost:7687/"
-        dbms_1 = GraphDB(uri)
-        dbms_2 = GraphDB(uri)
+        dbms_1 = Database(uri)
+        dbms_2 = Database(uri)
         assert dbms_1 == dbms_2
         assert hash(dbms_1) == hash(dbms_2)
 
     def test_dbms_is_not_equal_to_non_dbms(self):
         uri = "bolt://localhost:7687/"
-        db = GraphDB(uri)
+        db = Database(uri)
         assert db != object()
 
     def test_dbms_metadata(self):

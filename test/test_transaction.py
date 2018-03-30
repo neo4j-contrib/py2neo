@@ -20,7 +20,7 @@ from test.util import GraphTestCase
 
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
-from py2neo.graph import TransactionFinished
+from py2neo.database import TransactionFinished
 from py2neo.types.graph import Node, Relationship, graph_order, graph_size
 
 

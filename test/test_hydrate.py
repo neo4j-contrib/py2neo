@@ -18,7 +18,7 @@
 
 from mock import patch
 
-from py2neo.graph import Graph
+from py2neo.database import Graph
 from py2neo.json import JSONHydrator
 from py2neo.types.graph import Node, Relationship, Path
 

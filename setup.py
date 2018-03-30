@@ -39,7 +39,7 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.cli.__main__:repl",
-            "py2neo-auth = py2neo.cli.auth:main",
+            "py2neo-admin = py2neo.dist:main",
             "neokit = neokit:main",
         ],
     },

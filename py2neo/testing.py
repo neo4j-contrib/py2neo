@@ -27,7 +27,7 @@ else:
     with_coverage = True
 
 from py2neo import reset_py2neo
-from py2neo.dist import Warehouse
+from py2neo.admin import Warehouse
 
 
 def run_tests(versions, user, password):

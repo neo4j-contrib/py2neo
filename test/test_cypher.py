@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.graph import Transaction
+from py2neo.database import Transaction
 from py2neo.status import CypherSyntaxError, ConstraintError
 from py2neo.types.graph import Node, Relationship, Path, graph_order, graph_size
 

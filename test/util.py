@@ -20,7 +20,7 @@ from os import getenv
 from unittest import TestCase, SkipTest
 from uuid import uuid4
 
-from py2neo.graph import Graph
+from py2neo.database import Graph
 from py2neo.selection import NodeSelector
 from py2neo.types.graph import Node
 
@@ -36,7 +36,7 @@ class GraphTestCase(TestCase):
         super(GraphTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
         self.node_selector = NodeSelector(self.graph)
-        self.db = self.graph.graph_db
+        self.db = self.graph.database
         self.schema = self.graph.schema
         self.unique_string = unique_string_generator()
 

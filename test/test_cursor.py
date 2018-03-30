@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.graph import Record
+from py2neo.database import Record
 from py2neo.types.graph import Node, Relationship, graph_order, graph_size
 
 from test.util import GraphTestCase, HTTPGraphTestCase

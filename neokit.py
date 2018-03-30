@@ -52,7 +52,7 @@ from subprocess import call
 from sys import argv, stdout, stderr
 from textwrap import dedent
 
-from py2neo.dist import Distribution, Installation, Warehouse, versions, version_aliases
+from py2neo.admin import Distribution, Installation, Warehouse, versions, version_aliases
 
 
 SERVER_AUTH_FAILURE = 9
