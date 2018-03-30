@@ -59,21 +59,22 @@ def reset_py2neo():
 
 
 class Database(object):
-    """ Accessor for the entire database management system belonging to
-    a Neo4j server installation. This corresponds to the root URI in
-    the HTTP API.
+    """ Accessor for an entire Neo4j graph database installation over
+    Bolt or HTTP. Within the py2neo object hierarchy, a :class:`.Database`
+    contains a :class:`.Graph` in which most activity occurs. Currently,
+    Neo4j only supports one `Graph` per `Database`.
 
     An explicit URI can be passed to the constructor::
 
         >>> from py2neo import Database
         >>> db = Database("bolt://camelot.example.com:7687")
 
-    Alternatively, the default value of ``http://localhost:7474/`` is
+    Alternatively, the default value of ``bolt://localhost:7687`` is
     used::
 
         >>> default_db = Database()
         >>> default_db
-        <GraphDB uri='http://localhost:7474/'>
+        <Database uri='bolt://localhost:7687'>
 
     """
 
@@ -135,6 +136,8 @@ class Database(object):
 
     @property
     def uri(self):
+        """ The URI to which this `Database` is connected.
+        """
         return self._connection_data["uri"]
 
     @property
@@ -149,6 +152,8 @@ class Database(object):
         return list(self)
 
     def query_jmx(self, namespace, instance=None, name=None, type=None):
+        """ Query the JMX service attached to this database.
+        """
         d = {}
         for nom, _, attributes in self.default_graph.run("CALL dbms.queryJmx('')"):
             ns, _, terms = nom.partition(":")
@@ -246,48 +251,45 @@ class Database(object):
 
 
 class Graph(object):
-    """ The `Graph` class represents a Neo4j graph database. Connection
-    details are provided using URIs and/or individual settings. For any
-    given `Graph`, the following protocol combinations are supported:
+    """ The `Graph` class represents the graph data storage space within
+    a Neo4j graph database. Connection details are provided using URIs
+    and/or individual settings.
 
-    - HTTP
-    - HTTPS
-    - Bolt + HTTP
-    - Bolt/TLS + HTTPS
+    Supported URI schemes are:
 
-    Note that either HTTP or HTTPS must be enabled to allow for
-    discovery and for some legacy features to be supported.
+    - ``http``
+    - ``https``
+    - ``bolt``
+    - ``bolt+routing``
 
     The full set of `settings` supported are:
+
+    auth user_agent secure scheme user password host port
 
     ==============  =============================================  ==============  =============
     Keyword         Description                                    Type(s)         Default
     ==============  =============================================  ==============  =============
-    ``bolt``        Use Bolt* protocol (`None` means autodetect)   bool, ``None``  ``None``
-    ``secure``      Use a secure connection (Bolt/TLS + HTTPS)     bool            ``False``
+    ``auth``        A 2-tuple of (user, password)                  tuple           ``('neo4j', 'password')``
     ``host``        Database server host name                      str             ``'localhost'``
-    ``http_port``   Port for HTTP traffic                          int             ``7474``
-    ``https_port``  Port for HTTPS traffic                         int             ``7473``
-    ``bolt_port``   Port for Bolt traffic                          int             ``7687``
+    ``password``    Password to use for authentication             str             ``'password'``
+    ``port``        Database server port                           int             ``7687``
+    ``scheme``      Use a specific URI scheme                      str             ``'bolt'``
+    ``secure``      Use a secure connection (TLS)                  bool            ``False``
     ``user``        User to authenticate as                        str             ``'neo4j'``
-    ``password``    Password to use for authentication             str             `no default`
+    ``user_agent``  User agent to send for all connections         str             `(depends on URI scheme)`
     ==============  =============================================  ==============  =============
 
-    *\* The new Bolt binary protocol is the successor to HTTP and available in Neo4j 3.0 and above.*
-
     Each setting can be provided as a keyword argument or as part of
-    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
+    an ``http:``, ``https:``, ``bolt:`` or ``bolt+routing:`` URI. Therefore, the examples
     below are equivalent::
 
         >>> from py2neo import Graph
         >>> graph_1 = Graph()
         >>> graph_2 = Graph(host="localhost")
-        >>> graph_3 = Graph("http://localhost:7474/db/data/")
+        >>> graph_3 = Graph("bolt://localhost:7687")
 
     Once obtained, the `Graph` instance provides direct or indirect
-    access to most of the functionality available within py2neo. If
-    Bolt is available (Neo4j 3.0 and above) and Bolt auto-detection
-    is enabled, this will be used for Cypher queries instead of HTTP.
+    access to most of the functionality available within py2neo.
     """
 
     _database = None
@@ -455,7 +457,7 @@ class Graph(object):
 
     @property
     def database(self):
-        """ The database management system to which this :class:`.Graph`
+        """ The :class:`Database` to which this :class:`.Graph`
         instance belongs.
         """
         return self._graph_db

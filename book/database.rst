@@ -11,23 +11,21 @@ To run a query against a local database is straightforward::
 
     >>> from py2neo import Graph
     >>> graph = Graph(password="password")
-    >>> graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq").dump()
+    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").dump()
     n   n_sq
    ----------
      1     1
      2     4
      3     9
-     4    16
-     5    25
-     6    36
-     7    49
-     8    64
-     9    81
-    10   100
 
-.. note::
-    The previous version of py2neo allowed Cypher execution through :meth:`Graph.cypher.execute`.
-    This facility is now instead accessible via :meth:`.Graph.run` and returns a lazily-evaluated :class:`.Cursor` rather than an eagerly-evaluated :class:`RecordList`.
+
+
+The Database
+============
+
+.. autoclass:: Database
+   :members:
+
 
 The Graph
 =========
@@ -91,14 +89,6 @@ Cursors
     .. method:: values()
 
         Return a `tuple` of the contained values.
-
-
-
-The Database
-============
-
-.. autoclass:: Database
-   :members:
 
 
 Errors & Warnings
