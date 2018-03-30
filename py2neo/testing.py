@@ -19,21 +19,23 @@
 from uuid import uuid4
 
 from pytest import main as test_main
+try:
+    from coverage import Coverage
+except ImportError:
+    with_coverage = False
+else:
+    with_coverage = True
 
 from py2neo import reset_py2neo
-from py2neo.install import Warehouse
+from py2neo.dist import Warehouse
 
 
-def main():
-    edition = "community"
-    versions = ["3.4", "3.3", "3.2", "3.1", "3.0"]
-    user = "neo4j"
-    password = "password"
+def run_tests(versions, user, password):
     warehouse = Warehouse()
     for version in versions:
         name = uuid4().hex
-        installation = warehouse.install(name, edition, version)
-        print("Installed Neo4j %s to %s" % (version, installation.home))
+        installation = warehouse.install(name, "community", version)
+        print("Installed Neo4j community %s to %s" % (version, installation.home))
         existing_user_names = [u.name for u in list(installation.auth)]
         if user in existing_user_names:
             installation.auth.update(user, password)
@@ -41,10 +43,29 @@ def main():
             installation.auth.append(user, password)
         pid = installation.server.start()
         print("Started Neo4j server with PID %d" % pid)
-        test_main()
-        installation.server.stop()
-        warehouse.uninstall(name)
-        reset_py2neo()
+        try:
+            test_main()
+        finally:
+            installation.server.stop()
+            warehouse.uninstall(name)
+            reset_py2neo()
+
+
+def main():
+    versions = ["3.4", "3.3", "3.2", "3.1", "3.0"]
+    user = "neo4j"
+    password = "password"
+    if with_coverage:
+        print("Running tests with coverage")
+        coverage = Coverage()
+        coverage.erase()
+        coverage.start()
+        run_tests(versions, user, password)
+        coverage.stop()
+        coverage.report()
+    else:
+        print("Running tests (coverage not installed)")
+        run_tests(versions, user, password)
 
 
 if __name__ == "__main__":

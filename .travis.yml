@@ -11,8 +11,6 @@ python:
   - "3.7-dev"
 
 script:
-  - sudo apt-get update && sudo apt-get install oracle-java8-set-default python3
+  - sudo apt-get update && sudo apt-get install oracle-java8-set-default
   - pip install coverage mock -r requirements.txt
-  - coverage erase
-  - coverage run -m py2neo.testing -vx
-  - coverage report
+  - python -m py2neo.testing -v
