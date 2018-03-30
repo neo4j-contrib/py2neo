@@ -38,8 +38,8 @@ package_metadata = {
     "url": "http://py2neo.org/",
     "entry_points": {
         "console_scripts": [
-            "py2neo-console = py2neo.console:repl",
             "py2neo-admin = py2neo.admin:main",
+            "py2neo-console = py2neo.console:repl",
         ],
     },
     "packages": packages,

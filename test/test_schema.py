@@ -19,8 +19,8 @@
 from mock import patch, Mock
 from neo4j.exceptions import ConstraintError
 
-from py2neo.database import GraphError
-from py2neo.http import HTTP, NOT_FOUND
+from py2neo import GraphError
+from py2neo.internal.http import HTTP, NOT_FOUND
 from py2neo.types import Node, cast_node
 from test.util import GraphTestCase
 

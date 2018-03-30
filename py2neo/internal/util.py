@@ -23,9 +23,6 @@ from __future__ import absolute_import
 
 import re
 import warnings
-from itertools import cycle, islice
-
-from py2neo.compat import bytes_types, string_types
 
 
 # Word separation patterns for re-casing strings.

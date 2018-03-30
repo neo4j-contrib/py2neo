@@ -4,8 +4,7 @@ source =
     py2neo
 omit =
     demo
-    py2neo/compat.py
-    py2neo/util.py
+    py2neo/internal/*
     test/*
     */site-packages/*
     */dist-packages/*

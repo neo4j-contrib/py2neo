@@ -19,10 +19,10 @@
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.collections import is_collection, round_robin
-from py2neo.compat import integer_types, string_types, ustr
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr
-from py2neo.util import snake_case, relationship_case
+from py2neo.internal.collections import is_collection, round_robin
+from py2neo.internal.compat import integer_types, string_types, ustr
+from py2neo.internal.util import snake_case, relationship_case
 
 
 def graph_order(graph_structure):

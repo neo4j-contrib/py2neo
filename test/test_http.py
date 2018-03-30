@@ -20,8 +20,9 @@ import logging
 
 from neo4j.v1 import GraphDatabase
 
-from py2neo.database import GraphError, CypherSyntaxError
-from py2neo.http import HTTP
+from py2neo.database import CypherSyntaxError
+from py2neo import GraphError
+from py2neo.internal.http import HTTP
 from py2neo.types import Node
 from test.util import HTTPGraphTestCase
 
@@ -134,7 +135,7 @@ class HTTPSchemeTestCase(HTTPGraphTestCase):
 
     @classmethod
     def setUpClass(cls):
-        from py2neo.http import HTTPDriver
+        from py2neo.internal.http import HTTPDriver
         HTTPDriver.register()
 
     def test_should_be_able_to_run_transaction_with_http_scheme(self):

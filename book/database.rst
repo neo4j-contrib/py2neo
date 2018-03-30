@@ -94,32 +94,27 @@ Cursors
 
 
 
-The DBMS
-========
+The Database
+============
 
-.. autoclass:: DBMS
-   :members:
-
-
-Security
-========
-
-.. automodule:: py2neo.database.auth
-   :members:
-
-
-Cypher Utilities
-================
-
-.. autoclass:: py2neo.database.selection.NodeSelector
-   :members:
-
-.. autoclass:: py2neo.database.selection.NodeSelection
+.. autoclass:: Database
    :members:
 
 
 Errors & Warnings
 =================
 
-.. automodule:: py2neo.database.status
+.. autoclass:: GraphError
+   :members:
+
+.. autoclass:: ClientError
+   :members:
+
+.. autoclass:: DatabaseError
+   :members:
+
+.. autoclass:: TransientError
+   :members:
+
+.. autoclass:: TransactionFinished
    :members:

@@ -70,6 +70,7 @@ div#sidebarbutton {
 
 div.body {
     padding: 0 0 0 1.2em;
+    max-width: none;
 }
 
 div.body p {

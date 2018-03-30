@@ -18,7 +18,7 @@
 
 import click
 
-from py2neo.compat import numeric_types, ustr
+from py2neo.internal.compat import numeric_types, ustr
 
 
 class Table(object):

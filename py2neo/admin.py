@@ -30,8 +30,8 @@ from time import sleep
 
 import click
 
-from py2neo.compat import bstr, DEVNULL, urlretrieve
-from py2neo.versioning import Version
+from py2neo.internal.compat import bstr, DEVNULL, urlretrieve
+from py2neo.internal.versioning import Version
 
 
 editions = [

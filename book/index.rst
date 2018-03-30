@@ -1,11 +1,12 @@
 **********************
-The Py2neo v3 Handbook
+The Py2neo v4 Handbook
 **********************
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
-The core library has no external dependencies and has been carefully designed to be easy and intuitive to use.
+The library wraps the official driver adding support for HTTP, a higher level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments and many other bells and whistles.
+Unlike previous releases, Py2neo v4 no longer requires HTTP and can work entirely through Bolt.
 
-.. note:: Documentation for the 2.0 series is available `here <http://py2neo.org/2.0>`_.
+.. note:: Documentation for Py2neo v3 is available `here <http://py2neo.org/v3>`_.
 
 
 Installation
@@ -20,7 +21,7 @@ To install the latest bleeding edge code directly from GitHub, use::
 
     $ pip install git+https://github.com/technige/py2neo.git#egg=py2neo
 
-Note that this code is likely to be unstable.
+Note that code installed directly from GitHub is likely to be unstable.
 Your mileage may vary.
 
 
@@ -29,8 +30,8 @@ Requirements
 
 The following versions of Python and Neo4j are supported:
 
-- Python 2.7 / 3.3 / 3.4 / 3.5 / 3.6
-- Neo4j 2.2 / 2.3 / 3.0 / 3.1 (the latest point release of each version is recommended)
+- Python 2.7 / 3.3 / 3.4 / 3.5 / 3.6 / 3.7-dev
+- Neo4j 3.0 / 3.1 / 3.2 / 3.3 / 3.4 (the latest point release of each version is recommended)
 
 Note also that Py2neo is developed and tested exclusively under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
@@ -45,10 +46,12 @@ Library Reference
 
    types
    database
+   selection
    ogm
-   ext/batman
-   ext/calendar
-   neokit
+   cypher/reading
+   cypher/writing
+   console
+   admin
 
 
 .. _Neo4j: http://neo4j.com/

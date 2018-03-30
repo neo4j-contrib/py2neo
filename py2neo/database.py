@@ -22,18 +22,18 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 
+from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
 from pygments.token import Token
 
-from py2neo.addressing import get_connection_data
-from py2neo.caching import ThreadLocalEntityCache
-from py2neo.collections import is_collection
-from py2neo.compat import Mapping, string_types
 from py2neo.cypher.reading import CypherLexer
 from py2neo.cypher.writing import cypher_escape
+from py2neo.internal.addressing import get_connection_data
+from py2neo.internal.caching import ThreadLocalEntityCache
+from py2neo.internal.collections import is_collection
+from py2neo.internal.compat import Mapping, string_types, xstr
+from py2neo.internal.util import version_tuple, title_case
 from py2neo.selection import NodeSelector
-from py2neo.status import *
 from py2neo.types import cast_node, Subgraph
-from py2neo.util import version_tuple
 
 
 update_stats_keys = [
@@ -90,7 +90,7 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
-            from py2neo.http import HTTPDriver
+            from py2neo.internal.http import HTTPDriver
             HTTPDriver.register()
             from neo4j.v1 import GraphDatabase
             inst._driver = GraphDatabase.driver(connection_data["uri"], auth=connection_data["auth"],
@@ -735,8 +735,8 @@ class Result(object):
 
     def __init__(self, graph, entities, result):
         from neo4j.v1 import BoltStatementResult
-        from py2neo.http import HTTPStatementResult
-        from py2neo.packstream import PackStreamHydrator
+        from py2neo.internal.http import HTTPStatementResult
+        from py2neo.internal.packstream import PackStreamHydrator
         self.result = result
         self.result.error_class = GraphError.hydrate
         # TODO: un-yuk this
@@ -792,6 +792,99 @@ class Plan(object):
     def __repr__(self):
         from json import dumps
         return dumps(self.metadata, indent=4)
+
+
+class GraphError(Exception):
+    """
+    """
+
+    __cause__ = None
+
+    http_status_code = None
+    code = None
+    message = None
+
+    @classmethod
+    def hydrate(cls, data):
+        code = data["code"]
+        message = data["message"]
+        _, classification, category, title = code.split(".")
+        if classification == "ClientError":
+            try:
+                error_cls = client_errors[code]
+            except KeyError:
+                error_cls = ClientError
+                message = "%s: %s" % (title_case(title), message)
+        elif classification == "DatabaseError":
+            error_cls = DatabaseError
+        elif classification == "TransientError":
+            error_cls = TransientError
+        else:
+            error_cls = cls
+        inst = error_cls(message)
+        inst.code = code
+        inst.message = message
+        return inst
+
+    def __new__(cls, *args, **kwargs):
+        try:
+            exception = kwargs["exception"]
+            error_cls = type(xstr(exception), (cls,), {})
+        except KeyError:
+            error_cls = cls
+        return Exception.__new__(error_cls, *args)
+
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args)
+        for key, value in kwargs.items():
+            setattr(self, key.lower(), value)
+
+
+class ClientError(GraphError):
+    """ The Client sent a bad request - changing the request might yield a successful outcome.
+    """
+
+
+class DatabaseError(GraphError):
+    """ The database failed to service the request.
+    """
+
+
+class TransientError(GraphError):
+    """ The database cannot service the request right now, retrying later might yield a successful outcome.
+    """
+
+
+client_errors = {
+
+    # ConstraintError
+    "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
+    "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+    "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
+    "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
+
+    # CypherSyntaxError
+    "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
+    "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+
+    # CypherTypeError
+    "Neo.ClientError.Procedure.TypeError": CypherTypeError,
+    "Neo.ClientError.Statement.InvalidType": CypherTypeError,
+    "Neo.ClientError.Statement.TypeError": CypherTypeError,
+
+    # Forbidden
+    "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
+    "Neo.ClientError.General.ReadOnly": Forbidden,
+    "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
+    "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
+    "Neo.ClientError.Security.Forbidden": Forbidden,
+    "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
+
+    # Unauthorized
+    "Neo.ClientError.Security.AuthorizationFailed": AuthError,
+    "Neo.ClientError.Security.Unauthorized": AuthError,
+
+}
 
 
 class TransactionFinished(GraphError):

@@ -20,7 +20,7 @@ from __future__ import absolute_import
 
 from itertools import cycle, islice
 
-from py2neo.compat import bytes_types, string_types
+from py2neo.internal.compat import bytes_types, string_types
 
 
 def is_collection(obj):

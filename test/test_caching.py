@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.caching import ThreadLocalEntityCache
+from py2neo.internal.caching import ThreadLocalEntityCache
 
 
 class Entity(object):

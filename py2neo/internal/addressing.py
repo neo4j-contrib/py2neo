@@ -18,7 +18,7 @@
 
 from os import getenv
 
-from py2neo.compat import urlsplit
+from py2neo.internal.compat import urlsplit
 from py2neo.meta import bolt_user_agent, http_user_agent
 
 

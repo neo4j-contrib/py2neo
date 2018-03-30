@@ -37,8 +37,8 @@ from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
+from py2neo.internal.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
 from py2neo.meta import __version__
-from py2neo.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
 
 
 DEFAULT_NEO4J_URI = "bolt://localhost:7687"

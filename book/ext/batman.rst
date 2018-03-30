@@ -1,1 +1,0 @@
-../../py2neo/ext/batman/README.rst

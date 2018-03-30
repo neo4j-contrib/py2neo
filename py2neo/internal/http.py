@@ -22,16 +22,14 @@ from base64 import b64encode
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 
-from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError
 from neo4j.exceptions import AuthError, Forbidden
+from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError
 
-from py2neo.addressing import get_connection_data
-from py2neo.compat import urlsplit, ustr
-from py2neo.json import JSONDehydrator
+from py2neo.internal.addressing import get_connection_data
+from py2neo.internal.compat import urlsplit, ustr
+from py2neo.internal.json import JSONDehydrator
 from py2neo.meta import http_user_agent
-from py2neo.status import GraphError
-
-
+from py2neo import GraphError
 
 
 # import logging
@@ -350,7 +348,7 @@ class HTTPStatementResult(StatementResult):
     zipper = Record
 
     def __init__(self, session, result_loader):
-        from py2neo.json import JSONHydrator
+        from py2neo.internal.json import JSONHydrator
 
         super(HTTPStatementResult, self).__init__(session, JSONHydrator(session.graph, ()))
 
