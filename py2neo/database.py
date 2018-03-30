@@ -22,7 +22,6 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 
-from py2neo.cypher.reading import CypherLexer
 from py2neo.cypher.writing import cypher_escape
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
@@ -705,6 +704,7 @@ class Schema(object):
             if t and typ != t:
                 continue
             if not lbl or not properties:
+                from py2neo.cypher.reading import CypherLexer
                 from pygments.token import Token
                 tokens = list(CypherLexer().get_tokens(description))
                 for token_type, token_value in tokens:
