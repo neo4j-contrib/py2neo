@@ -242,6 +242,15 @@ class RelationshipTestCase(GraphTestCase):
         none = None
         assert rel != none
 
+    def test_relationship_equality_for_concrete(self):
+        a = Node()
+        b = Node()
+        r1 = Relationship(a, "KNOWS", b)
+        r2 = Relationship(a, "KNOWS", b)
+        self.graph.create(r1)
+        self.graph.create(r2)
+        self.assertEqual(r1, r2)
+
     def test_relationship_default_type(self):
         assert Relationship.default_type() == "TO"
 
@@ -253,6 +262,7 @@ class RelationshipTestCase(GraphTestCase):
     def test_cannot_delete_uncreated_relationship(self):
         a = Node()
         b = Node()
+        self.graph.create(a | b)
         r = Relationship(a, "TO", b)
         self.graph.delete(r)
 
@@ -263,11 +273,28 @@ class RelationshipTestCase(GraphTestCase):
         self.graph.create(r)
         self.assertTrue(self.graph.exists(r))
 
-    def test_node_does_not_exist(self):
+    def test_relationship_does_not_exist(self):
+        a = Node()
+        b = Node()
+        self.graph.create(a | b)
+        r = Relationship(a, "TO", b)
+        self.assertNotIn(r, self.graph)
+        self.assertFalse(self.graph.exists(r))
+
+    def test_blank_type_automatically_updates(self):
         a = Node()
         b = Node()
         r = Relationship(a, "TO", b)
-        self.assertFalse(self.graph.exists(r))
+        self.graph.create(r)
+        r._type = None
+        self.assertIsNotNone(r.graph)
+        self.assertIsNotNone(r.identity)
+        self.assertIsNone(r._type)
+        self.assertEqual(r.type, "TO")
+
+    def test_cannot_cast_from_odd_object(self):
+        with self.assertRaises(TypeError):
+            _ = Relationship.cast(object())
 
 
 class PathTestCase(GraphTestCase):

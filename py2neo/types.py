@@ -578,9 +578,7 @@ class Entity(PropertyDict, Walkable):
             name = self.get("name")
         if name is None:
             name = u"_" + ustr(self.identity)
-        if name is None:
-            name = u""
-        return name
+        return name or u""
 
 
 class Node(Entity):
@@ -759,17 +757,11 @@ class Relationship(Entity):
 
     def __init__(self, *nodes, **properties):
         n = []
-        p = {}
         for value in nodes:
             if isinstance(value, string_types):
                 n.append(value)
-            elif isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], string_types):
-                t, props = value
-                n.append(t)
-                p.update(props)
             else:
                 n.append(Node.cast(value))
-        p.update(properties)
 
         num_args = len(n)
         if num_args == 0:
@@ -793,7 +785,7 @@ class Relationship(Entity):
             n = (n[0], n[2])
         else:
             raise TypeError("Hyperedges not supported")
-        Entity.__init__(self, (n[0], self, n[1]), p)
+        Entity.__init__(self, (n[0], self, n[1]), properties)
 
         self._stale = set()
 

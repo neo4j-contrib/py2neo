@@ -19,12 +19,6 @@
 from uuid import uuid4
 
 from pytest import main as test_main
-try:
-    from coverage import Coverage
-except ImportError:
-    with_coverage = False
-else:
-    with_coverage = True
 
 from py2neo import reset_py2neo
 from py2neo.admin import Warehouse
@@ -55,17 +49,8 @@ def main():
     versions = ["3.4", "3.3", "3.2", "3.1", "3.0"]
     user = "neo4j"
     password = "password"
-    if with_coverage:
-        print("Running tests with coverage")
-        coverage = Coverage()
-        coverage.erase()
-        coverage.start()
-        run_tests(versions, user, password)
-        coverage.stop()
-        coverage.report()
-    else:
-        print("Running tests (coverage not installed)")
-        run_tests(versions, user, password)
+    print("Running tests")
+    run_tests(versions, user, password)
 
 
 if __name__ == "__main__":

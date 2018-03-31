@@ -579,9 +579,12 @@ class RelationshipTestCase(TestCase):
         with self.assertRaises(TypeError):
             Relationship(alice, "KNOWS", bob, carol)
 
-    def test_equality(self):
-        other_rel = alice_knows_bob
-        assert alice_knows_bob == other_rel
+    def test_equality_with_self(self):
+        self.assertEqual(alice_knows_bob, alice_knows_bob)
+
+    def test_equality_with_similar(self):
+        other_rel = Relationship(alice, "KNOWS", bob, since=1999)
+        self.assertEqual(alice_knows_bob, other_rel)
 
     def test_inequality(self):
         other_rel = Relationship(alice, "KNOWS", bob, since=1998)
@@ -589,6 +592,14 @@ class RelationshipTestCase(TestCase):
 
     def test_inequality_with_other_types(self):
         assert alice_knows_bob != "there is no relationship"
+
+    def test_inequality_with_sneaky_type(self):
+
+        class Foo(object):
+            graph = None
+            identity = None
+
+        assert alice_knows_bob != Foo()
 
 
 class RelationshipLoopTestCase(TestCase):

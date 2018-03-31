@@ -20,7 +20,6 @@ from mock import patch, Mock
 from neo4j.exceptions import ConstraintError
 
 from py2neo import GraphError
-from py2neo.internal.http import HTTP, NOT_FOUND
 from py2neo.types import Node
 from test.util import GraphTestCase
 
@@ -90,17 +89,3 @@ class SchemaTestCase(GraphTestCase):
         with self.assertRaises(GraphError):
             self.schema.drop_uniqueness_constraint(label_1, "name")
         self.graph.delete(a | b)
-
-    def test_drop_index_handles_404_errors_correctly(self):
-        mocked = Mock()
-        mocked.status = NOT_FOUND
-        with patch.object(HTTP, "delete", return_value=mocked):
-            with self.assertRaises(GraphError):
-                self.schema.drop_index("Person", "name")
-
-    def test_drop_unique_constraint_handles_404_errors_correctly(self):
-        mocked = Mock()
-        mocked.status = NOT_FOUND
-        with patch.object(HTTP, "delete", return_value=mocked):
-            with self.assertRaises(GraphError):
-                self.schema.drop_uniqueness_constraint("Person", "name")

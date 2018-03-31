@@ -13,4 +13,5 @@ python:
 script:
   - sudo apt-get update && sudo apt-get install oracle-java8-set-default
   - pip install coverage mock -r requirements.txt
-  - python -m py2neo.testing -v
+  - coverage run -m py2neo.testing -v
+  - coverage report
