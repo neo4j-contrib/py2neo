@@ -60,6 +60,7 @@ if version_info >= (3,):
     unicode_types = (str,)
     utf8_types = ()
 
+    long = int
     uchr = chr
 
     def bstr(s, encoding="utf-8"):
@@ -124,6 +125,7 @@ else:
     unicode_types = (unicode,)
     utf8_types = (str,)
 
+    long = long
     uchr = unichr
 
     def bstr(s, encoding="utf-8"):
