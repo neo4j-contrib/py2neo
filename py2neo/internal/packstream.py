@@ -22,7 +22,7 @@ from collections import namedtuple
 
 from neo4j.v1 import Hydrator, Structure
 
-from py2neo.internal.hydration import hydrate_node
+from py2neo.internal.hydration import hydrate_node, hydrate_relationship
 from py2neo.types import Node, Relationship, Path
 
 
@@ -49,10 +49,10 @@ class PackStreamHydrator(Hydrator):
                 tag = obj.tag
                 fields = obj.fields
                 if tag == b"N":
-                    return Node.hydrate(graph, fields[0], inst=inst,
+                    return hydrate_node(graph, fields[0], inst=inst,
                                         metadata={"labels": list(fields[1])}, data=hydrate_(fields[2]))
                 elif tag == b"R":
-                    return Relationship.hydrate(graph, fields[0], inst=inst,
+                    return hydrate_relationship(graph, fields[0], inst=inst,
                                                 start=fields[1], end=fields[2],
                                                 type=fields[3], data=hydrate_(fields[4]))
                 elif tag == b"P":
@@ -65,12 +65,12 @@ class PackStreamHydrator(Hydrator):
                         next_node = nodes[sequence[2 * i + 1]]
                         if rel_index > 0:
                             u_rel = u_rels[rel_index - 1]
-                            rel = Relationship.hydrate(graph, u_rel.id,
+                            rel = hydrate_relationship(graph, u_rel.id,
                                                        start=last_node.identity, end=next_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         else:
                             u_rel = u_rels[-rel_index - 1]
-                            rel = Relationship.hydrate(graph, u_rel.id,
+                            rel = hydrate_relationship(graph, u_rel.id,
                                                        start=next_node.identity, end=last_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         steps.append(rel)

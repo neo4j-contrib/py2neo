@@ -22,8 +22,7 @@ from neo4j.v1.api import Hydrator
 
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, string_types, ustr, bytes_types
-from py2neo.internal.hydration import hydrate_node
-from py2neo.types import Node, Relationship, Path
+from py2neo.internal.hydration import hydrate_node, hydrate_relationship, hydrate_path
 
 
 INT64_MIN = -(2 ** 63)
@@ -54,9 +53,9 @@ class JSONHydrator(Hydrator):
                     if "type" in data:
                         data["start"] = uri_to_id(data["start"])
                         data["end"] = uri_to_id(data["end"])
-                        return Relationship.hydrate(graph, uri_to_id(data["self"]), inst=inst, **data)
+                        return hydrate_relationship(graph, uri_to_id(data["self"]), inst=inst, **data)
                     else:
-                        return Node.hydrate(graph, uri_to_id(data["self"]), inst=inst, **data)
+                        return hydrate_node(graph, uri_to_id(data["self"]), inst=inst, **data)
                 elif "nodes" in data and "relationships" in data:
                     if "directions" not in data:
                         data["nodes"] = list(map(uri_to_id, data["nodes"]))
@@ -71,7 +70,7 @@ class JSONHydrator(Hydrator):
                             else:
                                 directions.append("<-")
                         data["directions"] = directions
-                    return Path.hydrate(graph, data)
+                    return hydrate_path(graph, data)
                 else:
                     # from warnings import warn
                     # warn("Map literals returned over the Neo4j REST interface are ambiguous "

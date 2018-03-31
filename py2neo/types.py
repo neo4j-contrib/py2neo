@@ -20,9 +20,8 @@ from itertools import chain
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr
-from py2neo.internal.collections import is_collection, round_robin
+from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, string_types, ustr, xstr
-from py2neo.internal.hydration import hydrate_node
 from py2neo.internal.util import relationship_case
 
 
@@ -310,8 +309,8 @@ class Subgraph(object):
         for node, cursor in nodes.items():
             new_labels = cursor.evaluate(1)
             if new_labels:
-                node._Node__remote_labels = frozenset(new_labels)
-                labels = node._Node__labels
+                node._remote_labels = frozenset(new_labels)
+                labels = node._labels
                 labels.clear()
                 labels.update(new_labels)
 
@@ -322,10 +321,10 @@ class Subgraph(object):
             if node in graph:
                 clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
                 parameters = {"x": node.identity, "y": dict(node)}
-                old_labels = node._Node__remote_labels - node._Node__labels
+                old_labels = node._remote_labels - node._labels
                 if old_labels:
                     clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
-                new_labels = node._Node__labels - node._Node__remote_labels
+                new_labels = node._labels - node._remote_labels
                 if new_labels:
                     clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
                 tx.run("\n".join(clauses), parameters)
@@ -621,42 +620,9 @@ class Node(Entity):
         apply(obj)
         return inst
 
-    @classmethod
-    def instance(cls, graph, identity, inst=None):
-        if inst is None:
-
-            def inst_constructor():
-                new_inst = cls()
-                new_inst.graph = graph
-                new_inst.identity = identity
-                new_inst._stale.update({"labels", "properties"})
-                return new_inst
-
-            inst = graph.node_cache.update(identity, inst_constructor)
-        else:
-            inst.graph = graph
-            inst.identity = identity
-            graph.node_cache.update(identity, inst)
-        return inst
-
-    @classmethod
-    def hydrate(cls, graph, identity, inst=None, **rest):
-        inst = cls.instance(graph, identity, inst)
-        if "data" in rest:
-            inst._stale.discard("properties")
-            inst.clear()
-            inst.update(rest["data"])
-        if "metadata" in rest:
-            inst._stale.discard("labels")
-            metadata = rest["metadata"]
-            inst.__remote_labels = frozenset(metadata["labels"])
-            inst.clear_labels()
-            inst.update_labels(metadata["labels"])
-        return inst
-
     def __init__(self, *labels, **properties):
-        self.__remote_labels = frozenset()
-        self.__labels = set(labels)
+        self._remote_labels = frozenset()
+        self._labels = set(labels)
         Entity.__init__(self, (self,), properties)
         self._stale = set()
 
@@ -693,27 +659,27 @@ class Node(Entity):
         """ Set of all node labels.
         """
         self.__ensure_labels()
-        return LabelSetView(self.__labels)
+        return LabelSetView(self._labels)
 
     def has_label(self, label):
         self.__ensure_labels()
-        return label in self.__labels
+        return label in self._labels
 
     def add_label(self, label):
         self.__ensure_labels()
-        self.__labels.add(label)
+        self._labels.add(label)
 
     def remove_label(self, label):
         self.__ensure_labels()
-        self.__labels.discard(label)
+        self._labels.discard(label)
 
     def clear_labels(self):
         self.__ensure_labels()
-        self.__labels.clear()
+        self._labels.clear()
 
     def update_labels(self, labels):
         self.__ensure_labels()
-        self.__labels.update(labels)
+        self._labels.update(labels)
 
 
 class Relationship(Entity):
@@ -791,35 +757,6 @@ class Relationship(Entity):
         assert issubclass(cls, Relationship)
         return ustr(relationship_case(cls.__name__))
 
-    @classmethod
-    def hydrate(cls, graph, identity, inst=None, **rest):
-        start = rest["start"]
-        end = rest["end"]
-
-        if inst is None:
-
-            def inst_constructor():
-                new_inst = cls(Node.hydrate(graph, start), rest.get("type"),
-                               Node.hydrate(graph, end), **rest.get("data", {}))
-                new_inst.graph = graph
-                new_inst.identity = identity
-                return new_inst
-
-            inst = graph.relationship_cache.update(identity, inst_constructor)
-        else:
-            inst.graph = graph
-            inst.identity = identity
-            Node.hydrate(graph, start, inst=inst.start_node)
-            Node.hydrate(graph, end, inst=inst.end_node)
-            inst.__type = rest.get("type")
-            if "data" in rest:
-                inst.clear()
-                inst.update(rest["data"])
-            else:
-                inst._stale.add("properties")
-            graph.relationship_cache.update(identity, inst)
-        return inst
-
     def __init__(self, *nodes, **properties):
         n = []
         p = {}
@@ -839,20 +776,20 @@ class Relationship(Entity):
             raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
             # Relationship(a)
-            self.__type = self.default_type()
+            self._type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
             if n[1] is None or isinstance(n[1], string_types):
                 # Relationship(a, "TO")
-                self.__type = n[1]
+                self._type = n[1]
                 n = (n[0], n[0])
             else:
                 # Relationship(a, b)
-                self.__type = self.default_type()
+                self._type = self.default_type()
                 n = (n[0], n[1])
         elif num_args == 3:
             # Relationship(a, "TO", b)
-            self.__type = n[1]
+            self._type = n[1]
             n = (n[0], n[2])
         else:
             raise TypeError("Hyperedges not supported")
@@ -883,9 +820,9 @@ class Relationship(Entity):
     def type(self):
         """ The type of this relationship.
         """
-        if self.graph is not None and self.identity is not None and self.__type is None:
+        if self.graph is not None and self.identity is not None and self._type is None:
             self.graph.pull(self)
-        return self.__type
+        return self._type
 
 
 class Path(Walkable):
@@ -919,19 +856,6 @@ class Path(Walkable):
         ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
 
     """
-    @classmethod
-    def hydrate(cls, graph, data):
-        node_ids = data["nodes"]
-        relationship_ids = data["relationships"]
-        offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-        nodes = [Node.hydrate(graph, identity) for identity in node_ids]
-        relationships = [Relationship.hydrate(graph, identity,
-                                              start=node_ids[i + offsets[i][0]],
-                                              end=node_ids[i + offsets[i][1]])
-                         for i, identity in enumerate(relationship_ids)]
-        inst = Path(*round_robin(nodes, relationships))
-        inst.__metadata = data
-        return inst
 
     def __init__(self, *entities):
         entities = list(entities)
