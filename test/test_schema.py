@@ -21,7 +21,7 @@ from neo4j.exceptions import ConstraintError
 
 from py2neo import GraphError
 from py2neo.internal.http import HTTP, NOT_FOUND
-from py2neo.types import Node, cast_node
+from py2neo.types import Node
 from test.util import GraphTestCase
 
 
@@ -33,7 +33,7 @@ class SchemaTestCase(GraphTestCase):
     def test_schema_index(self):
         label_1 = next(self.unique_string)
         label_2 = next(self.unique_string)
-        munich = cast_node({'name': "München", 'key': "09162000"})
+        munich = Node.cast({'name': "München", 'key': "09162000"})
         self.graph.create(munich)
         munich.clear_labels()
         munich.update_labels({label_1, label_2})

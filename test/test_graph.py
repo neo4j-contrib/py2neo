@@ -18,7 +18,7 @@
 
 from py2neo.database import Graph
 from py2neo.internal.json import JSONHydrator
-from py2neo.types import Node, Relationship, cast_node
+from py2neo.types import Node, Relationship
 
 from test.util import GraphTestCase
 
@@ -74,7 +74,7 @@ class GraphObjectTestCase(GraphTestCase):
         self.assertEqual(ab.graph, self.graph)
         self.assertIsNotNone(ab.identity)
         assert self.graph.exists(ab)
-        self.graph.delete(ab | ab.start_node() | ab.end_node())
+        self.graph.delete(ab | ab.start_node | ab.end_node)
         assert not self.graph.exists(ab)
 
     def test_can_get_node_by_id_when_cached(self):
@@ -142,7 +142,7 @@ class GraphObjectTestCase(GraphTestCase):
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):
-        a = cast_node({"number": 13, "foo": "bar", "true": False, "fish": "chips"})
+        a = Node.cast({"number": 13, "foo": "bar", "true": False, "fish": "chips"})
         self.graph.create(a)
         assert len(a) == 4
         assert a["fish"] == "chips"
@@ -151,7 +151,7 @@ class GraphObjectTestCase(GraphTestCase):
         assert not a["true"]
 
     def test_create_node_with_null_properties(self):
-        a = cast_node({"foo": "bar", "no-foo": None})
+        a = Node.cast({"foo": "bar", "no-foo": None})
         self.graph.create(a)
         assert a["foo"] == "bar"
         assert a["no-foo"] is None

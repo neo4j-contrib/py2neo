@@ -29,7 +29,7 @@ from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import Mapping, string_types, xstr
 from py2neo.internal.util import version_tuple, title_case
 from py2neo.selection import NodeSelector
-from py2neo.types import cast_node, Subgraph
+from py2neo.types import Subgraph, Node
 
 
 update_stats_keys = [
@@ -481,7 +481,7 @@ class Graph(object):
             returns.append("b")
         elif end_node is None:
             clauses.append("MATCH (a) WHERE id(a) = {1}")
-            start_node = cast_node(start_node)
+            start_node = Node.cast(start_node)
             if start_node.graph != self:
                 raise ValueError("Start node does not belong to this graph")
             if start_node.identity is None:
@@ -490,7 +490,7 @@ class Graph(object):
             returns.append("b")
         elif start_node is None:
             clauses.append("MATCH (b) WHERE id(b) = {2}")
-            end_node = cast_node(end_node)
+            end_node = Node.cast(end_node)
             if end_node.graph != self:
                 raise ValueError("End node does not belong to this graph")
             if end_node.identity is None:
@@ -499,12 +499,12 @@ class Graph(object):
             returns.append("a")
         else:
             clauses.append("MATCH (a) WHERE id(a) = {1} MATCH (b) WHERE id(b) = {2}")
-            start_node = cast_node(start_node)
+            start_node = Node.cast(start_node)
             if start_node.graph != self:
                 raise ValueError("Start node does not belong to this graph")
             if start_node.identity is None:
                 raise ValueError("Start node is not bound to a graph")
-            end_node = cast_node(end_node)
+            end_node = Node.cast(end_node)
             if end_node.graph != self:
                 raise ValueError("End node does not belong to this graph")
             if end_node.identity is None:

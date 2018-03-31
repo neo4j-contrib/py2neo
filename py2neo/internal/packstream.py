@@ -22,6 +22,7 @@ from collections import namedtuple
 
 from neo4j.v1 import Hydrator, Structure
 
+from py2neo.internal.hydration import hydrate_node
 from py2neo.types import Node, Relationship, Path
 
 

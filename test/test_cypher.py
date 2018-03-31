@@ -19,7 +19,7 @@
 from neo4j.exceptions import CypherSyntaxError, ConstraintError
 
 from py2neo.database import Transaction
-from py2neo.types import Node, Relationship, Path, graph_order, graph_size
+from py2neo.types import Node, Relationship, Path, order, size
 
 from test.util import GraphTestCase, HTTPGraphTestCase
 
@@ -246,8 +246,8 @@ class CypherCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert r.start_node() == a
-        assert r.end_node() == b
+        assert r.start_node == a
+        assert r.end_node == b
 
     def test_can_create_nodes_and_relationship(self):
         self.graph.delete_all()
@@ -258,8 +258,8 @@ class CypherCreateTestCase(GraphTestCase):
         bc = Relationship(b, "TO", c)
         ca = Relationship(c, "TO", a)
         s = ab | bc | ca
-        assert graph_order(s) == 3
-        assert graph_size(s) == 3
+        assert order(s) == 3
+        assert size(s) == 3
         self.graph.create(s)
         self.assertEqual(a.graph, self.graph)
         self.assertIsNotNone(a.identity)
@@ -269,18 +269,18 @@ class CypherCreateTestCase(GraphTestCase):
         self.assertIsNotNone(c.identity)
         self.assertEqual(ab.graph, self.graph)
         self.assertIsNotNone(ab.identity)
-        assert ab.start_node() == a
-        assert ab.end_node() == b
+        assert ab.start_node == a
+        assert ab.end_node == b
         self.assertEqual(bc.graph, self.graph)
         self.assertIsNotNone(bc.identity)
-        assert bc.start_node() == b
-        assert bc.end_node() == c
+        assert bc.start_node == b
+        assert bc.end_node == c
         self.assertEqual(ca.graph, self.graph)
         self.assertIsNotNone(ca.identity)
-        assert ca.start_node() == c
-        assert ca.end_node() == a
-        assert graph_order(self.graph) == 3
-        assert graph_size(self.graph) == 3
+        assert ca.start_node == c
+        assert ca.end_node == a
+        assert order(self.graph) == 3
+        assert size(self.graph) == 3
 
     def test_cannot_create_non_graphy_thing(self):
         with self.assertRaises(TypeError):

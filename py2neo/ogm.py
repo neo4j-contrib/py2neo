@@ -226,15 +226,15 @@ class RelatedObjects(object):
         for r in tx.graph.match(*self.__match_args):
             nodes = []
             n = self.node
-            a = r.start_node()
-            b = r.end_node()
+            a = r.start_node
+            b = r.end_node
             if a == b:
                 nodes.append(a)
             else:
                 if self.__start_node and a != n:
-                    nodes.append(r.start_node())
+                    nodes.append(r.start_node)
                 if self.__end_node and b != n:
-                    nodes.append(r.end_node())
+                    nodes.append(r.end_node)
             for node in nodes:
                 related_object = self.related_class.wrap(node)
                 related_objects[node] = (related_object, PropertyDict(r))

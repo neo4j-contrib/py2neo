@@ -19,7 +19,7 @@
 from unittest import TestCase
 
 from py2neo.database import Record
-from py2neo.types import Node, Relationship, graph_order, graph_size
+from py2neo.types import Node, Relationship, order, size
 from test.util import GraphTestCase, HTTPGraphTestCase
 
 
@@ -273,8 +273,8 @@ class RecordTestCase(TestCase):
         values = [alice, bob, alice_knows_bob, "hello, world"]
         record = Record(keys, values)
         subgraph = record.subgraph()
-        assert graph_order(subgraph) == 2
-        assert graph_size(subgraph) == 1
+        assert order(subgraph) == 2
+        assert size(subgraph) == 1
         assert set(subgraph.nodes) == {alice, bob}
         assert set(subgraph.relationships) == {alice_knows_bob}
 

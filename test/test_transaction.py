@@ -19,7 +19,7 @@
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
 from py2neo.database import TransactionFinished
-from py2neo.types import Node, Relationship, graph_order, graph_size
+from py2neo.types import Node, Relationship, order, size
 from test.util import GraphTestCase
 
 
@@ -127,8 +127,8 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert r.start_node() == a
-        assert r.end_node() == b
+        assert r.start_node == a
+        assert r.end_node == b
 
     def test_can_create_nodes_and_relationship_1(self):
         self.graph.delete_all()
@@ -146,10 +146,10 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert r.start_node() == a
-        assert r.end_node() == b
-        assert graph_order(self.graph) == 2
-        assert graph_size(self.graph) == 1
+        assert r.start_node == a
+        assert r.end_node == b
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_2(self):
         self.graph.delete_all()
@@ -166,10 +166,10 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert r.start_node() == a
-        assert r.end_node() == b
-        assert graph_order(self.graph) == 2
-        assert graph_size(self.graph) == 1
+        assert r.start_node == a
+        assert r.end_node == b
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_3(self):
         self.graph.delete_all()
@@ -186,10 +186,10 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert r.start_node() == a
-        assert r.end_node() == b
-        assert graph_order(self.graph) == 2
-        assert graph_size(self.graph) == 1
+        assert r.start_node == a
+        assert r.end_node == b
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
     def test_can_create_nodes_and_relationship_4(self):
         self.graph.delete_all()
@@ -209,18 +209,18 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(c.identity)
         self.assertEqual(ab.graph, self.graph)
         self.assertIsNotNone(ab.identity)
-        assert ab.start_node() == a
-        assert ab.end_node() == b
+        assert ab.start_node == a
+        assert ab.end_node == b
         self.assertEqual(bc.graph, self.graph)
         self.assertIsNotNone(bc.identity)
-        assert bc.start_node() == b
-        assert bc.end_node() == c
+        assert bc.start_node == b
+        assert bc.end_node == c
         self.assertEqual(ca.graph, self.graph)
         self.assertIsNotNone(ca.identity)
-        assert ca.start_node() == c
-        assert ca.end_node() == a
-        assert graph_order(self.graph) == 3
-        assert graph_size(self.graph) == 3
+        assert ca.start_node == c
+        assert ca.end_node == a
+        assert order(self.graph) == 3
+        assert size(self.graph) == 3
 
     def test_create_is_idempotent(self):
         self.graph.delete_all()
@@ -235,8 +235,8 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert graph_order(self.graph) == 2
-        assert graph_size(self.graph) == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
         with self.graph.begin() as tx:
             tx.create(r)
         self.assertEqual(a.graph, self.graph)
@@ -245,8 +245,8 @@ class TransactionCreateTestCase(GraphTestCase):
         self.assertIsNotNone(b.identity)
         self.assertEqual(r.graph, self.graph)
         self.assertIsNotNone(r.identity)
-        assert graph_order(self.graph) == 2
-        assert graph_size(self.graph) == 1
+        assert order(self.graph) == 2
+        assert size(self.graph) == 1
 
 
 class TransactionDeleteTestCase(GraphTestCase):

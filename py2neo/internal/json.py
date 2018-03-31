@@ -22,6 +22,7 @@ from neo4j.v1.api import Hydrator
 
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, string_types, ustr, bytes_types
+from py2neo.internal.hydration import hydrate_node
 from py2neo.types import Node, Relationship, Path
 
 
@@ -65,7 +66,7 @@ class JSONHydrator(Hydrator):
                             "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
                             x=data["relationships"])
                         for i, relationship in enumerate(relationships):
-                            if relationship.start_node().identity == data["nodes"][i]:
+                            if relationship.start_node.identity == data["nodes"][i]:
                                 directions.append("->")
                             else:
                                 directions.append("<-")

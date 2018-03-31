@@ -21,11 +21,12 @@ from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr
 from py2neo.internal.collections import is_collection, round_robin
-from py2neo.internal.compat import integer_types, string_types, ustr
-from py2neo.internal.util import snake_case, relationship_case
+from py2neo.internal.compat import integer_types, string_types, ustr, xstr
+from py2neo.internal.hydration import hydrate_node
+from py2neo.internal.util import relationship_case
 
 
-def graph_order(graph_structure):
+def order(graph_structure):
     """ Count the number of nodes in a graph structure.
     """
     try:
@@ -34,7 +35,7 @@ def graph_order(graph_structure):
         raise TypeError("Object is not a graph structure")
 
 
-def graph_size(graph_structure):
+def size(graph_structure):
     """ Count the number of relationships in a graph structure.
     """
     try:
@@ -58,15 +59,15 @@ def walk(*walkables):
         raise TypeError("Object %r is not walkable" % walkable)
     for entity in entities:
         yield entity
-    end_node = walkable.end_node()
+    end_node = walkable.end_node
     for walkable in walkables[1:]:
         try:
-            if end_node == walkable.start_node():
+            if end_node == walkable.start_node:
                 entities = walkable.__walk__()
-                end_node = walkable.end_node()
-            elif end_node == walkable.end_node():
+                end_node = walkable.end_node
+            elif end_node == walkable.end_node:
                 entities = reversed(list(walkable.__walk__()))
-                end_node = walkable.start_node()
+                end_node = walkable.start_node
             else:
                 raise ValueError("Cannot append walkable %r "
                                  "to node %r" % (walkable, end_node))
@@ -75,85 +76,6 @@ def walk(*walkables):
         for i, entity in enumerate(entities):
             if i > 0:
                 yield entity
-
-
-def cast(obj, entities=None):
-    if obj is None:
-        return None
-    elif isinstance(obj, (Node, Relationship, Path)):
-        return obj
-    elif isinstance(obj, dict):
-        return cast_node(obj)
-    elif isinstance(obj, tuple):
-        return cast_relationship(obj, entities)
-    else:
-        raise TypeError(obj)
-
-
-def cast_node(obj):
-    if obj is None or isinstance(obj, Node):
-        return obj
-
-    def apply(x):
-        if isinstance(x, dict):
-            inst.update(x)
-        elif is_collection(x):
-            for item in x:
-                apply(item)
-        elif isinstance(x, string_types):
-            inst.add_label(ustr(x))
-        else:
-            raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
-
-    inst = Node()
-    apply(obj)
-    return inst
-
-
-def cast_relationship(obj, entities=None):
-
-    def get_type(r):
-        if isinstance(r, string_types):
-            return r
-        elif hasattr(r, "type"):
-            return r.type
-        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-            return r[0]
-        else:
-            raise ValueError("Cannot determine relationship type from %r" % r)
-
-    def get_properties(r):
-        if isinstance(r, string_types):
-            return {}
-        elif hasattr(r, "type"):
-            return dict(r)
-        elif hasattr(r, "properties"):
-            return r.properties
-        elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-            return dict(r[1])
-        else:
-            raise ValueError("Cannot determine properties from %r" % r)
-
-    if isinstance(obj, Relationship):
-        return obj
-    elif isinstance(obj, tuple):
-        if len(obj) == 3:
-            start_node, t, end_node = obj
-            properties = get_properties(t)
-        elif len(obj) == 4:
-            start_node, t, end_node, properties = obj
-            properties = dict(get_properties(t), **properties)
-        else:
-            raise TypeError("Cannot cast relationship from %r" % obj)
-    else:
-        raise TypeError("Cannot cast relationship from %r" % obj)
-
-    if entities:
-        if isinstance(start_node, integer_types):
-            start_node = entities[start_node]
-        if isinstance(end_node, integer_types):
-            end_node = entities[end_node]
-    return Relationship(start_node, get_type(t), end_node, **properties)
 
 
 class Subgraph(object):
@@ -171,7 +93,7 @@ class Subgraph(object):
 
     def __eq__(self, other):
         try:
-            return graph_order(self) == graph_order(other) and graph_size(self) == graph_size(other) and \
+            return order(self) == order(other) and size(self) == size(other) and \
                    self.nodes == other.nodes and self.relationships == other.relationships
         except (AttributeError, TypeError):
             return False
@@ -248,8 +170,8 @@ class Subgraph(object):
         for i, relationship in enumerate(self.relationships):
             if relationship not in graph:
                 rel_id = "r%d" % i
-                start_node_id = "a%d" % nodes.index(relationship.start_node())
-                end_node_id = "a%d" % nodes.index(relationship.end_node())
+                start_node_id = "a%d" % nodes.index(relationship.start_node)
+                end_node_id = "a%d" % nodes.index(relationship.end_node)
                 type_string = cypher_escape(relationship.type)
                 param_id = "y%d" % i
                 writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
@@ -359,8 +281,8 @@ class Subgraph(object):
         for i, relationship in enumerate(self.relationships):
             if relationship not in graph:
                 rel_id = "r%d" % i
-                start_node_id = "a%d" % nodes.index(relationship.start_node())
-                end_node_id = "a%d" % nodes.index(relationship.end_node())
+                start_node_id = "a%d" % nodes.index(relationship.start_node)
+                end_node_id = "a%d" % nodes.index(relationship.end_node)
                 type_string = cypher_escape(relationship.type)
                 param_id = "y%d" % i
                 clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
@@ -426,7 +348,6 @@ class Subgraph(object):
                                "WHERE id(%s)={%s}" % (rel_id, rel_id, param_id))
                 deletes.append("DELETE %s" % rel_id)
                 parameters[param_id] = relationship.identity
-                del relationship.__remote__
         statement = "\n".join(matches + deletes)
         list(tx.run(statement, parameters))
 
@@ -468,9 +389,8 @@ class Walkable(Subgraph):
         self.__sequence = tuple(iterable)
         Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
-    # def __repr__(self):
-    #     from py2neo.compat import unicode_repr
-    #     return unicode_repr(cypher_repr(self))
+    def __repr__(self):
+        return xstr(cypher_repr(self))
 
     def __eq__(self, other):
         try:
@@ -524,11 +444,13 @@ class Walkable(Subgraph):
         """
         return iter(self.__sequence)
 
+    @property
     def start_node(self):
         """ The first node encountered on a :func:`.walk` of this object.
         """
         return self.__sequence[0]
 
+    @property
     def end_node(self):
         """ The last node encountered on a :func:`.walk` of this object.
         """
@@ -635,15 +557,9 @@ class Entity(PropertyDict, Walkable):
         while "0" <= uuid[-7] <= "9":
             uuid = str(uuid4())
         self.__uuid__ = uuid
-        if "__name__" in properties:
-            self.__name__ = properties["__name__"]
-        elif "name" in properties:
-            self.__name__ = snake_case(properties["name"])
-        else:
-            self.__name__ = self.__uuid__[-7:]
 
-    # def __repr__(self):
-    #     return Walkable.__repr__(self)
+    def __repr__(self):
+        return Walkable.__repr__(self)
 
     def __bool__(self):
         return len(self) > 0
@@ -655,28 +571,17 @@ class Entity(PropertyDict, Walkable):
         self.__remote_pending_tx = tx
 
     @property
-    def __remote__(self):
-        """ Remote resource with which this entity is associated.
-        """
-        if self.__remote_pending_tx:
-            self.__remote_pending_tx.process()
-            self.__remote_pending_tx = None
-        return self.__remote
-
-    @__remote__.setter
-    def __remote__(self, value):
-        self.__remote = value
-        self.__remote_pending_tx = None
-
-    @__remote__.deleter
-    def __remote__(self):
-        cache = getattr(self, "cache", None)
-        if cache:
-            key = (self.graph, self.identity)
-            if key in cache:
-                cache.update(key, None)
-        self.__remote = None
-        self.__remote_pending_tx = None
+    def __name__(self):
+        name = None
+        if name is None:
+            name = self.get("__name__")
+        if name is None:
+            name = self.get("name")
+        if name is None:
+            name = u"_" + ustr(self.identity)
+        if name is None:
+            name = u""
+        return name
 
 
 class Node(Entity):
@@ -693,6 +598,30 @@ class Node(Entity):
     """
 
     @classmethod
+    def cast(cls, obj):
+        """ Cast an arbitrary object to a :class:`Node`. This method
+        takes its best guess on how to interpret the supplied object
+        as a :class:`Node`.
+        """
+        if obj is None or isinstance(obj, Node):
+            return obj
+
+        def apply(x):
+            if isinstance(x, dict):
+                inst.update(x)
+            elif is_collection(x):
+                for item in x:
+                    apply(item)
+            elif isinstance(x, string_types):
+                inst.add_label(ustr(x))
+            else:
+                raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
+
+        inst = Node()
+        apply(obj)
+        return inst
+
+    @classmethod
     def instance(cls, graph, identity, inst=None):
         if inst is None:
 
@@ -700,7 +629,7 @@ class Node(Entity):
                 new_inst = cls()
                 new_inst.graph = graph
                 new_inst.identity = identity
-                new_inst.__stale.update({"labels", "properties"})
+                new_inst._stale.update({"labels", "properties"})
                 return new_inst
 
             inst = graph.node_cache.update(identity, inst_constructor)
@@ -714,11 +643,11 @@ class Node(Entity):
     def hydrate(cls, graph, identity, inst=None, **rest):
         inst = cls.instance(graph, identity, inst)
         if "data" in rest:
-            inst.__stale.discard("properties")
+            inst._stale.discard("properties")
             inst.clear()
             inst.update(rest["data"])
         if "metadata" in rest:
-            inst.__stale.discard("labels")
+            inst._stale.discard("labels")
             metadata = rest["metadata"]
             inst.__remote_labels = frozenset(metadata["labels"])
             inst.clear_labels()
@@ -729,31 +658,20 @@ class Node(Entity):
         self.__remote_labels = frozenset()
         self.__labels = set(labels)
         Entity.__init__(self, (self,), properties)
-        self.__stale = set()
+        self._stale = set()
 
     def __eq__(self, other):
         if self is other:
             return True
         try:
-            if type(self) is not type(other):
-                return False
             if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
                 return False
-            return type(self) == type(other) and self.graph == other.graph and self.identity == other.identity
-        except (AttributeError, TypeError):
-            return False
-
-    def __eqv__(self, other):
-        try:
-            return set(self.labels) == set(other.labels) and dict(self) == dict(other)
+            return issubclass(type(self), Node) and issubclass(type(other), Node) and self.graph == other.graph and self.identity == other.identity
         except (AttributeError, TypeError):
             return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __neqv__(self, other):
-        return not self.__eqv__(other)
 
     def __hash__(self):
         if self.graph and self.identity:
@@ -762,12 +680,12 @@ class Node(Entity):
             return hash(id(self))
 
     def __getitem__(self, item):
-        if self.graph is not None and self.identity is not None and "properties" in self.__stale:
+        if self.graph is not None and self.identity is not None and "properties" in self._stale:
             self.graph.pull(self)
         return Entity.__getitem__(self, item)
 
     def __ensure_labels(self):
-        if self.graph is not None and self.identity is not None and "labels" in self.__stale:
+        if self.graph is not None and self.identity is not None and "labels" in self._stale:
             self.graph.pull(self)
 
     @property
@@ -821,6 +739,52 @@ class Relationship(Entity):
     """
 
     @classmethod
+    def cast(cls, obj, entities=None):
+
+        def get_type(r):
+            if isinstance(r, string_types):
+                return r
+            elif hasattr(r, "type"):
+                return r.type
+            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
+                return r[0]
+            else:
+                raise ValueError("Cannot determine relationship type from %r" % r)
+
+        def get_properties(r):
+            if isinstance(r, string_types):
+                return {}
+            elif hasattr(r, "type"):
+                return dict(r)
+            elif hasattr(r, "properties"):
+                return r.properties
+            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
+                return dict(r[1])
+            else:
+                raise ValueError("Cannot determine properties from %r" % r)
+
+        if isinstance(obj, Relationship):
+            return obj
+        elif isinstance(obj, tuple):
+            if len(obj) == 3:
+                start_node, t, end_node = obj
+                properties = get_properties(t)
+            elif len(obj) == 4:
+                start_node, t, end_node, properties = obj
+                properties = dict(get_properties(t), **properties)
+            else:
+                raise TypeError("Cannot cast relationship from %r" % obj)
+        else:
+            raise TypeError("Cannot cast relationship from %r" % obj)
+
+        if entities:
+            if isinstance(start_node, integer_types):
+                start_node = entities[start_node]
+            if isinstance(end_node, integer_types):
+                end_node = entities[end_node]
+        return Relationship(start_node, get_type(t), end_node, **properties)
+
+    @classmethod
     def default_type(cls):
         if cls is Relationship:
             return "TO"
@@ -845,14 +809,14 @@ class Relationship(Entity):
         else:
             inst.graph = graph
             inst.identity = identity
-            Node.hydrate(graph, start, inst=inst.start_node())
-            Node.hydrate(graph, end, inst=inst.end_node())
+            Node.hydrate(graph, start, inst=inst.start_node)
+            Node.hydrate(graph, end, inst=inst.end_node)
             inst.__type = rest.get("type")
             if "data" in rest:
                 inst.clear()
                 inst.update(rest["data"])
             else:
-                inst.__stale.add("properties")
+                inst._stale.add("properties")
             graph.relationship_cache.update(identity, inst)
         return inst
 
@@ -867,7 +831,7 @@ class Relationship(Entity):
                 n.append(t)
                 p.update(props)
             else:
-                n.append(cast_node(value))
+                n.append(Node.cast(value))
         p.update(properties)
 
         num_args = len(n)
@@ -894,29 +858,23 @@ class Relationship(Entity):
             raise TypeError("Hyperedges not supported")
         Entity.__init__(self, (n[0], self, n[1]), p)
 
-        self.__stale = set()
+        self._stale = set()
 
     def __eq__(self, other):
         if self is other:
             return True
         try:
             if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
-                return self.__eqv__(other)
-            return type(self) == type(other) and self.graph == other.graph and self.identity == other.identity
-        except (AttributeError, TypeError):
-            return False
-
-    def __eqv__(self, other):
-        try:
-            return set(self.type) == set(other.type) and list(self.nodes) == list(other.nodes) and dict(self) == dict(other)
+                try:
+                    return self.type == other.type and list(self.nodes) == list(other.nodes) and dict(self) == dict(other)
+                except (AttributeError, TypeError):
+                    return False
+            return issubclass(type(self), Relationship) and issubclass(type(other), Relationship) and self.graph == other.graph and self.identity == other.identity
         except (AttributeError, TypeError):
             return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
-
-    def __neqv__(self, other):
-        return not self.__eqv__(other)
 
     def __hash__(self):
         return hash(self.nodes) ^ hash(self.type)
@@ -986,8 +944,8 @@ class Path(Walkable):
                 entities[i] = Node(**entity)
         for i, entity in enumerate(entities):
             try:
-                start_node = entities[i - 1].end_node()
-                end_node = entities[i + 1].start_node()
+                start_node = entities[i - 1].end_node
+                end_node = entities[i + 1].start_node
             except (IndexError, AttributeError):
                 pass
             else:

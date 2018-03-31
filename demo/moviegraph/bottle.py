@@ -3133,7 +3133,7 @@ class TornadoServer(ServerAdapter):
         container = tornado.wsgi.WSGIContainer(handler)
         server = tornado.httpserver.HTTPServer(container)
         server.listen(port=self.port, address=self.host)
-        tornado.ioloop.IOLoop.instance().start()
+        tornado.ioloop.IOLoop._instance().start()
 
 
 class AppEngineServer(ServerAdapter):

@@ -21,7 +21,7 @@ from unittest import TestCase
 
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 from py2neo.selection import NodeSelector
-from py2neo.types import graph_order, graph_size
+from py2neo.types import order, size
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MacGuffin, MovieGraphObject, DerivedThing
 from test.util import GraphTestCase
 
@@ -76,8 +76,8 @@ class InstanceSubgraphTestCase(TestCase):
         self.film_node = self.film.__ogm__.node
 
     def test_instance_subgraph_is_node_like(self):
-        assert graph_order(self.film_node) == 1
-        assert graph_size(self.film_node) == 0
+        assert order(self.film_node) == 1
+        assert size(self.film_node) == 0
 
     def test_instance_subgraph_inherits_primary_label(self):
         assert self.film_node.__primarylabel__ == "Movie"

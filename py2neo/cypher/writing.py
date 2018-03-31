@@ -26,10 +26,6 @@ from py2neo.internal.compat import uchr, ustr, \
     bytes_types, numeric_types, string_types, unicode_types
 
 
-NULL = u"null"
-TRUE = u"true"
-FALSE = u"false"
-
 ID_START = {u"_"} | {uchr(x) for x in range(0xFFFF)
                      if category(uchr(x)) in ("LC", "Ll", "Lm", "Lo", "Lt", "Lu", "Nl")}
 ID_CONTINUE = ID_START | {uchr(x) for x in range(0xFFFF)
@@ -143,12 +139,13 @@ class CypherEncoder(object):
     quote = None
     sequence_separator = u", "
     key_value_separator = u": "
-    node_template = u"#{id}{labels} {properties}"
-    related_node_template = u"#{id}"
+    node_template = u"{id}{labels} {properties}"
+    related_node_template = u"{name}"
     relationship_template = u"{type} {properties}"
+    null = u"null"
 
     def __init__(self, encoding=None, quote=None, sequence_separator=None, key_value_separator=None,
-                 node_template=None, related_node_template=None, relationship_template=None):
+                 node_template=None, related_node_template=None, relationship_template=None, null=None):
         if encoding:
             self.encoding = encoding
         if quote:
@@ -163,6 +160,8 @@ class CypherEncoder(object):
             self.related_node_template = related_node_template
         if relationship_template:
             self.relationship_template = relationship_template
+        if null:
+            self.null = null
 
     def encode_key(self, key):
         key = ustr(key)
@@ -174,23 +173,23 @@ class CypherEncoder(object):
             return u"`" + key.replace(u"`", u"``") + u"`"
 
     def encode_value(self, value):
+        from py2neo.types import Node, Relationship, Path
         if value is None:
-            return NULL
+            return self.null
         if value is True:
-            return TRUE
+            return u"true"
         if value is False:
-            return FALSE
+            return u"false"
         if isinstance(value, numeric_types):
             return ustr(value)
         if isinstance(value, string_types):
             return self.encode_string(value)
-        if hasattr(value, "nodes"):
-            if hasattr(value, "relationships"):
-                return self.encode_path(value)
-            else:
-                return self.encode_relationship(value)
-        if hasattr(value, "labels"):
+        if isinstance(value, Node):
             return self.encode_node(value)
+        if isinstance(value, Relationship):
+            return self.encode_relationship(value)
+        if isinstance(value, Path):
+            return self.encode_path(value)
         if isinstance(value, list):
             return self.encode_list(value)
         if isinstance(value, dict):
@@ -235,7 +234,7 @@ class CypherEncoder(object):
         return self._encode_node(node, self.node_template)
 
     def encode_relationship(self, relationship):
-        nodes = relationship.nodes()
+        nodes = relationship.nodes
         return u"{}-{}->{}".format(
             self._encode_node(nodes[0], self.related_node_template),
             self._encode_relationship_detail(relationship, self.relationship_template),
@@ -245,10 +244,10 @@ class CypherEncoder(object):
     def encode_path(self, path):
         encoded = []
         append = encoded.append
-        nodes = path.nodes()
-        for i, relationship in enumerate(path.relationships()):
+        nodes = path.nodes
+        for i, relationship in enumerate(path.relationships):
             append(self._encode_node(nodes[i], self.related_node_template))
-            related_nodes = relationship.nodes()
+            related_nodes = relationship.nodes
             if self._node_id(related_nodes[0]) == self._node_id(nodes[i]):
                 append(u"-")
                 append(self._encode_relationship_detail(relationship, self.relationship_template))
@@ -262,22 +261,24 @@ class CypherEncoder(object):
 
     @classmethod
     def _node_id(cls, node):
-        return node.id if hasattr(node, "id") else node
+        return node.identity if hasattr(node, "identity") else node
 
     def _encode_node(self, node, template):
         return u"(" + template.format(
-            id=node.id,
-            labels=LabelSetView(node.labels(), encoding=self.encoding, quote=self.quote),
+            id=u"" if node.identity is None else (u"_" + ustr(node.identity)),
+            labels=LabelSetView(node.labels, encoding=self.encoding, quote=self.quote),
             properties=PropertyDictView(node, encoding=self.encoding, quote=self.quote),
             property=PropertySelector(node, u""),
+            name=node.__name__,
         ).strip() + u")"
 
     def _encode_relationship_detail(self, relationship, template):
         return u"[" + template.format(
-            id=relationship.id,
-            type=u":" + ustr(type(relationship).__name__),
+            id=u"" if relationship.identity is None else (u"_" + ustr(relationship.identity)),
+            type=u":" + ustr(relationship.type),
             properties=PropertyDictView(relationship, encoding=self.encoding, quote=self.quote),
             property=PropertySelector(relationship, u""),
+            name=relationship.__name__,
         ).strip() + u"]"
 
 
