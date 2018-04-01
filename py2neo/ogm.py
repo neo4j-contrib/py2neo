@@ -306,15 +306,13 @@ class GraphObject(object):
         if self is other:
             return True
         try:
-            if type(self) is not type(other):
-                return False
             self_node = self.__ogm__.node
             other_node = other.__ogm__.node
             if any(x is None for x in [self_node.graph, other_node.graph, self_node.identity, other_node.identity]):
                 return self.__primarylabel__ == other.__primarylabel__ and \
                        self.__primarykey__ == other.__primarykey__ and \
                        self.__primaryvalue__ == other.__primaryvalue__
-            return self_node.graph == other_node.graph and self_node.identity == other_node.identity
+            return type(self) is type(other) and self_node.graph == other_node.graph and self_node.identity == other_node.identity
         except (AttributeError, TypeError):
             return False
 
