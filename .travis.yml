@@ -11,6 +11,7 @@ python:
   - "3.7-dev"
 
 script:
+  - ./check_legal.sh
   - sudo apt-get update && sudo apt-get install python-virtualenv oracle-java8-set-default
   - pip install coverage mock -r requirements.txt
   - coverage erase
