@@ -500,16 +500,6 @@ class AuthFile(object):
             for line in f:
                 yield AuthUser.load(line)
 
-    def append(self, user_name, password):
-        user_name = bstr(user_name)
-        password = bstr(password)
-        line = AuthUser.create(user_name, password).dump()
-        if self.name == "-":
-            stdout.write(line.decode("utf-8"))
-        else:
-            with open(self.name, "ab") as f:
-                f.write(line)
-
     def remove(self, user_name):
         user_name = bstr(user_name)
         with open(self.name, "rb") as f:
@@ -520,13 +510,17 @@ class AuthFile(object):
     def update(self, user_name, password):
         user_name = bstr(user_name)
         password = bstr(password)
+        updated = False
         with open(self.name, "rb") as f:
             lines = []
             for line in f.readlines():
                 if AuthUser.match(line, user_name):
                     lines.append(AuthUser.create(user_name, password).dump())
+                    updated = True
                 else:
                     lines.append(line)
+        if not updated:
+            lines.append(AuthUser.create(user_name, password).dump())
         with open(self.name, "wb") as f:
             f.writelines(lines)
 
@@ -609,48 +603,31 @@ def list_users(auth_file):
         click.echo(user.name)
 
 
-@cli.command("add-user", help="""\
-Add a user to a Neo4j auth file.
+@cli.command("del-user", help="""\
+Remove a user from a Neo4j auth file.
+""")
+@click.argument("auth_file")
+@click.argument("user_name")
+def del_user(auth_file, user_name):
+    AuthFile(auth_file).remove(user_name)
+
+
+@cli.command("put-user", help="""\
+Create or set the password for a user in a Neo4j auth file.
 
 For general interactive use, password and confirmation prompts will be presented.
 For batch mode, use the --password option.
 
 Example:
 
-    py2neo-admin add-user data/dbms/auth alice
+    py2neo-admin put-user data/dbms/auth alice
 
 If AUTH_FILE contains only a dash `-` then the auth file entry will be written to stdout instead.
 """)
 @click.argument("auth_file")
 @click.argument("user_name")
 @click.password_option()
-def add_user(auth_file, user_name, password):
-    AuthFile(auth_file).append(user_name, password)
-
-
-@cli.command("remove-user", help="""\
-Remove a user from a Neo4j auth file.
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-def remove_user(auth_file, user_name):
-    AuthFile(auth_file).remove(user_name)
-
-
-@cli.command("set-password", help="""\
-Set the password for a user in a Neo4j auth file.
-
-For general interactive use, password and confirmation prompts will be presented.
-For batch mode, use the --password option.
-
-Example:
-
-    py2neo-admin set-password data/dbms/auth alice
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-@click.password_option()
-def set_password(auth_file, user_name, password):
+def put_user(auth_file, user_name, password):
     AuthFile(auth_file).update(user_name, password)
 
 

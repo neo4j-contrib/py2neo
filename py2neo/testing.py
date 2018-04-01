@@ -30,11 +30,7 @@ def run_tests(versions, user, password):
         name = uuid4().hex
         installation = warehouse.install(name, "community", version)
         print("Installed Neo4j community %s to %s" % (version, installation.home))
-        existing_user_names = [u.name for u in list(installation.auth)]
-        if user in existing_user_names:
-            installation.auth.update(user, password)
-        else:
-            installation.auth.append(user, password)
+        installation.auth.update(user, password)
         pid = installation.server.start()
         print("Started Neo4j server with PID %d" % pid)
         try:
