@@ -20,4 +20,3 @@ script:
   - mkvirtualenv p
   - pip install .
   - deactivate
-  - rmvirtualenv p
