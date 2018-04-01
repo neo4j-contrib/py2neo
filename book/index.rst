@@ -54,6 +54,6 @@ Library Reference
    admin
 
 
-.. _Neo4j: http://neo4j.com/
+.. _Neo4j: https://neo4j.com/
 .. _pip: https://pip.pypa.io/
 .. _Python: https://www.python.org/
