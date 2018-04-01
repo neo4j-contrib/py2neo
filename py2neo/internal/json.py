@@ -57,9 +57,9 @@ class JSONHydrator(Hydrator):
                     else:
                         return hydrate_node(graph, uri_to_id(data["self"]), inst=inst, **data)
                 elif "nodes" in data and "relationships" in data:
+                    data["nodes"] = list(map(uri_to_id, data["nodes"]))
+                    data["relationships"] = list(map(uri_to_id, data["relationships"]))
                     if "directions" not in data:
-                        data["nodes"] = list(map(uri_to_id, data["nodes"]))
-                        data["relationships"] = list(map(uri_to_id, data["relationships"]))
                         directions = []
                         relationships = graph.evaluate(
                             "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",

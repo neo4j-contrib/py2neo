@@ -208,8 +208,8 @@ class RecordTestCase(TestCase):
     def test_can_build_record(self):
         record = Record(["name", "age"], ["Alice", 33])
         assert len(record) == 2
-        assert record.keys() == ("name", "age")
-        assert record.values() == ("Alice", 33)
+        assert record.keys() == ["name", "age"]
+        assert record.values() == ["Alice", 33]
         assert record.items() == [("name", "Alice"), ("age", 33)]
         assert record.data() == {"name": "Alice", "age": 33}
         r = repr(record)

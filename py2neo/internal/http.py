@@ -389,7 +389,7 @@ class HTTPStatementResult(StatementResult):
         """
         if self.attached():
             self._session.send()
-            records = self._records
-            next_record = records.popleft
-            while records:
-                yield next_record()
+        records = self._records
+        next_record = records.popleft
+        while records:
+            yield next_record()

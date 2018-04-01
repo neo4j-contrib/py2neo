@@ -25,7 +25,7 @@ class ParallelTestCase(GraphTestCase):
         tx = self.graph.begin()
         outer_result = tx.run("UNWIND range(1, 10) AS n RETURN n")
         inner_result = self.graph.run("CREATE (a) RETURN a")
-        outer_result_list = list(outer_result)
+        outer_result_list = list(map(tuple, outer_result))
         tx.rollback()
         record = inner_result.next()
         created = record[0]

@@ -749,10 +749,6 @@ class Result(object):
         self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
-    @property
-    def loaded(self):
-        return not self.result.online()
-
     def keys(self):
         """ Return the keys for the whole data set.
         """
@@ -962,9 +958,9 @@ class Transaction(object):
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
         else:
-            result = Result(self.graph, entities, result)
-            self.results.append(result)
-            return Cursor(result)
+            r = Result(self.graph, entities, result)
+            self.results.append(r)
+            return Cursor(r)
         finally:
             if not self.transaction:
                 self.finish()
@@ -1351,7 +1347,11 @@ class Cursor(object):
         :return: the full query result
         :rtype: `list` of `dict`
         """
-        return [record.data() for record in self]
+        data = []
+        for record in self:
+            record_data = record.data()
+            data.append(record_data)
+        return data
 
 
 class Record(tuple, Mapping):
@@ -1400,10 +1400,10 @@ class Record(tuple, Mapping):
         return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
 
     def keys(self):
-        return self.__keys
+        return list(self.__keys)
 
     def values(self):
-        return tuple(self)
+        return list(self)
 
     def items(self):
         return list(zip(self.__keys, self))
