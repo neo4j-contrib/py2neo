@@ -21,7 +21,7 @@ from uuid import uuid4
 from pytest import main as test_main
 
 from py2neo import reset_py2neo
-from py2neo.admin import Warehouse
+from py2neo.admin import Warehouse, minor_versions
 
 
 def run_tests(versions, user, password):
@@ -42,7 +42,7 @@ def run_tests(versions, user, password):
 
 
 def main():
-    versions = ["3.4", "3.3", "3.2", "3.1", "3.0"]
+    versions = list(reversed(minor_versions))
     user = "neo4j"
     password = "password"
     print("Running tests")
