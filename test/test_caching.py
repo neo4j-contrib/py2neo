@@ -204,7 +204,7 @@ class EntityCacheTestCase(TestCase):
         try:
             t0 = time()
             count = 0
-            while time() - t0 < 8:
+            while time() - t0 < 3:
                 choice(threads).perform_random_action()
                 count += 1
             print("Performed %d actions across %d threads in %.03fs" %

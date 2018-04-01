@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from pytest import main as test_main
 
-from py2neo import reset_py2neo
+from py2neo.database import Database
 from py2neo.admin import Warehouse, minor_versions
 
 
@@ -38,7 +38,7 @@ def run_tests(versions, user, password):
         finally:
             installation.server.stop()
             warehouse.uninstall(name)
-            reset_py2neo()
+            Database.forget_all()
 
 
 def main():

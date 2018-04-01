@@ -47,13 +47,6 @@ update_stats_keys = [
 ]
 
 
-def reset_py2neo():
-    for _, db in Database._instances.items():
-        db._driver.close()
-        db._driver = None
-    Database._instances.clear()
-
-
 class Database(object):
     """ Accessor for an entire Neo4j graph database installation over
     Bolt or HTTP. Within the py2neo object hierarchy, a :class:`.Database`
@@ -79,6 +72,15 @@ class Database(object):
     _driver = None
     _graphs = None
 
+    @classmethod
+    def forget_all(cls):
+        """ Forget all cached :class:`.Database` details.
+        """
+        for _, db in cls._instances.items():
+            db._driver.close()
+            db._driver = None
+        cls._instances.clear()
+
     def __new__(cls, uri=None, **settings):
         connection_data = get_connection_data(uri, **settings)
         key = connection_data["hash"]
@@ -98,7 +100,9 @@ class Database(object):
         return inst
 
     def __repr__(self):
-        return "<%s uri=%r>" % (self.__class__.__name__, self._connection_data["uri"])
+        class_name = self.__class__.__name__
+        data = self._connection_data
+        return "<%s uri=%r secure=%r user_agent=%r>" % (class_name, data["uri"], data["secure"], data["user_agent"])
 
     def __eq__(self, other):
         try:
