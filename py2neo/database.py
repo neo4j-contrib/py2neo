@@ -110,7 +110,7 @@ class Database(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return self._connection_data["hash"]
+        return hash(self._connection_data["hash"])
 
     def __contains__(self, database):
         return database in self._graphs
