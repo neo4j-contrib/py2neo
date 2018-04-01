@@ -10,12 +10,10 @@ python:
   - "3.6"
   - "3.7-dev"
 
+install:
+  - sudo apt-get update && sudo apt-get install oracle-java8-set-default
+
 script:
   - ./check_legal.sh
-  - sudo apt-get update && sudo apt-get install python-virtualenv oracle-java8-set-default
-  - pip install coverage mock -r requirements.txt
-  - coverage erase
-  - coverage run --append --module py2neo.testing -v
-  - NEO4J_URI=http://localhost:7474 coverage run --append --module py2neo.testing -v
-  - coverage report
+  - ./run_tests.sh
   - ./check_install.sh
