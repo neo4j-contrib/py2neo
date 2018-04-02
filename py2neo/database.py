@@ -366,7 +366,7 @@ class Graph(object):
         with self.begin() as tx:
             tx.create(subgraph)
 
-    def data(self, statement, parameters=None, **kwparameters):
+    def data(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
         `autocommit` :class:`.Transaction` and extract the data
         as a list of dictionaries.
@@ -374,34 +374,22 @@ class Graph(object):
         For example::
 
             >>> from py2neo import Graph
-            >>> graph = Graph(password="excalibur")
+            >>> graph = Graph()
             >>> graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4")
             [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
              {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
              {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
              {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
 
-        The extracted data can then be easily passed into an external data handler such as a
-        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
-        for subsequent processing::
-
-            >>> from pandas import DataFrame
-            >>> DataFrame(graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4"))
-               a.born              a.name
-            0    1964        Keanu Reeves
-            1    1967    Carrie-Anne Moss
-            2    1961  Laurence Fishburne
-            3    1960        Hugo Weaving
-
         .. seealso:: :meth:`.Cursor.data`
 
-        :param statement: Cypher statement
+        :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :param kwparameters: additional keyword parameters
         :return: the full query result
         :rtype: `list` of `dict`
         """
-        return self.begin(autocommit=True).run(statement, parameters, **kwparameters).data()
+        return self.begin(autocommit=True).run(cypher, parameters, **kwparameters).data()
 
     def degree(self, subgraph):
         """ Run a :meth:`.Transaction.degree` operation within an
@@ -434,16 +422,16 @@ class Graph(object):
         self.node_cache.clear()
         self.relationship_cache.clear()
 
-    def evaluate(self, statement, parameters=None, **kwparameters):
+    def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.evaluate` operation within an
         `autocommit` :class:`.Transaction`.
 
-        :param statement: Cypher statement
+        :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :return: first value from the first record returned or
                  :py:const:`None`.
         """
-        return self.begin(autocommit=True).evaluate(statement, parameters, **kwparameters)
+        return self.begin(autocommit=True).evaluate(cypher, parameters, **kwparameters)
 
     def exists(self, subgraph):
         """ Run a :meth:`.Transaction.exists` operation within an
@@ -623,16 +611,16 @@ class Graph(object):
         """
         return frozenset(record[0] for record in self.run("CALL db.relationshipTypes"))
 
-    def run(self, statement, parameters=None, **kwparameters):
+    def run(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
         `autocommit` :class:`.Transaction`.
 
-        :param statement: Cypher statement
+        :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :param kwparameters: extra keyword parameters
         :return:
         """
-        return self.begin(autocommit=True).run(statement, parameters, **kwparameters)
+        return self.begin(autocommit=True).run(cypher, parameters, **kwparameters)
 
     def separate(self, subgraph):
         """ Run a :meth:`.Transaction.separate` operation within an
@@ -938,11 +926,11 @@ class Transaction(object):
         """
         return self._finished
 
-    def run(self, statement, parameters=None, **kwparameters):
+    def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher statement to the server for execution and return
         a :py:class:`.Cursor` for navigating its result.
 
-        :param statement: Cypher statement
+        :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
@@ -956,9 +944,9 @@ class Transaction(object):
 
         try:
             if self.transaction:
-                result = self.transaction.run(statement, parameters, **kwparameters)
+                result = self.transaction.run(cypher, parameters, **kwparameters)
             else:
-                result = self.session.run(statement, parameters, **kwparameters)
+                result = self.session.run(cypher, parameters, **kwparameters)
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
         else:
@@ -999,15 +987,15 @@ class Transaction(object):
             self.transaction.success = False
         self.finish()
 
-    def evaluate(self, statement, parameters=None, **kwparameters):
+    def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
         the first column of the first record.
 
-        :param statement: Cypher statement
+        :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :returns: single return value or :const:`None`
         """
-        return self.run(statement, parameters, **kwparameters).evaluate(0)
+        return self.run(cypher, parameters, **kwparameters).evaluate(0)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a
@@ -1323,30 +1311,12 @@ class Cursor(object):
         ::
 
             >>> from py2neo import Graph
-            >>> graph = Graph(password="excalibur")
+            >>> graph = Graph()
             >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data()
             [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
              {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
              {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
              {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
-
-        The extracted data can then be easily passed into an external data handler such as a
-        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_
-        for subsequent processing::
-
-            >>> from pandas import DataFrame
-            >>> DataFrame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data())
-               a.born              a.name
-            0    1964        Keanu Reeves
-            1    1967    Carrie-Anne Moss
-            2    1961  Laurence Fishburne
-            3    1960        Hugo Weaving
-
-        Similarly, to output the result data as a JSON-formatted string::
-
-            >>> import json
-            >>> json.dumps(graph.run("UNWIND range(1, 3) AS n RETURN n").data())
-            '[{"n": 1}, {"n": 2}, {"n": 3}]'
 
         :return: the full query result
         :rtype: `list` of `dict`
@@ -1356,6 +1326,46 @@ class Cursor(object):
             record_data = record.data()
             data.append(record_data)
         return data
+
+    def data_frame(self):
+        """ Consume and extract the entire result as a
+        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
+        Note that Pandas must be installed for this method to be available.
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph()
+            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data_frame()
+               a.born              a.name
+            0    1964        Keanu Reeves
+            1    1967    Carrie-Anne Moss
+            2    1961  Laurence Fishburne
+            3    1960        Hugo Weaving
+
+        :return: result data
+        """
+        try:
+            from pandas import DataFrame
+        except ImportError:
+            raise RuntimeError("Cursor.data_frame() requires Pandas, which is not installed")
+        else:
+            return DataFrame(self.data())
+
+    def subgraph(self):
+        """ Return a :class:`.Subgraph` containing the union of all the
+        graph structures in this result.
+        """
+        s = None
+        for record in self:
+            s_ = record.subgraph()
+            if s_ is None:
+                continue
+            if s is None:
+                s = s_
+            else:
+                s |= s_
+        return s
 
 
 class Record(tuple, Mapping):
@@ -1414,6 +1424,14 @@ class Record(tuple, Mapping):
 
     def data(self):
         return dict(self)
+
+    def series(self):
+        try:
+            from pandas import Series
+        except ImportError:
+            raise RuntimeError("Record.series() requires Pandas, which is not installed")
+        else:
+            return Series(self.data())
 
     def subgraph(self):
         nodes = []
