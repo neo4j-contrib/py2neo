@@ -70,18 +70,6 @@ class LabelSetView(object):
     def __contains__(self, element):
         return element in self.__elements
 
-    def __and__(self, other):
-        return self.__elements & set(other)
-
-    def __or__(self, other):
-        return self.__elements | set(other)
-
-    def __sub__(self, other):
-        return self.__elements - set(other)
-
-    def __xor__(self, other):
-        return self.__elements ^ set(other)
-
 
 class PropertyDictView(object):
 
