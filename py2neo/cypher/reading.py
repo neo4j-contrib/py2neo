@@ -34,23 +34,31 @@ cypher_keywords = [
     "ASC",
     "ASCENDING",
     "ASSERT",
+    "ASSERT EXISTS",
     "CALL",
+    "CONSTRAINT ON",
     "CREATE",
-    "CREATE CONSTRAINT ON",
-    "CREATE INDEX ON",
     "CREATE UNIQUE",
+    "CYPHER",
     "DELETE",
     "DESC",
     "DESCENDING",
     "DETACH DELETE",
-    "DROP CONSTRAINT ON",
-    "DROP INDEX ON",
+    "DO",
+    "DROP",
     "EXPLAIN",
     "FIELDTERMINATOR",
     "FOREACH",
     "FROM",
+    "GRAPH",
+    "GRAPH AT",
+    "GRAPH OF",
     "INDEX ON",
+    "INTO",
+    "IS NODE KEY",
+    "IS UNIQUE",
     "LIMIT",
+    "LOAD",
     "LOAD CSV",
     "MATCH",
     "MERGE",
@@ -58,13 +66,19 @@ cypher_keywords = [
     "ON MATCH SET",
     "OPTIONAL MATCH",
     "ORDER BY",
+    "PERSIST",
+    "_PRAGMA",
     "PROFILE",
     "REMOVE",
+    "RELOCATE",
     "RETURN",
     "RETURN DISTINCT",
     "SET",
     "SKIP",
+    "SNAPSHOT",
+    "SOURCE",
     "START",
+    "TARGET",
     "UNION",
     "UNION ALL",
     "UNWIND",
@@ -77,6 +91,7 @@ cypher_keywords = [
     "WITH DISTINCT",
     "WITH HEADERS",
     "YIELD",
+    ">>",
 ]
 cypher_pseudo_keywords = [
     "BEGIN",
@@ -205,6 +220,42 @@ neo4j_built_in_functions = [
     "type",
 ]
 
+neo4j_user_defined_functions = [
+    "date",
+    "date.realtime",
+    "date.statement",
+    "date.transaction",
+    "date.truncate",
+    "datetime",
+    "datetime.fromepoch",
+    "datetime.fromepochmillis",
+    "datetime.realtime",
+    "datetime.statement",
+    "datetime.transaction",
+    "datetime.truncate",
+    "duration",
+    "duration.between",
+    "duration.inDays",
+    "duration.inMonths",
+    "duration.inSeconds",
+    "localdatetime",
+    "localdatetime.realtime",
+    "localdatetime.statement",
+    "localdatetime.transaction",
+    "localdatetime.truncate",
+    "localtime",
+    "localtime.realtime",
+    "localtime.statement",
+    "localtime.transaction",
+    "localtime.truncate",
+    "randomUUID",
+    "time",
+    "time.realtime",
+    "time.statement",
+    "time.transaction",
+    "time.truncate"
+]
+
 
 def word_list(words, token_type):
     return list(reversed(sorted((word.replace(" ", r"\s+") + r"\b", token_type) for word in words)))
@@ -219,7 +270,7 @@ class CypherLexer(RegexLexer):
     For `Cypher Query Language
     <https://neo4j.com/docs/cypher-refcard/current/>`_
 
-    For the Cypher version in Neo4j 3.2
+    For the Cypher version in Neo4j 3.4
     """
     name = 'Cypher'
     aliases = ['cypher']
