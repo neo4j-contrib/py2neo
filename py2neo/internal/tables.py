@@ -18,7 +18,8 @@
 
 import click
 
-from py2neo.internal.compat import numeric_types, ustr
+from py2neo.cypher.writing import cypher_repr, cypher_str
+from py2neo.internal.compat import numeric_types, unicode_types, ustr
 
 
 class Table(object):
@@ -147,7 +148,7 @@ class TabularResultWriter(ResultWriter):
                 break
         table.echo(header_style={"fg": "cyan", "bold": True})
         click.echo()
-        return table.calc_size()
+        return table.size()
 
 
 class CSVResultWriter(ResultWriter):
