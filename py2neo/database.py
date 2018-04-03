@@ -22,7 +22,7 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 
-from py2neo.cypher.writing import cypher_escape
+from py2neo.cypher.writing import cypher_escape, cypher_repr
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -1327,31 +1327,6 @@ class Cursor(object):
             data.append(record_data)
         return data
 
-    def data_frame(self):
-        """ Consume and extract the entire result as a
-        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
-        Note that Pandas must be installed for this method to be available.
-
-        ::
-
-            >>> from py2neo import Graph
-            >>> graph = Graph()
-            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data_frame()
-               a.born              a.name
-            0    1964        Keanu Reeves
-            1    1967    Carrie-Anne Moss
-            2    1961  Laurence Fishburne
-            3    1960        Hugo Weaving
-
-        :return: result data
-        """
-        try:
-            from pandas import DataFrame
-        except ImportError:
-            raise RuntimeError("Cursor.data_frame() requires Pandas, which is not installed")
-        else:
-            return DataFrame(self.data())
-
     def subgraph(self):
         """ Return a :class:`.Subgraph` containing the union of all the
         graph structures in this result.
@@ -1424,14 +1399,6 @@ class Record(tuple, Mapping):
 
     def data(self):
         return dict(self)
-
-    def series(self):
-        try:
-            from pandas import Series
-        except ImportError:
-            raise RuntimeError("Record.series() requires Pandas, which is not installed")
-        else:
-            return Series(self.data())
 
     def subgraph(self):
         nodes = []
