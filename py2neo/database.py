@@ -1332,11 +1332,10 @@ class Cursor(object):
         """
         s = None
         for record in self:
-            s_ = record.subgraph()
-            if s_ is None:
-                continue
-            if s is None:
-                s = s_
-            else:
-                s |= s_
+            for value in record.values():
+                if isinstance(value, Subgraph):
+                    if s is None:
+                        s = value
+                    else:
+                        s |= value
         return s
