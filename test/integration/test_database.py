@@ -20,9 +20,10 @@ from __future__ import absolute_import
 
 from unittest import TestCase
 
+from neo4j.v1 import Record
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
-from py2neo.database import Database, Graph, Record, GraphError, TransactionFinished
+from py2neo.database import Database, Graph, GraphError, TransactionFinished
 from py2neo.internal.json import JSONHydrator
 from py2neo.types import Node, Relationship, Path, order, size
 
@@ -41,10 +42,10 @@ carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
 dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
 
 record_keys = ["employee_id", "Person"]
-record_a = Record(record_keys, [1001, alice])
-record_b = Record(record_keys, [1002, bob])
-record_c = Record(record_keys, [1003, carol])
-record_d = Record(record_keys, [1004, dave])
+record_a = Record(zip(record_keys, [1001, alice]))
+record_b = Record(zip(record_keys, [1002, bob]))
+record_c = Record(zip(record_keys, [1003, carol]))
+record_d = Record(zip(record_keys, [1004, dave]))
 
 
 class DatabaseSquareOneTestCase(TestCase):
@@ -864,7 +865,7 @@ class CursorCurrentTestCase(GraphTestCase):
         n = 0
         while cursor.forward():
             n += 1
-            assert cursor.current() == Record(["n"], [n])
+            assert cursor.current() == Record(zip(["n"], [n]))
 
 
 class CursorSelectionTestCase(GraphTestCase):
@@ -872,7 +873,7 @@ class CursorSelectionTestCase(GraphTestCase):
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
         record = cursor.next()
-        assert record == Record(["1"], [1])
+        assert record == Record(zip(["1"], [1]))
 
     def test_cannot_select_past_end(self):
         cursor = self.graph.run("RETURN 1")
@@ -893,7 +894,7 @@ class CursorAsIteratorTestCase(GraphTestCase):
     def test_can_use_next_function(self):
         cursor = self.graph.run("RETURN 1")
         record = next(cursor)
-        assert record == Record(["1"], [1])
+        assert record == Record(zip(["1"], [1]))
 
     def test_raises_stop_iteration(self):
         cursor = self.graph.run("RETURN 1")
@@ -907,26 +908,26 @@ class CursorStreamingTestCase(GraphTestCase):
     def test_stream_yields_all(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         record_list = list(cursor)
-        assert record_list == [Record(["n", "n_sq"], [1, 1]),
-                               Record(["n", "n_sq"], [2, 4]),
-                               Record(["n", "n_sq"], [3, 9]),
-                               Record(["n", "n_sq"], [4, 16]),
-                               Record(["n", "n_sq"], [5, 25]),
-                               Record(["n", "n_sq"], [6, 36]),
-                               Record(["n", "n_sq"], [7, 49]),
-                               Record(["n", "n_sq"], [8, 64]),
-                               Record(["n", "n_sq"], [9, 81]),
-                               Record(["n", "n_sq"], [10, 100])]
+        assert record_list == [Record(zip(["n", "n_sq"], [1, 1])),
+                               Record(zip(["n", "n_sq"], [2, 4])),
+                               Record(zip(["n", "n_sq"], [3, 9])),
+                               Record(zip(["n", "n_sq"], [4, 16])),
+                               Record(zip(["n", "n_sq"], [5, 25])),
+                               Record(zip(["n", "n_sq"], [6, 36])),
+                               Record(zip(["n", "n_sq"], [7, 49])),
+                               Record(zip(["n", "n_sq"], [8, 64])),
+                               Record(zip(["n", "n_sq"], [9, 81])),
+                               Record(zip(["n", "n_sq"], [10, 100]))]
 
     def test_stream_yields_remainder(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         cursor.forward(5)
         record_list = list(cursor)
-        assert record_list == [Record(["n", "n_sq"], [6, 36]),
-                               Record(["n", "n_sq"], [7, 49]),
-                               Record(["n", "n_sq"], [8, 64]),
-                               Record(["n", "n_sq"], [9, 81]),
-                               Record(["n", "n_sq"], [10, 100])]
+        assert record_list == [Record(zip(["n", "n_sq"], [6, 36])),
+                               Record(zip(["n", "n_sq"], [7, 49])),
+                               Record(zip(["n", "n_sq"], [8, 64])),
+                               Record(zip(["n", "n_sq"], [9, 81])),
+                               Record(zip(["n", "n_sq"], [10, 100]))]
 
 
 class CursorEvaluationTestCase(GraphTestCase):
@@ -956,86 +957,3 @@ class CursorEvaluationTestCase(GraphTestCase):
         cursor = self.graph.run("RETURN 1")
         value = cursor.evaluate(1)
         assert value is None
-
-
-class RecordTestCase(TestCase):
-
-    def test_can_build_record(self):
-        record = Record(["name", "age"], ["Alice", 33])
-        assert len(record) == 2
-        assert record.keys() == ["name", "age"]
-        assert record.values() == ["Alice", 33]
-        assert record.items() == [("name", "Alice"), ("age", 33)]
-        assert record.data() == {"name": "Alice", "age": 33}
-        r = repr(record)
-        assert r.startswith("(") and r.endswith(")")
-
-    def test_cannot_build_record_with_mismatched_keys_and_values(self):
-        with self.assertRaises(ValueError):
-            Record(["name"], ["Alice", 33])
-
-    def test_can_coerce_record(self):
-        record = Record(["name", "age"], ["Alice", 33])
-        assert tuple(record) == ("Alice", 33)
-        assert list(record) == ["Alice", 33]
-        assert dict(record) == {"name": "Alice", "age": 33}
-
-    def test_can_get_record_value_by_name(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record["one"] == "eins"
-        assert record["two"] == "zwei"
-        assert record["three"] == "drei"
-
-    def test_cannot_get_record_value_by_missing_name(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        with self.assertRaises(KeyError):
-            _ = record["four"]
-
-    def test_can_get_record_value_by_index(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record[0] == "eins"
-        assert record[1] == "zwei"
-        assert record[2] == "drei"
-        assert record[-1] == "drei"
-
-    def test_can_get_record_values_by_slice(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record[0:2] == Record(["one", "two"], ["eins", "zwei"])
-        assert record[1:2] == Record(["two"], ["zwei"])
-        assert record[1:3] == Record(["two", "three"], ["zwei", "drei"])
-        assert record[1:] == Record(["two", "three"], ["zwei", "drei"])
-
-    def test_can_get_record_values_by_slice_using_getitem(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        assert record.__getitem__(slice(0, 2)) == Record(["one", "two"], ["eins", "zwei"])
-
-    def test_can_get_record_values_by_slice_using_getslice(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        try:
-            s = record.__getslice__(0, 2)
-        except AttributeError:
-            assert True
-        else:
-            assert s == Record(["one", "two"], ["eins", "zwei"])
-
-    def test_cannot_get_record_value_by_anything_else(self):
-        record = Record(["one", "two", "three"], ["eins", "zwei", "drei"])
-        with self.assertRaises(TypeError):
-            _ = record[None]
-
-    def test_record_can_be_converted_to_subgraph(self):
-        keys = ["a", "b", "ab", "msg"]
-        values = [alice, bob, alice_knows_bob, "hello, world"]
-        record = Record(keys, values)
-        subgraph = record.subgraph()
-        assert order(subgraph) == 2
-        assert size(subgraph) == 1
-        assert set(subgraph.nodes) == {alice, bob}
-        assert set(subgraph.relationships) == {alice_knows_bob}
-
-    def test_record_with_no_graphy_objects_converts_to_null_subgraph(self):
-        keys = ["a", "b", "c"]
-        values = [1, 2.0, "three"]
-        record = Record(keys, values)
-        subgraph = record.subgraph()
-        assert subgraph is None

@@ -738,7 +738,6 @@ class Result(object):
             self.result._hydrant = PackStreamHydrator(graph, result.keys(), entities)
         else:
             raise RuntimeError("Unexpected statement result class %r" % result.__class__.__name__)
-        self.result.zipper = Record
         self.result_iterator = iter(self.result)
 
     def keys(self):
@@ -1341,74 +1340,3 @@ class Cursor(object):
             else:
                 s |= s_
         return s
-
-
-class Record(tuple, Mapping):
-    """ A :class:`.Record` holds a collection of result values that are
-    both indexed by position and keyed by name. A `Record` instance can
-    therefore be seen as a combination of a `tuple` and a `Mapping`.
-    """
-
-    def __new__(cls, keys, values):
-        if len(keys) == len(values):
-            return super(Record, cls).__new__(cls, values)
-        else:
-            raise ValueError("Keys and values must be of equal length")
-
-    def __init__(self, keys, values):
-        self.__keys = tuple(keys)
-        self.__repr = None
-
-    def __repr__(self):
-        r = self.__repr
-        if r is None:
-            s = ["("]
-            for i, key in enumerate(self.__keys):
-                if i > 0:
-                    s.append(", ")
-                s.append(repr(key))
-                s.append(": ")
-                s.append(repr(self[i]))
-            s.append(")")
-            r = self.__repr = "".join(s)
-        return r
-
-    def __getitem__(self, item):
-        if isinstance(item, string_types):
-            try:
-                return tuple.__getitem__(self, self.__keys.index(item))
-            except ValueError:
-                raise KeyError(item)
-        elif isinstance(item, slice):
-            return self.__class__(self.__keys[item.start:item.stop],
-                                  tuple.__getitem__(self, item))
-        else:
-            return tuple.__getitem__(self, item)
-
-    def __getslice__(self, i, j):
-        return self.__class__(self.__keys[i:j], tuple.__getslice__(self, i, j))
-
-    def keys(self):
-        return list(self.__keys)
-
-    def values(self):
-        return list(self)
-
-    def items(self):
-        return list(zip(self.__keys, self))
-
-    def data(self):
-        return dict(self)
-
-    def subgraph(self):
-        nodes = []
-        relationships = []
-        for value in self:
-            if hasattr(value, "nodes"):
-                nodes.extend(value.nodes)
-            if hasattr(value, "relationships"):
-                relationships.extend(value.relationships)
-        if nodes:
-            return Subgraph(nodes, relationships)
-        else:
-            return None
