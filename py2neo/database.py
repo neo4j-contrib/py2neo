@@ -22,11 +22,12 @@ from collections import deque
 from datetime import datetime
 from time import sleep
 
-from py2neo.cypher.writing import cypher_escape, cypher_repr
+from py2neo.cypher.writing import cypher_escape
+from py2neo.tables import DataTable
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
-from py2neo.internal.compat import Mapping, string_types, xstr
+from py2neo.internal.compat import string_types, xstr
 from py2neo.internal.util import version_tuple, title_case
 from py2neo.selection import NodeSelector
 from py2neo.types import Subgraph, Node
@@ -1303,28 +1304,11 @@ class Cursor(object):
             return None
 
     def data(self):
-        """ Consume and extract the entire result as a list of
-        dictionaries. This method generates a self-contained set of
-        result data using only Python-native data types.
-
-        ::
-
-            >>> from py2neo import Graph
-            >>> graph = Graph()
-            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data()
-            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
-             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
-             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
-             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
+        """ Consume and extract the entire result as a :class:`.DataTable`.
 
         :return: the full query result
-        :rtype: `list` of `dict`
         """
-        data = []
-        for record in self:
-            record_data = record.data()
-            data.append(record_data)
-        return data
+        return DataTable(self)
 
     def subgraph(self):
         """ Return a :class:`.Subgraph` containing the union of all the
