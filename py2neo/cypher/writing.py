@@ -182,7 +182,7 @@ class CypherEncoder(object):
             return self.encode_list(value)
         if isinstance(value, dict):
             return self.encode_map(value)
-        raise TypeError("Values of type %s are not supported" % value.__class__.__name__)
+        raise TypeError("Values of type %s.%s are not supported" % (type(value).__module__, type(value).__name__))
 
     def encode_string(self, value):
         value = ustr(value)

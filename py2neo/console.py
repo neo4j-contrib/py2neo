@@ -28,7 +28,8 @@ from textwrap import dedent
 from timeit import default_timer as timer
 
 import click
-from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
+from neo4j.exceptions import ServiceUnavailable, CypherError
+from neo4j.v1 import TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
@@ -37,8 +38,8 @@ from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
-# from py2neo.internal.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
 from py2neo.data import DataList
+from py2neo.database import Graph
 from py2neo.meta import __version__
 
 
@@ -113,7 +114,7 @@ class Console(object):
 
     def __init__(self, uri, auth, secure=True, verbose=False):
         try:
-            self.driver = GraphDatabase.driver(uri, auth=auth, encrypted=secure)
+            self.graph = Graph(uri, auth=auth, secure=secure)
         except ServiceUnavailable as error:
             raise ConsoleError("Could not connect to {} -- {}".format(uri, error))
         self.uri = uri
@@ -161,7 +162,6 @@ class Console(object):
             "/kernel": self.kernel,
 
         }
-        self.session = None
         self.tx = None
         self.tx_counter = 0
 
@@ -213,8 +213,7 @@ class Console(object):
 
     def begin_transaction(self):
         if self.tx is None:
-            self.session = self.driver.session()
-            self.tx = self.session.begin_transaction()
+            self.tx = self.graph.begin()
             self.tx_counter = 1
             click.secho(u"--- BEGIN at {} ---".format(datetime.now()),
                         err=True, fg=self.tx_colour, bold=True)
@@ -222,30 +221,26 @@ class Console(object):
             click.secho(u"Transaction already open", err=True, fg=self.err_colour)
 
     def commit_transaction(self):
-        if self.session:
+        if self.tx:
             try:
-                self.session.commit_transaction()
+                self.tx.commit()
                 click.secho(u"--- COMMIT at {} ---".format(datetime.now()),
                             err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
-                self.session.close()
-                self.session = None
         else:
             click.secho(u"No current transaction", err=True, fg=self.err_colour)
 
     def rollback_transaction(self):
-        if self.session:
+        if self.tx:
             try:
-                self.session.rollback_transaction()
+                self.tx.rollback()
                 click.secho(u"--- ROLLBACK at {} ---".format(datetime.now()),
                             err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
-                self.session.close()
-                self.session = None
         else:
             click.secho(u"No current transaction", err=True, fg=self.err_colour)
 
@@ -277,8 +272,7 @@ class Console(object):
             elif statement.upper() == "ROLLBACK":
                 self.rollback_transaction()
             elif self.tx is None:
-                with self.driver.session() as session:
-                    self.run_cypher(session.run, statement, {})
+                self.run_cypher(self.graph.run, statement, {})
             else:
                 self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
                 self.tx_counter += 1
@@ -290,7 +284,7 @@ class Console(object):
         status = u"{} record{} from {} in {:.3f}s".format(
             record_count,
             "" if record_count == 1 else "s",
-            address_str(result.summary().server.address),
+            "server",  # TODO: summary -- address_str(result.summary().server.address),
             timer() - t0,
         )
         if line_no:
@@ -369,18 +363,20 @@ class Console(object):
         return unit_of_work
 
     def run_read_tx(self, *args, **kwargs):
-        if args:
-            with self.driver.session() as session:
-                session.read_transaction(self.load_unit_of_work(args[0]))
-        else:
-            click.secho("Usage: /r FILE", err=True, fg=self.err_colour)
+        raise NotImplementedError()
+        # if args:
+        #     with self.driver.session() as session:
+        #         session.read_transaction(self.load_unit_of_work(args[0]))
+        # else:
+        #     click.secho("Usage: /r FILE", err=True, fg=self.err_colour)
 
     def run_write_tx(self, *args, **kwargs):
-        if args:
-            with self.driver.session() as session:
-                session.write_transaction(self.load_unit_of_work(args[0]))
-        else:
-            click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
+        raise NotImplementedError()
+        # if args:
+        #     with self.driver.session() as session:
+        #         session.write_transaction(self.load_unit_of_work(args[0]))
+        # else:
+        #     click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
 
     def set_csv_result_writer(self, **kwargs):
         self.result_writer = DataList.write_csv
@@ -392,38 +388,36 @@ class Console(object):
         self.result_writer = DataList.write_tsv
 
     def config(self, **kwargs):
-        with self.driver.session() as session:
-            result = session.run("CALL dbms.listConfig")
-            records = None
-            last_category = None
-            for record in result:
-                name = record["name"]
-                category, _, _ = name.partition(".")
-                if category != last_category:
-                    if records is not None:
-                        DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
-                        click.echo()
-                    records = []
-                records.append((name, record["value"]))
-                last_category = category
-            if records is not None:
-                DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+        result = self.graph.run("CALL dbms.listConfig")
+        records = None
+        last_category = None
+        for record in result:
+            name = record["name"]
+            category, _, _ = name.partition(".")
+            if category != last_category:
+                if records is not None:
+                    DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+                    click.echo()
+                records = []
+            records.append((name, record["value"]))
+            last_category = category
+        if records is not None:
+            DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
     def kernel(self, **kwargs):
-        with self.driver.session() as session:
-            result = session.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
-            records = []
-            for record in result:
-                attributes = record["attributes"]
-                for key, value_dict in sorted(attributes.items()):
-                    value = value_dict["value"]
-                    if key.endswith("Date") or key.endswith("Time"):
-                        try:
-                            value = datetime.fromtimestamp(value / 1000).isoformat(" ")
-                        except:
-                            pass
-                    records.append((key, value))
-            DataList(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+        result = self.graph.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
+        records = []
+        for record in result:
+            attributes = record["attributes"]
+            for key, value_dict in sorted(attributes.items()):
+                value = value_dict["value"]
+                if key.endswith("Date") or key.endswith("Time"):
+                    try:
+                        value = datetime.fromtimestamp(value / 1000).isoformat(" ")
+                    except:
+                        pass
+                records.append((key, value))
+        DataList(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
 
 class ConsoleError(Exception):

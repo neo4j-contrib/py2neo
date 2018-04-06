@@ -18,10 +18,18 @@
 
 from io import StringIO
 
-from click import secho
+from click import echo, secho
 
 from py2neo.cypher.writing import cypher_str, cypher_repr
 from py2neo.internal.compat import ustr, integer_types, string_types, numeric_types
+
+
+def html_escape(s):
+    return (s.replace("&", "&amp;")
+             .replace("<", "&lt;")
+             .replace(">", "&gt;")
+             .replace('"', "&quot;")
+             .replace("'", "&#039;"))
 
 
 class DataList(list):
@@ -59,6 +67,11 @@ class DataList(list):
     def __repr__(self):
         s = StringIO()
         self.write(file=s, header=True)
+        return s.getvalue()
+
+    def _repr_html_(self):
+        s = StringIO()
+        self.write_html(file=s, header=True)
         return s.getvalue()
 
     def keys(self):
@@ -144,6 +157,36 @@ class DataList(list):
 
         apply(calc_widths)
         return apply(write_line)
+
+    def write_html(self, file=None, header=None, skip=None, limit=None, auto_align=True):
+        """ Write data to an HTML table.
+
+        :param file:
+        :param header:
+        :param skip:
+        :param limit:
+        :param auto_align:
+        :return:
+        """
+
+        def write_tr(values, tag):
+            echo("<tr>", file, nl=False)
+            for i, value in enumerate(values):
+                if auto_align and self._fields[i]["numeric"]:
+                    template = '<{} style="text-align:right">{}</{}>'
+                else:
+                    template = '<{} style="text-align:left">{}</{}>'
+                echo(template.format(tag, html_escape(cypher_str(value)), tag), file, nl=False)
+            echo("</tr>", file, nl=False)
+
+        count = 0
+        echo("<table>", file, nl=False)
+        for count, index in enumerate(self._range(skip, limit), start=1):
+            if count == 1 and header:
+                write_tr(self.keys(), "th")
+            write_tr(self[index], "td")
+        echo("</table>", file, nl=False)
+        return count
 
     def write_separated_values(self, separator, file=None, header=None, skip=None, limit=None,
                                newline="\r\n", quote="\""):
