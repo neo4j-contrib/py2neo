@@ -46,11 +46,6 @@ class CypherTestCase(GraphTestCase):
         for record in records:
             assert record.values() == [1]
 
-    def test_can_run_simple_cypher_statement(self):
-        result = self.graph.run("RETURN 1 AS x")
-        data = result.data()
-        self.assertEqual(data, [{"x": 1}])
-
     def test_can_run_cypher_statement(self):
         self.graph.run("MERGE (a:Person {name:'Alice'})")
 

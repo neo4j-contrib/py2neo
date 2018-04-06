@@ -558,11 +558,6 @@ class TransactionRunTestCase(GraphTestCase):
         else:
             assert False
 
-    def test_result_data(self):
-        with self.graph.begin() as tx:
-            data = tx.run("UNWIND range(1, 3) AS n RETURN n, n * n AS n_sq").data()
-            self.assertEqual(data, [{"n": 1, "n_sq": 1}, {"n": 2, "n_sq": 4}, {"n": 3, "n_sq": 9}])
-
 
 class TransactionCreateTestCase(GraphTestCase):
 
