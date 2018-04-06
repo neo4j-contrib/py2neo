@@ -37,7 +37,8 @@ from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
-from py2neo.internal.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
+# from py2neo.internal.tables import Table, TabularResultWriter, CSVResultWriter, TSVResultWriter
+from py2neo.data import DataList
 from py2neo.meta import __version__
 
 
@@ -130,7 +131,7 @@ class Console(object):
             })
         }
         self.lexer = CypherLexer()
-        self.result_writer = TabularResultWriter()
+        self.result_writer = DataList.write
         if verbose:
             from py2neo.watcher import watch
             self.watcher = watch("neo4j.bolt")
@@ -300,14 +301,12 @@ class Console(object):
             click.secho(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
 
     def write_result(self, result, page_size=50):
-        record_count = 0
-        if result.keys():
-            self.result_writer.write_header(result)
-            more = True
-            while more:
-                record_count += self.result_writer.write(result, page_size)
-                more = result.peek() is not None
-        return record_count
+        data = DataList(result)
+        data_size = len(data)
+        for skip in range(0, data_size, page_size):
+            self.result_writer(data, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
+            click.echo("\r\n", nl=False)
+        return data_size
 
     def run_command(self, source):
         source = source.lstrip()
@@ -384,35 +383,36 @@ class Console(object):
             click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
 
     def set_csv_result_writer(self, **kwargs):
-        self.result_writer = CSVResultWriter()
+        self.result_writer = DataList.write_csv
 
     def set_tabular_result_writer(self, **kwargs):
-        self.result_writer = TabularResultWriter()
+        self.result_writer = DataList.write
 
     def set_tsv_result_writer(self, **kwargs):
-        self.result_writer = TSVResultWriter()
+        self.result_writer = DataList.write_tsv
 
     def config(self, **kwargs):
         with self.driver.session() as session:
             result = session.run("CALL dbms.listConfig")
-            table = None
+            records = None
             last_category = None
             for record in result:
                 name = record["name"]
                 category, _, _ = name.partition(".")
                 if category != last_category:
-                    if table is not None:
-                        table.echo(header_style={"fg": "cyan"})
+                    if records is not None:
+                        DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
                         click.echo()
-                    table = Table(["name", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
-                table.append((name, record["value"]))
+                    records = []
+                records.append((name, record["value"]))
                 last_category = category
-            table.echo(header_style={"fg": self.meta_colour})
+            if records is not None:
+                DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
     def kernel(self, **kwargs):
         with self.driver.session() as session:
             result = session.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
-            table = Table(["key", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
+            records = []
             for record in result:
                 attributes = record["attributes"]
                 for key, value_dict in sorted(attributes.items()):
@@ -422,8 +422,8 @@ class Console(object):
                             value = datetime.fromtimestamp(value / 1000).isoformat(" ")
                         except:
                             pass
-                    table.append((key, value))
-            table.echo(header_style={"fg": self.meta_colour})
+                    records.append((key, value))
+            DataList(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
 
 class ConsoleError(Exception):

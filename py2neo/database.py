@@ -23,7 +23,7 @@ from datetime import datetime
 from time import sleep
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.tables import DataTable
+from py2neo.data import DataList
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -1304,11 +1304,11 @@ class Cursor(object):
             return None
 
     def data(self):
-        """ Consume and extract the entire result as a :class:`.DataTable`.
+        """ Consume and extract the entire result as a :class:`.DataList`.
 
         :return: the full query result
         """
-        return DataTable(self)
+        return DataList(self)
 
     def subgraph(self):
         """ Return a :class:`.Subgraph` containing the union of all the
