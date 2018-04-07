@@ -55,10 +55,10 @@ title = "Py2neo console v{}".format(__version__)
 description = "Py2neo console is a Cypher runner and interactive tool for Neo4j."
 history_file = expanduser("~/.py2neo_history")
 quick_help = """\
-  //  to enter multi-line mode (press [Alt]+[Enter] to run)
-  /e  to launch external editor
-  /?  for help
-  /x  to exit\
+  ::  to enter multi-line mode (press [Alt]+[Enter] to run)
+  :e  to launch external editor
+  :?  for help
+  :x  to exit\
 """
 full_help = """\
 If command line arguments are provided, these are executed in order as
@@ -83,20 +83,15 @@ Slash commands provide access to supplementary functionality.
 {}
 
 \b
-Playback commands:
-  /r FILE   load and run a Cypher file in a read transaction
-  /w FILE   load and run a Cypher file in a write transaction
-
-\b
 Formatting commands:
-  /csv      format output as comma-separated values
-  /table    format output in a table
-  /tsv      format output as tab-separated values
+  :csv      format output as comma-separated values
+  :table    format output in a table
+  :tsv      format output as tab-separated values
 
 \b
 Information commands:
-  /config   show Neo4j server configuration
-  /kernel   show Neo4j kernel information
+  :config   show Neo4j server configuration
+  :kernel   show Neo4j kernel information
 
 Report bugs to py2neo@nige.tech\
 """.format(quick_help)
@@ -139,27 +134,22 @@ class Console(object):
 
         self.commands = {
 
-            "//": self.set_multi_line,
-            "/e": self.edit,
+            "::": self.set_multi_line,
+            ":e": self.edit,
 
-            "/?": self.help,
-            "/h": self.help,
-            "/help": self.help,
+            ":?": self.help,
+            ":h": self.help,
+            ":help": self.help,
 
-            "/x": self.exit,
-            "/exit": self.exit,
+            ":x": self.exit,
+            ":exit": self.exit,
 
-            "/r": self.run_read_tx,
-            "/read": self.run_read_tx,
-            "/w": self.run_write_tx,
-            "/write": self.run_write_tx,
+            ":csv": self.set_csv_result_writer,
+            ":table": self.set_tabular_result_writer,
+            ":tsv": self.set_tsv_result_writer,
 
-            "/csv": self.set_csv_result_writer,
-            "/table": self.set_tabular_result_writer,
-            "/tsv": self.set_tsv_result_writer,
-
-            "/config": self.config,
-            "/kernel": self.kernel,
+            ":config": self.config,
+            ":kernel": self.kernel,
 
         }
         self.tx = None
@@ -187,11 +177,8 @@ class Console(object):
         if not source:
             return
         try:
-            if source.startswith("/"):
-                try:
-                    self.run_command(source)
-                except TypeError:
-                    self.run_source(source)
+            if source.startswith(":"):
+                self.run_command(source)
             else:
                 self.run_source(source)
         except CypherError as error:
@@ -310,8 +297,6 @@ class Console(object):
         try:
             command = self.commands[command_name]
         except KeyError:
-            if terms[0].startswith("//"):
-                raise TypeError("Comment not command")
             click.secho("Unknown command: " + command_name, err=True, fg=self.err_colour)
         else:
             args = []
@@ -361,22 +346,6 @@ class Console(object):
                 self.run_cypher(tx.run, statement, {}, line_no=line_no)
 
         return unit_of_work
-
-    def run_read_tx(self, *args, **kwargs):
-        raise NotImplementedError()
-        # if args:
-        #     with self.driver.session() as session:
-        #         session.read_transaction(self.load_unit_of_work(args[0]))
-        # else:
-        #     click.secho("Usage: /r FILE", err=True, fg=self.err_colour)
-
-    def run_write_tx(self, *args, **kwargs):
-        raise NotImplementedError()
-        # if args:
-        #     with self.driver.session() as session:
-        #         session.write_transaction(self.load_unit_of_work(args[0]))
-        # else:
-        #     click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
 
     def set_csv_result_writer(self, **kwargs):
         self.result_writer = DataList.write_csv
@@ -460,7 +429,7 @@ def repl(statement, uri, user, password, insecure, verbose):
                 if gap:
                     click.echo(u"")
                 console.run(s)
-                if not s.startswith("/"):
+                if not s.startswith(":"):
                     gap = True
             exit_status = 0
         else:
