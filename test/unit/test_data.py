@@ -22,7 +22,7 @@ from unittest import TestCase
 from py2neo.data import DataList
 
 
-class DataTableTestCase(TestCase):
+class DataListTestCase(TestCase):
 
     def test_simple_usage(self):
         table = DataList([

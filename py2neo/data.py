@@ -18,8 +18,6 @@
 
 from io import StringIO
 
-from click import echo, secho
-
 from py2neo.cypher.writing import cypher_str, cypher_repr
 from py2neo.internal.compat import ustr, integer_types, string_types, numeric_types
 
@@ -112,6 +110,8 @@ class DataList(list):
         :param newline:
         :return:
         """
+        from click import secho
+
         space = " " * padding
         widths = [0] * len(self._keys)
         header_styles = {}
@@ -168,6 +168,7 @@ class DataList(list):
         :param auto_align:
         :return:
         """
+        from click import echo
 
         def write_tr(values, tag):
             echo("<tr>", file, nl=False)
@@ -201,6 +202,8 @@ class DataList(list):
         :param quote:
         :return:
         """
+        from click import secho
+
         escaped_quote = quote + quote
         quotable = separator + newline + quote
         header_styles = {}
