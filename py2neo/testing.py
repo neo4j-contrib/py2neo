@@ -104,7 +104,9 @@ def run_tests(versions, user, password):
         pid = installation.server.start()
         print("Started Neo4j server with PID %d" % pid)
         try:
-            test_main()
+            status = test_main()
+            if status != 0:
+                raise RuntimeError("Tests failed with status %d" % status)
         finally:
             installation.server.stop()
             warehouse.uninstall(name)
