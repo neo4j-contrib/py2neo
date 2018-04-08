@@ -17,12 +17,11 @@
 
 
 from py2neo.internal.compat import long
+from py2neo.testing import IntegrationTestCase
 from py2neo.types import order, size, Node, Relationship, Path
 
-from test.util import GraphTestCase
 
-
-class NodeTestCase(GraphTestCase):
+class NodeTestCase(IntegrationTestCase):
 
     def test_can_create_local_node(self):
         a = Node("Person", name="Alice", age=33)
@@ -85,7 +84,7 @@ class NodeTestCase(GraphTestCase):
         assert a["foo"] == "bar"
 
 
-class ConcreteNodeTestCase(GraphTestCase):
+class ConcreteNodeTestCase(IntegrationTestCase):
 
     def test_can_create_concrete_node(self):
         alice = Node.cast({"name": "Alice", "age": 34})
@@ -137,7 +136,7 @@ class ConcreteNodeTestCase(GraphTestCase):
         self.assertFalse(self.graph.exists(a))
 
 
-class NodeAutoNamingTestCase(GraphTestCase):
+class NodeAutoNamingTestCase(IntegrationTestCase):
 
     def test_can_name_using_name_property(self):
         a = Node(name="Alice")
@@ -148,7 +147,7 @@ class NodeAutoNamingTestCase(GraphTestCase):
         self.assertEqual(a.__name__, "Alice")
 
 
-class RelationshipTestCase(GraphTestCase):
+class RelationshipTestCase(IntegrationTestCase):
 
     def test_can_get_all_relationship_types(self):
         types = self.graph.relationship_types
@@ -297,7 +296,7 @@ class RelationshipTestCase(GraphTestCase):
             _ = Relationship.cast(object())
 
 
-class PathTestCase(GraphTestCase):
+class PathTestCase(IntegrationTestCase):
 
     def test_can_construct_simple_path(self):
         alice = Node(name="Alice")
@@ -445,7 +444,7 @@ class PathTestCase(GraphTestCase):
         assert path[2].end_node["name"] == "Dave"
 
 
-class CreatePathTestCase(GraphTestCase):
+class CreatePathTestCase(IntegrationTestCase):
 
     def test_can_create_path(self):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
@@ -478,7 +477,7 @@ class CreatePathTestCase(GraphTestCase):
         assert nodes[1]["name"] == "Bob"
 
 
-class PathIterationAndReversalTestCase(GraphTestCase):
+class PathIterationAndReversalTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.alice = Node("Person", name="Alice", age=33)
@@ -542,7 +541,7 @@ class PathIterationAndReversalTestCase(GraphTestCase):
         ]
 
 
-class MergeNodeTestCase(GraphTestCase):
+class MergeNodeTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -632,7 +631,7 @@ class MergeNodeTestCase(GraphTestCase):
         assert new_order == old_order
 
 
-class MergeRelationshipTestCase(GraphTestCase):
+class MergeRelationshipTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -697,7 +696,7 @@ class MergeRelationshipTestCase(GraphTestCase):
         assert new_size == old_size
 
 
-class MergeSubgraphTestCase(GraphTestCase):
+class MergeSubgraphTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -766,7 +765,7 @@ class MergeSubgraphTestCase(GraphTestCase):
         assert new_order == old_order
 
 
-class MergeWalkableTestCase(GraphTestCase):
+class MergeWalkableTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -855,7 +854,7 @@ class MergeWalkableTestCase(GraphTestCase):
         assert node.identity == b_id
 
 
-class PullTestCase(GraphTestCase):
+class PullTestCase(IntegrationTestCase):
 
     def test_cannot_pull_non_graphy_object(self):
         with self.assertRaises(TypeError):
@@ -953,7 +952,7 @@ class PullTestCase(GraphTestCase):
                     (new_props, old_props)
 
 
-class PushTestCase(GraphTestCase):
+class PushTestCase(IntegrationTestCase):
 
     def test_cannot_push_non_graphy_object(self):
         with self.assertRaises(TypeError):
@@ -1079,7 +1078,7 @@ class PushTestCase(GraphTestCase):
         self.assert_has_labels(node_id, {"B", "C"})
 
 
-class SeparateTestCase(GraphTestCase):
+class SeparateTestCase(IntegrationTestCase):
 
     def test_can_delete_relationship_by_separating(self):
         a = Node()

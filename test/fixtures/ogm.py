@@ -19,7 +19,7 @@
 from os.path import join as path_join, dirname
 
 from py2neo.ogm import GraphObject, Label, Property, RelatedTo, RelatedFrom
-from test.util import GraphTestCase
+from py2neo.testing import IntegrationTestCase
 
 
 class MovieGraphObject(GraphObject):
@@ -62,7 +62,7 @@ class MacGuffin(MovieGraphObject):
     pass
 
 
-class MovieGraphTestCase(GraphTestCase):
+class MovieGraphTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()

@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
-from test.util import GraphTestCase
+from py2neo.testing import IntegrationTestCase
 
 
-class DataTableTestCase(GraphTestCase):
+class DataTableTestCase(IntegrationTestCase):
 
     def test_simple_usage(self):
         table = self.graph.data("UNWIND range(1, 3) AS n RETURN n, n * n AS n_sq")

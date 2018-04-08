@@ -25,9 +25,8 @@ from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
 from py2neo.database import Database, Graph, GraphError, TransactionFinished
 from py2neo.internal.json import JSONHydrator
+from py2neo.testing import IntegrationTestCase
 from py2neo.types import Node, Relationship, Path, order, size
-
-from test.util import GraphTestCase
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)
@@ -57,7 +56,7 @@ class DatabaseSquareOneTestCase(TestCase):
         self.assertIsInstance(graph, Graph)
 
 
-class DatabaseTestCase(GraphTestCase):
+class DatabaseTestCase(IntegrationTestCase):
 
     def test_can_forget_all(self):
         _ = Database()
@@ -120,7 +119,7 @@ class DatabaseTestCase(GraphTestCase):
         assert databases["data"] is self.graph
 
 
-class GraphObjectTestCase(GraphTestCase):
+class GraphObjectTestCase(IntegrationTestCase):
 
     def test_same_uri_gives_same_instance(self):
         uri = "bolt://localhost:7687"
@@ -254,7 +253,7 @@ class GraphObjectTestCase(GraphTestCase):
         assert a["no-foo"] is None
 
 
-class GraphSchemaTestCase(GraphTestCase):
+class GraphSchemaTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.reset()
@@ -321,7 +320,7 @@ class GraphSchemaTestCase(GraphTestCase):
         self.graph.delete(a | b)
 
 
-class GraphMatchTestCase(GraphTestCase):
+class GraphMatchTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.alice = Node(name="Alice")
@@ -436,7 +435,7 @@ class GraphMatchTestCase(GraphTestCase):
             list(self.graph.match(start_node=Node(), end_node=Node()))
 
 
-class GraphDeleteTestCase(GraphTestCase):
+class GraphDeleteTestCase(IntegrationTestCase):
 
     def test_can_delete_node(self):
         alice = Node("Person", name="Alice")
@@ -476,7 +475,7 @@ class GraphDeleteTestCase(GraphTestCase):
             self.graph.delete("not a node or a relationship")
 
 
-class TransactionRunTestCase(GraphTestCase):
+class TransactionRunTestCase(IntegrationTestCase):
 
     def test_can_run_single_statement_transaction(self):
         tx = self.graph.begin()
@@ -559,7 +558,7 @@ class TransactionRunTestCase(GraphTestCase):
             assert False
 
 
-class TransactionCreateTestCase(GraphTestCase):
+class TransactionCreateTestCase(IntegrationTestCase):
 
     def test_can_create_node(self):
         a = Node("Person", name="Alice")
@@ -706,7 +705,7 @@ class TransactionCreateTestCase(GraphTestCase):
             self.graph.create("this string is definitely not graphy")
 
 
-class TransactionDeleteTestCase(GraphTestCase):
+class TransactionDeleteTestCase(IntegrationTestCase):
 
     def test_can_delete_relationship(self):
         a = Node()
@@ -721,7 +720,7 @@ class TransactionDeleteTestCase(GraphTestCase):
         assert not self.graph.exists(b)
 
 
-class TransactionSeparateTestCase(GraphTestCase):
+class TransactionSeparateTestCase(IntegrationTestCase):
 
     def test_can_delete_relationship_by_separating(self):
         a = Node()
@@ -740,7 +739,7 @@ class TransactionSeparateTestCase(GraphTestCase):
             self.graph.separate("this string is definitely not graphy")
 
 
-class TransactionDegreeTestCase(GraphTestCase):
+class TransactionDegreeTestCase(IntegrationTestCase):
 
     def test_degree_of_node(self):
         a = Node()
@@ -764,7 +763,7 @@ class TransactionDegreeTestCase(GraphTestCase):
                 tx.degree("this string is definitely not graphy")
 
 
-class TransactionExistsTestCase(GraphTestCase):
+class TransactionExistsTestCase(IntegrationTestCase):
 
     def test_cannot_check_existence_of_non_graphy_thing(self):
         with self.assertRaises(TypeError):
@@ -772,7 +771,7 @@ class TransactionExistsTestCase(GraphTestCase):
                 tx.exists("this string is definitely not graphy")
 
 
-class TransactionErrorTestCase(GraphTestCase):
+class TransactionErrorTestCase(IntegrationTestCase):
 
     def test_can_generate_transaction_error(self):
         tx = self.graph.begin()
@@ -797,7 +796,7 @@ class TransactionErrorTestCase(GraphTestCase):
             tx.commit()
 
 
-class TransactionAutocommitTestCase(GraphTestCase):
+class TransactionAutocommitTestCase(IntegrationTestCase):
 
     def test_can_autocommit(self):
         tx = self.graph.begin(autocommit=True)
@@ -806,7 +805,7 @@ class TransactionAutocommitTestCase(GraphTestCase):
         assert tx.finished()
 
 
-class CursorMovementTestCase(GraphTestCase):
+class CursorMovementTestCase(IntegrationTestCase):
     """ Tests for move and position
     """
 
@@ -824,7 +823,7 @@ class CursorMovementTestCase(GraphTestCase):
         assert cursor.forward(0) == 0
 
 
-class CursorKeysTestCase(GraphTestCase):
+class CursorKeysTestCase(IntegrationTestCase):
 
     def test_keys_are_populated_before_moving(self):
         cursor = self.graph.run("RETURN 1 AS n")
@@ -843,7 +842,7 @@ class CursorKeysTestCase(GraphTestCase):
             assert list(cursor.keys()) == ["n"]
 
 
-class CursorStatsTestCase(GraphTestCase):
+class CursorStatsTestCase(IntegrationTestCase):
 
     def test_stats_available(self):
         cursor = self.graph.run("CREATE (a:Banana)")
@@ -853,7 +852,7 @@ class CursorStatsTestCase(GraphTestCase):
         assert stats["contains_updates"] == 1
 
 
-class CursorCurrentTestCase(GraphTestCase):
+class CursorCurrentTestCase(IntegrationTestCase):
 
     def test_current_is_none_at_start(self):
         cursor = self.graph.run("RETURN 1")
@@ -867,7 +866,7 @@ class CursorCurrentTestCase(GraphTestCase):
             assert cursor.current() == Record(zip(["n"], [n]))
 
 
-class CursorSelectionTestCase(GraphTestCase):
+class CursorSelectionTestCase(IntegrationTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
@@ -888,7 +887,7 @@ class CursorSelectionTestCase(GraphTestCase):
             assert n_sq == i * i
 
 
-class CursorAsIteratorTestCase(GraphTestCase):
+class CursorAsIteratorTestCase(IntegrationTestCase):
 
     def test_can_use_next_function(self):
         cursor = self.graph.run("RETURN 1")
@@ -902,7 +901,7 @@ class CursorAsIteratorTestCase(GraphTestCase):
             _ = next(cursor)
 
 
-class CursorStreamingTestCase(GraphTestCase):
+class CursorStreamingTestCase(IntegrationTestCase):
 
     def test_stream_yields_all(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
@@ -929,7 +928,7 @@ class CursorStreamingTestCase(GraphTestCase):
                                Record(zip(["n", "n_sq"], [10, 100]))]
 
 
-class CursorEvaluationTestCase(GraphTestCase):
+class CursorEvaluationTestCase(IntegrationTestCase):
 
     def test_can_evaluate_single_value(self):
         cursor = self.graph.run("RETURN 1")

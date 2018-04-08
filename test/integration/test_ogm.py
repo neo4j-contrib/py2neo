@@ -20,8 +20,9 @@ from os.path import dirname, join as path_join
 
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
 from py2neo.selection import NodeSelector
+from py2neo.testing import IntegrationTestCase
+
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MovieGraphObject
-from test.util import GraphTestCase
 
 
 class InstanceRelatedObjectTestCase(MovieGraphTestCase):
@@ -578,7 +579,7 @@ class Thing(GraphObject):
     y_in = RelatedFrom("Thing", "Y")
 
 
-class ComprehensiveTestCase(GraphTestCase):
+class ComprehensiveTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -635,7 +636,7 @@ class SimpleThing(GraphObject):
     pass
 
 
-class SimpleThingTestCase(GraphTestCase):
+class SimpleThingTestCase(IntegrationTestCase):
 
     def test_create(self):
         thing = SimpleThing()

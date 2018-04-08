@@ -17,14 +17,27 @@
 
 
 import logging
+from os import getenv
+from unittest import SkipTest
 
 from neo4j.v1 import GraphDatabase
 from neo4j.exceptions import CypherSyntaxError
 
-from py2neo import GraphError
+from py2neo.database import Graph, GraphError
 from py2neo.internal.http import HTTP
+from py2neo.testing import IntegrationTestCase
 from py2neo.types import Node
-from test.util import HTTPGraphTestCase
+
+
+class HTTPGraphTestCase(IntegrationTestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(HTTPGraphTestCase, self).__init__(*args, **kwargs)
+        self.http_graph = Graph(bolt=False)
+
+    def setUp(self):
+        if getenv("NEO4J_HTTP_DISABLED"):
+            raise SkipTest("HTTP disabled")
 
 
 class HTTPLoggingHandler(logging.Handler):

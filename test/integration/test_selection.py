@@ -17,15 +17,17 @@
 
 
 from os.path import join as path_join, dirname
-from py2neo import Node, NodeSelector
-from test.util import GraphTestCase
+
+from py2neo.selection import NodeSelector
+from py2neo.testing import IntegrationTestCase
+from py2neo.types import Node
 
 
-class NodeFinderTestCase(GraphTestCase):
+class NodeFinderTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
-        with open(path_join(dirname(__file__), "resources", "movies.cypher")) as f:
+        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
             cypher = f.read()
         self.graph.run(cypher)
         self.selector = NodeSelector(self.graph)
