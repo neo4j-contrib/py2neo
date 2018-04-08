@@ -153,7 +153,11 @@ class FindTestCase(MovieGraphTestCase):
         assert keanu is None
 
     def test_can_find_multiple_objects(self):
-        keanu, hugo = list(Person.select(self.graph, ("Keanu Reeves", "Hugo Weaving")))
+        people = list(Person.select(self.graph, ("Keanu Reeves", "Hugo Weaving")))
+        if people[0].name == "Keanu Reeves":
+            keanu, hugo = people
+        else:
+            hugo, keanu = people
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
         assert hugo.name == "Hugo Weaving"
