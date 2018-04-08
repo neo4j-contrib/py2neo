@@ -701,6 +701,10 @@ class TransactionCreateTestCase(GraphTestCase):
         assert order(self.graph) == 2
         assert size(self.graph) == 1
 
+    def test_cannot_create_non_graphy_thing(self):
+        with self.assertRaises(TypeError):
+            self.graph.create("this string is definitely not graphy")
+
 
 class TransactionDeleteTestCase(GraphTestCase):
 
