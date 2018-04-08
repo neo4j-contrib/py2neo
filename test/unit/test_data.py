@@ -113,12 +113,12 @@ class DataListTestCase(TestCase):
             ["Dave", 66],
         ], keys=["name", "age"])
         out = repr(table)
-        self.assertEqual(out, ' name  | age \r\n'
-                              '-------------\r\n'
-                              ' Alice |  33 \r\n'
-                              ' Bob   |  44 \r\n'
-                              ' Carol |  55 \r\n'
-                              ' Dave  |  66 \r\n')
+        self.assertEqual(out, u' name  | age \r\n'
+                              u'-------------\r\n'
+                              u' Alice |  33 \r\n'
+                              u' Bob   |  44 \r\n'
+                              u' Carol |  55 \r\n'
+                              u' Dave  |  66 \r\n')
 
     def test_write(self):
         table = DataList([
@@ -129,10 +129,10 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out)
-        self.assertEqual(out.getvalue(), ' Alice | 33 \r\n'
-                                         ' Bob   | 44 \r\n'
-                                         ' Carol | 55 \r\n'
-                                         ' Dave  | 66 \r\n')
+        self.assertEqual(out.getvalue(), u' Alice | 33 \r\n'
+                                         u' Bob   | 44 \r\n'
+                                         u' Carol | 55 \r\n'
+                                         u' Dave  | 66 \r\n')
 
     def test_write_with_newline_in_value(self):
         table = DataList([
@@ -143,11 +143,11 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out)
-        self.assertEqual(out.getvalue(), ' Alice | 33 \r\n'
-                                         ' Smith |    \r\n'
-                                         ' Bob   | 44 \r\n'
-                                         ' Carol | 55 \r\n'
-                                         ' Dave  | 66 \r\n')
+        self.assertEqual(out.getvalue(), u' Alice | 33 \r\n'
+                                         u' Smith |    \r\n'
+                                         u' Bob   | 44 \r\n'
+                                         u' Carol | 55 \r\n'
+                                         u' Dave  | 66 \r\n')
 
     def test_write_with_style(self):
         table = DataList([
@@ -158,12 +158,12 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out, header={"fg": "red"})
-        self.assertEqual(out.getvalue(), ' name  | age \r\n'
-                                         '-------------\r\n'
-                                         ' Alice |  33 \r\n'
-                                         ' Bob   |  44 \r\n'
-                                         ' Carol |  55 \r\n'
-                                         ' Dave  |  66 \r\n')
+        self.assertEqual(out.getvalue(), u' name  | age \r\n'
+                                         u'-------------\r\n'
+                                         u' Alice |  33 \r\n'
+                                         u' Bob   |  44 \r\n'
+                                         u' Carol |  55 \r\n'
+                                         u' Dave  |  66 \r\n')
 
     def test_write_with_skip(self):
         table = DataList([
@@ -174,8 +174,8 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out, skip=2)
-        self.assertEqual(out.getvalue(), ' Carol | 55 \r\n'
-                                         ' Dave  | 66 \r\n')
+        self.assertEqual(out.getvalue(), u' Carol | 55 \r\n'
+                                         u' Dave  | 66 \r\n')
 
     def test_write_with_limit(self):
         table = DataList([
@@ -186,8 +186,8 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out, limit=2)
-        self.assertEqual(out.getvalue(), ' Alice | 33 \r\n'
-                                         ' Bob   | 44 \r\n')
+        self.assertEqual(out.getvalue(), u' Alice | 33 \r\n'
+                                         u' Bob   | 44 \r\n')
 
     def test_write_with_skip_and_limit(self):
         table = DataList([
@@ -198,8 +198,8 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out, skip=1, limit=2)
-        self.assertEqual(out.getvalue(), ' Bob   | 44 \r\n'
-                                         ' Carol | 55 \r\n')
+        self.assertEqual(out.getvalue(), u' Bob   | 44 \r\n'
+                                         u' Carol | 55 \r\n')
 
     def test_write_with_skip_and_limit_overflow(self):
         table = DataList([
@@ -210,9 +210,9 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write(out, skip=1, limit=10)
-        self.assertEqual(out.getvalue(), ' Bob   | 44 \r\n'
-                                         ' Carol | 55 \r\n'
-                                         ' Dave  | 66 \r\n')
+        self.assertEqual(out.getvalue(), u' Bob   | 44 \r\n'
+                                         u' Carol | 55 \r\n'
+                                         u' Dave  | 66 \r\n')
 
     def test_write_csv(self):
         table = DataList([
@@ -223,10 +223,10 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out)
-        self.assertEqual(out.getvalue(), 'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         'Dave,66\r\n')
+        self.assertEqual(out.getvalue(), u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'Dave,66\r\n')
 
     def test_write_csv_with_header(self):
         table = DataList([
@@ -237,11 +237,11 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out, header=True)
-        self.assertEqual(out.getvalue(), 'name,age\r\n'
-                                         'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         'Dave,66\r\n')
+        self.assertEqual(out.getvalue(), u'name,age\r\n'
+                                         u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'Dave,66\r\n')
 
     def test_write_csv_with_header_style(self):
         table = DataList([
@@ -252,11 +252,11 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out, header={"fg": "cyan"})
-        self.assertEqual(out.getvalue(), 'name,age\r\n'
-                                         'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         'Dave,66\r\n')
+        self.assertEqual(out.getvalue(), u'name,age\r\n'
+                                         u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'Dave,66\r\n')
 
     def test_write_csv_with_limit(self):
         table = DataList([
@@ -267,8 +267,8 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out, limit=2)
-        self.assertEqual(out.getvalue(), 'Alice,33\r\n'
-                                         'Bob,44\r\n')
+        self.assertEqual(out.getvalue(), u'Alice,33\r\n'
+                                         u'Bob,44\r\n')
 
     def test_write_csv_with_comma_in_value(self):
         table = DataList([
@@ -279,10 +279,10 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out)
-        self.assertEqual(out.getvalue(), 'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         '"Smith, Dave",66\r\n')
+        self.assertEqual(out.getvalue(), u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'"Smith, Dave",66\r\n')
 
     def test_write_csv_with_quotes_in_value(self):
         table = DataList([
@@ -293,10 +293,10 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out)
-        self.assertEqual(out.getvalue(), 'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         '"Dave ""Nordberg"" Smith",66\r\n')
+        self.assertEqual(out.getvalue(), u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'"Dave ""Nordberg"" Smith",66\r\n')
 
     def test_write_csv_with_none_in_value(self):
         table = DataList([
@@ -307,10 +307,10 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_csv(out)
-        self.assertEqual(out.getvalue(), 'Alice,33\r\n'
-                                         'Bob,44\r\n'
-                                         'Carol,55\r\n'
-                                         'Dave,\r\n')
+        self.assertEqual(out.getvalue(), u'Alice,33\r\n'
+                                         u'Bob,44\r\n'
+                                         u'Carol,55\r\n'
+                                         u'Dave,\r\n')
 
     def test_write_tsv(self):
         table = DataList([
@@ -321,7 +321,7 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = StringIO()
         table.write_tsv(out)
-        self.assertEqual(out.getvalue(), 'Alice\t33\r\n'
-                                         'Bob\t44\r\n'
-                                         'Carol\t55\r\n'
-                                         'Dave\t66\r\n')
+        self.assertEqual(out.getvalue(), u'Alice\t33\r\n'
+                                         u'Bob\t44\r\n'
+                                         u'Carol\t55\r\n'
+                                         u'Dave\t66\r\n')
