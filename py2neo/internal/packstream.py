@@ -20,18 +20,20 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 
-from neo4j.v1 import Hydrator, Structure
+from neo4j.packstream.structure import Structure
+from neo4j.v1.types import PackStreamHydrator as _PackStreamHydrator
 
 from py2neo.internal.hydration import hydrate_node, hydrate_relationship
-from py2neo.types import Node, Relationship, Path
+from py2neo.types import Path
 
 
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
 
-class PackStreamHydrator(Hydrator):
+class PackStreamHydrator(_PackStreamHydrator):
 
     def __init__(self, graph, keys, entities=None):
+        super(PackStreamHydrator, self).__init__(2)  # maximum known protocol version
         self.graph = graph
         self.keys = keys
         self.entities = entities or {}
@@ -44,7 +46,6 @@ class PackStreamHydrator(Hydrator):
         keys = self.keys
 
         def hydrate_(obj, inst=None):
-            # TODO: hydrate directly instead of via HTTP hydration
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields
@@ -78,9 +79,8 @@ class PackStreamHydrator(Hydrator):
                         last_node = next_node
                     return Path(*steps)
                 else:
-                    # If we don't recognise the structure type, just return it as-is
-                    # TODO: add warning for unsupported structure types
-                    return obj
+                    # Defer everything else to the official driver
+                    return super(PackStreamHydrator, self).hydrate([obj])[0]
             elif isinstance(obj, list):
                 return list(map(hydrate_, obj))
             elif isinstance(obj, dict):
