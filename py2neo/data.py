@@ -411,7 +411,7 @@ class Subgraph(object):
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node)
                 end_node_id = "a%d" % nodes.index(relationship.end_node)
-                type_string = cypher_escape(relationship.type)
+                type_string = cypher_escape(type(relationship).__name__)
                 param_id = "y%d" % i
                 writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
@@ -522,7 +522,7 @@ class Subgraph(object):
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node)
                 end_node_id = "a%d" % nodes.index(relationship.end_node)
-                type_string = cypher_escape(relationship.type)
+                type_string = cypher_escape(type(relationship).__name__)
                 param_id = "y%d" % i
                 clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
                                (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
@@ -611,7 +611,7 @@ class Subgraph(object):
     def types(self):
         """ Set of all relationship types.
         """
-        return frozenset(rel.type for rel in self.__relationships)
+        return frozenset(type(rel).__name__ for rel in self.__relationships)
 
     def keys(self):
         """ Set of all property keys.
@@ -812,11 +812,11 @@ class Entity(PropertyDict, Walkable):
     @property
     def __name__(self):
         name = None
-        if name is None:
-            name = self.get("__name__")
-        if name is None:
-            name = self.get("name")
-        if name is None:
+        if name is None and "__name__" in self:
+            name = self["__name__"]
+        if name is None and "name" in self:
+            name = self["name"]
+        if name is None and self.identity is not None:
             name = u"_" + ustr(self.identity)
         return name or u""
 
@@ -935,12 +935,25 @@ class Relationship(Entity):
     This class may be extended to allow relationship types names to be
     derived from the class name. For example::
 
-        >>> class WorksWith(Relationship): pass
-        >>> a_works_with_b = WorksWith(a, b)
-        >>> a_works_with_b.type
-        'WORKS_WITH'
+        >>> WORKS_WITH = Relationship.type("WORKS_WITH")
+        >>> a_works_with_b = WORKS_WITH(a, b)
+        >>> a_works_with_b
+        (Alice)-[:WORKS_WITH {}]->(Bob)
 
     """
+
+    @staticmethod
+    def type(name):
+        """ Return the :class:`.Relationship` subclass corresponding to a
+        given name.
+
+        :param name: relationship type name
+        :returns: `type` object
+        """
+        for s in Relationship.__subclasses__():
+            if s.__name__ == name:
+                return s
+        return type(xstr(name), (Relationship,), {})
 
     @classmethod
     def cast(cls, obj, entities=None):
@@ -948,8 +961,8 @@ class Relationship(Entity):
         def get_type(r):
             if isinstance(r, string_types):
                 return r
-            elif hasattr(r, "type"):
-                return r.type
+            elif isinstance(r, Relationship):
+                return type(r).__name__
             elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
                 return r[0]
             else:
@@ -958,7 +971,7 @@ class Relationship(Entity):
         def get_properties(r):
             if isinstance(r, string_types):
                 return {}
-            elif hasattr(r, "type"):
+            elif isinstance(r, Relationship):
                 return dict(r)
             elif hasattr(r, "properties"):
                 return r.properties
@@ -988,13 +1001,6 @@ class Relationship(Entity):
                 end_node = entities[end_node]
         return Relationship(start_node, get_type(t), end_node, **properties)
 
-    @classmethod
-    def default_type(cls):
-        if cls is Relationship:
-            return "TO"
-        assert issubclass(cls, Relationship)
-        return ustr(relationship_case(cls.__name__))
-
     def __init__(self, *nodes, **properties):
         n = []
         for value in nodes:
@@ -1008,20 +1014,22 @@ class Relationship(Entity):
             raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
             # Relationship(a)
-            self._type = self.default_type()
+            # self._type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
             if n[1] is None or isinstance(n[1], string_types):
                 # Relationship(a, "TO")
-                self._type = n[1]
+                # self._type = n[1]
+                self.__class__ = Relationship.type(n[1])
                 n = (n[0], n[0])
             else:
                 # Relationship(a, b)
-                self._type = self.default_type()
+                # self._type = self.default_type()
                 n = (n[0], n[1])
         elif num_args == 3:
             # Relationship(a, "TO", b)
-            self._type = n[1]
+            # self._type = n[1]
+            self.__class__ = Relationship.type(n[1])
             n = (n[0], n[2])
         else:
             raise TypeError("Hyperedges not supported")
@@ -1035,7 +1043,7 @@ class Relationship(Entity):
         try:
             if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
                 try:
-                    return self.type == other.type and list(self.nodes) == list(other.nodes) and dict(self) == dict(other)
+                    return type(self) is type(other) and list(self.nodes) == list(other.nodes) and dict(self) == dict(other)
                 except (AttributeError, TypeError):
                     return False
             return issubclass(type(self), Relationship) and issubclass(type(other), Relationship) and self.graph == other.graph and self.identity == other.identity
@@ -1046,15 +1054,7 @@ class Relationship(Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self.nodes) ^ hash(self.type)
-
-    @property
-    def type(self):
-        """ The type of this relationship.
-        """
-        if self.graph is not None and self.identity is not None and self._type is None:
-            self.graph.pull(self)
-        return self._type
+        return hash(self.nodes) ^ hash(type(self))
 
 
 class Path(Walkable):

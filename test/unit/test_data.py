@@ -22,16 +22,23 @@ from unittest import TestCase
 from py2neo.data import DataList, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk, order, size
 
 
+KNOWS = Relationship.type("KNOWS")
+LIKES = Relationship.type("LIKES")
+DISLIKES = Relationship.type("DISLIKES")
+MARRIED_TO = Relationship.type("MARRIED_TO")
+WORKS_FOR = Relationship.type("WORKS_FOR")
+WORKS_WITH = Relationship.type("WORKS_WITH")
+
 alice = Node("Person", "Employee", name="Alice", age=33)
 bob = Node("Person")
 carol = Node("Person")
 dave = Node("Person")
 
-alice_knows_bob = Relationship(alice, "KNOWS", bob, since=1999)
-alice_likes_carol = Relationship(alice, "LIKES", carol)
-carol_dislikes_bob = Relationship(carol, "DISLIKES", bob)
-carol_married_to_dave = Relationship(carol, "MARRIED_TO", dave)
-dave_works_for_dave = Relationship(dave, "WORKS_FOR", dave)
+alice_knows_bob = KNOWS(alice, bob, since=1999)
+alice_likes_carol = LIKES(alice, carol)
+carol_dislikes_bob = DISLIKES(carol, bob)
+carol_married_to_dave = MARRIED_TO(carol, dave)
+dave_works_for_dave = WORKS_FOR(dave, dave)
 
 subgraph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob |
             carol_married_to_dave | dave_works_for_dave)
@@ -420,7 +427,7 @@ class RelationshipCastTestCase(TestCase):
         self.assertIsNone(casted.graph)
         self.assertIsNone(casted.identity)
         assert casted.start_node == a
-        assert casted.type == "KNOWS"
+        self.assertIs(type(casted), KNOWS)
         assert casted.end_node == b
         
     def test_can_cast_3_tuple_with_unbound_rel(self):
@@ -431,7 +438,7 @@ class RelationshipCastTestCase(TestCase):
         self.assertIsNone(casted.graph)
         self.assertIsNone(casted.identity)
         assert casted.start_node == a
-        assert casted.type == "KNOWS"
+        self.assertIs(type(casted), KNOWS)
         assert casted.end_node == b
         assert casted["since"] == 1999
         
@@ -443,7 +450,7 @@ class RelationshipCastTestCase(TestCase):
         self.assertIsNone(casted.graph)
         self.assertIsNone(casted.identity)
         assert casted.start_node == a
-        assert casted.type == "KNOWS"
+        self.assertIs(type(casted), KNOWS)
         assert casted.end_node == b
         assert casted["since"] == 1999
         
@@ -460,7 +467,7 @@ class RelationshipCastTestCase(TestCase):
         self.assertIsNone(casted.graph)
         self.assertIsNone(casted.identity)
         assert casted.start_node == a
-        assert casted.type == "TO"
+        self.assertIs(type(casted).__name__, "TO")
         assert casted.end_node == b
 
     def test_can_cast_relationship_with_integer_nodes(self):
@@ -470,7 +477,7 @@ class RelationshipCastTestCase(TestCase):
         r = Relationship.cast((0, "TO", 1), nodes)
         self.assertIs(r.start_node, a)
         assert r.end_node is b
-        assert r.type == "TO"
+        assert type(r).__name__ == "TO"
 
     def test_cannot_cast_relationship_from_generic_object(self):
         class Foo(object):
@@ -827,7 +834,7 @@ class RelationshipTestCase(TestCase):
         assert alice_knows_bob.start_node == alice
         assert alice_knows_bob.end_node == bob
         assert list(walk(alice_knows_bob)) == [alice, alice_knows_bob, bob]
-        assert alice_knows_bob.type == "KNOWS"
+        assert type(alice_knows_bob).__name__ == "KNOWS"
         assert dict(alice_knows_bob) == {"since": 1999}
         assert alice_knows_bob["since"] == 1999
         assert order(alice_knows_bob) == 2
@@ -852,33 +859,31 @@ class RelationshipTestCase(TestCase):
         rel = Relationship(alice)
         assert rel.start_node is alice
         assert rel.end_node is alice
-        assert rel.type == "TO"
+        self.assertEqual(type(rel).__name__, "Relationship")
 
     def test_construction_from_two_node_arguments(self):
         rel = Relationship(alice, bob)
         assert rel.start_node is alice
         assert rel.end_node is bob
-        assert rel.type == "TO"
+        self.assertEqual(type(rel).__name__, "Relationship")
 
     def test_construction_from_node_and_type_arguments(self):
         rel = Relationship(alice, "LIKES")
         assert rel.start_node is alice
         assert rel.end_node is alice
-        assert rel.type == "LIKES"
+        self.assertEqual(type(rel).__name__, "LIKES")
 
     def test_construction_from_three_arguments(self):
         rel = Relationship(alice, "KNOWS", bob)
         assert rel.start_node is alice
         assert rel.end_node is bob
-        assert rel.type == "KNOWS"
+        self.assertIs(type(rel), KNOWS)
 
     def test_construction_from_subclass(self):
-        class WorksWith(Relationship):
-            pass
-        rel = WorksWith(alice, bob)
+        rel = WORKS_WITH(alice, bob)
         assert rel.start_node is alice
         assert rel.end_node is bob
-        assert rel.type == "WORKS_WITH"
+        self.assertIs(type(rel), WORKS_WITH)
 
     def test_construction_from_more_arguments(self):
         with self.assertRaises(TypeError):

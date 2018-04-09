@@ -263,7 +263,7 @@ class CypherEncoder(object):
     def _encode_relationship_detail(self, relationship, template):
         return u"[" + template.format(
             id=u"" if relationship.identity is None else (u"_" + ustr(relationship.identity)),
-            type=u":" + ustr(relationship.type),
+            type=u":" + ustr(type(relationship).__name__),
             properties=PropertyDictView(relationship, encoding=self.encoding, quote=self.quote),
             property=PropertySelector(relationship, u""),
             name=relationship.__name__,

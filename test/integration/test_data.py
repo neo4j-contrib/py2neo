@@ -21,6 +21,9 @@ from py2neo.internal.compat import long
 from py2neo.testing import IntegrationTestCase
 
 
+KNOWS = Relationship.type("KNOWS")
+
+
 class NodeTestCase(IntegrationTestCase):
 
     def test_can_create_local_node(self):
@@ -250,14 +253,6 @@ class RelationshipTestCase(IntegrationTestCase):
         self.graph.create(r2)
         self.assertEqual(r1, r2)
 
-    def test_relationship_default_type(self):
-        assert Relationship.default_type() == "TO"
-
-    def test_relationship_subclass_default_type(self):
-        class Knows(Relationship):
-            pass
-        assert Knows.default_type() == "KNOWS"
-
     def test_cannot_delete_uncreated_relationship(self):
         a = Node()
         b = Node()
@@ -289,7 +284,7 @@ class RelationshipTestCase(IntegrationTestCase):
         self.assertIsNotNone(r.graph)
         self.assertIsNotNone(r.identity)
         self.assertIsNone(r._type)
-        self.assertEqual(r.type, "TO")
+        self.assertEqual(type(r).__name__, "TO")
 
     def test_cannot_cast_from_odd_object(self):
         with self.assertRaises(TypeError):
@@ -318,21 +313,21 @@ class PathTestCase(IntegrationTestCase):
         nodes = path.nodes
         assert len(path) == 1
         assert nodes[0]["name"] == "Alice"
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert nodes[-1]["name"] == "Bob"
         path = Path(path, "KNOWS", {"name": "Carol"})
         nodes = path.nodes
         assert len(path) == 2
         assert nodes[0]["name"] == "Alice"
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert nodes[1]["name"] == "Bob"
         path = Path({"name": "Zach"}, "KNOWS", path)
         nodes = path.nodes
         assert len(path) == 3
         assert nodes[0]["name"] == "Zach"
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert nodes[1]["name"] == "Alice"
-        assert path[1].type == "KNOWS"
+        self.assertIs(type(path[1]), KNOWS)
         assert nodes[2]["name"] == "Bob"
 
     def test_can_slice_path(self):
@@ -450,13 +445,13 @@ class CreatePathTestCase(IntegrationTestCase):
         path = Path({"name": "Alice"}, "KNOWS", {"name": "Bob"})
         nodes = path.nodes
         assert dict(nodes[0]) == {"name": "Alice"}
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert dict(nodes[1]) == {"name": "Bob"}
         self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert isinstance(nodes[1], Node)
         assert nodes[1]["name"] == "Bob"
 
@@ -464,14 +459,14 @@ class CreatePathTestCase(IntegrationTestCase):
         path = Path({"name": "Alice"}, ("KNOWS", {"since": 1999}), {"name": "Bob"})
         nodes = path.nodes
         assert dict(nodes[0]) == {"name": "Alice"}
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert dict(path[0]) == {"since": 1999}
         assert dict(nodes[1]) == {"name": "Bob"}
         self.graph.create(path)
         assert isinstance(nodes[0], Node)
         assert nodes[0]["name"] == "Alice"
         assert isinstance(path[0], Relationship)
-        assert path[0].type == "KNOWS"
+        self.assertIs(type(path[0]), KNOWS)
         assert dict(path[0]) == {"since": 1999}
         assert isinstance(nodes[1], Node)
         assert nodes[1]["name"] == "Bob"

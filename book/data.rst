@@ -95,7 +95,7 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
 
     .. method:: has_label(label)
 
-        Return ``True`` if the node has the label *label*.
+        Return :const:`True` if the node has the label *label*.
 
     .. method:: add_label(label)
 
@@ -168,7 +168,7 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
 
         Perform a :func:`walk` of this relationship, yielding its start node, the relationship itself and its end node in turn.
 
-    .. method:: type()
+    .. describe:: type(relationship)
 
         Return the type of this relationship.
 
