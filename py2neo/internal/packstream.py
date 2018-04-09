@@ -24,7 +24,6 @@ from neo4j.packstream.structure import Structure
 from neo4j.v1.types import PackStreamHydrator as _PackStreamHydrator
 
 from py2neo.internal.hydration import hydrate_node, hydrate_relationship
-from py2neo.types import Path
 
 
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
@@ -57,6 +56,7 @@ class PackStreamHydrator(_PackStreamHydrator):
                                                 start=fields[1], end=fields[2],
                                                 type=fields[3], data=hydrate_(fields[4]))
                 elif tag == b"P":
+                    from py2neo.data import Path
                     nodes = [hydrate_(node) for node in fields[0]]
                     u_rels = [_unbound_relationship(*map(hydrate_, r)) for r in fields[1]]
                     sequence = fields[2]

@@ -22,9 +22,9 @@ from uuid import uuid4
 from pytest import main as test_main
 
 from py2neo.admin import Warehouse, minor_versions
+from py2neo.data import Node
 from py2neo.database import Database, Graph
 from py2neo.selection import NodeSelector
-from py2neo.types import Node
 
 
 class TemporaryTransaction(object):

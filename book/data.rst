@@ -1,18 +1,27 @@
-************************************
-``py2neo.types`` -- Graph Data Types
-************************************
+*****************************
+``py2neo.data`` -- Data Types
+*****************************
 
-.. note:: For convenience, the members of ``py2neo.types`` can also be imported directly from ``py2neo``.
+.. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-**Py2neo** provides a set of core graph data types that are completely compatible with Neo4j but that can also be used independently.
+**Py2neo** provides a rich set of data types including the :class:`.DataList` for working with query results and others for working specifically with graph data.
+The graph data types provided are completely compatible with Neo4j but can also be used independently.
 These types include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
 
-These classes have been designed to work together using standard operations, most notably set operations.
+Graph data classes have been designed to work together using standard operations, most notably set operations.
 Details of these operations are covered in the sections on :ref:`subgraphs` and :ref:`walkable_types`.
 
 
-Nodes & Relationships
-=====================
+:class:`.DataList` objects
+==========================
+
+.. autoclass:: py2neo.data.DataList
+   :members:
+
+
+
+:class:`.Node` and :class:`.Relationship` objects
+=================================================
 
 The two essential building blocks of the labelled property graph model used by Neo4j are the :class:`.Node` and the :class:`.Relationship`.
 The node is the fundamental unit of data storage within a graph.
@@ -26,7 +35,7 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
 
 ::
 
-    >>> from py2neo import Node, Relationship
+    >>> from py2neo.data import Node, Relationship
     >>> a = Node("Person", name="Alice")
     >>> b = Node("Person", name="Bob")
     >>> ab = Relationship(a, "KNOWS", b)
@@ -164,9 +173,6 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
         Return the type of this relationship.
 
 
-Properties
-----------
-
 Both :class:`.Node` and :class:`.Relationship` extend the :class:`.PropertyDict` class which itself extends Python's built-in dictionary.
 This means that nodes and relationships are both mapping types that can contain property values, indexed by key.
 
@@ -211,8 +217,8 @@ The *PropertyDict* class is described in more detail below.
 
 .. _subgraphs:
 
-Subgraphs
-=========
+:class:`.Subgraph` objects
+==========================
 
 A :class:`.Subgraph` is an arbitrary collection of nodes and relationships.
 By definition, a *Subgraph* must contain at least one node; `null subgraphs <http://mathworld.wolfram.com/NullGraph.html>`_ should be represented by :const:`None`.
@@ -298,8 +304,8 @@ For example::
 
 .. _walkable_types:
 
-Walkable Types
-==============
+:class:`.Path` objects and other :class:`.Walkable` types
+=========================================================
 
 A :class:`.Walkable` is a :class:`.Subgraph` with added traversal information
 The simplest way to construct a walkable is to concatenate other graph objects::

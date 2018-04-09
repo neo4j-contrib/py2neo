@@ -23,7 +23,7 @@ def hydrate_node(graph, identity, inst=None, **rest):
     if inst is None:
 
         def inst_constructor():
-            from py2neo.types import Node
+            from py2neo.data import Node
             new_inst = Node()
             new_inst.graph = graph
             new_inst.identity = identity
@@ -56,7 +56,7 @@ def hydrate_relationship(graph, identity, inst=None, **rest):
     if inst is None:
 
         def inst_constructor():
-            from py2neo.types import Relationship
+            from py2neo.data import Relationship
             new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
                                     hydrate_node(graph, end), **rest.get("data", {}))
             new_inst.graph = graph
@@ -80,7 +80,7 @@ def hydrate_relationship(graph, identity, inst=None, **rest):
 
 
 def hydrate_path(graph, data):
-    from py2neo.types import Path
+    from py2neo.data import Path
     node_ids = data["nodes"]
     relationship_ids = data["relationships"]
     offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]

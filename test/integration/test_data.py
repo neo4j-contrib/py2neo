@@ -16,9 +16,9 @@
 # limitations under the License.
 
 
+from py2neo.data import order, size, Node, Relationship, Path
 from py2neo.internal.compat import long
 from py2neo.testing import IntegrationTestCase
-from py2neo.types import order, size, Node, Relationship, Path
 
 
 class NodeTestCase(IntegrationTestCase):

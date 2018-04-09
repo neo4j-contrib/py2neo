@@ -23,14 +23,13 @@ from datetime import datetime
 from time import sleep
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import DataList
+from py2neo.data import DataList, Subgraph, Node
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import string_types, xstr
 from py2neo.internal.util import version_tuple, title_case
 from py2neo.selection import NodeSelector
-from py2neo.types import Subgraph, Node
 
 
 update_stats_keys = [

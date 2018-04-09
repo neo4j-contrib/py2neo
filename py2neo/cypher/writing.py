@@ -161,7 +161,7 @@ class CypherEncoder(object):
             return u"`" + key.replace(u"`", u"``") + u"`"
 
     def encode_value(self, value):
-        from py2neo.types import Node, Relationship, Path
+        from py2neo.data import Node, Relationship, Path
         if value is None:
             return self.null
         if value is True:

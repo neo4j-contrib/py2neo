@@ -23,10 +23,10 @@ from unittest import TestCase
 from neo4j.v1 import Record
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
+from py2neo.data import Node, Relationship, Path, order, size
 from py2neo.database import Database, Graph, GraphError, TransactionFinished
 from py2neo.internal.json import JSONHydrator
 from py2neo.testing import IntegrationTestCase
-from py2neo.types import Node, Relationship, Path, order, size
 
 
 alice = Node("Person", "Employee", name="Alice", age=33)

@@ -20,7 +20,7 @@ from os.path import join as path_join, dirname
 
 from py2neo.selection import NodeSelector
 from py2neo.testing import IntegrationTestCase
-from py2neo.types import Node
+from py2neo.data import Node
 
 
 class NodeFinderTestCase(IntegrationTestCase):

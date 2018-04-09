@@ -18,7 +18,8 @@
 
 from unittest import TestCase
 
-from py2neo.types import order, size
+from py2neo.data import order, size
+
 from test.fixtures.ogm import Film, MacGuffin, DerivedThing
 
 

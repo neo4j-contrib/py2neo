@@ -44,7 +44,7 @@ Library Reference
    :maxdepth: 2
    :numbered:
 
-   types
+   data
    database
    selection
    ogm
