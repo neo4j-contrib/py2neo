@@ -52,7 +52,7 @@ Library Reference
    cypher/writing
    console
    admin
-   integration
+   plus
 
 
 .. _Neo4j: https://neo4j.com/

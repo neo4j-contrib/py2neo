@@ -16,8 +16,6 @@
 # limitations under the License.
 
 
-from pandas import DataFrame
-
 from py2neo.database import Graph
 
 
@@ -45,6 +43,10 @@ def read_cypher(cypher, parameters=None, graph=None, index=None, columns=None, d
     :param dtype:
     :return: data frame
     """
+    try:
+        from pandas import DataFrame
+    except ImportError:
+        raise ImportError("Pandas must be installed to use py2neo.plus.pandas")
     if graph is None:
         graph = Graph()
-    return DataFrame(graph.data(cypher, parameters), index=index, columns=columns, dtype=dtype)
+    return DataFrame(list(map(dict, graph.run(cypher, parameters))), index=index, columns=columns, dtype=dtype)
