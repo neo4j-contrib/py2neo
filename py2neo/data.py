@@ -19,15 +19,15 @@
 from io import StringIO
 
 from py2neo.cypher.writing import cypher_str, cypher_repr
-from py2neo.internal.compat import ustr, integer_types, string_types, numeric_types
+from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr
 
 
 def html_escape(s):
-    return (s.replace("&", "&amp;")
-             .replace("<", "&lt;")
-             .replace(">", "&gt;")
-             .replace('"', "&quot;")
-             .replace("'", "&#039;"))
+    return (s.replace(u"&", u"&amp;")
+             .replace(u"<", u"&lt;")
+             .replace(u">", u"&gt;")
+             .replace(u'"', u"&quot;")
+             .replace(u"'", u"&#039;"))
 
 
 class DataList(list):
@@ -97,7 +97,7 @@ class DataList(list):
             return range(skip, skip + limit)
 
     def write(self, file=None, header=None, skip=None, limit=None, auto_align=True,
-              padding=1, separator="|", newline="\r\n"):
+              padding=1, separator=u"|", newline=u"\r\n"):
         """ Write data to a human-readable table.
 
         :param file:
@@ -112,7 +112,7 @@ class DataList(list):
         """
         from click import secho
 
-        space = " " * padding
+        space = u" " * padding
         widths = [0] * len(self._keys)
         header_styles = {}
         if header and isinstance(header, dict):
@@ -129,12 +129,12 @@ class DataList(list):
             strings = [cypher_str(value).splitlines(False) for value in values]
             height = max(map(len, strings)) if strings else 1
             for y in range(height):
-                line_text = ""
+                line_text = u""
                 for x, _ in enumerate(values):
                     try:
                         text = strings[x][y]
                     except IndexError:
-                        text = ""
+                        text = u""
                     if auto_align and self._fields[x]["numeric"]:
                         text = space + text.rjust(widths[x]) + space
                     else:
@@ -151,7 +151,7 @@ class DataList(list):
             count = 0
             for count, index in enumerate(self._range(skip, limit), start=1):
                 if count == 1 and header:
-                    f(self.keys(), underline="-", **header_styles)
+                    f(self.keys(), underline=u"-", **header_styles)
                 f(self[index])
             return count
 
@@ -171,26 +171,26 @@ class DataList(list):
         from click import echo
 
         def write_tr(values, tag):
-            echo("<tr>", file, nl=False)
+            echo(u"<tr>", file, nl=False)
             for i, value in enumerate(values):
                 if auto_align and self._fields[i]["numeric"]:
-                    template = '<{} style="text-align:right">{}</{}>'
+                    template = u'<{} style="text-align:right">{}</{}>'
                 else:
-                    template = '<{} style="text-align:left">{}</{}>'
+                    template = u'<{} style="text-align:left">{}</{}>'
                 echo(template.format(tag, html_escape(cypher_str(value)), tag), file, nl=False)
-            echo("</tr>", file, nl=False)
+            echo(u"</tr>", file, nl=False)
 
         count = 0
-        echo("<table>", file, nl=False)
+        echo(u"<table>", file, nl=False)
         for count, index in enumerate(self._range(skip, limit), start=1):
             if count == 1 and header:
-                write_tr(self.keys(), "th")
-            write_tr(self[index], "td")
-        echo("</table>", file, nl=False)
+                write_tr(self.keys(), u"th")
+            write_tr(self[index], u"td")
+        echo(u"</table>", file, nl=False)
         return count
 
     def write_separated_values(self, separator, file=None, header=None, skip=None, limit=None,
-                               newline="\r\n", quote="\""):
+                               newline=u"\r\n", quote=u"\""):
         """ Write data to a delimiter-separated file.
 
         :param separator:
@@ -232,7 +232,7 @@ class DataList(list):
             count = 0
             for count, index in enumerate(self._range(skip, limit), start=1):
                 if count == 1 and header:
-                    f(self.keys(), underline="-", **header_styles)
+                    f(self.keys(), underline=u"-", **header_styles)
                 f(self[index])
             return count
 
@@ -247,7 +247,7 @@ class DataList(list):
         :param limit:
         :return:
         """
-        return self.write_separated_values(",", file, header, skip, limit)
+        return self.write_separated_values(u",", file, header, skip, limit)
 
     def write_tsv(self, file=None, header=None, skip=None, limit=None):
         """ Write the data as tab-separated values.
@@ -258,4 +258,4 @@ class DataList(list):
         :param limit:
         :return:
         """
-        return self.write_separated_values("\t", file, header, skip, limit)
+        return self.write_separated_values(u"\t", file, header, skip, limit)

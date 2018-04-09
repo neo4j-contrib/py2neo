@@ -302,7 +302,7 @@ def cypher_str(value, **kwargs):
     """
     if isinstance(value, unicode_types):
         return value
-    elif isinstance(value, bytes_types):
+    elif isinstance(value, string_types):
         return value.decode(kwargs.get("encoding", "utf-8"))
     else:
         return cypher_repr(value, **kwargs)
