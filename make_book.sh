@@ -4,4 +4,7 @@ HOME=$(dirname $0)
 
 pip install --upgrade sphinx
 make -C ${HOME}/book html
-xdg-open ${HOME}/book/_build/html/index.html 2> /dev/null
+
+echo ""
+INDEX_FILE="${HOME}/book/_build/html/index.html"
+echo "Documentation index file can be found at file://$(cd "$(dirname "${INDEX_FILE}")"; pwd)/$(basename "${INDEX_FILE}")"

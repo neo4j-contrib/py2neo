@@ -328,19 +328,19 @@ Any node or relationship may be traversed one or more times in any direction.
 
         Perform a :func:`walk` of *walkable*, yielding alternating nodes and relationships.
 
-    .. property:: start_node
+    .. describe:: start_node
 
         Return the first node encountered on a :func:`walk` of this object.
 
-    .. property:: end_node
+    .. describe:: end_node
 
         Return the last node encountered on a :func:`walk` of this object.
 
-    .. property:: nodes
+    .. describe:: nodes
 
         Return a tuple of all nodes traversed on a :func:`walk` of this :class:`.Walkable`, listed in the order in which they were first encountered.
 
-    .. property:: relationships
+    .. describe:: relationships
 
         Return a tuple of all relationships traversed on a :func:`walk` of this :class:`.Walkable`, listed in the order in which they were first encountered.
 
