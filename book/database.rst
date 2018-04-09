@@ -20,15 +20,15 @@ To run a query against a local database is straightforward::
 
 
 
-The Database
-============
+The :class:`.Database`
+======================
 
 .. autoclass:: Database
    :members:
 
 
-The Graph
-=========
+The :class:`.Graph`
+===================
 
 .. autoclass:: Graph(uri, **settings)
    :members:
@@ -37,15 +37,15 @@ The Graph
    :members:
 
 
-Transactions
-============
+:class:`.Transaction` objects
+=============================
 
 .. autoclass:: Transaction(autocommit=False)
    :members:
 
 
-Cursors
-=======
+:class:`.Cursor` objects
+========================
 
 .. autoclass:: Cursor
    :members:
