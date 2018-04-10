@@ -21,15 +21,15 @@ from __future__ import absolute_import
 from base64 import b64encode
 from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
+from warnings import catch_warnings, simplefilter
 
 from neo4j.exceptions import AuthError, Forbidden
 from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError
 
+from py2neo.database import GraphError
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.compat import urlsplit, ustr
 from py2neo.internal.json import JSONDehydrator
-from py2neo.meta import http_user_agent
-from py2neo import GraphError
 
 
 # import logging
@@ -81,8 +81,9 @@ class HTTP(object):
     def authorization(user, password):
         return 'Basic ' + b64encode((user + ":" + password).encode("utf-8")).decode("ascii")
 
-    def __init__(self, uri, **headers):
+    def __init__(self, uri, headers, verified):
         self.uri = uri
+        self.verified = verified
         parts = urlsplit(uri)
         scheme = parts.scheme
         host = parts.hostname
@@ -92,7 +93,11 @@ class HTTP(object):
             self._http = HTTPConnectionPool("%s:%d" % (host, port))
         elif scheme == "https":
             from urllib3 import HTTPSConnectionPool
-            self._http = HTTPSConnectionPool("%s:%d" % (host, port))
+            if verified:
+                from certifi import where
+                self._http = HTTPSConnectionPool("%s:%d" % (host, port), cert_reqs="CERT_REQUIRED", ca_certs=where())
+            else:
+                self._http = HTTPSConnectionPool("%s:%d" % (host, port))
         else:
             raise ValueError("Unsupported scheme %r" % scheme)
         self.path = parts.path
@@ -118,7 +123,12 @@ class HTTP(object):
         from neo4j.v1 import ServiceUnavailable
         from urllib3.exceptions import MaxRetryError
         try:
-            return self._http.request(method, url, fields, headers, **urlopen_kw)
+            if self.verified:
+                return self._http.request(method, url, fields, headers, **urlopen_kw)
+            else:
+                with catch_warnings():
+                    simplefilter("ignore")
+                    return self._http.request(method, url, fields, headers, **urlopen_kw)
         except MaxRetryError:
             raise ServiceUnavailable("Cannot send %s request to <%s>" % (method, url))
 
@@ -177,47 +187,27 @@ class HTTPDriver(Driver):
 
     @staticmethod
     def register():
-        """ TODO
-
-        Notes: HTTP support; Graphy objects returned are py2neo objects
-        """
         from neo4j.v1 import GraphDatabase
         if "http" not in GraphDatabase.uri_schemes:
             GraphDatabase.uri_schemes["http"] = HTTPDriver
-            # TODO: HTTPS
-
-    _graph_db = None
+        if "https" not in GraphDatabase.uri_schemes:
+            GraphDatabase.uri_schemes["https"] = HTTPDriver
 
     def __init__(self, uri, **config):
         super(HTTPDriver, self).__init__(None)
-        self._uri = uri
-        self._auth = config.get("auth")
-        headers = {
+        self._connection_data = connection_data = get_connection_data(uri, **config)
+        self._http = HTTP(connection_data["uri"] + "/db/data/", {
+            "Authorization": HTTP.authorization(connection_data["user"], connection_data["password"]),
+            "User-Agent": connection_data["user_agent"],
             "X-Stream": "true",
-        }
-        if "user_agent" in config:
-            headers["User-Agent"] = config["user_agent"]
-        else:
-            headers["User-Agent"] = http_user_agent()
-        if "auth" in config:
-            user, password = config["auth"]
-            headers["Authorization"] = HTTP.authorization(user, password)
-        connection_data = get_connection_data(self._uri)
-        self._http = HTTP(connection_data["uri"] + "/db/data/", **headers)
-
-    @property
-    def database(self):
-        if self._graph_db is None:
-            from py2neo.database import Database
-            self._graph_db = Database(self._uri, auth=self._auth)
-        return self._graph_db
-
-    @property
-    def graph(self):
-        return self.database.default_graph
+        }, connection_data["verified"])
+        self._graph = None
 
     def session(self, access_mode=None, bookmark=None):
-        return HTTPSession(self.graph, self._http)
+        if self._graph is None:
+            from py2neo.database import Database
+            self._graph = Database(self._connection_data["uri"], auth=self._connection_data["auth"]).default_graph
+        return HTTPSession(self._graph, self._http)
 
 
 class HTTPResultLoader(object):

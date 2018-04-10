@@ -34,9 +34,11 @@ NEO4J_URI = getenv("NEO4J_URI")
 NEO4J_AUTH = getenv("NEO4J_AUTH")
 NEO4J_USER_AGENT = getenv("NEO4J_USER_AGENT")
 NEO4J_SECURE = True if getenv("NEO4J_SECURE") == "1" else False if getenv("NEO4J_SECURE") == "0" else None
+NEO4J_VERIFIED = True if getenv("NEO4J_VERIFIED") == "1" else False if getenv("NEO4J_VERIFIED") == "0" else None
 
 DEFAULT_SCHEME = "bolt"
 DEFAULT_SECURE = False
+DEFAULT_VERIFIED = False
 DEFAULT_USER = "neo4j"
 DEFAULT_PASSWORD = "password"
 DEFAULT_HOST = "localhost"
@@ -54,13 +56,14 @@ def get_connection_data(uri=None, **settings):
     :return:
     """
     data = {
-        "user_agent": None,
-        "secure": None,
-        "scheme": None,
-        "user": None,
-        "password": None,
         "host": None,
+        "password": None,
         "port": None,
+        "scheme": None,
+        "secure": None,
+        "verified": None,
+        "user": None,
+        "user_agent": None,
     }
     # apply uri
     uri = coalesce(uri, NEO4J_URI)
@@ -82,8 +85,9 @@ def get_connection_data(uri=None, **settings):
     elif NEO4J_AUTH is not None:
         data["user"], _, data["password"] = NEO4J_AUTH.partition(":")
     # apply components (these can override `uri` and `auth`)
-    data["user_agent"] = coalesce(settings.get("user_agent"), data["user_agent"])
-    data["secure"] = coalesce(settings.get("secure"), data["secure"])
+    data["user_agent"] = coalesce(settings.get("user_agent"), NEO4J_USER_AGENT, data["user_agent"])
+    data["secure"] = coalesce(settings.get("secure"), NEO4J_SECURE, data["secure"])
+    data["verified"] = coalesce(settings.get("verified"), NEO4J_VERIFIED, data["verified"])
     data["scheme"] = coalesce(settings.get("scheme"), data["scheme"])
     data["user"] = coalesce(settings.get("user"), data["user"])
     data["password"] = coalesce(settings.get("password"), data["password"])
@@ -107,12 +111,16 @@ def get_connection_data(uri=None, **settings):
         data["user_agent"] = http_user_agent() if data["scheme"] in ["http", "https"] else bolt_user_agent()
     if data["secure"] is None:
         data["secure"] = DEFAULT_SECURE
+    if data["verified"] is None:
+        data["verified"] = DEFAULT_VERIFIED
     if not data["scheme"]:
         data["scheme"] = DEFAULT_SCHEME
         if data["scheme"] == "http":
             data["secure"] = False
+            data["verified"] = False
         if data["scheme"] == "https":
             data["secure"] = True
+            data["verified"] = True
     if not data["user"]:
         data["user"] = DEFAULT_USER
     if not data["password"]:

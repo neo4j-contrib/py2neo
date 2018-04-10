@@ -53,7 +53,7 @@ package_metadata = {
         "prompt_toolkit",
         "pygments>=2.0",
         "pytest",
-        "urllib3",
+        "urllib3[secure]",
     ],
     "license": __license__,
     "classifiers": [

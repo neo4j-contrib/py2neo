@@ -82,7 +82,7 @@ class ClientErrorTestCase(HTTPGraphTestCase):
         headers = {
             "Authorization": HTTP.authorization("neo4j", "password")
         }
-        resource = HTTP("http://localhost:7474/db/data/cypher", **headers)
+        resource = HTTP("http://localhost:7474/db/data/cypher", headers, verified=False)
         try:
             resource.post("", {}, expected=(201,))
         except GraphError as error:
@@ -100,7 +100,7 @@ class ClientErrorTestCase(HTTPGraphTestCase):
         headers = {
             "Authorization": HTTP.authorization("neo4j", "password")
         }
-        resource = HTTP("http://localhost:7474/db/data/", **headers)
+        resource = HTTP("http://localhost:7474/db/data/", headers, verified=False)
         try:
             resource.get_json("node/%s" % node_id)
         except GraphError as error:
@@ -117,7 +117,7 @@ class ServerErrorTestCase(HTTPGraphTestCase):
         headers = {
             "Authorization": HTTP.authorization("neo4j", "password")
         }
-        self.non_existent_resource = HTTP("http://localhost:7474/db/data/x", **headers)
+        self.non_existent_resource = HTTP("http://localhost:7474/db/data/x", headers, verified=False)
 
     def test_can_handle_json_error_from_get(self):
         try:
