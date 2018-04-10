@@ -57,6 +57,7 @@ package_metadata = {
     ],
     "extras_require": {
         "sci": [
+            "numpy",
             "pandas",
         ],
     },

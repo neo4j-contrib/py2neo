@@ -21,6 +21,7 @@ from __future__ import absolute_import
 from collections import deque
 from datetime import datetime
 from time import sleep
+from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
 from py2neo.data import Table, Subgraph, Node
@@ -631,7 +632,7 @@ class Schema(object):
         self.graph.run("CREATE INDEX ON :%s(%s)" %
                        (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
         while property_keys not in self.get_indexes(label):
-            sleep(0.5)
+            sleep(0.1)
 
     def create_uniqueness_constraint(self, label, *property_keys):
         """ Create a uniqueness constraint for a label.
@@ -640,7 +641,7 @@ class Schema(object):
                        "ASSERT a.%s IS UNIQUE" %
                        (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
         while property_keys not in self.get_uniqueness_constraints(label):
-            sleep(0.5)
+            sleep(0.1)
 
     def drop_index(self, label, *property_keys):
         """ Remove label index for a given property key.
@@ -1301,6 +1302,24 @@ class Cursor(object):
                         s |= value
         return s
 
+    def to_ndarray(self, dtype=None, order='K'):
+        """ Consume and extract the entire result as a
+        numpy.ndarray.
+
+        This method requires numpy to be installed.
+
+        :param dtype:
+        :param order:
+        :return:
+        """
+        try:
+            from numpy import array
+        except ImportError:
+            warn("Numpy is not installed. This can be installed directly or via the [sci] extra.")
+            raise
+        else:
+            return array(list(map(list, self)), dtype=dtype, order=order)
+
     def to_series(self, field=0, index=None, dtype=None):
         """ Consume and extract one field of the entire result as a
         `pandas.Series`_.
@@ -1315,10 +1334,10 @@ class Cursor(object):
         try:
             from pandas import Series
         except ImportError:
-            from warnings import warn
             warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
             raise
-        return Series([record[field] for record in self], index=index, dtype=dtype)
+        else:
+            return Series([record[field] for record in self], index=index, dtype=dtype)
 
     def to_data_frame(self, index=None, columns=None, dtype=None):
         """ Consume and extract the entire result as a
@@ -1345,7 +1364,7 @@ class Cursor(object):
         try:
             from pandas import DataFrame
         except ImportError:
-            from warnings import warn
             warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
             raise
-        return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)
+        else:
+            return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)
