@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from os.path import dirname, join as path_join
 try:
     from setuptools import setup, find_packages
 except ImportError:
@@ -24,15 +25,16 @@ except ImportError:
 from py2neo.meta import __author__, __email__, __license__, __package__, __version__
 
 
-packages = find_packages(exclude=("book", "demo", "demo.*", "test", "test_ext", "test_ext.*"))
+with open(path_join(dirname(__file__), "README.md")) as f:
+    README = f.read()
+
+packages = find_packages(exclude=("book", "demo", "demo.*", "test"))
 package_metadata = {
     "name": __package__,
     "version": __version__,
     "description": "Python client library and toolkit for Neo4j",
-    "long_description": "Py2neo is a client library and comprehensive toolkit for working with "
-                        "Neo4j from within Python applications and from the command line. The "
-                        "core library has no external dependencies and has been carefully "
-                        "designed to be easy and intuitive to use.",
+    "long_description": README,
+    "long_description_content_type": "text/markdown",
     "author": __author__,
     "author_email": __email__,
     "url": "http://py2neo.org/",
@@ -43,7 +45,7 @@ package_metadata = {
         ],
     },
     "packages": packages,
-    "py_modules": ["neokit"],
+    "py_modules": [],
     "install_requires": [
         "click>=2.0",
         "colorama",

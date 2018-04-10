@@ -3,7 +3,7 @@ Py2neo v4
 [![License](https://img.shields.io/github/license/technige/py2neo.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 **Py2neo** is a client library and toolkit for working with [Neo4j](https://neo4j.com/) from within [Python](https://www.python.org/) applications and from the command line.
-The library wraps the [official driver](https://github.com/neo4j/neo4j-python-driver) adding support for HTTP, a higher level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments and many other bells and whistles. 
+The library wraps the [official driver](https://github.com/neo4j/neo4j-python-driver), adding support for HTTP, a higher level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments and many other bells and whistles. 
 Unlike previous releases, Py2neo v4 no longer requires HTTP and can work entirely through Bolt.
 
 
