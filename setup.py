@@ -56,7 +56,7 @@ package_metadata = {
         "urllib3[secure]",
     ],
     "extras_require": {
-        "data": [
+        "sci": [
             "pandas",
         ],
     },

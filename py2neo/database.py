@@ -1316,7 +1316,7 @@ class Cursor(object):
             from pandas import Series
         except ImportError:
             from warnings import warn
-            warn("Pandas is not installed. This can be installed directly or via the [data] extra.")
+            warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
             raise
         return Series([record[field] for record in self], index=index, dtype=dtype)
 
@@ -1346,6 +1346,6 @@ class Cursor(object):
             from pandas import DataFrame
         except ImportError:
             from warnings import warn
-            warn("Pandas is not installed. This can be installed directly or via the [data] extra.")
+            warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
             raise
         return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)
