@@ -49,12 +49,17 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "neo4j-driver>=1.6.0a1",
+        "neo4j-driver==1.6.0b1",
         "prompt_toolkit",
         "pygments>=2.0",
         "pytest",
         "urllib3[secure]",
     ],
+    "extras_require": {
+        "data": [
+            "pandas",
+        ],
+    },
     "license": __license__,
     "classifiers": [
         "Development Status :: 5 - Production/Stable",

@@ -38,7 +38,7 @@ from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
-from py2neo.data import DataList
+from py2neo.data import Table
 from py2neo.database import Graph
 from py2neo.meta import __version__
 
@@ -127,7 +127,7 @@ class Console(object):
             })
         }
         self.lexer = CypherLexer()
-        self.result_writer = DataList.write
+        self.result_writer = Table.write
         if verbose:
             from py2neo.watcher import watch
             self.watcher = watch("neo4j.bolt")
@@ -282,12 +282,12 @@ class Console(object):
             click.secho(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
 
     def write_result(self, result, page_size=50):
-        data = DataList(result)
-        data_size = len(data)
-        for skip in range(0, data_size, page_size):
-            self.result_writer(data, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
+        table = Table(result)
+        table_size = len(table)
+        for skip in range(0, table_size, page_size):
+            self.result_writer(table, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
             click.echo("\r\n", nl=False)
-        return data_size
+        return table_size
 
     def run_command(self, source):
         source = source.lstrip()
@@ -348,13 +348,13 @@ class Console(object):
         return unit_of_work
 
     def set_csv_result_writer(self, **kwargs):
-        self.result_writer = DataList.write_csv
+        self.result_writer = Table.write_csv
 
     def set_tabular_result_writer(self, **kwargs):
-        self.result_writer = DataList.write
+        self.result_writer = Table.write
 
     def set_tsv_result_writer(self, **kwargs):
-        self.result_writer = DataList.write_tsv
+        self.result_writer = Table.write_tsv
 
     def config(self, **kwargs):
         result = self.graph.run("CALL dbms.listConfig")
@@ -365,13 +365,13 @@ class Console(object):
             category, _, _ = name.partition(".")
             if category != last_category:
                 if records is not None:
-                    DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+                    Table(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
                     click.echo()
                 records = []
             records.append((name, record["value"]))
             last_category = category
         if records is not None:
-            DataList(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+            Table(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
     def kernel(self, **kwargs):
         result = self.graph.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
@@ -386,7 +386,7 @@ class Console(object):
                     except:
                         pass
                 records.append((key, value))
-        DataList(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+        Table(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
 
 class ConsoleError(Exception):

@@ -86,12 +86,12 @@ def walk(*walkables):
                 yield entity
 
 
-class DataList(list):
-    """ Immutable list of data records.
+class Table(list):
+    """ Immutable list of records.
     """
 
     def __init__(self, records, keys=None):
-        super(DataList, self).__init__(map(tuple, records))
+        super(Table, self).__init__(map(tuple, records))
         if keys is None:
             try:
                 k = records.keys()

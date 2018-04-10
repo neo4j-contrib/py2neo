@@ -361,7 +361,7 @@ class Router(object):
     def __init__(self, strict=False):
         self.rules = []  # All rules in order
         self._groups = {}  # index of regexes to find them in dyna_routes
-        self.builder = {}  # Data structure for the url builder
+        self.builder = {}  # Table structure for the url builder
         self.static = {}  # Search structure for static routes
         self.dyna_routes = {}
         self.dyna_regexes = {}  # Search structure for dynamic routes
@@ -412,7 +412,7 @@ class Router(object):
         keys = []  # Names of keys
         pattern = ''  # Regular expression pattern with named groups
         filters = []  # Lists of wildcard input filters
-        builder = []  # Data structure for the URL builder
+        builder = []  # Table structure for the URL builder
         is_static = True
 
         for key, mode, conf in self._itertokens(rule):

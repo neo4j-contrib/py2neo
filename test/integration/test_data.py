@@ -24,6 +24,19 @@ from py2neo.testing import IntegrationTestCase
 KNOWS = Relationship.type("KNOWS")
 
 
+class TableTestCase(IntegrationTestCase):
+
+    def test_simple_usage(self):
+        table = self.graph.run("UNWIND range(1, 3) AS n RETURN n, n * n AS n_sq").to_table()
+        self.assertEqual(table.keys(), ["n", "n_sq"])
+        name_field = table.field(0)
+        self.assertEqual(name_field["type"], int)
+        self.assertEqual(name_field["optional"], False)
+        age_field = table.field(1)
+        self.assertEqual(age_field["type"], int)
+        self.assertEqual(age_field["optional"], False)
+
+
 class NodeTestCase(IntegrationTestCase):
 
     def test_can_create_local_node(self):

@@ -23,7 +23,7 @@ from datetime import datetime
 from time import sleep
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import DataList, Subgraph, Node
+from py2neo.data import Table, Subgraph, Node
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -365,31 +365,6 @@ class Graph(object):
         """
         with self.begin() as tx:
             tx.create(subgraph)
-
-    def data(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`.Transaction.run` operation within an
-        `autocommit` :class:`.Transaction` and extract the data
-        as a list of dictionaries.
-
-        For example::
-
-            >>> from py2neo import Graph
-            >>> graph = Graph()
-            >>> graph.data("MATCH (a:Person) RETURN a.name, a.born LIMIT 4")
-            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
-             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
-             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
-             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
-
-        .. seealso:: :meth:`.Cursor.data`
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        :param kwparameters: additional keyword parameters
-        :return: the full query result
-        :rtype: `list` of `dict`
-        """
-        return self.begin(autocommit=True).run(cypher, parameters, **kwparameters).data()
 
     def degree(self, subgraph):
         """ Run a :meth:`.Transaction.degree` operation within an
@@ -1302,16 +1277,19 @@ class Cursor(object):
         else:
             return None
 
-    def data(self):
-        """ Consume and extract the entire result as a :class:`.DataList`.
+    def to_table(self):
+        """ Consume and extract the entire result as a :class:`.Table`
+        object.
 
         :return: the full query result
         """
-        return DataList(self)
+        return Table(self)
 
-    def subgraph(self):
-        """ Return a :class:`.Subgraph` containing the union of all the
-        graph structures in this result.
+    def to_subgraph(self):
+        """ Consume and extract the entire result as a :class:`.Subgraph`
+        containing the union of all the graph structures within.
+
+        :return: :class:`.Subgraph` object
         """
         s = None
         for record in self:
@@ -1322,3 +1300,52 @@ class Cursor(object):
                     else:
                         s |= value
         return s
+
+    def to_series(self, field=0, index=None, dtype=None):
+        """ Consume and extract one field of the entire result as a
+        `pandas.Series`_.
+
+        This method requires pandas to be installed.
+
+        :param field:
+        :param index:
+        :param dtype:
+        :return: series
+        """
+        try:
+            from pandas import Series
+        except ImportError:
+            from warnings import warn
+            warn("Pandas is not installed. This can be installed directly or via the [data] extra.")
+            raise
+        return Series([record[field] for record in self], index=index, dtype=dtype)
+
+    def to_data_frame(self, index=None, columns=None, dtype=None):
+        """ Consume and extract the entire result as a
+        `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph()
+            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").to_data_frame()
+               a.born              a.name
+            0    1964        Keanu Reeves
+            1    1967    Carrie-Anne Moss
+            2    1961  Laurence Fishburne
+            3    1960        Hugo Weaving
+
+        This method requires pandas to be installed.
+
+        :param index:
+        :param columns:
+        :param dtype:
+        :return: data frame
+        """
+        try:
+            from pandas import DataFrame
+        except ImportError:
+            from warnings import warn
+            warn("Pandas is not installed. This can be installed directly or via the [data] extra.")
+            raise
+        return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)

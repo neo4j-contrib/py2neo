@@ -19,7 +19,7 @@
 from io import StringIO
 from unittest import TestCase
 
-from py2neo.data import DataList, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk, order, size
+from py2neo.data import Table, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk, order, size
 
 
 KNOWS = Relationship.type("KNOWS")
@@ -67,7 +67,7 @@ class SizeTestCase(TestCase):
 class DataListTestCase(TestCase):
 
     def test_simple_usage(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -83,7 +83,7 @@ class DataListTestCase(TestCase):
 
     def test_missing_keys(self):
         with self.assertRaises(ValueError):
-            _ = DataList([
+            _ = Table([
                 ["Alice", 33],
                 ["Bob", 44],
                 ["Carol", 55],
@@ -91,7 +91,7 @@ class DataListTestCase(TestCase):
             ])
 
     def test_optional_fields(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", None],
@@ -106,7 +106,7 @@ class DataListTestCase(TestCase):
         self.assertEqual(age_field["optional"], True)
 
     def test_mixed_types(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55.5],
@@ -121,7 +121,7 @@ class DataListTestCase(TestCase):
         self.assertEqual(age_field["optional"], False)
 
     def test_fields_by_name_usage(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -138,7 +138,7 @@ class DataListTestCase(TestCase):
             _ = table.field("gender")
 
     def test_bad_typed_field_selector(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -148,7 +148,7 @@ class DataListTestCase(TestCase):
             _ = table.field(object)
 
     def test_repr(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -163,7 +163,7 @@ class DataListTestCase(TestCase):
                               u' Dave  |  66 \r\n')
 
     def test_write(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -177,7 +177,7 @@ class DataListTestCase(TestCase):
                                          u' Dave  | 66 \r\n')
 
     def test_write_with_newline_in_value(self):
-        table = DataList([
+        table = Table([
             ["Alice\nSmith", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -192,7 +192,7 @@ class DataListTestCase(TestCase):
                                          u' Dave  | 66 \r\n')
 
     def test_write_with_style(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -208,7 +208,7 @@ class DataListTestCase(TestCase):
                                          u' Dave  |  66 \r\n')
 
     def test_write_with_skip(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -220,7 +220,7 @@ class DataListTestCase(TestCase):
                                          u' Dave  | 66 \r\n')
 
     def test_write_with_limit(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -232,7 +232,7 @@ class DataListTestCase(TestCase):
                                          u' Bob   | 44 \r\n')
 
     def test_write_with_skip_and_limit(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -244,7 +244,7 @@ class DataListTestCase(TestCase):
                                          u' Carol | 55 \r\n')
 
     def test_write_with_skip_and_limit_overflow(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -257,7 +257,7 @@ class DataListTestCase(TestCase):
                                          u' Dave  | 66 \r\n')
 
     def test_write_csv(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -271,7 +271,7 @@ class DataListTestCase(TestCase):
                                          u'Dave,66\r\n')
 
     def test_write_csv_with_header(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -286,7 +286,7 @@ class DataListTestCase(TestCase):
                                          u'Dave,66\r\n')
 
     def test_write_csv_with_header_style(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -301,7 +301,7 @@ class DataListTestCase(TestCase):
                                          u'Dave,66\r\n')
 
     def test_write_csv_with_limit(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -313,7 +313,7 @@ class DataListTestCase(TestCase):
                                          u'Bob,44\r\n')
 
     def test_write_csv_with_comma_in_value(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -327,7 +327,7 @@ class DataListTestCase(TestCase):
                                          u'"Smith, Dave",66\r\n')
 
     def test_write_csv_with_quotes_in_value(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -341,7 +341,7 @@ class DataListTestCase(TestCase):
                                          u'"Dave ""Nordberg"" Smith",66\r\n')
 
     def test_write_csv_with_none_in_value(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
@@ -355,7 +355,7 @@ class DataListTestCase(TestCase):
                                          u'Dave,\r\n')
 
     def test_write_tsv(self):
-        table = DataList([
+        table = Table([
             ["Alice", 33],
             ["Bob", 44],
             ["Carol", 55],
