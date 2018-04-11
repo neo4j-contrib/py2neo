@@ -1368,3 +1368,23 @@ class Cursor(object):
             raise
         else:
             return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)
+
+    def to_matrix(self, mutable=False):
+        """ Consume and extract the entire result as a
+        sympy Matrix.
+
+        This method requires sympy to be installed.
+
+        :param mutable:
+        :return:
+        """
+        try:
+            from sympy import MutableMatrix, ImmutableMatrix
+        except ImportError:
+            warn("Sympy is not installed. This can be installed directly or via the [sci] extra.")
+            raise
+        else:
+            if mutable:
+                return MutableMatrix(list(map(list, self)))
+            else:
+                return ImmutableMatrix(list(map(list, self)))

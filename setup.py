@@ -59,6 +59,7 @@ package_metadata = {
         "sci": [
             "numpy",
             "pandas",
+            "sympy",
         ],
     },
     "license": __license__,
