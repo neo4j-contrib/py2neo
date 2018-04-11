@@ -193,6 +193,11 @@ class Warehouse(object):
             check_call(["tar", "x", "-C", container, "-f", archive_file])
         return self.get(name)
 
+    def install_local_cluster(self, name, cores, read_replicas, version=None):
+        """ Install a Neo4j Causal Cluster.
+        """
+        return LocalCluster.install(self, name, cores, read_replicas, version)
+
     def uninstall(self, name):
         """ Remove a Neo4j installation.
 
@@ -305,7 +310,7 @@ class Installation(object):
         port = None
         if self.server.running():
             try:
-                port = self.server.info("NEO4J_SERVER_PORT")
+                port = self.server.info["NEO4J_SERVER_PORT"]
             except OSError:
                 pass
         if port is None:
@@ -350,6 +355,72 @@ class Installation(object):
             raise RuntimeError("Refusing to drop database store while server is running")
 
 
+class LocalCluster(object):
+
+    @classmethod
+    def install(cls, warehouse, name, cores, read_replicas, version=None):
+        core_homes = []
+        read_replica_homes = []
+        initial_discovery_members = ",".join("localhost:%d" % (5000 + i) for i in range(cores))
+        for i in range(cores):
+            install = warehouse.install("%s_c%02d" % (name, i), "enterprise", version)
+            install.set_config("dbms.mode", "CORE")
+            install.set_config("dbms.backup.enabled", False)
+            install.set_config("dbms.connector.bolt.listen_address", ":%d" % (17100 + i))
+            install.set_config("dbms.connector.http.listen_address", ":%d" % (17200 + i))
+            install.set_config("dbms.connector.https.listen_address", ":%d" % (17300 + i))
+            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (5000 + i))
+            install.set_config("causal_clustering.expected_core_cluster_size", 3)
+            install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
+            install.set_config("causal_clustering.raft_listen_address", ":%d" % (7000 + i))
+            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (6000 + i))
+            core_homes.append(install.home)
+        for i in range(read_replicas):
+            install = warehouse.install("%s_r%02d" % (name, i), "enterprise", version)
+            install.set_config("dbms.mode", "READ_REPLICA")
+            install.set_config("dbms.backup.enabled", False)
+            install.set_config("dbms.connector.bolt.listen_address", ":%d" % (27100 + i))
+            install.set_config("dbms.connector.http.listen_address", ":%d" % (27200 + i))
+            install.set_config("dbms.connector.https.listen_address", ":%d" % (27300 + i))
+            install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
+            read_replica_homes.append(install.home)
+        return cls(core_homes, read_replica_homes)
+
+    def __init__(self, core_homes, read_replica_homes):
+        self.cores = list(map(Installation, core_homes))
+        self.read_replicas = list(map(Installation, read_replica_homes))
+
+    def __repr__(self):
+        return "<%s ?>" % (self.__class__.__name__,)
+
+    def __iter__(self):
+        for install in self.cores:
+            yield install
+        for install in self.read_replicas:
+            yield install
+
+    def start(self):
+        for install in self.cores:
+            install.server.start(wait=False)
+        for install in self.read_replicas:
+            install.server.start()
+        for install in self:
+            print(install.server.info)
+
+    def stop(self):
+        for install in self:
+            install.server.stop()
+
+    def delete(self):
+        self.stop()
+        while self.read_replicas:
+            install = self.read_replicas.pop()
+            rmtree(install.home)
+        while self.cores:
+            install = self.cores.pop()
+            rmtree(install.home)
+
+
 class Server(object):
     """ Represents a Neo4j server process that can be started and stopped.
     """
@@ -361,7 +432,7 @@ class Server(object):
     def control_script(self):
         return path_join(self.installation.home, "bin", "neo4j")
 
-    def start(self):
+    def start(self, wait=True, verbose=False):
         """ Start the server.
         """
         try:
@@ -377,6 +448,8 @@ class Server(object):
         else:
             pid = None
             for line in out.decode("utf-8").splitlines(False):
+                if verbose:
+                    print(line)
                 if line.startswith("process"):
                     number_in_brackets = re_compile("\[(\d+)\]")
                     numbers = number_in_brackets.search(line).groups()
@@ -384,18 +457,19 @@ class Server(object):
                         pid = int(numbers[0])
                 elif "(pid " in line:
                     pid = int(line.partition("(pid ")[-1].partition(")")[0])
-            running = False
-            port = self.installation.http_port
-            t = 0
-            while not running and t < 30:
-                try:
-                    s = create_connection(("localhost", port))
-                except IOError:
-                    sleep(1)
-                    t += 1
-                else:
-                    s.close()
-                    running = True
+            if wait:
+                running = False
+                port = self.installation.http_port
+                t = 0
+                while not running and t < 30:
+                    try:
+                        s = create_connection(("localhost", port))
+                    except IOError:
+                        sleep(1)
+                        t += 1
+                    else:
+                        s.close()
+                        running = True
             return pid
 
     def stop(self):
@@ -441,10 +515,9 @@ class Server(object):
                     p = int(line.rpartition(" ")[-1])
             return p
 
-    def info(self, key):
-        """ Look up an item of server information from a running server.
-
-        :param key: the key of the item to look up
+    @property
+    def info(self):
+        """ Return a dictionary of server information from a running server.
         """
         try:
             out = check_output("%s info" % self.control_script, shell=True, stderr=DEVNULL)
@@ -455,6 +528,7 @@ class Server(object):
                 raise OSError("An error occurred while trying to fetch server "
                               "info [%s]" % error.returncode)
         else:
+            info = {}
             for line in out.decode("utf-8").splitlines(False):
                 try:
                     colon = line.index(":")
@@ -465,8 +539,8 @@ class Server(object):
                     v = line[colon+1:].lstrip()
                     if k == "CLASSPATH":
                         v = v.split(":")
-                    if k == key:
-                        return v
+                    info[k] = v
+            return info
 
 
 class AuthFile(object):
