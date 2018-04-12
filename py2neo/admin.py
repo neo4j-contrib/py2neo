@@ -24,9 +24,9 @@ from re import compile as re_compile
 from shutil import rmtree
 from socket import create_connection
 from subprocess import check_call, check_output, CalledProcessError
-from sys import stdout
 from tarfile import TarFile, ReadError
 from time import sleep
+from threading import Thread
 
 import click
 
@@ -52,10 +52,10 @@ versions = [
     "3.2.0", "3.2.1", "3.2.2", "3.2.3",
 
     # 3.3 series
-    "3.3.0", "3.3.1", "3.3.2", "3.3.3", "3.3.4",
+    "3.3.0", "3.3.1", "3.3.2", "3.3.3", "3.3.4", "3.3.5",
 
     # 3.4 series
-    "3.4.0-alpha10",
+    "3.4.0-beta01",
 
 ]
 
@@ -157,29 +157,40 @@ class Warehouse(object):
         self.home = home or getenv("PY2NEO_HOME") or expanduser("~/.py2neo")
         self.dist = path_join(self.home, "dist")
         self.run = path_join(self.home, "run")
+        self.cc = path_join(self.home, "cc")
 
-    def get(self, name):
+    def get(self, name, role=None, member=None):
         """ Obtain a Neo4j installation by name.
 
         :param name:
+        :param role:
+        :param member:
         :return:
         """
-        container = path_join(self.run, name)
+        if role and member is not None:
+            container = path_join(self.cc, name, role, str(member))
+        else:
+            container = path_join(self.run, name)
         for dir_name in listdir(container):
             dir_path = path_join(container, dir_name)
             if isdir(dir_path):
                 return Installation(dir_path)
         raise IOError("Could not locate installation directory")
 
-    def install(self, name, edition=None, version=None):
+    def install(self, name, edition=None, version=None, role=None, member=None):
         """ Install Neo4j.
 
         :param name:
         :param edition:
         :param version:
+        :param role:
+        :param member:
         :return:
         """
-        container = path_join(self.run, name)
+        if role and member is not None:
+            container = path_join(self.cc, name, role, str(member))
+        else:
+            container = path_join(self.run, name)
         rmtree(container, ignore_errors=True)
         makedirs(container)
         archive_file = Distribution(edition, version).download(self.dist)
@@ -191,20 +202,25 @@ class Warehouse(object):
             # files for unknown reasons. This workaround falls back to
             # command line.
             check_call(["tar", "x", "-C", container, "-f", archive_file])
-        return self.get(name)
+        return self.get(name, role, member)
 
-    def install_local_cluster(self, name, cores, read_replicas, version=None):
+    def install_local_cluster(self, name, version, **databases):
         """ Install a Neo4j Causal Cluster.
         """
-        return LocalCluster.install(self, name, cores, read_replicas, version)
+        return LocalCluster.install(self, name, version, **databases)
 
-    def uninstall(self, name):
+    def uninstall(self, name, role=None, member=None):
         """ Remove a Neo4j installation.
 
         :param name:
+        :param role:
+        :param member:
         :return:
         """
-        container = path_join(self.run, name)
+        if role and member is not None:
+            container = path_join(self.cc, name, role, str(member))
+        else:
+            container = path_join(self.run, name)
         rmtree(container, ignore_errors=True)
 
     def directory(self):
@@ -279,8 +295,9 @@ class Installation(object):
         with open(config_file_path, "r") as f_in:
             lines = f_in.readlines()
         with open(config_file_path, "w") as f_out:
+            properties2 = dict(properties)
             for line in lines:
-                for key, value in properties.items():
+                for key, value in properties2.items():
                     if line.startswith(key + "=") or \
                             (line.startswith("#") and line[1:].lstrip().startswith(key + "=")):
                         if value is True:
@@ -288,9 +305,16 @@ class Installation(object):
                         if value is False:
                             value = "false"
                         f_out.write("%s=%s\n" % (key, value))
+                        del properties2[key]
                         break
                 else:
                     f_out.write(line)
+            for key, value in properties2.items():
+                if value is True:
+                    value = "true"
+                if value is False:
+                    value = "false"
+                f_out.write("%s=%s\n" % (key, value))
 
     @property
     def auth_enabled(self):
@@ -308,11 +332,6 @@ class Installation(object):
         """ The port on which this server expects HTTP communication.
         """
         port = None
-        if self.server.running():
-            try:
-                port = self.server.info["NEO4J_SERVER_PORT"]
-            except OSError:
-                pass
         if port is None:
             http_address = self.get_config("dbms.connector.http.address")
             if http_address:
@@ -358,37 +377,61 @@ class Installation(object):
 class LocalCluster(object):
 
     @classmethod
-    def install(cls, warehouse, name, cores, read_replicas, version=None):
-        core_homes = []
-        read_replica_homes = []
-        initial_discovery_members = ",".join("localhost:%d" % (5000 + i) for i in range(cores))
-        for i in range(cores):
-            install = warehouse.install("%s_c%02d" % (name, i), "enterprise", version)
+    def install(cls, warehouse, name, version, **databases):
+        """ Install a new Causal Cluster or Multicluster.
+
+        :param warehouse: warehouse in which to install
+        :param name: cluster or multicluster name
+        :param version: Neo4j version (Enterprise edition is required)
+        :param databases: pairs of db_name=core_size or db_name=(core_size, rr_size)
+        :return: :class:`.LocalCluster` instance
+        """
+        core_databases = []
+        read_replica_databases = []
+        for database, size in databases.items():
+            if isinstance(size, tuple):
+                core_databases.extend([database] * size[0])
+                read_replica_databases.extend([database] * size[1])
+            else:
+                core_databases.extend([database] * size)
+        initial_discovery_members = ",".join("localhost:%d" % (18100 + i) for i, database in enumerate(core_databases))
+        for i, database in enumerate(core_databases):
+            install = warehouse.install(name, "enterprise", version, role="core", member=i)
             install.set_config("dbms.mode", "CORE")
             install.set_config("dbms.backup.enabled", False)
             install.set_config("dbms.connector.bolt.listen_address", ":%d" % (17100 + i))
             install.set_config("dbms.connector.http.listen_address", ":%d" % (17200 + i))
             install.set_config("dbms.connector.https.listen_address", ":%d" % (17300 + i))
-            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (5000 + i))
+            install.set_config("causal_clustering.database", database)
+            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (18100 + i))
             install.set_config("causal_clustering.expected_core_cluster_size", 3)
             install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
-            install.set_config("causal_clustering.raft_listen_address", ":%d" % (7000 + i))
-            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (6000 + i))
-            core_homes.append(install.home)
-        for i in range(read_replicas):
-            install = warehouse.install("%s_r%02d" % (name, i), "enterprise", version)
+            install.set_config("causal_clustering.raft_listen_address", ":%d" % (18200 + i))
+            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (18300 + i))
+        for i, database in enumerate(read_replica_databases):
+            install = warehouse.install(name, "enterprise", version, role="rr", member=i)
             install.set_config("dbms.mode", "READ_REPLICA")
             install.set_config("dbms.backup.enabled", False)
             install.set_config("dbms.connector.bolt.listen_address", ":%d" % (27100 + i))
             install.set_config("dbms.connector.http.listen_address", ":%d" % (27200 + i))
             install.set_config("dbms.connector.https.listen_address", ":%d" % (27300 + i))
+            install.set_config("causal_clustering.database", database)
+            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (28100 + i))
+            install.set_config("causal_clustering.expected_core_cluster_size", 3)
             install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
-            read_replica_homes.append(install.home)
-        return cls(core_homes, read_replica_homes)
+            install.set_config("causal_clustering.raft_listen_address", ":%d" % (28200 + i))
+            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (28300 + i))
+        return cls(warehouse, name)
 
-    def __init__(self, core_homes, read_replica_homes):
-        self.cores = list(map(Installation, core_homes))
-        self.read_replicas = list(map(Installation, read_replica_homes))
+    def __init__(self, warehouse, name):
+        self.warehouse = warehouse
+        self.name = name
+        self.cores = []
+        self.read_replicas = []
+        for i in listdir(path_join(warehouse.cc, name, "core")):
+            self.cores.append(warehouse.get(name, "core", i))
+        for i in listdir(path_join(warehouse.cc, name, "rr")):
+            self.read_replicas.append(warehouse.get(name, "rr", i))
 
     def __repr__(self):
         return "<%s ?>" % (self.__class__.__name__,)
@@ -400,25 +443,83 @@ class LocalCluster(object):
             yield install
 
     def start(self):
+        threads = []
         for install in self.cores:
-            install.server.start(wait=False)
+            thread = Thread(target=install.server.start)
+            thread.start()
+            threads.append(thread)
         for install in self.read_replicas:
-            install.server.start()
-        for install in self:
-            print(install.server.info)
+            thread = Thread(target=install.server.start)
+            thread.start()
+            threads.append(thread)
+        while threads:
+            for thread in list(threads):
+                if thread.is_alive():
+                    thread.join(timeout=0.5)
+                else:
+                    threads.remove(thread)
 
     def stop(self):
-        for install in self:
-            install.server.stop()
+        threads = []
+        for install in self.cores:
+            thread = Thread(target=install.server.stop)
+            thread.start()
+            threads.append(thread)
+        for install in self.read_replicas:
+            thread = Thread(target=install.server.stop)
+            thread.start()
+            threads.append(thread)
+        while threads:
+            for thread in list(threads):
+                if thread.is_alive():
+                    thread.join(timeout=0.5)
+                else:
+                    threads.remove(thread)
 
-    def delete(self):
+    def uninstall(self):
         self.stop()
-        while self.read_replicas:
-            install = self.read_replicas.pop()
-            rmtree(install.home)
-        while self.cores:
-            install = self.cores.pop()
-            rmtree(install.home)
+        self.read_replicas.clear()
+        self.cores.clear()
+        rmtree(self.warehouse.cc, self.name)
+
+    @property
+    def http_uris(self):
+
+        def get_address(install):
+            address = install.get_config("dbms.connector.http.listen_address", "localhost:7474")
+            if address.startswith(":"):
+                address = "localhost" + address
+            return "http://" + address
+
+        return {
+            "cores": [get_address(install) for install in self.cores],
+            "read_replicas": [get_address(install) for install in self.read_replicas],
+        }
+
+    @property
+    def bolt_uris(self):
+
+        def get_address(install):
+            address = install.get_config("dbms.connector.bolt.listen_address", "localhost:7687")
+            if address.startswith(":"):
+                address = "localhost" + address
+            return "bolt://" + address
+
+        return {
+            "cores": [get_address(install) for install in self.cores],
+            "read_replicas": [get_address(install) for install in self.read_replicas],
+        }
+
+    @property
+    def bolt_routing_uris(self):
+
+        def get_address(install):
+            address = install.get_config("dbms.connector.bolt.listen_address", "localhost:7687")
+            if address.startswith(":"):
+                address = "localhost" + address
+            return "bolt+routing://" + address
+
+        return [get_address(install) for install in self.cores]
 
 
 class Server(object):
@@ -514,33 +615,6 @@ class Server(object):
                 if "running" in line:
                     p = int(line.rpartition(" ")[-1])
             return p
-
-    @property
-    def info(self):
-        """ Return a dictionary of server information from a running server.
-        """
-        try:
-            out = check_output("%s info" % self.control_script, shell=True, stderr=DEVNULL)
-        except CalledProcessError as error:
-            if error.returncode == 3:
-                return None
-            else:
-                raise OSError("An error occurred while trying to fetch server "
-                              "info [%s]" % error.returncode)
-        else:
-            info = {}
-            for line in out.decode("utf-8").splitlines(False):
-                try:
-                    colon = line.index(":")
-                except ValueError:
-                    pass
-                else:
-                    k = line[:colon]
-                    v = line[colon+1:].lstrip()
-                    if k == "CLASSPATH":
-                        v = v.split(":")
-                    info[k] = v
-            return info
 
 
 class AuthFile(object):
