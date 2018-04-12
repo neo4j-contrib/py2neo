@@ -140,7 +140,7 @@ class GraphObjectTestCase(IntegrationTestCase):
     def test_graph_contains(self):
         node = Node()
         self.graph.create(node)
-        assert node in self.graph
+        self.assertIs(node.graph, self.graph)
 
     def test_can_hydrate_map_from_json_result(self):
         # TODO: check that a warning is raised
@@ -213,9 +213,6 @@ class GraphObjectTestCase(IntegrationTestCase):
 
         assert node.identity in self.graph.node_cache
         assert node.identity not in other_cache_keys
-
-    def test_graph_hashes(self):
-        assert hash(self.graph) == hash(self.graph)
 
     def test_graph_repr(self):
         assert repr(self.graph).startswith("<Graph")

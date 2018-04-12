@@ -285,7 +285,7 @@ class RelationshipTestCase(IntegrationTestCase):
         b = Node()
         self.graph.create(a | b)
         r = Relationship(a, "TO", b)
-        self.assertNotIn(r, self.graph)
+        self.assertIsNot(r.graph, self.graph)
         self.assertFalse(self.graph.exists(r))
 
     def test_blank_type_automatically_updates(self):

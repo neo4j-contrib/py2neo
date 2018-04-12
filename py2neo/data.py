@@ -396,7 +396,7 @@ class Subgraph(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            if node in graph:
+            if node.graph is graph:
                 reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 parameters[param_id] = node.identity
             else:
@@ -407,7 +407,7 @@ class Subgraph(object):
                 node._set_remote_pending(tx)
             returns[node_id] = node
         for i, relationship in enumerate(self.relationships):
-            if relationship not in graph:
+            if relationship.graph is not graph:
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node)
                 end_node_id = "a%d" % nodes.index(relationship.end_node)
@@ -426,7 +426,7 @@ class Subgraph(object):
         graph = tx.graph
         node_ids = []
         for i, node in enumerate(self.nodes):
-            if node in graph:
+            if node.graph is graph:
                 node_ids.append(node.identity)
         statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
         parameters = {"x": node_ids}
@@ -437,12 +437,12 @@ class Subgraph(object):
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(self.nodes):
-            if node in graph:
+            if node.graph is graph:
                 node_ids.add(node.identity)
             else:
                 return False
         for i, relationship in enumerate(self.relationships):
-            if relationship in graph:
+            if relationship.graph is graph:
                 relationship_ids.add(relationship.identity)
             else:
                 return False
@@ -457,12 +457,12 @@ class Subgraph(object):
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(self.nodes):
-            if node in graph:
+            if node.graph is graph:
                 node_ids.add(node.identity)
             else:
                 return False
         for i, relationship in enumerate(self.relationships):
-            if relationship in graph:
+            if relationship.graph is graph:
                 relationship_ids.add(relationship.identity)
             else:
                 return False
@@ -482,7 +482,7 @@ class Subgraph(object):
         for i, node in enumerate(nodes):
             node_id = "a%d" % i
             param_id = "x%d" % i
-            if node in graph:
+            if node.graph is graph:
                 match_clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
                 parameters[param_id] = node.identity
             else:
@@ -518,7 +518,7 @@ class Subgraph(object):
             returns[node_id] = node
         clauses = match_clauses + merge_clauses
         for i, relationship in enumerate(self.relationships):
-            if relationship not in graph:
+            if relationship.graph is not graph:
                 rel_id = "r%d" % i
                 start_node_id = "a%d" % nodes.index(relationship.start_node)
                 end_node_id = "a%d" % nodes.index(relationship.end_node)
@@ -538,12 +538,12 @@ class Subgraph(object):
         nodes = {node: None for node in self.nodes}
         relationships = list(self.relationships)
         for node in nodes:
-            if node in graph:
+            if node.graph is graph:
                 tx.entities.append({"_": node})
                 cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=node.identity)
                 nodes[node] = cursor
         for relationship in relationships:
-            if relationship in graph:
+            if relationship.graph is graph:
                 tx.entities.append({"_": relationship})
                 list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=relationship.identity))
         for node, cursor in nodes.items():
@@ -558,7 +558,7 @@ class Subgraph(object):
         graph = tx.graph
         # TODO: reimplement this when REMOVE a:* is available in Cypher
         for node in self.nodes:
-            if node in graph:
+            if node.graph is graph:
                 clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
                 parameters = {"x": node.identity, "y": dict(node)}
                 old_labels = node._remote_labels - node._labels
@@ -569,7 +569,7 @@ class Subgraph(object):
                     clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
                 tx.run("\n".join(clauses), parameters)
         for relationship in self.relationships:
-            if relationship in graph:
+            if relationship.graph is graph:
                 clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
                 parameters = {"x": relationship.identity, "y": dict(relationship)}
                 tx.run("\n".join(clauses), parameters)
@@ -580,7 +580,7 @@ class Subgraph(object):
         deletes = []
         parameters = {}
         for i, relationship in enumerate(self.relationships):
-            if relationship in graph:
+            if relationship.graph is graph:
                 rel_id = "r%d" % i
                 param_id = "y%d" % i
                 matches.append("MATCH ()-[%s]->() "
@@ -879,7 +879,7 @@ class Node(Entity):
 
     def __hash__(self):
         if self.graph and self.identity:
-            return hash(self.graph) ^ hash(self.identity)
+            return hash(self.graph.database) ^ hash(self.graph.name) ^ hash(self.identity)
         else:
             return hash(id(self))
 

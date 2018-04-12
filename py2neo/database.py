@@ -325,9 +325,6 @@ class Graph(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __hash__(self):
-        return hash(self._graph_db) ^ hash(self.__name__)
-
     def __graph_order__(self):
         return self.evaluate("MATCH (_) RETURN count(_)")
 
@@ -342,12 +339,6 @@ class Graph(object):
 
     def __nonzero__(self):
         return True
-
-    def __contains__(self, entity):
-        try:
-            return entity.graph == self and entity.identity is not None
-        except AttributeError:
-            return False
 
     def begin(self, autocommit=False):
         """ Begin a new :class:`.Transaction`.
