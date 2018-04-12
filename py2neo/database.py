@@ -293,28 +293,30 @@ class Graph(object):
     access to most of the functionality available within py2neo.
     """
 
-    _database = None
+    #: The :class:`.Database` to which this :class:`.Graph` belongs.
+    database = None
 
-    _schema = None
+    #: The :class:`.Schema` resource for this :class:`.Graph`.
+    schema = None
 
     node_cache = ThreadLocalEntityCache()
     relationship_cache = ThreadLocalEntityCache()
 
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
-        db = Database(uri, **settings)
-        if name in db:
-            inst = db[name]
+        database = Database(uri, **settings)
+        if name in database:
+            inst = database[name]
         else:
             inst = super(Graph, cls).__new__(cls)
-            inst._graph_db = db
+            inst.database = database
+            inst.schema = Schema(inst)
             inst.__name__ = name
-            inst.node_selector = NodeSelector(inst)
-            db[name] = inst
+            database[name] = inst
         return inst
 
     def __repr__(self):
-        return "<Graph db=%r name=%r>" % (self._graph_db, self.__name__)
+        return "<Graph database=%r name=%r>" % (self.database, self.__name__)
 
     def __eq__(self, other):
         try:
@@ -409,13 +411,6 @@ class Graph(object):
         :return:
         """
         return self.begin(autocommit=True).exists(subgraph)
-
-    @property
-    def database(self):
-        """ The :class:`Database` to which this :class:`.Graph`
-        instance belongs.
-        """
-        return self._graph_db
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -530,7 +525,8 @@ class Graph(object):
         try:
             return self.node_cache[identity]
         except KeyError:
-            node = self.node_selector.select().where("id(_) = %d" % identity).first()
+            node_selector = NodeSelector(self)
+            node = node_selector.select().where("id(_) = %d" % identity).first()
             if node is None:
                 raise IndexError("Node %d not found" % identity)
             else:
@@ -585,16 +581,6 @@ class Graph(object):
                        :class:`.Subgraph`
         """
         self.begin(autocommit=True).separate(subgraph)
-
-    @property
-    def schema(self):
-        """ The schema resource for this graph.
-
-        :rtype: :class:`Schema`
-        """
-        if self._schema is None:
-            self._schema = Schema(self)
-        return self._schema
 
 
 class Schema(object):
