@@ -536,12 +536,6 @@ class Graph(object):
             else:
                 return node
 
-    @property
-    def node_labels(self):
-        """ The set of node labels currently defined within the graph.
-        """
-        return frozenset(record[0] for record in self.run("CALL db.labels"))
-
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
@@ -571,12 +565,6 @@ class Graph(object):
                 raise IndexError("Relationship %d not found" % identity)
             else:
                 return relationship
-
-    @property
-    def relationship_types(self):
-        """ The set of relationship types currently defined within the graph.
-        """
-        return frozenset(record[0] for record in self.run("CALL db.relationshipTypes"))
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an
@@ -615,6 +603,18 @@ class Schema(object):
 
     def __init__(self, graph):
         self.graph = graph
+
+    @property
+    def node_labels(self):
+        """ The set of node labels currently defined within the graph.
+        """
+        return frozenset(record[0] for record in self.graph.run("CALL db.labels"))
+
+    @property
+    def relationship_types(self):
+        """ The set of relationship types currently defined within the graph.
+        """
+        return frozenset(record[0] for record in self.graph.run("CALL db.relationshipTypes"))
 
     def create_index(self, label, *property_keys):
         """ Create a schema index for a label and property

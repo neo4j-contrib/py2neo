@@ -255,6 +255,10 @@ class GraphSchemaTestCase(IntegrationTestCase):
     def setUp(self):
         self.reset()
 
+    def test_can_get_all_relationship_types(self):
+        types = self.schema.relationship_types
+        assert isinstance(types, frozenset)
+
     def test_schema_index(self):
         label_1 = next(self.unique_string)
         label_2 = next(self.unique_string)

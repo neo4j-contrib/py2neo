@@ -165,10 +165,6 @@ class NodeAutoNamingTestCase(IntegrationTestCase):
 
 class RelationshipTestCase(IntegrationTestCase):
 
-    def test_can_get_all_relationship_types(self):
-        types = self.graph.relationship_types
-        assert isinstance(types, frozenset)
-
     def test_can_get_relationship_by_id_when_cached(self):
         a = Node()
         b = Node()

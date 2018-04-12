@@ -60,7 +60,7 @@ class IntegrationTestCase(TestCase):
     def reset(self):
         graph = self.graph
         schema = self.schema
-        for label in graph.node_labels:
+        for label in schema.node_labels:
             for property_keys in schema.get_uniqueness_constraints(label):
                 schema.drop_uniqueness_constraint(label, *property_keys)
             for property_keys in schema.get_indexes(label):
