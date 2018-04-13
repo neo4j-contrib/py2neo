@@ -159,16 +159,17 @@ class Warehouse(object):
         self.run = path_join(self.home, "run")
         self.cc = path_join(self.home, "cc")
 
-    def get(self, name, role=None, member=None):
+    def get(self, name, database=None, role=None, member=None):
         """ Obtain a Neo4j installation by name.
 
         :param name:
+        :param database:
         :param role:
         :param member:
         :return:
         """
-        if role and member is not None:
-            container = path_join(self.cc, name, role, str(member))
+        if database and role and member is not None:
+            container = path_join(self.cc, name, database, role, str(member))
         else:
             container = path_join(self.run, name)
         for dir_name in listdir(container):
@@ -177,18 +178,19 @@ class Warehouse(object):
                 return Installation(dir_path)
         raise IOError("Could not locate installation directory")
 
-    def install(self, name, edition=None, version=None, role=None, member=None):
+    def install(self, name, edition=None, version=None, database=None, role=None, member=None):
         """ Install Neo4j.
 
         :param name:
         :param edition:
         :param version:
+        :param database:
         :param role:
         :param member:
         :return:
         """
-        if role and member is not None:
-            container = path_join(self.cc, name, role, str(member))
+        if database and role and member is not None:
+            container = path_join(self.cc, name, database, role, str(member))
         else:
             container = path_join(self.run, name)
         rmtree(container, ignore_errors=True)
@@ -202,23 +204,24 @@ class Warehouse(object):
             # files for unknown reasons. This workaround falls back to
             # command line.
             check_call(["tar", "x", "-C", container, "-f", archive_file])
-        return self.get(name, role, member)
+        return self.get(name, database, role, member)
 
     def install_local_cluster(self, name, version, **databases):
         """ Install a Neo4j Causal Cluster.
         """
         return LocalCluster.install(self, name, version, **databases)
 
-    def uninstall(self, name, role=None, member=None):
+    def uninstall(self, name, database=None, role=None, member=None):
         """ Remove a Neo4j installation.
 
         :param name:
+        :param database:
         :param role:
         :param member:
         :return:
         """
-        if role and member is not None:
-            container = path_join(self.cc, name, role, str(member))
+        if database and role and member is not None:
+            container = path_join(self.cc, name, database, role, str(member))
         else:
             container = path_join(self.run, name)
         rmtree(container, ignore_errors=True)
@@ -396,7 +399,7 @@ class LocalCluster(object):
                 core_databases.extend([database] * size)
         initial_discovery_members = ",".join("localhost:%d" % (18100 + i) for i, database in enumerate(core_databases))
         for i, database in enumerate(core_databases):
-            install = warehouse.install(name, "enterprise", version, role="core", member=i)
+            install = warehouse.install(name, "enterprise", version, database=database, role="core", member=i)
             install.set_config("dbms.mode", "CORE")
             install.set_config("dbms.backup.enabled", False)
             install.set_config("dbms.connector.bolt.listen_address", ":%d" % (17100 + i))
@@ -409,7 +412,7 @@ class LocalCluster(object):
             install.set_config("causal_clustering.raft_listen_address", ":%d" % (18200 + i))
             install.set_config("causal_clustering.transaction_listen_address", ":%d" % (18300 + i))
         for i, database in enumerate(read_replica_databases):
-            install = warehouse.install(name, "enterprise", version, role="rr", member=i)
+            install = warehouse.install(name, "enterprise", version, database=database, role="rr", member=i)
             install.set_config("dbms.mode", "READ_REPLICA")
             install.set_config("dbms.backup.enabled", False)
             install.set_config("dbms.connector.bolt.listen_address", ":%d" % (27100 + i))
@@ -426,100 +429,99 @@ class LocalCluster(object):
     def __init__(self, warehouse, name):
         self.warehouse = warehouse
         self.name = name
-        self.cores = []
-        self.read_replicas = []
-        for i in listdir(path_join(warehouse.cc, name, "core")):
-            self.cores.append(warehouse.get(name, "core", i))
-        for i in listdir(path_join(warehouse.cc, name, "rr")):
-            self.read_replicas.append(warehouse.get(name, "rr", i))
+        self.installations = {}
+        for database, role, member in self._walk_installations():
+            self.installations.setdefault(database, {}).setdefault(role, {})[member] = warehouse.get(name, database, role, member)
+
+    def databases(self):
+        for database in listdir(path_join(self.warehouse.cc, self.name)):
+            yield database
+
+    def members(self, database):
+        core_path = path_join(self.warehouse.cc, self.name, database, "core")
+        if isdir(core_path):
+            for member in listdir(core_path):
+                yield "core", member
+        else:
+            raise RuntimeError("Database %s has no cores" % database)
+        rr_path = path_join(self.warehouse.cc, self.name, database, "rr")
+        if isdir(rr_path):
+            for member in listdir(rr_path):
+                yield "rr", member
+
+    def _walk_installations(self):
+        """ For each installation in the cluster, yield a 3-tuple
+        of (database, role, member).
+        """
+        for database in listdir(path_join(self.warehouse.cc, self.name)):
+            core_path = path_join(self.warehouse.cc, self.name, database, "core")
+            if isdir(core_path):
+                for member in listdir(core_path):
+                    yield database, "core", member
+            else:
+                raise RuntimeError("Database %s has no cores" % database)
+            rr_path = path_join(self.warehouse.cc, self.name, database, "rr")
+            if isdir(rr_path):
+                for member in listdir(rr_path):
+                    yield database, "rr", member
 
     def __repr__(self):
         return "<%s ?>" % (self.__class__.__name__,)
 
-    def __iter__(self):
-        for install in self.cores:
-            yield install
-        for install in self.read_replicas:
-            yield install
+    def for_each(self, database, role, f):
+        if not callable(f):
+            raise TypeError("Callback is not callable")
+
+        threads = []
+
+        def call_f(i):
+            t = Thread(target=f, args=[i])
+            t.start()
+            threads.append(t)
+
+        for r, member in self.members(database):
+            if r == role:
+                install = self.warehouse.get(self.name, database, role, member)
+                call_f(install)
+
+        return threads
+
+    @staticmethod
+    def join_all(threads):
+        while threads:
+            for thread in list(threads):
+                if thread.is_alive():
+                    thread.join(timeout=0.1)
+                else:
+                    threads.remove(thread)
 
     def start(self):
         threads = []
-        for install in self.cores:
-            thread = Thread(target=install.server.start)
-            thread.start()
-            threads.append(thread)
-        for install in self.read_replicas:
-            thread = Thread(target=install.server.start)
-            thread.start()
-            threads.append(thread)
-        while threads:
-            for thread in list(threads):
-                if thread.is_alive():
-                    thread.join(timeout=0.5)
-                else:
-                    threads.remove(thread)
+        for database in self.databases():
+            threads.extend(self.for_each(database, "core", lambda install: install.server.start()))
+            threads.extend(self.for_each(database, "rr", lambda install: install.server.start()))
+        self.join_all(threads)
 
     def stop(self):
         threads = []
-        for install in self.cores:
-            thread = Thread(target=install.server.stop)
-            thread.start()
-            threads.append(thread)
-        for install in self.read_replicas:
-            thread = Thread(target=install.server.stop)
-            thread.start()
-            threads.append(thread)
-        while threads:
-            for thread in list(threads):
-                if thread.is_alive():
-                    thread.join(timeout=0.5)
-                else:
-                    threads.remove(thread)
+        for database in self.databases():
+            threads.extend(self.for_each(database, "core", lambda install: install.server.stop()))
+            threads.extend(self.for_each(database, "rr", lambda install: install.server.stop()))
+        self.join_all(threads)
 
     def uninstall(self):
         self.stop()
-        self.read_replicas.clear()
-        self.cores.clear()
+        self.installations.clear()
         rmtree(self.warehouse.cc, self.name)
 
-    @property
-    def http_uris(self):
-
-        def get_address(install):
-            address = install.get_config("dbms.connector.http.listen_address", "localhost:7474")
-            if address.startswith(":"):
-                address = "localhost" + address
-            return "http://" + address
-
-        return {
-            "cores": [get_address(install) for install in self.cores],
-            "read_replicas": [get_address(install) for install in self.read_replicas],
-        }
-
-    @property
-    def bolt_uris(self):
-
-        def get_address(install):
-            address = install.get_config("dbms.connector.bolt.listen_address", "localhost:7687")
-            if address.startswith(":"):
-                address = "localhost" + address
-            return "bolt://" + address
-
-        return {
-            "cores": [get_address(install) for install in self.cores],
-            "read_replicas": [get_address(install) for install in self.read_replicas],
-        }
-
-    @property
-    def bolt_routing_uris(self):
-
-        def get_address(install):
-            address = install.get_config("dbms.connector.bolt.listen_address", "localhost:7687")
-            if address.startswith(":"):
-                address = "localhost" + address
-            return "bolt+routing://" + address
-
-        return [get_address(install) for install in self.cores]
+    def update_auth(self, user, password):
+        """ Update the auth file for each member with the given credentials.
+        """
+        threads = []
+        for database in self.databases():
+            threads.extend(self.for_each(database, "core", lambda install: install.auth.update(user, password)))
+            threads.extend(self.for_each(database, "rr", lambda install: install.auth.update(user, password)))
+        self.join_all(threads)
 
 
 class Server(object):
