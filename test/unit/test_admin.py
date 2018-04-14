@@ -18,7 +18,7 @@
 
 from os import remove, rmdir
 from os.path import join as path_join
-from tempfile import NamedTemporaryFile, TemporaryDirectory
+from tempfile import NamedTemporaryFile, mkdtemp
 from unittest import TestCase
 
 from py2neo.admin import AuthFile, AuthUser
@@ -40,7 +40,8 @@ class AuthFileTestCase(TestCase):
             self.assertTrue(user.check_password("123456"))
 
     def test_can_create_file(self):
-        with TemporaryDirectory() as td:
+        td = mkdtemp()
+        try:
             tf_name = path_join(td, "auth")
             try:
                 af = AuthFile(tf_name)
@@ -54,9 +55,12 @@ class AuthFileTestCase(TestCase):
                 self.assertTrue(user.check_password("123456"))
             finally:
                 remove(tf_name)
+        finally:
+            rmdir(td)
 
     def test_can_create_path(self):
-        with TemporaryDirectory() as td:
+        td = mkdtemp()
+        try:
             tf_dir = path_join(td, "subdir")
             tf_name = path_join(tf_dir, "auth")
             try:
@@ -72,6 +76,8 @@ class AuthFileTestCase(TestCase):
             finally:
                 remove(tf_name)
                 rmdir(tf_dir)
+        finally:
+            rmdir(td)
 
     def test_can_update_existing_user(self):
         with NamedTemporaryFile() as tf:
