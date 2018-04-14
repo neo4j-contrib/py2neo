@@ -620,6 +620,8 @@ class Server(object):
 
 
 class AuthFile(object):
+    """ A Neo4j auth file, generally located in data/dbms/auth.
+    """
 
     def __init__(self, name):
         self.name = name
@@ -638,6 +640,8 @@ class AuthFile(object):
                 yield AuthUser.load(line)
 
     def remove(self, user_name):
+        """ Remove a user.
+        """
         user_name = bstr(user_name)
         with open(self.name, "rb") as f:
             lines = [line for line in f.readlines() if not AuthUser.match(line, user_name)]
@@ -645,6 +649,8 @@ class AuthFile(object):
             f.writelines(lines)
 
     def update(self, user_name, password):
+        """ Add or update a user.
+        """
         user_name = bstr(user_name)
         password = bstr(password)
         updated = False
@@ -665,10 +671,16 @@ class AuthFile(object):
 class AuthUser(object):
 
     #: Name of user
-    user = None
+    name = None
+
+    #: The hash algorithm mused to encode the user data
+    hash_algorithm = None
 
     #:
     digest = None
+
+    #:
+    salt = None
 
     @classmethod
     def create(cls, user_name, password):
