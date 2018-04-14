@@ -99,6 +99,12 @@ Report bugs to py2neo@nige.tech\
 
 class Console(object):
 
+    def echo(self, *args, **kwargs):
+        return click.secho(*args, **kwargs)
+
+    def prompt(self, *args, **kwargs):
+        return prompt(*args, **kwargs)
+
     multi_line = False
     watcher = None
 
@@ -107,12 +113,13 @@ class Console(object):
     meta_colour = "cyan"
     prompt_colour = "cyan"
 
-    def __init__(self, uri, auth, secure=True, verbose=False):
+    def __init__(self, uri=None, **settings):
+        self.output_file = settings.pop("file", None)
+        verbose = settings.pop("verbose", False)
         try:
-            self.graph = Graph(uri, auth=auth, secure=secure)
+            self.graph = Graph(uri, **settings)
         except ServiceUnavailable as error:
             raise ConsoleError("Could not connect to {} -- {}".format(uri, error))
-        self.uri = uri
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
@@ -156,10 +163,10 @@ class Console(object):
         self.tx_counter = 0
 
     def loop(self):
-        click.echo(title, err=True)
-        click.echo("Connected to {}".format(self.uri).rstrip(), err=True)
-        click.echo(err=True)
-        click.echo(dedent(quick_help), err=True)
+        self.echo(title, err=True)
+        self.echo("Connected to {}".format(self.graph.database.uri).rstrip(), err=True)
+        self.echo("", err=True)
+        self.echo(dedent(quick_help), err=True)
         while True:
             try:
                 source = self.read()
@@ -190,51 +197,51 @@ class Console(object):
                 pass
             else:
                 pass
-            click.secho("{}: {}".format(error.title, error.message), err=True)
+            self.echo("{}: {}".format(error.title, error.message), err=True)
         except TransactionError:
-            click.secho("Transaction error", err=True, fg=self.err_colour)
+            self.echo("Transaction error", err=True, fg=self.err_colour)
         except ServiceUnavailable:
             raise
         except Exception as error:
-            click.secho("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
+            self.echo("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
 
     def begin_transaction(self):
         if self.tx is None:
             self.tx = self.graph.begin()
             self.tx_counter = 1
-            click.secho(u"--- BEGIN at {} ---".format(datetime.now()),
+            self.echo(u"--- BEGIN at {} ---".format(datetime.now()),
                         err=True, fg=self.tx_colour, bold=True)
         else:
-            click.secho(u"Transaction already open", err=True, fg=self.err_colour)
+            self.echo(u"Transaction already open", err=True, fg=self.err_colour)
 
     def commit_transaction(self):
         if self.tx:
             try:
                 self.tx.commit()
-                click.secho(u"--- COMMIT at {} ---".format(datetime.now()),
+                self.echo(u"--- COMMIT at {} ---".format(datetime.now()),
                             err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
         else:
-            click.secho(u"No current transaction", err=True, fg=self.err_colour)
+            self.echo(u"No current transaction", err=True, fg=self.err_colour)
 
     def rollback_transaction(self):
         if self.tx:
             try:
                 self.tx.rollback()
-                click.secho(u"--- ROLLBACK at {} ---".format(datetime.now()),
+                self.echo(u"--- ROLLBACK at {} ---".format(datetime.now()),
                             err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
         else:
-            click.secho(u"No current transaction", err=True, fg=self.err_colour)
+            self.echo(u"No current transaction", err=True, fg=self.err_colour)
 
     def read(self):
         if self.multi_line:
             self.multi_line = False
-            return prompt(u"", multiline=True, **self.prompt_args)
+            return self.prompt(u"", multiline=True, **self.prompt_args)
 
         def get_prompt_tokens(_):
             tokens = []
@@ -246,12 +253,12 @@ class Console(object):
                 tokens.append((Token.Prompt, ")-> "))
             return tokens
 
-        return prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
+        return self.prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
 
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
             if i > 0:
-                click.echo(u"")
+                self.echo(u"")
             if statement.upper() == "BEGIN":
                 self.begin_transaction()
             elif statement.upper() == "COMMIT":
@@ -275,18 +282,18 @@ class Console(object):
             timer() - t0,
         )
         if line_no:
-            click.secho(u"(", err=True, fg=self.meta_colour, bold=True, nl=False)
-            click.secho(u"{}".format(line_no), err=True, fg=self.tx_colour, bold=True, nl=False)
-            click.secho(u")->({})".format(status), err=True, fg=self.meta_colour, bold=True)
+            self.echo(u"(", err=True, fg=self.meta_colour, bold=True, nl=False)
+            self.echo(u"{}".format(line_no), err=True, fg=self.tx_colour, bold=True, nl=False)
+            self.echo(u")->({})".format(status), err=True, fg=self.meta_colour, bold=True)
         else:
-            click.secho(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
+            self.echo(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
 
     def write_result(self, result, page_size=50):
         table = Table(result)
         table_size = len(table)
         for skip in range(0, table_size, page_size):
-            self.result_writer(table, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
-            click.echo("\r\n", nl=False)
+            self.result_writer(table, file=self.output_file, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
+            self.echo("\r\n", nl=False)
         return table_size
 
     def run_command(self, source):
@@ -297,7 +304,7 @@ class Console(object):
         try:
             command = self.commands[command_name]
         except KeyError:
-            click.secho("Unknown command: " + command_name, err=True, fg=self.err_colour)
+            self.echo("Unknown command: " + command_name, err=True, fg=self.err_colour)
         else:
             args = []
             kwargs = {}
@@ -320,17 +327,15 @@ class Console(object):
             call([EDITOR, f.name])
             f.seek(0)
             source = f.read().decode("utf-8")
-            click.echo(source)
+            self.echo(source)
             self.run(source)
 
-    @classmethod
-    def help(cls, **kwargs):
-        click.echo(description, err=True)
-        click.echo(err=True)
-        click.echo(full_help.replace("\b\n", ""), err=True)
+    def help(self, **kwargs):
+        self.echo(description, err=True)
+        self.echo(err=True)
+        self.echo(full_help.replace("\b\n", ""), err=True)
 
-    @classmethod
-    def exit(cls, **kwargs):
+    def exit(self, **kwargs):
         exit(0)
 
     def load_unit_of_work(self, file_name):
@@ -342,7 +347,7 @@ class Console(object):
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
                 if line_no > 0:
-                    click.echo(u"")
+                    self.echo(u"")
                 self.run_cypher(tx.run, statement, {}, line_no=line_no)
 
         return unit_of_work
@@ -366,7 +371,7 @@ class Console(object):
             if category != last_category:
                 if records is not None:
                     Table(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
-                    click.echo()
+                    self.echo()
                 records = []
             records.append((name, record["value"]))
             last_category = category
