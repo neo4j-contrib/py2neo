@@ -81,6 +81,7 @@ def hex_bytes(data):
 
 
 def unhex_bytes(h):
+    h = bytes(h)
     return bytearray(int(h[i:(i + 2)], 0x10) for i in range(0, len(h), 2))
 
 
