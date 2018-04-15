@@ -211,5 +211,7 @@ class EntityCacheTestCase(TestCase):
                   (count, n_threads, time() - t0))
 
         finally:
+            for thread in threads:
+                thread.stop()
             while threads:
-                threads.pop().stop()
+                threads.pop().join()

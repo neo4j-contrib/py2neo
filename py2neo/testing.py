@@ -19,6 +19,7 @@
 from unittest import TestCase
 from uuid import uuid4
 
+from _pytest.assertion.rewrite import AssertionRewritingHook
 from pytest import main as test_main
 
 from py2neo.admin import Warehouse, minor_versions
@@ -94,31 +95,54 @@ class IntegrationTestCase(TestCase):
         return self.graph.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
 
 
-def run_tests(versions, user, password):
-    warehouse = Warehouse()
-    for version in versions:
-        name = uuid4().hex
-        installation = warehouse.install(name, "community", version)
-        print("Installed Neo4j community %s to %s" % (version, installation.home))
-        installation.auth.update(user, password)
-        pid = installation.server.start()
+class TestRunner(object):
+
+    user = "neo4j"
+    password = "password"
+
+    def __init__(self, versions):
+        self.warehouse = Warehouse()
+        self.versions = versions
+        self._state = {}
+
+    def _before_tests(self):
+        # As we're running pytest.main repeatedly, plugins are loaded multiple
+        # times. This causes an import warning, which is silenced by the code below.
+        self._state["warning"] = AssertionRewritingHook._warn_already_imported
+        AssertionRewritingHook._warn_already_imported = lambda *args: None
+        #
+        self._state["name"] = uuid4().hex
+        self._state["installation"] = self.warehouse.install(self._state["name"], "community", self._state["version"])
+        print("Installed Neo4j community %s to %s" % (self._state["version"], self._state["installation"].home))
+        self._state["installation"].auth.update(self.user, self.password)
+        pid = self._state["installation"].server.start()
         print("Started Neo4j server with PID %d" % pid)
+
+    def _after_tests(self):
+        self._state["installation"].server.stop()
+        self.warehouse.uninstall(self._state["name"])
+        Database.forget_all()
+        # Re-enable the import warning. Pretend nothing dodgy happened.
+        AssertionRewritingHook._warn_already_imported = self._state["warning"]
+
+    def _run_tests(self):
+        self._before_tests()
         try:
             status = test_main()
             if status != 0:
                 raise RuntimeError("Tests failed with status %d" % status)
         finally:
-            installation.server.stop()
-            warehouse.uninstall(name)
-            Database.forget_all()
+            self._after_tests()
+
+    def run_tests(self):
+        print("Running tests")
+        for self._state["version"] in self.versions:
+            self._run_tests()
 
 
 def main():
     versions = list(reversed(minor_versions))
-    user = "neo4j"
-    password = "password"
-    print("Running tests")
-    run_tests(versions, user, password)
+    TestRunner(versions).run_tests()
 
 
 if __name__ == "__main__":
