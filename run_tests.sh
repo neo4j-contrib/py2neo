@@ -22,4 +22,3 @@ run "bolt://localhost:7687" 1
 run "http://localhost:7474" 0
 run "https://localhost:7473" 1
 coverage report
-coveralls
