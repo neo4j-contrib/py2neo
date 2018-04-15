@@ -29,7 +29,7 @@ from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import string_types, xstr
-from py2neo.internal.util import version_tuple, title_case
+from py2neo.internal.util import version_tuple, title_case, snake_case
 from py2neo.selection import NodeSelector
 
 
@@ -699,16 +699,44 @@ class Result(object):
         return self.result.keys()
 
     def plan(self):
-        """ Return the query plan if available.
+        """ Return the query plan, if available.
         """
         metadata = self.result.summary().metadata
+        plan = {}
         if "plan" in metadata:
-            return Plan(**metadata["plan"])
+            plan.update(metadata["plan"])
         if "profile" in metadata:
-            return Plan(**metadata["profile"])
+            plan.update(metadata["profile"])
         if "http_plan" in metadata:
-            return Plan(**metadata["http_plan"])
-        return None
+            plan.update(metadata["http_plan"]["root"])
+
+        def collapse_args(data):
+            if "args" in data:
+                for key in data["args"]:
+                    data[key] = data["args"][key]
+                del data["args"]
+            if "children" in data:
+                for child in data["children"]:
+                    collapse_args(child)
+
+        def snake_keys(data):
+            if isinstance(data, list):
+                for item in data:
+                    snake_keys(item)
+                return
+            if not isinstance(data, dict):
+                return
+            for key, value in list(data.items()):
+                new_key = snake_case(key)
+                if new_key != key:
+                    data[new_key] = value
+                    del data[key]
+                if isinstance(value, (list, dict)):
+                    snake_keys(value)
+
+        collapse_args(plan)
+        snake_keys(plan)
+        return plan
 
     def stats(self):
         """ Return the query statistics.
@@ -722,16 +750,6 @@ class Result(object):
             return next(self.result_iterator)
         except StopIteration:
             return None
-
-
-class Plan(object):
-
-    def __init__(self, **metadata):
-        self.metadata = metadata
-
-    def __repr__(self):
-        from json import dumps
-        return dumps(self.metadata, indent=4)
 
 
 class GraphError(Exception):

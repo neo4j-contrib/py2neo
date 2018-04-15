@@ -81,8 +81,8 @@ def metaclass(mcs):
 
 
 def snake_case(s):
-    words = s.replace("_", " ").replace("-", " ").split()
-    return "_".join(word.lower() for word in words)
+    s1 = WORD_FIRST.sub(r"\1_\2", s)
+    return WORD_ALL.sub(r"\1_\2", s1).lower()
 
 
 def title_case(s):
