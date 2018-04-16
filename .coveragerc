@@ -8,6 +8,7 @@ omit =
     test/*
     */site-packages/*
     */dist-packages/*
+    */__main__.py
 
 [report]
 show_missing = True

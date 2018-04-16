@@ -18,7 +18,7 @@
 
 from hashlib import sha256
 from os import curdir, getenv, kill, listdir, makedirs, rename
-from os.path import abspath, dirname, exists as path_exists, expanduser, isdir, isfile, join as path_join
+from os.path import abspath, dirname, expanduser, isdir, isfile, join as path_join
 from random import randint
 from re import compile as re_compile
 from shutil import rmtree
@@ -28,126 +28,9 @@ from tarfile import TarFile, ReadError
 from time import sleep
 from threading import Thread
 
-import click
-
-from py2neo.internal.compat import bstr, DEVNULL, urlretrieve
-from py2neo.internal.versioning import Version
-
-
-editions = [
-    "community",
-    "enterprise",
-]
-
-versions = [
-
-    # 3.0 series
-    "3.0.0", "3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.0.5", "3.0.6", "3.0.7", "3.0.8", "3.0.9", "3.0.10", "3.0.11",
-    "3.0.12",
-
-    # 3.1 series
-    "3.1.0", "3.1.1", "3.1.2", "3.1.3", "3.1.4", "3.1.5", "3.1.6", "3.1.7", "3.1.8",
-
-    # 3.2 series
-    "3.2.0", "3.2.1", "3.2.2", "3.2.3",
-
-    # 3.3 series
-    "3.3.0", "3.3.1", "3.3.2", "3.3.3", "3.3.4", "3.3.5",
-
-    # 3.4 series
-    "3.4.0-beta01",
-
-]
-
-# TODO: make this a bit easier to read
-version_tuples = [Version(v) for v in versions]
-minor_version_tuples = sorted({(str(v.major), str(v.minor)) for v in version_tuples})
-minor_versions = [".".join(map(str, v)) for v in minor_version_tuples]
-latest_version_tuples = {w: sorted(v for v in version_tuples if v[:2] == w)[-1] for w in minor_version_tuples}
-latest_versions = {".".join(map(str, k)): str(v) for k, v in latest_version_tuples.items()}
-version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
-version_aliases["LATEST"] = versions[-1]
-
-dist = "http://{}".format(getenv("NEO4J_DIST_HOST") or "dist.neo4j.org")
-dist_overrides = {
-    # "3.0.0-NIGHTLY": "http://alpha.neohq.net/dist",
-}
-
-archive_format = getenv("ARCHIVE_FORMAT") or "gz"
-
-
-def hex_bytes(data):
-    return "".join("%02X" % b for b in bytearray(data)).encode("utf-8")
-
-
-def unhex_bytes(h):
-    h = bytes(h)
-    return bytearray(int(h[i:(i + 2)], 0x10) for i in range(0, len(h), 2))
-
-
-class Distribution(object):
-    """ Represents a Neo4j archive.
-    """
-
-    def __init__(self, edition=None, version=None):
-        edition = edition.lower() if edition else "community"
-        if edition in editions:
-            self.edition = edition
-        else:
-            raise ValueError("Unknown edition %r" % edition)
-        version = version.upper() if version else "LATEST"
-        self.snapshot = "SNAPSHOT" in version
-        if version in version_aliases:
-            version = version_aliases[version]
-        if version in versions:
-            self.version = version
-        else:
-            raise ValueError("Unknown version %r" % version)
-
-    @property
-    def key(self):
-        """ The unique key that identifies the archive, e.g.
-        ``community-2.3.2``.
-        """
-        return "%s-%s" % (self.edition, self.version)
-
-    @property
-    def name(self):
-        """ The full name of the archive file, e.g.
-        ``neo4j-community-2.3.2-unix.tar.gz``.
-        """
-        return "neo4j-{}-unix.tar.{}".format(self.key, archive_format)
-
-    @property
-    def uri(self):
-        """ The URI from which this archive may be downloaded, e.g.
-        ``http://dist.neo4j.org/neo4j-community-2.3.2-unix.tar.gz``.
-        """
-        if self.version in dist_overrides:
-            return "%s/%s" % (dist_overrides[self.version], self.name)
-        else:
-            return "%s/%s" % (dist, self.name)
-
-    def download(self, path=".", overwrite=False):
-        """ Download a Neo4j distribution to the specified path.
-
-        :param path:
-        :param overwrite:
-        :return: the name of the downloaded file
-        """
-        file_name = path_join(path, self.name)
-        if overwrite:
-            if path_exists(file_name) and not isfile(file_name):
-                raise IOError("Cannot overwrite directory %r" % file_name)
-        elif not self.snapshot and path_exists(file_name):
-            return file_name
-        try:
-            makedirs(path)
-        except OSError:
-            pass
-        print("Downloading <%s>" % self.uri)
-        urlretrieve(self.uri, file_name)
-        return file_name
+from py2neo.admin.dist import Distribution, archive_format
+from py2neo.internal.compat import bstr
+from py2neo.internal.util import hex_bytes, unhex_bytes
 
 
 class Warehouse(object):
@@ -735,61 +618,3 @@ class AuthUser(object):
         m.update(self.salt)
         m.update(bstr(password))
         return m.digest() == self.digest
-
-
-@click.group(help="""\
-Tool for managing Neo4j installations.
-""")
-def cli():
-    pass
-
-
-@cli.command("list-users", help="""\
-List users in a Neo4j auth file.
-""")
-@click.argument("auth_file")
-def list_users(auth_file):
-    for user in AuthFile(auth_file):
-        click.echo(user.name)
-
-
-@cli.command("del-user", help="""\
-Remove a user from a Neo4j auth file.
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-def del_user(auth_file, user_name):
-    AuthFile(auth_file).remove(user_name)
-
-
-@cli.command("put-user", help="""\
-Create or set the password for a user in a Neo4j auth file.
-
-For general interactive use, password and confirmation prompts will be presented.
-For batch mode, use the --password option.
-
-Example:
-
-    py2neo-admin put-user data/dbms/auth alice
-
-If AUTH_FILE contains only a dash `-` then the auth file entry will be written to stdout instead.
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-@click.password_option()
-def put_user(auth_file, user_name, password):
-    AuthFile(auth_file).update(user_name, password)
-
-
-def main():
-    try:
-        cli(obj={})
-    except Exception as error:
-        click.secho(error.args[0], err=True)
-        exit(1)
-    else:
-        exit(0)
-
-
-if __name__ == "__main__":
-    main()

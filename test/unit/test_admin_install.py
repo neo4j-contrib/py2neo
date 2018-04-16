@@ -21,7 +21,7 @@ from os.path import join as path_join
 from tempfile import NamedTemporaryFile, mkdtemp
 from unittest import TestCase
 
-from py2neo.admin import AuthFile, AuthUser
+from py2neo.admin.install import AuthFile, AuthUser
 
 
 class AuthFileTestCase(TestCase):

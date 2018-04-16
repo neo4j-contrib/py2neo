@@ -97,3 +97,12 @@ def relationship_case(s):
 
 def label_case(s):
     return "".join(word.title() for word in s.split("_"))
+
+
+def hex_bytes(data):
+    return "".join("%02X" % b for b in bytearray(data)).encode("utf-8")
+
+
+def unhex_bytes(h):
+    h = bytes(h)
+    return bytearray(int(h[i:(i + 2)], 0x10) for i in range(0, len(h), 2))
