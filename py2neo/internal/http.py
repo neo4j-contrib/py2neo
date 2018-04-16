@@ -24,8 +24,9 @@ from json import dumps as json_dumps, loads as json_loads
 from warnings import catch_warnings, simplefilter
 
 from neo4j.exceptions import AuthError, Forbidden
-from neo4j.v1 import Driver, Session, StatementResult, Record, TransactionError, SessionError
+from neo4j.v1 import Driver, Session, StatementResult, TransactionError, SessionError
 
+from py2neo.data import Record
 from py2neo.database import GraphError
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.compat import urlsplit, ustr

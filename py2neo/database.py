@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Table, Subgraph, Node
+from py2neo.data import Table, Subgraph, Node, Record
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -687,11 +687,12 @@ class Result(object):
         # TODO: un-yuk this
         if isinstance(result, HTTPStatementResult):
             self.result._hydrant.entities = entities
+            self.result_iterator = iter(self.result)
         elif isinstance(result, BoltStatementResult):
             self.result._hydrant = PackStreamHydrator(graph, result.keys(), entities)
+            self.result_iterator = iter(map(Record, self.result))
         else:
             raise RuntimeError("Unexpected statement result class %r" % result.__class__.__name__)
-        self.result_iterator = iter(self.result)
 
     def keys(self):
         """ Return the keys for the whole data set.
