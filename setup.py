@@ -41,7 +41,7 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "py2neo-admin = py2neo.admin.__main__:main",
-            "py2neo-console = py2neo.console:repl",
+            "py2neo = py2neo.console.__main__:main",
         ],
     },
     "packages": packages,

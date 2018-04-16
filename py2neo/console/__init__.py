@@ -20,7 +20,7 @@ from __future__ import division, print_function
 
 import shlex
 from datetime import datetime
-from os import environ, getenv, makedirs
+from os import makedirs
 from os.path import expanduser, join as path_join
 from subprocess import call
 from tempfile import NamedTemporaryFile
@@ -40,67 +40,23 @@ from pygments.token import Token
 from py2neo.cypher.reading import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.meta import __version__
+from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
 
 
-DEFAULT_NEO4J_URI = "bolt://localhost:7687"
-DEFAULT_NEO4J_USER = "neo4j"
-DEFAULT_NEO4J_PASSWORD = "password"
-EDITOR = environ.get("EDITOR", "vim")
-HISTORY_FILE_DIR = expanduser("~/.py2neo")
-HISTORY_FILE = "console_history"
-
-
-title = "Py2neo console v{}".format(__version__)
-description = "Py2neo console is a Cypher runner and interactive tool for Neo4j."
-history_file = expanduser("~/.py2neo_history")
-quick_help = """\
-  ::  to enter multi-line mode (press [Alt]+[Enter] to run)
-  :e  to launch external editor
-  :?  for help
-  :x  to exit\
-"""
-full_help = """\
-If command line arguments are provided, these are executed in order as
-statements. If no arguments are provided, an interactive console is
-presented.
-
-Statements entered at the interactive prompt or as arguments can be
-regular Cypher, transaction control keywords or slash commands. Multiple
-Cypher statements can be entered on the same line separated by semicolons.
-These will be executed within a single transaction.
-
-For a handy Cypher reference, see:
-
-  https://neo4j.com/docs/cypher-refcard/current/
-
-Transactions can be managed interactively. To do this, use the transaction
-control keywords BEGIN, COMMIT and ROLLBACK.
-
-Slash commands provide access to supplementary functionality.
-
-\b
-{}
-
-\b
-Formatting commands:
-  :csv      format output as comma-separated values
-  :table    format output in a table
-  :tsv      format output as tab-separated values
-
-\b
-Information commands:
-  :config   show Neo4j server configuration
-  :kernel   show Neo4j kernel information
-
-Report bugs to py2neo@nige.tech\
-""".format(quick_help)
+def is_command(source):
+    if source == "//":
+        return True
+    if source.startswith("//"):
+        return False
+    if source.startswith("/*"):
+        return False
+    return source.startswith("/")
 
 
 class Console(object):
 
-    def echo(self, *args, **kwargs):
-        return click.secho(*args, **kwargs)
+    def echo(self, text=u"", file=None, nl=True, err=False, color=None, **styles):
+        return click.secho(text, file=None, nl=True, err=False, color=None, **styles)
 
     def prompt(self, *args, **kwargs):
         return prompt(*args, **kwargs)
@@ -141,32 +97,35 @@ class Console(object):
 
         self.commands = {
 
-            "::": self.set_multi_line,
-            ":e": self.edit,
+            "//": self.set_multi_line,
+            "/e": self.edit,
 
-            ":?": self.help,
-            ":h": self.help,
-            ":help": self.help,
+            "/?": self.help,
+            "/h": self.help,
+            "/help": self.help,
 
-            ":x": self.exit,
-            ":exit": self.exit,
+            "/x": self.exit,
+            "/exit": self.exit,
 
-            ":csv": self.set_csv_result_writer,
-            ":table": self.set_tabular_result_writer,
-            ":tsv": self.set_tsv_result_writer,
+            "/csv": self.set_csv_result_writer,
+            "/table": self.set_tabular_result_writer,
+            "/tsv": self.set_tsv_result_writer,
 
-            ":config": self.config,
-            ":kernel": self.kernel,
+            "/config": self.config,
+            "/kernel": self.kernel,
 
         }
         self.tx = None
         self.tx_counter = 0
 
+    def run_all_or_loop(self, sources):
+        return self.run_all(sources) if sources else self.loop()
+
     def loop(self):
-        self.echo(title, err=True)
+        self.echo(TITLE, err=True)
         self.echo("Connected to {}".format(self.graph.database.uri).rstrip(), err=True)
-        self.echo("", err=True)
-        self.echo(dedent(quick_help), err=True)
+        self.echo(err=True)
+        self.echo(dedent(QUICK_HELP), err=True)
         while True:
             try:
                 source = self.read()
@@ -179,12 +138,22 @@ class Console(object):
             except ServiceUnavailable:
                 return 1
 
+    def run_all(self, sources):
+        gap = False
+        for s in sources:
+            if gap:
+                self.echo()
+            self.run(s)
+            if not is_command(s):
+                gap = True
+        return 0
+
     def run(self, source):
         source = source.strip()
         if not source:
             return
         try:
-            if source.startswith(":"):
+            if is_command(source):
                 self.run_command(source)
             else:
                 self.run_source(source)
@@ -210,7 +179,7 @@ class Console(object):
             self.tx = self.graph.begin()
             self.tx_counter = 1
             self.echo(u"--- BEGIN at {} ---".format(datetime.now()),
-                        err=True, fg=self.tx_colour, bold=True)
+                      err=True, fg=self.tx_colour, bold=True)
         else:
             self.echo(u"Transaction already open", err=True, fg=self.err_colour)
 
@@ -219,7 +188,7 @@ class Console(object):
             try:
                 self.tx.commit()
                 self.echo(u"--- COMMIT at {} ---".format(datetime.now()),
-                            err=True, fg=self.tx_colour, bold=True)
+                          err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
@@ -231,7 +200,7 @@ class Console(object):
             try:
                 self.tx.rollback()
                 self.echo(u"--- ROLLBACK at {} ---".format(datetime.now()),
-                            err=True, fg=self.tx_colour, bold=True)
+                          err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
@@ -258,7 +227,7 @@ class Console(object):
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
             if i > 0:
-                self.echo(u"")
+                self.echo()
             if statement.upper() == "BEGIN":
                 self.begin_transaction()
             elif statement.upper() == "COMMIT":
@@ -331,9 +300,9 @@ class Console(object):
             self.run(source)
 
     def help(self, **kwargs):
-        self.echo(description, err=True)
+        self.echo(DESCRIPTION, err=True)
         self.echo(err=True)
-        self.echo(full_help.replace("\b\n", ""), err=True)
+        self.echo(FULL_HELP.replace("\b\n", ""), err=True)
 
     def exit(self, **kwargs):
         exit(0)
@@ -347,7 +316,7 @@ class Console(object):
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
                 if line_no > 0:
-                    self.echo(u"")
+                    self.echo()
                 self.run_cypher(tx.run, statement, {}, line_no=line_no)
 
         return unit_of_work
@@ -397,53 +366,3 @@ class Console(object):
 class ConsoleError(Exception):
 
     pass
-
-
-def address_str(address):
-    if len(address) == 4:  # IPv6
-        return "[{}]:{}".format(*address)
-    else:  # IPv4
-        return "{}:{}".format(*address)
-
-
-@click.command(help=description, epilog=full_help)
-@click.option("-U", "--uri",
-              default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI),
-              help="Set the connection URI.")
-@click.option("-u", "--user",
-              default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER),
-              help="Set the user.")
-@click.option("-p", "--password",
-              default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD),
-              help="Set the password.")
-@click.option("-i", "--insecure",
-              is_flag=True,
-              default=False,
-              help="Use unencrypted communication (no TLS).")
-@click.option("-v", "--verbose",
-              is_flag=True,
-              default=False,
-              help="Show low level communication detail.")
-@click.argument("statement", nargs=-1)
-def repl(statement, uri, user, password, insecure, verbose):
-    try:
-        console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
-        if statement:
-            gap = False
-            for s in statement:
-                if gap:
-                    click.echo(u"")
-                console.run(s)
-                if not s.startswith(":"):
-                    gap = True
-            exit_status = 0
-        else:
-            exit_status = console.loop()
-    except ConsoleError as e:
-        click.secho(e.args[0], err=True)
-        exit_status = 1
-    exit(exit_status)
-
-
-if __name__ == "__main__":
-    repl()

@@ -47,6 +47,13 @@ DEFAULT_HTTP_PORT = 7474
 DEFAULT_HTTPS_PORT = 7473
 
 
+def address_str(address):
+    if len(address) == 4:  # IPv6
+        return "[{}]:{}".format(*address)
+    else:  # IPv4
+        return "{}:{}".format(*address)
+
+
 def get_connection_data(uri=None, **settings):
     """ Generate a dictionary of connection data for an optional URI plus
     additional connection settings.
@@ -80,7 +87,7 @@ def get_connection_data(uri=None, **settings):
         data["host"] = coalesce(parsed.hostname, data["host"])
         data["port"] = coalesce(parsed.port, data["port"])
     # apply auth (this can override `uri`)
-    if "auth" in settings:
+    if "auth" in settings and settings["auth"] is not None:
         data["user"], data["password"] = settings["auth"]
     elif NEO4J_AUTH is not None:
         data["user"], _, data["password"] = NEO4J_AUTH.partition(":")
