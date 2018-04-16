@@ -30,10 +30,10 @@ Requirements
 
 The following versions of Python and Neo4j are supported:
 
-- Python 2.7 / 3.3 / 3.4 / 3.5 / 3.6 / 3.7-dev
+- Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7-dev / PyPy
 - Neo4j 3.0 / 3.1 / 3.2 / 3.3 / 3.4 (the latest point release of each version is recommended)
 
-Note also that Py2neo is developed and tested exclusively under **Linux** using standard CPython distributions.
+Note also that Py2neo is developed and tested under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
 
 
@@ -52,7 +52,6 @@ Library Reference
    cypher/writing
    console
    admin
-   plus
 
 
 .. _Neo4j: https://neo4j.com/
