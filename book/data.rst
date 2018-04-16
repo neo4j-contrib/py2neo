@@ -1,22 +1,15 @@
 *****************************
-``py2neo.data`` -- Table Types
+``py2neo.data`` -- Data Types
 *****************************
 
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-**Py2neo** provides a rich set of data types including the :class:`.Table` for working with query results and others for working specifically with graph data.
+**Py2neo** provides a rich set of data types including the :class:`.Table` for working with simple query results and others for working specifically with graph data.
 The graph data types provided are completely compatible with Neo4j but can also be used independently.
 These types include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
 
 Graph data classes have been designed to work together using standard operations, most notably set operations.
 Details of these operations are covered in the sections on :ref:`subgraphs` and :ref:`walkable_types`.
-
-
-:class:`.Table` objects
-==========================
-
-.. autoclass:: py2neo.data.Table
-   :members:
 
 
 
@@ -357,3 +350,10 @@ Any node or relationship may be traversed one or more times in any direction.
 .. function:: walk(*walkables)
 
     Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
+
+
+:class:`.Table` objects
+=======================
+
+.. autoclass:: py2neo.data.Table
+   :members:

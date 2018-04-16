@@ -268,7 +268,7 @@ class Graph(object):
     auth user_agent secure scheme user password host port
 
     ==============  =============================================  ==============  =============
-    Keyword         Description                                    Type(s)         Default
+    Keyword         Description                                    Type            Default
     ==============  =============================================  ==============  =============
     ``auth``        A 2-tuple of (user, password)                  tuple           ``('neo4j', 'password')``
     ``host``        Database server host name                      str             ``'localhost'``
@@ -1299,13 +1299,15 @@ class Cursor(object):
 
     def to_ndarray(self, dtype=None, order='K'):
         """ Consume and extract the entire result as a
-        numpy.ndarray.
+        `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`_.
 
-        This method requires numpy to be installed.
+        .. note::
+           This method requires `numpy` to be installed, which can be done directly or via the `sci` extra.
 
         :param dtype:
         :param order:
-        :return:
+        :warns: If `numpy` is not installed
+        :returns: `ndarray <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`__ object.
         """
         try:
             from numpy import array
@@ -1317,14 +1319,16 @@ class Cursor(object):
 
     def to_series(self, field=0, index=None, dtype=None):
         """ Consume and extract one field of the entire result as a
-        `pandas.Series`_.
+        `pandas.Series <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`_.
 
-        This method requires pandas to be installed.
+        .. note::
+           This method requires `pandas` to be installed, which can be done directly or via the `sci` extra.
 
         :param field:
         :param index:
         :param dtype:
-        :return: series
+        :warns: If `pandas` is not installed
+        :returns: `Series <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
         try:
             from pandas import Series
@@ -1349,12 +1353,14 @@ class Cursor(object):
             2    1961  Laurence Fishburne
             3    1960        Hugo Weaving
 
-        This method requires pandas to be installed.
+        .. note::
+           This method requires `pandas` to be installed, which can be done directly or via the `sci` extra.
 
-        :param index:
-        :param columns:
-        :param dtype:
-        :return: data frame
+        :param index: Index to use for resulting frame.
+        :param columns: Column labels to use for resulting frame.
+        :param dtype: Data type to force.
+        :warns: If `pandas` is not installed
+        :returns: `DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
         try:
             from pandas import DataFrame
@@ -1366,12 +1372,13 @@ class Cursor(object):
 
     def to_matrix(self, mutable=False):
         """ Consume and extract the entire result as a
-        sympy Matrix.
+        `sympy.Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_.
 
-        This method requires sympy to be installed.
+        .. note::
+           This method requires `sympy` to be installed, which can be done directly or via the `sci` extra.
 
         :param mutable:
-        :return:
+        :returns: `Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
         """
         try:
             from sympy import MutableMatrix, ImmutableMatrix
