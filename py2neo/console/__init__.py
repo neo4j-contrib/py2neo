@@ -55,7 +55,7 @@ def is_command(source):
 
 class Console(object):
 
-    def echo(self, text=u"", file=None, nl=True, err=False, color=None, **styles):
+    def echo(self, text, file=None, nl=True, err=False, color=None, **styles):
         return click.secho(text, file=None, nl=True, err=False, color=None, **styles)
 
     def prompt(self, *args, **kwargs):
@@ -124,7 +124,7 @@ class Console(object):
     def loop(self):
         self.echo(TITLE, err=True)
         self.echo("Connected to {}".format(self.graph.database.uri).rstrip(), err=True)
-        self.echo(err=True)
+        self.echo(u"", err=True)
         self.echo(dedent(QUICK_HELP), err=True)
         while True:
             try:
@@ -227,7 +227,7 @@ class Console(object):
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
             if i > 0:
-                self.echo()
+                self.echo(u"")
             if statement.upper() == "BEGIN":
                 self.begin_transaction()
             elif statement.upper() == "COMMIT":
@@ -301,7 +301,7 @@ class Console(object):
 
     def help(self, **kwargs):
         self.echo(DESCRIPTION, err=True)
-        self.echo(err=True)
+        self.echo(u"", err=True)
         self.echo(FULL_HELP.replace("\b\n", ""), err=True)
 
     def exit(self, **kwargs):
@@ -316,7 +316,7 @@ class Console(object):
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
                 if line_no > 0:
-                    self.echo()
+                    self.echo(u"")
                 self.run_cypher(tx.run, statement, {}, line_no=line_no)
 
         return unit_of_work
@@ -340,7 +340,7 @@ class Console(object):
             if category != last_category:
                 if records is not None:
                     Table(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
-                    self.echo()
+                    self.echo(u"")
                 records = []
             records.append((name, record["value"]))
             last_category = category

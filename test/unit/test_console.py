@@ -44,14 +44,14 @@ class ConsoleTestCase(TestCase):
         self.assertEqual(console.captured_output.pop(0), "Py2neo console v" + __version__)
         self.assertEqual(console.captured_output.pop(0), "Connected to bolt://localhost:7687")
         self.assertEqual(console.captured_output.pop(0), "")
-        self.assertEqual(console.captured_output.pop(0), "::  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
-                                                         ":e  to launch external editor\n"
-                                                         ":?  for help\n"
-                                                         ":x  to exit")
+        self.assertEqual(console.captured_output.pop(0), "//  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
+                                                         "/e  to launch external editor\n"
+                                                         "/?  for help\n"
+                                                         "/x  to exit")
 
     def test_can_start_console(self):
         console = CapturedConsole()
-        console.scripted_input = [":x\n"]
+        console.scripted_input = ["/x\n"]
         with self.assertRaises(SystemExit):
             console.loop()
         self.assertPrologue(console)
@@ -59,7 +59,7 @@ class ConsoleTestCase(TestCase):
 
     def test_can_run_query(self):
         console = CapturedConsole()
-        console.scripted_input = ["RETURN 1 AS x\n", ":x\n"]
+        console.scripted_input = ["RETURN 1 AS x\n", "/x\n"]
         with self.assertRaises(SystemExit):
             console.loop()
         self.assertPrologue(console)
