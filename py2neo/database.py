@@ -1274,6 +1274,25 @@ class Cursor(object):
         else:
             return None
 
+    def data(self):
+        """ Consume and extract the entire result as a list of
+        dictionaries.
+
+        ::
+
+            >>> from py2neo import Graph
+            >>> graph = Graph()
+            >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").data()
+            [{'a.born': 1964, 'a.name': 'Keanu Reeves'},
+             {'a.born': 1967, 'a.name': 'Carrie-Anne Moss'},
+             {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
+             {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
+
+        :return: the full query result
+        :rtype: `list` of `dict`
+        """
+        return [record.data() for record in self]
+
     def to_table(self):
         """ Consume and extract the entire result as a :class:`.Table`
         object.

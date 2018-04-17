@@ -901,6 +901,14 @@ class CursorAsIteratorTestCase(IntegrationTestCase):
             _ = next(cursor)
 
 
+class CursorDataTestCase(IntegrationTestCase):
+
+    def test_can_get_data(self):
+        cursor = self.graph.run("UNWIND range(1, 3) AS n RETURN n, n * n AS n_sq")
+        data = cursor.data()
+        self.assertEqual(data, [{"n": 1, "n_sq": 1}, {"n": 2, "n_sq": 4}, {"n": 3, "n_sq": 9}])
+
+
 class CursorStreamingTestCase(IntegrationTestCase):
 
     def test_stream_yields_all(self):

@@ -25,8 +25,8 @@ from shutil import rmtree
 from socket import create_connection
 from subprocess import check_call, check_output, CalledProcessError
 from tarfile import TarFile, ReadError
-from time import sleep
-from threading import Thread
+from time import sleep, time
+from warnings import warn
 
 from py2neo.admin.dist import Distribution, archive_format
 from py2neo.internal.compat import bstr
@@ -90,11 +90,6 @@ class Warehouse(object):
             check_call(["tar", "x", "-C", container, "-f", archive_file])
         return self.get(name, database, role, member)
 
-    def install_local_cluster(self, name, version, **databases):
-        """ Install a Neo4j Causal Cluster.
-        """
-        return LocalCluster.install(self, name, version, **databases)
-
     def uninstall(self, name, database=None, role=None, member=None):
         """ Remove a Neo4j installation.
 
@@ -134,7 +129,6 @@ class Installation(object):
     """
 
     config_file = "neo4j.conf"
-    default_http_port = 7474
 
     def __init__(self, home=None):
         self.home = home or abspath(curdir)
@@ -214,38 +208,92 @@ class Installation(object):
     def auth_enabled(self, value):
         self.set_config("dbms.security.auth_enabled", value)
 
-    @property
-    def http_port(self):
-        """ The port on which this server expects HTTP communication.
-        """
-        port = None
-        if port is None:
-            http_address = self.get_config("dbms.connector.http.address")
-            if http_address:
-                host, _, port = http_address.partition(":")
-            else:
-                port = self.default_http_port
-        try:
-            return int(port)
-        except (TypeError, ValueError):
-            return None
+    def _get_protocol_address(self, protocol, default_port):
+        if self.get_config("dbms.connector.%s.enabled" % protocol, "true") != "true":
+            raise ValueError("Protocol %r not enabled" % protocol)
+        address = self.get_config("dbms.connector.%s.listen_address" % protocol)
+        if address:
+            host, _, port = address.partition(":")
+            try:
+                port = int(port)
+            except (TypeError, ValueError):
+                pass
+            return host or "localhost", port
+        return "localhost", default_port
 
-    @http_port.setter
-    def http_port(self, port):
-        """ Set the port on which this server expects HTTP communication.
+    def _set_protocol_address(self, protocol, address):
+        host, port = address
+        self.set_config("dbms.connector.%s.listen_address" % protocol, "%s:%s" % (host, port))
+
+    @property
+    def http_address(self):
+        """ The host and port on which this server expects HTTP communication.
+
+        :returns: 2-tuple of (host, port)
         """
-        http_address = self.get_config("dbms.connector.http.address")
-        if http_address:
-            host, _, _ = http_address.partition(":")
-        else:
-            host = "localhost"
-        self.set_config("dbms.connector.http.address", "%s:%d" % (host, port))
+        return self._get_protocol_address("http", 7474)
+
+    @http_address.setter
+    def http_address(self, address):
+        """ Set the host and port on which this server expects HTTP communication.
+        """
+        self._set_protocol_address("http", address)
+
+    @property
+    def https_address(self):
+        """ The host and port on which this server expects HTTPS communication.
+
+        :returns: 2-tuple of (host, port)
+        """
+        return self._get_protocol_address("https", 7473)
+
+    @https_address.setter
+    def https_address(self, address):
+        """ Set the host and port on which this server expects HTTPS communication.
+        """
+        self._set_protocol_address("https", address)
+
+    @property
+    def bolt_address(self):
+        """ The host and port on which this server expects Bolt communication.
+
+        :returns: 2-tuple of (host, port)
+        """
+        return self._get_protocol_address("bolt", 7687)
+
+    @bolt_address.setter
+    def bolt_address(self, address):
+        """ Set the host and port on which this server expects Bolt communication.
+        """
+        self._set_protocol_address("bolt", address)
 
     @property
     def http_uri(self):
         """ The full HTTP URI for this server.
         """
-        return "http://localhost:%d" % self.http_port
+        host, port = self.http_address
+        return "http://%s:%s" % (host, port)
+
+    @property
+    def https_uri(self):
+        """ The full HTTPS URI for this server.
+        """
+        host, port = self.https_address
+        return "https://%s:%s" % (host, port)
+
+    @property
+    def bolt_uri(self):
+        """ The full Bolt URI for this server.
+        """
+        host, port = self.bolt_address
+        return "bolt://%s:%s" % (host, port)
+
+    @property
+    def bolt_routing_uri(self):
+        """ The full Bolt URI for this server.
+        """
+        host, port = self.bolt_address
+        return "bolt+routing://%s:%s" % (host, port)
 
     def delete_store(self, force=False):
         """ Delete the store directory for this server.
@@ -261,153 +309,6 @@ class Installation(object):
             raise RuntimeError("Refusing to drop database store while server is running")
 
 
-class LocalCluster(object):
-
-    @classmethod
-    def install(cls, warehouse, name, version, **databases):
-        """ Install a new Causal Cluster or Multicluster.
-
-        :param warehouse: warehouse in which to install
-        :param name: cluster or multicluster name
-        :param version: Neo4j version (Enterprise edition is required)
-        :param databases: pairs of db_name=core_size or db_name=(core_size, rr_size)
-        :return: :class:`.LocalCluster` instance
-        """
-        core_databases = []
-        read_replica_databases = []
-        for database, size in databases.items():
-            if isinstance(size, tuple):
-                core_databases.extend([database] * size[0])
-                read_replica_databases.extend([database] * size[1])
-            else:
-                core_databases.extend([database] * size)
-        initial_discovery_members = ",".join("localhost:%d" % (18100 + i) for i, database in enumerate(core_databases))
-        for i, database in enumerate(core_databases):
-            install = warehouse.install(name, "enterprise", version, database=database, role="core", member=i)
-            install.set_config("dbms.mode", "CORE")
-            install.set_config("dbms.backup.enabled", False)
-            install.set_config("dbms.connector.bolt.listen_address", ":%d" % (17100 + i))
-            install.set_config("dbms.connector.http.listen_address", ":%d" % (17200 + i))
-            install.set_config("dbms.connector.https.listen_address", ":%d" % (17300 + i))
-            install.set_config("causal_clustering.database", database)
-            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (18100 + i))
-            install.set_config("causal_clustering.expected_core_cluster_size", 3)
-            install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
-            install.set_config("causal_clustering.raft_listen_address", ":%d" % (18200 + i))
-            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (18300 + i))
-        for i, database in enumerate(read_replica_databases):
-            install = warehouse.install(name, "enterprise", version, database=database, role="rr", member=i)
-            install.set_config("dbms.mode", "READ_REPLICA")
-            install.set_config("dbms.backup.enabled", False)
-            install.set_config("dbms.connector.bolt.listen_address", ":%d" % (27100 + i))
-            install.set_config("dbms.connector.http.listen_address", ":%d" % (27200 + i))
-            install.set_config("dbms.connector.https.listen_address", ":%d" % (27300 + i))
-            install.set_config("causal_clustering.database", database)
-            install.set_config("causal_clustering.discovery_listen_address", ":%d" % (28100 + i))
-            install.set_config("causal_clustering.expected_core_cluster_size", 3)
-            install.set_config("causal_clustering.initial_discovery_members", initial_discovery_members)
-            install.set_config("causal_clustering.raft_listen_address", ":%d" % (28200 + i))
-            install.set_config("causal_clustering.transaction_listen_address", ":%d" % (28300 + i))
-        return cls(warehouse, name)
-
-    def __init__(self, warehouse, name):
-        self.warehouse = warehouse
-        self.name = name
-        self.installations = {}
-        for database, role, member in self._walk_installations():
-            self.installations.setdefault(database, {}).setdefault(role, {})[member] = warehouse.get(name, database, role, member)
-
-    def databases(self):
-        for database in listdir(path_join(self.warehouse.cc, self.name)):
-            yield database
-
-    def members(self, database):
-        core_path = path_join(self.warehouse.cc, self.name, database, "core")
-        if isdir(core_path):
-            for member in listdir(core_path):
-                yield "core", member
-        else:
-            raise RuntimeError("Database %s has no cores" % database)
-        rr_path = path_join(self.warehouse.cc, self.name, database, "rr")
-        if isdir(rr_path):
-            for member in listdir(rr_path):
-                yield "rr", member
-
-    def _walk_installations(self):
-        """ For each installation in the cluster, yield a 3-tuple
-        of (database, role, member).
-        """
-        for database in listdir(path_join(self.warehouse.cc, self.name)):
-            core_path = path_join(self.warehouse.cc, self.name, database, "core")
-            if isdir(core_path):
-                for member in listdir(core_path):
-                    yield database, "core", member
-            else:
-                raise RuntimeError("Database %s has no cores" % database)
-            rr_path = path_join(self.warehouse.cc, self.name, database, "rr")
-            if isdir(rr_path):
-                for member in listdir(rr_path):
-                    yield database, "rr", member
-
-    def __repr__(self):
-        return "<%s ?>" % (self.__class__.__name__,)
-
-    def for_each(self, database, role, f):
-        if not callable(f):
-            raise TypeError("Callback is not callable")
-
-        threads = []
-
-        def call_f(i):
-            t = Thread(target=f, args=[i])
-            t.start()
-            threads.append(t)
-
-        for r, member in self.members(database):
-            if r == role:
-                install = self.warehouse.get(self.name, database, role, member)
-                call_f(install)
-
-        return threads
-
-    @staticmethod
-    def join_all(threads):
-        while threads:
-            for thread in list(threads):
-                if thread.is_alive():
-                    thread.join(timeout=0.1)
-                else:
-                    threads.remove(thread)
-
-    def start(self):
-        threads = []
-        for database in self.databases():
-            threads.extend(self.for_each(database, "core", lambda install: install.server.start()))
-            threads.extend(self.for_each(database, "rr", lambda install: install.server.start()))
-        self.join_all(threads)
-
-    def stop(self):
-        threads = []
-        for database in self.databases():
-            threads.extend(self.for_each(database, "core", lambda install: install.server.stop()))
-            threads.extend(self.for_each(database, "rr", lambda install: install.server.stop()))
-        self.join_all(threads)
-
-    def uninstall(self):
-        self.stop()
-        self.installations.clear()
-        rmtree(self.warehouse.cc, self.name)
-
-    def update_auth(self, user, password):
-        """ Update the auth file for each member with the given credentials.
-        """
-        threads = []
-        for database in self.databases():
-            threads.extend(self.for_each(database, "core", lambda install: install.auth.update(user, password)))
-            threads.extend(self.for_each(database, "rr", lambda install: install.auth.update(user, password)))
-        self.join_all(threads)
-
-
 class Server(object):
     """ Represents a Neo4j server process that can be started and stopped.
     """
@@ -419,7 +320,7 @@ class Server(object):
     def control_script(self):
         return path_join(self.installation.home, "bin", "neo4j")
 
-    def start(self, wait=True, verbose=False):
+    def start(self, wait=120.0, verbose=False):
         """ Start the server.
         """
         try:
@@ -444,19 +345,19 @@ class Server(object):
                         pid = int(numbers[0])
                 elif "(pid " in line:
                     pid = int(line.partition("(pid ")[-1].partition(")")[0])
-            if wait:
-                running = False
-                port = self.installation.http_port
-                t = 0
-                while not running and t < 30:
-                    try:
-                        s = create_connection(("localhost", port))
-                    except IOError:
-                        sleep(1)
-                        t += 1
-                    else:
-                        s.close()
-                        running = True
+            running = False
+            address = self.installation.bolt_address or self.installation.http_address
+            t0 = time()
+            while not running and (time() - t0) < wait:
+                try:
+                    s = create_connection(address)
+                except IOError:
+                    sleep(0.5)
+                else:
+                    s.close()
+                    running = True
+            if not running:
+                warn("Timed out waiting for server to start")
             return pid
 
     def stop(self):
