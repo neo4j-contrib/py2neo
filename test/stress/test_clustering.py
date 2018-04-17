@@ -19,9 +19,9 @@
 from unittest import TestCase, skip
 from uuid import uuid4
 
-from py2neo.admin.clustering import LocalCluster
 from py2neo.admin.install import Warehouse
 from py2neo.database import Graph
+from py2neo.experimental.clustering import LocalCluster
 from py2neo.watcher import watch
 
 

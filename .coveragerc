@@ -3,12 +3,13 @@ branch = False
 source =
     py2neo
 omit =
-    demo
+    */__main__.py
     py2neo/internal/*
+    py2neo/experimental/*
     test/*
+    demo
     */site-packages/*
     */dist-packages/*
-    */__main__.py
 
 [report]
 show_missing = True
