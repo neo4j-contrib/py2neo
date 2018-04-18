@@ -90,6 +90,46 @@ def walk(*walkables):
 
 
 class Graph(object):
+    """ The `Graph` class represents the graph data storage space within
+    a Neo4j graph database. Connection details are provided using URIs
+    and/or individual settings.
+
+    Supported URI schemes are:
+
+    - ``http``
+    - ``https``
+    - ``bolt``
+    - ``bolt+routing``
+
+    The full set of `settings` supported are:
+
+    auth user_agent secure scheme user password host port
+
+    ==============  =============================================  ==============  =============
+    Keyword         Description                                    Type            Default
+    ==============  =============================================  ==============  =============
+    ``auth``        A 2-tuple of (user, password)                  tuple           ``('neo4j', 'password')``
+    ``host``        Database server host name                      str             ``'localhost'``
+    ``password``    Password to use for authentication             str             ``'password'``
+    ``port``        Database server port                           int             ``7687``
+    ``scheme``      Use a specific URI scheme                      str             ``'bolt'``
+    ``secure``      Use a secure connection (TLS)                  bool            ``False``
+    ``user``        User to authenticate as                        str             ``'neo4j'``
+    ``user_agent``  User agent to send for all connections         str             `(depends on URI scheme)`
+    ==============  =============================================  ==============  =============
+
+    Each setting can be provided as a keyword argument or as part of
+    an ``http:``, ``https:``, ``bolt:`` or ``bolt+routing:`` URI. Therefore, the examples
+    below are equivalent::
+
+        >>> from py2neo import Graph
+        >>> graph_1 = Graph()
+        >>> graph_2 = Graph(host="localhost")
+        >>> graph_3 = Graph("bolt://localhost:7687")
+
+    Once obtained, the `Graph` instance provides direct or indirect
+    access to most of the functionality available within py2neo.
+    """
 
     uri_schemes = ()
 
@@ -111,53 +151,50 @@ class Graph(object):
         else:
             raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
 
-    def degree(self, subgraph):
-        pass
-
-    def exists(self, subgraph):
-        pass
-
-    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
-        pass
-
-    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
-        pass
-
-    def node(self, identity):
-        pass
-
-    def order(self):
-        pass
-
-    def relationship(self, identity):
-        pass
-
-    def size(self):
-        pass
-
-
-class MutableGraph(Graph):
-
     def create(self, subgraph):
-        pass
+        raise NotImplementedError()
+
+    def degree(self, subgraph):
+        raise NotImplementedError()
 
     def delete(self, subgraph):
-        pass
+        raise NotImplementedError()
 
     def delete_all(self):
-        pass
+        raise NotImplementedError()
+
+    def exists(self, subgraph):
+        raise NotImplementedError()
+
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
+        raise NotImplementedError()
+
+    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
+        raise NotImplementedError()
 
     def merge(self, subgraph, label=None, *property_keys):
-        pass
+        raise NotImplementedError()
+
+    def node(self, identity):
+        raise NotImplementedError()
+
+    def order(self):
+        raise NotImplementedError()
 
     def pull(self, subgraph):
-        pass
+        raise NotImplementedError()
 
     def push(self, subgraph):
-        pass
+        raise NotImplementedError()
+
+    def relationship(self, identity):
+        raise NotImplementedError()
 
     def separate(self, subgraph):
-        pass
+        raise NotImplementedError()
+
+    def size(self):
+        raise NotImplementedError()
 
 
 class Subgraph(object):
