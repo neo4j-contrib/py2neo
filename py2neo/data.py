@@ -248,7 +248,6 @@ class Subgraph(object):
                                        for label in sorted(node.labels))
                 writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
                 parameters[param_id] = dict(node)
-                node._set_remote_pending(tx)
             returns[node_id] = node
         for i, relationship in enumerate(self.relationships):
             if relationship.graph is not graph:
@@ -261,7 +260,6 @@ class Subgraph(object):
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
-                relationship._set_remote_pending(tx)
         statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
         list(tx.run(statement, parameters))
@@ -358,7 +356,6 @@ class Subgraph(object):
                 if merge_keys:
                     merge_clauses.append("SET %s={%s}" % (node_id, param_id))
                     parameters[param_id] = dict(node)
-                node._set_remote_pending(tx)
             returns[node_id] = node
         clauses = match_clauses + merge_clauses
         for i, relationship in enumerate(self.relationships):
@@ -372,7 +369,6 @@ class Subgraph(object):
                                (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
-                relationship._set_remote_pending(tx)
         statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
         tx.entities.append(returns)
         list(tx.run(statement, parameters))
@@ -630,9 +626,6 @@ class Entity(PropertyDict, Walkable):
     graph = None
     identity = None
 
-    __remote = None
-    __remote_pending_tx = None
-
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
         PropertyDict.__init__(self, properties)
@@ -649,9 +642,6 @@ class Entity(PropertyDict, Walkable):
 
     def __nonzero__(self):
         return len(self) > 0
-
-    def _set_remote_pending(self, tx):
-        self.__remote_pending_tx = tx
 
     @property
     def __name__(self):
