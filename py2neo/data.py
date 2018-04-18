@@ -1286,3 +1286,18 @@ class Record(tuple, Mapping):
                     d[self.__keys[i]] = self[i]
             return d
         return dict(self)
+
+    def to_subgraph(self):
+        """ Return a :class:`.Subgraph` containing the union of all the
+        graph structures within this :class:`.Record`.
+
+        :return: :class:`.Subgraph` object
+        """
+        s = None
+        for value in self.values():
+            if isinstance(value, Subgraph):
+                if s is None:
+                    s = value
+                else:
+                    s |= value
+        return s

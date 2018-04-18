@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Table, Subgraph, Node, Record
+from py2neo.data import Table, Node, Record
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -1309,12 +1309,12 @@ class Cursor(object):
         """
         s = None
         for record in self:
-            for value in record.values():
-                if isinstance(value, Subgraph):
-                    if s is None:
-                        s = value
-                    else:
-                        s |= value
+            s_ = record.to_subgraph()
+            if s_ is not None:
+                if s is None:
+                    s = s_
+                else:
+                    s |= s_
         return s
 
     def to_ndarray(self, dtype=None, order='K'):
