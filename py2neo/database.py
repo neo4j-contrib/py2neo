@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Table, Node, Record
+from py2neo.data import MutableGraph, Node, Record, Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
@@ -122,7 +122,7 @@ class Database(object):
 
     def __getitem__(self, database):
         if database == "data" and database not in self._graphs:
-            self._graphs[database] = Graph(**self._connection_data)
+            self._graphs[database] = RemoteGraph(**self._connection_data)
         return self._graphs[database]
 
     def __setitem__(self, database, graph):
@@ -251,7 +251,7 @@ class Database(object):
         return self.query_jmx("org.neo4j", name="Configuration")
 
 
-class Graph(object):
+class RemoteGraph(MutableGraph):
     """ The `Graph` class represents the graph data storage space within
     a Neo4j graph database. Connection details are provided using URIs
     and/or individual settings.
@@ -293,6 +293,8 @@ class Graph(object):
     access to most of the functionality available within py2neo.
     """
 
+    uri_schemes = ("http", "https", "bolt", "bolt+routing")
+
     #: The :class:`.Database` to which this :class:`.Graph` belongs.
     database = None
 
@@ -308,7 +310,7 @@ class Graph(object):
         if name in database:
             inst = database[name]
         else:
-            inst = super(Graph, cls).__new__(cls)
+            inst = object.__new__(cls)
             inst.database = database
             inst.schema = Schema(inst)
             inst.__name__ = name
@@ -316,7 +318,7 @@ class Graph(object):
         return inst
 
     def __repr__(self):
-        return "<Graph database=%r name=%r>" % (self.database, self.__name__)
+        return "<RemoteGraph database=%r name=%r>" % (self.database, self.__name__)
 
     def __eq__(self, other):
         try:

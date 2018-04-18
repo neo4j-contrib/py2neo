@@ -22,8 +22,9 @@ from unittest import TestCase
 
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
+from py2neo import Graph
 from py2neo.data import Node, Relationship, Path, Record, order, size
-from py2neo.database import Database, Graph, GraphError, TransactionFinished
+from py2neo.database import Database, GraphError, TransactionFinished
 from py2neo.internal.json import JSONHydrator
 from py2neo.testing import IntegrationTestCase
 
@@ -214,7 +215,7 @@ class GraphObjectTestCase(IntegrationTestCase):
         assert node.identity not in other_cache_keys
 
     def test_graph_repr(self):
-        assert repr(self.graph).startswith("<Graph")
+        assert repr(self.graph).startswith("<")
 
     def test_can_get_same_instance(self):
         graph_1 = Graph()

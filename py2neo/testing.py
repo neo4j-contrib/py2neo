@@ -22,10 +22,11 @@ from uuid import uuid4
 from _pytest.assertion.rewrite import AssertionRewritingHook
 from pytest import main as test_main
 
+from py2neo import Graph
 from py2neo.admin.dist import minor_versions
 from py2neo.admin.install import Warehouse
 from py2neo.data import Node
-from py2neo.database import Database, Graph
+from py2neo.database import Database
 from py2neo.selection import NodeSelector
 
 

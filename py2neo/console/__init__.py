@@ -39,7 +39,7 @@ from pygments.token import Token
 
 from py2neo.cypher.reading import CypherLexer
 from py2neo.data import Table
-from py2neo.database import Graph
+from py2neo import Graph
 from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
 
 

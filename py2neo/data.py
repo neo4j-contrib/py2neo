@@ -24,6 +24,7 @@ from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr, cypher_str
+from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
 
@@ -86,6 +87,34 @@ def walk(*walkables):
         for i, entity in enumerate(entities):
             if i > 0:
                 yield entity
+
+
+class Graph(object):
+
+    uri_schemes = ()
+
+    def __new__(cls, uri=None, **settings):
+        connection_data = get_connection_data(uri, **settings)
+
+        def find_subclass(root_class, uri_scheme):
+            for subclass in root_class.__subclasses__():
+                if uri_scheme in subclass.uri_schemes:
+                    return subclass
+                found = find_subclass(subclass, uri_scheme)
+                if found:
+                    return found
+            return None
+
+        graph = find_subclass(cls, connection_data["scheme"])
+        if graph:
+            return graph(uri=None, **settings)
+        else:
+            raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
+
+
+class MutableGraph(Graph):
+
+    pass
 
 
 class Subgraph(object):
