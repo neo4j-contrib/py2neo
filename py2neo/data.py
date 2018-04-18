@@ -111,15 +111,59 @@ class Graph(object):
         else:
             raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
 
+    def degree(self, subgraph):
+        pass
+
+    def exists(self, subgraph):
+        pass
+
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
+        pass
+
+    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
+        pass
+
+    def node(self, identity):
+        pass
+
+    def order(self):
+        pass
+
+    def relationship(self, identity):
+        pass
+
+    def size(self):
+        pass
+
 
 class MutableGraph(Graph):
 
-    pass
+    def create(self, subgraph):
+        pass
+
+    def delete(self, subgraph):
+        pass
+
+    def delete_all(self):
+        pass
+
+    def merge(self, subgraph, label=None, *property_keys):
+        pass
+
+    def pull(self, subgraph):
+        pass
+
+    def push(self, subgraph):
+        pass
+
+    def separate(self, subgraph):
+        pass
 
 
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
+
     def __init__(self, nodes=None, relationships=None):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])

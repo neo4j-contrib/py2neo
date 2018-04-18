@@ -534,6 +534,11 @@ class RemoteGraph(MutableGraph):
             else:
                 return node
 
+    def order(self):
+        """ Count and return the number of nodes in this graph.
+        """
+        return self.evaluate("MATCH (_) RETURN count(_)")
+
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
@@ -583,6 +588,11 @@ class RemoteGraph(MutableGraph):
                        :class:`.Subgraph`
         """
         self.begin(autocommit=True).separate(subgraph)
+
+    def size(self):
+        """ Count and return the number of relationships in this graph.
+        """
+        return self.evaluate("MATCH ()-[_]->() RETURN count(_)")
 
 
 class Schema(object):
