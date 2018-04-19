@@ -19,7 +19,7 @@
 from os.path import dirname, join as path_join
 
 from py2neo.ogm import RelatedObjects, Property, Related, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
-from py2neo.selection import NodeSelector
+from py2neo.matching import NodeMatcher
 from py2neo.testing import IntegrationTestCase
 
 from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MovieGraphObject
@@ -28,13 +28,13 @@ from test.fixtures.ogm import MovieGraphTestCase, Person, Film, MovieGraphObject
 class InstanceRelatedObjectTestCase(MovieGraphTestCase):
 
     def test_related_objects_are_automatically_loaded(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         film_titles = set(film.title for film in list(keanu.acted_in))
         assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
 
     def test_graph_propagation(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         films = list(keanu.acted_in)
         colleagues = set()
         for film in films:
@@ -46,7 +46,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         assert names == expected_names
 
     def test_can_add_related_object_and_push(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted)
         self.graph.push(keanu)
@@ -59,7 +59,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
                                "Bill & Ted's Excellent Adventure"}
 
     def test_can_add_related_object_with_properties_and_push(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
         self.graph.push(keanu)
@@ -71,8 +71,8 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         assert bill_and_ted_roles == ['Ted "Theodore" Logan']
 
     def test_can_remove_related_object_and_push(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
-        johnny_mnemonic = Film.select(self.graph, "Johnny Mnemonic").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
+        johnny_mnemonic = Film.match(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.remove(johnny_mnemonic)
         self.graph.push(keanu)
         node_id = keanu.__ogm__.node.identity
@@ -83,8 +83,8 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
                                'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
 
     def test_can_add_property_to_existing_relationship(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
-        johnny_mnemonic = Film.select(self.graph, "Johnny Mnemonic").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
+        johnny_mnemonic = Film.match(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.add(johnny_mnemonic, foo="bar")
         self.graph.push(keanu)
         node_id = keanu.__ogm__.node.identity
@@ -97,13 +97,13 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
 class FindTestCase(MovieGraphTestCase):
 
     def test_can_find_one_object(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
     def test_can_find_by_id(self):
         # given
-        keanu_0 = Person.select(self.graph, "Keanu Reeves").first()
+        keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
         node_id = keanu_0.__ogm__.node.identity
 
         # when
@@ -118,7 +118,7 @@ class FindTestCase(MovieGraphTestCase):
             directed = RelatedTo("Film")
             produced = RelatedTo("test.fixtures.ogm.Film")
 
-        found = list(PersonById.select(self.graph, node_id))
+        found = list(PersonById.match(self.graph, node_id))
         assert found
         keanu = found[0]
 
@@ -128,7 +128,7 @@ class FindTestCase(MovieGraphTestCase):
 
     def test_can_find_one_by_id(self):
         # given
-        keanu_0 = Person.select(self.graph, "Keanu Reeves").first()
+        keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
         node_id = keanu_0.__ogm__.node.identity
 
         # when
@@ -143,18 +143,18 @@ class FindTestCase(MovieGraphTestCase):
             directed = RelatedTo("Film")
             produced = RelatedTo("test.fixtures.ogm.Film")
 
-        keanu = PersonById.select(self.graph, node_id).first()
+        keanu = PersonById.match(self.graph, node_id).first()
 
         # then
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
     def test_cannot_find_one_that_does_not_exist(self):
-        keanu = Person.select(self.graph, "Keanu Jones").first()
+        keanu = Person.match(self.graph, "Keanu Jones").first()
         assert keanu is None
 
     def test_can_find_multiple_objects(self):
-        people = list(Person.select(self.graph, ("Keanu Reeves", "Hugo Weaving")))
+        people = list(Person.match(self.graph, ("Keanu Reeves", "Hugo Weaving")))
         if people[0].name == "Keanu Reeves":
             keanu, hugo = people
         else:
@@ -172,7 +172,7 @@ class CreateTestCase(MovieGraphTestCase):
         alice = Person()
         alice.name = "Alice"
         alice.year_of_birth = 1970
-        alice.acted_in.add(Film.select(self.graph, "The Matrix").first())
+        alice.acted_in.add(Film.match(self.graph, "The Matrix").first())
 
         # when
         self.graph.create(alice)
@@ -184,7 +184,7 @@ class CreateTestCase(MovieGraphTestCase):
 
     def test_create_has_no_effect_on_existing(self):
         # given
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
 
         # when
         keanu.name = "Keanu Charles Reeves"
@@ -201,7 +201,7 @@ class DeleteTestCase(MovieGraphTestCase):
 
     def test_delete_on_existing(self):
         # given
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         node = keanu.__ogm__.node
 
         # when
@@ -215,7 +215,7 @@ class PushTestCase(MovieGraphTestCase):
 
     def test_can_push_changes_to_existing(self):
         # given
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
 
         # when
         keanu.name = "Keanu Charles Reeves"
@@ -247,7 +247,7 @@ class PushTestCase(MovieGraphTestCase):
         alice = Person()
         alice.name = "Alice Smith"
         alice.year_of_birth = 1970
-        alice.acted_in.add(Film.select(self.graph, "The Matrix").first())
+        alice.acted_in.add(Film.match(self.graph, "The Matrix").first())
 
         # when
         self.graph.push(alice)
@@ -278,10 +278,10 @@ class PushTestCase(MovieGraphTestCase):
 
     def test_can_push_with_incoming_relationships(self):
         # given
-        matrix = Film.select(self.graph, "The Matrix").first()
+        matrix = Film.match(self.graph, "The Matrix").first()
 
         # when
-        matrix.actors.remove(Person.select(self.graph, "Emil Eifrem").first())
+        matrix.actors.remove(Person.match(self.graph, "Emil Eifrem").first())
         self.graph.push(matrix)
 
         # then
@@ -296,7 +296,7 @@ class PushTestCase(MovieGraphTestCase):
 class PullTestCase(MovieGraphTestCase):
 
     def test_can_load_and_pull(self):
-        keanu = Person.select(self.graph, "Keanu Reeves").first()
+        keanu = Person.match(self.graph, "Keanu Reeves").first()
         assert keanu.name == "Keanu Reeves"
         node_id = keanu.__ogm__.node.identity
         self.graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
@@ -312,7 +312,7 @@ class PullTestCase(MovieGraphTestCase):
 
     def test_can_pull_with_incoming_relationships(self):
         # given
-        matrix = Film.select(self.graph, "The Matrix").first()
+        matrix = Film.match(self.graph, "The Matrix").first()
         node_id = matrix.__ogm__.node.identity
         self.graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = {x} AND b.name = 'Emil Eifrem' DELETE r",
                        x=node_id)
@@ -328,7 +328,7 @@ class PullTestCase(MovieGraphTestCase):
 class RelatedObjectsTestCase(MovieGraphTestCase):
 
     def new_keanu_acted_in(self):
-        keanu_node = NodeSelector(self.graph).select("Person", name="Keanu Reeves").first()
+        keanu_node = NodeMatcher(self.graph).match("Person", name="Keanu Reeves").first()
         keanu_acted_in = RelatedObjects(keanu_node, OUTGOING, "ACTED_IN", Film)
         return keanu_acted_in
 
@@ -346,7 +346,7 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         self.graph.pull(films_acted_in)
 
         # then
-        matrix_reloaded = Film.select(self.graph, "The Matrix Reloaded").first()
+        matrix_reloaded = Film.match(self.graph, "The Matrix Reloaded").first()
         assert matrix_reloaded in films_acted_in
 
     def test_does_not_contain_object(self):
@@ -385,7 +385,7 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         self.graph.pull(films_acted_in)
 
         # when
-        matrix_reloaded = Film.select(self.graph, "The Matrix Reloaded").first()
+        matrix_reloaded = Film.match(self.graph, "The Matrix Reloaded").first()
         films_acted_in.remove(matrix_reloaded)
 
         # then
@@ -398,7 +398,7 @@ class RelatedObjectsTestCase(MovieGraphTestCase):
         # given
         films_acted_in = self.new_keanu_acted_in()
         self.graph.pull(films_acted_in)
-        matrix_reloaded = Film.select(self.graph, "The Matrix Reloaded").first()
+        matrix_reloaded = Film.match(self.graph, "The Matrix Reloaded").first()
         films_acted_in.remove(matrix_reloaded)
 
         # when
@@ -588,7 +588,7 @@ class ComprehensiveTestCase(IntegrationTestCase):
         self.graph.run(cypher)
 
     def test_a(self):
-        a = Thing.select(self.graph, "A").first()
+        a = Thing.match(self.graph, "A").first()
         # A is related to B and C
         assert isinstance(a, Thing)
         assert len(a.x) == 2
@@ -599,7 +599,7 @@ class ComprehensiveTestCase(IntegrationTestCase):
         assert len(a.y_in) == 2
 
     def test_b(self):
-        b = Thing.select(self.graph, "B").first()
+        b = Thing.match(self.graph, "B").first()
         # B is only related to A
         assert isinstance(b, Thing)
         assert len(b.x) == 1
@@ -610,7 +610,7 @@ class ComprehensiveTestCase(IntegrationTestCase):
         assert len(b.y_in) == 1
 
     def test_c(self):
-        c = Thing.select(self.graph, "C").first()
+        c = Thing.match(self.graph, "C").first()
         # Loops are related to themselves, hence C is related to A, C and D
         assert isinstance(c, Thing)
         assert len(c.x) == 3
@@ -621,7 +621,7 @@ class ComprehensiveTestCase(IntegrationTestCase):
         assert len(c.y_in) == 3
 
     def test_d(self):
-        d = Thing.select(self.graph, "D").first()
+        d = Thing.match(self.graph, "D").first()
         # D is only related to C
         assert isinstance(d, Thing)
         assert len(d.x) == 1

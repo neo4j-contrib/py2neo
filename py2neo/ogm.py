@@ -19,7 +19,7 @@
 from py2neo.cypher.writing import cypher_escape
 from py2neo.data import Node, PropertyDict
 from py2neo.internal.util import metaclass, label_case, relationship_case
-from py2neo.selection import NodeSelection, NodeSelector
+from py2neo.matching import NodeMatch, NodeMatcher
 
 
 OUTGOING = 1
@@ -342,14 +342,14 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def select(cls, graph, primary_value=None):
+    def match(cls, graph, primary_value=None):
         """ Select one or more nodes from the database, wrapped as instances of this class.
 
-        :param graph: the :class:`.Graph` instance from which to select
+        :param graph: the :class:`.Graph` instance in which to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObjectSelection`
+        :rtype: :class:`.GraphObjectMatch`
         """
-        return GraphObjectSelector(cls, graph).select(primary_value)
+        return GraphObjectMatcher(cls, graph).match(primary_value)
 
     def __repr__(self):
         return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
@@ -392,9 +392,9 @@ class GraphObject(object):
     def __db_pull__(self, tx):
         ogm = self.__ogm__
         if ogm.node.graph is None:
-            selector = GraphObjectSelector(self.__class__, tx.graph)
-            selector._selection_class = NodeSelection
-            ogm.node = selector.select(self.__primaryvalue__).first()
+            matcher = GraphObjectMatcher(self.__class__, tx.graph)
+            matcher._match_class = NodeMatch
+            ogm.node = matcher.match(self.__primaryvalue__).first()
         tx.pull(ogm.node)
         for related_objects in ogm.related.values():
             related_objects.__db_pull__(tx)
@@ -414,7 +414,7 @@ class GraphObject(object):
             related_objects.__db_push__(tx)
 
 
-class GraphObjectSelection(NodeSelection):
+class GraphObjectMatch(NodeMatch):
     """ A selection of :class:`.GraphObject` instances that match a
     given set of criteria.
     """
@@ -426,28 +426,28 @@ class GraphObjectSelection(NodeSelection):
         match the given criteria.
         """
         wrap = self._object_class.wrap
-        for node in super(GraphObjectSelection, self).__iter__():
+        for node in super(GraphObjectMatch, self).__iter__():
             yield wrap(node)
 
     def first(self):
         """ Return the first item that matches the given criteria.
         """
-        return self._object_class.wrap(super(GraphObjectSelection, self).first())
+        return self._object_class.wrap(super(GraphObjectMatch, self).first())
 
 
-class GraphObjectSelector(NodeSelector):
+class GraphObjectMatcher(NodeMatcher):
 
-    _selection_class = GraphObjectSelection
+    _match_class = GraphObjectMatch
 
     def __init__(self, object_class, graph):
-        NodeSelector.__init__(self, graph)
+        NodeMatcher.__init__(self, graph)
         self._object_class = object_class
-        self._selection_class = type("%sSelection" % self._object_class.__name__,
-                                     (GraphObjectSelection,), {"_object_class": object_class})
+        self._match_class = type("%sMatch" % self._object_class.__name__,
+                                 (GraphObjectMatch,), {"_object_class": object_class})
 
-    def select(self, primary_value=None):
+    def match(self, primary_value=None):
         cls = self._object_class
         properties = {}
         if primary_value is not None:
             properties[cls.__primarykey__] = primary_value
-        return NodeSelector.select(self, cls.__primarylabel__, **properties)
+        return NodeMatcher.match(self, cls.__primarylabel__, **properties)

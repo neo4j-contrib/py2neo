@@ -30,7 +30,7 @@ from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import string_types, xstr
 from py2neo.internal.util import version_tuple, title_case, snake_case
-from py2neo.selection import NodeSelector
+from py2neo.matching import NodeMatcher
 
 
 update_stats_keys = [
@@ -478,16 +478,16 @@ class RemoteGraph(Graph):
 
     @property
     def nodes(self):
-        """ Obtain a :class:`.NodeSelector` for this graph.
+        """ Obtain a :class:`.NodeMatcher` for this graph.
 
             >>> graph = Graph()
             >>> graph.nodes.get(1234)
             (_1234:Person {name: 'Alice'})
-            >>> graph.nodes.select("Person", name="Alice").first()
+            >>> graph.nodes.match("Person", name="Alice").first()
             (_1234:Person {name: 'Alice'})
 
         """
-        return NodeSelector(self)
+        return NodeMatcher(self)
 
     def order(self):
         """ Count and return the number of nodes in this graph.

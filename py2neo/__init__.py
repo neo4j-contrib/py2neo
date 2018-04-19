@@ -19,4 +19,4 @@
 from py2neo.data import *
 from py2neo.database import *
 from py2neo.meta import *
-from py2neo.selection import *
+from py2neo.matching import *

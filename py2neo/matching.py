@@ -36,8 +36,8 @@ def _property_equality_conditions(properties, offset=1):
         yield condition, parameters
 
 
-class NodeSelection(object):
-    """ An immutable set of node selection criteria.
+class NodeMatch(object):
+    """ An immutable set of node match criteria.
     """
 
     def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None):
@@ -53,11 +53,10 @@ class NodeSelection(object):
             yield node
 
     def first(self):
-        """ Evaluate the selection and return the first
-        :py:class:`.Node` selected or :py:const:`None` if no matching
-        nodes are found.
+        """ Evaluate the match and return the first :class:`.Node`
+        matched or :const:`None` if no matching nodes are found.
 
-        :return: a single matching :py:class:`.Node` or :py:const:`None`
+        :return: a single matching :class:`.Node` or :const:`None`
         """
         return self.graph.evaluate(*self._query_and_parameters)
 
@@ -88,25 +87,24 @@ class NodeSelection(object):
         return " ".join(clauses), parameters
 
     def where(self, *conditions, **properties):
-        """ Create a new selection based on this selection. The
-        criteria specified for refining the selection consist of
-        conditions and properties. Conditions are individual Cypher
-        expressions that would be found in a `WHERE` clause; properties
-        are used as exact matches for property values.
+        """ Refine this match to create a new match. The criteria specified
+        for refining the match consist of conditions and properties.
+        Conditions are individual Cypher expressions that would be found
+        in a `WHERE` clause; properties are used as exact matches for
+        property values.
 
         To refer to the current node within a condition expression, use
         the underscore character ``_``. For example::
 
-            selection.where("_.name =~ 'J.*")
+            match.where("_.name =~ 'J.*")
 
         Simple property equalities can also be specified::
 
-            selection.where(born=1976)
+            match.where(born=1976)
 
-        :param conditions: Cypher expressions to add to the selection
-                           `WHERE` clause
+        :param conditions: Cypher expressions to add to the `WHERE` clause
         :param properties: exact property match keys and values
-        :return: refined selection object
+        :return: refined :class:`.NodeMatch` object
         """
         return self.__class__(self.graph, self._labels,
                               self._conditions + conditions + tuple(_property_equality_conditions(properties)),
@@ -118,10 +116,10 @@ class NodeSelection(object):
         To refer to the current node within a field or field expression,
         use the underscore character ``_``. For example::
 
-            selection.order_by("_.name", "max(_.a, _.b)")
+            match.order_by("_.name", "max(_.a, _.b)")
 
         :param fields: fields or field expressions to order by
-        :return: refined selection object
+        :return: refined :class:`.NodeMatch` object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
                               fields, self._skip, self._limit)
@@ -130,44 +128,44 @@ class NodeSelection(object):
         """ Skip the first `amount` nodes in the result.
 
         :param amount: number of nodes to skip
-        :return: refined selection object
+        :return: refined :class:`.NodeMatch` object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
                               self._order_by, amount, self._limit)
 
     def limit(self, amount):
-        """ Limit the selection to at most `amount` nodes.
+        """ Limit to at most `amount` nodes.
 
-        :param amount: maximum number of nodes to select
-        :return: refined selection object
+        :param amount: maximum number of nodes to return
+        :return: refined :class:`.NodeMatch` object
         """
         return self.__class__(self.graph, self._labels, self._conditions,
                               self._order_by, self._skip, amount)
 
 
-class NodeSelector(object):
-    """ A :py:class:`.NodeSelector` can be used to locate nodes that
+class NodeMatcher(object):
+    """ A :class:`.NodeMatcher` can be used to locate nodes that
     fulfil a specific set of criteria. Typically, a single node can be
     identified passing a specific label and property key-value pair.
     However, any number of labels and any condition supported by the
     Cypher `WHERE` clause is allowed.
 
-    For a simple selection by label and property::
+    For a simple match by label and property::
 
-        >>> from py2neo import Graph, NodeSelector
+        >>> from py2neo import Graph, NodeMatcher
         >>> graph = Graph()
-        >>> selector = NodeSelector(graph)
-        >>> selected = selector.select("Person", name="Keanu Reeves")
-        >>> list(selected)
+        >>> matcher = NodeMatcher(graph)
+        >>> matched = matcher.match("Person", name="Keanu Reeves")
+        >>> list(matched)
         [(f9726ea:Person {born:1964,name:"Keanu Reeves"})]
 
-    For a more comprehensive selection using Cypher expressions, the
-    :meth:`.NodeSelection.where` method can be used for further
+    For a more comprehensive match using Cypher expressions, the
+    :meth:`.NodeMatch.where` method can be used for further
     refinement. Here, the underscore character can be used to refer to
     the node being filtered::
 
-        >>> selected = selector.select("Person").where("_.name =~ 'J.*'", "1960 <= _.born < 1970")
-        >>> list(selected)
+        >>> matched = matcher.match("Person").where("_.name =~ 'J.*'", "1960 <= _.born < 1970")
+        >>> list(matched)
         [(a03f6eb:Person {born:1967,name:"James Marshall"}),
          (e59993d:Person {born:1966,name:"John Cusack"}),
          (c44901e:Person {born:1960,name:"John Goodman"}),
@@ -176,43 +174,43 @@ class NodeSelector(object):
 
     The underlying query is only evaluated when the selection undergoes
     iteration or when a specific evaluation method is called (such as
-    :meth:`.NodeSelection.first`). This means that a :class:`.NodeSelection`
+    :meth:`.NodeMatch.first`). This means that a :class:`.NodeMatch`
     instance may be reused before and after a data changes for different
     results.
     """
 
-    _selection_class = NodeSelection
+    _match_class = NodeMatch
 
     def __init__(self, graph):
         self.graph = graph
-        self._all = self._selection_class(self.graph)
+        self._all = self._match_class(self.graph)
 
     def get(self, identity):
-        """ Create a new selection that filters by identity and returns
-        the first match. This can essentially be used to select a
-        :class:`.Node` by ID.
+        """ Create a new :class:`.NodeMatch` that filters by identity and
+        returns the first matched :class:`.Node`. This can essentially be
+        used to match and return a :class:`.Node` by ID.
 
-            selection.get(1234)
+            matcher.get(1234)
 
         """
         try:
             return self.graph.node_cache[identity]
         except KeyError:
-            node = self.select().where("id(_) = %d" % identity).first()
+            node = self.match().where("id(_) = %d" % identity).first()
             if node is None:
                 raise IndexError("Node %d not found" % identity)
             else:
                 return node
 
-    def select(self, *labels, **properties):
-        """ Describe a basic node selection using labels and property equality.
+    def match(self, *labels, **properties):
+        """ Describe a basic node match using labels and property equality.
 
         :param labels: node labels to match
         :param properties: set of property keys and values to match
-        :return: :py:class:`.NodeSelection` instance
+        :return: :class:`.NodeMatch` instance
         """
         if labels or properties:
-            return self._selection_class(self.graph, frozenset(labels),
-                                         tuple(_property_equality_conditions(properties)))
+            return self._match_class(self.graph, frozenset(labels),
+                                     tuple(_property_equality_conditions(properties)))
         else:
             return self._all

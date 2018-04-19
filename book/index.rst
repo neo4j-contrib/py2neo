@@ -46,7 +46,7 @@ Library Reference
 
    data
    database
-   selection
+   matching
    ogm
    cypher/reading
    cypher/writing

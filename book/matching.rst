@@ -1,6 +1,6 @@
 **************************************
-``py2neo.selection`` -- Node Selection
+``py2neo.matching`` -- Entity matching
 **************************************
 
-.. automodule:: py2neo.selection
+.. automodule:: py2neo.matching
    :members:

@@ -27,7 +27,7 @@ from py2neo.admin.dist import minor_versions
 from py2neo.admin.install import Warehouse
 from py2neo.data import Node
 from py2neo.database import Database
-from py2neo.selection import NodeSelector
+from py2neo.matching import NodeMatcher
 
 
 class TemporaryTransaction(object):
@@ -55,7 +55,7 @@ class IntegrationTestCase(TestCase):
     def __init__(self, *args, **kwargs):
         super(IntegrationTestCase, self).__init__(*args, **kwargs)
         self.graph = Graph()
-        self.node_selector = NodeSelector(self.graph)
+        self.node_matcher = NodeMatcher(self.graph)
         self.db = self.graph.database
         self.schema = self.graph.schema
         self.unique_string = self.unique_string_generator()

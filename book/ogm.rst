@@ -39,7 +39,7 @@ At the heart of the py2neo OGM framework is the :class:`.GraphObject`.
 This is a base class for all classes that are to be mapped onto the graph database.
 Each `GraphObject` represents a node plus a set of pointers to :class:`.RelatedObjects` as well as the relationship details that connect them.
 
-A `GraphObject` instance may be constructed just like any other Python object but can also be `selected <#py2neo.ogm.GraphObject.select>`_ from the database.
+A `GraphObject` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.GraphObject.match>`_ from the database.
 Each instance may contain attributes that represent labels, nodes or related objects.
 
 .. class:: py2neo.ogm.GraphObject
@@ -64,7 +64,7 @@ Each instance may contain attributes that represent labels, nodes or related obj
       If the key is ``"__id__"`` then this value returns the internal
       node ID.
 
-   .. automethod:: select
+   .. automethod:: match
 
 
 Properties
@@ -127,20 +127,20 @@ Therefore to print a list of all friends::
    :members:
 
 
-Object Selection
-================
+Object Matching
+===============
 
-One or more :class:`.GraphObject` instances can be selected from the database by using the select method of the relevant subclass.
+One or more :class:`.GraphObject` instances can be selected from the database by using the ``match`` method of the relevant subclass.
 
 To select a single instance using the primary label and primary key::
 
-    >>> Person.select(graph, "Keanu Reeves").first()
+    >>> Person.match(graph, "Keanu Reeves").first()
     <Person name='Keanu Reeves'>
 
-To select all instances that match certain criteria, you can simply iterate through the selection object.
+To select all instances that match certain criteria, you can simply iterate through the ``Match`` object.
 Note the use of the underscore in the Cypher `WHERE` clause to refer to the underlying node::
 
-    >>> list(Person.select(graph).where("_.name =~ 'K.*'"))
+    >>> list(Person.match(graph).where("_.name =~ 'K.*'"))
     [<Person name='Keanu Reeves'>,
      <Person name='Kevin Bacon'>,
      <Person name='Kiefer Sutherland'>,
@@ -149,7 +149,7 @@ Note the use of the underscore in the Cypher `WHERE` clause to refer to the unde
      <Person name='Kelly Preston'>]
 
 
-.. autoclass:: py2neo.ogm.GraphObjectSelection
+.. autoclass:: py2neo.ogm.GraphObjectMatch
    :members: __iter__, first
 
 
