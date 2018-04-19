@@ -178,6 +178,10 @@ class Graph(object):
     def node(self, identity):
         raise NotImplementedError()
 
+    @property
+    def nodes(self):
+        raise NotImplementedError()
+
     def order(self):
         raise NotImplementedError()
 

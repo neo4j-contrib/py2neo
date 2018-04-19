@@ -177,7 +177,7 @@ class GraphObjectTestCase(IntegrationTestCase):
         node = Node()
         self.graph.create(node)
         assert node.identity in self.graph.node_cache
-        got = self.graph.node(node.identity)
+        got = self.graph.nodes.get(node.identity)
         assert got is node
 
     def test_can_get_node_by_id_when_not_cached(self):
@@ -185,7 +185,7 @@ class GraphObjectTestCase(IntegrationTestCase):
         self.graph.create(node)
         self.graph.node_cache.clear()
         assert node.identity not in self.graph.node_cache
-        got = self.graph.node(node.identity)
+        got = self.graph.nodes.get(node.identity)
         assert got.identity == node.identity
 
     def test_get_non_existent_node_by_id(self):
@@ -195,7 +195,7 @@ class GraphObjectTestCase(IntegrationTestCase):
         self.graph.delete(node)
         self.graph.node_cache.clear()
         with self.assertRaises(IndexError):
-            _ = self.graph.node(node_id)
+            _ = self.graph.nodes.get(node_id)
 
     def test_node_cache_is_thread_local(self):
         from threading import Thread
@@ -231,7 +231,7 @@ class GraphObjectTestCase(IntegrationTestCase):
     def test_get_node_by_id(self):
         a1 = Node(foo="bar")
         self.graph.create(a1)
-        a2 = self.graph.node(a1.identity)
+        a2 = self.graph.nodes.get(a1.identity)
         assert a1 == a2
 
     def test_create_node_with_mixed_property_types(self):

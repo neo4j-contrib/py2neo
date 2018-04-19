@@ -17,6 +17,8 @@
 
 
 from py2neo.cypher.writing import cypher_escape
+from py2neo.data import Node
+from py2neo.internal.collections import is_collection
 
 
 def _property_equality_conditions(properties, offset=1):
@@ -184,6 +186,23 @@ class NodeSelector(object):
     def __init__(self, graph):
         self.graph = graph
         self._all = self._selection_class(self.graph)
+
+    def get(self, identity):
+        """ Create a new selection that filters by identity and returns
+        the first match. This can essentially be used to select a
+        :class:`.Node` by ID.
+
+            selection.get(1234)
+
+        """
+        try:
+            return self.graph.node_cache[identity]
+        except KeyError:
+            node = self.select().where("id(_) = %d" % identity).first()
+            if node is None:
+                raise IndexError("Node %d not found" % identity)
+            else:
+                return node
 
     def select(self, *labels, **properties):
         """ Describe a basic node selection using labels and property equality.

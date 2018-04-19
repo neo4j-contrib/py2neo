@@ -476,23 +476,18 @@ class RemoteGraph(Graph):
     def name(self):
         return self.__name__
 
-    def node(self, identity):
-        """ Fetch a node by ID. This method creates an object representing the
-        remote node with the ID specified but fetches no data from the server.
-        For this reason, there is no guarantee that the entity returned
-        actually exists.
+    @property
+    def nodes(self):
+        """ Obtain a :class:`.NodeSelector` for this graph.
 
-        :param identity:
+            >>> graph = Graph()
+            >>> graph.nodes.get(1234)
+            (_1234:Person {name: 'Alice'})
+            >>> graph.nodes.select("Person", name="Alice").first()
+            (_1234:Person {name: 'Alice'})
+
         """
-        try:
-            return self.node_cache[identity]
-        except KeyError:
-            node_selector = NodeSelector(self)
-            node = node_selector.select().where("id(_) = %d" % identity).first()
-            if node is None:
-                raise IndexError("Node %d not found" % identity)
-            else:
-                return node
+        return NodeSelector(self)
 
     def order(self):
         """ Count and return the number of nodes in this graph.
