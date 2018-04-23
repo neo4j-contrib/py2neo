@@ -52,7 +52,7 @@ class NodeFinderTestCase(IntegrationTestCase):
         assert len(found) == 169
 
     def test_can_count_all_nodes(self):
-        count = self.selector.count()
+        count = self.selector.select().count()
         assert count == 169
 
     def test_can_select_by_label_and_multiple_values(self):
