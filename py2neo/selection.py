@@ -152,8 +152,8 @@ class NodeSelection(object):
 
         :return: number of count
         """
-        return self.__class__(self.graph, self._labels, self._conditions,
-                              self._order_by, self._skip, self._limit, self._count)
+        return list(self.__class__(self.graph, self._labels, self._conditions,
+                                   self._order_by, self._skip, self._limit, True))[0]
 
 
 class NodeSelector(object):
