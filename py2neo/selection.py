@@ -38,7 +38,8 @@ class NodeSelection(object):
     """ An immutable set of node selection criteria.
     """
 
-    def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None, count=False):
+    def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(),
+                 skip=None, limit=None, count=False):
         self.graph = graph
         self._labels = frozenset(labels)
         self._conditions = tuple(conditions)
@@ -145,6 +146,14 @@ class NodeSelection(object):
         """
         return self.__class__(self.graph, self._labels, self._conditions,
                               self._order_by, self._skip, amount)
+
+    def count(self):
+        """ Count number of nodes in this selection
+
+        :return: number of count
+        """
+        return self.__class__(self.graph, self._labels, self._conditions,
+                              self._order_by, self._skip, self._limit, self._count)
 
 
 class NodeSelector(object):
