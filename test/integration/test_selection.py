@@ -51,6 +51,10 @@ class NodeFinderTestCase(IntegrationTestCase):
         found = list(self.selector.select())
         assert len(found) == 169
 
+    def test_can_count_all_nodes(self):
+        count = self.selector.count()
+        assert count == 169
+
     def test_can_select_by_label_and_multiple_values(self):
         found = list(self.selector.select("Person", name="Keanu Reeves", born=1964))
         assert len(found) == 1

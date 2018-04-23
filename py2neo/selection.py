@@ -38,13 +38,14 @@ class NodeSelection(object):
     """ An immutable set of node selection criteria.
     """
 
-    def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None):
+    def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None, count=False):
         self.graph = graph
         self._labels = frozenset(labels)
         self._conditions = tuple(conditions)
         self._order_by = tuple(order_by)
         self._skip = skip
         self._limit = limit
+        self._count = count
 
     def __iter__(self):
         for node, in self.graph.run(*self._query_and_parameters):
@@ -76,7 +77,10 @@ class NodeSelection(object):
                     parameters.update(param)
                 conditions.append(condition)
             clauses.append("WHERE %s" % " AND ".join(conditions))
-        clauses.append("RETURN _")
+        if self._count:
+            clauses.append("RETURN count(_)")
+        else:
+            clauses.append("RETURN _")
         if self._order_by:
             clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
         if self._skip:
