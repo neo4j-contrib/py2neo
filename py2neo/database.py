@@ -418,7 +418,7 @@ class Graph(object):
         For example, to find all of Alice's friends::
 
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
-                print(rel.end_node()["name"])
+                print(rel.end_node["name"])
 
         :param start_node: start node of relationships to match (:const:`None` means any node)
         :param rel_type: type of relationships to match (:const:`None` means any type)
